@@ -158,8 +158,8 @@ jobs:
           # 安装版
           $installerDir = "dist/windows-installer"
           if (-not (Test-Path $installerDir)) { New-Item -ItemType Directory -Path $installerDir -Force }
-          $singleInstaller = Get-ChildItem -Path "Auto_Setup\Output" -Filter "DormManagement_*_Setup_SingleFile.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
-          $multiInstaller = Get-ChildItem -Path "Auto_Setup\Output" -Filter "DormManagement_*_Setup_MultiFile.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+          $singleInstaller = Get-ChildItem -Path "Auto_Setup\Output" -Filter "DormManagement_Setup_SingleFile*.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+          $multiInstaller = Get-ChildItem -Path "Auto_Setup\Output" -Filter "DormManagement_Setup_MultiFile*.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
           if ($singleInstaller) { Move-Item -Path $singleInstaller.FullName -Destination $installerDir -Force }
           if ($multiInstaller) { Move-Item -Path $multiInstaller.FullName -Destination $installerDir -Force }
 
@@ -192,7 +192,7 @@ jobs:
 
       - name: 🚀 发布到 Release
         if: steps.version.outputs.has_version == 'true'
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ steps.version.outputs.tag }}
           name: DormManagement ${{ steps.version.outputs.tag }}
@@ -202,11 +202,11 @@ jobs:
             ### 下载说明
             | 文件 | 说明 |
             |------|------|
-            | `*_Portable_SingleFile.exe` | 单文件绿色版，无需安装，直接运行 |
-            | `*_Portable_MultiFile.zip` | 多文件绿色版，解压后运行主程序，启动更快 |
-            | `*_Setup_SingleFile.exe` | Inno Setup 安装程序（单文件模式），自动配置快捷方式和卸载程序 |
-            | `*_Setup_MultiFile.exe` | Inno Setup 安装程序（多文件模式），自动配置快捷方式和卸载程序 |
-            | `*_Docker.tar` | Docker 镜像，使用 `docker load -i` 导入 |
+            | `*_Portable_SingleFile_v*.exe` | 单文件绿色版，无需安装，直接运行 |
+            | `*_Portable_MultiFile_v*.zip` | 多文件绿色版，解压后运行主程序，启动更快 |
+            | `*_Setup_SingleFile_v*.exe` | Inno Setup 安装程序（单文件模式），自动配置快捷方式和卸载程序 |
+            | `*_Setup_MultiFile_v*.exe` | Inno Setup 安装程序（多文件模式），自动配置快捷方式和卸载程序 |
+            | `*_Docker_v*.tar` | Docker 镜像，使用 `docker load -i` 导入 |
 
             ### 使用方式
             1. **绿色版**：下载后直接运行，无需安装
@@ -216,7 +216,7 @@ jobs:
           prerelease: false
           files: |
             dist/windows-single/*.exe
-            dist/DormManagement_*_Portable_MultiFile.zip
+            dist/DormManagement_Portable_MultiFile_*.zip
             dist/windows-installer/*.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -286,17 +286,17 @@ jobs:
         with:
           name: DormManagement_Docker
           path: |
-            DormManagement_*_Docker.tar
+            DormManagement_Docker_*.tar
             docker-image.tar
           retention-days: 30
 
       - name: 🚀 发布到 Release
         if: steps.version.outputs.has_version == 'true'
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ steps.version.outputs.tag }}
           name: DormManagement ${{ steps.version.outputs.tag }}
-          files: DormManagement_*_Docker.tar
+          files: DormManagement_Docker_*.tar
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
