@@ -10,12 +10,10 @@ import traceback
 from datetime import datetime
 import logging
 from .utility_room_bill_checkout import utility_room_bill_checkout_bp  # 导入退宿费用子表主蓝图
-import pandas as pd
-import pandas as pd
 from io import BytesIO
 from urllib.parse import quote
 # 导入admin_required装饰器
-from blueprints.system_settings import admin_required
+from utils.auth import admin_required
     
 @utility_room_bill_checkout_bp.route('/export', methods=['POST'])
 @login_required
@@ -25,6 +23,7 @@ def export_checkout_records():
     导出退宿人员费用记录为Excel文件
     支持按账期、部门等条件筛选后导出
     """
+    import pandas as pd
     try:
         # 获取查询参数
         data = request.get_json() or {}

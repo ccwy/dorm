@@ -14,7 +14,7 @@ from utils.room_meter_photo import room_meter_manager
 import traceback, calendar
 from datetime import datetime,timedelta
 # 导入admin_required装饰器
-from blueprints.system_settings import admin_required
+from utils.auth import admin_required
 
 utility_room_meter_bp = Blueprint('utility_room_meter', __name__, url_prefix='/utility-meter')
 

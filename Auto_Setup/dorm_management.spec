@@ -69,8 +69,25 @@ a = Analysis(
         collect_submodules('utils') +
         additional_hidden_imports
     ),
-    # 排除不需要的数据库驱动模块以消除警告
-    excludes=['pysqlite2', 'MySQLdb', 'psycopg2'],
+    # 排除不需要的模块以减小包体积和加速启动
+    excludes=[
+        'pysqlite2', 'MySQLdb', 'psycopg2',  # 不需要的数据库驱动
+        'tkinter', '_tkinter',  # Tkinter GUI库（本项目使用WebView2）
+        'unittest', 'test', 'tests',  # 测试框架
+        'setuptools', 'pip', 'wheel',  # 包管理工具
+        'distutils',  # 已弃用的构建工具
+        'pydoc', 'doctest',  # 文档工具
+        'xmlrpc',  # XML-RPC（不需要）
+        'multiprocessing',  # 多进程（本项目用线程）
+        'asyncio',  # 异步IO（Flask同步模式）
+        'email',  # 邮件处理（不需要）
+        'html.parser',  # HTML解析（Flask/Jinja2自带）
+        'http.server',  # HTTP服务器（使用waitress）
+        'py_compile', 'compileall',  # 编译工具
+        'zipimport',  # ZIP导入
+        'cProfile', 'profile', 'pstats',  # 性能分析工具
+        'symtable', 'token', 'tokenize',  # 词法分析
+    ],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
@@ -99,7 +116,7 @@ exe = EXE(
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=True,
+    upx=False,  # 禁用UPX压缩——UPX解压开销会拖慢启动速度
     upx_exclude=[],
     runtime_tmpdir=None,
     console=False,

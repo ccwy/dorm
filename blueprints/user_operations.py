@@ -10,7 +10,7 @@ from datetime import datetime
 import re
 from werkzeug.security import generate_password_hash
 # 导入admin_required装饰器
-from blueprints.system_settings import admin_required
+from utils.auth import admin_required
 import logging
 
 # 用户操作蓝图（仅保留增删改）

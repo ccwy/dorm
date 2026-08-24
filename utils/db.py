@@ -1,7 +1,6 @@
 
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.pool import StaticPool
-import pymysql
 from sqlalchemy import event
 from flask import Flask
 import traceback
@@ -93,6 +92,7 @@ def _parse_mysql_config_from_uri(db_uri):
 
 def _force_create_mysql_database(app, db_uri):
     """根据连接字符串创建数据库（完全不依赖USE_MYSQL）"""
+    import pymysql  # 延迟导入，SQLite模式下不需要加载pymysql
     # 从URI解析配置
     config = _parse_mysql_config_from_uri(db_uri)
     if not config:

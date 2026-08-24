@@ -1,7 +1,7 @@
 import datetime
 import re
 from typing import List, Any
-import pandas as pd
+from utils.lazy_imports import pd  # 延迟导入pandas，避免启动时加载重型库
 import datetime
 
 class ExcelDateUtils:

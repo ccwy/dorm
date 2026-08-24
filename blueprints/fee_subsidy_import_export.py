@@ -1,10 +1,10 @@
 from flask import Blueprint, request, jsonify, send_file
 from flask_login import login_required, current_user
 from datetime import datetime
-import openpyxl
+from utils.lazy_imports import openpyxl  # 延迟导入openpyxl
 import re
 import logging
-from openpyxl.styles import Font, Alignment, PatternFill
+from utils.lazy_imports import Font, Alignment, PatternFill  # 延迟导入openpyxl样式
 from io import BytesIO
 from decimal import Decimal
 from utils.db import db
@@ -15,8 +15,8 @@ from models.system_config import SystemConfig
 from models.dorm import Dorm  # 新增：导入住宿模型
 from utils.log import log_operation  # 导入日志工具
 # 导入admin_required装饰器
-from blueprints.system_settings import admin_required
-import pandas as pd
+from utils.auth import admin_required
+from utils.lazy_imports import pd  # 延迟导入pandas
 from utils.excel_date_utils import excel_date_utils
 
 # 创建导入导出专用蓝图

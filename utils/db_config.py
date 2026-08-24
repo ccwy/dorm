@@ -177,8 +177,12 @@ class DatabaseConfig:
             config = DatabaseConfig.load_config()
             
         try:
-            # 尝试建立基础连接并执行验证查询
-            engine = create_engine(DatabaseConfig._get_mysql_uri(config))
+            # 尝试建立基础连接并执行验证查询（设置3秒连接超时，避免长时间阻塞）
+            connect_timeout = config.get('MYSQL_CONNECT_TIMEOUT', 3)
+            engine = create_engine(
+                DatabaseConfig._get_mysql_uri(config),
+                connect_args={"connect_timeout": connect_timeout}
+            )
             with engine.connect() as conn:
                 conn.execute(text("SELECT 1"))  # 仅验证连接有效性，不依赖任何表
                 conn.commit()
@@ -272,8 +276,9 @@ class DatabaseConfig:
     
     @staticmethod
     def _get_mysql_uri(config):
-        """生成MySQL连接字符串"""
-        return f"mysql+pymysql://{config['MYSQL_USER']}:{config['MYSQL_PASSWORD']}@{config['MYSQL_HOST']}:{config['MYSQL_PORT']}/{config['MYSQL_DB']}?charset=utf8mb4"
+        """生成MySQL连接字符串（含连接超时设置，避免不可用时长时间阻塞）"""
+        connect_timeout = config.get('MYSQL_CONNECT_TIMEOUT', 3)
+        return f"mysql+pymysql://{config['MYSQL_USER']}:{config['MYSQL_PASSWORD']}@{config['MYSQL_HOST']}:{config['MYSQL_PORT']}/{config['MYSQL_DB']}?charset=utf8mb4&connect_timeout={connect_timeout}"
     
     @staticmethod
     def _get_sqlite_uri(config):

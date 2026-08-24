@@ -7,7 +7,7 @@ from models.room import Room  # 导入房间模型获取楼栋信息
 from utils.db import db
 from utils.log import log_operation
 # 导入admin_required装饰器
-from blueprints.system_settings import admin_required
+from utils.auth import admin_required
 from models.utility_room_bill_checkout import CheckoutUtilityRecord # 退宿费用子表
 
 # 蓝图定义，前缀设为'/utility'便于区分系统其他模块

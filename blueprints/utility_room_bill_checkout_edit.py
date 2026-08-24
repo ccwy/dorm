@@ -12,7 +12,7 @@ from datetime import datetime
 import logging
 from .utility_room_bill_checkout import utility_room_bill_checkout_bp  # 导入退宿费用子表主蓝图
 # 导入admin_required装饰器
-from blueprints.system_settings import admin_required
+from utils.auth import admin_required
 
 @utility_room_bill_checkout_bp.route('/edit/<int:checkout_id>', methods=['GET'])
 @login_required

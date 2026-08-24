@@ -7,7 +7,7 @@ from models.system_config import SystemConfig
 from flask_login import login_required, current_user
 from sqlalchemy import or_
 from datetime import datetime
-from blueprints.system_settings import admin_required
+from utils.auth import admin_required
 import logging
 import os
 from utils.ticket_photo import ticket_photo_manager

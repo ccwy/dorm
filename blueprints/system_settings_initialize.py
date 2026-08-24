@@ -5,7 +5,6 @@ from sqlalchemy import text
 import time
 import logging
 from .system_settings import system_config_bp  # 系统配置蓝图
-import pymysql  # 新增：用于直接操作MySQL服务器
 
 # 用于防重复执行的标记（内存级，适用于单进程部署）
 db_initializing = False
@@ -73,6 +72,7 @@ def initialize_database():
                 
                 # 3. 连接到MySQL服务器（不指定数据库）并删除目标数据库
                 try:
+                    import pymysql  # 延迟导入，仅MySQL操作时需要
                     conn = pymysql.connect(
                         host=mysql_config['host'],
                         port=mysql_config['port'],

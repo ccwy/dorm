@@ -5,7 +5,6 @@ import datetime
 from typing import Any, Dict, Set, Optional
 from sqlalchemy.inspection import inspect
 import logging
-import pandas as pd
 
 def get_user_model_fields() -> Dict[str, str]:
     """获取User模型的字段映射（字段名→显示名）"""
