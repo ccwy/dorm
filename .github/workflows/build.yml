@@ -19,7 +19,7 @@ on:
 
 env:
   PYTHON_VERSION: '3.10'
-  APP_NAME: 'DormManagement'
+  APP_NAME: '宿舍管理程序'
   DOCKER_IMAGE_NAME: 'dorm-management-system'
   PYTHONIOENCODING: 'utf-8'
 
@@ -295,7 +295,7 @@ jobs:
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ steps.version.outputs.tag }}
-          name: DormManagement ${{ steps.version.outputs.tag }}
+          name: 宿舍管理程序 ${{ steps.version.outputs.tag }}
           files: DormManagement_Docker_*.tar
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
