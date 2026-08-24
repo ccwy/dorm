@@ -30,6 +30,9 @@ env:
   DOCKER_IMAGE_NAME: 'dorm-management-system'
   PYTHONIOENCODING: 'utf-8'
 
+permissions:
+  contents: write
+
 jobs:
   # ============================================
   # Windows 平台打包 (PyInstaller + Inno Setup)
@@ -440,3 +443,116 @@ jobs:
           fi
           echo ""
           echo "========================================"
+
+  # ============================================
+  # 发布 Release（仅当推送版本标签时触发）
+  # ============================================
+  create-release:
+    name: 🚀 发布 Release
+    runs-on: ubuntu-latest
+    needs: [build-windows, build-docker, build-android]
+    if: startsWith(github.ref, 'refs/tags/v')
+
+    steps:
+      - name: 📥 检出代码
+        uses: actions/checkout@v7
+
+      - name: 🔖 提取版本号
+        id: version
+        run: |
+          # 从 git tag 提取版本号（去掉 refs/tags/ 前缀）
+          TAG_NAME="${GITHUB_REF#refs/tags/}"
+          VERSION="${TAG_NAME#v}"
+          echo "tag=$TAG_NAME" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "版本标签: $TAG_NAME"
+          echo "版本号: $VERSION"
+
+      - name: 📥 下载所有构建产物
+        uses: actions/download-artifact@v5
+        with:
+          path: release-assets
+          merge-multiple: false
+
+      - name: 📁 整理发布文件
+        run: |
+          mkdir -p release-files
+
+          # 整理 Windows 单文件版
+          if [ -d "release-assets/宿舍管理系统_Windows_单文件版" ]; then
+            cd release-assets/宿舍管理系统_Windows_单文件版
+            for f in *.exe; do
+              if [ -f "$f" ]; then
+                mv "$f" "../../release-files/宿舍管理系统_${{ steps.version.outputs.version }}_单文件版.exe"
+              fi
+            done
+            cd -
+          fi
+
+          # 整理 Windows 多文件版（打包为zip）
+          if [ -d "release-assets/宿舍管理系统_Windows_多文件版" ]; then
+            cd release-assets/宿舍管理系统_Windows_多文件版
+            zip -r "../../release-files/宿舍管理系统_${{ steps.version.outputs.version }}_多文件版.zip" . -x "*.pyc" "__pycache__/*"
+            cd -
+          fi
+
+          # 整理 Windows 安装包
+          if [ -d "release-assets/宿舍管理系统_Windows_安装包" ]; then
+            cd release-assets/宿舍管理系统_Windows_安装包
+            for f in *.exe; do
+              if [ -f "$f" ]; then
+                # 替换文件名中的版本号
+                new_name=$(echo "$f" | sed "s/v1.0/v${{ steps.version.outputs.version }}/g")
+                mv "$f" "../../release-files/$new_name"
+              fi
+            done
+            cd -
+          fi
+
+          # 整理 Docker 镜像
+          if [ -f "release-assets/宿舍管理系统_Docker镜像/docker-image.tar" ]; then
+            mv "release-assets/宿舍管理系统_Docker镜像/docker-image.tar" \
+              "release-files/宿舍管理系统_${{ steps.version.outputs.version }}_docker.tar"
+          fi
+
+          # 整理 Android APK
+          if [ -d "release-assets/宿舍管理系统_Android" ]; then
+            cd release-assets/宿舍管理系统_Android
+            for f in *.apk; do
+              if [ -f "$f" ]; then
+                new_name=$(echo "$f" | sed "s/v1.0/v${{ steps.version.outputs.version }}/g")
+                mv "$f" "../../release-files/$new_name"
+              fi
+            done
+            cd -
+          fi
+
+          # 列出所有发布文件
+          echo "========== 发布文件列表 =========="
+          ls -lh release-files/
+          echo "=================================="
+
+      - name: 🚀 创建 GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: 宿舍管理系统 ${{ steps.version.outputs.tag }}
+          body: |
+            ## 📦 宿舍管理系统 ${{ steps.version.outputs.tag }}
+
+            ### 下载说明
+            - **单文件版**：独立可执行文件，无需安装，直接运行
+            - **多文件版**：解压后运行主程序，启动更快
+            - **安装包**：Inno Setup 安装程序，自动配置快捷方式和卸载程序
+            - **Docker镜像**：`docker load -i 宿舍管理系统_${{ steps.version.outputs.version }}_docker.tar`
+            - **Android APK**：安装到安卓设备，连接服务端使用
+
+            ### 使用方式
+            1. Windows 用户推荐下载安装包，双击安装即可
+            2. Docker 用户下载 tar 文件后使用 `docker load` 导入
+            3. Android 用户下载 APK 安装后输入服务器地址
+          draft: false
+          prerelease: false
+          files: release-files/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

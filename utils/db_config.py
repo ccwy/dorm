@@ -29,6 +29,10 @@ else:
         DB_CONFIG_PATH = os.path.join(app_dir, 'data', 'db_config.json')
 
 class DatabaseConfig:
+    # 配置缓存，避免启动期间重复读取文件和解码
+    _config_cache = None
+    _config_cache_mtime = None  # 文件修改时间，用于检测配置变更
+    
     @staticmethod
     def initialize():
         """初始化配置文件（如果不存在）"""
@@ -91,21 +95,46 @@ class DatabaseConfig:
     
     @staticmethod
     def load_config():
-        """加载配置文件"""
+        """加载配置文件（带缓存，避免重复读取文件和解码）"""
         try:
+            # 检查缓存是否有效（文件未修改时使用缓存）
+            if DatabaseConfig._config_cache is not None and os.path.exists(DB_CONFIG_PATH):
+                current_mtime = os.path.getmtime(DB_CONFIG_PATH)
+                if DatabaseConfig._config_cache_mtime == current_mtime:
+                    return DatabaseConfig._config_cache.copy()
+            
             if not os.path.exists(DB_CONFIG_PATH):
-                return DatabaseConfig.initialize()
+                config = DatabaseConfig.initialize()
+                DatabaseConfig._update_cache(config)
+                return config
                 
             with open(DB_CONFIG_PATH, 'r', encoding='utf-8') as f:
                 content = f.read().strip()
                 
             # 直接使用base64解码
             decoded_content = base64.b64decode(content).decode('utf-8')
-            return json.loads(decoded_content)
+            config = json.loads(decoded_content)
+            DatabaseConfig._update_cache(config)
+            return config
         except Exception as e:
             if current_app:
                 logging.error(f"加载数据库配置文件失败: {str(e)}")
-            return DatabaseConfig.initialize()
+            config = DatabaseConfig.initialize()
+            DatabaseConfig._update_cache(config)
+            return config
+    
+    @staticmethod
+    def _update_cache(config):
+        """更新配置缓存"""
+        DatabaseConfig._config_cache = config.copy()
+        if os.path.exists(DB_CONFIG_PATH):
+            DatabaseConfig._config_cache_mtime = os.path.getmtime(DB_CONFIG_PATH)
+    
+    @staticmethod
+    def invalidate_cache():
+        """使缓存失效（配置变更时调用）"""
+        DatabaseConfig._config_cache = None
+        DatabaseConfig._config_cache_mtime = None
     
     @staticmethod
     def save_config(config_data):
@@ -122,6 +151,8 @@ class DatabaseConfig:
             
             with open(DB_CONFIG_PATH, 'w', encoding='utf-8') as f:
                 f.write(encoded_str)
+            # 保存后使缓存失效，下次读取时重新加载
+            DatabaseConfig.invalidate_cache()
             return True
         except Exception as e:
             if current_app:
@@ -317,10 +348,15 @@ class DatabaseConfig:
             elif not os.access(db_dir, os.W_OK):
                 logging.warning(f"SQLite目录不可写: {db_dir}（可能导致写入失败）")
             
-            # 连接预验证
-            sqlite_available, sqlite_msg = DatabaseConfig.test_sqlite_connection(config)
-            if not sqlite_available:
-                logging.error(f"SQLite初始化失败: {sqlite_msg}")
+            # 仅在首次启动（数据库文件不存在）或强制检查时执行连接预验证
+            # 非首次启动跳过integrity_check，避免大数据库的延迟
+            db_file_exists = os.path.exists(db_path)
+            if force_check or not db_file_exists:
+                sqlite_available, sqlite_msg = DatabaseConfig.test_sqlite_connection(config)
+                if not sqlite_available:
+                    logging.error(f"SQLite初始化失败: {sqlite_msg}")
+            else:
+                logging.debug(f"SQLite数据库文件已存在，跳过连接预验证: {db_path}")
         
         # 返回当前配置的连接字符串（MySQL可用时继续使用）
         if current_db_type == "MYSQL":

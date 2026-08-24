@@ -6,8 +6,6 @@ import signal
 import logging
 from datetime import datetime, date
 from flask_login import LoginManager, current_user, login_required  
-from waitress import serve
-import webview
 # 导入配置类
 from config import Config, config
 # 从外部配置获取数据库连接
@@ -66,28 +64,10 @@ print(f"会话超时时间: {app.permanent_session_lifetime}")
 from utils.log import setup_file_logging
 logger = setup_file_logging()  # 初始化日志系统
 
-# 模型导入（补充所有核心模型，确保上下文加载）
+# 仅导入User模型（login_manager.user_loader需要）
+# 其他模型在init_db()中按需导入，无需在此重复导入
 from models.user import User
-from models.room import Room
-from models.room_facility import RoomFacility  # 房间设施模型
-from models.dorm import Dorm
-from models.utility_room_meter import UtilityMeterReading
-from models.log import OperationLog
-from models.system_config import SystemConfig  # 确保系统配置模型被导入
-from models.room_bed import Bed  # 必须显式导入 Bed 模型
-from models.utility_room_bill_record import RoomUtilityRecord  #房间费用主表
-from models.utility_room_bill_occupant import RoomUtilityOccupant  #房间人员住宿费用子表
-from models.utility_room_bill_checkout import CheckoutUtilityRecord #退宿人员子表
-from models.fee_subsidy import FeeSubsidy  #补贴模型
-from models.fee_subsidy_usage import FeeSubsidyUsage #补贴子表
-from models.ticket import Ticket # 留言模型
-from models.ticket_reply import TicketReply # 留言回复模型
-from models.todo import Todo # 待办事项模型
-from models.todo_progress import TodoProgress # 待办事项进度记录模型
-from models.chat_session import ChatSession
-from models.chat_participant import ChatParticipant
-from models.chat_message import ChatMessage # 聊天模型
-logging.info("导入模型完成")
+logging.info("导入核心模型完成")
 
 # 蓝图导入
 from blueprints import (
@@ -129,10 +109,32 @@ app.register_blueprint(other_bp)# 注册其他功能入口蓝图
 app.register_blueprint(chat_bp)# 注册聊天功能蓝图
 logging.info("导入蓝图完成")
 
-# 数据库连接配置 - 带连接检查
+# 数据库连接配置 - 智能连接检查
 with app.app_context():
-    # 强制检查数据库连接状态
-    db_uri = DatabaseConfig.get_db_uri(force_check=True)
+    # 智能判断是否需要强制检查数据库连接：
+    # 仅在首次启动（数据库文件不存在）或之前MySQL连接失败时强制检查
+    # 非首次启动跳过MySQL连接测试，避免10秒超时延迟
+    db_config_data = DatabaseConfig.load_config()
+    needs_force_check = False
+    
+    if db_config_data.get("AUTO_SWITCHED_TO_SQLITE", False):
+        # 之前MySQL连接失败过，需要再次检查是否恢复
+        needs_force_check = True
+        logging.info("检测到之前MySQL连接失败，将重新检查连接状态")
+    elif db_config_data.get("SQL_TYPE", "").upper() == "SQLITE":
+        # SQLite模式：检查数据库文件是否存在来判断是否首次启动
+        sqlite_path = db_config_data.get("SQLITE_DB_PATH", "")
+        if not sqlite_path or not os.path.exists(sqlite_path):
+            needs_force_check = True
+            logging.info("SQLite数据库文件不存在，将执行首次启动检查")
+    elif db_config_data.get("SQL_TYPE", "").upper() == "MYSQL":
+        # MySQL模式：检查是否有成功连接的历史记录
+        # 如果LAST_FAILED_MYSQL_ATTEMPT为空且未自动切换，说明之前连接正常
+        if db_config_data.get("LAST_FAILED_MYSQL_ATTEMPT"):
+            needs_force_check = True
+            logging.info("检测到MySQL历史连接失败记录，将检查连接状态")
+    
+    db_uri = DatabaseConfig.get_db_uri(force_check=needs_force_check)
     app.config['SQLALCHEMY_DATABASE_URI'] = db_uri
     
     # 检查是否是自动切换到SQLite的情况
@@ -148,6 +150,7 @@ logging.info("初始化数据库实例")
 @app.context_processor
 def inject_common_common_variables():
     # 从数据库获取系统标题
+    from models.system_config import SystemConfig  # 延迟导入，init_db已加载模型模块
     config = DatabaseConfig.load_config()
     system_title = config.get('SYSTEM_TITLE', '宿舍管理系统')
     return {
@@ -234,7 +237,7 @@ def handle_chrome_devtools():
 # 服务器启动函数
 def run_server():
     """启动生产环境服务器"""
-    # 使用配置中的服务器端口和地址，而不是数据库的
+    from waitress import serve  # 延迟导入，避免启动时加载重型库
     serve(app, host=current_config.SERVER_HOST, port=current_config.SERVER_PORT)
     logging.info(f"服务器已启动，监听 {current_config.SERVER_HOST}:{current_config.SERVER_PORT}")
     logging.info("服务器启动完成")
@@ -299,6 +302,7 @@ if __name__ == '__main__':
         # GUI关闭后，退出应用 - process_cleaner会自动处理退出清理
     elif server_mode == "客户端" and current_config.USE_DESKTOP_VIEW:
         # 客户端模式：启动WebView2窗口
+        import webview  # 延迟导入，避免启动时加载WebView2重型运行时
         logging.info("启动Flask服务器")
         server_thread = threading.Thread(target=run_server, daemon=True)
         server_thread.start()
