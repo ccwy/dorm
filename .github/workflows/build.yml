@@ -495,9 +495,9 @@ jobs:
           rm -rf "${SPK_DIR}"
           mkdir -p "${PKG_DIR}"
           mkdir -p "${PKG_DIR}/PACKAGE/scripts"
+          mkdir -p "${PKG_DIR}/PACKAGE/conf/privilege"
+          mkdir -p "${PKG_DIR}/PACKAGE/conf/resource"
           mkdir -p "${PKG_DIR}/WIZARD_UIFILES"
-          mkdir -p "${PKG_DIR}/conf/privilege"
-          mkdir -p "${PKG_DIR}/conf/resource"
           mkdir -p "${PKG_DIR}/app/images"
           mkdir -p "${PKG_DIR}/target/app"
           mkdir -p "${PKG_DIR}/target/var"
@@ -520,6 +520,11 @@ jobs:
 
           # 复制虚拟环境
           cp -r /tmp/venv "${PKG_DIR}/target/venv"
+
+          # 将target目录打包为package.tgz（DSM7标准格式）
+          # DSM7安装时会将package.tgz解压到 /var/packages/{package}/target/
+          cd "${PKG_DIR}/target" && tar -czf "${PKG_DIR}/package.tgz" . && cd "${PKG_DIR}"
+          rm -rf "${PKG_DIR}/target"
 
           # ============================================================
           # 3. 生成套件图标
@@ -585,7 +590,6 @@ jobs:
           install_dep_packages=""
           install_dep_services=""
           dsmuidir="app"
-          dsmappname="SYNO.SDS.DormManagement.Instance"
           support_url=""
           helpurl=""
           INFOEOF
@@ -595,7 +599,7 @@ jobs:
           # DSM7要求套件以 sc-{packagename} 用户运行，不能以root运行
           # 参考: https://github.com/SynoCommunity/spksrc/wiki/DSM-7.0
           # ============================================================
-          cat > "${PKG_DIR}/conf/privilege/privilege" << 'PRIVILEGEEOF'
+          cat > "${PKG_DIR}/PACKAGE/conf/privilege/privilege" << 'PRIVILEGEEOF'
           {
               "defaults": {
                   "run-as": "package"
@@ -636,7 +640,7 @@ jobs:
           # 6. conf/resource - 服务端口配置 (防火墙和DSM快捷方式)
           # DSM7通过 .sc 文件声明服务端口，自动配置防火墙规则
           # ============================================================
-          cat > "${PKG_DIR}/conf/resource/dorm-management-system.sc" << 'RESOURCEEOF'
+          cat > "${PKG_DIR}/PACKAGE/conf/resource/dorm-management-system.sc" << 'RESOURCEEOF'
           [dorm-management-system]
           title="宿舍管理系统"
           desc="宿舍管理系统Web服务"
@@ -960,9 +964,8 @@ jobs:
             PACKAGE_ICON_PNG \
             PACKAGE \
             WIZARD_UIFILES \
-            conf \
             app \
-            target
+            package.tgz
 
           echo "SPK 包构建完成"
           echo "========== SPK 内容列表 =========="
