@@ -372,6 +372,17 @@ jobs:
             sed -i 's/android:networkSecurityConfig=".*"/android:usesCleartextTraffic="true"/g' app/src/main/AndroidManifest.xml
           fi
 
+          # 配置多架构支持 (arm64-v8a, armeabi-v7a, x86, x86_64)
+          if [ -f "app/build.gradle" ] || [ -f "app/build.gradle.kts" ]; then
+            GRADLE_FILE=$(ls app/build.gradle* 2>/dev/null | head -1)
+            if [ -n "$GRADLE_FILE" ]; then
+              # 在 android { } 块中添加 ndk abiFilters 配置
+              if ! grep -q "abiFilters" "$GRADLE_FILE"; then
+                sed -i 's/android {/android {\n        ndk {\n            abiFilters "armeabi-v7a", "arm64-v8a", "x86", "x86_64"\n        }/' "$GRADLE_FILE"
+              fi
+            fi
+          fi
+
       - name: 🔄 同步 Capacitor 资源
         run: |
           cd android-app
