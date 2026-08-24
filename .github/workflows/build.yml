@@ -80,7 +80,7 @@ jobs:
       - name: 🌐 下载 Inno Setup 中文语言包
         run: |
           # Inno Setup 6 默认不包含简体中文语言文件，需从官方仓库下载
-          $islUrl = "https://raw.githubusercontent.com/jrsoftware/issrc/main/Files/Languages/Unofficial/ChineseSimplified.isl"
+          $islUrl = "https://raw.githubusercontent.com/jrsoftware/issrc/main/Files/Languages/ChineseSimplified.isl"
           $islPath = "C:\Program Files (x86)\Inno Setup 6\Languages\ChineseSimplified.isl"
           Invoke-WebRequest -Uri $islUrl -OutFile $islPath -UseBasicParsing
           Write-Host "已下载中文语言包到: $islPath"
@@ -203,7 +203,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: 🔧 设置 Node.js ${{ env.NODE_VERSION }}
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
 
@@ -214,7 +214,7 @@ jobs:
           distribution: 'temurin'
 
       - name: 🤖 设置 Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
 
       - name: 📦 安装 Android 构建工具
         run: |
