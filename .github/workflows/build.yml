@@ -77,6 +77,14 @@ jobs:
         run: |
           choco install innosetup --no-progress
 
+      - name: 🌐 下载 Inno Setup 中文语言包
+        run: |
+          # Inno Setup 6 默认不包含简体中文语言文件，需从官方仓库下载
+          $islUrl = "https://raw.githubusercontent.com/jrsoftware/issrc/main/Files/Languages/Unofficial/ChineseSimplified.isl"
+          $islPath = "C:\Program Files (x86)\Inno Setup 6\Languages\ChineseSimplified.isl"
+          Invoke-WebRequest -Uri $islUrl -OutFile $islPath -UseBasicParsing
+          Write-Host "已下载中文语言包到: $islPath"
+
       - name: 🔨 Inno Setup 打包 (单文件安装包)
         run: |
           New-Item -ItemType Directory -Path "Auto_Setup\Output" -Force
