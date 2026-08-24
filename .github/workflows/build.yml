@@ -500,74 +500,43 @@ jobs:
           # 复制虚拟环境
           cp -r /tmp/venv "${PKG_DIR}/target/venv"
 
-          # ===== INFO 文件 (DSM7 包元数据) =====
-          cat > "${PKG_DIR}/INFO" << 'EOF'
-          package="dorm-management-system"
-          version="1.0.0"
-          arch="x86_64"
-          description="宿舍管理系统 - Web端宿舍管理平台，支持水电费管理、房间管理、人员管理等"
-          maintainer="Dorm Management"
-          displayname="宿舍管理系统"
-          os_min_ver="7.0-40000"
-          os_max_ver="7.2-99999"
-          startable="yes"
-          changelog="初始版本"
-          EOF
+          # ===== 生成套件图标 (72x72 PNG) =====
+          python3 -c "
+          import struct, zlib
+          def create_icon(path):
+              # 72x72 紫色渐变图标
+              w, h = 72, 72
+              raw = b''
+              for y in range(h):
+                  raw += b'\x00'
+                  for x in range(w):
+                      r = int(102 + (118-102) * x/w)
+                      g = int(126 + (75-126) * y/h)
+                      b = int(234 + (162-234) * y/h)
+                      raw += bytes([r, g, b, 255])
+              def chunk(ctype, data):
+                  c = ctype + data
+                  return struct.pack('>I', len(data)) + c + struct.pack('>I', zlib.crc32(c) & 0xffffffff)
+              sig = b'\x89PNG\r\n\x1a\n'
+              ihdr = chunk(b'IHDR', struct.pack('>IIBBBBB', w, h, 8, 6, 0, 0, 0))
+              idat = chunk(b'IDAT', zlib.compress(raw))
+              iend = chunk(b'IEND', b'')
+              with open(path, 'wb') as f:
+                  f.write(sig + ihdr + idat + iend)
+          create_icon('${PKG_DIR}/PACKAGE_ICON')
+          " 2>/dev/null || {
+            # Python生成失败时用base64创建最小PNG
+            echo "iVBORw0KGgoAAAANSUhEUgAAAEgAAABICAYAAABV78bbAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAAOxAAADsQBlSsOGwAAABl0RVh0U29mdHdhcmUAd3d3Lmlua3NjYXBlLm9yZ5vuPBoAAAGSSURBVHic7dxBDoMwDAVQJ/6/16M4UqY0aTMzE8eJFbJI4PQ8efJkHvA/8P4A+AMXYB6wD1gDrAfWwFpgM7Ab2AxsgfnAIGApsBbYDmwENsBYYCOwGVgObAI2A5vBGWAxsBnYDmwHVsBGYDOwBdgMbAU2A5vBHGAJsBzYDewB9sBGYDOwB9gMbAc2A3vBPmAHsAvYDewG9sEeYA+wD9gP7Af2A/uBfcA+YB+wD9gL7AX2A/vBfmAfMA+YB8wD5gFzgLnAXGAuMBcYC8wF5gJzgLnAXGAvsBfYC8wF7gP3gfvAfeA+cB+4D9wH7gP3gfvA/WA/sB/YD+xH9gP7kf3AfuR/YD+xH9iP7Ef2I/uR/QjA8P9R4i4JO0WWJwAAAABJRU5ErkJggg==" | base64 -d > "${PKG_DIR}/PACKAGE_ICON"
+          }
 
-          # ===== 安装向导 (DSM7 JSON 格式) =====
-          cat > "${PKG_DIR}/WIZARD_UIFILES/install_uifile" << 'WIZEOF'
-          [
-            {
-              "step_title": "宿舍管理系统 - 安装配置",
-              "items": [
-                {
-                  "type": "textfield",
-                  "desc": "请设置Web服务端口（默认35168，修改后需确认端口未被占用）",
-                  "subitems": [
-                    {
-                      "key": "pkgwizard_server_port",
-                      "desc": "服务端口",
-                      "defaultValue": "35168",
-                      "validator": {
-                        "allowBlank": false,
-                        "type": "number",
-                        "min": 1024,
-                        "max": 65535
-                      }
-                    }
-                  ]
-                },
-                {
-                  "type": "multiselect",
-                  "desc": "安装说明",
-                  "subitems": [
-                    {
-                      "key": "pkgwizard_note_1",
-                      "desc": "本应用为原生Python运行，无需Docker/Container Manager",
-                      "defaultValue": true,
-                      "disabled": true
-                    },
-                    {
-                      "key": "pkgwizard_note_2",
-                      "desc": "安装完成后，通过浏览器访问 http://NAS_IP:端口 使用系统",
-                      "defaultValue": true,
-                      "disabled": true
-                    },
-                    {
-                      "key": "pkgwizard_note_3",
-                      "desc": "默认管理员账号: admin / 密码: admin123，请登录后及时修改",
-                      "defaultValue": true,
-                      "disabled": true
-                    }
-                  ]
-                }
-              ]
-            }
-          ]
-          WIZEOF
+          # ===== INFO 文件 (DSM7 包元数据，不能有前导空格) =====
+          printf 'package="dorm-management-system"\nversion="1.0.0"\narch="x86_64"\ndescription="宿舍管理系统 - Web端宿舍管理平台，支持水电费管理、房间管理、人员管理等"\nmaintainer="Dorm Management"\ndisplayname="宿舍管理系统"\nos_min_ver="7.0-40000"\nos_max_ver="7.2-99999"\nstartable="yes"\nchangelog="初始版本"\n' > "${PKG_DIR}/INFO"
+
+          # ===== 安装向导 (DSM7 JSON 格式，不能有前导空格) =====
+          printf '[\n  {\n    "step_title": "宿舍管理系统 - 安装配置",\n    "items": [\n      {\n        "type": "textfield",\n        "desc": "请设置Web服务端口（默认35168，修改后需确认端口未被占用）",\n        "subitems": [\n          {\n            "key": "pkgwizard_server_port",\n            "desc": "服务端口",\n            "defaultValue": "35168",\n            "validator": {\n              "allowBlank": false,\n              "type": "number",\n              "min": 1024,\n              "max": 65535\n            }\n          }\n        ]\n      },\n      {\n        "type": "multiselect",\n        "desc": "安装说明",\n        "subitems": [\n          {\n            "key": "pkgwizard_note_1",\n            "desc": "本应用为原生Python运行，无需Docker/Container Manager",\n            "defaultValue": true,\n            "disabled": true\n          },\n          {\n            "key": "pkgwizard_note_2",\n            "desc": "安装完成后，通过浏览器访问 http://NAS_IP:端口 使用系统",\n            "defaultValue": true,\n            "disabled": true\n          },\n          {\n            "key": "pkgwizard_note_3",\n            "desc": "默认管理员账号: admin / 密码: admin123，请登录后及时修改",\n            "defaultValue": true,\n            "disabled": true\n          }\n        ]\n      }\n    ]\n  }\n]\n' > "${PKG_DIR}/WIZARD_UIFILES/install_uifile"
 
           # ===== 安装后脚本 =====
-          cat > "${PKG_DIR}/PACKAGE/scripts/postinst" << 'POSTEOF'
+          cat > "${PKG_DIR}/PACKAGE/scripts/postinst" << 'SCRIPTEOF'
           #!/bin/sh
           # 设置虚拟环境和数据目录权限
           PKG_DIR="/var/packages/${SYNOPKG_PKGNAME}/target"
@@ -577,25 +546,25 @@ jobs:
           chmod 755 "${PKG_DIR}/data"
           mkdir -p "${PKG_DIR}/var"
           chmod 755 "${PKG_DIR}/var"
-          POSTEOF
+          SCRIPTEOF
           chmod +x "${PKG_DIR}/PACKAGE/scripts/postinst"
 
           # ===== 卸载前脚本 =====
-          cat > "${PKG_DIR}/PACKAGE/scripts/preuninst" << 'PREUNEOF'
+          cat > "${PKG_DIR}/PACKAGE/scripts/preuninst" << 'SCRIPTEOF'
           #!/bin/sh
           # 服务会由DSM自动停止，无需额外操作
-          PREUNEOF
+          SCRIPTEOF
           chmod +x "${PKG_DIR}/PACKAGE/scripts/preuninst"
 
           # ===== 卸载后脚本 =====
-          cat > "${PKG_DIR}/PACKAGE/scripts/postuninst" << 'POSTUNEOF'
+          cat > "${PKG_DIR}/PACKAGE/scripts/postuninst" << 'SCRIPTEOF'
           #!/bin/sh
-          # 保留数据目录提示（数据目录在 /var/packages/ 下，DSM卸载时会自动处理）
-          POSTUNEOF
+          # 数据目录在 /var/packages/ 下，DSM卸载时会自动处理
+          SCRIPTEOF
           chmod +x "${PKG_DIR}/PACKAGE/scripts/postuninst"
 
           # ===== 启动停止状态脚本 =====
-          cat > "${PKG_DIR}/PACKAGE/scripts/start-stop-status" << 'SSEOF'
+          cat > "${PKG_DIR}/PACKAGE/scripts/start-stop-status" << 'SCRIPTEOF'
           #!/bin/sh
           # 宿舍管理系统服务管理脚本 (Synology DSM7 原生Python)
 
@@ -682,13 +651,14 @@ jobs:
                   exit 1
                   ;;
           esac
-          SSEOF
+          SCRIPTEOF
           chmod +x "${PKG_DIR}/PACKAGE/scripts/start-stop-status"
 
-          # ===== 打包为 SPK =====
+          # ===== 打包为 SPK（根目录直接包含 INFO 等文件，不能有外层目录） =====
           mkdir -p dist/synology
-          cd /tmp/spk-build
-          tar -czf "${GITHUB_WORKSPACE}/dist/synology/宿舍管理系统_dsm7_x86_64.spk" "${PKG_NAME}/"
+          cd "${PKG_DIR}"
+          tar -czf "${GITHUB_WORKSPACE}/dist/synology/宿舍管理系统_dsm7_x86_64.spk" \
+            INFO PACKAGE_ICON PACKAGE WIZARD_UIFILES target
           echo "SPK 包构建完成"
           ls -lh "${GITHUB_WORKSPACE}/dist/synology/"
 
