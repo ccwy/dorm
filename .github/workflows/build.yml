@@ -159,7 +159,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: 🔧 设置 Docker Buildx
-        uses: docker/setup-buildx-action@v7
+        uses: docker/setup-buildx-action@v4
 
       - name: 🏗️ 构建并导出 Docker 镜像
         uses: docker/build-push-action@v7
@@ -200,7 +200,7 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: ☕ 设置 JDK ${{ env.JAVA_VERSION }}
-        uses: actions/setup-java@v7
+        uses: actions/setup-java@v5
         with:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: 'temurin'
