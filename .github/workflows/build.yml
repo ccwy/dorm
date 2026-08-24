@@ -16,16 +16,9 @@ on:
         required: false
         default: true
         type: boolean
-      build_android:
-        description: '构建 Android 版本'
-        required: false
-        default: true
-        type: boolean
 
 env:
   PYTHON_VERSION: '3.10'
-  NODE_VERSION: '18'
-  JAVA_VERSION: '17'
   APP_NAME: '宿舍管理系统'
   DOCKER_IMAGE_NAME: 'dorm-management-system'
   PYTHONIOENCODING: 'utf-8'
@@ -192,311 +185,12 @@ jobs:
           retention-days: 30
 
   # ============================================
-  # Android 平台打包 (Capacitor WebView)
-  # ============================================
-  build-android:
-    name: 📱 Android 打包
-    runs-on: ubuntu-latest
-    if: >
-      github.event_name == 'push' ||
-      (github.event_name == 'workflow_dispatch' && inputs.build_android)
-
-    steps:
-      - name: 📥 检出代码
-        uses: actions/checkout@v7
-
-      - name: 🔧 设置 Node.js ${{ env.NODE_VERSION }}
-        uses: actions/setup-node@v7
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-
-      - name: ☕ 设置 JDK ${{ env.JAVA_VERSION }}
-        uses: actions/setup-java@v5
-        with:
-          java-version: ${{ env.JAVA_VERSION }}
-          distribution: 'temurin'
-
-      - name: 🤖 设置 Android SDK
-        uses: android-actions/setup-android@v4
-
-      - name: 📦 安装 Android 构建工具
-        run: |
-          # 接受 Android SDK 许可
-          yes | sdkmanager --licenses 2>/dev/null || true
-          # 安装必要的 SDK 组件
-          sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
-
-      - name: 🏗️ 初始化 Capacitor 项目
-        run: |
-          # 创建 Android 项目目录
-          mkdir -p android-app/web-src
-          cd android-app
-
-          # 初始化 npm 项目
-          cat > package.json << 'EOF'
-          {
-            "name": "dorm-management-android",
-            "version": "1.0.0",
-            "private": true,
-            "dependencies": {
-              "@capacitor/core": "6.2.0",
-              "@capacitor/cli": "6.2.0",
-              "@capacitor/android": "6.2.0",
-              "@capacitor/preferences": "6.2.0",
-              "@capacitor/network": "6.2.0",
-              "@capacitor/splash-screen": "6.2.0",
-              "@capacitor/status-bar": "6.2.0"
-            }
-          }
-          EOF
-
-          # 安装依赖
-          npm install
-
-      - name: 📋 复制 Web 资源
-        run: |
-          cd android-app
-
-          # 创建 web-src 目录
-          mkdir -p web-src
-
-          # 复制项目中预置的 Android 入口页面
-          if [ -d "../android/web-src" ]; then
-            cp -r ../android/web-src/* web-src/ 2>/dev/null || true
-          fi
-
-          # 如果没有预置的 index.html，创建默认入口页面
-          if [ ! -f "web-src/index.html" ]; then
-            cat > web-src/index.html << 'HTMLEOF'
-          <!DOCTYPE html>
-          <html lang="zh-CN">
-          <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-            <title>宿舍管理系统</title>
-            <style>
-              * { margin: 0; padding: 0; box-sizing: border-box; }
-              body { font-family: sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; display: flex; align-items: center; justify-content: center; }
-              .container { background: white; border-radius: 16px; padding: 32px 24px; width: 90%; max-width: 400px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
-              .logo { text-align: center; margin-bottom: 24px; }
-              .logo h1 { color: #333; font-size: 24px; margin-top: 12px; }
-              .form-group { margin-bottom: 16px; }
-              .form-group label { display: block; color: #555; font-size: 14px; margin-bottom: 6px; }
-              .form-group input { width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 16px; outline: none; }
-              .form-group input:focus { border-color: #667eea; }
-              .btn { width: 100%; padding: 14px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; margin-top: 8px; }
-              .btn:active { transform: scale(0.98); }
-              .help-text { color: #999; font-size: 12px; text-align: center; margin-top: 16px; line-height: 1.6; }
-            </style>
-          </head>
-          <body>
-            <div class="container">
-              <div class="logo"><h1>🏠 宿舍管理系统</h1></div>
-              <div class="form-group">
-                <label for="serverUrl">服务器地址</label>
-                <input type="url" id="serverUrl" placeholder="http://192.168.1.100:35168" />
-              </div>
-              <button class="btn" onclick="connectServer()">连接服务器</button>
-              <div class="help-text">请输入服务器IP地址和端口<br/>服务器需运行 Windows 版或 Docker 版<br/>默认端口: 35168</div>
-            </div>
-            <script>
-              async function connectServer() {
-                const url = document.getElementById('serverUrl').value.trim();
-                if (!url) { alert('请输入服务器地址'); return; }
-                try { new URL(url); } catch(e) { alert('地址格式不正确'); return; }
-                localStorage.setItem('server_url', url);
-                window.location.href = url;
-              }
-              window.addEventListener('load', () => {
-                const saved = localStorage.getItem('server_url');
-                if (saved) document.getElementById('serverUrl').value = saved;
-              });
-            </script>
-          </body>
-          </html>
-          HTMLEOF
-          fi
-
-      - name: ⚙️ 初始化 Capacitor 配置
-        run: |
-          cd android-app
-
-          # 创建 Capacitor 配置文件
-          cat > capacitor.config.json << 'EOF'
-          {
-            "appId": "com.dorm.management",
-            "appName": "宿舍管理系统",
-            "webDir": "web-src",
-            "server": {
-              "androidScheme": "https",
-              "allowNavigation": ["*"]
-            },
-            "plugins": {
-              "SplashScreen": {
-                "launchShowDuration": 2000,
-                "backgroundColor": "#667eea",
-                "showSpinner": false
-              },
-              "StatusBar": {
-                "style": "LIGHT",
-                "backgroundColor": "#667eea"
-              }
-            }
-          }
-          EOF
-
-          # 添加 Android 平台
-          npx cap add android
-
-          # 验证 Android 项目创建成功
-          if [ ! -d "android" ]; then
-            echo "❌ 错误：Capacitor Android 项目创建失败"
-            exit 1
-          fi
-          echo "✅ Capacitor Android 项目创建成功"
-
-      - name: 🔧 自定义 Android 项目配置
-        run: |
-          cd android-app/android
-
-          # 修改应用图标和启动画面颜色
-          if [ -f "app/src/main/res/values/styles.xml" ]; then
-            sed -i 's/<item name="android:background">#FFFFFF<\/item>/<item name="android:background">#667eea<\/item>/g' app/src/main/res/values/styles.xml
-          fi
-
-          # 确保网络权限
-          if [ -f "app/src/main/AndroidManifest.xml" ]; then
-            if ! grep -q "INTERNET" app/src/main/AndroidManifest.xml; then
-              sed -i '/<manifest/a\    <uses-permission android:name="android.permission.INTERNET" />' app/src/main/AndroidManifest.xml
-            fi
-            if ! grep -q "ACCESS_NETWORK_STATE" app/src/main/AndroidManifest.xml; then
-              sed -i '/<manifest/a\    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />' app/src/main/AndroidManifest.xml
-            fi
-          fi
-
-          # 允许明文 HTTP 传输 (用于局域网连接)
-          # Capacitor 6 自带 network_security_config.xml，修改它来允许明文传输
-          # 不要替换 AndroidManifest 中的 networkSecurityConfig 属性，那会破坏 Capacitor 的网络安全配置
-          NSC_FILE="app/src/main/res/xml/network_security_config.xml"
-          if [ -f "$NSC_FILE" ]; then
-            # 确保 base-config 允许明文传输
-            if ! grep -q "cleartextTrafficPermitted" "$NSC_FILE"; then
-              sed -i 's/<base-config/<base-config cleartextTrafficPermitted="true"/' "$NSC_FILE"
-            fi
-          else
-            # 如果不存在 network_security_config.xml，创建一个
-            mkdir -p app/src/main/res/xml
-            cat > "$NSC_FILE" << 'XMLEOF'
-          <?xml version="1.0" encoding="utf-8"?>
-          <network-security-config>
-            <base-config cleartextTrafficPermitted="true">
-              <trust-anchors>
-                <certificates src="system" />
-              </trust-anchors>
-            </base-config>
-          </network-security-config>
-          XMLEOF
-            # 在 AndroidManifest.xml 中引用此配置
-            if [ -f "app/src/main/AndroidManifest.xml" ]; then
-              if ! grep -q "networkSecurityConfig" app/src/main/AndroidManifest.xml; then
-                sed -i 's/<application/<application android:networkSecurityConfig="@xml\/network_security_config"/' app/src/main/AndroidManifest.xml
-              fi
-            fi
-          fi
-
-          # 注意：不再使用 sed 修改 build.gradle 添加 abiFilters
-          # 原因：Capacitor 6 默认使用 build.gradle.kts (Kotlin DSL)，
-          # sed 的 \n 无法正确处理换行，会导致 Gradle 文件损坏从而构建失败
-          # debug 构建默认包含所有架构，abiFilters 仅用于 release 构建减小 APK 体积
-          # 如需配置 abiFilters，请在 Android Studio 中手动修改或使用 Python 脚本
-
-      - name: 🔄 同步 Capacitor 资源
-        run: |
-          cd android-app
-          npx cap sync android
-
-      - name: 🔍 调试：检查 Android 项目结构
-        run: |
-          cd android-app/android
-          echo "=== Android 项目结构 ==="
-          find app/src/main -type f | head -30
-          echo ""
-          echo "=== AndroidManifest.xml ==="
-          cat app/src/main/AndroidManifest.xml
-          echo ""
-          echo "=== network_security_config.xml ==="
-          cat app/src/main/res/xml/network_security_config.xml 2>/dev/null || echo "文件不存在"
-          echo ""
-          echo "=== build.gradle 文件 ==="
-          if [ -f "app/build.gradle.kts" ]; then
-            echo "使用 Kotlin DSL (build.gradle.kts)"
-            head -50 app/build.gradle.kts
-          elif [ -f "app/build.gradle" ]; then
-            echo "使用 Groovy (build.gradle)"
-            head -50 app/build.gradle
-          fi
-          echo ""
-          echo "=== Capacitor 版本 ==="
-          cd ..
-          npx cap --version 2>/dev/null || echo "无法获取版本"
-
-      - name: 🔑 生成调试签名
-        run: |
-          cd android-app/android
-          # 创建调试密钥库
-          keytool -genkey -v -keystore debug.keystore -alias debug -keyalg RSA -keysize 2048 -validity 10000 -storepass android -keypass android -dname "CN=Debug, OU=Debug, O=Debug, L=Debug, ST=Debug, C=CN"
-
-          # 创建 local.properties
-          echo "sdk.dir=$ANDROID_HOME" > local.properties
-
-      - name: 🏗️ 构建 APK
-        run: |
-          cd android-app/android
-          chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon --stacktrace --info 2>&1 | tee gradle-build.log.txt
-        continue-on-error: false
-
-      - name: 📋 Gradle 构建失败诊断
-        if: failure()
-        run: |
-          cd android-app/android
-          echo "=== Gradle 构建日志 (最后 100 行) ==="
-          tail -100 gradle-build-log.txt 2>/dev/null || echo "日志文件不存在"
-          echo ""
-          echo "=== build.gradle 内容 ==="
-          if [ -f "app/build.gradle.kts" ]; then
-            cat app/build.gradle.kts
-          elif [ -f "app/build.gradle" ]; then
-            cat app/build.gradle
-          fi
-          echo ""
-          echo "=== AndroidManifest.xml ==="
-          cat app/src/main/AndroidManifest.xml 2>/dev/null || echo "文件不存在"
-          echo ""
-          echo "=== Gradle 版本 ==="
-          ./gradlew --version 2>/dev/null || echo "无法获取版本"
-
-      - name: 📁 整理 APK 输出
-        run: |
-          mkdir -p dist/android
-          if [ -f "android-app/android/app/build/outputs/apk/debug/app-debug.apk" ]; then
-            cp android-app/android/app/build/outputs/apk/debug/app-debug.apk "dist/android/宿舍管理系统_v1.0.apk"
-          fi
-
-      - name: 📤 上传 Android APK
-        uses: actions/upload-artifact@v7
-        with:
-          name: ${{ env.APP_NAME }}_Android
-          path: dist/android/
-          retention-days: 30
-
-  # ============================================
   # 构建总结
   # ============================================
   build-summary:
-    name: 📊 构建总结
+    name:  构建总结
     runs-on: ubuntu-latest
-    needs: [build-windows, build-docker, build-android]
+    needs: [build-windows, build-docker]
     if: always()
 
     steps:
@@ -508,7 +202,6 @@ jobs:
           echo ""
           echo "Windows 构建: ${{ needs.build-windows.result }}"
           echo "Docker 构建:  ${{ needs.build-docker.result }}"
-          echo "Android 构建: ${{ needs.build-android.result }}"
           echo ""
           if [ "${{ needs.build-windows.result }}" = "success" ]; then
             echo "✅ Windows 版本构建成功"
@@ -520,11 +213,6 @@ jobs:
           else
             echo "❌ Docker 镜像构建失败或被跳过"
           fi
-          if [ "${{ needs.build-android.result }}" = "success" ]; then
-            echo "✅ Android 版本构建成功"
-          else
-            echo "❌ Android 版本构建失败或被跳过"
-          fi
           echo ""
           echo "========================================"
 
@@ -534,7 +222,7 @@ jobs:
   create-release:
     name: 🚀 发布 Release
     runs-on: ubuntu-latest
-    needs: [build-windows, build-docker, build-android]
+    needs: [build-windows, build-docker]
     if: startsWith(github.ref, 'refs/tags/v')
 
     steps:
@@ -599,18 +287,6 @@ jobs:
               "release-files/宿舍管理系统_${{ steps.version.outputs.version }}_docker.tar"
           fi
 
-          # 整理 Android APK
-          if [ -d "release-assets/宿舍管理系统_Android" ]; then
-            cd release-assets/宿舍管理系统_Android
-            for f in *.apk; do
-              if [ -f "$f" ]; then
-                new_name=$(echo "$f" | sed "s/v1.0/v${{ steps.version.outputs.version }}/g")
-                mv "$f" "../../release-files/$new_name"
-              fi
-            done
-            cd -
-          fi
-
           # 列出所有发布文件
           echo "========== 发布文件列表 =========="
           ls -lh release-files/
@@ -629,12 +305,10 @@ jobs:
             - **多文件版**：解压后运行主程序，启动更快
             - **安装包**：Inno Setup 安装程序，自动配置快捷方式和卸载程序
             - **Docker镜像**：`docker load -i 宿舍管理系统_${{ steps.version.outputs.version }}_docker.tar`
-            - **Android APK**：安装到安卓设备，连接服务端使用
 
             ### 使用方式
             1. Windows 用户推荐下载安装包，双击安装即可
             2. Docker 用户下载 tar 文件后使用 `docker load` 导入
-            3. Android 用户下载 APK 安装后输入服务器地址
           draft: false
           prerelease: false
           files: release-files/*
