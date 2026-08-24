@@ -195,18 +195,18 @@ jobs:
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ steps.version.outputs.tag }}
-          name: DormManagement ${{ steps.version.outputs.tag }}
+          name: 宿舍管理程序 ${{ steps.version.outputs.tag }}
           body: |
-            ## 📦 DormManagement ${{ steps.version.outputs.tag }}
+            ## 📦 宿舍管理程序 ${{ steps.version.outputs.tag }}
 
             ### 下载说明
             | 文件 | 说明 |
             |------|------|
-            | `*_Portable_SingleFile_v*.exe` | 单文件绿色版，无需安装，直接运行 |
-            | `*_Portable_MultiFile_v*.zip` | 多文件绿色版，解压后运行主程序，启动更快 |
-            | `*_Setup_SingleFile_v*.exe` | Inno Setup 安装程序（单文件模式），自动配置快捷方式和卸载程序 |
-            | `*_Setup_MultiFile_v*.exe` | Inno Setup 安装程序（多文件模式），自动配置快捷方式和卸载程序 |
-            | `*_Docker_v*.tar` | Docker 镜像，使用 `docker load -i` 导入 |
+            | `DormManagement_Portable_SingleFile_v*.exe` | 单文件绿色版，无需安装，直接运行 |
+            | `DormManagement_Portable_MultiFile_v*.zip` | 多文件绿色版，解压后运行主程序，启动更快 |
+            | `DormManagement_Setup_SingleFile_v*.exe` | Inno Setup 安装程序（单文件模式），自动配置快捷方式和卸载程序 |
+            | `DormManagement_Setup_MultiFile_v*.exe` | Inno Setup 安装程序（多文件模式），自动配置快捷方式和卸载程序 |
+            | `DormManagement_Docker_v*.tar` | Docker 镜像，使用 `docker load -i` 导入 |
 
             ### 使用方式
             1. **绿色版**：下载后直接运行，无需安装
@@ -313,7 +313,7 @@ jobs:
       - name: 📋 输出构建结果
         run: |
           echo "========================================"
-          echo "  DormManagement - Build Summary"
+          echo "  宿舍管理程序 - Build Summary"
           echo "========================================"
           echo ""
           echo "Windows 构建: ${{ needs.build-windows.result }}"
