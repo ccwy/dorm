@@ -19,7 +19,7 @@ on:
 
 env:
   PYTHON_VERSION: '3.10'
-  APP_NAME: '宿舍管理系统'
+  APP_NAME: 'DormManagement'
   DOCKER_IMAGE_NAME: 'dorm-management-system'
   PYTHONIOENCODING: 'utf-8'
 
@@ -115,9 +115,9 @@ jobs:
           $srcFile = "Auto_Setup\Output\宿舍管理系统_Setup_v1.0.exe"
           if (Test-Path $srcFile) {
             if ($version -ne "") {
-              Move-Item -Path $srcFile -Destination "Auto_Setup\Output\宿舍管理系统_v${version}_安装版_单文件.exe" -Force
+              Move-Item -Path $srcFile -Destination "Auto_Setup\Output\DormManagement_Setup_SingleFile_v${version}.exe" -Force
             } else {
-              Move-Item -Path $srcFile -Destination "Auto_Setup\Output\宿舍管理系统_安装版_单文件.exe" -Force
+              Move-Item -Path $srcFile -Destination "Auto_Setup\Output\DormManagement_Setup_SingleFile.exe" -Force
             }
           }
 
@@ -128,9 +128,9 @@ jobs:
           $srcFile = "Auto_Setup\Output\宿舍管理系统_Setup_v1.0.exe"
           if (Test-Path $srcFile) {
             if ($version -ne "") {
-              Rename-Item -Path $srcFile -NewName "宿舍管理系统_v${version}_安装版_多文件.exe"
+              Rename-Item -Path $srcFile -NewName "DormManagement_Setup_MultiFile_v${version}.exe"
             } else {
-              Rename-Item -Path $srcFile -NewName "宿舍管理系统_安装版_多文件.exe"
+              Rename-Item -Path $srcFile -NewName "DormManagement_Setup_MultiFile.exe"
             }
           }
 
@@ -142,9 +142,9 @@ jobs:
           if (-not (Test-Path $singleDir)) { New-Item -ItemType Directory -Path $singleDir -Force }
           if (Test-Path "dist/宿舍管理系统.exe") {
             if ($version -ne "") {
-              Move-Item -Path "dist/宿舍管理系统.exe" -Destination "dist/windows-single/宿舍管理系统_v${version}_绿色版_单文件.exe" -Force
+              Move-Item -Path "dist/宿舍管理系统.exe" -Destination "dist/windows-single/DormManagement_Portable_SingleFile_v${version}.exe" -Force
             } else {
-              Move-Item -Path "dist/宿舍管理系统.exe" -Destination "dist/windows-single/宿舍管理系统_绿色版_单文件.exe" -Force
+              Move-Item -Path "dist/宿舍管理系统.exe" -Destination "dist/windows-single/DormManagement_Portable_SingleFile.exe" -Force
             }
           }
 
@@ -158,29 +158,29 @@ jobs:
           # 安装版
           $installerDir = "dist/windows-installer"
           if (-not (Test-Path $installerDir)) { New-Item -ItemType Directory -Path $installerDir -Force }
-          $singleInstaller = Get-ChildItem -Path "Auto_Setup\Output" -Filter "宿舍管理系统_*_安装版_单文件.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
-          $multiInstaller = Get-ChildItem -Path "Auto_Setup\Output" -Filter "宿舍管理系统_*_安装版_多文件.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+          $singleInstaller = Get-ChildItem -Path "Auto_Setup\Output" -Filter "DormManagement_*_Setup_SingleFile.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+          $multiInstaller = Get-ChildItem -Path "Auto_Setup\Output" -Filter "DormManagement_*_Setup_MultiFile.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
           if ($singleInstaller) { Move-Item -Path $singleInstaller.FullName -Destination $installerDir -Force }
           if ($multiInstaller) { Move-Item -Path $multiInstaller.FullName -Destination $installerDir -Force }
 
       - name: 📤 上传 Windows 绿色版·单文件
         uses: actions/upload-artifact@v7
         with:
-          name: ${{ env.APP_NAME }}_Windows_绿色版_单文件
+          name: DormManagement_Windows_Portable_SingleFile
           path: dist/windows-single/
           retention-days: 30
 
       - name: 📤 上传 Windows 绿色版·多文件
         uses: actions/upload-artifact@v7
         with:
-          name: ${{ env.APP_NAME }}_Windows_绿色版_多文件
+          name: DormManagement_Windows_Portable_MultiFile
           path: dist/windows-multi/
           retention-days: 30
 
       - name: 📤 上传 Windows 安装版
         uses: actions/upload-artifact@v7
         with:
-          name: ${{ env.APP_NAME }}_Windows_安装版
+          name: DormManagement_Windows_Setup
           path: dist/windows-installer/
           retention-days: 30
 
@@ -188,25 +188,25 @@ jobs:
         if: steps.version.outputs.has_version == 'true'
         run: |
           $version = "${{ steps.version.outputs.version }}"
-          Compress-Archive -Path "dist\windows-multi\*" -DestinationPath "dist\宿舍管理系统_v${version}_绿色版_多文件.zip"
+          Compress-Archive -Path "dist\windows-multi\*" -DestinationPath "dist\DormManagement_Portable_MultiFile_v${version}.zip"
 
       - name: 🚀 发布到 Release
         if: steps.version.outputs.has_version == 'true'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.tag }}
-          name: 宿舍管理系统 ${{ steps.version.outputs.tag }}
+          name: DormManagement ${{ steps.version.outputs.tag }}
           body: |
-            ## 📦 宿舍管理系统 ${{ steps.version.outputs.tag }}
+            ## 📦 DormManagement ${{ steps.version.outputs.tag }}
 
             ### 下载说明
             | 文件 | 说明 |
             |------|------|
-            | `*_绿色版_单文件.exe` | 独立可执行文件，无需安装，直接运行 |
-            | `*_绿色版_多文件.zip` | 解压后运行主程序，启动更快 |
-            | `*_安装版_单文件.exe` | Inno Setup 安装程序（单文件模式），自动配置快捷方式和卸载程序 |
-            | `*_安装版_多文件.exe` | Inno Setup 安装程序（多文件模式），自动配置快捷方式和卸载程序 |
-            | `*_Docker镜像.tar` | Docker 镜像，使用 `docker load -i` 导入 |
+            | `*_Portable_SingleFile.exe` | 单文件绿色版，无需安装，直接运行 |
+            | `*_Portable_MultiFile.zip` | 多文件绿色版，解压后运行主程序，启动更快 |
+            | `*_Setup_SingleFile.exe` | Inno Setup 安装程序（单文件模式），自动配置快捷方式和卸载程序 |
+            | `*_Setup_MultiFile.exe` | Inno Setup 安装程序（多文件模式），自动配置快捷方式和卸载程序 |
+            | `*_Docker.tar` | Docker 镜像，使用 `docker load -i` 导入 |
 
             ### 使用方式
             1. **绿色版**：下载后直接运行，无需安装
@@ -216,7 +216,7 @@ jobs:
           prerelease: false
           files: |
             dist/windows-single/*.exe
-            dist/宿舍管理系统_*_绿色版_多文件.zip
+            dist/DormManagement_*_Portable_MultiFile.zip
             dist/windows-installer/*.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -279,14 +279,14 @@ jobs:
       - name: 📦 重命名 Docker 镜像文件
         if: steps.version.outputs.has_version == 'true'
         run: |
-          mv docker-image.tar "宿舍管理系统_${{ steps.version.outputs.tag }}_Docker镜像.tar"
+          mv docker-image.tar "DormManagement_Docker_${{ steps.version.outputs.tag }}.tar"
 
       - name: 📤 上传 Docker 镜像
         uses: actions/upload-artifact@v7
         with:
-          name: ${{ env.APP_NAME }}_Docker镜像
+          name: DormManagement_Docker
           path: |
-            宿舍管理系统_*_Docker镜像.tar
+            DormManagement_*_Docker.tar
             docker-image.tar
           retention-days: 30
 
@@ -295,8 +295,8 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.tag }}
-          name: 宿舍管理系统 ${{ steps.version.outputs.tag }}
-          files: 宿舍管理系统_*_Docker镜像.tar
+          name: DormManagement ${{ steps.version.outputs.tag }}
+          files: DormManagement_*_Docker.tar
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -313,7 +313,7 @@ jobs:
       - name: 📋 输出构建结果
         run: |
           echo "========================================"
-          echo "  宿舍管理系统 - 构建总结"
+          echo "  DormManagement - Build Summary"
           echo "========================================"
           echo ""
           echo "Windows 构建: ${{ needs.build-windows.result }}"
