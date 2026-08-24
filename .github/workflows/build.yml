@@ -21,11 +21,6 @@ on:
         required: false
         default: true
         type: boolean
-      build_synology:
-        description: '构建 Synology DSM7 版本'
-        required: false
-        default: true
-        type: boolean
 
 env:
   PYTHON_VERSION: '3.10'
@@ -244,13 +239,13 @@ jobs:
             "version": "1.0.0",
             "private": true,
             "dependencies": {
-              "@capacitor/core": "^6.0.0",
-              "@capacitor/cli": "^6.0.0",
-              "@capacitor/android": "^6.0.0",
-              "@capacitor/preferences": "^6.0.0",
-              "@capacitor/network": "^6.0.0",
-              "@capacitor/splash-screen": "^6.0.0",
-              "@capacitor/status-bar": "^6.0.0"
+              "@capacitor/core": "6.2.0",
+              "@capacitor/cli": "6.2.0",
+              "@capacitor/android": "6.2.0",
+              "@capacitor/preferences": "6.2.0",
+              "@capacitor/network": "6.2.0",
+              "@capacitor/splash-screen": "6.2.0",
+              "@capacitor/status-bar": "6.2.0"
             }
           }
           EOF
@@ -353,6 +348,13 @@ jobs:
           # 添加 Android 平台
           npx cap add android
 
+          # 验证 Android 项目创建成功
+          if [ ! -d "android" ]; then
+            echo "❌ 错误：Capacitor Android 项目创建失败"
+            exit 1
+          fi
+          echo "✅ Capacitor Android 项目创建成功"
+
       - name: 🔧 自定义 Android 项目配置
         run: |
           cd android-app/android
@@ -373,25 +375,70 @@ jobs:
           fi
 
           # 允许明文 HTTP 传输 (用于局域网连接)
-          if [ -f "app/src/main/AndroidManifest.xml" ]; then
-            sed -i 's/android:networkSecurityConfig=".*"/android:usesCleartextTraffic="true"/g' app/src/main/AndroidManifest.xml
-          fi
-
-          # 配置多架构支持 (arm64-v8a, armeabi-v7a, x86, x86_64)
-          if [ -f "app/build.gradle" ] || [ -f "app/build.gradle.kts" ]; then
-            GRADLE_FILE=$(ls app/build.gradle* 2>/dev/null | head -1)
-            if [ -n "$GRADLE_FILE" ]; then
-              # 在 android { } 块中添加 ndk abiFilters 配置
-              if ! grep -q "abiFilters" "$GRADLE_FILE"; then
-                sed -i 's/android {/android {\n        ndk {\n            abiFilters "armeabi-v7a", "arm64-v8a", "x86", "x86_64"\n        }/' "$GRADLE_FILE"
+          # Capacitor 6 自带 network_security_config.xml，修改它来允许明文传输
+          # 不要替换 AndroidManifest 中的 networkSecurityConfig 属性，那会破坏 Capacitor 的网络安全配置
+          NSC_FILE="app/src/main/res/xml/network_security_config.xml"
+          if [ -f "$NSC_FILE" ]; then
+            # 确保 base-config 允许明文传输
+            if ! grep -q "cleartextTrafficPermitted" "$NSC_FILE"; then
+              sed -i 's/<base-config/<base-config cleartextTrafficPermitted="true"/' "$NSC_FILE"
+            fi
+          else
+            # 如果不存在 network_security_config.xml，创建一个
+            mkdir -p app/src/main/res/xml
+            cat > "$NSC_FILE" << 'XMLEOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <network-security-config>
+            <base-config cleartextTrafficPermitted="true">
+              <trust-anchors>
+                <certificates src="system" />
+              </trust-anchors>
+            </base-config>
+          </network-security-config>
+          XMLEOF
+            # 在 AndroidManifest.xml 中引用此配置
+            if [ -f "app/src/main/AndroidManifest.xml" ]; then
+              if ! grep -q "networkSecurityConfig" app/src/main/AndroidManifest.xml; then
+                sed -i 's/<application/<application android:networkSecurityConfig="@xml\/network_security_config"/' app/src/main/AndroidManifest.xml
               fi
             fi
           fi
+
+          # 注意：不再使用 sed 修改 build.gradle 添加 abiFilters
+          # 原因：Capacitor 6 默认使用 build.gradle.kts (Kotlin DSL)，
+          # sed 的 \n 无法正确处理换行，会导致 Gradle 文件损坏从而构建失败
+          # debug 构建默认包含所有架构，abiFilters 仅用于 release 构建减小 APK 体积
+          # 如需配置 abiFilters，请在 Android Studio 中手动修改或使用 Python 脚本
 
       - name: 🔄 同步 Capacitor 资源
         run: |
           cd android-app
           npx cap sync android
+
+      - name: 🔍 调试：检查 Android 项目结构
+        run: |
+          cd android-app/android
+          echo "=== Android 项目结构 ==="
+          find app/src/main -type f | head -30
+          echo ""
+          echo "=== AndroidManifest.xml ==="
+          cat app/src/main/AndroidManifest.xml
+          echo ""
+          echo "=== network_security_config.xml ==="
+          cat app/src/main/res/xml/network_security_config.xml 2>/dev/null || echo "文件不存在"
+          echo ""
+          echo "=== build.gradle 文件 ==="
+          if [ -f "app/build.gradle.kts" ]; then
+            echo "使用 Kotlin DSL (build.gradle.kts)"
+            head -50 app/build.gradle.kts
+          elif [ -f "app/build.gradle" ]; then
+            echo "使用 Groovy (build.gradle)"
+            head -50 app/build.gradle
+          fi
+          echo ""
+          echo "=== Capacitor 版本 ==="
+          cd ..
+          npx cap --version 2>/dev/null || echo "无法获取版本"
 
       - name: 🔑 生成调试签名
         run: |
@@ -406,7 +453,28 @@ jobs:
         run: |
           cd android-app/android
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon --stacktrace
+          ./gradlew assembleDebug --no-daemon --stacktrace --info 2>&1 | tee gradle-build.log.txt
+        continue-on-error: false
+
+      - name: 📋 Gradle 构建失败诊断
+        if: failure()
+        run: |
+          cd android-app/android
+          echo "=== Gradle 构建日志 (最后 100 行) ==="
+          tail -100 gradle-build-log.txt 2>/dev/null || echo "日志文件不存在"
+          echo ""
+          echo "=== build.gradle 内容 ==="
+          if [ -f "app/build.gradle.kts" ]; then
+            cat app/build.gradle.kts
+          elif [ -f "app/build.gradle" ]; then
+            cat app/build.gradle
+          fi
+          echo ""
+          echo "=== AndroidManifest.xml ==="
+          cat app/src/main/AndroidManifest.xml 2>/dev/null || echo "文件不存在"
+          echo ""
+          echo "=== Gradle 版本 ==="
+          ./gradlew --version 2>/dev/null || echo "无法获取版本"
 
       - name: 📁 整理 APK 输出
         run: |
@@ -423,597 +491,12 @@ jobs:
           retention-days: 30
 
   # ============================================
-  # Synology DSM7 SPK 打包 (遵循DSM7 Developer Guide规范)
-  # 参考: https://global.download.synology.com/download/Document/Software/DeveloperGuide/Os/DSM/All/enu/DSM_Developer_Guide_7_enu.pdf
-  # 参考: https://github.com/SynoCommunity/spksrc/wiki/DSM-7.0
-  # ============================================
-  build-synology:
-    name: 📦 Synology DSM7 打包
-    runs-on: ubuntu-latest
-    if: >
-      github.event_name == 'push' ||
-      (github.event_name == 'workflow_dispatch' && inputs.build_synology)
-
-    steps:
-      - name: 📥 检出代码
-        uses: actions/checkout@v7
-
-      - name: � 设置 Python ${{ env.PYTHON_VERSION }}
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-
-      - name: 📦 安装系统依赖
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            gcc default-libmysqlclient-dev libssl-dev libffi-dev \
-            libjpeg-dev zlib1g-dev
-
-      - name: 🏗️ 构建 Python 虚拟环境
-        run: |
-          # 创建虚拟环境
-          python -m venv /tmp/venv
-          source /tmp/venv/bin/activate
-
-          # 升级pip
-          pip install --upgrade pip
-
-          # 过滤掉Synology不需要的GUI依赖（pywebview/pystray需要图形界面）
-          grep -v -E '^(pywebview|pystray)' requirements.txt > /tmp/synology-req.txt
-
-          # 安装Python依赖
-          pip install -r /tmp/synology-req.txt
-          pip install waitress
-
-          # 修复shebang路径，使其指向DSM7安装后的目标路径
-          VENV_TARGET="/var/packages/dorm-management-system/target/venv"
-          find /tmp/venv/bin -type f -exec sed -i "1s|^#!/tmp/venv|#!${VENV_TARGET}|g" {} \;
-          sed -i "s|/tmp/venv|${VENV_TARGET}|g" /tmp/venv/bin/activate
-
-          echo "虚拟环境构建完成"
-          du -sh /tmp/venv
-
-      - name: 📦 构建 Synology SPK 包 (DSM7规范)
-        run: |
-          PKG_NAME="dorm-management-system"
-          PKG_DISPLAY="宿舍管理系统"
-          PKG_VERSION="1.0.0"
-          PKG_REV="1"
-          SPK_DIR="/tmp/spk-build"
-          PKG_DIR="${SPK_DIR}/${PKG_NAME}"
-
-          # ============================================================
-          # 1. 创建 DSM7 标准目录结构
-          # 参考 DSM7 FHS:
-          #   /var/packages/{package}/target  -> 应用文件 (SYNOPKG_PKGDEST)
-          #   /var/packages/{package}/var     -> 持久数据 (SYNOPKG_PKGVAR)
-          #   /var/packages/{package}/etc     -> 配置文件
-          #   /var/packages/{package}/tmp     -> 临时文件 (SYNOPKG_PKGTMP)
-          #   /var/packages/{package}/home    -> 用户目录 (SYNOPKG_PKGHOME)
-          # ============================================================
-          rm -rf "${SPK_DIR}"
-          mkdir -p "${PKG_DIR}"
-          mkdir -p "${PKG_DIR}/PACKAGE/scripts"
-          mkdir -p "${PKG_DIR}/PACKAGE/conf/privilege"
-          mkdir -p "${PKG_DIR}/PACKAGE/conf/resource"
-          mkdir -p "${PKG_DIR}/WIZARD_UIFILES"
-          mkdir -p "${PKG_DIR}/app/images"
-          mkdir -p "${PKG_DIR}/target/app"
-          mkdir -p "${PKG_DIR}/target/var"
-
-          # ============================================================
-          # 2. 复制应用代码（排除不需要的文件）
-          # ============================================================
-          rsync -a --exclude='.git' \
-                   --exclude='.github' \
-                   --exclude='.joycode' \
-                   --exclude='Auto_Setup' \
-                   --exclude='android' \
-                   --exclude='*.spec' \
-                   --exclude='*.bat' \
-                   --exclude='dockerfile' \
-                   --exclude='.dockerignore' \
-                   --exclude='*.pyc' \
-                   --exclude='__pycache__' \
-                   ./ "${PKG_DIR}/target/app/"
-
-          # 复制虚拟环境
-          cp -r /tmp/venv "${PKG_DIR}/target/venv"
-
-          # 将target目录打包为package.tgz（DSM7标准格式）
-          # DSM7安装时会将package.tgz解压到 /var/packages/{package}/target/
-          cd "${PKG_DIR}/target" && tar -czf "${PKG_DIR}/package.tgz" . && cd "${PKG_DIR}"
-          rm -rf "${PKG_DIR}/target"
-
-          # ============================================================
-          # 3. 生成套件图标
-          # DSM7要求: PACKAGE_ICON (72x72 PNG) + PACKAGE_ICON_PNG (120x120 PNG)
-          # ============================================================
-          python3 << 'ICONSCRIPT'
-          import struct, zlib, os
-
-          def create_png(path, w, h, r_start, g_start, b_start, r_end, g_end, b_end):
-              """创建渐变PNG图标"""
-              raw = b''
-              for y in range(h):
-                  raw += b'\x00'  # filter byte
-                  for x in range(w):
-                      r = int(r_start + (r_end - r_start) * x / w)
-                      g = int(g_start + (g_end - g_start) * y / h)
-                      b = int(b_start + (b_end - b_start) * y / h)
-                      raw += bytes([r, g, b, 255])
-
-              def chunk(ctype, data):
-                  c = ctype + data
-                  return struct.pack('>I', len(data)) + c + struct.pack('>I', zlib.crc32(c) & 0xffffffff)
-
-              sig = b'\x89PNG\r\n\x1a\n'
-              ihdr = chunk(b'IHDR', struct.pack('>IIBBBBB', w, h, 8, 6, 0, 0, 0))
-              idat = chunk(b'IDAT', zlib.compress(raw))
-              iend = chunk(b'IEND', b'')
-              with open(path, 'wb') as f:
-                  f.write(sig + ihdr + idat + iend)
-
-          pkg_dir = os.environ.get('PKG_DIR', '/tmp/spk-build/dorm-management-system')
-
-          # 72x72 标准图标 (PACKAGE_ICON)
-          create_png(f'{pkg_dir}/PACKAGE_ICON', 72, 72,
-                     102, 126, 234, 118, 75, 162)
-
-          # 120x120 高分辨率图标 (PACKAGE_ICON_PNG)
-          create_png(f'{pkg_dir}/PACKAGE_ICON_PNG', 120, 120,
-                     102, 126, 234, 118, 75, 162)
-
-          # DSM UI 图标 (app/images/) - 多种尺寸
-          for size in [16, 20, 24, 32, 48, 64, 72, 96, 120, 128]:
-              create_png(f'{pkg_dir}/app/images/{size}.png', size, size,
-                         102, 126, 234, 118, 75, 162)
-          ICONSCRIPT
-
-          # ============================================================
-          # 4. INFO 文件 (DSM7 包元数据)
-          # 参考: DSM Developer Guide - Package Center Specifications
-          # 注意: 每行不能有前导空格
-          # ============================================================
-          cat > "${PKG_DIR}/INFO" << 'INFOEOF'
-          package="dorm-management-system"
-          version="1.0.0"
-          arch="x86_64"
-          description="宿舍管理系统 - Web端宿舍管理平台，支持水电费管理、房间管理、人员管理等"
-          maintainer="Dorm Management"
-          displayname="宿舍管理系统"
-          os_min_ver="7.0-40000"
-          os_max_ver="7.2-99999"
-          startable="yes"
-          changelog="初始版本：支持DSM7原生Python运行，无需Docker"
-          install_dep_packages=""
-          install_dep_services=""
-          dsmuidir="app"
-          support_url=""
-          helpurl=""
-          INFOEOF
-
-          # ============================================================
-          # 5. conf/privilege - DSM7 权限配置
-          # DSM7要求套件以 sc-{packagename} 用户运行，不能以root运行
-          # 参考: https://github.com/SynoCommunity/spksrc/wiki/DSM-7.0
-          # ============================================================
-          cat > "${PKG_DIR}/PACKAGE/conf/privilege/privilege" << 'PRIVILEGEEOF'
-          {
-              "defaults": {
-                  "run-as": "package"
-              },
-              "username": "sc-dorm-management-system",
-              "ctrl-script": [{
-                  "action": "preinst",
-                  "run-as": "root"
-              }, {
-                  "action": "postinst",
-                  "run-as": "root"
-              }, {
-                  "action": "preuninst",
-                  "run-as": "root"
-              }, {
-                  "action": "postuninst",
-                  "run-as": "root"
-              }, {
-                  "action": "preupgrade",
-                  "run-as": "root"
-              }, {
-                  "action": "postupgrade",
-                  "run-as": "root"
-              }, {
-                  "action": "start",
-                  "run-as": "package"
-              }, {
-                  "action": "stop",
-                  "run-as": "package"
-              }, {
-                  "action": "status",
-                  "run-as": "package"
-              }]
-          }
-          PRIVILEGEEOF
-
-          # ============================================================
-          # 6. conf/resource - 服务端口配置 (防火墙和DSM快捷方式)
-          # DSM7通过 .sc 文件声明服务端口，自动配置防火墙规则
-          # ============================================================
-          cat > "${PKG_DIR}/PACKAGE/conf/resource/dorm-management-system.sc" << 'RESOURCEEOF'
-          [dorm-management-system]
-          title="宿舍管理系统"
-          desc="宿舍管理系统Web服务"
-          port_forward="yes"
-          dst.ports="35168/tcp"
-          RESOURCEEOF
-
-          # ============================================================
-          # 7. app/config - DSM UI 集成
-          # 在DSM桌面上创建应用快捷方式，点击后打开浏览器访问服务
-          # ============================================================
-          cat > "${PKG_DIR}/app/config" << 'CONFIGEOF'
-          {
-              ".url": {
-                  "type": "url",
-                  "text": "宿舍管理系统",
-                  "url": "/",
-                  "desc": "宿舍管理系统Web管理界面"
-              }
-          }
-          CONFIGEOF
-
-          # ============================================================
-          # 8. WIZARD_UIFILES - 安装向导 (DSM7 JSON格式)
-          # DSM7使用JSON格式的安装向导，支持文本框、多选等控件
-          # ============================================================
-          cat > "${PKG_DIR}/WIZARD_UIFILES/install_uifile" << 'WIZARDEOF'
-          [
-            {
-              "step_title": "宿舍管理系统 - 安装配置",
-              "items": [
-                {
-                  "type": "textfield",
-                  "desc": "请设置Web服务端口（默认35168，修改后需确认端口未被占用）",
-                  "subitems": [
-                    {
-                      "key": "pkgwizard_server_port",
-                      "desc": "服务端口",
-                      "defaultValue": "35168",
-                      "validator": {
-                        "allowBlank": false,
-                        "type": "number",
-                        "min": 1024,
-                        "max": 65535
-                      }
-                    }
-                  ]
-                },
-                {
-                  "type": "multiselect",
-                  "desc": "安装说明",
-                  "subitems": [
-                    {
-                      "key": "pkgwizard_note_1",
-                      "desc": "本应用为原生Python运行，无需Docker/Container Manager",
-                      "defaultValue": true,
-                      "disabled": true
-                    },
-                    {
-                      "key": "pkgwizard_note_2",
-                      "desc": "安装完成后，通过浏览器访问 http://NAS_IP:端口 使用系统",
-                      "defaultValue": true,
-                      "disabled": true
-                    },
-                    {
-                      "key": "pkgwizard_note_3",
-                      "desc": "默认管理员账号: admin / 密码: admin123，请登录后及时修改",
-                      "defaultValue": true,
-                      "disabled": true
-                    }
-                  ]
-                }
-              ]
-            }
-          ]
-          WIZARDEOF
-
-          # ============================================================
-          # 9. PACKAGE/scripts - 安装/卸载/升级脚本
-          # DSM7脚本规范:
-          #   - 使用SYNOPKG_PKGNAME, SYNOPKG_PKGDEST等环境变量
-          #   - 安装/卸载脚本以root运行（privilege配置）
-          #   - start/stop/status以package用户运行
-          #   - 日志输出到 /var/log/packages/{package}.log
-          # ============================================================
-
-          # --- preinst: 安装前检查 ---
-          cat > "${PKG_DIR}/PACKAGE/scripts/preinst" << 'SCRIPTEOF'
-          #!/bin/sh
-          # preinst - 安装前检查
-          # 检查端口是否被占用
-          SERVER_PORT=$(grep -r "pkgwizard_server_port" /var/packages/${SYNOPKG_PKGNAME}/etc/ 2>/dev/null | head -1 | sed 's/.*=//' | tr -d '[:space:]')
-          [ -z "${SERVER_PORT}" ] && SERVER_PORT="35168"
-
-          if netstat -an 2>/dev/null | grep -q ":${SERVER_PORT} "; then
-              echo "端口 ${SERVER_PORT} 已被占用，请选择其他端口" >&2
-              exit 1
-          fi
-
-          exit 0
-          SCRIPTEOF
-          chmod +x "${PKG_DIR}/PACKAGE/scripts/preinst"
-
-          # --- postinst: 安装后配置 ---
-          cat > "${PKG_DIR}/PACKAGE/scripts/postinst" << 'SCRIPTEOF'
-          #!/bin/sh
-          # postinst - 安装后配置
-          # 设置目录权限（DSM7以sc-{packagename}用户运行）
-          PKG_DEST="${SYNOPKG_PKGDEST}"
-          PKG_VAR="${SYNOPKG_PKGDEST}/var"
-
-          # 确保数据目录存在
-          mkdir -p "${PKG_VAR}"
-          mkdir -p "${PKG_DEST}/data"
-
-          # 设置权限 - 安装脚本以root运行
-          chown -R "sc-${SYNOPKG_PKGNAME}:sc-${SYNOPKG_PKGNAME}" "${PKG_DEST}/venv"
-          chown -R "sc-${SYNOPKG_PKGNAME}:sc-${SYNOPKG_PKGNAME}" "${PKG_DEST}/app"
-          chown -R "sc-${SYNOPKG_PKGNAME}:sc-${SYNOPKG_PKGNAME}" "${PKG_DEST}/data"
-          chown -R "sc-${SYNOPKG_PKGNAME}:sc-${SYNOPKG_PKGNAME}" "${PKG_VAR}"
-
-          chmod -R 755 "${PKG_DEST}/venv"
-          chmod -R 755 "${PKG_DEST}/app"
-          chmod 755 "${PKG_DEST}/data"
-          chmod 755 "${PKG_VAR}"
-
-          exit 0
-          SCRIPTEOF
-          chmod +x "${PKG_DIR}/PACKAGE/scripts/postinst"
-
-          # --- preuninst: 卸载前 ---
-          cat > "${PKG_DIR}/PACKAGE/scripts/preuninst" << 'SCRIPTEOF'
-          #!/bin/sh
-          # preuninst - 卸载前停止服务
-          # DSM会自动调用start-stop-status stop，此处无需额外操作
-          exit 0
-          SCRIPTEOF
-          chmod +x "${PKG_DIR}/PACKAGE/scripts/preuninst"
-
-          # --- postuninst: 卸载后清理 ---
-          cat > "${PKG_DIR}/PACKAGE/scripts/postuninst" << 'SCRIPTEOF'
-          #!/bin/sh
-          # postuninst - 卸载后清理
-          # DSM7会自动清理 /var/packages/{package}/target 目录
-          # 持久数据在 /var/packages/{package}/var 下，DSM卸载向导会询问是否删除
-          exit 0
-          SCRIPTEOF
-          chmod +x "${PKG_DIR}/PACKAGE/scripts/postuninst"
-
-          # --- preupgrade: 升级前备份 ---
-          cat > "${PKG_DIR}/PACKAGE/scripts/preupgrade" << 'SCRIPTEOF'
-          #!/bin/sh
-          # preupgrade - 升级前备份数据
-          # DSM7升级时会替换target目录，但var目录保持不变
-          # 确保关键数据在var目录中
-          PKG_VAR="${SYNOPKG_PKGDEST}/var"
-          if [ -d "${SYNOPKG_PKGDEST}/data" ]; then
-              cp -a "${SYNOPKG_PKGDEST}/data" "${PKG_VAR}/data_backup" 2>/dev/null || true
-          fi
-          exit 0
-          SCRIPTEOF
-          chmod +x "${PKG_DIR}/PACKAGE/scripts/preupgrade"
-
-          # --- postupgrade: 升级后恢复 ---
-          cat > "${PKG_DIR}/PACKAGE/scripts/postupgrade" << 'SCRIPTEOF'
-          #!/bin/sh
-          # postupgrade - 升级后恢复数据并设置权限
-          PKG_DEST="${SYNOPKG_PKGDEST}"
-          PKG_VAR="${SYNOPKG_PKGDEST}/var"
-
-          # 恢复数据备份
-          if [ -d "${PKG_VAR}/data_backup" ] && [ ! -d "${PKG_DEST}/data" ]; then
-              cp -a "${PKG_VAR}/data_backup" "${PKG_DEST}/data" 2>/dev/null || true
-              rm -rf "${PKG_VAR}/data_backup"
-          fi
-
-          # 重新设置权限（升级后target目录被替换）
-          chown -R "sc-${SYNOPKG_PKGNAME}:sc-${SYNOPKG_PKGNAME}" "${PKG_DEST}/venv"
-          chown -R "sc-${SYNOPKG_PKGNAME}:sc-${SYNOPKG_PKGNAME}" "${PKG_DEST}/app"
-          chown -R "sc-${SYNOPKG_PKGNAME}:sc-${SYNOPKG_PKGNAME}" "${PKG_DEST}/data"
-          chown -R "sc-${SYNOPKG_PKGNAME}:sc-${SYNOPKG_PKGNAME}" "${PKG_VAR}"
-
-          chmod -R 755 "${PKG_DEST}/venv"
-          chmod -R 755 "${PKG_DEST}/app"
-          chmod 755 "${PKG_DEST}/data"
-          chmod 755 "${PKG_VAR}"
-
-          exit 0
-          SCRIPTEOF
-          chmod +x "${PKG_DIR}/PACKAGE/scripts/postupgrade"
-
-          # ============================================================
-          # 10. start-stop-status - 服务管理脚本 (DSM7规范)
-          # DSM7规范:
-          #   - 使用SYNOPKG_PKGDEST, SYNOPKG_PKGVAR等环境变量
-          #   - PID文件放在 ${SYNOPKG_PKGVAR}/{name}.pid
-          #   - 日志文件放在 ${SYNOPKG_PKGVAR}/{name}.log
-          #   - start/stop/status以package用户运行
-          # ============================================================
-          cat > "${PKG_DIR}/PACKAGE/scripts/start-stop-status" << 'SCRIPTEOF'
-          #!/bin/sh
-          # 宿舍管理系统服务管理脚本 (Synology DSM7)
-          # 遵循DSM7 Developer Guide和spksrc Service Support规范
-
-          # DSM7环境变量
-          PKG_NAME="${SYNOPKG_PKGNAME}"
-          PKG_DEST="${SYNOPKG_PKGDEST}"
-          PKG_VAR="${SYNOPKG_PKGDEST}/var"
-          APP_DIR="${PKG_DEST}/app"
-          VENV_DIR="${PKG_DEST}/venv"
-          PYTHON="${VENV_DIR}/bin/python"
-          DATA_DIR="${PKG_DEST}/data"
-          LOG_FILE="${PKG_VAR}/${PKG_NAME}.log"
-          PID_FILE="${PKG_VAR}/${PKG_NAME}.pid"
-
-          # 读取安装向导中设置的端口，默认35168
-          SERVER_PORT=$(grep -r "pkgwizard_server_port" /var/packages/${PKG_NAME}/etc/ 2>/dev/null | head -1 | sed 's/.*=//' | tr -d '[:space:]')
-          [ -z "${SERVER_PORT}" ] && SERVER_PORT="35168"
-
-          # 日志函数
-          log_msg() {
-              echo "$(date '+%Y-%m-%d %H:%M:%S') $1" >> "${LOG_FILE}"
-          }
-
-          case "$1" in
-              start)
-                  # 确保目录存在
-                  mkdir -p "${DATA_DIR}"
-                  mkdir -p "${PKG_VAR}"
-
-                  # 清空旧日志
-                  : > "${LOG_FILE}"
-
-                  log_msg "正在启动宿舍管理系统..."
-                  log_msg "服务端口: ${SERVER_PORT}"
-
-                  # 设置环境变量
-                  export DOCKER_ENV=true
-                  export FLASK_ENV=production
-                  export SERVER_HOST=0.0.0.0
-                  export SERVER_PORT=${SERVER_PORT}
-                  export PYTHONPATH="${APP_DIR}"
-                  export PYTHONIOENCODING=utf-8
-
-                  # 启动waitress服务（后台运行）
-                  cd "${APP_DIR}"
-                  "${PYTHON}" -c "
-          import sys
-          sys.path.insert(0, '${APP_DIR}')
-          from main import app
-          from waitress import serve
-          serve(app, host='0.0.0.0', port=${SERVER_PORT}, threads=4)
-          " >> "${LOG_FILE}" 2>&1 &
-
-                  # 记录PID
-                  echo $! > "${PID_FILE}"
-
-                  # 等待服务启动
-                  sleep 3
-
-                  # 检查是否启动成功
-                  if kill -0 $(cat "${PID_FILE}") 2>/dev/null; then
-                      log_msg "服务启动成功"
-                      exit 0
-                  else
-                      log_msg "服务启动失败"
-                      rm -f "${PID_FILE}"
-                      exit 1
-                  fi
-                  ;;
-
-              stop)
-                  log_msg "正在停止宿舍管理系统..."
-                  if [ -f "${PID_FILE}" ]; then
-                      PID=$(cat "${PID_FILE}")
-                      if kill -0 "${PID}" 2>/dev/null; then
-                          kill "${PID}" 2>/dev/null
-                          # 等待进程退出
-                          for i in 1 2 3 4 5 6 7 8 9 10; do
-                              if ! kill -0 "${PID}" 2>/dev/null; then
-                                  break
-                              fi
-                              sleep 1
-                          done
-                          # 强制终止
-                          kill -9 "${PID}" 2>/dev/null
-                      fi
-                      rm -f "${PID_FILE}"
-                  fi
-                  log_msg "服务已停止"
-                  exit 0
-                  ;;
-
-              status)
-                  if [ -f "${PID_FILE}" ] && kill -0 $(cat "${PID_FILE}") 2>/dev/null; then
-                      exit 0  # 运行中
-                  else
-                      rm -f "${PID_FILE}"
-                      exit 1  # 未运行
-                  fi
-                  ;;
-
-              *)
-                  echo "用法: $0 {start|stop|status}"
-                  exit 1
-                  ;;
-          esac
-          SCRIPTEOF
-          chmod +x "${PKG_DIR}/PACKAGE/scripts/start-stop-status"
-
-          # ============================================================
-          # 10.5 去除heredoc文件的前导空格
-          # YAML中heredoc内容继承缩进，导致每行有10个前导空格
-          # INFO/JSON/INI文件有前导空格则群晖无法解析
-          # Shell脚本shebang有前导空格则无法执行
-          # ============================================================
-          for f in \
-            "${PKG_DIR}/INFO" \
-            "${PKG_DIR}/PACKAGE/conf/privilege/privilege" \
-            "${PKG_DIR}/PACKAGE/conf/resource/dorm-management-system.sc" \
-            "${PKG_DIR}/app/config" \
-            "${PKG_DIR}/WIZARD_UIFILES/install_uifile" \
-            "${PKG_DIR}/PACKAGE/scripts/preinst" \
-            "${PKG_DIR}/PACKAGE/scripts/postinst" \
-            "${PKG_DIR}/PACKAGE/scripts/preuninst" \
-            "${PKG_DIR}/PACKAGE/scripts/postuninst" \
-            "${PKG_DIR}/PACKAGE/scripts/preupgrade" \
-            "${PKG_DIR}/PACKAGE/scripts/postupgrade" \
-            "${PKG_DIR}/PACKAGE/scripts/start-stop-status"; do
-            sed -i 's/^          //' "$f"
-          done
-
-          # 验证INFO文件无前导空格
-          echo "========== INFO文件前3行 =========="
-          head -3 "${PKG_DIR}/INFO" | cat -A
-
-          # ============================================================
-          # 11. 打包为 SPK
-          # SPK格式: tar.gz，根目录直接包含 INFO, PACKAGE_ICON 等文件
-          # 参考: DSM Developer Guide - Build and Install Package
-          # ============================================================
-          mkdir -p "${GITHUB_WORKSPACE}/dist/synology"
-          cd "${PKG_DIR}"
-          tar -czf "${GITHUB_WORKSPACE}/dist/synology/宿舍管理系统_dsm7_x86_64.spk" \
-            INFO \
-            PACKAGE_ICON \
-            PACKAGE_ICON_PNG \
-            PACKAGE \
-            WIZARD_UIFILES \
-            app \
-            package.tgz
-
-          echo "SPK 包构建完成"
-          echo "========== SPK 内容列表 =========="
-          tar -tzf "${GITHUB_WORKSPACE}/dist/synology/宿舍管理系统_dsm7_x86_64.spk" | head -30
-          echo "..."
-          echo "========== SPK 文件大小 =========="
-          ls -lh "${GITHUB_WORKSPACE}/dist/synology/"
-
-      - name: 📤 上传 Synology SPK
-        uses: actions/upload-artifact@v7
-        with:
-          name: ${{ env.APP_NAME }}_Synology_DSM7
-          path: dist/synology/
-          retention-days: 30
-
-  # ============================================
   # 构建总结
   # ============================================
   build-summary:
     name: 📊 构建总结
     runs-on: ubuntu-latest
-    needs: [build-windows, build-docker, build-android, build-synology]
+    needs: [build-windows, build-docker, build-android]
     if: always()
 
     steps:
@@ -1023,10 +506,9 @@ jobs:
           echo "  宿舍管理系统 - 构建总结"
           echo "========================================"
           echo ""
-          echo "Windows 构建:  ${{ needs.build-windows.result }}"
-          echo "Docker 构建:   ${{ needs.build-docker.result }}"
-          echo "Android 构建:  ${{ needs.build-android.result }}"
-          echo "Synology 构建: ${{ needs.build-synology.result }}"
+          echo "Windows 构建: ${{ needs.build-windows.result }}"
+          echo "Docker 构建:  ${{ needs.build-docker.result }}"
+          echo "Android 构建: ${{ needs.build-android.result }}"
           echo ""
           if [ "${{ needs.build-windows.result }}" = "success" ]; then
             echo "✅ Windows 版本构建成功"
@@ -1043,11 +525,6 @@ jobs:
           else
             echo "❌ Android 版本构建失败或被跳过"
           fi
-          if [ "${{ needs.build-synology.result }}" = "success" ]; then
-            echo "✅ Synology DSM7 版本构建成功"
-          else
-            echo "❌ Synology DSM7 版本构建失败或被跳过"
-          fi
           echo ""
           echo "========================================"
 
@@ -1057,7 +534,7 @@ jobs:
   create-release:
     name: 🚀 发布 Release
     runs-on: ubuntu-latest
-    needs: [build-windows, build-docker, build-android, build-synology]
+    needs: [build-windows, build-docker, build-android]
     if: startsWith(github.ref, 'refs/tags/v')
 
     steps:
@@ -1134,18 +611,6 @@ jobs:
             cd -
           fi
 
-          # 整理 Synology DSM7 SPK
-          if [ -d "release-assets/宿舍管理系统_Synology_DSM7" ]; then
-            cd release-assets/宿舍管理系统_Synology_DSM7
-            for f in *.spk; do
-              if [ -f "$f" ]; then
-                new_name=$(echo "$f" | sed "s/v1.0/v${{ steps.version.outputs.version }}/g")
-                mv "$f" "../../release-files/$new_name"
-              fi
-            done
-            cd -
-          fi
-
           # 列出所有发布文件
           echo "========== 发布文件列表 =========="
           ls -lh release-files/
@@ -1165,13 +630,11 @@ jobs:
             - **安装包**：Inno Setup 安装程序，自动配置快捷方式和卸载程序
             - **Docker镜像**：`docker load -i 宿舍管理系统_${{ steps.version.outputs.version }}_docker.tar`
             - **Android APK**：安装到安卓设备，连接服务端使用
-            - **Synology SPK**：群晖DSM7套件包，原生Python运行，无需Docker/Container Manager，手动安装SPK即可使用
 
             ### 使用方式
             1. Windows 用户推荐下载安装包，双击安装即可
             2. Docker 用户下载 tar 文件后使用 `docker load` 导入
             3. Android 用户下载 APK 安装后输入服务器地址
-            4. 群晖用户下载 SPK 文件，在套件中心 → 手动安装中选择SPK文件安装（无需Docker）
           draft: false
           prerelease: false
           files: release-files/*
