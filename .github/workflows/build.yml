@@ -21,6 +21,11 @@ on:
         required: false
         default: true
         type: boolean
+      build_synology:
+        description: '构建 Synology DSM7 版本'
+        required: false
+        default: true
+        type: boolean
 
 env:
   PYTHON_VERSION: '3.10'
@@ -418,12 +423,289 @@ jobs:
           retention-days: 30
 
   # ============================================
+  # Synology DSM7 SPK 打包 (原生Python, amd64/x86_64)
+  # ============================================
+  build-synology:
+    name: 📦 Synology DSM7 打包
+    runs-on: ubuntu-latest
+    if: >
+      github.event_name == 'push' ||
+      (github.event_name == 'workflow_dispatch' && inputs.build_synology)
+
+    steps:
+      - name: 📥 检出代码
+        uses: actions/checkout@v7
+
+      - name: � 设置 Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: 📦 安装系统依赖
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            gcc default-libmysqlclient-dev libssl-dev libffi-dev \
+            libjpeg-dev zlib1g-dev
+
+      - name: 🏗️ 构建 Python 虚拟环境
+        run: |
+          # 创建虚拟环境
+          python -m venv /tmp/venv
+          source /tmp/venv/bin/activate
+
+          # 升级pip
+          pip install --upgrade pip
+
+          # 过滤掉Synology不需要的GUI依赖（pywebview/pystray需要图形界面）
+          grep -v -E '^(pywebview|pystray)' requirements.txt > /tmp/synology-req.txt
+
+          # 安装Python依赖
+          pip install -r /tmp/synology-req.txt
+          pip install waitress
+
+          # 修复shebang路径，使其指向DSM7安装后的目标路径
+          VENV_TARGET="/var/packages/dorm-management-system/target/venv"
+          find /tmp/venv/bin -type f -exec sed -i "1s|^#!/tmp/venv|#!${VENV_TARGET}|g" {} \;
+          sed -i "s|/tmp/venv|${VENV_TARGET}|g" /tmp/venv/bin/activate
+
+          echo "虚拟环境构建完成"
+          du -sh /tmp/venv
+
+      - name: 📦 构建 Synology SPK 包
+        run: |
+          PKG_NAME="dorm-management-system"
+          PKG_DIR="/tmp/spk-build/${PKG_NAME}"
+
+          # 创建 SPK 目录结构
+          mkdir -p "${PKG_DIR}/PACKAGE/scripts"
+          mkdir -p "${PKG_DIR}/WIZARD_UIFILES"
+          mkdir -p "${PKG_DIR}/target/app"
+          mkdir -p "${PKG_DIR}/target/var"
+
+          # 复制应用代码（排除不需要的文件）
+          rsync -a --exclude='.git' \
+                   --exclude='.github' \
+                   --exclude='.joycode' \
+                   --exclude='Auto_Setup' \
+                   --exclude='android' \
+                   --exclude='*.spec' \
+                   --exclude='*.bat' \
+                   --exclude='dockerfile' \
+                   --exclude='.dockerignore' \
+                   --exclude='*.pyc' \
+                   --exclude='__pycache__' \
+                   ./ "${PKG_DIR}/target/app/"
+
+          # 复制虚拟环境
+          cp -r /tmp/venv "${PKG_DIR}/target/venv"
+
+          # ===== INFO 文件 (DSM7 包元数据) =====
+          cat > "${PKG_DIR}/INFO" << 'EOF'
+          package="dorm-management-system"
+          version="1.0.0"
+          arch="x86_64"
+          description="宿舍管理系统 - Web端宿舍管理平台，支持水电费管理、房间管理、人员管理等"
+          maintainer="Dorm Management"
+          displayname="宿舍管理系统"
+          os_min_ver="7.0-40000"
+          os_max_ver="7.2-99999"
+          startable="yes"
+          changelog="初始版本"
+          EOF
+
+          # ===== 安装向导 (DSM7 JSON 格式) =====
+          cat > "${PKG_DIR}/WIZARD_UIFILES/install_uifile" << 'WIZEOF'
+          [
+            {
+              "step_title": "宿舍管理系统 - 安装配置",
+              "items": [
+                {
+                  "type": "textfield",
+                  "desc": "请设置Web服务端口（默认35168，修改后需确认端口未被占用）",
+                  "subitems": [
+                    {
+                      "key": "pkgwizard_server_port",
+                      "desc": "服务端口",
+                      "defaultValue": "35168",
+                      "validator": {
+                        "allowBlank": false,
+                        "type": "number",
+                        "min": 1024,
+                        "max": 65535
+                      }
+                    }
+                  ]
+                },
+                {
+                  "type": "multiselect",
+                  "desc": "安装说明",
+                  "subitems": [
+                    {
+                      "key": "pkgwizard_note_1",
+                      "desc": "本应用为原生Python运行，无需Docker/Container Manager",
+                      "defaultValue": true,
+                      "disabled": true
+                    },
+                    {
+                      "key": "pkgwizard_note_2",
+                      "desc": "安装完成后，通过浏览器访问 http://NAS_IP:端口 使用系统",
+                      "defaultValue": true,
+                      "disabled": true
+                    },
+                    {
+                      "key": "pkgwizard_note_3",
+                      "desc": "默认管理员账号: admin / 密码: admin123，请登录后及时修改",
+                      "defaultValue": true,
+                      "disabled": true
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+          WIZEOF
+
+          # ===== 安装后脚本 =====
+          cat > "${PKG_DIR}/PACKAGE/scripts/postinst" << 'POSTEOF'
+          #!/bin/sh
+          # 设置虚拟环境和数据目录权限
+          PKG_DIR="/var/packages/${SYNOPKG_PKGNAME}/target"
+          chmod -R 755 "${PKG_DIR}/venv"
+          chmod -R 755 "${PKG_DIR}/app"
+          mkdir -p "${PKG_DIR}/data"
+          chmod 755 "${PKG_DIR}/data"
+          mkdir -p "${PKG_DIR}/var"
+          chmod 755 "${PKG_DIR}/var"
+          POSTEOF
+          chmod +x "${PKG_DIR}/PACKAGE/scripts/postinst"
+
+          # ===== 卸载前脚本 =====
+          cat > "${PKG_DIR}/PACKAGE/scripts/preuninst" << 'PREUNEOF'
+          #!/bin/sh
+          # 服务会由DSM自动停止，无需额外操作
+          PREUNEOF
+          chmod +x "${PKG_DIR}/PACKAGE/scripts/preuninst"
+
+          # ===== 卸载后脚本 =====
+          cat > "${PKG_DIR}/PACKAGE/scripts/postuninst" << 'POSTUNEOF'
+          #!/bin/sh
+          # 保留数据目录提示（数据目录在 /var/packages/ 下，DSM卸载时会自动处理）
+          POSTUNEOF
+          chmod +x "${PKG_DIR}/PACKAGE/scripts/postuninst"
+
+          # ===== 启动停止状态脚本 =====
+          cat > "${PKG_DIR}/PACKAGE/scripts/start-stop-status" << 'SSEOF'
+          #!/bin/sh
+          # 宿舍管理系统服务管理脚本 (Synology DSM7 原生Python)
+
+          PKG_DIR="/var/packages/${SYNOPKG_PKGNAME}/target"
+          APP_DIR="${PKG_DIR}/app"
+          VENV_DIR="${PKG_DIR}/venv"
+          PYTHON="${VENV_DIR}/bin/python"
+          DATA_DIR="${PKG_DIR}/data"
+          LOG_FILE="${PKG_DIR}/var/server.log"
+          PID_FILE="${PKG_DIR}/var/server.pid"
+
+          # 读取安装向导中设置的端口，默认 35168
+          SERVER_PORT=$(grep -r "pkgwizard_server_port" /var/packages/${SYNOPKG_PKGNAME}/etc/ 2>/dev/null | head -1 | sed 's/.*=//' | tr -d '[:space:]')
+          [ -z "${SERVER_PORT}" ] && SERVER_PORT="35168"
+
+          case "$1" in
+              start)
+                  # 确保目录存在
+                  mkdir -p "${DATA_DIR}"
+                  mkdir -p "${PKG_DIR}/var"
+
+                  # 设置环境变量
+                  export DOCKER_ENV=true
+                  export FLASK_ENV=production
+                  export SERVER_HOST=0.0.0.0
+                  export SERVER_PORT=${SERVER_PORT}
+                  export PYTHONPATH="${APP_DIR}"
+                  export PYTHONIOENCODING=utf-8
+
+                  # 启动 waitress 服务（后台运行）
+                  cd "${APP_DIR}"
+                  "${PYTHON}" -c "
+          import sys
+          sys.path.insert(0, '${APP_DIR}')
+          from main import app
+          from waitress import serve
+          serve(app, host='0.0.0.0', port=${SERVER_PORT}, threads=4)
+          " >> "${LOG_FILE}" 2>&1 &
+
+                  # 记录PID
+                  echo $! > "${PID_FILE}"
+
+                  # 等待服务启动
+                  sleep 3
+
+                  # 检查是否启动成功
+                  if kill -0 $(cat "${PID_FILE}") 2>/dev/null; then
+                      echo "服务启动成功，访问地址: http://$(hostname -I | awk '{print $1}'):${SERVER_PORT}"
+                      exit 0
+                  else
+                      echo "服务启动失败，请查看日志: ${LOG_FILE}"
+                      exit 1
+                  fi
+                  ;;
+              stop)
+                  if [ -f "${PID_FILE}" ]; then
+                      PID=$(cat "${PID_FILE}")
+                      if kill -0 "${PID}" 2>/dev/null; then
+                          kill "${PID}" 2>/dev/null
+                          # 等待进程退出
+                          for i in 1 2 3 4 5; do
+                              if ! kill -0 "${PID}" 2>/dev/null; then
+                                  break
+                              fi
+                              sleep 1
+                          done
+                          # 强制终止
+                          kill -9 "${PID}" 2>/dev/null
+                      fi
+                      rm -f "${PID_FILE}"
+                  fi
+                  exit 0
+                  ;;
+              status)
+                  if [ -f "${PID_FILE}" ] && kill -0 $(cat "${PID_FILE}") 2>/dev/null; then
+                      exit 0  # 运行中
+                  else
+                      rm -f "${PID_FILE}"
+                      exit 1  # 未运行
+                  fi
+                  ;;
+              *)
+                  echo "用法: $0 {start|stop|status}"
+                  exit 1
+                  ;;
+          esac
+          SSEOF
+          chmod +x "${PKG_DIR}/PACKAGE/scripts/start-stop-status"
+
+          # ===== 打包为 SPK =====
+          mkdir -p dist/synology
+          cd /tmp/spk-build
+          tar -czf "${GITHUB_WORKSPACE}/dist/synology/宿舍管理系统_dsm7_x86_64.spk" "${PKG_NAME}/"
+          echo "SPK 包构建完成"
+          ls -lh "${GITHUB_WORKSPACE}/dist/synology/"
+
+      - name: 📤 上传 Synology SPK
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ env.APP_NAME }}_Synology_DSM7
+          path: dist/synology/
+          retention-days: 30
+
+  # ============================================
   # 构建总结
   # ============================================
   build-summary:
     name: 📊 构建总结
     runs-on: ubuntu-latest
-    needs: [build-windows, build-docker, build-android]
+    needs: [build-windows, build-docker, build-android, build-synology]
     if: always()
 
     steps:
@@ -433,9 +715,10 @@ jobs:
           echo "  宿舍管理系统 - 构建总结"
           echo "========================================"
           echo ""
-          echo "Windows 构建: ${{ needs.build-windows.result }}"
-          echo "Docker 构建:  ${{ needs.build-docker.result }}"
-          echo "Android 构建: ${{ needs.build-android.result }}"
+          echo "Windows 构建:  ${{ needs.build-windows.result }}"
+          echo "Docker 构建:   ${{ needs.build-docker.result }}"
+          echo "Android 构建:  ${{ needs.build-android.result }}"
+          echo "Synology 构建: ${{ needs.build-synology.result }}"
           echo ""
           if [ "${{ needs.build-windows.result }}" = "success" ]; then
             echo "✅ Windows 版本构建成功"
@@ -452,6 +735,11 @@ jobs:
           else
             echo "❌ Android 版本构建失败或被跳过"
           fi
+          if [ "${{ needs.build-synology.result }}" = "success" ]; then
+            echo "✅ Synology DSM7 版本构建成功"
+          else
+            echo "❌ Synology DSM7 版本构建失败或被跳过"
+          fi
           echo ""
           echo "========================================"
 
@@ -461,7 +749,7 @@ jobs:
   create-release:
     name: 🚀 发布 Release
     runs-on: ubuntu-latest
-    needs: [build-windows, build-docker, build-android]
+    needs: [build-windows, build-docker, build-android, build-synology]
     if: startsWith(github.ref, 'refs/tags/v')
 
     steps:
@@ -538,6 +826,18 @@ jobs:
             cd -
           fi
 
+          # 整理 Synology DSM7 SPK
+          if [ -d "release-assets/宿舍管理系统_Synology_DSM7" ]; then
+            cd release-assets/宿舍管理系统_Synology_DSM7
+            for f in *.spk; do
+              if [ -f "$f" ]; then
+                new_name=$(echo "$f" | sed "s/v1.0/v${{ steps.version.outputs.version }}/g")
+                mv "$f" "../../release-files/$new_name"
+              fi
+            done
+            cd -
+          fi
+
           # 列出所有发布文件
           echo "========== 发布文件列表 =========="
           ls -lh release-files/
@@ -557,11 +857,13 @@ jobs:
             - **安装包**：Inno Setup 安装程序，自动配置快捷方式和卸载程序
             - **Docker镜像**：`docker load -i 宿舍管理系统_${{ steps.version.outputs.version }}_docker.tar`
             - **Android APK**：安装到安卓设备，连接服务端使用
+            - **Synology SPK**：群晖DSM7套件包，原生Python运行，无需Docker/Container Manager，手动安装SPK即可使用
 
             ### 使用方式
             1. Windows 用户推荐下载安装包，双击安装即可
             2. Docker 用户下载 tar 文件后使用 `docker load` 导入
             3. Android 用户下载 APK 安装后输入服务器地址
+            4. 群晖用户下载 SPK 文件，在套件中心 → 手动安装中选择SPK文件安装（无需Docker）
           draft: false
           prerelease: false
           files: release-files/*
