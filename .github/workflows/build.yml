@@ -952,6 +952,32 @@ jobs:
           chmod +x "${PKG_DIR}/PACKAGE/scripts/start-stop-status"
 
           # ============================================================
+          # 10.5 去除heredoc文件的前导空格
+          # YAML中heredoc内容继承缩进，导致每行有10个前导空格
+          # INFO/JSON/INI文件有前导空格则群晖无法解析
+          # Shell脚本shebang有前导空格则无法执行
+          # ============================================================
+          for f in \
+            "${PKG_DIR}/INFO" \
+            "${PKG_DIR}/PACKAGE/conf/privilege/privilege" \
+            "${PKG_DIR}/PACKAGE/conf/resource/dorm-management-system.sc" \
+            "${PKG_DIR}/app/config" \
+            "${PKG_DIR}/WIZARD_UIFILES/install_uifile" \
+            "${PKG_DIR}/PACKAGE/scripts/preinst" \
+            "${PKG_DIR}/PACKAGE/scripts/postinst" \
+            "${PKG_DIR}/PACKAGE/scripts/preuninst" \
+            "${PKG_DIR}/PACKAGE/scripts/postuninst" \
+            "${PKG_DIR}/PACKAGE/scripts/preupgrade" \
+            "${PKG_DIR}/PACKAGE/scripts/postupgrade" \
+            "${PKG_DIR}/PACKAGE/scripts/start-stop-status"; do
+            sed -i 's/^          //' "$f"
+          done
+
+          # 验证INFO文件无前导空格
+          echo "========== INFO文件前3行 =========="
+          head -3 "${PKG_DIR}/INFO" | cat -A
+
+          # ============================================================
           # 11. 打包为 SPK
           # SPK格式: tar.gz，根目录直接包含 INFO, PACKAGE_ICON 等文件
           # 参考: DSM Developer Guide - Build and Install Package
