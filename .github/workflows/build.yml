@@ -41,6 +41,33 @@ jobs:
       - name: 📥 检出代码
         uses: actions/checkout@v7
 
+      - name: 🔖 提取版本号
+        id: version
+        shell: bash
+        run: |
+          HAS_VERSION=false
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            TAG_NAME="${GITHUB_REF#refs/tags/}"
+            HAS_VERSION=true
+          else
+            COMMIT_MSG="${{ github.event.head_commit.message }}"
+            TAG_NAME=$(echo "$COMMIT_MSG" | grep -oiE 'v[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1)
+            if [ -n "$TAG_NAME" ]; then
+              HAS_VERSION=true
+            fi
+          fi
+          if [ "$HAS_VERSION" = true ]; then
+            VERSION="${TAG_NAME#v}"
+            echo "tag=$TAG_NAME" >> $GITHUB_OUTPUT
+            echo "version=$VERSION" >> $GITHUB_OUTPUT
+            echo "has_version=true" >> $GITHUB_OUTPUT
+            echo "✅ 检测到版本号: $TAG_NAME"
+          else
+            echo "version=" >> $GITHUB_OUTPUT
+            echo "has_version=false" >> $GITHUB_OUTPUT
+            echo "ℹ️ 未检测到版本号，跳过发布"
+          fi
+
       - name: 🐍 设置 Python ${{ env.PYTHON_VERSION }}
         uses: actions/setup-python@v7
         with:
@@ -84,89 +111,84 @@ jobs:
         run: |
           New-Item -ItemType Directory -Path "Auto_Setup\Output" -Force
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "Auto_Setup\installer_script.iss" /O"Auto_Setup\Output"
-          if (Test-Path "Auto_Setup\Output\宿舍管理系统_Setup_v1.0.exe") {
-            Move-Item -Path "Auto_Setup\Output\宿舍管理系统_Setup_v1.0.exe" -Destination "Auto_Setup\Output\宿舍管理系统_Setup_v1.0_单文件.exe" -Force
+          $version = "${{ steps.version.outputs.version }}"
+          $srcFile = "Auto_Setup\Output\宿舍管理系统_Setup_v1.0.exe"
+          if (Test-Path $srcFile) {
+            if ($version -ne "") {
+              Move-Item -Path $srcFile -Destination "Auto_Setup\Output\宿舍管理系统_v${version}_安装版_单文件.exe" -Force
+            } else {
+              Move-Item -Path $srcFile -Destination "Auto_Setup\Output\宿舍管理系统_安装版_单文件.exe" -Force
+            }
           }
 
       - name: 🔨 Inno Setup 打包 (多文件安装包)
         run: |
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "Auto_Setup\installer_script_multifile.iss" /O"Auto_Setup\Output"
-          if (Test-Path "Auto_Setup\Output\宿舍管理系统_Setup_v1.0.exe") {
-            Rename-Item -Path "Auto_Setup\Output\宿舍管理系统_Setup_v1.0.exe" -NewName "宿舍管理系统_Setup_v1.0_多文件.exe"
+          $version = "${{ steps.version.outputs.version }}"
+          $srcFile = "Auto_Setup\Output\宿舍管理系统_Setup_v1.0.exe"
+          if (Test-Path $srcFile) {
+            if ($version -ne "") {
+              Rename-Item -Path $srcFile -NewName "宿舍管理系统_v${version}_安装版_多文件.exe"
+            } else {
+              Rename-Item -Path $srcFile -NewName "宿舍管理系统_安装版_多文件.exe"
+            }
           }
 
       - name: 📁 整理输出
         run: |
+          $version = "${{ steps.version.outputs.version }}"
+          # 绿色版·单文件
           $singleDir = "dist/windows-single"
           if (-not (Test-Path $singleDir)) { New-Item -ItemType Directory -Path $singleDir -Force }
           if (Test-Path "dist/宿舍管理系统.exe") {
-            Move-Item -Path "dist/宿舍管理系统.exe" -Destination $singleDir -Force
+            if ($version -ne "") {
+              Move-Item -Path "dist/宿舍管理系统.exe" -Destination "dist/windows-single/宿舍管理系统_v${version}_绿色版_单文件.exe" -Force
+            } else {
+              Move-Item -Path "dist/宿舍管理系统.exe" -Destination "dist/windows-single/宿舍管理系统_绿色版_单文件.exe" -Force
+            }
           }
 
+          # 绿色版·多文件
           $multiDir = "dist/windows-multi"
           if (-not (Test-Path $multiDir)) { New-Item -ItemType Directory -Path $multiDir -Force }
           if (Test-Path "dist/宿舍管理系统") {
             Copy-Item -Path "dist/宿舍管理系统" -Destination $multiDir -Recurse -Force
           }
 
+          # 安装版
           $installerDir = "dist/windows-installer"
           if (-not (Test-Path $installerDir)) { New-Item -ItemType Directory -Path $installerDir -Force }
-          if (Test-Path "Auto_Setup\Output\宿舍管理系统_Setup_v1.0_单文件.exe") {
-            Move-Item -Path "Auto_Setup\Output\宿舍管理系统_Setup_v1.0_单文件.exe" -Destination $installerDir -Force
-          }
-          if (Test-Path "Auto_Setup\Output\宿舍管理系统_Setup_v1.0_多文件.exe") {
-            Move-Item -Path "Auto_Setup\Output\宿舍管理系统_Setup_v1.0_多文件.exe" -Destination $installerDir -Force
-          }
+          $singleInstaller = Get-ChildItem -Path "Auto_Setup\Output" -Filter "宿舍管理系统_*_安装版_单文件.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+          $multiInstaller = Get-ChildItem -Path "Auto_Setup\Output" -Filter "宿舍管理系统_*_安装版_多文件.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+          if ($singleInstaller) { Move-Item -Path $singleInstaller.FullName -Destination $installerDir -Force }
+          if ($multiInstaller) { Move-Item -Path $multiInstaller.FullName -Destination $installerDir -Force }
 
-      - name: 📤 上传 Windows 单文件版
+      - name: 📤 上传 Windows 绿色版·单文件
         uses: actions/upload-artifact@v7
         with:
-          name: ${{ env.APP_NAME }}_Windows_单文件版
+          name: ${{ env.APP_NAME }}_Windows_绿色版_单文件
           path: dist/windows-single/
           retention-days: 30
 
-      - name: 📤 上传 Windows 多文件版
+      - name: 📤 上传 Windows 绿色版·多文件
         uses: actions/upload-artifact@v7
         with:
-          name: ${{ env.APP_NAME }}_Windows_多文件版
+          name: ${{ env.APP_NAME }}_Windows_绿色版_多文件
           path: dist/windows-multi/
           retention-days: 30
 
-      - name: 📤 上传 Windows 安装包
+      - name: 📤 上传 Windows 安装版
         uses: actions/upload-artifact@v7
         with:
-          name: ${{ env.APP_NAME }}_Windows_安装包
+          name: ${{ env.APP_NAME }}_Windows_安装版
           path: dist/windows-installer/
           retention-days: 30
 
-      - name: 🔖 提取版本号
-        id: version
-        shell: bash
-        run: |
-          HAS_VERSION=false
-          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
-            TAG_NAME="${GITHUB_REF#refs/tags/}"
-            HAS_VERSION=true
-          else
-            COMMIT_MSG="${{ github.event.head_commit.message }}"
-            TAG_NAME=$(echo "$COMMIT_MSG" | grep -oiE 'v[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1)
-            if [ -n "$TAG_NAME" ]; then
-              HAS_VERSION=true
-            fi
-          fi
-          if [ "$HAS_VERSION" = true ]; then
-            echo "tag=$TAG_NAME" >> $GITHUB_OUTPUT
-            echo "has_version=true" >> $GITHUB_OUTPUT
-            echo "✅ 检测到版本号: $TAG_NAME"
-          else
-            echo "has_version=false" >> $GITHUB_OUTPUT
-            echo "ℹ️ 未检测到版本号，跳过发布"
-          fi
-
-      - name: 📦 打包多文件版为 zip
+      - name: 📦 打包绿色版·多文件为 zip
         if: steps.version.outputs.has_version == 'true'
         run: |
-          Compress-Archive -Path "dist\windows-multi\*" -DestinationPath "dist\windows-multi.zip"
+          $version = "${{ steps.version.outputs.version }}"
+          Compress-Archive -Path "dist\windows-multi\*" -DestinationPath "dist\宿舍管理系统_v${version}_绿色版_多文件.zip"
 
       - name: 🚀 发布到 Release
         if: steps.version.outputs.has_version == 'true'
@@ -178,19 +200,23 @@ jobs:
             ## 📦 宿舍管理系统 ${{ steps.version.outputs.tag }}
 
             ### 下载说明
-            - **单文件版**：独立可执行文件，无需安装，直接运行
-            - **多文件版**：解压后运行主程序，启动更快
-            - **安装包**：Inno Setup 安装程序，自动配置快捷方式和卸载程序
-            - **Docker镜像**：`docker load -i docker-image.tar`
+            | 文件 | 说明 |
+            |------|------|
+            | `*_绿色版_单文件.exe` | 独立可执行文件，无需安装，直接运行 |
+            | `*_绿色版_多文件.zip` | 解压后运行主程序，启动更快 |
+            | `*_安装版_单文件.exe` | Inno Setup 安装程序（单文件模式），自动配置快捷方式和卸载程序 |
+            | `*_安装版_多文件.exe` | Inno Setup 安装程序（多文件模式），自动配置快捷方式和卸载程序 |
+            | `*_Docker镜像.tar` | Docker 镜像，使用 `docker load -i` 导入 |
 
             ### 使用方式
-            1. Windows 用户推荐下载安装包，双击安装即可
-            2. Docker 用户下载 tar 文件后使用 `docker load` 导入
+            1. **绿色版**：下载后直接运行，无需安装
+            2. **安装版**：双击安装程序，自动配置快捷方式和卸载程序
+            3. **Docker**：下载 tar 文件后使用 `docker load -i 文件名.tar` 导入
           draft: false
           prerelease: false
           files: |
             dist/windows-single/*.exe
-            dist/windows-multi.zip
+            dist/宿舍管理系统_*_绿色版_多文件.zip
             dist/windows-installer/*.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -209,28 +235,6 @@ jobs:
       - name: 📥 检出代码
         uses: actions/checkout@v7
 
-      - name: 🔧 设置 Docker Buildx
-        uses: docker/setup-buildx-action@v4
-
-      - name: 🏗️ 构建并导出 Docker 镜像
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          file: Auto_Setup/dockerfile
-          push: false
-          outputs: type=docker,dest=docker-image.tar
-          tags: ${{ env.DOCKER_IMAGE_NAME }}:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          platforms: linux/amd64
-
-      - name: 📤 上传 Docker 镜像
-        uses: actions/upload-artifact@v7
-        with:
-          name: ${{ env.APP_NAME }}_Docker镜像
-          path: docker-image.tar
-          retention-days: 30
-
       - name: 🔖 提取版本号
         id: version
         run: |
@@ -246,13 +250,45 @@ jobs:
             fi
           fi
           if [ "$HAS_VERSION" = true ]; then
+            VERSION="${TAG_NAME#v}"
             echo "tag=$TAG_NAME" >> $GITHUB_OUTPUT
+            echo "version=$VERSION" >> $GITHUB_OUTPUT
             echo "has_version=true" >> $GITHUB_OUTPUT
             echo "✅ 检测到版本号: $TAG_NAME"
           else
+            echo "version=" >> $GITHUB_OUTPUT
             echo "has_version=false" >> $GITHUB_OUTPUT
             echo "ℹ️ 未检测到版本号，跳过发布"
           fi
+
+      - name: 🔧 设置 Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: 🏗️ 构建并导出 Docker 镜像
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: Auto_Setup/dockerfile
+          push: false
+          outputs: type=docker,dest=docker-image.tar
+          tags: ${{ env.DOCKER_IMAGE_NAME }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64
+
+      - name: 📦 重命名 Docker 镜像文件
+        if: steps.version.outputs.has_version == 'true'
+        run: |
+          mv docker-image.tar "宿舍管理系统_${{ steps.version.outputs.tag }}_Docker镜像.tar"
+
+      - name: 📤 上传 Docker 镜像
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ env.APP_NAME }}_Docker镜像
+          path: |
+            宿舍管理系统_*_Docker镜像.tar
+            docker-image.tar
+          retention-days: 30
 
       - name: 🚀 发布到 Release
         if: steps.version.outputs.has_version == 'true'
@@ -260,7 +296,7 @@ jobs:
         with:
           tag_name: ${{ steps.version.outputs.tag }}
           name: 宿舍管理系统 ${{ steps.version.outputs.tag }}
-          files: docker-image.tar
+          files: 宿舍管理系统_*_Docker镜像.tar
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
