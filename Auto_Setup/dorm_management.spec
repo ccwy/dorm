@@ -31,6 +31,8 @@ db_config_path = os.path.join(data_dir, 'db_config.json')
 data_db_path = os.path.join(data_dir, 'data.db')
 
 # 添加更多的隐藏导入
+# 注意：pandas/openpyxl/pymysql 使用延迟导入（lazy_imports.py），
+# PyInstaller静态分析无法检测到这些依赖，必须显式收集所有子模块
 additional_hidden_imports = [
     'pymysql',
     'cryptography',
@@ -51,6 +53,14 @@ additional_hidden_imports = [
     'psutil'
 ]
 
+# 收集延迟导入库的所有子模块，确保打包完整
+lazy_import_submodules = (
+    collect_submodules('pymysql') +
+    collect_submodules('pandas') +
+    collect_submodules('openpyxl') +
+    collect_submodules('numpy')
+)
+
 a = Analysis(
     [os.path.join(project_root, 'main.py')],
     pathex=[project_root],
@@ -67,26 +77,21 @@ a = Analysis(
         collect_submodules('blueprints') +
         collect_submodules('models') +
         collect_submodules('utils') +
-        additional_hidden_imports
+        additional_hidden_imports +
+        lazy_import_submodules
     ),
     # 排除不需要的模块以减小包体积和加速启动
+    # 注意：仅排除确定不被任何依赖项使用的模块，避免运行时 ImportError
     excludes=[
         'pysqlite2', 'MySQLdb', 'psycopg2',  # 不需要的数据库驱动
         'tkinter', '_tkinter',  # Tkinter GUI库（本项目使用WebView2）
         'unittest', 'test', 'tests',  # 测试框架
         'setuptools', 'pip', 'wheel',  # 包管理工具
-        'distutils',  # 已弃用的构建工具
         'pydoc', 'doctest',  # 文档工具
         'xmlrpc',  # XML-RPC（不需要）
-        'multiprocessing',  # 多进程（本项目用线程）
-        'asyncio',  # 异步IO（Flask同步模式）
-        'email',  # 邮件处理（不需要）
-        'html.parser',  # HTML解析（Flask/Jinja2自带）
-        'http.server',  # HTTP服务器（使用waitress）
         'py_compile', 'compileall',  # 编译工具
-        'zipimport',  # ZIP导入
         'cProfile', 'profile', 'pstats',  # 性能分析工具
-        'symtable', 'token', 'tokenize',  # 词法分析
+        'zipimport',  # ZIP导入
     ],
     hookspath=[],
     hooksconfig={},

@@ -15,7 +15,14 @@ class _LazyModule:
     
     def _load(self):
         if self._module is None:
-            self._module = importlib.import_module(self._name)
+            try:
+                self._module = importlib.import_module(self._name)
+            except ImportError as e:
+                raise ImportError(
+                    f"延迟导入模块 '{self._name}' 失败。"
+                    f"如果正在打包环境运行，请确保在spec文件的hiddenimports中"
+                    f"包含 '{self._name}' 及其子模块。原始错误: {e}"
+                ) from e
         return self._module
     
     def __getattr__(self, name):
@@ -37,8 +44,15 @@ class _LazyAttr:
     
     def _resolve(self):
         if self._resolved is None:
-            module = importlib.import_module(self._module_path)
-            self._resolved = getattr(module, self._attr_name)
+            try:
+                module = importlib.import_module(self._module_path)
+                self._resolved = getattr(module, self._attr_name)
+            except ImportError as e:
+                raise ImportError(
+                    f"延迟导入 '{self._module_path}.{self._attr_name}' 失败。"
+                    f"如果正在打包环境运行，请确保在spec文件的hiddenimports中"
+                    f"包含 '{self._module_path}' 及其子模块。原始错误: {e}"
+                ) from e
         return self._resolved
     
     def __call__(self, *args, **kwargs):
