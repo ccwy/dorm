@@ -1,0 +1,1167 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+   <!--本地化CDN-->
+{% include 'static.html' %}
+
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#165DFF',
+                        secondary: '#36CFC9',
+                        accent: '#722ED1',
+                    },
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+
+{% include 'header.html' %}
+    <main class="container mx-auto px-4 py-6">
+        <div class="flex items-center mb-6">
+            <button onclick="history.back()" class="text-primary hover:text-primary/80 mr-2">
+                <i class="fa fa-arrow-left"></i>
+            </button>
+            <h2 class="text-2xl font-semibold text-dark">{{ title }}</h2>
+            <div class="flex-grow"></div>
+            <button id="refreshPage" onclick="location.reload()" class="text-primary hover:text-primary/80 ml-2">
+                <i class="fa fa-refresh"></i> 刷新
+            </button>
+        </div>
+        
+        <!-- 操作结果消息 -->
+        <div id="operationResult" class="w-full max-w-none mx-auto mb-4 px-4 hidden">
+            <div id="successMessage" class="p-3 rounded-md bg-green-100 text-green-700 hidden">
+                <i class="fa fa-check-circle mr-2"></i>
+                <span></span>
+            </div>
+            <div id="failMessage" class="p-3 rounded-md bg-red-100 text-red-700 hidden">
+                <i class="fa fa-times-circle mr-2"></i>
+                <span></span>
+            </div>
+        </div>
+        
+        <!-- 显示flash消息 -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="w-full max-w-none mx-auto mb-4 px-4">
+                    {% for category, message in messages %}
+                        <div class="p-3 rounded-md {% if category == 'danger' %}bg-red-100 text-red-700{% elif category == 'warning' %}bg-yellow-100 text-yellow-700{% else %}bg-green-100 text-green-700{% endif %}">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+        
+        <!-- 主卡片容器 -->
+        <div class="bg-white rounded-lg shadow-sm p-6 w-full max-w-none mx-auto">
+            <form id="allocationForm" method="POST" action="{{ url_for('dorm.add') }}">
+                <div class="grid grid-cols-1 lg:grid-cols-8 gap-8">
+                    <!-- 选择用户 - 占3列 -->
+                    <div class="lg:col-span-3">
+                        <h3 class="text-lg font-semibold mb-4 pb-2 border-b border-gray-200">选择未分配用户 <span class="text-red-500 text-sm">*</span></h3>
+                        
+                        <div class="mb-4 flex flex-wrap gap-3">
+                            <div class="relative flex-1 min-w-[180px]">
+                                <input type="text" id="searchUser" placeholder="搜索用户..." 
+                                    class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                                <i class="fa fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                            </div>
+                            
+                            <select id="userDeptFilter" class="border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/50 min-w-[120px]">
+                                <option value="">所有部门</option>
+                                {% set departments = [] %}
+                                {% for user in users if not user.is_allocated %}
+                                    {% if user.department and user.department not in departments %}
+                                        {% set _ = departments.append(user.department) %}
+                                        <option value="{{ user.department }}">{{ user.department }}</option>
+                                    {% endif %}
+                                {% endfor %}
+                            </select>
+                            
+                            <select id="userGenderFilter" class="border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/50 min-w-[100px]">
+                                <option value="">所有性别</option>
+                                <option value="男">男</option>
+                                <option value="女">女</option>
+                            </select>
+                        </div>
+                        
+                        <!-- 加载指示器 -->
+                        <div id="userLoadingIndicator" class="hidden absolute inset-0 bg-white/80 flex items-center justify-center z-10">
+                            <div class="w-10 h-10 border-4 border-primary/30 border-t-primary rounded-full animate-spin"></div>
+                        </div>
+                        
+                        <div class="border border-gray-200 rounded-md h-[400px] overflow-y-auto mb-4 relative">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50 sticky top-0">
+                                    <tr>
+                                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-10">
+                                            <input type="radio" id="selectAllUsers" name="user_selector" value="all" disabled>
+                                        </th>
+                                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">姓名</th>
+                                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">性别</th>
+                                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">年龄</th>
+                                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">部门</th>
+                                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">职位</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200" id="userTableBody">
+                                    {% for user in users if not user.is_allocated %}
+                                    <tr class="hover:bg-gray-50 cursor-pointer">
+                                        <td class="px-4 py-3 whitespace-nowrap">
+                                            <input type="radio" class="user-radio" 
+                                                name="user_id" value="{{ user.id }}" 
+                                                data-id="{{ user.id }}" 
+                                                data-gender="{{ user.gender }}"
+                                                data-department="{{ user.department or '' }}">
+                                        </td>
+                                        <td class="px-4 py-3 whitespace-nowrap">{{ user.name }}</td>
+                                        <td class="px-4 py-3 whitespace-nowrap">{{ user.gender }}</td>
+                                        <td class="px-4 py-3 whitespace-nowrap">{{ user.get_age() or '-'  }}</td>
+                                        <td class="px-4 py-3 whitespace-nowrap">{{ user.department or '-' }}</td>
+                                        <td class="px-4 py-3 whitespace-nowrap">{{ user.position or '-' }}</td>
+                                    </tr>
+                                    {% else %}
+                                    <tr>
+                                        <td colspan="6" class="px-4 py-3 text-center text-gray-500">无未分配用户</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <div class="text-sm text-gray-500">
+                            共 <span id="totalUsers">
+                                {{ users|selectattr('is_allocated', 'equalto', false)|list|length }}
+                            </span> 名未分配用户
+                            <span class="ml-2 text-gray-400" id="filteredUsersCount"></span>
+                        </div>
+                        
+                        <!-- 房间已住人员信息卡片 -->
+                        <div id="roomOccupantsCard" class="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-200 hidden">
+                            <h4 class="text-md font-semibold mb-2">房间已住人员信息</h4>
+                            <div id="roomOccupantsContent" class="text-sm">
+                                <p class="text-gray-500">请选择一个宿舍房间</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 选择宿舍 - 占5列 -->
+                    <div class="lg:col-span-5">
+                        <h3 class="text-lg font-semibold mb-4 pb-2 border-b border-gray-200">选择可用宿舍 <span class="text-red-500 text-sm">*</span></h3>
+                        
+                        <div class="mb-4 flex flex-wrap gap-3">
+                            <div class="relative flex-1 min-w-[180px]">
+                                <input type="text" id="searchDorm" placeholder="搜索宿舍号..." 
+                                    class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                                <i class="fa fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                            </div>
+                            
+                            <select id="buildingFilter" class="border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/50 min-w-[120px]">
+                                <option value="">所有楼栋</option>
+                                {% set buildings = [] %}
+                                {% for room in available_rooms %}
+                                    {% if room.building and room.building not in buildings %}
+                                        {% set _ = buildings.append(room.building) %}
+                                        <option value="{{ room.building }}">{{ room.building }}</option>
+                                    {% endif %}
+                                {% endfor %}
+                            </select>
+                            
+                            <select id="genderFilter" class="border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/50 min-w-[100px]">
+                                <option value="">所有性别</option>
+                                <option value="男">男</option>
+                                <option value="女">女</option>
+                            </select>
+                            
+                            <select id="roomTypeFilter" class="border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/50 min-w-[100px]">
+                                <option value="">所有类型</option>
+                                {% set room_types = [] %}
+                                {% for room in available_rooms %}
+                                    {% if room.room_type not in room_types %}
+                                        {% set _ = room_types.append(room.room_type) %}
+                                        <option value="{{ room.room_type }}">{{ room.room_type }}</option>
+                                    {% endif %}
+                                {% endfor %}
+                            </select>
+
+                            <select id="roomLevelFilter" class="border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/50 min-w-[100px]">
+                                <option value="">所有级别</option>
+                                {% set room_levels = [] %}
+                                {% for room in available_rooms %}
+                                    {% if room.room_level and room.room_level not in room_levels %}
+                                        {% set _ = room_levels.append(room.room_level) %}
+                                        <option value="{{ room.room_level }}">{{ room.room_level }}</option>
+                                    {% endif %}
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <!-- 性别筛选提示 -->
+                        <div id="genderFilterHint" class="mb-4 p-2 bg-blue-50 text-blue-700 text-sm rounded hidden">
+                            <i class="fa fa-info-circle mr-1"></i>
+                            <span>已根据选中用户性别自动隐藏不匹配的宿舍</span>
+                            <button type="button" id="clearGenderFilter" class="ml-2 text-blue-600 hover:underline">清除</button>
+                        </div>
+                        
+                        <div class="border border-gray-200 rounded-md h-[400px] overflow-y-auto mb-4">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50 sticky top-0">
+                                    <tr>
+                                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-10">
+                                            <input type="radio" id="selectAllDorms" name="dorm_selector" value="all" disabled>
+                                        </th>
+                                        
+                                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">宿舍号</th>
+                                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">性别限制</th>
+                                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">房间级别</th>
+                                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">容量</th>
+                                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">已住</th>
+                                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">可用</th>
+                                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">使用率</th>
+                                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">平均年龄</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200" id="dormTableBody">
+                                    {% for room in available_rooms %}
+                                    <tr class="hover:bg-gray-50 cursor-pointer">
+                                        <td class="px-4 py-3 whitespace-nowrap">
+                                            <input type="radio" class="dorm-radio" 
+                                                name="room_id" value="{{ room.id }}" 
+                                                data-id="{{ room.id }}" 
+                                                data-gender="{{ room.gender_restriction }}" 
+                                                data-available="{{ room.capacity - room.current_occupancy }}"
+                                                data-room-type="{{ room.room_type }}"
+                                                data-room-level="{{ room.room_level}}">
+                                        </td>
+                                        
+                                        <td class="px-4 py-3 whitespace-nowrap">{{ room.building }}{{ room.room_number }}</td>
+                                        <td class="px-4 py-3 whitespace-nowrap">
+                                            {{ room.gender_restriction }}
+                                        </td>
+                                        <td class="px-4 py-3 whitespace-nowrap">{{ room.room_level}}</td>
+                                        <td class="px-4 py-3 whitespace-nowrap">{{ room.capacity }}</td>
+                                        <td class="px-4 py-3 whitespace-nowrap current-occupancy">{{ room.current_occupancy }}</td>
+                                        <td class="px-4 py-3 whitespace-nowrap room-available">{{ room.capacity - room.current_occupancy }}</td>
+                                        <td class="px-4 py-3 whitespace-nowrap">
+                                            <div class="w-20 bg-gray-200 rounded-full h-2">
+                                                {% set usage = (room.current_occupancy / room.capacity) * 100 %}
+                                                <div class="bg-green-500 h-2 rounded-full room-usage-bar" style="width: {{ usage }}%"></div>
+                                            </div>
+                                            <span class="text-xs room-usage-text">{{ "%.0f%%"|format(usage) }}</span>
+                                        </td>
+                                        <td class="px-4 py-3 whitespace-nowrap">
+                                            {{ room.average_age if room.average_age else '-' }}
+                                        </td>
+                                    </tr>
+                                    {% else %}
+                                    <tr>
+                                        <td colspan="9" class="px-4 py-3 text-center text-gray-500">无可用宿舍</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <!-- 分配信息 -->
+                        <div class="bg-gray-50 p-4 rounded-md mb-4">
+                            <h4 class="font-medium mb-2">分配信息</h4>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div>
+                                    <p class="text-sm text-gray-500">选中用户</p>
+                                    <p class="font-medium" id="selectedUserName">未选择</p>
+                                </div>
+                                <div>
+                                    <p class="text-sm text-gray-500">选中宿舍</p>
+                                    <p class="font-medium" id="selectedDormName">未选择</p>
+                                </div>
+                                <div>
+                                    <p class="text-sm text-gray-500">入住日期时间 <span class="text-red-500">*</span></p>
+                                    <!-- 修改：保持datetime-local类型以支持秒级选择 -->
+                                    <input type="datetime-local" id="checkinDate" name="check_in_date" 
+                                        class="w-full px-3 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                        required>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="flex justify-end gap-3">
+                            <button type="button" onclick="history.back()" class="px-6 py-2 border border-gray-300 rounded-md hover:bg-gray-50">取消</button>
+                            <button type="button" id="confirmAllocationBtn" 
+                                    class="px-6 py-2 bg-green-500 text-white rounded-md hover:bg-green-600">
+                                确认分配
+                            </button>
+                            <button type="button" id="continueAllocationBtn" 
+                                    class="px-6 py-2 bg-primary text-white rounded-md hover:bg-primary/90">
+                                连续分配
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </main>
+
+    <!-- 分配确认模态框 -->
+    <div id="confirmModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-lg p-6 w-full max-w-md">
+            <h3 class="text-lg font-semibold mb-4">确认分配</h3>
+            <p class="text-gray-600 mb-4" id="modalActionText">您确定要将选中的用户分配到选中的宿舍吗？</p>
+            <div class="bg-gray-50 p-4 rounded-md mb-4 text-sm">
+                <p><span class="font-medium">选中用户：</span><span id="modalUser"></span></p>
+                <p><span class="font-medium">分配宿舍：</span><span id="modalDorm"></span></p>
+                <p><span class="font-medium">入住日期时间：</span><span id="modalCheckinDate"></span></p>
+            </div>
+            <div class="flex justify-end gap-3">
+                <button id="cancelModalBtn" class="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50">取消</button>
+                <button id="submitAllocationBtn" class="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600">确认</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 错误提示模态框 -->
+    <div id="errorModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-lg p-6 w-full max-w-md">
+            <h3 class="text-lg font-semibold mb-2 text-red-500">
+                <i class="fa fa-exclamation-circle mr-2"></i>操作失败
+            </h3>
+            <p class="text-gray-600 mb-4" id="errorMessage">请完成所有必填项</p>
+            <div class="flex justify-end">
+                <button id="closeErrorModal" class="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90">
+                    确定
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 加载中模态框 -->
+    <div id="loadingModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-lg p-6 w-full max-w-xs text-center">
+            <div class="w-12 h-12 border-4 border-primary/30 border-t-primary rounded-full animate-spin mx-auto mb-4"></div>
+            <p class="text-gray-700">正在处理分配...</p>
+        </div>
+    </div>
+
+     <!-- 页脚 -->
+    {% include 'footer.html' %}
+    
+    <script>
+        // 全局变量定义
+        let selectedUserGender = null;
+        let isAutoGenderFilterApplied = false;
+        let allocationMode = 'normal'; // 'normal' 或 'continue'
+        const genderFilterSelect = document.getElementById('genderFilter');
+        const allocationForm = document.getElementById('allocationForm');
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            const confirmAllocationBtn = document.getElementById('confirmAllocationBtn');
+            const continueAllocationBtn = document.getElementById('continueAllocationBtn');
+            const confirmModal = document.getElementById('confirmModal');
+            const cancelModalBtn = document.getElementById('cancelModalBtn');
+            const submitAllocationBtn = document.getElementById('submitAllocationBtn');
+            const checkinDate = document.getElementById('checkinDate');
+            const selectedUserName = document.getElementById('selectedUserName');
+            const selectedDormName = document.getElementById('selectedDormName');
+            const errorModal = document.getElementById('errorModal');
+            const errorMessage = document.getElementById('errorMessage');
+            const closeErrorModal = document.getElementById('closeErrorModal');
+            const genderFilterHint = document.getElementById('genderFilterHint');
+            const clearGenderFilterBtn = document.getElementById('clearGenderFilter');
+            const loadingModal = document.getElementById('loadingModal');
+            const modalActionText = document.getElementById('modalActionText');
+            
+            // 初始化日期时间为当前时间（精确到秒）
+            const today = new Date();
+            // 只清除毫秒，保留秒数
+            today.setMilliseconds(0);
+
+            // 使用本地时间而非UTC时间
+            // 获取本地时间的年、月、日、时、分、秒
+            const year = today.getFullYear();
+            const month = String(today.getMonth() + 1).padStart(2, '0'); // 月份从0开始
+            const day = String(today.getDate()).padStart(2, '0');
+            const hours = String(today.getHours()).padStart(2, '0');
+            const minutes = String(today.getMinutes()).padStart(2, '0');
+            const seconds = String(today.getSeconds()).padStart(2, '0');
+
+            // 格式化为datetime-local输入字段所需的格式：YYYY-MM-DDThh:mm:ss
+            checkinDate.value = `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
+            
+            // 初始化筛选功能
+            initFilters();
+            
+            // 绑定事件监听器
+            bindEventListeners();
+            
+            // 验证并确保只显示未住宿人员
+            validateAndFilterUnallocatedUsers();
+            
+
+            // 绑定按钮事件
+            confirmAllocationBtn.addEventListener('click', function() {
+                allocationMode = 'normal';
+                handleAllocationClick();
+            });
+            
+            continueAllocationBtn.addEventListener('click', function() {
+                allocationMode = 'continue';
+                handleAllocationClick();
+            });
+            
+            // 提交分配按钮事件
+            submitAllocationBtn.addEventListener('click', submitAllocation);
+        });
+        
+        /**
+         * 处理分配按钮点击
+         */
+        function handleAllocationClick() {
+            // 验证必填项
+            const validationResult = validateRequiredFields();
+            if (!validationResult.valid) {
+                showErrorModal(validationResult.message);
+                return;
+            }
+            
+            // 根据模式更新模态框文本
+            const modalActionText = document.getElementById('modalActionText');
+            if (allocationMode === 'continue') {
+                modalActionText.textContent = '您确定要将选中的用户分配到选中的宿舍，并继续分配下一位用户吗？';
+            } else {
+                modalActionText.textContent = '您确定要将选中的用户分配到选中的宿舍吗？分配完成后将返回宿舍管理列表。';
+            }
+            
+            openConfirmModal();
+        }
+        
+        /**
+         * 提交分配
+         */
+        async function submitAllocation() {
+            // 验证必填项
+            const validationResult = validateRequiredFields();
+            if (!validationResult.valid) {
+                document.getElementById('confirmModal').classList.add('hidden');
+                showErrorModal(validationResult.message);
+                return;
+            }
+            
+            // 获取表单数据
+            const formData = new FormData(allocationForm);
+            const formDataObject = Object.fromEntries(formData.entries());
+            
+            try {
+                // 显示加载中模态框
+                document.getElementById('loadingModal').classList.remove('hidden');
+                
+                // 使用AJAX提交表单
+                const response = await fetch(allocationForm.action, {
+                    method: allocationForm.method,
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    body: new URLSearchParams(formDataObject)
+                });
+                
+                // 首先检查HTTP响应状态
+                if (!response.ok) {
+                    let errorText = `请求失败: ${response.status} ${response.statusText}`;
+                    
+                    // 尝试解析响应内容
+                    try {
+                        const contentType = response.headers.get('content-type');
+                        if (contentType && contentType.includes('application/json')) {
+                            // 尝试解析JSON错误响应
+                            const errorData = await response.json();
+                            if (errorData.message) {
+                                errorText = errorData.message;
+                            }
+                        } else {
+                            // 处理非JSON响应
+                            const text = await response.text();
+                            // 简单判断是否是HTML页面
+                            if (text.includes('<!DOCTYPE html>')) {
+                                errorText = '服务器错误，请联系管理员';
+                            } else {
+                                errorText = text;
+                            }
+                        }
+                    } catch (e) {
+                        errorText = `服务器响应异常: ${e.message}`;
+                    }
+                    
+                    throw new Error(errorText);
+                }
+                
+                // 尝试解析JSON响应
+                let result;
+                try {
+                    result = await response.json();
+                } catch (e) {
+                    throw new Error('服务器返回格式错误，无法解析响应');
+                }
+                
+                // 隐藏加载中模态框
+                document.getElementById('loadingModal').classList.add('hidden');
+                document.getElementById('confirmModal').classList.add('hidden');
+                
+                // 显示操作结果消息
+                const operationResult = document.getElementById('operationResult');
+                const successMessage = document.getElementById('successMessage');
+                const failMessage = document.getElementById('failMessage');
+                
+                operationResult.classList.remove('hidden');
+                successMessage.classList.add('hidden');
+                failMessage.classList.add('hidden');
+                
+                if (result.success) {
+                    // 显示成功消息
+                    successMessage.querySelector('span').textContent = result.message || '宿舍分配成功';
+                    successMessage.classList.remove('hidden');
+                    
+                    // 根据模式决定下一步操作
+                    if (allocationMode === 'continue') {
+                        // 连续分配模式：刷新页面以获取最新数据
+                        setTimeout(() => {
+                            location.reload();
+                        }, 1500);
+                    } else {
+                        // 普通模式：跳转到宿舍管理页面
+                        setTimeout(() => {
+                            window.location.href = '{{ url_for('dorm.manage') }}';
+                        }, 1500);
+                    }
+                } else {
+                    // 显示失败消息
+                    failMessage.querySelector('span').textContent = result.message || '宿舍分配失败';
+                    failMessage.classList.remove('hidden');
+                }
+                
+            } catch (error) {
+                console.error('提交分配时出错:', error);
+                
+                // 隐藏加载中模态框
+                document.getElementById('loadingModal').classList.add('hidden');
+                document.getElementById('confirmModal').classList.add('hidden');
+                
+                // 显示错误消息
+                showErrorModal(error.message || '提交分配失败，请重试');
+            }
+        }
+        
+        /**
+         * 重置表单状态，为下一次分配做准备
+         */
+        function resetFormState(roomId) {
+            // 清除人员选择
+            document.querySelectorAll('.user-radio:checked').forEach(radio => {
+                radio.checked = false;
+            });
+            
+            // 清除宿舍选择
+            document.querySelectorAll('.dorm-radio:checked').forEach(radio => {
+                radio.checked = false;
+            });
+            
+            // 重置选中信息显示
+            document.getElementById('selectedUserName').textContent = '未选择';
+            document.getElementById('selectedDormName').textContent = '未选择';
+            
+            // 重置性别筛选状态
+            selectedUserGender = null;
+            isAutoGenderFilterApplied = false;
+            document.getElementById('genderFilterHint').classList.add('hidden');
+            
+            // 更新选中宿舍的已住人数、可用数和使用率
+            if (roomId) {
+                updateRoomStatus(roomId);
+            }
+            
+            // 重新筛选宿舍
+            filterDorms();
+        }
+        
+        /**
+         * 更新宿舍状态（已住人数、可用数和使用率）
+         */
+        function updateRoomStatus(roomId) {
+            const dormRadio = document.querySelector(`.dorm-radio[value="${roomId}"]`);
+            if (!dormRadio) return;
+            
+            const row = dormRadio.closest('tr');
+            if (!row) return;
+            
+            // 获取当前值并更新
+            const currentOccupancyEl = row.querySelector('.current-occupancy');
+            const availableEl = row.querySelector('.room-available');
+            const usageBar = row.querySelector('.room-usage-bar');
+            const usageText = row.querySelector('.room-usage-text');
+            const capacityEl = row.querySelector('td:nth-child(5)');
+            
+            if (currentOccupancyEl && availableEl && usageBar && usageText && capacityEl) {
+                const currentOccupancy = parseInt(currentOccupancyEl.textContent) + 1;
+                const capacity = parseInt(capacityEl.textContent);
+                const available = capacity - currentOccupancy;
+                const usage = (currentOccupancy / capacity) * 100;
+                
+                // 更新显示
+                currentOccupancyEl.textContent = currentOccupancy;
+                availableEl.textContent = available;
+                usageBar.style.width = `${usage}%`;
+                usageText.textContent = `${Math.round(usage)}%`;
+                
+                // 更新radio的可用数数据属性
+                dormRadio.setAttribute('data-available', available);
+            }
+        }
+        
+        /**
+         * 使用批量查询接口验证并过滤未住宿人员
+         */
+        async function validateAndFilterUnallocatedUsers() {
+            // 显示加载指示器
+            showUserLoading();
+            
+            try {
+                const userTableBody = document.getElementById('userTableBody');
+                if (!userTableBody) {
+                    throw new Error('未找到人员表格主体');
+                }
+                
+                // 为全行列添加标识以便选择器识别
+                const fullRow = userTableBody.querySelector('tr td[colspan]')?.closest('tr');
+                if (fullRow) {
+                    fullRow.setAttribute('data-full-row', 'true');
+                }
+                
+                // 获取所有人员行（排除全行列）
+                const userRows = userTableBody.querySelectorAll('tr:not([data-full-row])');
+                
+                if (userRows.length === 0) {
+                    hideUserLoading();
+                    return;
+                }
+                
+                // 获取所有人员ID
+                const userIds = Array.from(userRows).map(row => {
+                    const radio = row.querySelector('.user-radio');
+                    return radio ? radio.getAttribute('data-id') : null;
+                }).filter(id => id);
+                
+                if (userIds.length === 0) {
+                    hideUserLoading();
+                    return;
+                }
+                
+                // 调用批量查询接口
+                const response = await fetch('/api/rooms/user-rooms/batch', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({ user_ids: userIds })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`批量查询接口请求失败: ${response.status}`);
+                }
+                
+                const result = await response.json();
+                if (!result.success) {
+                    throw new Error(result.message || '批量查询返回失败');
+                }
+                
+                // 隐藏已住宿的人员
+                userRows.forEach((row) => {
+                    const radio = row.querySelector('.user-radio');
+                    if (!radio) return;
+                    
+                    const userId = radio.getAttribute('data-id');
+                    const userInfo = result.data.find(item => item.user_id == userId);
+                    
+                    // 如果人员已住宿，则隐藏该行
+                    if (userInfo?.has_room) {
+                        row.style.display = 'none';
+                    } else {
+                        row.style.display = '';
+                    }
+                });
+                
+                // 使用接口返回的统计信息
+                const unallocatedCount = result.total_unassigned || 0;
+                document.getElementById('totalUsers').textContent = unallocatedCount;
+                
+                // 处理无未分配人员的情况
+                if (fullRow) {
+                    fullRow.style.display = unallocatedCount === 0 ? '' : 'none';
+                    if (unallocatedCount === 0) {
+                        fullRow.querySelector('td').textContent = '没有未分配宿舍的人员';
+                    }
+                }
+                
+            } catch (error) {
+                console.error('验证人员住宿状态时出错:', error);
+                showErrorModal('验证人员住宿状态失败，请刷新页面重试');
+            } finally {
+                // 隐藏加载指示器
+                hideUserLoading();
+            }
+        }
+        
+        /**
+         * 显示/隐藏人员加载指示器
+         */
+        function showUserLoading() {
+            const indicator = document.getElementById('userLoadingIndicator');
+            if (indicator) indicator.classList.remove('hidden');
+        }
+        
+        function hideUserLoading() {
+            const indicator = document.getElementById('userLoadingIndicator');
+            if (indicator) indicator.classList.add('hidden');
+        }
+        
+        /**
+         * 初始化筛选功能
+         */
+        function initFilters() {
+            // 用户筛选
+            document.getElementById('searchUser').addEventListener('input', filterUsers);
+            document.getElementById('userDeptFilter').addEventListener('change', filterUsers);
+            document.getElementById('userGenderFilter').addEventListener('change', filterUsers);
+            
+            // 宿舍筛选
+            document.getElementById('searchDorm').addEventListener('input', filterDorms);
+            document.getElementById('buildingFilter').addEventListener('change', filterDorms);
+            genderFilterSelect.addEventListener('change', filterDorms);
+            document.getElementById('roomTypeFilter').addEventListener('change', filterDorms);
+            document.getElementById('roomLevelFilter').addEventListener('change', filterDorms);
+        }
+        
+        /**
+         * 绑定所有事件监听器
+         */
+        function bindEventListeners() {
+            // 人员选择变化
+            document.querySelectorAll('.user-radio').forEach(radio => {
+                radio.addEventListener('change', function() {
+                    // 获取选中用户的性别
+                    selectedUserGender = this.getAttribute('data-gender') || '';
+                    
+                    // 应用自动性别筛选
+                    isAutoGenderFilterApplied = true;
+                    
+                    // 更新显示信息
+                    updateSelectedInfo();
+                    // 根据用户性别筛选房间
+                    filterDorms();
+                    // 显示筛选提示
+                    document.getElementById('genderFilterHint').classList.remove('hidden');
+                });
+            });
+            
+            // 清除性别筛选
+            document.getElementById('clearGenderFilter').addEventListener('click', function() {
+                // 清除性别筛选状态
+                selectedUserGender = null;
+                isAutoGenderFilterApplied = false;
+                document.getElementById('genderFilterHint').classList.add('hidden');
+                
+                // 清除已选择的人员
+                document.querySelectorAll('.user-radio:checked').forEach(radio => {
+                    radio.checked = false;
+                });
+                
+                // 清除已选择的宿舍
+                document.querySelectorAll('.dorm-radio:checked').forEach(radio => {
+                    radio.checked = false;
+                });
+                
+                // 更新显示信息
+                updateSelectedInfo();
+                
+                // 重新筛选宿舍
+                filterDorms();
+            });
+            
+            // 宿舍选择变化
+            document.querySelectorAll('.dorm-radio').forEach(radio => {
+                radio.addEventListener('change', function() {
+                    updateSelectedInfo();
+                    showRoomOccupants(this);
+                });
+            });
+            
+            // 表格行点击选择
+            document.querySelectorAll('#userTableBody tr:not([data-full-row])').forEach(row => {
+                row.addEventListener('click', function() {
+                    const radio = this.querySelector('.user-radio');
+                    if (radio) {
+                        radio.checked = true;
+                        radio.dispatchEvent(new Event('change'));
+                    }
+                });
+            });
+            
+            document.querySelectorAll('#dormTableBody tr:not([data-full-row])').forEach(row => {
+                row.addEventListener('click', function() {
+                    const radio = this.querySelector('.dorm-radio');
+                    if (radio) {
+                        radio.checked = true;
+                        updateSelectedInfo();
+                        showRoomOccupants(radio);
+                    }
+                });
+            });
+            
+            // 其他事件监听器
+            document.getElementById('cancelModalBtn').addEventListener('click', function() {
+                document.getElementById('confirmModal').classList.add('hidden');
+            });
+            
+            document.getElementById('closeErrorModal').addEventListener('click', function() {
+                document.getElementById('errorModal').classList.add('hidden');
+            });
+        }
+        
+        /**
+         * 更新选中信息显示
+         */
+        function updateSelectedInfo() {
+            // 更新选中用户
+            const selectedUser = Array.from(document.querySelectorAll('.user-radio')).find(radio => radio.checked);
+            if (selectedUser) {
+                const row = selectedUser.closest('tr');
+                document.getElementById('selectedUserName').textContent = row.querySelector('td:nth-child(2)').textContent;
+            } else {
+                document.getElementById('selectedUserName').textContent = '未选择';
+            }
+            
+            // 更新选中宿舍
+            const selectedDorm = Array.from(document.querySelectorAll('.dorm-radio')).find(radio => radio.checked);
+            if (selectedDorm) {
+                const row = selectedDorm.closest('tr');
+                document.getElementById('selectedDormName').textContent = `${row.querySelector('td:nth-child(2)').textContent}-${row.querySelector('td:nth-child(3)').textContent}`;
+            } else {
+                document.getElementById('selectedDormName').textContent = '未选择';
+            }
+        }
+        
+        /**
+         * 获取并显示房间已住人员信息
+         */
+        async function showRoomOccupants(radio) {
+            const roomId = radio.getAttribute('data-id');
+            const roomName = `${radio.closest('tr').querySelector('td:nth-child(2)').textContent}-${radio.closest('tr').querySelector('td:nth-child(3)').textContent}`;
+            
+            const card = document.getElementById('roomOccupantsCard');
+            const content = document.getElementById('roomOccupantsContent');
+            
+            // 显示卡片
+            card.classList.remove('hidden');
+            
+            // 显示加载状态
+            content.innerHTML = '<div class="flex justify-center py-4"><div class="w-6 h-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin"></div></div>';
+            
+            try {
+                // 调用API获取房间已住人员信息
+                const response = await fetch(`/api/rooms/${roomId}`);
+                if (!response.ok) {
+                    throw new Error(`获取房间信息失败: ${response.status}`);
+                }
+                
+                const result = await response.json();
+                if (result.success && result.data) {
+                    const occupants = result.data.occupants || [];
+                    
+                    if (occupants.length > 0) {
+                        let html = `<div class="text-gray-700 mb-2"><a href="/room/view/${roomId}" class="text-primary hover:underline">${roomName}</a> 已住 ${occupants.length} 人：</div>`;
+                        html += '<ul class="list-disc pl-5 space-y-1">';
+                        
+                        occupants.forEach(occupant => {
+                            html += `<li><a href="/user/view/${occupant.id}" class="text-primary hover:underline">${occupant.name}</a> (${occupant.gender || '-'}，${occupant.age || '-'}岁，${occupant.department || '-'}，${occupant.position || '-'})</li>`;
+                        });
+                        
+                        html += '</ul>';
+                        content.innerHTML = html;
+                    } else {
+                        content.innerHTML = `<p class="text-gray-500"><a href="/room/view/${roomId}" class="text-primary hover:underline">${roomName}</a> 暂无已住人员</p>`;
+                    }
+                } else {
+                    throw new Error(result.message || '获取房间信息返回失败');
+                }
+            } catch (error) {
+                console.error('获取房间已住人员信息时出错:', error);
+                content.innerHTML = '<p class="text-red-500">获取房间信息失败，请稍后重试</p>';
+            }
+        }
+        
+        /**
+         * 宿舍筛选功能
+         */
+        function filterDorms() {
+            const searchTerm = document.getElementById('searchDorm').value.toLowerCase().trim();
+            const building = document.getElementById('buildingFilter').value.toLowerCase();
+            // 确保building值与表格中的格式一致
+            
+            const genderFilterValue = genderFilterSelect.value.toLowerCase();
+            const roomType = document.getElementById('roomTypeFilter').value;
+            const roomLevel = document.getElementById('roomLevelFilter').value;
+            let visibleCount = 0;
+            
+            // 直接使用中文性别值，无需映射
+            
+            // 为全行列添加标识
+            const dormTableBody = document.getElementById('dormTableBody');
+            const fullDormRow = dormTableBody.querySelector('tr td[colspan]')?.closest('tr');
+            if (fullDormRow) {
+                fullDormRow.setAttribute('data-full-row', 'true');
+            }
+            
+            dormTableBody.querySelectorAll('tr:not([data-full-row])').forEach(row => {
+                // 获取房间信息
+                const buildingVal = row.querySelector('td:nth-child(2)').textContent.toLowerCase();
+                const roomNumber = row.querySelector('td:nth-child(3)').textContent.toLowerCase();
+                const genderData = row.querySelector('.dorm-radio').getAttribute('data-gender').toLowerCase() || '无限制';
+                const roomTypeVal = row.querySelector('.dorm-radio').getAttribute('data-room-type');
+                const roomLevelVal = row.querySelector('.dorm-radio').getAttribute('data-room-level');
+                const availableVal = parseInt(row.querySelector('.room-available').textContent);
+                
+                // 过滤掉已满的宿舍
+                if (availableVal <= 0) {
+                    row.style.display = 'none';
+                    return;
+                }
+                
+                // 1. 绝对优先：根据选中用户性别强制隐藏不匹配的宿舍
+                if (isAutoGenderFilterApplied && selectedUserGender) {
+                    // 男性用户只能看到男宿舍和无限制宿舍
+                    if (selectedUserGender === '男') {
+                        if (genderData === '女') {
+                            row.style.display = 'none';
+                            return;
+                        }
+                    } 
+                    // 女性用户只能看到女宿舍和无限制宿舍
+                    else if (selectedUserGender === '女') {
+                        if (genderData === '男') {
+                            row.style.display = 'none';
+                            return;
+                        }
+                    }
+                }
+                
+                // 2. 应用基础筛选条件
+                const matchesSearch = buildingVal.includes(searchTerm) || roomNumber.includes(searchTerm);
+                // 将buildingFilter的值转换为小写后比较
+            const matchesBuilding = !building || buildingVal.includes(building);
+            
+                const matchesRoomType = !roomType || roomTypeVal === roomType;
+                const matchesRoomLevel = !roomLevel || roomLevelVal === roomLevel;
+
+                if (!matchesSearch || !matchesBuilding || !matchesRoomType || !matchesRoomLevel) {
+                    row.style.display = 'none';
+                    return;
+                }
+                
+                // 3. 应用用户手动设置的性别筛选条件
+                if (genderFilterValue) {
+                    let matchesGender = false;
+                    
+                    // 直接使用中文性别值比较
+                    if (genderData === '无限制') {
+                        matchesGender = true;
+                    } else if (genderData === genderFilterValue) {
+                        matchesGender = true;
+                    }
+                    
+                    if (!matchesGender) {
+                        row.style.display = 'none';
+                        return;
+                    }
+                }
+                
+                // 所有条件都满足才显示
+                row.style.display = '';
+                visibleCount++;
+            });
+            
+            // 处理无匹配结果的情况
+            if (fullDormRow) {
+                if (visibleCount === 0) {
+                    fullDormRow.style.display = '';
+                    if (isAutoGenderFilterApplied && selectedUserGender) {
+                        fullDormRow.querySelector('td').textContent = `没有找到适合${selectedUserGender}性别的可用宿舍`;
+                    } else if (genderFilterValue) {
+                        fullDormRow.querySelector('td').textContent = `没有找到适合${genderFilterValue}性别的可用宿舍`;
+                    } else {
+                        fullDormRow.querySelector('td').textContent = '没有符合条件的宿舍';
+                    }
+                } else {
+                    fullDormRow.style.display = 'none';
+                }
+            }
+        }
+        
+        /**
+         * 验证必填项
+         */
+        function validateRequiredFields() {
+            // 获取最新状态
+            const selectedUser = Array.from(document.querySelectorAll('.user-radio')).some(radio => radio.checked);
+            const selectedDorm = Array.from(document.querySelectorAll('.dorm-radio')).some(radio => radio.checked);
+            const checkinDateVal = document.getElementById('checkinDate').value;
+            
+            // 具体验证每个必填项
+            if (!selectedUser) {
+                return {
+                    valid: false,
+                    message: '请选择一名人员（必填项）'
+                };
+            }
+            
+            if (!selectedDorm) {
+                return {
+                    valid: false,
+                    message: '请选择一个宿舍（必填项）'
+                };
+            }
+            
+            // 验证宿舍是否还有空位
+            if (selectedDorm) {
+                const selectedDormEl = Array.from(document.querySelectorAll('.dorm-radio')).find(radio => radio.checked);
+                const available = parseInt(selectedDormEl.getAttribute('data-available'));
+                
+                if (available <= 0) {
+                    return {
+                        valid: false,
+                        message: '所选宿舍已住满，无法分配'
+                    };
+                }
+            }
+            
+            // 验证性别匹配
+            if (selectedUser && selectedDorm) {
+                const selectedDormEl = Array.from(document.querySelectorAll('.dorm-radio')).find(radio => radio.checked);
+                const dormGender = selectedDormEl.getAttribute('data-gender').toLowerCase();
+                
+                // 明确的性别匹配检查
+            if ((selectedUserGender === '男' && dormGender === '女') ||
+                (selectedUserGender === '女' && dormGender === '男')) {
+                return {
+                    valid: false,
+                    message: `所选宿舍限${dormGender}性入住，与用户性别不匹配`
+                };
+            }
+            }
+            
+            if (!checkinDateVal) {
+                return {
+                    valid: false,
+                    message: '请选择入住日期时间（必填项）'
+                };
+            }
+            
+            // 验证日期时间有效性
+            const selectedDateTime = new Date(checkinDateVal);
+            if (isNaN(selectedDateTime.getTime())) {
+                return {
+                    valid: false,
+                    message: '请选择有效的入住日期时间'
+                };
+            }
+            
+            return {
+                valid: true
+            };
+        }
+        
+        /**
+         * 显示错误提示模态框
+         */
+        function showErrorModal(message) {
+            document.getElementById('errorMessage').textContent = message;
+            document.getElementById('errorModal').classList.remove('hidden');
+        }
+        
+        /**
+         * 打开确认模态框
+         */
+        function openConfirmModal() {
+            const selectedUser = Array.from(document.querySelectorAll('.user-radio'))
+                .find(radio => radio.checked)
+                .closest('tr')
+                .querySelector('td:nth-child(2)')
+                .textContent;
+            
+            const selectedDormRow = Array.from(document.querySelectorAll('.dorm-radio'))
+                .find(radio => radio.checked)
+                .closest('tr');
+            
+            const selectedDorm = `${selectedDormRow.querySelector('td:nth-child(2)').textContent}-${selectedDormRow.querySelector('td:nth-child(3)').textContent}`;
+            
+            // 更新模态框内容
+            document.getElementById('modalUser').textContent = selectedUser;
+            document.getElementById('modalDorm').textContent = selectedDorm;
+            
+            // 格式化日期时间显示，保留秒数
+            const checkinDateTime = document.getElementById('checkinDate').value;
+            const formattedDateTime = checkinDateTime.replace('T', ' '); // 将T替换为空格，便于阅读
+            document.getElementById('modalCheckinDate').textContent = formattedDateTime;
+            
+            // 显示模态框
+            document.getElementById('confirmModal').classList.remove('hidden');
+        }
+        
+        /**
+         * 筛选人员
+         */
+        function filterUsers() {
+            const searchTerm = document.getElementById('searchUser').value.toLowerCase().trim();
+            const dept = document.getElementById('userDeptFilter').value.toLowerCase();
+            const gender = document.getElementById('userGenderFilter').value.toLowerCase();
+            let visibleCount = 0;
+            
+            const userTableBody = document.getElementById('userTableBody');
+            const fullRow = userTableBody.querySelector('tr[data-full-row]');
+            
+            userTableBody.querySelectorAll('tr:not([data-full-row])').forEach(row => {
+                // 处理所有未住宿人员
+                
+                const name = row.querySelector('td:nth-child(2)').textContent.toLowerCase();
+                const rowGender = row.querySelector('td:nth-child(3)').textContent.toLowerCase();
+                const department = row.querySelector('td:nth-child(5)').textContent.toLowerCase();
+                
+                const matchesSearch = name.includes(searchTerm) || 
+                                     rowGender.includes(searchTerm) || 
+                                     department.includes(searchTerm);
+                const matchesDept = !dept || department.includes(dept);
+                const matchesGender = !gender || rowGender === gender;
+                
+                const matchesAll = matchesSearch && matchesDept && matchesGender;
+                
+                row.style.display = matchesAll ? '' : 'none';
+                if (matchesAll) visibleCount++;
+            });
+            
+            // 处理全行列显示
+            if (fullRow) {
+                fullRow.style.display = visibleCount === 0 ? '' : 'none';
+            }
+            
+            document.getElementById('filteredUsersCount').textContent = 
+                (searchTerm || dept || gender) ? `(显示 ${visibleCount} 条)` : '';
+        }
+        
+
+    </script>
+</body>
+</html>

@@ -1,0 +1,63 @@
+<footer class="bg-transparent text-black py-4">
+    <style>
+        /* 设置body为flex布局，占据整个视口高度 */
+        body {
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            margin: 0;
+        }
+        
+        /* 主内容区域自动扩展，将页脚推到底部 */
+        main {
+            flex: 1;
+            margin-bottom: 0; /* 完全移除主内容区域底部的边距 */
+        }
+        
+        /* 页脚样式 */
+        footer {
+            background-color: transparent;
+            width: 100%;
+            margin-top: -1.5rem !important; /* 增加负值上外边距，显著拉近与主内容的距离 */
+        }
+        
+        /* 页脚文字颜色 */
+        footer p {
+            color: #000000;
+        }
+    </style>
+    
+    <div class="container mx-auto px-4 text-center text-sm py-1">
+        <p class="text-gray-700 text-sm mt-2" id="currentTime"></p>
+        <p>&copy;  <span id="currentYear"></span>  {{ system_title }} - 版权所有</p>
+    </div>
+    
+</footer>
+<script>
+        // 设置北京时区时间
+        function updateDateTime() {
+            const now = new Date();
+            // 北京时区 (UTC+8)
+            const beijingTime = new Date(now.getTime());
+            
+            // 更新年份
+            document.getElementById('currentYear').textContent = beijingTime.getUTCFullYear();
+            
+            // 格式化时间显示
+            const options = { 
+                year: 'numeric', 
+                month: '2-digit', 
+                day: '2-digit', 
+                hour: '2-digit', 
+                minute: '2-digit', 
+                second: '2-digit',
+                hour12: false,
+                timeZone: 'Asia/Shanghai'
+            };
+            document.getElementById('currentTime').textContent = beijingTime.toLocaleString('zh-CN', options);
+        }
+        
+        // 初始化更新时间并设置定时器
+        updateDateTime();
+        setInterval(updateDateTime, 1000);
+    </script>

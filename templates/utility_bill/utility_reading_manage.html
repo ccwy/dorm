@@ -1,0 +1,1421 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+   <!--本地化CDN-->
+{% include 'static.html' %}
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#165DFF',
+                        secondary: '#36CFC9',
+                        success: '#52C41A',
+                        warning: '#FAAD14',
+                        danger: '#FF4D4F',
+                        gray: {
+                            100: '#F5F5F5',
+                            200: '#E5E5E5',
+                            300: '#D4D4D4',
+                            400: '#A3A3A3',
+                            500: '#737373',
+                            600: '#525252',
+                            700: '#404040',
+                            800: '#262626',
+                            900: '#171717',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .transition-bg {
+                transition: background-color 0.2s ease;
+            }
+            .transition-transform {
+                transition: transform 0.2s ease;
+            }
+            .hover-lift {
+                @apply hover:-translate-y-0.5 transition-transform;
+            }
+            .card-shadow {
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            }
+            .custom-select {
+                appearance: none;
+                -webkit-appearance: none;
+                -moz-appearance: none;
+            }
+            .btn-scroll-container {
+                scrollbar-width: thin;
+            }
+            .btn-scroll-container::-webkit-scrollbar {
+                height: 4px;
+            }
+            .btn-scroll-container::-webkit-scrollbar-thumb {
+                background-color: rgba(156, 163, 175, 0.5);
+                border-radius: 2px;
+            }
+            /* Toast样式 */
+            .toast {
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                padding: 12px 20px;
+                border-radius: 4px;
+                color: white;
+                z-index: 9999;
+                opacity: 0;
+                transform: translateY(-20px);
+                transition: opacity 0.3s, transform 0.3s;
+            }
+            .toast.success {
+                background-color: #52C41A;
+            }
+            .toast.error {
+                background-color: #FF4D4F;
+            }
+            .toast.show {
+                opacity: 1;
+                transform: translateY(0);
+            }
+            /* 文件上传按钮样式 */
+            .file-input-container {
+                position: relative;
+                overflow: hidden;
+            }
+            .file-input {
+                position: absolute;
+                top: 0;
+                right: 0;
+                min-width: 100%;
+                min-height: 100%;
+                font-size: 100px;
+                opacity: 0;
+                cursor: pointer;
+            }
+            /* 导入结果模态框 */
+            .modal-backdrop {
+                backdrop-filter: blur(2px);
+            }
+            .import-results {
+                max-height: 400px;
+                overflow-y: auto;
+            }
+            /* 自定义下拉框箭头 */
+            .custom-select-wrapper {
+                position: relative;
+            }
+            .custom-select-arrow {
+                position: absolute;
+                top: 50%;
+                right: 12px;
+                transform: translateY(-50%);
+                pointer-events: none;
+                color: #737373;
+                transition: color 0.2s ease;
+            }
+            .custom-select:focus + .custom-select-arrow {
+                color: #165DFF;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen font-sans">
+    <!-- 顶部导航栏 -->
+
+{% include 'header.html' %}
+    <!-- 主要内容区域 -->
+    <main class="container mx-auto px-4 py-6">
+
+        <div class="mb-6 fade-in">
+            <div class="flex flex-col">
+                <!-- 第一行：h2标题 + 按钮（左右分布） -->
+                <div class="mb-6 fade-in">
+                    <div class="flex flex-col">
+                        <!-- 第一行：h2标题 + 按钮（左右分布） -->
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="flex items-center">
+                                <button onclick="history.back()" class="text-gray-600 hover:text-primary transition-all-300 mr-4">
+                                <i class="fa fa-arrow-left"></i>
+                                </button>
+                                <h2 class="text-[clamp(1.5rem,3vw,2rem)] font-bold">{{ title }}</h2>
+                            </div>
+                            
+                            <div class="flex flex-wrap justify-center items-center gap-2">
+                                <button onclick="window.location.href='{{ url_for('utility_index.utility_calculate_fees') }}'" class="bg-primary text-white px-5 py-2 rounded-md flex items-center btn-effect hover:bg-primary/90 transition-colors flex-shrink-0 justify-center">
+                                房间费用
+                                </button>
+                                <button onclick="window.location.href='{{ url_for('utility_index.utility_occupant_manage') }}'" class="bg-primary text-white px-5 py-2 rounded-md flex items-center btn-effect hover:bg-primary/90 transition-colors flex-shrink-0 justify-center">
+                                用户费用
+                                </button>
+                                <button onclick="window.location.href='{{ url_for('utility_index.utility_room_checkout') }}'" class="bg-primary text-white px-5 py-2 rounded-md flex items-center btn-effect hover:bg-primary/90 transition-colors flex-shrink-0 justify-center">
+                                退宿费用
+                                </button>
+                                <button onclick="window.location.href='{{ url_for('utility_user_records_detail.user_records_detail') }}'" class="bg-primary text-white px-5 py-2 rounded-md flex items-center btn-effect hover:bg-primary/90 transition-colors flex-shrink-0 justify-center">
+                                费用查询
+                                </button>
+                            </div>
+                        </div>
+                        <!-- 第二行：p标签单独显示 -->
+                        <div class="flex items-center">
+                            <p class="text-gray-500">查询和管理房间的抄表记录</p>
+                        </div>
+                    </div>
+                </div>
+
+
+        <!-- 筛选区 - 优化响应式布局 -->
+        <div class="bg-white rounded-lg shadow-sm p-5 mb-6 card-shadow">
+            <div class="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-8 gap-3">
+                <!-- 账期选择 - 优化下拉箭头-->
+                <div class="max-w-xs">
+                    <label for="billingPeriod" class="block text-sm font-medium text-gray-700 mb-1">账单周期</label>
+                    <select id="billingPeriod" name="billingPeriod"
+                            class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm">
+                            <option value="">全部周期</option>
+                            <!-- 账期选项将通过JavaScript从接口动态加载 -->
+                            <option value="" disabled>加载中...</option>
+                    </select>
+                </div>
+
+                <!-- 抄表类型筛选 -->
+                <div class="max-w-xs">
+                    <label for="readingTypeFilter" class="block text-sm font-medium text-gray-700 mb-1">抄表类型</label>
+                    <select id="readingTypeFilter" name="readingTypeFilter"
+                            class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm">
+                            <option value="">全部类型</option>
+                            <option value="1">正常抄表</option>
+                            <option value="2">退宿抄表</option>
+                    </select>
+                </div>
+
+                <!-- 楼栋筛选-->
+                <div class="max-w-xs">
+                    <label for="buildingFilter" class="block text-sm font-medium text-gray-700 mb-1">楼栋</label>
+                    <select id="buildingFilter" name="building"
+                            class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm">
+                        <option value="">全部楼栋</option>
+                        {% for building in buildings %}
+                             <option value="{{ building }}">{{ building }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- 搜索框-->
+                <div class="max-w-xs">
+                        <label for="searchInput" class="block text-sm font-medium text-gray-700 mb-1">搜索</label>
+                        <div class="relative">
+                            <input type="text" name="search" id="searchInput" placeholder="宿舍号、抄表人或ID..."      
+                                   class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm">
+                            <i class="fa fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                        </div>
+                </div>
+                <div class="flex flex-wrap md:flex-nowrap items-center gap-2 md:col-span-2">
+                    <!-- 操作按钮组 - 与筛选框水平对齐，小屏幕自动换行，中屏幕及以上不换行 -->
+                    <div>
+                        <button type="button" id="resetFilter" class="px-3 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-bg flex items-center whitespace-nowrap text-sm">
+                            <i class="fa fa-refresh mr-1.5"></i>刷新
+                        </button>
+                    </div>    
+                    <div> 
+                        <button type="button" id="importBtn" class="px-3 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-bg flex items-center whitespace-nowrap text-sm">
+                            <i class="fa fa-download mr-1.5"></i>导入
+                        </button>
+                    </div>
+                    <div>   
+                        <button type="button" id="exportBtn" class="px-3 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-bg flex items-center whitespace-nowrap text-sm">
+                            <i class="fa fa-upload mr-1.5"></i><span id="exportBtnText">导出</span>
+                            <span id="exportingIndicator" class="ml-2 hidden">
+                                <i class="fa fa-spinner fa-spin"></i>
+                            </span>
+                        </button>
+                    </div>
+                    <div>
+                        <button type="button" id="addReadingBtn" class="px-3 py-2 bg-success text-white rounded-md hover:bg-success/90 transition-bg flex items-center hover-lift whitespace-nowrap text-sm">
+                            <i class="fa fa-plus mr-1.5"></i>抄表登记
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 表格操作区 -->
+        <div class="bg-white rounded-lg shadow-sm overflow-hidden card-shadow mb-6">
+            <!-- 表格工具栏 -->
+            <div class="flex flex-wrap justify-between items-center p-4 border-b border-gray-200">
+                <div class="text-sm text-gray-500">
+                    共 <span class="font-medium text-primary">0</span> 条记录
+                </div>
+                <div class="flex items-center space-x-3 mt-2 sm:mt-0">
+                    <button type="button" id="deleteBillingPeriod" class="px-3 py-2 border border-danger/30 text-danger rounded-md hover:bg-danger/5 transition-bg flex items-center whitespace-nowrap text-sm">
+                        <i class="fa fa-trash mr-1.5"></i>删除账期
+                    </button>
+                    <button id="batchDeleteBtn" class="px-3 py-1.5 text-danger border border-danger/30 rounded-md hover:bg-danger/5 transition-bg text-sm flex items-center" disabled>
+                        <i class="fa fa-trash-o mr-1.5"></i>批量删除
+                    </button>
+                    <div class="relative">
+                        <select id="pageSizeSelect" class="pl-3 pr-8 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-bg custom-select">
+                            <option value="10">10条/页</option>
+                            <option value="20">20条/页</option>
+                            <option value="50">50条/页</option>
+                            <option value="100">100条/页</option>
+                        </select>
+                        <div class="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+                            <i class="fa fa-chevron-down text-gray-400 text-xs"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 表格内容 -->
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th scope="col" class="w-12 px-4 py-3 text-left">
+                                <div class="flex items-center">
+                                    <input id="selectAll" type="checkbox" class="h-4 w-4 text-primary border-gray-300 rounded focus:ring-primary">
+                                </div>
+                            </th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">抄表日期</th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">宿舍号</th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">抄表类型</th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                电表
+                            </th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                水表
+                            </th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">账单周期</th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">抄表人</th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200" id="recordsTableBody">
+                        <!-- 表格内容将通过API动态加载 -->
+                        <tr>
+                            <td colspan="10" class="px-4 py-8 text-center text-gray-500">
+                                <i class="fa fa-spinner fa-spin mr-2"></i>加载周期数据中...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- 分页 -->
+            <div class="px-4 py-3 flex flex-col sm:flex-row items-center justify-between border-t border-gray-200 sm:px-6">
+                <!-- 统计信息和页码信息 -->
+                <div class="w-full flex justify-between items-center mb-2 sm:mb-0">
+                    <div>
+                        <p class="text-sm text-gray-700">
+                            显示第 <span class="font-medium">0</span> 到 <span class="font-medium">0</span> 条，共 <span class="font-medium">0</span> 条记录
+                        </p>
+                    </div>
+                    <div>
+                        <span class="text-sm text-gray-700" id="pageInfoDisplay">第 1 页 / 共 0 页</span>
+                    </div>
+                </div>
+                
+                <!-- 分页按钮 - 在中大屏幕上位于右侧，小屏幕上居中 -->
+                <div class="w-full flex sm:justify-end justify-center space-x-2">
+                    <button class="px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 pagination-prev opacity-50 cursor-not-allowed">
+                        上一页
+                    </button>
+                    <button class="px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 pagination-next opacity-50 cursor-not-allowed">
+                        下一页
+                    </button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+
+            <!-- 页脚 -->
+    {% include 'footer.html' %}
+    
+
+    <!-- 删除确认模态框 -->
+    <div id="deleteModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-lg shadow-xl max-w-md w-full scale-95 transition-transform duration-200">
+            <div class="p-6">
+                <div class="flex items-start justify-between mb-4">
+                    <h3 class="text-lg font-medium text-gray-900">确认删除</h3>
+                    <button id="closeModal" class="text-gray-400 hover:text-gray-500">
+                        <i class="fa fa-times"></i>
+                    </button>
+                </div>
+                <div class="mb-6">
+                    <p class="text-gray-700" id="deleteModalText">
+                        您确定要删除这条抄表记录吗？此操作不可撤销。
+                    </p>
+                </div>
+                <div class="flex justify-end space-x-3">
+                    <button id="cancelDelete" class="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-bg">
+                        取消
+                    </button>
+                    <button id="confirmDelete" class="px-4 py-2 bg-danger text-white rounded-md hover:bg-danger/90 transition-bg">
+                        确认删除
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 删除账期确认模态框 -->
+    <div id="deleteBillingPeriodModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-lg shadow-xl max-w-md w-full scale-95 transition-transform duration-200">
+            <div class="p-6">
+                <div class="flex items-start justify-between mb-4">
+                    <h3 class="text-lg font-medium text-gray-900">确认删除账期</h3>
+                    <button id="closeBillingPeriodModal" class="text-gray-400 hover:text-gray-500">
+                        <i class="fa fa-times"></i>
+                    </button>
+                </div>
+                <div class="mb-6">
+                    <p class="text-gray-700">
+                        您确定要删除选中的账单周期及其所有抄表记录吗？此操作不可撤销。
+                    </p>
+                    <div class="mt-4 p-3 bg-gray-50 rounded-md">
+                        <p class="text-sm text-gray-600">
+                            <span class="font-medium">当前选中周期：</span>
+                            <span id="currentBillingPeriod">全部周期</span>
+                        </p>
+                    </div>
+                </div>
+                <div class="flex justify-end space-x-3">
+                    <button id="cancelDeleteBillingPeriod" class="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-bg">
+                        取消
+                    </button>
+                    <button id="confirmDeleteBillingPeriod" class="px-4 py-2 bg-danger text-white rounded-md hover:bg-danger/90 transition-bg">
+                        确认删除
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 导入结果展示区域已移除，改为直接使用toast显示结果 -->
+
+    <!-- 整合的导入/更新模态框 -->
+    <div id="importUpdateModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4 modal-backdrop">
+        <div class="bg-white rounded-lg shadow-xl max-w-md w-full scale-95 transition-transform duration-200">
+            <div class="p-6">
+                <div class="flex items-start justify-between mb-4">
+                    <h3 class="text-lg font-medium text-gray-900">数据导入与更新</h3>
+                    <button id="closeImportUpdateModal" class="text-gray-400 hover:text-gray-500">
+                        <i class="fa fa-times"></i>
+                    </button>
+                </div>
+                
+                <!-- 文件上传区域 -->
+                <div class="mb-6">
+                    <div class="border-2 border-dashed border-gray-300 rounded-md p-6 text-center hover:bg-gray-50 transition-bg cursor-pointer file-input-container">
+                        <i class="fa fa-file-excel-o text-4xl text-gray-400 mb-2"></i>
+                        <p class="text-gray-500">点击或拖拽文件到此处上传</p>
+                        <p class="text-xs text-gray-400 mt-1">支持 .xlsx, .xls 格式</p>
+                        <!-- 选中文件显示区域 -->
+                        <div id="selectedFileName" class="mt-3 text-sm text-gray-700 hidden"></div>
+                        <input type="file" id="importFile" class="file-input" accept=".xlsx,.xls">
+                    </div>
+                </div>
+                
+                <!-- 上传类型选择 -->
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">上传类型</label>
+                    <div class="flex space-x-4">
+                        <label class="inline-flex items-center cursor-pointer">
+                            <input type="radio" name="importType" value="new" class="form-radio text-primary focus:ring-primary" checked>
+                            <span class="ml-2 text-gray-700">导入新记录</span>
+                        </label>
+                        <label class="inline-flex items-center cursor-pointer">
+                            <input type="radio" name="importType" value="update" class="form-radio text-primary focus:ring-primary">
+                            <span class="ml-2 text-gray-700">更新现有记录</span>
+                        </label>
+                    </div>
+                </div>
+                
+                <!-- 模板下载 -->
+                <div class="border-t pt-4 mb-6">
+                    <a href="#" id="downloadTemplateLink" class="text-primary hover:text-primary/80 transition-colors flex items-center text-sm">
+                        <i class="fa fa-download mr-2"></i>
+                        <span>下载导入/更新模板文件</span>
+                    </a>
+                </div>
+                
+                <!-- 操作按钮 -->
+                <div class="flex justify-end">
+                    <button id="cancelImport" class="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-bg mr-2">
+                        取消
+                    </button>
+                    <button id="confirmImport" class="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90 transition-bg" disabled>
+                        确认上传
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // 记录需要删除的ID
+            let deleteId = null;
+            let currentPage = 1;
+            let pageSize = 10;
+            let hasPeriods = false; // 标记是否有周期数据
+            let selectedImportFile = null; // 选中的导入文件
+            
+            // 获取DOM元素
+            const selectAllCheckbox = document.getElementById('selectAll');
+            const batchDeleteBtn = document.getElementById('batchDeleteBtn');
+            const deleteModal = document.getElementById('deleteModal');
+            const closeModalBtn = document.getElementById('closeModal');
+            const cancelDeleteBtn = document.getElementById('cancelDelete');
+            const confirmDeleteBtn = document.getElementById('confirmDelete');
+            const resetFilterBtn = document.getElementById('resetFilter');
+            const billingPeriodSelect = document.getElementById('billingPeriod');
+            const readingTypeFilter = document.getElementById('readingTypeFilter');
+            const buildingFilter = document.getElementById('buildingFilter');
+            const deleteBillingPeriodBtn = document.getElementById('deleteBillingPeriod');
+            const deleteBillingPeriodModal = document.getElementById('deleteBillingPeriodModal');
+            const closeBillingPeriodModalBtn = document.getElementById('closeBillingPeriodModal');
+            const cancelDeleteBillingPeriodBtn = document.getElementById('cancelDeleteBillingPeriod');
+            const confirmDeleteBillingPeriodBtn = document.getElementById('confirmDeleteBillingPeriod');
+            const currentBillingPeriodEl = document.getElementById('currentBillingPeriod');
+            const addReadingBtn = document.getElementById('addReadingBtn');
+            const searchInput = document.getElementById('searchInput');
+            const pageSizeSelect = document.getElementById('pageSizeSelect');
+            const paginationPrev = document.querySelector('.pagination-prev');
+            const paginationNext = document.querySelector('.pagination-next');
+            const recordsTableBody = document.getElementById('recordsTableBody');
+            const totalRecordsEl = document.querySelector('.text-gray-500 .font-medium.text-primary');
+            const paginationInfoEls = document.querySelectorAll('.text-gray-700 .font-medium');
+            
+            // 导入导出相关元素
+            const exportBtn = document.getElementById('exportBtn');
+            const importBtn = document.getElementById('importBtn');
+            const downloadTemplateBtn = document.getElementById('downloadTemplateBtn');
+            
+            // 导入结果展示已简化为toast提示，不再使用专门的模态框
+            
+            // 整合的导入/更新模态框元素
+            const importUpdateModal = document.getElementById('importUpdateModal');
+            const closeImportUpdateModal = document.getElementById('closeImportUpdateModal');
+            const importFile = document.getElementById('importFile');
+            const confirmImport = document.getElementById('confirmImport');
+            const cancelImport = document.getElementById('cancelImport');
+            const downloadTemplateLink = document.getElementById('downloadTemplateLink');
+            const selectedFileNameEl = document.getElementById('selectedFileName');
+            
+            // 初始化页面 - 先加载账单周期数据
+            loadBillingPeriods().then(() => {
+                // 检查是否有周期数据
+                if (hasPeriods) {
+                    // 自动选择最新的周期（第一个选项，排除"全部周期"）
+                    const firstPeriodOption = billingPeriodSelect.options[1];
+                    if (firstPeriodOption && !firstPeriodOption.disabled) {
+                        billingPeriodSelect.value = firstPeriodOption.value;
+                        loadRecords(); // 加载选中周期的数据
+                    } else {
+                        // 没有可用周期，显示空状态
+                        showNoPeriodsState();
+                    }
+                } else {
+                    // 没有周期数据，显示空状态
+                    showNoPeriodsState();
+                }
+            });
+            
+            // 加载账单周期数据
+            function loadBillingPeriods() {
+                return fetch('/utility_room_bill_records_bp/periods', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('获取账单周期数据失败');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.success && Array.isArray(data.periods) && data.periods.length > 0) {
+                        hasPeriods = true;
+                        // 清空现有选项（保留"全部周期"）
+                        const allOption = billingPeriodSelect.querySelector('option[value=""]');
+                        billingPeriodSelect.innerHTML = '';
+                        billingPeriodSelect.appendChild(allOption);
+                        
+                        // 按年份月份倒序排序（最新的周期在前）
+                        data.periods.sort((a, b) => b.localeCompare(a));
+                        
+                        // 添加周期选项
+                        data.periods.forEach(period => {
+                            const [year, month] = period.split('-');
+                            const option = document.createElement('option');
+                            option.value = period;
+                            option.textContent = `${year}年${month}月`;
+                            billingPeriodSelect.appendChild(option);
+                        });
+                    } else {
+                        hasPeriods = false;
+                        showToast('暂无账单周期数据', 'warning');
+                        billingPeriodSelect.innerHTML = '<option value="">全部周期</option><option value="" disabled>暂无周期数据</option>';
+                    }
+                })
+                .catch(error => {
+                    console.error('获取账单周期失败:', error);
+                    hasPeriods = false;
+                    showToast('获取账单周期数据失败，请刷新页面重试', 'error');
+                    billingPeriodSelect.innerHTML = '<option value="">全部周期</option><option value="" disabled>获取周期失败</option>';
+                });
+            }
+            
+            // 显示无周期数据状态
+            function showNoPeriodsState() {
+                recordsTableBody.innerHTML = `
+                    <tr>
+                        <td colspan="10" class="px-4 py-8 text-center text-gray-500">
+                            <i class="fa fa-calendar-o mr-2"></i>暂无账单周期数据，请先创建周期
+                        </td>
+                    </tr>
+                `;
+            }
+            
+            // 加载记录数据
+            function loadRecords() {
+                // 显示加载状态
+                recordsTableBody.innerHTML = `
+                    <tr>
+                        <td colspan="10" class="px-4 py-8 text-center text-gray-500">
+                            <i class="fa fa-spinner fa-spin mr-2"></i>加载中...
+                        </td>
+                    </tr>
+                `;
+                
+                // 构建查询参数
+                const params = new URLSearchParams();
+                params.append('page', currentPage);
+                params.append('per_page', pageSize);
+                
+                const billingPeriod = billingPeriodSelect.value;
+                if (billingPeriod) {
+                    params.append('billing_period', billingPeriod);
+                } else if (hasPeriods) {
+                    // 如果有周期数据但未选择，默认不查询，避免后端报错
+                    recordsTableBody.innerHTML = `
+                        <tr>
+                            <td colspan="10" class="px-4 py-8 text-center text-gray-500">
+                                <i class="fa fa-info-circle mr-2"></i>请选择一个账单周期进行查询
+                            </td>
+                        </tr>
+                    `;
+                    return;
+                }
+                
+                const searchValue = searchInput.value.trim();
+                if (searchValue) {
+                    // 修复搜索房间号问题，使用更通用的搜索参数名
+                    params.append('search', searchValue);
+                }
+
+                // 添加抄表类型筛选
+                const readingType = readingTypeFilter.value;
+                if (readingType) {
+                    params.append('reading_type', readingType);
+                }
+
+                // 添加楼栋筛选
+                const building = buildingFilter.value;
+                if (building) {
+                    params.append('building', building);
+                }
+                
+                // 调用API
+                fetch(`/utility-meter/by-period?${params.toString()}`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        return response.json().then(err => {
+                            throw new Error(err.message || '网络响应不正常');
+                        });
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.success) {
+                        renderRecords(data.data.records);
+                        updatePagination(data.data);
+                    } else {
+                        showToast(data.message, 'error');
+                        recordsTableBody.innerHTML = `
+                            <tr>
+                                <td colspan="10" class="px-4 py-8 text-center text-gray-500">
+                                    <i class="fa fa-exclamation-circle mr-2"></i>${data.message}
+                                </td>
+                            </tr>
+                        `;
+                    }
+                })
+                .catch(error => {
+                    console.error('获取数据失败:', error);
+                    // 只显示具体错误，避免重复显示参数错误提示
+                    if (!error.message.includes('period_id') && !error.message.includes('月份')) {
+                        showToast(error.message || '获取数据失败，请重试', 'error');
+                    }
+                    recordsTableBody.innerHTML = `
+                        <tr>
+                            <td colspan="10" class="px-4 py-8 text-center text-gray-500">
+                                <i class="fa fa-exclamation-circle mr-2"></i>请选择一个账单周期
+                            </td>
+                        </tr>
+                    `;
+                });
+            }
+            
+            // 渲染记录表格
+            function renderRecords(records) {
+                recordsTableBody.innerHTML = '';
+                
+                if (records.length === 0) {
+                    const emptyRow = document.createElement('tr');
+                    emptyRow.innerHTML = `
+                        <tr>
+                            <td colspan="10" class="px-4 py-8 text-center text-gray-500">
+                                <i class="fa fa-inbox mr-2"></i>没有找到匹配的记录
+                            </td>
+                        </tr>
+                    `;
+                    recordsTableBody.appendChild(emptyRow);
+                    return;
+                }
+                
+                records.forEach(record => {
+                    const row = document.createElement('tr');
+                    row.className = 'hover:bg-gray-50 transition-bg';
+                    
+                    // 处理抄表类型显示
+                    let readingTypeText = '正常抄表';
+                    let readingTypeClass = 'bg-blue-100 text-blue-800';
+                    if (record.reading_type === 2) {
+                        readingTypeText = '退宿抄表';
+                        readingTypeClass = 'bg-yellow-100 text-yellow-800';
+                    } else if (!record.prev_reading) {
+                        readingTypeText = '首次抄表';
+                        readingTypeClass = 'bg-green-100 text-green-800';
+                    }
+                    
+                    // 格式化日期
+                    const readingDate = new Date(record.reading_date);
+                    const formattedDate = readingDate.toLocaleDateString();
+                    
+                    // 使用后端返回的读数数据
+                    const prevWater = record.water?.previous || 0;
+                    const currentWater = record.water?.current || 0;
+                    const waterUsage = record.water?.usage || 0;
+                    
+                    const prevElectric = record.electric?.previous || 0;
+                    const currentElectric = record.electric?.current || 0;
+                    const electricUsage = record.electric?.usage || 0;
+                    
+                    row.innerHTML = `
+                        <td class="px-4 py-4 whitespace-nowrap">
+                            <div class="flex items-center">
+                                <input type="checkbox" class="record-checkbox h-4 w-4 text-primary border-gray-300 rounded focus:ring-primary" data-id="${record.id}">
+                            </div>
+                        </td>
+                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900">${record.id}</td>
+                        <td class="px-4 py-4 whitespace-nowrap text-sm">
+                            <a href="/utility-meter/edit/${record.id}" class="text-blue-600 hover:underline">${formattedDate}</a>
+                        </td>
+                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-700">
+                            <a href="/room/view/${record.room_id}" class="font-medium text-blue-600 hover:underline">${record.room_building}${record.room_number}</a>(ID:${record.room_id})
+                        </td>
+                        <td class="px-4 py-4 whitespace-nowrap">
+                            <span class="px-2 py-1 text-xs font-medium ${readingTypeClass} rounded-full">${readingTypeText}</span>
+                        </td>
+                        <td class="px-4 py-4 text-sm">
+                            ${currentElectric ? `
+                            <div><span class="text-primary font-medium">${electricUsage}</span> kWh</div>
+                            <div><span class="text-gray-700">${prevElectric}→${currentElectric}</span></div>
+                            ` : `
+                            <div class="text-gray-500 italic">无记录</div>
+                            `}
+                        </td>
+                        <td class="px-4 py-4 text-sm">
+                            ${currentWater ? `
+                            <div><span class="text-primary font-medium">${waterUsage}</span> m³</div>
+                            <div><span class="text-gray-700">${prevWater}→${currentWater}</span></div>
+                            ` : `
+                            <div class="text-gray-500 italic">无记录</div>
+                            `}
+                        </td>
+                        <td class="px-4 py-4 whitespace-nowrap">
+                            <a href="/utility/utility_room_records_detail?record_id=${record.record_id}" class="px-2 py-1 text-xs font-medium bg-primary/10 text-primary rounded-full hover:bg-primary/20 transition-colors">${record['归属_month']}</a>
+                        </td>
+                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-700">${record.meter_reader || '未知'}</td>
+                        <td class="px-4 py-4 whitespace-nowrap">
+                            <div class="flex gap-2">
+                                <button class="btn-effect bg-amber-500 text-white px-2 py-1 rounded-md text-sm flex items-center edit-btn" title="编辑" data-id="${record.id}">
+                                    <i class="fa fa-pencil mr-1"></i>编辑
+                                </button>
+                                <button class="btn-effect bg-red-500 text-white px-2 py-1 rounded-md text-sm flex items-center delete-btn" title="删除" data-id="${record.id}">
+                                    <i class="fa fa-trash mr-1"></i>删除
+                                </button>
+                            </div>
+                        </td>
+                    `;
+                    
+                    recordsTableBody.appendChild(row);
+                });
+                
+                bindRecordEvents();
+                updateBatchDeleteStatus();
+            }
+            
+            // 分页更新
+            function updatePagination(paginationData) {
+                totalRecordsEl.textContent = paginationData.pagination.total;
+                
+                paginationInfoEls[0].textContent = ((paginationData.pagination.page - 1) * paginationData.pagination.per_page) + 1;
+                paginationInfoEls[1].textContent = Math.min(paginationData.pagination.page * paginationData.pagination.per_page, paginationData.pagination.total);
+                paginationInfoEls[2].textContent = paginationData.pagination.total;
+                
+                currentPage = paginationData.pagination.page;
+                const totalPages = paginationData.pagination.pages;
+                
+                // 更新当前页码和总页数显示
+                document.getElementById('pageInfoDisplay').textContent = `第 ${currentPage} 页 / 共 ${totalPages} 页`;
+                
+                // 更新上一页按钮状态
+                paginationPrev.classList.toggle('opacity-50', currentPage === 1);
+                paginationPrev.classList.toggle('cursor-not-allowed', currentPage === 1);
+                
+                // 更新下一页按钮状态
+                paginationNext.classList.toggle('opacity-50', currentPage >= totalPages);
+                paginationNext.classList.toggle('cursor-not-allowed', currentPage >= totalPages);
+            }
+            
+            // 绑定记录相关事件
+            function bindRecordEvents() {
+                document.querySelectorAll('.delete-btn').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        const id = this.getAttribute('data-id');
+                        openDeleteModal(id);
+                    });
+                });
+                
+                document.querySelectorAll('.edit-btn').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        const id = this.getAttribute('data-id');
+                        // 确保跳转URL正确
+                        window.location.href = `/utility-meter/edit/${id}`;
+                    });
+                });
+                
+                document.querySelectorAll('.record-checkbox').forEach(checkbox => {
+                    checkbox.addEventListener('change', function() {
+                        updateSelectAllStatus();
+                        updateBatchDeleteStatus();
+                    });
+                });
+            }
+            
+            // 更新全选状态
+            function updateSelectAllStatus() {
+                const checkboxes = document.querySelectorAll('.record-checkbox');
+                const allChecked = checkboxes.length > 0 && 
+                                  document.querySelectorAll('.record-checkbox:checked').length === checkboxes.length;
+                selectAllCheckbox.checked = allChecked;
+            }
+            
+            // 更新批量删除按钮状态
+            function updateBatchDeleteStatus() {
+                const checkedCount = document.querySelectorAll('.record-checkbox:checked').length;
+                batchDeleteBtn.disabled = checkedCount === 0;
+                batchDeleteBtn.classList.toggle('opacity-50', checkedCount === 0);
+                batchDeleteBtn.classList.toggle('cursor-not-allowed', checkedCount === 0);
+            }
+            
+            // 全选 checkbox 事件
+            selectAllCheckbox.addEventListener('change', function() {
+                document.querySelectorAll('.record-checkbox').forEach(checkbox => {
+                    checkbox.checked = this.checked;
+                });
+                updateBatchDeleteStatus();
+            });
+            
+            // 打开删除模态框
+            function openDeleteModal(id, isBatch = false) {
+                deleteId = id;
+                if (isBatch) {
+                    document.getElementById('deleteModalText').textContent = 
+                        '您确定要删除选中的抄表记录吗？此操作不可撤销。';
+                } else {
+                    document.getElementById('deleteModalText').textContent = 
+                        `您确定要删除ID为 ${id} 的抄表记录吗？此操作不可撤销。`;
+                }
+                deleteModal.classList.remove('hidden');
+                setTimeout(() => {
+                    deleteModal.querySelector('div').classList.add('scale-100');
+                    deleteModal.querySelector('div').classList.remove('scale-95');
+                }, 10);
+            }
+            
+            // 关闭删除模态框
+            function closeDeleteModal() {
+                deleteModal.querySelector('div').classList.add('scale-95');
+                deleteModal.querySelector('div').classList.remove('scale-100');
+                setTimeout(() => {
+                    deleteModal.classList.add('hidden');
+                    deleteId = null;
+                }, 200);
+            }
+            
+            // 批量删除按钮事件
+            batchDeleteBtn.addEventListener('click', function() {
+                if (!this.disabled) {
+                    openDeleteModal(null, true);
+                }
+            });
+            
+            // 关闭模态框按钮事件
+            closeModalBtn.addEventListener('click', closeDeleteModal);
+            cancelDeleteBtn.addEventListener('click', closeDeleteModal);
+            
+            // 确认删除按钮事件
+            confirmDeleteBtn.addEventListener('click', function() {
+                if (deleteId) {
+                    deleteRecord(deleteId);
+                } else {
+                    const checkedIds = Array.from(document.querySelectorAll('.record-checkbox:checked'))
+                        .map(checkbox => checkbox.getAttribute('data-id'));
+                    batchDeleteRecords(checkedIds);
+                }
+            });
+            
+            // 删除单条记录
+            function deleteRecord(id) {
+                fetch(`/utility-meter/${id}`, {
+                    method: 'DELETE',
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('删除失败');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.success) {
+                        showToast('删除成功', 'success');
+                        closeDeleteModal();
+                        loadRecords();
+                    } else {
+                        showToast(data.message, 'error');
+                    }
+                })
+                .catch(error => {
+                    console.error('删除失败:', error);
+                    showToast('删除失败，请重试', 'error');
+                });
+            }
+            
+            // 批量删除记录
+            function batchDeleteRecords(ids) {
+                fetch('/utility-meter/batch-delete', {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ ids: ids }),
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('批量删除失败');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.success) {
+                        showToast(`成功删除 ${data.data.deleted_count} 条记录`, 'success');
+                        closeDeleteModal();
+                        selectAllCheckbox.checked = false;
+                        loadRecords();
+                    } else {
+                        showToast(data.message, 'error');
+                    }
+                })
+                .catch(error => {
+                    console.error('批量删除失败:', error);
+                    showToast('批量删除失败，请重试', 'error');
+                });
+            }
+            
+            // 刷新按钮事件
+            resetFilterBtn.addEventListener('click', function() {
+                // 完全刷新页面
+                location.reload();
+            });
+            
+
+            
+            // 搜索框回车事件
+            searchInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    currentPage = 1;
+                    loadRecords();
+                }
+            });
+            
+            // 账单周期选择变化事件
+            billingPeriodSelect.addEventListener('change', function() {
+                currentPage = 1;
+                loadRecords();
+            });
+
+            // 楼栋选择变化事件
+            buildingFilter.addEventListener('change', function() {
+                currentPage = 1;
+                loadRecords();
+            });
+            
+            // 抄表类型选择变化事件
+            readingTypeFilter.addEventListener('change', function() {
+                currentPage = 1;
+                loadRecords();
+            });
+            
+            // 添加抄表按钮事件
+            addReadingBtn.addEventListener('click', function() {
+                window.location.href = '/utility-meter/utility_reading';
+            });
+            
+            // 点击模态框背景关闭
+            deleteModal.addEventListener('click', function(e) {
+                if (e.target === this) {
+                    closeDeleteModal();
+                }
+            });
+            
+            // 移除旧的分页页码按钮事件监听器相关代码，现在只需要上一页和下一页
+            
+            // 上一页按钮事件
+            paginationPrev.addEventListener('click', function(e) {
+                e.preventDefault();
+                if (currentPage > 1) {
+                    currentPage--;
+                    loadRecords();
+                }
+            });
+            
+            // 下一页按钮事件
+            paginationNext.addEventListener('click', function(e) {
+                e.preventDefault();
+                const totalPages = Math.ceil(parseInt(totalRecordsEl.textContent) / pageSize);
+                if (currentPage < totalPages) {
+                    currentPage++;
+                    loadRecords();
+                }
+            });
+            
+            // 每页条数选择事件
+            pageSizeSelect.addEventListener('change', function() {
+                pageSize = parseInt(this.value);
+                currentPage = 1;
+                loadRecords();
+            });
+            
+            // 打开删除账期模态框
+            function openDeleteBillingPeriodModal() {
+                const selectedPeriod = billingPeriodSelect.value;
+                let periodText = "全部周期";
+                
+                if (selectedPeriod) {
+                    const option = billingPeriodSelect.querySelector(`option[value="${selectedPeriod}"]`);
+                    if (option) {
+                        periodText = option.textContent;
+                    }
+                }
+                
+                currentBillingPeriodEl.textContent = periodText;
+                deleteBillingPeriodModal.classList.remove('hidden');
+                setTimeout(() => {
+                    deleteBillingPeriodModal.querySelector('div').classList.add('scale-100');
+                    deleteBillingPeriodModal.querySelector('div').classList.remove('scale-95');
+                }, 10);
+            }
+            
+            // 关闭删除账期模态框
+            function closeDeleteBillingPeriodModal() {
+                deleteBillingPeriodModal.querySelector('div').classList.add('scale-95');
+                deleteBillingPeriodModal.querySelector('div').classList.remove('scale-100');
+                setTimeout(() => {
+                    deleteBillingPeriodModal.classList.add('hidden');
+                }, 200);
+            }
+            
+            // 删除账期按钮事件
+            deleteBillingPeriodBtn.addEventListener('click', function() {
+                const selectedPeriod = billingPeriodSelect.value;
+                if (!selectedPeriod) {
+                    showToast('请先选择一个具体的账单周期', 'error');
+                    return;
+                }
+                openDeleteBillingPeriodModal();
+            });
+            
+            // 关闭周期删除模态框按钮事件
+            closeBillingPeriodModalBtn.addEventListener('click', closeDeleteBillingPeriodModal);
+            cancelDeleteBillingPeriodBtn.addEventListener('click', closeDeleteBillingPeriodModal);
+            
+            // 确认删除账期按钮事件
+            confirmDeleteBillingPeriodBtn.addEventListener('click', function() {
+                const selectedPeriod = billingPeriodSelect.value;
+                fetch(`/utility-meter/delete-billing-period/${selectedPeriod}`, {
+                    method: 'DELETE',
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('删除账期失败');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.success) {
+                        showToast('账单周期删除成功', 'success');
+                        closeDeleteBillingPeriodModal();
+                        // 重新加载周期数据并选择最新的
+                        loadBillingPeriods().then(() => {
+                            if (hasPeriods) {
+                                const firstPeriodOption = billingPeriodSelect.options[1];
+                                if (firstPeriodOption && !firstPeriodOption.disabled) {
+                                    billingPeriodSelect.value = firstPeriodOption.value;
+                                } else {
+                                    billingPeriodSelect.value = '';
+                                }
+                            } else {
+                                billingPeriodSelect.value = '';
+                            }
+                            currentPage = 1;
+                            loadRecords();
+                        });
+                    } else {
+                        showToast(data.message, 'error');
+                    }
+                })
+                .catch(error => {
+                    console.error('删除账期失败:', error);
+                    showToast('删除账期失败，请重试', 'error');
+                });
+            });
+            
+            // 点击周期删除模态框背景关闭
+            deleteBillingPeriodModal.addEventListener('click', function(e) {
+                if (e.target === this) {
+                    closeDeleteBillingPeriodModal();
+                }
+            });
+            
+            // 显示提示消息
+            function showToast(message, type = 'success') {
+                // 过滤掉不友好的参数错误提示
+                if (type === 'error' && (message.includes('period_id') || message.includes('月份'))) {
+                    return;
+                }
+                
+                const toast = document.createElement('div');
+                toast.className = `toast ${type === 'success' ? 'success' : 'error'}`;
+                toast.textContent = message;
+                document.body.appendChild(toast);
+                
+                setTimeout(() => {
+                    toast.classList.add('show');
+                }, 10);
+                
+                setTimeout(() => {
+                    toast.classList.remove('show');
+                    setTimeout(() => {
+                        document.body.removeChild(toast);
+                    }, 300);
+                }, 3000);
+            }
+            
+            // 导出按钮事件
+            exportBtn.addEventListener('click', function() {
+                // 构建查询参数
+                const params = new URLSearchParams();
+                
+                const billingPeriod = billingPeriodSelect.value;
+                if (billingPeriod) {
+                    // 使用账期参数进行查询
+                    params.append('billing_period', billingPeriod);
+                } else {
+                    // 如果没有选择账期，提示用户
+                    showToast('请先选择一个账单周期', 'error');
+                    return;
+                }
+                
+                // 显示导出中状态
+                const exportBtnText = document.getElementById('exportBtnText');
+                const exportingIndicator = document.getElementById('exportingIndicator');
+                const originalText = exportBtnText.textContent;
+                
+                exportBtnText.textContent = '导出中';
+                exportingIndicator.classList.remove('hidden');
+                exportBtn.disabled = true;
+                exportBtn.classList.add('opacity-70', 'cursor-not-allowed');
+                
+                // 触发下载
+                window.location.href = `/utility_room_meter_import_export/export?${params.toString()}`;
+                
+                // 记录日志
+                showToast('正在导出数据，请稍候...', 'success');
+                
+                // 60秒后恢复按钮状态
+                setTimeout(() => {
+                    exportBtnText.textContent = originalText;
+                    exportingIndicator.classList.add('hidden');
+                    exportBtn.disabled = false;
+                    exportBtn.classList.remove('opacity-70', 'cursor-not-allowed');
+                }, 60000);
+            });
+            
+            // 导入/更新模态框相关功能
+            // 打开模态框
+            function openImportUpdateModal() {
+                resetImportUpdateModal();
+                importUpdateModal.classList.remove('hidden');
+                setTimeout(() => {
+                    importUpdateModal.querySelector('div').classList.remove('scale-95');
+                    importUpdateModal.querySelector('div').classList.add('scale-100');
+                }, 10);
+            }
+            
+            // 关闭模态框
+            function closeImportUpdateModalFunc() {
+                importUpdateModal.querySelector('div').classList.remove('scale-100');
+                importUpdateModal.querySelector('div').classList.add('scale-95');
+                // 加快关闭速度
+                setTimeout(() => {
+                    importUpdateModal.classList.add('hidden');
+                }, 80);
+            }
+            
+            // 重置模态框状态
+            function resetImportUpdateModal() {
+                importFile.value = '';
+                document.querySelector('input[name="importType"][value="new"]').checked = true;
+                confirmImport.disabled = true;
+                selectedImportFile = null;
+                // 重置选中文件显示
+                selectedFileNameEl.textContent = '';
+                selectedFileNameEl.classList.add('hidden');
+            }
+            
+            // 导入按钮点击事件
+            importBtn.addEventListener('click', openImportUpdateModal);
+            
+            // 关闭模态框按钮事件
+            closeImportUpdateModal.addEventListener('click', closeImportUpdateModalFunc);
+            cancelImport.addEventListener('click', closeImportUpdateModalFunc);
+            
+            // 点击模态框背景关闭
+            importUpdateModal.addEventListener('click', function(e) {
+                if (e.target === this) {
+                    closeImportUpdateModalFunc();
+                }
+            });
+            
+            // 文件选择事件 - 修复：添加选中文件显示并防止事件冒泡
+            importFile.addEventListener('change', function(e) {
+                // 阻止事件冒泡，防止触发容器的点击事件
+                e.stopPropagation();
+                
+                const file = e.target.files[0];
+                // 重置选中文件显示
+                selectedFileNameEl.textContent = '';
+                selectedFileNameEl.classList.add('hidden');
+                
+                if (!file) {
+                    selectedImportFile = null;
+                    confirmImport.disabled = true;
+                    return;
+                }
+                
+                // 验证文件类型
+                if (!file.name.endsWith('.xlsx') && !file.name.endsWith('.xls')) {
+                    showToast('请选择Excel文件(.xlsx, .xls)', 'error');
+                    this.value = '';
+                    selectedImportFile = null;
+                    confirmImport.disabled = true;
+                    return;
+                }
+                
+                // 显示选中的文件名
+                selectedFileNameEl.textContent = `已选择: ${file.name}`;
+                selectedFileNameEl.classList.remove('hidden');
+                
+                // 添加选中效果
+                this.closest('.file-input-container').classList.add('border-primary', 'bg-primary/5');
+                setTimeout(() => {
+                    this.closest('.file-input-container').classList.remove('border-primary', 'bg-primary/5');
+                }, 500);
+                
+                selectedImportFile = file;
+                confirmImport.disabled = false;
+            });
+            
+            // 拖拽功能增强
+            const fileInputContainer = document.querySelector('.file-input-container');
+            
+            fileInputContainer.addEventListener('dragover', function(e) {
+                e.preventDefault();
+                this.classList.add('border-primary', 'bg-primary/5');
+            });
+            
+            fileInputContainer.addEventListener('dragleave', function() {
+                this.classList.remove('border-primary', 'bg-primary/5');
+            });
+            
+            fileInputContainer.addEventListener('drop', function(e) {
+                e.preventDefault();
+                // 阻止事件冒泡
+                e.stopPropagation();
+                
+                this.classList.remove('border-primary', 'bg-primary/5');
+                
+                if (e.dataTransfer.files.length) {
+                    importFile.files = e.dataTransfer.files;
+                    // 触发change事件
+                    const event = new Event('change');
+                    importFile.dispatchEvent(event);
+                }
+            });
+            
+            // 点击容器触发文件选择 - 修复：防止重复触发
+            fileInputContainer.addEventListener('click', function(e) {
+                // 检查是否已经有选中的文件，如果有则不重复打开选择窗口
+                if (selectedImportFile) {
+                    e.stopPropagation();
+                    return;
+                }
+                
+                // 直接点击输入框时不重复触发
+                if (e.target === importFile) {
+                    return;
+                }
+                
+                importFile.click();
+                e.stopPropagation();
+            });
+            
+            // 下载模板链接事件
+            downloadTemplateLink.addEventListener('click', function(e) {
+                e.preventDefault();
+                window.location.href = '/utility_room_meter_import_export/template';
+                showToast('正在下载模板文件，请稍候...', 'success');
+            });
+            
+            // 确认上传按钮事件
+            confirmImport.addEventListener('click', function() {
+                if (!selectedImportFile) {
+                    showToast('请选择要上传的文件', 'error');
+                    return;
+                }
+                
+                // 获取选中的导入类型
+                const importType = document.querySelector('input[name="importType"]:checked').value;
+                const isNewRecord = importType === 'new';
+                
+                // 禁用导入按钮并添加动画状态
+                confirmImport.disabled = true;
+                confirmImport.innerHTML = '<i class="fa fa-spinner fa-spin mr-2"></i> 处理中...';
+                
+                // 创建FormData对象
+                const formData = new FormData();
+                formData.append('file', selectedImportFile);
+                
+                // 根据类型选择不同的API端点
+                const url = isNewRecord 
+                    ? '/utility_room_meter_import_export/import' 
+                    : '/utility_room_meter_import_export/batch_update';
+                
+                // 发送文件到服务器
+                fetch(url, {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        return response.json().then(err => {
+                            throw new Error(err.message || `${isNewRecord ? '导入' : '更新'}失败`);
+                        });
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    // 恢复导入按钮状态
+                    confirmImport.disabled = false;
+                    confirmImport.innerHTML = '确认上传';
+                    
+                    if (data.success) {
+                        // 关闭当前模态框
+                        const modalContent = importUpdateModal.querySelector('div');
+                        modalContent.classList.remove('scale-100');
+                        modalContent.classList.add('scale-95');
+                        
+                        setTimeout(() => {
+                            importUpdateModal.classList.add('hidden');
+                            
+                            // 显示导入结果 - 直接使用toast
+                            showToast(`导入成功，总记录数: ${data.total_count || data.success_count + data.fail_count}, 成功: ${data.success_count}, 失败: ${data.fail_count}`, 'success');
+                            
+                            // 如果有失败记录，在控制台显示详细信息以便调试
+                            if (data.fail_count > 0 && data.errors) {
+                                console.warn('导入失败详情:', data.errors);
+                                // 可以根据需要决定是否显示错误详情，这里简化为只显示成功信息
+                            }
+                            
+                            // 延迟一小段时间后刷新整个页面，确保数据完全更新
+                            setTimeout(() => {
+                                location.reload();
+                            }, 3000);
+                        }, 80);
+                    } else {
+                        // 恢复按钮状态
+                        confirmImport.disabled = false;
+                        confirmImport.innerHTML = '确认上传';
+                        
+                        showToast(data.message, 'error');
+                    }
+                })
+                .catch(error => {
+                    // 恢复导入按钮状态
+                    confirmImport.disabled = false;
+                    confirmImport.innerHTML = '确认上传';
+                    
+                    console.error(`${isNewRecord ? '导入' : '更新'}失败:`, error);
+                    showToast(error.message || `${isNewRecord ? '导入' : '更新'}失败，请重试`, 'error');
+                });
+            });
+        });
+    </script>
+</body>
+</html>
+

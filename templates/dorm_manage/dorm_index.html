@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+   <!--本地化CDN-->
+{% include 'static.html' %}
+
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#165DFF',
+                        secondary: '#36CFC9',
+                        accent: '#722ED1',
+                        success: '#52C41A',
+                        warning: '#FAAD14',
+                        danger: '#FF4D4F',
+                    },
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .card-hover {
+                @apply transition-all duration-300 hover:shadow-md hover:-translate-y-1;
+            }
+            .btn-hover {
+                transition: all 0.2s ease;
+            }
+            .btn-hover:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            }
+            .fade-in {
+                animation: fadeIn 0.5s ease-in;
+            }
+            @keyframes fadeIn {
+                from { opacity: 0; }
+                to { opacity: 1; }
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+ 
+{% include 'header.html' %}
+    <!-- 主要内容区 -->
+    <main class="container mx-auto px-4 py-6">
+        <!-- 标题和功能按钮区 -->
+        <div class="mb-6 fade-in">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between">
+                <div class="flex items-center">
+                    <button onclick="history.back()" class="text-gray-600 hover:text-primary transition-colors mr-4">
+                        <i class="fa fa-arrow-left"></i>
+                    </button>
+                    <div>
+                        <h2 class="text-[clamp(1.5rem,3vw,2rem)] font-bold text-dark">{{ title }}</h2>
+                        <p class="text-gray-500 mt-1">管理宿舍信息，包括分配、更换和查询宿舍详情</p>
+                    </div>
+                </div>
+                
+            </div>
+        </div>
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="flash-messages mb-6 mx-auto" style="max-width: 500px;">
+                {% for category, message in messages %}
+                    <div class="p-4 rounded-md mb-2 text-center {% if category == 'success' %}bg-green-100 text-green-800{% elif category == 'error' or category == 'danger' %}bg-red-100 text-red-800{% elif category == 'warning' %}bg-red-100 text-red-800{% else %}bg-blue-100 text-blue-800{% endif %}">
+                    <button type="button" class="float-right ml-2 text-gray-500 hover:text-gray-700" onclick="this.parentElement.remove()">×</button>
+                    {{ message }}
+                    </div>
+                {% endfor %}
+                </div>
+            {% endif %}
+            {% endwith %}
+        <!-- 功能卡片区域 -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+            
+            <!-- 分配宿舍 -->
+            <div class="bg-white rounded-xl p-6 shadow-sm card-hover text-center">
+                
+                <div class="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mb-4 mx-auto">
+                    <i class="fa fa-user-plus text-2xl text-primary"></i>
+                </div>
+                <h3 class="text-lg font-medium text-dark mb-2">分配宿舍</h3>
+                <p class="text-gray-500 text-sm mb-4">为新入住用户办理登记手续</p>
+                <button onclick="window.location.href='{{ url_for('dorm.add') }}'" 
+                        class="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90">
+                    办理分配
+                </button>
+            </div>
+
+            <!-- 更换宿舍 -->
+            <div class="bg-white rounded-xl p-6 shadow-sm card-hover text-center">
+                <div class="w-16 h-16 bg-secondary/10 rounded-full flex items-center justify-center mb-4 mx-auto">
+                    <i class="fa fa-exchange text-2xl text-secondary"></i>
+                </div>
+                <h3 class="text-lg font-medium text-dark mb-2">更换宿舍</h3>
+                <p class="text-gray-500 text-sm mb-4">调整用户住宿分配信息</p>
+                <button onclick="window.location.href='{{ url_for('dorm.change') }}'" 
+                        class="px-4 py-2 bg-secondary text-white rounded-md hover:bg-secondary/90">
+                    办理更换
+                </button>
+            </div>
+
+            <!-- 办理退宿 
+            <div class="bg-white rounded-xl p-6 shadow-sm card-hover text-center">
+                <div class="w-16 h-16 bg-danger/10 rounded-full flex items-center justify-center mb-4 mx-auto">
+                    <i class="fa fa-sign-out text-2xl text-danger"></i>
+                </div>
+                <h3 class="text-lg font-medium text-dark mb-2">办理退宿</h3>
+                <p class="text-gray-500 text-sm mb-4">为用户办理退宿手续</p>
+                <button onclick="window.location.href='{{ url_for('dorm.dorm_gameout') }}'" 
+                        class="px-4 py-2 bg-danger text-white rounded-md hover:bg-danger/90">
+                    办理退宿
+                </button>
+            </div>-->
+             <!-- 住宿详情查询 -->
+            <div class="bg-white rounded-xl p-6 shadow-sm card-hover text-center">
+                <div class="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mb-4 mx-auto">
+                    <i class="fa fa-search text-2xl text-purple-600"></i>
+                </div>
+                <h3 class="text-lg font-medium text-dark mb-2">在住人员列表</h3>
+                <p class="text-gray-500 text-sm mb-4">查询在住人员详细信息</p>
+                <button onclick="window.location.href='{{ url_for('dorm.dorm_query') }}'" 
+                        class="px-4 py-2 bg-purple-500 text-white rounded-md hover:bg-purple-600">
+                    进入查询
+                </button>
+            </div>
+            
+            <!-- 住宿详情查询 -->
+            <div class="bg-white rounded-xl p-6 shadow-sm card-hover text-center">
+                <div class="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4 mx-auto">
+                    <i class="fa fa-table text-2xl text-blue-600"></i>
+                </div>
+                <h3 class="text-lg font-medium text-dark mb-2">在住人员表单式</h3>
+                <p class="text-gray-500 text-sm mb-4">查询在住人员详细信息</p>
+                <button onclick="window.location.href='{{ url_for('dorm.dorm_query_2') }}'" 
+                        class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600">
+                    点击查看
+                </button>
+            </div>
+            
+            <!-- 房间管理卡片 -->
+             {% if get_config_value('FEATURE_ROOM_MANAGE_ENABLED', True) %}
+            <div class="bg-white rounded-xl p-6 shadow-sm card-hover text-center">
+                <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4 mx-auto">
+                    <i class="fa fa-home text-2xl text-green-600"></i>
+                </div>
+                <h3 class="text-lg font-medium text-dark mb-2">房间管理</h3>
+                <p class="text-gray-500 text-sm mb-4">管理房间基本信息和设施</p>
+                <button onclick="window.location.href='{{ url_for('room.manage') }}'" 
+                        class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700">
+                    进入管理
+                </button>
+            </div>
+            {% endif %}
+
+            <!-- 水电费管理卡片 -->
+             {% if get_config_value('FEATURE_UTILITY_BILL_ENABLED', True) %}
+            <div class="bg-white rounded-xl p-6 shadow-sm card-hover text-center">
+                <div class="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mb-4 mx-auto">
+                    <i class="fa fa-bolt text-2xl text-amber-600"></i>
+                </div>
+                <h3 class="text-lg font-medium text-dark mb-2">水电费管理</h3>
+                <p class="text-gray-500 text-sm mb-4">管理水电费抄表和结算</p>
+                <button onclick="window.location.href='{{ url_for('utility_index.utility_index') }}'" 
+                        class="px-4 py-2 bg-amber-600 text-white rounded-md hover:bg-amber-700">
+                    进入管理
+                </button>
+            </div>
+            {% endif %}
+        </div>
+
+       <!-- 数据统计区域 -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
+    <!-- 住宿人数卡片 -->
+    <div class="bg-white rounded-xl p-6 shadow-sm">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-gray-500 text-sm">总住宿人数</p>
+                <h3 class="text-3xl font-bold mt-1" id="residentsCount">加载中...</h3>
+                <p class="text-success text-xs mt-2" id="residentsGrowth">
+                    <i class="fa fa-arrow-up"></i> 加载中...
+                </p>
+            </div>
+            <div class="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
+                <i class="fa fa-users text-primary"></i>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 可用房间数卡片 -->
+    <div class="bg-white rounded-xl p-6 shadow-sm">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-gray-500 text-sm">可用房间数</p>
+                <h3 class="text-3xl font-bold mt-1" id="roomsCount">加载中...</h3>
+                <p class="text-danger text-xs mt-2" id="roomsGrowth">
+                    <i class="fa fa-arrow-down"></i> 加载中...
+                </p>
+            </div>
+            <div class="w-12 h-12 bg-success/10 rounded-full flex items-center justify-center">
+                <i class="fa fa-bed text-success"></i>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 可用床位数卡片 -->
+    <div class="bg-white rounded-xl p-6 shadow-sm">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-gray-500 text-sm">可用床位数</p>
+                <h3 class="text-3xl font-bold mt-1" id="bedsCount">加载中...</h3>
+                <p class="text-success text-xs mt-2" id="bedsGrowth">
+                    <i class="fa fa-arrow-up"></i> 加载中...
+                </p>
+            </div>
+            <div class="w-12 h-12 bg-accent/10 rounded-full flex items-center justify-center">
+                <i class="fa fa-bed text-accent"></i>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 本月入住人数卡片 -->
+    <div class="bg-white rounded-xl p-6 shadow-sm">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-gray-500 text-sm">本月入住人数</p>
+                <h3 class="text-3xl font-bold mt-1" id="checkinThisMonth">加载中...</h3>
+                <p class="text-success text-xs mt-2" id="checkinGrowth">
+                    <i class="fa fa-arrow-up"></i> 加载中...
+                </p>
+            </div>
+            <div class="w-12 h-12 bg-info/10 rounded-full flex items-center justify-center">
+                <i class="fa fa-sign-in text-info"></i>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 本月退宿人数卡片 -->
+    <div class="bg-white rounded-xl p-6 shadow-sm">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-gray-500 text-sm">本月退宿人数</p>
+                <h3 class="text-3xl font-bold mt-1" id="checkoutThisMonth">加载中...</h3>
+                <p class="text-success text-xs mt-2" id="checkoutGrowth">
+                    <i class="fa fa-arrow-down"></i> 加载中...
+                </p>
+            </div>
+            <div class="w-12 h-12 bg-warning/10 rounded-full flex items-center justify-center">
+                <i class="fa fa-sign-out text-warning"></i>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+        <!-- 最近操作记录 -->
+        <div class="bg-white rounded-xl p-6 shadow-sm mb-8">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-lg font-semibold">最近操作记录</h3>
+                <a href="{{ url_for('dorm.dorm_records') }}" class="text-primary text-sm hover:underline">查看全部</a>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead>
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作时间</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作类型</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">用户姓名</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">宿舍信息</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作人</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200" id="recentOperationsTable">
+                        <tr>
+                            <td colspan="5" class="px-6 py-4 text-center text-gray-500">加载中...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- 页脚 -->
+         {% include 'footer.html' %}
+
+<script>
+    // 调试用 - 显示API请求地址
+console.log('统计数据API地址:', '{{ url_for('dorm.get_statistics') }}');
+
+    // 获取统计数据
+fetch('{{ url_for('dorm.get_statistics') }}')
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP错误! 状态码: ${response.status}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        console.log('获取到的统计数据:', data);
+        
+        if (data.success && data.data) {
+            // 显示住宿人数：总可住/已住宿
+            const residentsEl = document.getElementById('residentsCount');
+            residentsEl.textContent = `${data.data.total_active_users}/${data.data.occupied_residents}`;
+            
+            // 更新住宿人数增长率
+            const residentsGrowthEl = document.getElementById('residentsGrowth');
+            const residentsGrowth = data.data.residents_growth || 0;
+            if (residentsGrowth > 0) {
+                residentsGrowthEl.innerHTML = `<i class="fa fa-arrow-up"></i> 较上月增长 ${residentsGrowth}%`;
+                residentsGrowthEl.className = 'text-success text-xs mt-2';
+            } else if (residentsGrowth < 0) {
+                residentsGrowthEl.innerHTML = `<i class="fa fa-arrow-down"></i> 较上月减少 ${Math.abs(residentsGrowth)}%`;
+                residentsGrowthEl.className = 'text-danger text-xs mt-2';
+            } else {
+                residentsGrowthEl.innerHTML = `<i class="fa fa-minus"></i> 与上月持平`;
+                residentsGrowthEl.className = 'text-gray-500 text-xs mt-2';
+            }
+            
+            // 显示房间数：总房间/可用房间
+            const roomsEl = document.getElementById('roomsCount');
+            roomsEl.textContent = `${data.data.total_rooms}/${data.data.available_rooms}`;
+            
+            // 更新房间增长率
+            const roomsGrowthEl = document.getElementById('roomsGrowth');
+            const roomsGrowth = data.data.rooms_growth || 0;
+            if (roomsGrowth > 0) {
+                roomsGrowthEl.innerHTML = `<i class="fa fa-arrow-up"></i> 较上月增长 ${roomsGrowth}%`;
+                roomsGrowthEl.className = 'text-success text-xs mt-2';
+            } else if (roomsGrowth < 0) {
+                roomsGrowthEl.innerHTML = `<i class="fa fa-arrow-down"></i> 较上月减少 ${Math.abs(roomsGrowth)}%`;
+                roomsGrowthEl.className = 'text-danger text-xs mt-2';
+            } else {
+                roomsGrowthEl.innerHTML = `<i class="fa fa-minus"></i> 与上月持平`;
+                roomsGrowthEl.className = 'text-gray-500 text-xs mt-2';
+            }
+            
+            // 显示本月退宿人数
+            document.getElementById('checkoutThisMonth').textContent = 
+                data.data.checkout_this_month || '0';
+            
+            // 更新退宿增长率
+            const checkoutGrowthEl = document.getElementById('checkoutGrowth');
+            const checkoutGrowth = data.data.checkout_growth || 0;
+            if (checkoutGrowth > 0) {
+                checkoutGrowthEl.innerHTML = `<i class="fa fa-arrow-up"></i> 较上月增长 ${checkoutGrowth}%`;
+                checkoutGrowthEl.className = 'text-danger text-xs mt-2';
+            } else if (checkoutGrowth < 0) {
+                checkoutGrowthEl.innerHTML = `<i class="fa fa-arrow-down"></i> 较上月减少 ${Math.abs(checkoutGrowth)}%`;
+                checkoutGrowthEl.className = 'text-success text-xs mt-2';
+            } else {
+                checkoutGrowthEl.innerHTML = `<i class="fa fa-minus"></i> 与上月持平`;
+                checkoutGrowthEl.className = 'text-gray-500 text-xs mt-2';
+            }
+            
+            // 显示可用床位数（总数/可用数）
+            document.getElementById('bedsCount').textContent = 
+                `${data.data.total_beds || '0'}/${data.data.available_beds_count || '0'}`;
+            
+            // 更新可用床位数增长率
+            const bedsGrowthEl = document.getElementById('bedsGrowth');
+            const bedsGrowth = data.data.beds_growth || 0;
+            if (bedsGrowth > 0) {
+                bedsGrowthEl.innerHTML = `<i class="fa fa-arrow-up"></i> 较上月增长 ${bedsGrowth}%`;
+                bedsGrowthEl.className = 'text-success text-xs mt-2';
+            } else if (bedsGrowth < 0) {
+                bedsGrowthEl.innerHTML = `<i class="fa fa-arrow-down"></i> 较上月减少 ${Math.abs(bedsGrowth)}%`;
+                bedsGrowthEl.className = 'text-danger text-xs mt-2';
+            } else {
+                bedsGrowthEl.innerHTML = `<i class="fa fa-minus"></i> 与上月持平`;
+                bedsGrowthEl.className = 'text-gray-500 text-xs mt-2';
+            }
+            
+            // 显示本月入住人数
+            document.getElementById('checkinThisMonth').textContent = 
+                data.data.checkin_this_month || '0';
+            
+            // 更新入住增长率
+            const checkinGrowthEl = document.getElementById('checkinGrowth');
+            const checkinGrowth = data.data.checkin_growth || 0;
+            if (checkinGrowth > 0) {
+                checkinGrowthEl.innerHTML = `<i class="fa fa-arrow-up"></i> 较上月增长 ${checkinGrowth}%`;
+                checkinGrowthEl.className = 'text-success text-xs mt-2';
+            } else if (checkinGrowth < 0) {
+                checkinGrowthEl.innerHTML = `<i class="fa fa-arrow-down"></i> 较上月减少 ${Math.abs(checkinGrowth)}%`;
+                checkinGrowthEl.className = 'text-danger text-xs mt-2';
+            } else {
+                checkinGrowthEl.innerHTML = `<i class="fa fa-minus"></i> 与上月持平`;
+                checkinGrowthEl.className = 'text-gray-500 text-xs mt-2';
+            }
+        } else {
+            throw new Error('数据格式错误: ' + (data.error || '未知错误'));
+        }
+    })
+    .catch(error => {
+        console.error('获取统计数据失败:', error);
+        // 显示错误信息
+        document.getElementById('residentsCount').textContent = '获取失败';
+        document.getElementById('roomsCount').textContent = '获取失败';
+        document.getElementById('checkoutThisMonth').textContent = '获取失败';
+        document.getElementById('checkinThisMonth').textContent = '获取失败';
+    });
+            
+            // 获取最近操作记录
+            fetch('{{ url_for('dorm.get_recent_operations') }}')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const tableBody = document.getElementById('recentOperationsTable');
+                        tableBody.innerHTML = '';
+                        
+                        if (data.data.length === 0) {
+                            tableBody.innerHTML = `
+                                <tr>
+                                    <td colspan="5" class="px-6 py-4 text-center text-gray-500">暂无操作记录</td>
+                                </tr>
+                            `;
+                            return;
+                        }
+                        
+                        data.data.forEach(operation => {
+                            // 确定操作类型的样式
+                            let typeClass = '';
+                            let typeText = operation.type_text;
+                            
+                            switch (operation.type) {
+                                case 'allocate':
+                                    typeClass = 'bg-success/10 text-success';
+                                    break;
+                                case 'change':
+                                    typeClass = 'bg-secondary/10 text-secondary';
+                                    break;
+                                case 'checkout':
+                                    typeClass = 'bg-danger/10 text-danger';
+                                    break;
+                            }
+                            
+                            const row = document.createElement('tr');
+                            row.className = 'hover:bg-gray-50 transition duration-200';
+                            row.innerHTML = `
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${operation.time}</td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <span class="px-2 py-1 text-xs rounded-full ${typeClass}">${typeText}</span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm">
+                                    <a href="/user/view/${operation.user_id}" class="text-primary hover:underline cursor-pointer">
+                                        ${operation.user_name}
+                                    </a>(ID:${operation.user_id})
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm">${operation.room_info}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm">${operation.operator}</td>
+                            `;
+                            tableBody.appendChild(row);
+                        });
+                    } else {
+                        console.error('获取操作记录失败:', data.error);
+                    }
+                })
+                .catch(error => console.error('获取操作记录时发生错误:', error));
+        </script>
+
+</body>
+</html>
+    

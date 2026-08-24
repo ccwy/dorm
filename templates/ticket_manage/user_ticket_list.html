@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    {% include 'static.html' %}
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#165DFF',
+                        secondary: '#36CFC9',
+                        accent: '#722ED1',
+                        danger: '#F5222D',
+                        info: '#1890FF',
+                        warning: '#FAAD14'
+                    },
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .btn-effect {
+                transition: all 0.2s ease;
+            }
+            .btn-effect:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            }
+            /* 确保模态框居中显示 */
+            .modal-container {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 50;
+            }
+            /* 确保表格单元格内容可以换行 */
+            .table-auto-wrap td,
+            .table-auto-wrap th {
+                white-space: normal;
+                word-wrap: break-word;
+                vertical-align: top;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    {% include 'header.html' %}
+
+    <main class="container mx-auto px-4 py-6">
+        <!-- 标题和功能按钮区 -->
+        <div class="mb-6 fade-in">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between">
+                <div class="flex items-center">
+                    <button onclick="window.location.href = '{{ url_for('user.user_info') }}'" class="text-gray-600 hover:text-primary transition-colors mr-4">
+                        <i class="fa fa-arrow-left"></i>
+                    </button>
+                    <div>
+                        <h2 class="text-[clamp(1.5rem,3vw,2rem)] font-bold text-dark">我的留言</h2>
+                        <p class="text-gray-500 mt-1">管理您提交的留言，查看留言状态和处理进度</p>
+                    </div>
+                </div>
+                <div class="mt-4 md:mt-0 flex flex-wrap gap-3">
+                    <button onclick="document.getElementById('createTicketModal').style.display='flex'" class="btn-hover bg-primary text-white px-4 py-2 rounded-md flex items-center">
+                        <i class="fa fa-plus mr-2"></i>新建留言
+                    </button>
+                    <button id="refreshListBtn" class="btn-hover bg-secondary text-white px-4 py-2 rounded-md flex items-center">
+                        <i class="fa fa-refresh mr-2"></i>刷新列表
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 消息提示区域 -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            <div class="flash-messages mb-6">
+              {% for category, message in messages %}
+                <div class="p-4 rounded-md mb-2 {% if category == 'success' %}bg-green-100 text-green-800{% elif category == 'error' or category == 'danger' %}bg-red-100 text-red-800{% elif category == 'warning' %}bg-yellow-100 text-yellow-800{% else %}bg-blue-100 text-blue-800{% endif %}">
+                  <button type="button" class="float-right ml-2 text-gray-500 hover:text-gray-700" onclick="this.parentElement.remove()">×</button>
+                  {{ message }}
+                </div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        {% endwith %}
+        
+        <!-- 隐藏的关闭留言表单 -->
+        <form id="closeTicketForm" method="post" style="display: none;">
+            <input type="hidden" name="ticket_id">
+        </form>
+
+        <!-- 关闭留言确认模态框 -->
+        <div id="closeConfirmModal" class="modal-container bg-black bg-opacity-50" style="display: none">
+            <div class="bg-white rounded-lg shadow-lg w-full max-w-md">
+                <div class="p-4 border-b border-gray-200">
+                    <h3 class="text-lg font-semibold text-gray-800">确认关闭留言</h3>
+                </div>
+                <div class="p-4">
+                    <p class="text-gray-700">确定要关闭该留言吗？</p>
+                </div>
+                <div class="p-4 border-t border-gray-200 flex justify-end space-x-3">
+                    <button onclick="document.getElementById('closeConfirmModal').style.display='none'" class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors">
+                        取消
+                    </button>
+                    <form id="closeForm" method="post">
+                        <button type="submit" class="px-4 py-2 bg-warning text-white rounded-md hover:bg-warning/90 transition-colors">
+                            确认关闭
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 留言列表 -->
+        <div class="bg-white rounded-lg shadow-sm overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">留言编号</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">标题</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">分类</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">优先级</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">状态</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">创建时间</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        {% if tickets %}
+                            {% for ticket in tickets %}
+                                <tr class="hover:bg-gray-50 transition-colors">
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{{ ticket.id }}</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                                        <a href="{{ url_for('ticket_user.ticket_detail', ticket_id=ticket.id) }}" class="text-primary hover:text-primary/80 transition-colors hover:underline">{{ ticket.title }}</a>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{{ ticket.category }}</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm">
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                                            {% if ticket.priority == '低' %}bg-blue-100 text-blue-800
+                                            {% elif ticket.priority == '一般' %}bg-green-100 text-green-800
+                                            {% elif ticket.priority == '高' %}bg-orange-100 text-orange-800
+                                            {% elif ticket.priority == '紧急' %}bg-red-100 text-red-800
+                                            {% endif %}">
+                                            {{ ticket.priority }}
+                                        </span>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm">
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                                            {% if ticket.status == '待处理' %}bg-yellow-100 text-yellow-800
+                                            {% elif ticket.status == '处理中' %}bg-blue-100 text-blue-800
+                                            {% elif ticket.status == '已解决' %}bg-green-100 text-green-800
+                                            {% elif ticket.status == '已关闭' %}bg-gray-100 text-gray-800
+                                            {% endif %}">
+                                            {{ ticket.status }}
+                                        </span>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{{ ticket.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm">
+                                        <div class="flex space-x-2">
+                                            <a href="{{ url_for('ticket_user.ticket_detail', ticket_id=ticket.id) }}" class="btn-effect bg-blue-500 text-white px-2 py-1 rounded-md text-sm flex items-center">
+                                                <i class="fa fa-eye mr-1"></i>查看
+                                            </a>
+                                            {% if ticket.status != '已关闭' %}
+                                            <button type="button" onclick="confirmClose({{ ticket.id }})" class="btn-effect bg-warning text-white px-2 py-1 rounded-md text-sm flex items-center">
+                                                <i class="fa fa-times-circle mr-1"></i>关闭
+                                            </button>
+                                        {% endif %}
+                                        </div>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="7" class="px-4 py-8 text-center text-gray-500">
+                                    <i class="fa fa-inbox text-4xl mb-2 opacity-30"></i>
+                                    <p>暂无留言记录</p>
+                                    <button onclick="document.getElementById('createTicketModal').style.display='flex'" class="btn-effect bg-primary text-white px-2 py-1 rounded-md text-sm flex items-center mt-2 justify-center mx-auto">
+                                        <i class="fa fa-plus mr-1"></i>创建您的第一张留言
+                                    </button>
+                                </td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- 分页控件 -->
+            {% if pagination and pagination.total > 0 %}
+            <div class="px-4 py-3 bg-gray-50 border-t border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div class="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                    <div class="text-sm text-gray-700">
+                        显示 {{ (page-1)*per_page + 1 }} 到 {{ page*per_page if page*per_page < pagination.total else pagination.total }} 条，共 {{ pagination.total }} 条记录
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <span class="text-sm text-gray-700">每页显示：</span>
+                        <select id="pageSizeSelect" class="px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
+                            <option value="10" {% if per_page == 10 %}selected{% endif %}>10条/页</option>
+                            <option value="20" {% if per_page == 20 %}selected{% endif %}>20条/页</option>
+                            <option value="50" {% if per_page == 50 %}selected{% endif %}>50条/页</option>
+                            <option value="100" {% if per_page == 100 %}selected{% endif %}>100条/页</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <div class="text-sm text-gray-700">
+                        第{{ pagination.page }}页/共{{ pagination.pages }}页
+                    </div>
+                    <div class="flex space-x-1">
+                    <a href="{{ url_for('ticket_user.user_ticket_list', page=pagination.prev_num, per_page=per_page) }}"
+                       class="px-3 py-1 border border-gray-300 rounded bg-white text-gray-500 hover:bg-gray-50 {% if not pagination.has_prev %}opacity-50 cursor-not-allowed{% endif %} transition-colors">
+                        <i class="fa fa-chevron-left"></i>
+                        <span class="ml-1">上一页</span>
+                    </a>
+                    
+                    <a href="{{ url_for('ticket_user.user_ticket_list', page=pagination.next_num, per_page=per_page) }}"
+                       class="px-3 py-1 border border-gray-300 rounded bg-white text-gray-500 hover:bg-gray-50 {% if not pagination.has_next %}opacity-50 cursor-not-allowed{% endif %} transition-colors">
+                        <span class="mr-1">下一页</span>
+                        <i class="fa fa-chevron-right"></i>
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </main>
+    
+    {% include 'footer.html' %}
+
+    <!-- 新建留言模态框 -->
+    <div id="createTicketModal" class="modal-container bg-black bg-opacity-50" style="display: none">
+        <div class="bg-white rounded-lg shadow-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div class="p-4 border-b border-gray-200 flex justify-between items-center">
+                <h3 class="text-lg font-semibold text-gray-800">新建留言</h3>
+                <button onclick="document.getElementById('createTicketModal').style.display='none'" class="text-gray-500 hover:text-gray-700">
+                    <i class="fa fa-times"></i>
+                </button>
+            </div>
+            <form id="createTicketForm" action="{{ url_for('ticket_user.create_ticket') }}" method="post" class="p-4">
+                <div class="mb-4">
+                    <label for="createTitle" class="block text-sm font-medium text-gray-700 mb-1">标题</label>
+                    <input type="text" id="createTitle" name="title" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="请输入留言标题（留空将自动从描述生成）">
+                </div>
+                <div class="mb-4">
+                    <label for="createCategory" class="block text-sm font-medium text-gray-700 mb-1">分类 <span class="text-danger">*</span></label>
+                    <select id="createCategory" name="category" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50" required>
+                        <option value="">请选择分类</option>
+                        {% for category in message_categories %}
+                        <option value="{{ category }}" {% if loop.last %}selected{% endif %}>{{ category }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="mb-4">
+                    <label for="createPriority" class="block text-sm font-medium text-gray-700 mb-1">优先级</label>
+                    <select id="createPriority" name="priority" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                        <option value="低">低</option>
+                        <option value="一般" selected>一般</option>
+                        <option value="高">高</option>
+                        <option value="紧急">紧急</option>
+                    </select>
+                </div>
+                <div class="mb-4">
+                    <label for="createDescription" class="block text-sm font-medium text-gray-700 mb-1">描述 <span class="text-danger">*</span></label>
+                    <textarea id="createDescription" name="description" rows="5" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="请输入留言详细描述" required></textarea>
+					<p class="mt-1 text-xs text-gray-500">如果你需要上传照片或者视频可以在提交后，点击查看该记录进行上传</p>
+                </div>
+                <div class="flex justify-end space-x-3 pt-2">
+                    <button type="button" onclick="document.getElementById('createTicketModal').style.display='none'" class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors">
+                        取消
+                    </button>
+                    <button type="submit" class="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90 transition-colors">
+                        提交留言
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+
+
+    <script>
+        // 页面大小改变事件
+        const pageSizeSelect = document.getElementById('pageSizeSelect');
+        if (pageSizeSelect) {
+            pageSizeSelect.addEventListener('change', function() {
+                const perPage = this.value;
+                window.location.href = '{{ url_for('ticket_user.user_ticket_list') }}?page=1&per_page=' + perPage;
+            });
+        }
+        
+        // 关闭留言确认处理
+        function confirmClose(ticketId) {
+            document.getElementById('closeForm').action = '/user/ticket/close/' + ticketId;
+            document.getElementById('closeConfirmModal').style.display = 'flex';
+        }
+
+        // 刷新列表按钮
+        document.getElementById('refreshListBtn').addEventListener('click', function() {
+            window.location.reload();
+        });
+        
+        // 点击模态框外部关闭模态框
+        window.addEventListener('click', function(event) {
+            const modals = ['createTicketModal', 'closeConfirmModal'];
+            modals.forEach(modalId => {
+                const modal = document.getElementById(modalId);
+                if (modal && event.target === modal) {
+                    modal.style.display = 'none';
+                }
+            });
+        });
+        
+        // 新建留言表单提交事件处理
+        const createTicketForm = document.getElementById('createTicketForm');
+        if (createTicketForm) {
+            createTicketForm.addEventListener('submit', function(event) {
+                // 阻止表单默认提交行为
+                event.preventDefault();
+                const titleInput = document.getElementById('createTitle');
+                const descriptionTextarea = document.getElementById('createDescription');
+                // 如果标题为空，检查描述是否有内容
+                if (!titleInput.value.trim() && descriptionTextarea.value.trim()) {
+                    // 提取描述的前15个字符作为标题
+                    const autoTitle = descriptionTextarea.value.trim().substring(0, 15);
+                    titleInput.value = autoTitle;  
+                    // 添加短暂延迟，确保DOM更新完成
+                    setTimeout(() => {
+                        // 模拟表单提交
+                        createTicketForm.submit();
+                    }, 10);
+                } else {
+                    // 如果标题已填写，直接提交表单
+                    createTicketForm.submit();
+                }
+            });
+        }
+    </script>
+</body>
+</html>

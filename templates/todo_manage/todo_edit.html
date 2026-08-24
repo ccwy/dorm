@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    {% include 'static.html' %}
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#165DFF',
+                        secondary: '#36CFC9',
+                        accent: '#722ED1',
+                        neutral: '#F5F7FA',
+                        dark: '#1D2129',
+                        danger: '#F5222D',
+                        warning: '#FAAD14',
+                        success: '#52C41A',
+                        info: '#1890FF'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .card-shadow {
+                box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+            }
+            .form-focus {
+                @apply focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary;
+            }
+            .btn-effect {
+                transition: all 0.2s ease;
+            }
+            .btn-effect:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    {% include 'header.html' %}
+
+    <main class="container mx-auto px-4 py-6">
+        <!-- 标题和功能按钮区 -->
+        <div class="mb-6 fade-in">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between">
+                <div class="flex items-center">
+                    <button onclick="window.location.href='/todo/'" class="text-gray-600 hover:text-primary transition-colors mr-4">
+                        <i class="fa fa-arrow-left"></i>
+                    </button>
+                    <div>
+                        <h2 class="text-[clamp(1.5rem,3vw,2rem)] font-bold text-dark">{{ title }}</h2>
+                        <p class="text-gray-500 mt-1">修改待办事项的详细信息和状态</p>
+                    </div>
+                </div>
+                
+            </div>
+        </div>
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="flash-messages mb-6 mx-auto" style="max-width: 500px;">
+                {% for category, message in messages %}
+                    <div class="p-4 rounded-md mb-2 text-center {% if category == 'success' %}bg-green-100 text-green-800{% elif category == 'error' or category == 'danger' %}bg-red-100 text-red-800{% elif category == 'warning' %}bg-yellow-100 text-yellow-800{% else %}bg-blue-100 text-blue-800{% endif %}">
+                    <button type="button" class="float-right ml-2 text-gray-500 hover:text-gray-700" onclick="this.parentElement.remove()">×</button>
+                    {{ message }}
+                    </div>
+                {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+        <div class="bg-white rounded-lg shadow-sm p-6">
+            <form id="todoForm" method="POST" action="/todo/edit/{{ todo.id }}">
+                <!-- 隐藏字段：待办事项ID -->
+                <input type="hidden" id="todo_id" name="todo_id" value="{{ todo.id }}">
+
+                <!-- 表单字段 -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+                    <div class="lg:col-span-4">
+                        <label for="title" class="block text-sm font-medium text-gray-700 mb-1">标题 <span class="text-danger">*</span></label>
+                        <input type="text" id="title" name="title" value="{{ todo.title }}" required
+                            class="w-full px-4 py-2 border border-gray-300 rounded-md form-focus" placeholder="请输入待办事项标题">
+                    </div>
+                    
+                    <div class="lg:col-span-4">
+                        <label for="description" class="block text-sm font-medium text-gray-700 mb-1">描述</label>
+                        <textarea id="description" name="description" rows="4"
+                            class="w-full px-4 py-2 border border-gray-300 rounded-md form-focus" placeholder="请输入待办事项详细描述">{{ todo.description }}</textarea>
+                    </div>
+                    <div>
+                        <label for="category" class="block text-sm font-medium text-gray-700 mb-1">分类</label>
+                        <select id="category" name="category"
+                            class="w-full px-4 py-2 border border-gray-300 rounded-md form-focus">
+                            <option value="">请选择分类</option>
+                            {% for category in todo_categories %}
+                            <option value="{{ category }}" {% if todo.category == category %} selected {% endif %}>{{ category }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div>
+                        <label for="status" class="block text-sm font-medium text-gray-700 mb-1">状态 <span class="text-danger">*</span></label>
+                        <select id="status" name="status" required
+                            class="w-full px-4 py-2 border border-gray-300 rounded-md form-focus">
+                            <option value="">请选择状态</option>
+                            <option value="未开始" {% if todo.status == '未开始' %}selected{% endif %}>未开始</option>
+                            <option value="进行中" {% if todo.status == '进行中' %}selected{% endif %}>进行中</option>
+                            <option value="已完成" {% if todo.status == '已完成' %}selected{% endif %}>已完成</option>
+                            <option value="已延迟" {% if todo.status == '已延迟' %}selected{% endif %}>已延迟</option>
+                            <option value="已取消" {% if todo.status == '已取消' %}selected{% endif %}>已取消</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label for="priority" class="block text-sm font-medium text-gray-700 mb-1">优先级</label>
+                        <select id="priority" name="priority"
+                            class="w-full px-4 py-2 border border-gray-300 rounded-md form-focus">
+                            <option value="低" {% if todo.priority == '低' or todo.priority == 'low' %}selected{% endif %}>低</option>
+                            <option value="中" {% if todo.priority == '中' or todo.priority == 'medium' or not todo.priority %}selected{% endif %}>中</option>
+                            <option value="高" {% if todo.priority == '高' or todo.priority == 'high' %}selected{% endif %}>高</option>
+                            <option value="紧急" {% if todo.priority == '紧急' or todo.priority == 'urgent' %}selected{% endif %}>紧急</option>
+                        </select>
+                    </div>
+
+                    
+
+                    <div>
+                        <label for="start_time" class="block text-sm font-medium text-gray-700 mb-1">开始时间 <span class="text-danger">*</span></label>
+                        <input type="datetime-local" id="start_time" name="start_time" value="{{ todo.start_time.strftime('%Y-%m-%dT%H:%M') }}" required
+                            class="w-full px-4 py-2 border border-gray-300 rounded-md form-focus">
+                    </div>
+
+                    <div>
+                        <label for="planned_end_time" class="block text-sm font-medium text-gray-700 mb-1">计划完成时间 <span class="text-danger">*</span></label>
+                        <input type="datetime-local" id="planned_end_time" name="planned_end_time" value="{{ planned_end_time_formatted }}" required
+                            class="w-full px-4 py-2 border border-gray-300 rounded-md form-focus">
+                    </div>
+
+                    <div>
+                        <label for="actual_finish_time" class="block text-sm font-medium text-gray-700 mb-1">实际完成时间</label>
+                        <input type="datetime-local" id="actual_finish_time" name="actual_finish_time" {% if todo.actual_finish_time %}value="{{ todo.actual_finish_time.strftime('%Y-%m-%dT%H:%M') }}"{% endif %}
+                            class="w-full px-4 py-2 border border-gray-300 rounded-md form-focus">
+                    </div>
+
+                    <div>
+                        <label for="assignee" class="block text-sm font-medium text-gray-700 mb-1">负责人</label>
+                        <input type="text" id="assignee" name="assignee" value="{{ todo.assignee }}"
+                            class="w-full px-4 py-2 border border-gray-300 rounded-md form-focus" placeholder="请输入负责人姓名">
+                    </div>
+                </div>
+
+                <!-- 按钮组 -->
+                <div class="flex justify-end space-x-3">
+                    <a href="/todo/" class="btn-effect px-6 py-2 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors">
+                        取消
+                    </a>
+                    <button type="submit" class="btn-effect px-6 py-2 bg-primary text-white rounded-md hover:bg-primary/90 transition-colors">
+                        <i class="fa fa-save mr-1"></i>保存
+                    </button>
+                </div>
+            </form>
+        </div>
+    </main>
+    {% include 'footer.html' %}
+    <script>
+        // 页面加载完成后执行
+        document.addEventListener('DOMContentLoaded', function() {
+            // 表单提交前的验证
+            document.getElementById('todoForm').addEventListener('submit', function(e) {
+                const title = document.getElementById('title').value.trim();
+                const startTime = document.getElementById('start_time').value;
+                const plannedEndTime = document.getElementById('planned_end_time').value;
+                const status = document.getElementById('status').value;
+
+                // 基本验证
+                if (!title) {
+                    alert('请输入待办事项标题');
+                    e.preventDefault();
+                    return;
+                }
+
+                if (!startTime) {
+                    alert('请选择开始时间');
+                    e.preventDefault();
+                    return;
+                }
+
+                if (!plannedEndTime) {
+                    alert('请选择计划完成时间');
+                    e.preventDefault();
+                    return;
+                }
+
+                if (!status) {
+                    alert('请选择状态');
+                    e.preventDefault();
+                    return;
+                }
+
+                // 验证时间逻辑
+                const startDate = new Date(startTime);
+                const plannedEndDate = new Date(plannedEndTime);
+
+                if (plannedEndDate <= startDate) {
+                    alert('计划完成时间必须晚于开始时间');
+                    e.preventDefault();
+                    return;
+                }
+
+                // 如果有实际完成时间，验证实际完成时间
+                const actualFinishTime = document.getElementById('actual_finish_time').value;
+                if (actualFinishTime) {
+                    const actualFinishDate = new Date(actualFinishTime);
+                    if (actualFinishDate < startDate) {
+                        alert('实际完成时间必须晚于开始时间');
+                        e.preventDefault();
+                        return;
+                    }
+                }
+            });
+
+            // 状态变更时的逻辑处理
+            document.getElementById('status').addEventListener('change', function() {
+                const actualFinishTimeInput = document.getElementById('actual_finish_time');
+                
+                // 如果状态变为已完成，且没有设置实际完成时间，则设置为当前时间
+                if (this.value === '已完成' && !actualFinishTimeInput.value) {
+                    const now = new Date();
+                    const formattedNow = now.toISOString().slice(0, 16);
+                    actualFinishTimeInput.value = formattedNow;
+                }
+            });
+        });
+    </script>
+</body>
+</html>

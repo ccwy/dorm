@@ -1,0 +1,776 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+       <!--本地化CDN-->
+{% include 'static.html' %}
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#165DFF',
+                        secondary: '#64748B',
+                        accent: '#22c55e',
+                        neutral: '#64748B',
+                        'base-100': '#FFFFFF',
+                    },
+                    fontFamily: {
+                        inter: ['Inter', 'sans-serif'],
+                    },
+                },
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .table-compact th, .table-compact td {
+                padding: 0.5rem 1rem;
+            }
+            .toast-notification {
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                padding: 12px 20px;
+                border-radius: 4px;
+                color: white;
+                font-size: 14px;
+                z-index: 9999;
+                transform: translateX(100%);
+                transition: transform 0.3s ease;
+            }
+            .toast-success {
+                background-color: #4CAF50;
+            }
+            .toast-error {
+                background-color: #f44336;
+            }
+            .toast-info {
+                background-color: #2196F3;
+            }
+            .toast-show {
+                transform: translateX(0);
+            }
+            .modal-overlay {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background-color: rgba(0, 0, 0, 0.5);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 1000;
+                opacity: 0;
+                pointer-events: none;
+                transition: opacity 0.3s ease;
+            }
+            .modal-overlay.active {
+                opacity: 1;
+                pointer-events: auto;
+            }
+            .modal-container {
+                background-color: white;
+                border-radius: 8px;
+                width: 90%;
+                max-width: 500px;
+                max-height: 90vh;
+                overflow-y: auto;
+                transform: scale(0.9);
+                transition: transform 0.3s ease;
+            }
+            .modal-overlay.active .modal-container {
+                transform: scale(1);
+            }
+            .modal-header {
+                padding: 16px 20px;
+                border-bottom: 1px solid #e5e7eb;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            }
+            .modal-title {
+                font-size: 18px;
+                font-weight: 600;
+                color: #374151;
+            }
+            .modal-close {
+                background: none;
+                border: none;
+                font-size: 24px;
+                cursor: pointer;
+                color: #6B7280;
+                padding: 0;
+                width: 30px;
+                height: 30px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                border-radius: 4px;
+                transition: background-color 0.2s ease;
+            }
+            .modal-close:hover {
+                background-color: #F3F4F6;
+            }
+            .modal-body {
+                padding: 20px;
+            }
+            .modal-footer {
+                padding: 16px 20px;
+                border-top: 1px solid #e5e7eb;
+                display: flex;
+                justify-content: flex-end;
+                gap: 10px;
+            }
+            .file-upload-area {
+                border: 2px dashed #e5e7eb;
+                border-radius: 8px;
+                padding: 30px;
+                text-align: center;
+                cursor: pointer;
+                transition: all 0.2s ease;
+            }
+            .file-upload-area:hover {
+                border-color: #165DFF;
+                background-color: rgba(22, 93, 255, 0.05);
+            }
+            .file-upload-icon {
+                font-size: 36px;
+                color: #9CA3AF;
+                margin-bottom: 10px;
+            }
+            .file-upload-text {
+                color: #6B7280;
+            }
+            .file-selected {
+                margin-top: 10px;
+                padding: 8px 12px;
+                background-color: #F3F4F6;
+                border-radius: 4px;
+                color: #374151;
+                font-size: 14px;
+            }
+            .import-result {
+                max-height: 200px;
+                overflow-y: auto;
+                margin-top: 15px;
+                border: 1px solid #e5e7eb;
+                border-radius: 4px;
+            }
+            .result-item {
+                padding: 0.5rem;
+                border-bottom: 1px solid #e5e7eb;
+            }
+            .result-success {
+                color: #4CAF50;
+            }
+            .result-error {
+                color: #f44336;
+            }
+            .history-row {
+                background-color: #f9fafb;
+            }
+            .history-details {
+                padding: 10px 0;
+            }
+            .history-item {
+                display: inline-block;
+                margin-right: 15px;
+                margin-bottom: 10px;
+                padding: 8px 12px;
+                background-color: white;
+                border: 1px solid #e5e7eb;
+                border-radius: 4px;
+                min-width: 100px;
+            }
+            .history-item.current {
+                border-color: #165DFF;
+                background-color: rgba(22, 93, 255, 0.05);
+            }
+            .hidden-row {
+                display: none;
+            }
+        }
+    </style>
+    <style>
+        html {
+            min-height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+        body {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        main {
+            flex: 1;
+        }
+        footer {
+            margin-top: auto;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- 提示框容器 -->
+    {% if toast_message %}
+    <div class="toast-notification toast-{{ toast_type|default('info') }} toast-show">
+        {{ toast_message }}
+    </div>
+    {% endif %}
+
+    {% include 'header.html' %}
+    <main class="container mx-auto px-4 py-6">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-4">
+            <div class="flex items-center">
+                <button onclick="history.back()" class="text-primary hover:text-primary/80 mr-2">
+                    <i class="fa fa-arrow-left"></i>
+                </button>
+                <h2 class="text-2xl font-semibold text-gray-700">{{ title }}</h2>
+            </div>
+            
+            <!-- 导入导出按钮组 -->
+            <div class="flex flex-wrap gap-2">
+                <!-- 分配按钮 -->
+                <button type="button" onclick="window.location.href='{{ url_for('dorm.add') }}'"  class="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90 whitespace-nowrap">
+                    <i class="fa fa-user-plus mr-2"></i>分配
+                </button>
+                
+                <!-- 导入按钮 -->
+                <button type="button" onclick="document.getElementById('importModal').classList.add('active')" class="px-4 py-2 bg-accent text-white rounded-md hover:bg-accent/90 whitespace-nowrap">
+                    <i class="fa fa-upload mr-2"></i>导入
+                </button>
+                
+                <!-- 导出按钮 - 直接导出全部在住记录和换宿记录 -->
+                <button type="button" id="exportBtn" class="px-4 py-2 bg-secondary text-white rounded-md hover:bg-secondary/90 whitespace-nowrap">
+                    <span id="exportBtnText"><i class="fa fa-download mr-2"></i>导出</span>
+                    <span id="exportLoading" class="hidden"><i class="fa fa-circle-o-notch fa-spin mr-2"></i>导出中...</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- 筛选区域 -->
+        <div class="bg-white rounded-lg shadow-sm p-6 mb-6 max-w-full mx-auto">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="bg-{{ 'green' if category == 'success' else 'red' }}-50 border border-{{ 'green' if category == 'success' else 'red' }}-200 rounded-md p-4 mb-6">
+                            <p class="text-{{ 'green' if category == 'success' else 'red' }}-700">
+                                <i class="fa fa-{{ 'check-circle' if category == 'success' else 'exclamation-circle' }} mr-1"></i>
+                                {{ message }}
+                            </p>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+            <form method="GET" action="{{ url_for('dorm.dorm_query') }}">
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-2 sm:gap-4">
+                    <!-- 楼栋筛选 -->
+                    <div class="min-w-[100px]">
+                        <label for="searchBuilding" class="block text-sm font-medium text-gray-700 mb-1">楼栋</label>
+                        <select id="searchBuilding" name="building" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                            <option value="">所有楼栋</option>
+                            {% for building in buildings %}
+                            <option value="{{ building }}" {{ 'selected' if request.args.get('building') == building else '' }}>{{ building }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <!-- 性别筛选 -->
+                    <div class="min-w-[100px]">
+                        <label for="searchGender" class="block text-sm font-medium text-gray-700 mb-1">性别</label>
+                        <select id="searchGender" name="gender" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                            <option value="">不限</option>
+                            <option value="男" {{ 'selected' if request.args.get('gender') == '男' else '' }}>男</option>
+                            <option value="女" {{ 'selected' if request.args.get('gender') == '女' else '' }}>女</option>
+                        </select>
+                    </div>
+                                       
+                    <!-- 部门筛选 -->
+                    <div class="min-w-[110px]">
+                        <label for="searchDepartment" class="block text-sm font-medium text-gray-700 mb-1">部门</label>
+                        <select id="searchDepartment" name="department" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                            <option value="">所有部门</option>
+                            {% for dept in departments %}
+                            <option value="{{ dept }}" {{ 'selected' if request.args.get('department') == dept else '' }}>{{ dept }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- 搜索框 -->
+                    <div class="min-w-[120px] md:col-span-2">
+                        <label for="searchQuery" class="block text-sm font-medium text-gray-700 mb-1">搜索</label>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 flex items-center pl-3">
+                                <i class="fa fa-search text-gray-400"></i>
+                            </span>
+                            <input type="text" id="searchQuery" name="searchQuery" placeholder="输入姓名或房间号" 
+                                value="{{ request.args.get('searchQuery', '') }}" 
+                                class="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-colors">
+                        </div>
+                    </div>
+                    
+                    <!-- 操作按钮组 - 所有按钮放在一个flex容器中，并设置适当的列跨度 -->
+                    <div class="flex flex-wrap gap-2 md:col-span-2">
+                        <!-- 查询按钮 -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1 invisible">查询</label>
+                            <button type="submit" class="px-6 py-2 bg-primary text-white rounded-md hover:bg-primary/90 whitespace-nowrap">
+                                <i class="fa fa-search mr-2"></i>查询
+                            </button>
+                        </div>
+
+                        <!-- 刷新按钮 -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1 invisible">刷新</label>
+                            <button type="button" onclick="location.href='{{ url_for('dorm.dorm_query') }}'" class="px-6 py-2 bg-primary text-white rounded-md hover:bg-primary/90 whitespace-nowrap">
+                                <i class="fa fa-refresh mr-2"></i>重置
+                            </button>
+                        </div>
+
+
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <!-- 在住人员表格 -->
+        <div class="bg-white rounded-lg shadow-sm p-6 max-w-full mx-auto">
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200 table-compact">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th scope="col" class="px-6 py-3 text-left text-base font-bold text-gray-700 uppercase tracking-wider">序号</th>
+                            <th scope="col" class="px-6 py-3 text-left text-base font-bold text-gray-700 uppercase tracking-wider">姓名</th>
+                            <th scope="col" class="px-6 py-3 text-left text-base font-bold text-gray-700 uppercase tracking-wider">性别</th>
+                            <th scope="col" class="px-6 py-3 text-left text-base font-bold text-gray-700 uppercase tracking-wider">年龄</th>
+                            <th scope="col" class="px-6 py-3 text-left text-base font-bold text-gray-700 uppercase tracking-wider">部门</th>
+                            <th scope="col" class="px-6 py-3 text-left text-base font-bold text-gray-700 uppercase tracking-wider">职位</th>
+                            <th scope="col" class="px-6 py-3 text-left text-base font-bold text-gray-700 uppercase tracking-wider">当前房间</th>
+                            <th scope="col" class="px-6 py-3 text-left text-base font-bold text-gray-700 uppercase tracking-wider">房间类型</th>
+                            <th scope="col" class="px-6 py-3 text-left text-base font-bold text-gray-700 uppercase tracking-wider">房间级别</th>
+                            <th scope="col" class="px-6 py-3 text-left text-base font-bold text-gray-700 uppercase tracking-wider">入住日期</th>
+                            <th scope="col" class="px-6 py-3 text-left text-base font-bold text-gray-700 uppercase tracking-wider">住宿天数</th>
+                            <th scope="col" class="px-6 py-3 text-left text-base font-bold text-gray-700 uppercase tracking-wider">累计住宿天数</th>
+                            <th scope="col" class="px-6 py-3 text-left text-base font-bold text-gray-700 uppercase tracking-wider">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        {% if residents|length > 0 %}
+                            {% for resident in residents %}
+                                <tr class="hover:bg-gray-50 transition-colors">
+                                    <td class="px-6 py-3 whitespace-nowrap font-medium text-gray-700">{{ loop.index + (pagination.page - 1) * per_page }}</td>
+                                    <td class="px-6 py-3 whitespace-nowrap font-medium">
+                                        <a href="{{ url_for('user.view', id=resident.id) }}" class="text-primary hover:underline">{{ resident.name }}</a> (ID:{{ resident.id }})
+                                        {% if resident.dorm_chain|length > 1 %}
+                                        <button class="ml-2 text-primary text-xs" onclick="toggleHistoryRow(this)">
+                                            <i class="fa fa-history"></i> 历史
+                                        </button>
+                                        {% endif %}
+                                    </td>
+                                    <td class="px-6 py-3 whitespace-nowrap">{{ resident.gender if resident.gender else '-' }}</td>
+                                    <td class="px-6 py-3 whitespace-nowrap">{{ resident.age if resident.age else '-' }}</td>
+                                    <td class="px-6 py-3 whitespace-nowrap">{{ resident.department if resident.department else '-' }}</td>
+                                    <td class="px-6 py-3 whitespace-nowrap">{{ resident.position if resident.position else '-' }}</td>
+                                    <td class="px-6 py-3 whitespace-nowrap">
+                                        <a href="{{ url_for('room.view', id=resident.room_id) }}" class="text-primary hover:underline cursor-pointer">{{ resident.building }}{{ resident.room_number }}</a>
+                                    (ID:{{ resident.room_id }})
+                                    </td>
+                                    <td class="px-6 py-3 whitespace-nowrap">
+                                        {% if resident.room %}
+                                            {{ resident.room.room_type|default('未知') }}(住{{ resident.room.current_occupancy|default(1) }}/空<span class="{{ 'text-green-500' if (resident.room.capacity|default(1) - resident.room.current_occupancy|default(1)) > 0 else '' }}">{{ (resident.room.capacity|default(1) - resident.room.current_occupancy|default(1)) }}</span>)
+                                        {% else %}
+                                            未知
+                                        {% endif %}
+                                    </td>
+                                    <td class="px-6 py-3 whitespace-nowrap">{{ resident.room.room_level if resident.room.room_level else '-' }}</td>
+                                    <td class="px-6 py-3 whitespace-nowrap">{{ resident.check_in_date.strftime('%Y-%m-%d') }}</td>
+                                    <td class="px-6 py-3 whitespace-nowrap font-medium">{{ resident.current_stay_days }}天</td>
+                                    <td class="px-6 py-3 whitespace-nowrap">{{ resident.total_stay_days }}天</td>
+                                    <td class="px-6 py-3 whitespace-nowrap">
+                                        <button onclick="window.location.href='{{ url_for('dorm.swap', user_id=resident.id) }}'" class="text-accent hover:text-accent/80 text-sm action-btn">
+                                            <i class="fa fa-exchange mr-1"></i>更换
+                                        </button>
+                                        <button onclick="window.location.href='{{ url_for('dorm.checkout', user_id=resident.id) }}'" class="text-red-500 hover:text-red-700 text-sm ml-2 action-btn">
+                                            <i class="fa fa-sign-out mr-1"></i>退宿
+                                        </button>
+                                    </td>
+                                </tr>
+                                
+                                <!-- 历史记录行 -->
+                                {% if resident.dorm_chain|length > 1 %}
+                                <tr class="history-row hidden" id="history-row-{{ resident.id }}">
+                                    <td colspan="9" class="px-6 py-0">
+                                        <div class="history-details">
+                                        <p class="text-sm font-medium text-gray-700 mb-2">住宿历史记录：</p>
+                                        <div class="history-list">
+                                            {% set current_record = [] %}
+                                            {% set historical_records = [] %}
+                                            
+                                            {% for record in resident.dorm_chain %}
+                                                {% if record.check_in_date %}
+                                                    {% if record.check_out_date is none %}
+                                                        {% set _ = current_record.append(record) %}
+                                                    {% else %}
+                                                        {% set _ = historical_records.append(record) %}
+                                                    {% endif %}
+                                                {% endif %}
+                                            {% endfor %}
+                                            
+                                            {# 先显示当前住宿记录 #}
+                                            {% for record in current_record %}
+                                                {% set room_number = record.room.room_number %}
+                                                {% set building = record.room.building %}
+                                                {% set check_in_date = record.check_in_date %}
+                                                {% set check_out_date = record.check_out_date %}
+                                                <div class="history-row-item current">
+                                                    <div class="history-row-content">
+                                                        <div class="history-room">
+                                                            <span class="font-medium">{{ building }}{{ room_number }}</span>
+                                                            <span class="ml-2 px-1.5 py-0.5 bg-primary/10 text-primary text-xs rounded">当前</span>
+                                                        </div>
+                                                        <div class="history-dates">
+                                                            <span>入住：{{ check_in_date}}</span>
+                                                        </div>
+                                                        <div class="history-duration">
+                                                            已住：{{ (today.date() - check_in_date.date()).days + 1 }}天
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            {% endfor %}
+                                            
+                                            {# 再显示历史住宿记录（按入住日期倒序） #}
+                                            {% for record in historical_records|sort(reverse=true, attribute='check_in_date') %}
+                                                {% set room_number = record.room.room_number %}
+                                                {% set building = record.room.building %}
+                                                {% set check_in_date = record.check_in_date %}
+                                                {% set check_out_date = record.check_out_date %}
+                                                <div class="history-row-item">
+                                                    <div class="history-row-content">
+                                                        <div class="history-room">
+                                                            <span class="font-medium">{{ building }}{{ room_number }}</span>
+                                                        </div>
+                                                        <div class="history-dates">
+                                                            <span>入住：{{ check_in_date }}</span>
+                                                            <span class="mx-1">→</span>
+                                                            <span>退宿：{{ check_out_date }}</span>
+                                                        </div>
+                                                        <div class="history-duration">
+                                                            已住：{{ (check_out_date.date() - check_in_date.date()).days + 1 }}天
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                    </td>
+                                </tr>
+                                {% endif %}
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="13" class="px-6 py-10 text-center">
+                                    {% if is_empty_state %}
+                                    <i class="fa fa-user-o text-gray-300 text-5xl mb-4"></i>
+                                    <p class="text-gray-500">当前没有在住人员</p>
+                                    {% else %}
+                                    <i class="fa fa-filter text-gray-300 text-5xl mb-4"></i>
+                                    <p class="text-gray-500">没有找到符合筛选条件的在住人员</p>
+                                    <a href="{{ url_for('dorm.dorm_query') }}" class="mt-3 px-4 py-1 border border-primary text-primary rounded-md hover:bg-primary/5 inline-block">
+                                        重置筛选条件
+                                    </a>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+
+            {% if residents|length > 0 %}
+            <!-- 统计信息和分页控件 - 响应式布局 -->
+            <div class="mt-6 flex flex-col sm:flex-row items-center justify-between">
+                <!-- 左侧区域 - 统计信息 -->
+                <div class="text-sm text-gray-500 whitespace-nowrap mb-2 sm:mb-0">
+                    {% set start_num = (pagination.page-1)*pagination.per_page + 1 %}
+                    {% set end_num = pagination.page*pagination.per_page %}
+                    {% if end_num > pagination.total %}
+                        {% set end_num = pagination.total %}
+                    {% endif %}
+                    第 {{ start_num }}-{{ end_num }} 条，共 <span class="font-medium text-primary">{{ pagination.total }}</span> 名在住人员
+                </div>
+                
+                <!-- 右侧区域 - 包含每页显示、页码信息和分页按钮 -->
+                <div class="w-full flex flex-row items-center justify-center sm:justify-end flex-wrap gap-2">
+                    <!-- 每页显示数量 - 包含表单 -->
+                    <div class="mb-0 sm:mb-0">
+                        <form method="GET" action="{{ url_for('dorm.dorm_query') }}" id="perPageForm">
+                            {% for key, value in request.args.items() %}
+                                {% if key != 'per_page' %}
+                                <input type="hidden" name="{{ key }}" value="{{ value }}">
+                                {% endif %}
+                            {% endfor %}
+                            <select id="perPage" name="per_page" class="px-3 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm" onchange="this.form.submit()">
+                                {% for option in [10, 20, 50, 100] %}
+                                <option value="{{ option }}" {{ 'selected' if request.args.get('per_page', '20')|int == option else '' }}>{{ option }}条/页</option>
+                                {% endfor %}
+                            </select>
+                        </form>
+                    </div>
+                    
+                    <!-- 页码信息 - 小屏幕时与筛选框在同一行 -->
+                    <div class="text-sm text-gray-700 whitespace-nowrap mb-0 text-center sm:text-right sm:mr-4">
+                        第 {{ pagination.page }} 页 / 共 {{ pagination.pages }} 页
+                    </div>
+                    
+                    <!-- 分页按钮 -->
+                    <div class="flex items-center space-x-2 justify-center sm:justify-end whitespace-nowrap">
+                        <a href="{{ url_for('dorm.dorm_query', **dict(request.args.to_dict(), page=pagination.page - 1)) }}" 
+                           class="px-3 py-1 border border-gray-300 rounded-md hover:bg-gray-50 {{ 'opacity-50 cursor-not-allowed' if pagination.page <= 1 else '' }} sm:px-2 sm:py-0.5"
+                           {% if pagination.page <= 1 %}onclick="return false;"{% endif %}>
+                            <i class="fa fa-chevron-left mr-1"></i>
+                            <span class="sm:inline">上一页</span>
+                        </a>
+                        
+                        <a href="{{ url_for('dorm.dorm_query', **dict(request.args.to_dict(), page=pagination.page + 1)) }}" 
+                           class="px-3 py-1 border border-gray-300 rounded-md hover:bg-gray-50 {{ 'opacity-50 cursor-not-allowed' if pagination.page >= pagination.pages else '' }} sm:px-2 sm:py-0.5"
+                           {% if pagination.page >= pagination.pages %}onclick="return false;"{% endif %}>
+                            <span class="sm:inline">下一页</span>
+                            <i class="fa fa-chevron-right ml-1"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </main>
+
+
+
+    <!-- 导入模态框 -->
+    <div id="importModal" class="modal-overlay">
+        <div class="modal-container">
+            <div class="modal-header">
+                <h3 class="modal-title">批量导入住宿分配</h3>
+                <button onclick="document.getElementById('importModal').classList.remove('active')" class="modal-close">&times;</button>
+            </div>
+            <form id="importForm" method="POST" action="{{ url_for('dorm_import_export.import_residents') }}" enctype="multipart/form-data">
+                <div class="modal-body">
+                    <p class="mb-4 text-sm text-gray-600">请上传Excel文件进行批量导入，文件需包含以下列：</p>
+                    <ul class="mb-4 text-sm text-gray-600 list-disc list-inside">
+                        <li><strong>姓名</strong>：必须与系统中的用户姓名一致</li>
+                        <li><strong>楼栋</strong>：例如"A"、"B"等</li>
+                        <li><strong>房间号</strong>：例如"101"、"202"等</li>
+                        <li><strong>入住日期</strong>：格式如"2023-09-01"</li>
+                    </ul>
+                    
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">选择Excel文件</label>
+                        <div id="fileUploadArea" class="file-upload-area" onclick="document.getElementById('importFile').click()">
+                            <input type="file" id="importFile" name="file" accept=".xlsx,.xls" class="hidden" />
+                            <div class="file-upload-icon">
+                                <i class="fa fa-file-excel-o"></i>
+                            </div>
+                            <div class="file-upload-text">
+                                <p>点击上传文件</p>
+                                <p class="text-xs text-gray-500">支持 .xlsx 和 .xls 格式</p>
+                            </div>
+                            <div id="fileSelected" class="file-selected hidden"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-2">
+                        <a href="{{ url_for('dorm_import_export.download_import_template') }}" class="text-primary hover:text-primary/80 text-sm flex items-center">
+                            <i class="fa fa-download mr-1"></i> 下载导入模板
+                        </a>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" onclick="document.getElementById('importModal').classList.remove('active')" class="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50">
+                        取消
+                    </button>
+                    <button type="submit" id="importSubmitBtn" class="px-4 py-2 bg-accent text-white rounded-md hover:bg-accent/90">
+                        <span id="importBtnText">确认导入</span>
+                        <span id="importLoading" class="hidden">
+                            <i class="fa fa-spinner fa-spin ml-2"></i> 导入中
+                        </span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+
+
+
+    <!-- 页脚 -->
+    {% include 'footer.html' %}
+    
+    <!-- 保留最少的JavaScript用于基本功能 -->
+    <script>
+        // 文件选择显示
+        document.getElementById('importFile').addEventListener('change', function(e) {
+            const fileSelected = document.getElementById('fileSelected');
+            if (e.target.files && e.target.files[0]) {
+                fileSelected.textContent = e.target.files[0].name;
+                fileSelected.classList.remove('hidden');
+            } else {
+                fileSelected.classList.add('hidden');
+            }
+        });
+        
+        // 导入表单提交前验证和状态处理
+        document.getElementById('importForm').addEventListener('submit', function(e) {
+            const fileInput = document.getElementById('importFile');
+            if (!fileInput.files || fileInput.files.length === 0) {
+                alert('请选择要导入的Excel文件');
+                e.preventDefault();
+                return;
+            }
+            
+            // 显示导入中状态
+            const importBtn = document.getElementById('importSubmitBtn');
+            const importBtnText = document.getElementById('importBtnText');
+            const importLoading = document.getElementById('importLoading');
+            
+            // 隐藏按钮文本，显示加载动画
+            importBtnText.classList.add('hidden');
+            importLoading.classList.remove('hidden');
+            
+            // 禁用按钮，防止重复提交
+            importBtn.disabled = true;
+            importBtn.classList.add('opacity-80');
+            importBtn.classList.remove('hover:bg-accent/90');
+        });
+        
+        // 添加历史记录样式
+        const style = document.createElement('style');
+        style.textContent = `
+            .history-list {
+                border: 1px solid #e5e7eb;
+                border-radius: 6px;
+                overflow: hidden;
+            }
+            
+            .history-row-item {
+                padding: 12px 16px;
+                border-bottom: 1px solid #e5e7eb;
+                transition: background-color 0.2s;
+            }
+            
+            .history-row-item:last-child {
+                border-bottom: none;
+            }
+            
+            .history-row-item:hover {
+                background-color: #f9fafb;
+            }
+            
+            .history-row-item.current {
+                background-color: #ebf8ff;
+                border-left: 4px solid #3498db;
+            }
+            
+            .history-row-content {
+                display: flex;
+                flex-wrap: wrap;
+                align-items: center;
+                gap: 20px;
+            }
+            
+            .history-room {
+                font-weight: 500;
+                min-width: 120px;
+            }
+            
+            .history-dates {
+                flex: 1;
+                display: flex;
+                align-items: center;
+                flex-wrap: wrap;
+                gap: 8px;
+            }
+            
+            .history-duration {
+                color: #6b7280;
+                font-size: 0.875rem;
+            }
+        `;
+        document.head.appendChild(style);
+        
+        // 导出按钮点击事件 - 直接导出全部在住记录和换宿记录
+        document.getElementById('exportBtn').addEventListener('click', function() {
+            // 显示导出中状态
+            const exportBtn = document.getElementById('exportBtn');
+            const exportBtnText = document.getElementById('exportBtnText');
+            const exportLoading = document.getElementById('exportLoading');
+            
+            // 隐藏按钮文本，显示加载动画
+            exportBtnText.classList.add('hidden');
+            exportLoading.classList.remove('hidden');
+            
+            // 禁用按钮，防止重复提交
+            exportBtn.disabled = true;
+            exportBtn.classList.add('opacity-80');
+            exportBtn.classList.remove('hover:bg-secondary/90');
+            
+            // 直接跳转到导出接口，不带任何筛选条件，导出全部记录
+            window.location.href = "{{ url_for('dorm_import_export.export_residents', export_all='true') }}";
+            
+            // 60秒后恢复按钮状态（即使导出可能还在进行，但UI上给用户反馈）
+            setTimeout(function() {
+                exportBtnText.classList.remove('hidden');
+                exportLoading.classList.add('hidden');
+                exportBtn.disabled = false;
+                exportBtn.classList.remove('opacity-80');
+                exportBtn.classList.add('hover:bg-secondary/90');
+            }, 60000);
+        });
+        
+        // 切换历史记录行显示状态
+        function toggleHistoryRow(button) {
+            // 查找包含ID的文本节点
+            const idText = button.closest('td').textContent;
+            const idMatch = idText.match(/ID:(\d+)/);
+            if (idMatch && idMatch[1]) {
+                const residentId = idMatch[1];
+                const historyRow = document.getElementById('history-row-' + residentId);
+                if (historyRow) {
+                    historyRow.classList.toggle('hidden');
+                }
+            }
+        }
+        
+        // 筛选框变更监听，自动提交表单
+        document.addEventListener('DOMContentLoaded', function() {
+            // 获取搜索表单
+            const searchForm = document.querySelector('form[action="{{ url_for('dorm.dorm_query') }}"]');
+            if (searchForm) {
+                // 为筛选下拉框添加change事件监听器
+                const filterSelects = searchForm.querySelectorAll('select[name="department"], select[name="gender"], select[name="building"], select[name="per_page"]');
+                filterSelects.forEach(select => {
+                    select.addEventListener('change', function() {
+                        // 重置页码为1，确保每次筛选从第一页开始
+                        const pageInput = searchForm.querySelector('input[name="page"]');
+                        if (pageInput) {
+                            pageInput.value = 1;
+                        } else {
+                            // 如果没有page参数，添加一个隐藏字段
+                            const newPageInput = document.createElement('input');
+                            newPageInput.type = 'hidden';
+                            newPageInput.name = 'page';
+                            newPageInput.value = 1;
+                            searchForm.appendChild(newPageInput);
+                        }
+                        // 提交表单
+                        searchForm.submit();
+                    });
+                });
+            }
+        });
+    </script>
+</body>
+</html>

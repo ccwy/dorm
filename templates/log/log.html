@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <!--本地化CDN-->
+{% include 'static.html' %}
+
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#165DFF',
+                        secondary: '#36CFC9',
+                        accent: '#722ED1',
+                    },
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .table-action-column {
+                min-width: 250px;
+                width: 35%;
+            }
+            .table-result-column {
+                min-width: 150px;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    {% include 'header.html' %}
+    <main class="container mx-auto px-4 py-6">
+        <!-- 标题和功能按钮区 -->
+        <div class="mb-6 fade-in">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between">
+                <div class="flex items-center">
+                    <button onclick="history.back()" class="text-gray-600 hover:text-primary transition-colors mr-4">
+                        <i class="fa fa-arrow-left"></i>
+                    </button>
+                    <div>
+                        <h2 class="text-[clamp(1.5rem,3vw,2rem)] font-bold text-dark">{{ title }}</h2>
+                        <p class="text-gray-500 mt-1">查看系统操作日志，包括用户操作记录和系统事件</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="bg-white rounded-lg shadow-sm p-6 mx-auto">
+            <div class="mb-6">
+                <!-- 筛选区域 -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4 mb-6">
+                    <div>
+                        <label for="logStartTime" class="block text-sm font-medium text-gray-700 mb-1">开始日期</label>
+                        <input type="date" id="logStartTime" value="{{ start_time or '' }}"
+                               class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                        <p id="startTimeError" class="mt-1 text-xs text-red-500 hidden">日期格式错误，请使用YYYY-MM-DD格式</p>
+                    </div>
+                    <div>
+                        <label for="logEndTime" class="block text-sm font-medium text-gray-700 mb-1">结束日期</label>
+                        <input type="date" id="logEndTime" value="{{ end_time or '' }}"
+                               class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                        <p id="endTimeError" class="mt-1 text-xs text-red-500 hidden">日期格式错误，请使用YYYY-MM-DD格式</p>
+                    </div>
+                    <div>
+                        <label for="logUserId" class="block text-sm font-medium text-gray-700 mb-1">操作用户ID</label>
+                        <input type="text" id="logUserId" placeholder="输入用户ID" value="{{ user_id or '' }}"
+                               class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                    </div>
+                    <div>
+                        <label for="logModule" class="block text-sm font-medium text-gray-700 mb-1">模块</label>
+                        <select id="logModule"
+                                class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                            <option value="">所有模块</option>
+                            {% for module_code, module_name in MODULE_MAP.items() %}
+                                <option value="{{ module_code }}" {% if module == module_code %}selected{% endif %}>{{ module_name }}</option>
+                            {% endfor %}
+                        </select>
+                        <p id="moduleError" class="mt-1 text-xs text-red-500 hidden">模块数据加载失败</p>
+                    </div>
+                    <div>
+                        <label for="logOpType" class="block text-sm font-medium text-gray-700 mb-1">操作类型</label>
+                        <select id="logOpType"
+                                class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                            <option value="">所有操作</option>
+                            <!-- 直接显示所有操作类型，格式为"模块名称 - 操作名称" -->
+                            {% for (mod_code, op_type), op_name in OPERATION_TYPE_MAP.items() %}
+                                <option value="{{ op_type }}" {% if operation_type == op_type %}selected{% endif %}>{{ MODULE_MAP.get(mod_code, mod_code) }} - {{ op_name }}</option>
+                            {% endfor %}
+                        </select>
+                        <p id="operationError" class="mt-1 text-xs text-red-500 hidden">操作类型数据加载失败</p>
+                    </div>
+                    <div class="flex items-end gap-3">
+                        <button id="searchButton" class="px-6 py-2 bg-primary text-white rounded-md hover:bg-primary/90 transition-colors">
+                            <i class="fa fa-search mr-2"></i>查询
+                        </button>
+                        <a href="{{ url_for('log.log') }}" class="px-6 py-2 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors">
+                            刷新
+                        </a>
+                    </div>
+                </div>
+                
+
+                
+                <!-- 加载状态 -->
+                <div id="loadingIndicator" class="hidden flex justify-center items-center py-10">
+                    <i class="fa fa-spinner fa-spin text-3xl text-primary"></i>
+                </div>
+                
+                <!-- 数据表格 -->
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200 table-auto">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作时间</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作用户ID</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">模块</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作类型</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider table-action-column">操作内容</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">IP地址</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider table-result-column">操作结果</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            {% if logs %}
+                                {% for log in logs %}
+                                    <tr>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ log.id }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ log.operate_time.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ log.user_id }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm">
+                                        {% set module_color_map = {
+                                            '登录': 'bg-indigo-100 text-indigo-800',
+                                            '用户管理': 'bg-purple-100 text-purple-800',
+                                            '房间管理': 'bg-green-100 text-green-800',
+                                            '水电费管理': 'bg-red-100 text-red-800',
+                                            '宿舍管理': 'bg-blue-100 text-blue-800',
+                                            '补贴管理': 'bg-yellow-100 text-yellow-800',
+                                            '其他模块': 'bg-gray-100 text-gray-800'
+                                        } %}
+                                        <span class="inline-flex px-2 py-1 rounded-full text-xs font-medium {{ module_color_map.get(log.module, 'bg-gray-100 text-gray-800') }}">{{ log.module }}</span>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm">
+                                        {% set operation_color_map = {
+                                            '登录': 'bg-purple-100 text-purple-800',
+                                            '登出': 'bg-gray-100 text-gray-800',
+                                            '访问页面': 'bg-blue-100 text-blue-800',
+                                            '添加房间': 'bg-green-100 text-green-800',
+                                            '编辑房间': 'bg-blue-100 text-blue-800',
+                                            '删除房间': 'bg-red-100 text-red-800',
+                                            '导入导出': 'bg-pink-100 text-pink-800',
+                                            '增加用户': 'bg-green-100 text-green-800',
+                                            '编辑用户': 'bg-blue-100 text-blue-800',
+                                            '删除用户': 'bg-red-100 text-red-800',
+                                            '查看用户': 'bg-yellow-100 text-yellow-800',
+                                            '更换宿舍': 'bg-orange-100 text-orange-800',
+                                            '分配宿舍': 'bg-blue-100 text-blue-800',
+                                            '退宿处理': 'bg-red-100 text-red-800',
+                                            '抄表记录': 'bg-yellow-100 text-yellow-800',
+                                            '费用核算': 'bg-green-100 text-green-800',
+                                            '更新配置': 'bg-blue-100 text-blue-800',
+                                            '新建备份': 'bg-green-100 text-green-800',
+                                            '删除备份': 'bg-red-100 text-red-800',
+                                            '恢复备份': 'bg-yellow-100 text-yellow-800',
+                                            '增加补贴': 'bg-green-100 text-green-800',
+                                            '禁用补贴': 'bg-red-100 text-red-800',
+                                            '未知操作': 'bg-gray-100 text-gray-800'
+                                        } %}
+                                        <span class="inline-flex px-2 py-1 rounded-full text-xs font-medium {{ operation_color_map.get(log.operation_type, 'bg-gray-100 text-gray-800') }}">{{ log.operation_type }}</span>
+                                    </td>
+                                        <td class="px-6 py-4 text-sm text-gray-500 table-action-column">{{ log.action }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ log.ip_address or '-' }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm">{{ log.result }}</td>
+                                    </tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr>
+                                    <td colspan="8" class="px-6 py-10 text-center text-gray-500">
+                                        <i class="fa fa-inbox text-4xl mb-2"></i>
+                                        <p>没有找到符合条件的日志记录</p>
+                                    </td>
+                                </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- 分页 -->
+                <div class="px-6 py-4 bg-gray-50 border-t border-gray-200 flex flex-wrap items-center justify-between md:justify-between justify-center mt-4">
+                    <div class="text-sm text-gray-700 flex flex-wrap items-center justify-center space-x-4">
+                        <!-- 统计信息 -->
+                        <span class="md:mb-0 mb-2">显示 {% if pagination.items %} {{ (pagination.page - 1) * pagination.per_page + 1 }} {% else %} 0 {% endif %} 到 {% if pagination.items %} {{ ((pagination.page - 1) * pagination.per_page) + pagination.items|length }} {% else %} 0 {% endif %} 条，共 {{ pagination.total }} 条记录</span>
+                        
+                        <!-- 页码和每页显示在小屏幕上各自一行 -->
+                        <div class="flex flex-wrap items-center">
+                            <span class="block w-full md:w-auto mb-2 md:mb-0 md:mr-4">第 {{ pagination.page }} 页/共 {{ pagination.pages }} 页</span>
+                            <div class="flex items-center">
+                                <label for="logPerPage" class="mr-1 text-sm text-gray-700">每页显示：</label>
+                                <select id="logPerPage" class="px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm">
+                                    <option value="10" {% if per_page == 10 %}selected{% endif %}>10条</option>
+                                    <option value="20" {% if per_page == 20 %}selected{% endif %}>20条</option>
+                                    <option value="50" {% if per_page == 50 %}selected{% endif %}>50条</option>
+                                    <option value="100" {% if per_page == 100 %}selected{% endif %}>100条</option>
+                                    <option value="200" {% if per_page == 200 %}selected{% endif %}>200条</option>
+                                    <option value="500" {% if per_page == 500 %}selected{% endif %}>500条</option>
+                                    <option value="1000" {% if per_page == 1000 %}selected{% endif %}>1000条</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex flex-wrap md:justify-start justify-center items-center space-x-1 mt-2">
+                        <a href="{{ url_for('log.log', page=pagination.prev_num, start_time=start_time, end_time=end_time, user_id=user_id, module=module, operation_type=operation_type, per_page=per_page) }}" class="px-3 py-1 border border-gray-300 rounded bg-white text-gray-500 hover:bg-gray-50 {% if not pagination.has_prev %}opacity-50 cursor-not-allowed{% endif %}">
+                            上一页
+                        </a>
+                        <a href="{{ url_for('log.log', page=pagination.next_num, start_time=start_time, end_time=end_time, user_id=user_id, module=module, operation_type=operation_type, per_page=per_page) }}" class="px-3 py-1 border border-gray-300 rounded bg-white text-gray-500 hover:bg-gray-50 {% if not pagination.has_next %}opacity-50 cursor-not-allowed{% endif %}">
+                            下一页
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+    <!-- 页脚 -->
+    {% include 'footer.html' %}
+    
+    <script>
+    // 为查询按钮添加点击事件
+    document.getElementById('searchButton').addEventListener('click', function() {
+        // 获取当前筛选条件的值
+        const startTime = document.getElementById('logStartTime').value;
+        const endTime = document.getElementById('logEndTime').value;
+        const userId = document.getElementById('logUserId').value;
+        const module = document.getElementById('logModule').value;
+        const operationType = document.getElementById('logOpType').value;
+        const perPage = document.getElementById('logPerPage').value;
+        
+        // 构建查询URL
+        const url = new URL('{{ url_for('log.log') }}', window.location.origin);
+        if (startTime) url.searchParams.append('start_time', startTime);
+        if (endTime) url.searchParams.append('end_time', endTime);
+        if (userId) url.searchParams.append('user_id', userId);
+        if (module) url.searchParams.append('module', module);
+        if (operationType) url.searchParams.append('operation_type', operationType);
+        if (perPage) url.searchParams.append('per_page', perPage);
+        
+        // 跳转到查询URL
+        window.location.href = url.toString();
+    });
+    
+    // 为筛选输入框添加回车事件
+    const filterInputs = ['logStartTime', 'logEndTime', 'logUserId'];
+    filterInputs.forEach(id => {
+        const input = document.getElementById(id);
+        if (input) {
+            input.addEventListener('keyup', function(event) {
+                if (event.key === 'Enter') {
+                    document.getElementById('searchButton').click();
+                }
+            });
+        }
+    });
+    
+    // 为模块和操作类型下拉框添加变化事件，实现自动筛选
+    const logModule = document.getElementById('logModule');
+    const logOpType = document.getElementById('logOpType');
+    
+    if (logModule) {
+        logModule.addEventListener('change', function() {
+            document.getElementById('searchButton').click();
+        });
+    }
+    
+    if (logOpType) {
+        logOpType.addEventListener('change', function() {
+            document.getElementById('searchButton').click();
+        });
+    }
+    
+    // 为每页显示条数下拉框添加变化事件
+    const logPerPage = document.getElementById('logPerPage');
+    if (logPerPage) {
+        logPerPage.addEventListener('change', function() {
+            document.getElementById('searchButton').click();
+        });
+    }
+    </script>
+</body>
+</html>

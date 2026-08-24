@@ -1,0 +1,964 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <!--本地化CDN-->
+    {% include 'static.html' %}
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#165DFF',
+                        secondary: '#36CFC9',
+                        accent: '#722ED1',
+                    },
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .switch-checkbox:checked + .switch-label {
+                background-color: #165DFF;
+            }
+            .switch-checkbox:checked + .switch-label .switch-dot {
+                transform: translateX(18px);
+            }
+            .meter-replaced-indicator {
+                @apply absolute -top-5 left-0 text-xs text-accent font-medium;
+            }
+            .filter-container-wrapper {
+                width: 100%;
+            }
+            .filter-container {
+                width: 100%;
+            }
+            /* 响应式输入框容器 */
+            .fixed-input-container {
+                flex: 1;
+                min-width: 0;
+            }
+            .fixed-small-container {
+                flex: 1;
+                min-width: 0;
+            }
+            /* 确保输入框在容器内完全显示 */
+            .fixed-input {
+                width: 100%;
+                box-sizing: border-box;
+            }
+            /* 表格内输入框固定最小宽度 */
+            .table-input {
+                min-width: 100px !important;
+            }
+            .table-notes-input {
+                min-width: 120px !important;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen pb-16"> <!-- 添加底部内边距防止内容被页脚遮挡 -->
+    {% include 'header.html' %}
+    <main class="container mx-auto px-4 py-6">
+        <div class="flex justify-between items-center mb-6">
+            <div class="flex items-center">
+                <button type="button" onclick="window.location.href='{{ url_for('utility_room_meter.utility_reading_manage') }}'" class="text-primary hover:text-primary/80 mr-2">
+                    <i class="fa fa-arrow-left"></i>
+                </button>
+                <h2 class="text-2xl font-semibold text-dark">{{ title }}</h2>
+            </div>
+            <div class="flex items-center">
+                <button id="refreshBtn" class="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50">
+                    <i class="fa fa-refresh mr-1"></i>刷新数据
+                </button>
+                <button id="clearAllTempPhotosBtn" class="px-4 py-2 border border-red-300 text-red-600 rounded-md hover:bg-red-50 ml-2">
+                    <i class="fa fa-trash mr-1"></i>清理临时照片
+                </button>
+            </div>
+        </div>
+        
+        <div class="bg-white rounded-lg shadow-sm p-6 mx-auto">
+            <!-- 添加URL参数消息显示 -->
+            {% if success_message %}
+            <div id="successMessage" class="bg-green-50 border-l-4 border-green-400 p-4 mb-6">
+                <div class="flex">
+                    <div class="flex-shrink-0">
+                        <i class="fa fa-check-circle text-green-500"></i>
+                    </div>
+                    <div class="ml-3">
+                        <p class="text-green-700">{{ success_message }}</p>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            
+            {% if error_message %}
+            <div id="errorMessage" class="bg-red-50 border-l-4 border-red-400 p-4 mb-6">
+                <div class="flex">
+                    <div class="flex-shrink-0">
+                        <i class="fa fa-exclamation-circle text-red-500"></i>
+                    </div>
+                    <div class="ml-3">
+                        <p class="text-red-700">{{ error_message }}</p>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            
+            <div class="mb-6">
+                <!-- 筛选区，自适应布局 -->
+                <div class="filter-container-wrapper mb-6">
+                    <form action="/utility-meter/utility_reading" method="get" class="filter-container">
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div class="fixed-input-container">
+                                <label for="readingDateTime" class="block text-sm font-medium text-gray-700 mb-1">抄表日期时间 <span class="text-red-500">*</span></label>
+                                <input type="datetime-local" step="1" id="readingDateTime" name="reading_date_time" value="{{ reading_date_time }}" required
+                                       class="fixed-input px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                                {% if datetime_error %}
+                                <div id="datetimeError" class="text-red-500 text-xs mt-1">
+                                    {{ datetime_error }}
+                                </div>
+                                {% endif %}
+                            </div>
+                            <!-- 抄表人自动使用当前登录用户 -->
+                            <input type="hidden" id="readingUser" name="reading_user" value="{{ current_user.name if current_user else '' }}">
+                            <div class="fixed-small-container">
+                                <label for="buildingFilter" class="block text-sm font-medium text-gray-700 mb-1">选择楼栋</label>
+                                <select id="buildingFilter" name="building"
+                                        class="fixed-input px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                                    <option value="">所有楼栋</option>
+                                    {% for building in buildings %}
+                                    <option value="{{ building }}" {% if building_filter == building %}selected{% endif %}>{{ building }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="fixed-input-container">
+                                <label for="roomSearch" class="block text-sm font-medium text-gray-700 mb-1">搜索宿舍</label>
+                                <div class="flex">
+                                    <input type="text" id="roomSearch" name="search_room" value="{{ search_room }}"
+                                   placeholder="输入宿舍号搜索"
+                                   class="fixed-input px-4 py-2 border border-gray-300 rounded-l-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                                    <button type="submit" id="searchBtn" class="px-4 py-2 bg-primary text-white border border-primary rounded-r-md hover:bg-primary/90">
+                                        <i class="fa fa-search"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                
+                <!-- 批量保存表单 -->
+                <form id="batchSaveForm" action="/utility-meter/utility_reading" method="post">
+                    <input type="hidden" name="is_batch" value="true">
+                    <input type="hidden" name="reading_date_time" value="{{ reading_date_time }}">
+
+                    
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">房间ID</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">房间号</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">上次电表读数<br><span class="text-gray-400 text-[10px]">(最近记录时间)</span></th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">本次电表读数</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        电表更换
+                                        <i class="fa fa-question-circle text-gray-400" title="标记电表是否已更换，更换后当前读数将作为初始值"></i>
+                                    </th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">上次水表读数<br><span class="text-gray-400 text-[10px]">(最近记录时间)</span></th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">本次水表读数</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        水表更换
+                                        <i class="fa fa-question-circle text-gray-400" title="标记水表是否已更换，更换后当前读数将作为初始值"></i>
+                                    </th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">电表备注</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">水表备注</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">抄表照片</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200" id="roomsTableBody">
+                                {% if rooms %}
+                                    {% for room in rooms %}
+                                    <tr data-room-id="{{ room.id }}">
+                                        <td class="px-6 py-4 whitespace-nowrap text-gray-700 font-mono">
+                                            {{ room.id }}
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <a href="/room/view/{{ room.id }}" class="text-blue-600  hover:text-blue-800 hover:underline">
+                                                {{ room.building or '' }}{{ room.room_number or '' }}
+                                            </a>(ID:{{ room.id }})
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap" style="width: 120px;">
+                                            <div>
+                                                {% if room.latest_electric_reading is not none %}
+                                                    {{ room.latest_electric_reading }} kWh
+                                                {% else %}
+                                                    无记录
+                                                {% endif %}
+                                            </div>
+                                            <div class="text-xs text-gray-500">
+                                                {% if room.latest_electric_date %}
+                                                    {{ room.latest_electric_date }}
+                                                {% else %}
+                                                    无
+                                                {% endif %}
+                                            </div>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <div class="relative">
+                                                <div class="meter-replaced-indicator" id="electric-replaced-indicator-{{ room.id }}" style="display: none;">
+                                                    表具已更换，当前为初始值
+                                                </div>
+                                                <input type="number" step="1"
+                                                    {% if room.latest_electric_reading is not none %}
+                                                    min="{{ room.latest_electric_reading }}"
+                                                    {% endif %}
+                                                    class="electricity-reading table-input w-full px-2 py-1 border border-gray-300 rounded-md"
+                                                    name="electricity_reading_{{ room.id }}"
+                                                    placeholder="电表读数">
+                                                <div class="text-xs text-gray-500 mt-1">{{ room.building or '' }}{{ room.room_number or '' }}</div>
+                                            </div>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <div class="relative inline-block w-10 h-5">
+                                                <input type="checkbox" id="electric-replace-{{ room.id }}" name="electric_replaced_{{ room.id }}"
+                                                       class="switch-checkbox absolute opacity-0 w-0 h-0">
+                                                <label for="electric-replace-{{ room.id }}" class="switch-label absolute cursor-pointer top-0 left-0 right-0 bottom-0 bg-gray-300 rounded-full transition-colors duration-300 ease-in-out">
+                                                    <span class="switch-dot absolute left-1 bottom-1 w-4 h-4 bg-white rounded-full transition-transform duration-300 ease-in-out"></span>
+                                                </label>
+                                            </div>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap" style="width: 120px;">
+                                            <div>
+                                                {% if room.latest_water_reading is not none %}
+                                                    {{ room.latest_water_reading }} m³
+                                                {% else %}
+                                                    无记录
+                                                {% endif %}
+                                            </div>
+                                            <div class="text-xs text-gray-500">
+                                                {% if room.latest_water_date %}
+                                                    {{ room.latest_water_date }}
+                                                {% else %}
+                                                    无
+                                                {% endif %}
+                                            </div>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <div class="relative">
+                                                <div class="meter-replaced-indicator" id="water-replaced-indicator-{{ room.id }}" style="display: none;">
+                                                    表具已更换，当前为初始值
+                                                </div>
+                                                <input type="number" step="1"
+                                                    {% if room.latest_water_reading is not none %}
+                                                    min="{{ room.latest_water_reading }}"
+                                                    {% endif %}
+                                                    class="water-reading table-input w-full px-2 py-1 border border-gray-300 rounded-md"
+                                                    name="water_reading_{{ room.id }}"
+                                                    placeholder="水表读数">
+                                                <div class="text-xs text-gray-500 mt-1">{{ room.building or '' }}{{ room.room_number or '' }}</div>
+                                            </div>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <div class="relative inline-block w-10 h-5">
+                                                <input type="checkbox" id="water-replace-{{ room.id }}" name="water_replaced_{{ room.id }}"
+                                                       class="switch-checkbox absolute opacity-0 w-0 h-0">
+                                                <label for="water-replace-{{ room.id }}" class="switch-label absolute cursor-pointer top-0 left-0 right-0 bottom-0 bg-gray-300 rounded-full transition-colors duration-300 ease-in-out">
+                                                    <span class="switch-dot absolute left-1 bottom-1 w-4 h-4 bg-white rounded-full transition-transform duration-300 ease-in-out"></span>
+                                                </label>
+                                            </div>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <input type="text" class="electric-notes table-notes-input w-full px-2 py-1 border border-gray-300 rounded-md"
+                                                   name="electric_notes_{{ room.id }}"
+                                                   placeholder="如：表具更换原因等">
+                                            <div class="text-xs text-gray-500 mt-1">{{ room.building or '' }}{{ room.room_number or '' }}</div>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <input type="text" class="water-notes table-notes-input w-full px-2 py-1 border border-gray-300 rounded-md" 
+                                                   name="water_notes_{{ room.id }}"
+                                                   placeholder="如：表具更换原因等">
+                                            <div class="text-xs text-gray-500 mt-1">{{ room.building or '' }}{{ room.room_number or '' }}</div>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <div class="flex items-center space-x-2">
+                                                <button type="button" class="px-2 py-1 bg-blue-500 text-white rounded-md hover:bg-blue-600 text-sm"
+                                                        onclick="openPhotoModal({{ room.id }}, '{{ room.building or '' }}{{ room.room_number or '' }}')">
+                                                    <i class="fa fa-camera mr-1"></i>照片
+                                                </button>
+                                                <span id="photo-count-{{ room.id }}" class="text-xs text-gray-500"></span>
+                                            </div>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <!-- 移除嵌套表单，使用按钮+隐藏字段的方式 -->
+                                            <input type="hidden" name="room_id" value="{{ room.id }}" id="room_id_{{ room.id }}">
+                                            <input type="hidden" name="reading_date" value="{{ reading_date_time }}" id="reading_date_{{ room.id }}">
+                                            <input type="hidden" name="water_current" value="" id="water_current_{{ room.id }}">
+                                            <input type="hidden" name="electric_current" value="" id="electric_current_{{ room.id }}">
+                                            <input type="hidden" name="water_notes" value="" id="water_notes_val_{{ room.id }}">
+                                            <input type="hidden" name="electric_notes" value="" id="electric_notes_val_{{ room.id }}">
+                                            <input type="hidden" name="water_meter_replaced" value="false" id="water_meter_replaced_{{ room.id }}">
+                                            <input type="hidden" name="electric_meter_replaced" value="false" id="electric_meter_replaced_{{ room.id }}">
+
+                                            <button type="button" class="save-row-btn px-3 py-1 bg-secondary text-white rounded-md hover:bg-secondary/90 text-sm"
+                                                    onclick="prepareSaveData({{ room.id }});">
+                                                <i class="fa fa-save mr-1"></i>保存
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                {% else %}
+                                    {% if buildings and buildings|length > 0 %}
+                                    <tr class="text-center">
+                                        <td colspan="12" class="px-6 py-8 text-gray-500">
+                                            未找到符合条件的房间
+                                        </td>
+                                    </tr>
+                                    {% else %}
+                                    <tr class="text-center">
+                                        <td colspan="12" class="px-6 py-8 text-gray-500">
+                                            当前系统中没有任何房间信息，无法进行抄表登记。请先添加房间信息后再进行抄表操作。
+                                        </td>
+                                    </tr>
+                                    {% endif %}
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- 分页控件 -->
+                    {% if pagination %}
+                    <div class="px-6 py-4 bg-gray-50 border-t border-gray-200 mt-4">
+                        <!-- 分页控制 - 在同一行显示所有元素 -->
+                        <div class="flex flex-wrap items-center justify-between gap-3">
+                            <!-- 统计信息 -->
+                            <div class="text-xs text-gray-700">
+                                显示第 {% if pagination.total > 0 %}{{ (pagination.page - 1) * pagination.per_page + 1 }}{% else %}0{% endif %} 到 {% if pagination.total > 0 %}{{ [pagination.page * pagination.per_page, pagination.total]|min }}{% else %}0{% endif %} 条，共 {{ pagination.total }} 条记录
+                            </div>
+                            <!-- 页码信息 - 靠右对齐 -->
+                            <div class="text-xs text-gray-700 ml-auto">
+                                第{{ pagination.page }}页/共{{ pagination.pages }}页
+                            </div>
+                            
+                            <!-- 分页按钮 -->
+                            <div class="flex items-center space-x-3">
+                                <!-- 每页显示条数选择 -->
+                                <div class="flex items-center">
+                                    <span class="text-sm text-gray-700 mr-2">每页显示：</span>
+                                    <select id="pageSizeSelect" class="text-sm border border-gray-300 rounded-md px-2 py-1 focus:outline-none focus:ring-2 focus:ring-primary/50">
+                                        {% for size in [10, 20, 50, 100] %}
+                                        <option value="{{ size }}" {% if size == pagination.per_page %}selected{% endif %}>{{ size }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                
+                                <!-- 上一页/下一页按钮 -->
+                                <div class="flex space-x-1">
+                                    <a href="{% if pagination.has_prev %}{{ url_for('utility_room_meter.utility_reading', page=pagination.prev_num, building=building_filter, search_room=search_room, per_page=pagination.per_page) }}{% else %}#{% endif %}" class="px-3 py-1 border border-gray-300 rounded bg-white text-gray-500 hover:bg-gray-50 {{ 'opacity-50 cursor-not-allowed' if not pagination.has_prev or pagination.total == 0 else '' }}" {% if not pagination.has_prev or pagination.total == 0 %}onclick="return false;"{% endif %}>
+                                        <i class="fa fa-chevron-left"></i>
+                                        <span class="hidden sm:inline ml-1">上一页</span>
+                                    </a>
+                                    <a href="{% if pagination.has_next %}{{ url_for('utility_room_meter.utility_reading', page=pagination.next_num, building_filter=building_filter, search_room=search_room, per_page=pagination.per_page) }}{% else %}#{% endif %}" class="px-3 py-1 border border-gray-300 rounded bg-white text-gray-700 hover:bg-gray-50 {{ 'opacity-50 cursor-not-allowed' if not pagination.has_next or pagination.total == 0 else '' }}" {% if not pagination.has_next or pagination.total == 0 %}onclick="return false;"{% endif %}>
+                                        <span class="hidden sm:inline mr-1">下一页</span>
+                                        <i class="fa fa-chevron-right"></i>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <script>
+                        // 处理每页显示条数变化
+                        document.getElementById('pageSizeSelect').addEventListener('change', function() {
+                            const pageSize = this.value;
+                            const currentUrl = new URL(window.location);
+                            currentUrl.searchParams.set('per_page', pageSize);
+                            currentUrl.searchParams.set('page', 1); // 重置到第一页
+                            window.location.href = currentUrl.toString();
+                        });
+                    </script>
+                    {% endif %}
+                    
+                    <!-- 空房间状态提示卡片 -->
+                    {% if buildings and buildings|length == 0 %}
+                    <div id="emptyRoomsCard" class="bg-blue-50 border border-blue-100 rounded-lg p-6 my-6 text-center">
+                        <div class="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4 mx-auto">
+                            <i class="fa fa-building-o text-2xl text-blue-600"></i>
+                        </div>
+                        <h3 class="text-lg font-semibold mb-2 text-blue-800">未找到房间数据</h3>
+                        <p class="text-gray-600 mb-6 max-w-md mx-auto">
+                            当前系统中没有任何房间信息，无法进行抄表登记。请先添加房间信息后再进行抄表操作。
+                        </p>
+                        <a href="{{ url_for('room.manage') }}" 
+                            class="px-6 py-2 bg-primary text-white rounded-md hover:bg-primary/90">
+                            <i class="fa fa-cubes mr-2"></i>前往房间管理
+                        </a>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="flex justify-end gap-3 mt-4">
+                        <a href="{{ url_for('utility_room_meter.utility_reading_manage') }}" class="px-6 py-2 border border-gray-300 rounded-md hover:bg-gray-50">取消</a>
+                        <button type="submit" id="saveAllWithValuesBtn" 
+                                class="px-6 py-2 bg-primary text-white rounded-md hover:bg-primary/90">
+                            保存有读数的记录
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </main>
+    <!-- 页脚 -->
+    {% include 'footer.html' %}
+
+    <!-- 批量保存错误详情模态框 -->
+    {% if batch_errors %}
+    <div id="batchErrorDetailsModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[80vh] overflow-y-auto">
+            <div class="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4 mx-auto">
+                <i class="fa fa-exclamation-circle text-2xl text-red-600"></i>
+            </div>
+            <h3 class="text-lg font-semibold mb-4 text-center">批量保存失败详情</h3>
+            <div class="text-gray-600 mb-4">
+                <p class="mb-2 font-medium">以下记录验证失败：</p>
+                <ul class="list-disc pl-5 space-y-1">
+                    {% for error in batch_errors %}
+                    <li>{{ error }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            <div class="text-center">
+                <form action="/utility-meter/utility_reading" method="get">
+                    <input type="hidden" name="building_filter" value="{{ building_filter }}">
+                    <input type="hidden" name="search_room" value="{{ search_room }}">
+                    <button type="submit" id="batchErrorDetailsBtn" class="px-6 py-2 bg-primary text-white rounded-md hover:bg-primary/90">
+                        关闭
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- 提示信息显示 -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                {% if category == 'success' %}
+                <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                    <div class="bg-white rounded-lg p-6 w-full max-w-md text-center">
+                        <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4 mx-auto">
+                            <i class="fa fa-check text-2xl text-green-600"></i>
+                        </div>
+                        <h3 class="text-lg font-semibold mb-2">操作成功</h3>
+                        <p class="text-gray-600 mb-4">{{ message }}</p>
+                        <form action="/utility-meter/utility_reading" method="get">
+                            <input type="hidden" name="building_filter" value="{{ building_filter }}">
+                            <input type="hidden" name="search_room" value="{{ search_room }}">
+                            <button type="submit" class="px-6 py-2 bg-green-500 text-white rounded-md hover:bg-green-600">
+                                确定
+                            </button>
+                        </form>
+                    </div>
+                </div>
+                {% elif category == 'error' %}
+                <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                    <div class="bg-white rounded-lg p-6 w-full max-w-md text-center">
+                        <div class="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4 mx-auto">
+                            <i class="fa fa-exclamation-circle text-2xl text-red-600"></i>
+                        </div>
+                        <h3 class="text-lg font-semibold mb-2">操作失败</h3>
+                        <p class="text-gray-600 mb-4">{{ message }}</p>
+                        <form action="/utility-meter/utility_reading" method="get">
+                            <input type="hidden" name="building_filter" value="{{ building_filter }}">
+                            <input type="hidden" name="search_room" value="{{ search_room }}">
+                            <button type="submit" class="px-6 py-2 border border-gray-300 rounded-md hover:bg-gray-50">
+                                关闭
+                            </button>
+                        </form>
+                    </div>
+                </div>
+                {% else %}
+                <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                    <div class="bg-white rounded-lg p-6 w-full max-w-md text-center">
+                        <div class="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4 mx-auto">
+                            <i class="fa fa-info-circle text-2xl text-blue-600"></i>
+                        </div>
+                        <h3 class="text-lg font-semibold mb-2">信息提示</h3>
+                        <p class="text-gray-600 mb-4">{{ message }}</p>
+                        <form action="/utility-meter/utility_reading" method="get">
+                            <input type="hidden" name="building_filter" value="{{ building_filter }}">
+                            <input type="hidden" name="search_room" value="{{ search_room }}">
+                            <button type="submit" class="px-6 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600">
+                                确定
+                            </button>
+                        </form>
+                    </div>
+                </div>
+                {% endif %}
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+
+    <!-- 抄表照片管理模态框 -->
+    <div id="photoModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-lg p-6 w-full max-w-3xl max-h-[80vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-semibold">
+                    <span id="photoModalTitle">抄表照片管理</span>
+                </h3>
+                <button type="button" onclick="closePhotoModal()" class="text-gray-500 hover:text-gray-700">
+                    <i class="fa fa-times text-xl"></i>
+                </button>
+            </div>
+            
+            <!-- 上传按钮 -->
+            <div class="mb-4">
+                <button type="button" id="photoUploadBtn" class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600">
+                    <i class="fa fa-upload mr-1"></i>上传照片/视频
+                </button>
+                <button type="button" id="clearRoomPhotosBtn" class="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 ml-2">
+                    <i class="fa fa-trash mr-1"></i>清理所有文件
+                </button>
+                <input type="file" id="photoFileInput" accept="image/png,image/jpeg,image/gif,image/bmp,video/mp4,video/avi,video/quicktime,video/x-ms-wmv,video/x-flv,video/x-matroska" multiple class="hidden">
+                <p class="text-xs text-gray-500 mt-1">支持 JPG、PNG、GIF、BMP、MP4、AVI、MOV 格式，单文件不超过10MB</p>
+            </div>
+            
+            <!-- 上传进度 -->
+            <div id="photoUploadProgress" class="mb-4 hidden">
+                <div class="flex justify-between mb-1">
+                    <span class="text-sm text-gray-600">上传进度</span>
+                    <span id="photoUploadPercentage" class="text-sm text-gray-600">0%</span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-2">
+                    <div id="photoUploadBar" class="bg-blue-500 h-2 rounded-full" style="width: 0%"></div>
+                </div>
+                <p id="photoUploadStatus" class="text-xs text-gray-500 mt-1"></p>
+            </div>
+            
+            <!-- 已上传照片预览 -->
+            <div id="photoPreviewGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 mt-4">
+                <div id="noPhotoMessage" class="col-span-full text-center py-6 text-gray-500">
+                    <i class="fa fa-file-image-o text-4xl mb-2"></i>
+                    <p>暂无抄表照片</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 图片预览模态框 -->
+    <div id="imagePreviewModal" class="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-[60] hidden">
+        <div class="relative max-w-[90%] max-h-[90%]">
+            <button type="button" onclick="closeImagePreview()" class="absolute -top-12 right-0 text-white text-2xl hover:text-gray-300">
+                <i class="fa fa-times"></i>
+            </button>
+            <img id="previewImage" src="" alt="原图预览" class="max-w-full max-h-[80vh] object-contain">
+        </div>
+    </div>
+
+
+     <!-- 简单的JS来处理表具更换开关的视觉效果 -->
+     <script>
+         document.addEventListener('DOMContentLoaded', function() {
+             // 表具更换开关的视觉效果
+             document.querySelectorAll('.switch-checkbox').forEach(checkbox => {
+                 checkbox.addEventListener('change', function() {
+                     const isElectric = this.id.startsWith('electric-replace-');
+                     const roomId = this.id.split('-')[2];
+                     const indicator = document.getElementById(`${isElectric ? 'electric' : 'water'}-replaced-indicator-${roomId}`);
+                       
+                     // 显示/隐藏表具更换指示器
+                     if (this.checked) {
+                         indicator.style.display = 'block';
+                     } else {
+                         indicator.style.display = 'none';
+                     }
+                 });
+             });
+               
+             // 筛选区自动筛选功能
+             const buildingFilter = document.getElementById('buildingFilter');
+             const searchForm = buildingFilter ? buildingFilter.closest('form') : null;
+               
+             if (buildingFilter && searchForm) {
+                 buildingFilter.addEventListener('change', function() {
+                     // 当用户选择楼栋时，自动提交表单进行筛选
+                     searchForm.submit();
+                 });
+             }
+               
+             // 搜索框回车搜索功能
+             const roomSearch = document.getElementById('roomSearch');
+               
+             if (roomSearch && searchForm) {
+                 roomSearch.addEventListener('keypress', function(e) {
+                     // 当用户按下回车键时，自动提交表单进行搜索
+                     if (e.key === 'Enter') {
+                         e.preventDefault(); // 阻止默认行为
+                         searchForm.submit(); // 提交表单
+                     }
+                 });
+             }
+               
+             // 刷新按钮功能 - 清除筛选条件并完全刷新页面
+             const refreshBtn = document.getElementById('refreshBtn');
+              
+             if (refreshBtn) {
+                 refreshBtn.addEventListener('click', function() {
+                     // 构造没有筛选条件的URL
+                     window.location.href = '/utility-meter/utility_reading';
+                 });
+             }
+               
+             // 批量保存表单提交处理
+             const batchSaveForm = document.getElementById('batchSaveForm');
+             if (batchSaveForm) {
+                 batchSaveForm.addEventListener('submit', function(e) {
+                     e.preventDefault();
+                      
+                     // 获取所有房间
+                     const rooms = document.querySelectorAll('#roomsTableBody tr');
+                     let hasValidRoom = false;
+                      
+                     // 创建一个临时表单来提交有效数据
+                     const tempForm = document.createElement('form');
+                     tempForm.method = 'post';
+                     tempForm.action = '/utility-meter/utility_reading';
+                      
+                     // 添加公共字段
+                     const addHiddenField = (name, value) => {
+                         const input = document.createElement('input');
+                         input.type = 'hidden';
+                         input.name = name;
+                         input.value = value;
+                         tempForm.appendChild(input);
+                     };
+                      
+                     addHiddenField('is_batch', 'true');
+                     // 直接从主控件获取最新的日期时间值
+                     const readingDateTime = document.getElementById('readingDateTime').value;
+                     // 转换日期格式：将YYYY-MM-DDThh:mm:ss转换为YYYY-MM-DD hh:mm:ss
+                     const batchReadingDate = readingDateTime ? readingDateTime.replace('T', ' ') : '';
+                     addHiddenField('batch_reading_date', batchReadingDate);
+                     
+                     // 创建数组来存储批量数据
+                     const roomIds = [];
+                     const waterCurrents = [];
+                     const electricCurrents = [];
+                     const waterNotesList = [];
+                     const electricNotesList = [];
+                     const waterMeterReplacedList = [];
+                     const electricMeterReplacedList = [];
+                     
+                     // 遍历所有房间，检查并添加有效房间的数据
+                     rooms.forEach(row => {
+                         const roomIdMatch = row.querySelector('a[href^="/room/view/"]');
+                         if (roomIdMatch) {
+                             const roomId = roomIdMatch.href.split('/').pop();
+                             const waterReading = row.querySelector(`input[name="water_reading_${roomId}"]`)?.value.trim() || '';
+                             const electricityReading = row.querySelector(`input[name="electricity_reading_${roomId}"]`)?.value.trim() || '';
+                             
+                             // 检查是否至少有一个读数有值
+                             if (waterReading || electricityReading) {
+                                 hasValidRoom = true;
+                                  
+                                 // 将该房间的数据添加到数组
+                                 roomIds.push(roomId);
+                                 waterCurrents.push(waterReading);
+                                 electricCurrents.push(electricityReading);
+                                 waterNotesList.push(row.querySelector(`input[name="water_notes_${roomId}"]`)?.value.trim() || '');
+                                 electricNotesList.push(row.querySelector(`input[name="electric_notes_${roomId}"]`)?.value.trim() || '');
+                                 waterMeterReplacedList.push(row.querySelector(`input[id="water-replace-${roomId}"]`)?.checked ? 'true' : 'false');
+                                 electricMeterReplacedList.push(row.querySelector(`input[id="electric-replace-${roomId}"]`)?.checked ? 'true' : 'false');
+                             }
+                         }
+                     });
+                     
+                     // 检查是否有有效的房间数据可以提交
+                     if (!hasValidRoom) {
+                         alert('请至少输入一个房间的水表或电表读数');
+                         return;
+                     }
+                     
+                     // 添加数组数据到表单
+                     roomIds.forEach(id => addHiddenField('room_ids[]', id));
+                     waterCurrents.forEach(val => addHiddenField('water_currents[]', val));
+                     electricCurrents.forEach(val => addHiddenField('electric_currents[]', val));
+                     waterNotesList.forEach(val => addHiddenField('water_notes[]', val));
+                     electricNotesList.forEach(val => addHiddenField('electric_notes[]', val));
+                     waterMeterReplacedList.forEach(val => addHiddenField('water_meter_replaced[]', val));
+                     electricMeterReplacedList.forEach(val => addHiddenField('electric_meter_replaced[]', val));
+                     
+                     // 添加到文档并提交
+                     document.body.appendChild(tempForm);
+                     tempForm.submit();
+                 });
+             }
+         });
+          
+         // 准备单个保存的数据
+         function prepareSaveData(roomId) {
+             // 获取表单数据
+             const waterReading = document.querySelector(`input[name="water_reading_${roomId}"]`).value.trim();
+             const electricityReading = document.querySelector(`input[name="electricity_reading_${roomId}"]`).value.trim();
+             const waterNotes = document.querySelector(`input[name="water_notes_${roomId}"]`).value.trim();
+             const electricNotes = document.querySelector(`input[name="electric_notes_${roomId}"]`).value.trim();
+             const waterReplaced = document.getElementById(`water-replace-${roomId}`).checked;
+             const electricReplaced = document.getElementById(`electric-replace-${roomId}`).checked;
+             // 直接从主控件获取最新的日期时间值
+             let readingDate = document.getElementById('readingDateTime').value;
+            
+             // 转换日期格式：将YYYY-MM-DDThh:mm:ss转换为YYYY-MM-DD hh:mm:ss
+             if (readingDate && readingDate.includes('T')) {
+                 readingDate = readingDate.replace('T', ' ');
+             }
+              
+             // 验证至少有一个读数
+             if (!waterReading && !electricityReading) {
+                 alert('请至少输入一项水表或电表读数');
+                 return false;
+             }
+              
+             // 创建一个新的临时表单用于提交单个房间的数据
+             const tempForm = document.createElement('form');
+             tempForm.method = 'post';
+             tempForm.action = '/utility-meter/utility_reading';
+              
+             // 添加隐藏字段
+             const addHiddenField = (name, value) => {
+                 const input = document.createElement('input');
+                 input.type = 'hidden';
+                 input.name = name;
+                 input.value = value;
+                 tempForm.appendChild(input);
+             };
+              
+             addHiddenField('room_id', roomId);
+             addHiddenField('reading_date', readingDate);
+             addHiddenField('water_current', waterReading);
+             addHiddenField('electric_current', electricityReading);
+             addHiddenField('water_notes', waterNotes);
+             addHiddenField('electric_notes', electricNotes);
+             addHiddenField('water_meter_replaced', waterReplaced ? 'true' : 'false');
+             addHiddenField('electric_meter_replaced', electricReplaced ? 'true' : 'false');
+              
+             // 添加到文档并提交
+             document.body.appendChild(tempForm);
+             tempForm.submit();
+              
+             return true;
+        }
+        
+
+    </script>
+<script>
+// ========== 抄表照片管理功能（临时上传方案） ==========
+// 核心思路：照片先上传到临时目录（按room_id），保存抄表记录时才移动到正式账期目录
+var currentPhotoRoomId = null;
+var currentPhotoRoomName = '';
+
+function openPhotoModal(roomId, roomName) {
+    currentPhotoRoomId = roomId;
+    currentPhotoRoomName = roomName;
+    document.getElementById('photoModalTitle').textContent = '抄表照片 - ' + roomName;
+    document.getElementById('photoModal').classList.remove('hidden');
+    // 加载临时目录中的照片
+    loadRoomPhotos(roomId);
+}
+
+function closePhotoModal() {
+    document.getElementById('photoModal').classList.add('hidden');
+    currentPhotoRoomId = null;
+    currentPhotoRoomName = '';
+}
+
+async function uploadRoomPhotos(files) {
+    if (!currentPhotoRoomId) { alert('请先选择房间'); return; }
+    var progressContainer = document.getElementById('photoUploadProgress');
+    var progressBar = document.getElementById('photoUploadBar');
+    var progressPercentage = document.getElementById('photoUploadPercentage');
+    var uploadStatus = document.getElementById('photoUploadStatus');
+    progressContainer.classList.remove('hidden');
+    progressBar.style.width = '0%';
+    progressPercentage.textContent = '0%';
+    for (var i = 0; i < files.length; i++) {
+        var file = files[i];
+        if (file.size > 10 * 1024 * 1024) { alert(file.name + ' 文件大小超过10MB限制'); continue; }
+        uploadStatus.textContent = '正在上传 ' + file.name + ' (' + (i+1) + '/' + files.length + ')';
+        var formData = new FormData();
+        formData.append('file', file);
+        formData.append('room_id', currentPhotoRoomId);
+        try {
+            var xhr = new XMLHttpRequest();
+            xhr.upload.addEventListener('progress', function(e) {
+                if (e.lengthComputable) {
+                    var progress = Math.round((e.loaded / e.total) * 100);
+                    progressBar.style.width = progress + '%';
+                    progressPercentage.textContent = progress + '%';
+                }
+            });
+            await new Promise(function(resolve, reject) {
+                xhr.onload = function() {
+                    if (xhr.status >= 200 && xhr.status < 300) {
+                        try { var result = JSON.parse(xhr.responseText); if (result.success) { resolve(result); } else { reject(new Error(result.message || '上传失败')); } }
+                        catch(e) { resolve(xhr.responseText); }
+                    } else { reject(new Error('上传失败: ' + xhr.statusText)); }
+                };
+                xhr.onerror = function() { reject(new Error('上传过程中发生网络错误')); };
+                xhr.open('POST', '/utility-meter/upload_temp_media');
+                xhr.send(formData);
+            });
+        } catch (error) { console.error('文件上传失败:', error); alert(error.message || '文件上传失败'); }
+    }
+    uploadStatus.textContent = '上传完成';
+    setTimeout(function() { progressContainer.classList.add('hidden'); }, 1500);
+    document.getElementById('photoFileInput').value = '';
+    loadRoomPhotos(currentPhotoRoomId);
+}
+
+async function loadRoomPhotos(roomId) {
+    try {
+        // 只加载临时目录的照片（待保存的照片）
+        var response = await fetch('/utility-meter/get_temp_media_files?room_id=' + roomId, {
+            method: 'GET', headers: { 'Content-Type': 'application/json' }, credentials: 'include'
+        });
+        var result = await response.json();
+        if (!response.ok) { throw new Error(result.message || '加载照片失败'); }
+        var container = document.getElementById('photoPreviewGrid');
+        container.innerHTML = '';
+        var tempCount = (result.files && result.files.length) || 0;
+        
+        // 更新表格中的照片计数（仅显示待保存的临时照片数）
+        var countSpan = document.getElementById('photo-count-' + roomId);
+        if (countSpan) { countSpan.textContent = tempCount > 0 ? '(' + tempCount + '张)' : ''; }
+        
+        var html = '';
+        
+        // 显示临时目录的照片（标记为"待保存"）
+        if (result.files && result.files.length > 0) {
+            result.files.forEach(function(file) {
+                var isImage = file.type === 'image';
+                if (isImage) {
+                    html += '<div class="bg-white border border-blue-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow"><div class="bg-blue-50 text-xs text-blue-600 px-2 py-0.5">待保存</div><div class="relative h-32 overflow-hidden"><img src="' + file.url + '" alt="抄表照片" class="w-full h-full object-cover cursor-pointer" onclick="showPhotoPreview(\'' + file.url + '\')"><button type="button" class="absolute top-2 right-2 bg-transparent text-red-500 hover:text-white hover:bg-red-500 rounded-full p-1 shadow-lg" onclick="deleteRoomPhoto(\'' + file.filename + '\', \'' + roomId + '\'); event.stopPropagation();"><i class="fa fa-trash-o"></i></button></div><div class="p-1 text-xs text-gray-600 truncate">' + file.filename + '</div></div>';
+                } else {
+                    html += '<div class="bg-white border border-blue-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow"><div class="bg-blue-50 text-xs text-blue-600 px-2 py-0.5">待保存</div><div class="relative h-32 overflow-hidden bg-gray-100"><video class="w-full h-full object-cover" preload="metadata"><source src="' + file.url + '" type="video/mp4"></video><button type="button" class="absolute top-2 right-2 bg-transparent text-red-500 hover:text-white hover:bg-red-500 rounded-full p-1 shadow-lg z-10" onclick="deleteRoomPhoto(\'' + file.filename + '\', \'' + roomId + '\'); event.stopPropagation();"><i class="fa fa-trash-o"></i></button><div class="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30 cursor-pointer z-0" onclick="window.open(\'' + file.url + '\', \'_blank\')"><i class="fa fa-play-circle text-white text-3xl opacity-80"></i></div></div><div class="p-1 text-xs text-gray-600 truncate">' + file.filename + '</div></div>';
+                }
+            });
+        }
+        
+        if (html) {
+            container.innerHTML = html;
+        } else {
+            container.innerHTML = '<div class="col-span-full text-center py-6 text-gray-500"><i class="fa fa-file-image-o text-4xl mb-2"></i><p>暂无抄表照片</p></div>';
+        }
+    } catch (error) {
+        console.error('加载照片失败:', error);
+        var container = document.getElementById('photoPreviewGrid');
+        container.innerHTML = '<div class="col-span-full text-center py-6 text-gray-500"><i class="fa fa-exclamation-circle text-4xl mb-2"></i><p>加载照片失败</p></div>';
+    }
+}
+
+// 删除临时目录文件
+async function deleteRoomPhoto(filename, roomId) {
+    if (!confirm('确定要删除文件 ' + filename + ' 吗？')) { return; }
+    try {
+        var response = await fetch('/utility-meter/delete_temp_media', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+            body: JSON.stringify({ filename: filename, room_id: roomId })
+        });
+        var result = await response.json();
+        if (!response.ok) { throw new Error(result.message || '删除失败'); }
+        loadRoomPhotos(roomId);
+    } catch (error) { console.error('删除照片失败:', error); alert(error.message || '删除失败'); }
+}
+
+// 清理当前房间所有临时照片
+async function clearRoomPhotos() {
+    if (!currentPhotoRoomId) { alert('请先选择房间'); return; }
+    if (!confirm('确定要清理当前房间的所有临时照片吗？此操作不可恢复！')) { return; }
+    try {
+        var response = await fetch('/utility-meter/clear_room_temp_media', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+            body: JSON.stringify({ room_id: currentPhotoRoomId })
+        });
+        var result = await response.json();
+        if (!response.ok) { throw new Error(result.message || '清理失败'); }
+        alert(result.message || '清理成功');
+        loadRoomPhotos(currentPhotoRoomId);
+        loadAllRoomPhotoCounts();
+    } catch (error) { console.error('清理房间照片失败:', error); alert(error.message || '清理失败'); }
+}
+
+// 清理所有房间临时照片
+async function clearAllTempPhotos() {
+    if (!confirm('确定要清理所有房间的临时照片吗？此操作不可恢复！')) { return; }
+    try {
+        var response = await fetch('/utility-meter/clear_all_temp_media', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include'
+        });
+        var result = await response.json();
+        if (!response.ok) { throw new Error(result.message || '清理失败'); }
+        alert(result.message || '清理成功');
+        loadAllRoomPhotoCounts();
+        // 如果模态框打开，也刷新当前房间照片
+        if (currentPhotoRoomId) { loadRoomPhotos(currentPhotoRoomId); }
+    } catch (error) { console.error('清理所有临时照片失败:', error); alert(error.message || '清理失败'); }
+}
+
+function showPhotoPreview(url) {
+    document.getElementById('previewImage').src = url;
+    document.getElementById('imagePreviewModal').classList.remove('hidden');
+}
+
+function closeImagePreview() {
+    document.getElementById('imagePreviewModal').classList.add('hidden');
+}
+
+function initPhotoUploadEvents() {
+    var photoUploadBtn = document.getElementById('photoUploadBtn');
+    var photoFileInput = document.getElementById('photoFileInput');
+    if (photoUploadBtn && photoFileInput) {
+        photoUploadBtn.addEventListener('click', function() { photoFileInput.click(); });
+        photoFileInput.addEventListener('change', function(e) {
+            if (e.target.files.length > 0) { uploadRoomPhotos(e.target.files); }
+        });
+    }
+    // 清理当前房间所有文件按钮
+    var clearRoomPhotosBtn = document.getElementById('clearRoomPhotosBtn');
+    if (clearRoomPhotosBtn) {
+        clearRoomPhotosBtn.addEventListener('click', function() { clearRoomPhotos(); });
+    }
+    // 清理所有临时照片按钮
+    var clearAllTempPhotosBtn = document.getElementById('clearAllTempPhotosBtn');
+    if (clearAllTempPhotosBtn) {
+        clearAllTempPhotosBtn.addEventListener('click', function() { clearAllTempPhotos(); });
+    }
+}
+initPhotoUploadEvents();
+
+// 页面加载时加载所有房间的照片计数（仅显示待保存的临时照片数）
+function loadAllRoomPhotoCounts() {
+    var rows = document.querySelectorAll('#roomsTableBody tr[data-room-id]');
+    rows.forEach(function(row) {
+        var roomId = row.getAttribute('data-room-id');
+        if (roomId) {
+            // 只获取临时目录照片数（待保存的照片）
+            fetch('/utility-meter/get_temp_media_files?room_id=' + roomId, {
+                method: 'GET', headers: { 'Content-Type': 'application/json' }, credentials: 'include'
+            })
+            .then(function(response) { return response.json(); })
+            .then(function(result) {
+                var tempCount = (result.files && result.files.length) || 0;
+                var countSpan = document.getElementById('photo-count-' + roomId);
+                if (countSpan) { countSpan.textContent = tempCount > 0 ? '(' + tempCount + '张)' : ''; }
+            })
+            .catch(function(err) { console.error('加载临时照片计数失败:', err); });
+        }
+    });
+}
+loadAllRoomPhotoCounts();
+</script>
+</body>
+</html>

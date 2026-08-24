@@ -1,0 +1,55 @@
+# 基础镜像：Python 3.10（兼容所有依赖库）
+FROM python:3.10-slim
+
+# 设置工作目录
+WORKDIR /app
+
+# 环境变量
+ENV DOCKER_ENV=true \
+    FLASK_ENV=production \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    SERVER_HOST=0.0.0.0 \
+    SERVER_PORT=35168 \
+    TZ=Asia/Shanghai  
+
+# 安装系统依赖
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    default-libmysqlclient-dev \
+    libssl-dev \
+    tk \ 
+    libtk8.6 \
+    tzdata && \ 
+    ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone && \ 
+    rm -rf /var/lib/apt/lists/*
+
+# 复制依赖文件
+COPY requirements.txt .
+
+# 安装Python依赖（仅通过requirements.txt，避免重复声明）
+RUN pip install --no-cache-dir -r requirements.txt
+
+# 复制项目文件
+COPY . .
+
+# 创建外部数据目录
+RUN mkdir -p /data && \
+    chmod -R 777 /data
+
+# 创建符号链接将应用内数据目录指向外部数据卷
+RUN rm -rf /app/data && \
+    rm -rf /app/backups && \
+    rm -rf /app/logs && \
+    ln -s /data /app/data && \
+    ln -s /data/backups /app/backups && \
+    ln -s /data/logs /app/logs
+
+# 定义数据卷，确保数据持久化
+VOLUME ["/data"]
+
+# 暴露端口
+EXPOSE 35168
+
+# 启动命令
+CMD ["python", "-c", "from main import run_server; run_server()"]

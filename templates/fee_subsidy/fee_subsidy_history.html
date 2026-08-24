@@ -1,0 +1,923 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+   <!--本地化CDN-->
+{% include 'static.html' %}
+
+    <!-- Tailwindwind配置 -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#165DFF',
+                        secondary: '#6B7280',
+                        success: '#00B42A',
+                        danger: '#F53F3F',
+                        warning: '#FF7D00',
+                        info: '#86909C',
+                        light: '#F2F3F5',
+                        dark: '#1D2129'
+                    },
+                    fontFamily: {
+                        inter: ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .card-shadow {
+                box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            }
+            .btn-hover {
+                @apply transition-all duration-300 hover:shadow-lg transform hover:-translate-y-0.5;
+            }
+            .table-hover {
+                @apply transition-colors duration-200 hover:bg-primary/5;
+            }
+            .fade-in {
+                animation: fadeIn 0.5s ease-in-out;
+            }
+            .slide-in {
+                animation: slideIn 0.3s ease-out;
+            }
+            .select-loading {
+                background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236B7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'%3E%3C/circle%3E%3Cpath d='M16 12a4 4 0 1 1-8 0'%3E%3C/path%3E%3C/svg%3E");
+                background-repeat: no-repeat;
+                background-position: right 8px center;
+            }
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        @keyframes slideIn {
+            from { transform: translateY(10px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 font-inter text-dark min-h-screen flex flex-col">
+  
+{% include 'header.html' %}
+    <!-- 主内容区 -->
+    <main class="flex-grow container mx-auto px-4 py-6">
+        <!-- 页面标题 -->
+        <div class="mb-6 fade-in">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between">
+                <div class="flex items-center">
+                    <button onclick="history.back()" class="text-gray-600 hover:text-primary transition-colors mr-4">
+                        <i class="fa fa-arrow-left"></i>
+                    </button>
+                    <div>
+                        <h2 class="text-[clamp(1.5rem,3vw,2rem)] font-bold text-dark">{{ title }}</h2>
+                        <p class="text-gray-500 mt-1">查看所有费用补贴的历史变更记录</p>
+                    </div>
+                </div>
+                <div class="mt-4 md:mt-0">
+                    <button onclick="history.back()" class="text-gray-600 hover:text-primary transition-colors">
+                        <i class="fa fa-arrow-left mr-1"></i> 返回
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 筛选区域 -->
+        <div class="bg-white rounded-lg card-shadow p-5 mb-6 fade-in" style="animation-delay: 100ms;">
+            <form id="filterForm" class="space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                    <!-- 月份筛选 -->
+                    <div>
+                        <label for="billingPeriod" class="block text-sm font-medium text-gray-700 mb-1">添加月份</label>
+                        <select id="billingPeriod" name="billingPeriod" 
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all text-sm select-loading">
+                            <option value="">加载中...</option>
+                        </select>
+                    </div>
+                    
+                    <!-- 部门筛选 -->
+                    <div>
+                        <label for="department" class="block text-sm font-medium text-gray-700 mb-1">部门</label>
+                        <select id="department" name="department" 
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all text-sm select-loading">
+                            <option value="">加载中...</option>
+                        </select>
+                    </div>
+                    
+                    <!-- 楼栋筛选 -->
+                    <div>
+                        <label for="building" class="block text-sm font-medium text-gray-700 mb-1">楼栋</label>
+                        <select id="building" name="building" 
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all text-sm">
+                            <option value="">全部楼栋</option>
+                            {% if buildings %}
+                                {% for building in buildings %}
+                                    <option value="{{ building }}">{{ building }}</option>
+                                {% endfor %}
+                            {% endif %}
+                        </select>
+                    </div>
+                    
+                    <!-- 费用类型筛选 -->
+                    <div>
+                        <label for="feeType" class="block text-sm font-medium text-gray-700 mb-1">费用类型</label>
+                        <select id="feeType" name="feeType" 
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all text-sm select-loading">
+                            <option value="">加载中...</option>
+                        </select>
+                    </div>
+                    
+                    <!-- 状态筛选 -->
+                    <div>
+                        <label for="statusFilter" class="block text-sm font-medium text-gray-700 mb-1">状态</label>
+                        <select id="statusFilter" name="statusFilter" 
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all text-sm">
+                            <option value="">全部状态</option>
+                            <option value="enabled">已启用</option>
+                            <option value="disabled">已禁用</option>
+                        </select>
+                    </div>
+                    
+                    <!-- 搜索框 -->
+                    <div>
+                        <label for="searchInput" class="block text-sm font-medium text-gray-700 mb-1">搜索</label>
+                        <div class="relative">
+                            <input type="text" id="searchInput" name="searchInput" placeholder="输入姓名、房间号或变更原因"
+                                   class="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all text-sm">
+                            <i class="fa fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 操作按钮组 -->
+                <div class="flex flex-wrap gap-3 justify-end items-center">
+                    <button type="submit" class="bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded-lg btn-hover flex items-center">
+                        <i class="fa fa-search mr-2"></i> 搜索
+                    </button>
+                    <button type="button" id="resetBtn" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg btn-hover flex items-center">
+                        <i class="fa fa-refresh mr-2"></i> 重置
+                    </button>
+                    <button type="button" id="refreshBtn" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg btn-hover flex items-center">
+                        <i class="fa fa-repeat mr-2"></i> 刷新
+                    </button>
+                    <button type="button" id="exportBtn" class="bg-success hover:bg-success/90 text-white px-4 py-2 rounded-lg btn-hover flex items-center">
+                        <i class="fa fa-download mr-2"></i> 导出
+                    </button>
+                </div>
+            </form>
+        </div>
+        
+        <!-- 表格区域 -->
+        <div class="bg-white rounded-lg card-shadow overflow-hidden fade-in" style="animation-delay: 200ms;">
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                序号
+                            </th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                费用类型
+                            </th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                姓名/房间号
+                            </th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                部门
+                            </th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                职位
+                            </th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                补贴金额
+                            </th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                用电量减免
+                            </th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                用水量减免
+                            </th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                生效时间
+                            </th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                是否启用
+                            </th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                变更时间
+                            </th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                操作人
+                            </th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                变更原因
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody id="historyTableBody" class="bg-white divide-y divide-gray-200">
+                        <!-- 表格数据将通过JavaScript从数据库加载 -->
+                        <tr class="table-hover">
+                            <td colspan="13" class="px-6 py-10 text-center text-gray-500">
+                                <div class="flex flex-col items-center">
+                                    <i class="fa fa-history text-3xl mb-2 text-gray-300"></i>
+                                    <p>加载历史记录中...</p>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- 分页控件 -->
+            <div class="px-4 py-3 bg-gray-50 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between">
+                <div class="flex items-center mb-3 sm:mb-0">
+                    <span class="text-sm text-gray-700 mr-3">
+                        显示 <span id="currentRange" class="font-medium">0-0</span> 条，共 <span id="totalItems" class="font-medium">0</span> 条记录
+                    </span>
+                    <div class="flex items-center border rounded-md">
+                        <label for="pageSize" class="text-sm text-gray-700 px-2">每页显示:</label>
+                        <select id="pageSize" class="text-sm border-0 focus:ring-0 py-1 px-2">
+                            <option value="10">10</option>
+                            <option value="20">20</option>
+                            <option value="50">50</option>
+                            <option value="100">100</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="flex items-center">
+                    <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                        <button id="prevPage" class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                            <span class="sr-only">上一页</span>
+                            <i class="fa fa-chevron-left text-xs"></i>
+                        </button>
+                        <span id="paginationNumbers" class="flex">
+                            <!-- 页码将通过JavaScript动态生成 -->
+                        </span>
+                        <button id="nextPage" class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                            <span class="sr-only">下一页</span>
+                            <i class="fa fa-chevron-right text-xs"></i>
+                        </button>
+                    </nav>
+                </div>
+            </div>
+        </div>
+    </main>
+    
+    <!-- 详情对话框 -->
+    <div id="detailDialog" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden items-center justify-center fade-in">
+        <div class="bg-white rounded-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto slide-in">
+            <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+                <h3 id="detailTitle" class="text-lg font-semibold">记录详情</h3>
+                <button id="closeDetailDialog" class="text-gray-500 hover:text-gray-700">
+                    <i class="fa fa-times"></i>
+                </button>
+            </div>
+            
+            <div class="p-6">
+                <div id="detailContent" class="space-y-4">
+                    <!-- 详情内容将通过JavaScript动态生成 -->
+                </div>
+            </div>
+            
+            <div class="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-end">
+                <button id="closeDetailBtn" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors">
+                    关闭
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 页脚 -->
+    {% include 'footer.html' %}
+    
+    <script>
+        // 全局变量
+        let currentPage = 1;
+        let pageSize = 10;
+        let totalPages = 1;
+        let totalItems = 0;
+        let isLoading = false; // 防止重复提交
+        
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            // 绑定事件监听器
+            bindEventListeners();
+            
+            // 加载筛选条件数据
+            loadFilterData();
+            
+            // 绑定状态筛选变更事件
+            document.getElementById('statusFilter').addEventListener('change', function() {
+                if (isLoading) return;
+                currentPage = 1;
+                loadHistoryData();
+            });
+            
+            // 初始加载数据
+            loadHistoryData();
+        });
+        
+        // 绑定所有事件监听器
+        function bindEventListeners() {
+            // 筛选表单提交
+            document.getElementById('filterForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                if (!isLoading) {
+                    currentPage = 1; // 重置为第一页
+                    loadHistoryData();
+                }
+            });
+            
+            // 搜索框回车事件
+            document.getElementById('searchInput').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (!isLoading) {
+                        currentPage = 1;
+                        loadHistoryData();
+                    }
+                }
+            });
+            
+            // 重置按钮
+            document.getElementById('resetBtn').addEventListener('click', function() {
+                if (isLoading) return;
+                
+                // 重置表单所有字段
+                document.getElementById('filterForm').reset();
+                
+                // 重置筛选器的选中状态
+                document.getElementById('billingPeriod').value = '';
+                document.getElementById('department').value = '';
+                document.getElementById('feeType').value = '';
+                document.getElementById('statusFilter').value = '';
+                document.getElementById('searchInput').value = '';
+                
+                // 重置页码并重新加载数据
+                currentPage = 1;
+                loadHistoryData();
+            });
+            
+            // 刷新按钮修复
+            document.getElementById('refreshBtn').addEventListener('click', function() {
+                if (isLoading) return;
+                
+                const btn = this;
+                const originalHTML = btn.innerHTML;
+                btn.innerHTML = '<i class="fa fa-spinner fa-spin mr-2"></i> 刷新中...';
+                btn.disabled = true;
+                
+                // 重新加载当前筛选条件下的数据
+                loadHistoryData().then(() => {
+                    btn.innerHTML = originalHTML;
+                    btn.disabled = false;
+                }).catch(() => {
+                    btn.innerHTML = originalHTML;
+                    btn.disabled = false;
+                });
+            });
+            
+            // 导出按钮
+            document.getElementById('exportBtn').addEventListener('click', function() {
+                if (isLoading) return;
+                
+                const btn = this;
+                btn.innerHTML = '<i class="fa fa-spinner fa-spin mr-2"></i> 导出中...';
+                btn.disabled = true;
+                
+                // 获取当前筛选条件
+                const billingPeriod = document.getElementById('billingPeriod').value;
+                const department = document.getElementById('department').value;
+                const feeType = document.getElementById('feeType').value;
+                const building = document.getElementById('building').value;
+                const search = document.getElementById('searchInput').value.trim();
+                
+                // 构建导出URL - 历史记录页面导出包含禁用记录
+                let url = `/fee_subsidy_import_export/export?include_disabled=true&`;
+                if (billingPeriod) url += `billing_period=${billingPeriod}&`;
+                if (department) url += `department=${encodeURIComponent(department)}&`;
+                if (feeType) url += `fee_type=${encodeURIComponent(feeType)}&`;
+                if (building) url += `building=${encodeURIComponent(building)}&`;
+                if (search) url += `search=${encodeURIComponent(search)}&`;
+                
+                // 移除末尾的&
+                url = url.replace(/&$/, '');
+                
+                // 创建一个隐藏的a标签来触发下载
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `费用补贴历史记录_${new Date().toLocaleDateString().replace(/\//g, '-')}.xlsx`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                
+                // 恢复按钮状态，与其他页面保持一致，设置为60秒
+                setTimeout(() => {
+                    btn.innerHTML = '<i class="fa fa-download mr-2"></i> 导出';
+                    btn.disabled = false;
+                }, 60000);
+            });
+            
+            // 页码大小选择
+            document.getElementById('pageSize').addEventListener('change', function() {
+                if (isLoading) return;
+                
+                pageSize = parseInt(this.value);
+                currentPage = 1; // 重置为第一页
+                loadHistoryData();
+            });
+            
+            // 上一页按钮
+            document.getElementById('prevPage').addEventListener('click', function() {
+                if (isLoading || currentPage <= 1) return;
+                
+                currentPage--;
+                loadHistoryData();
+            });
+            
+            // 下一页按钮
+            document.getElementById('nextPage').addEventListener('click', function() {
+                if (isLoading || currentPage >= totalPages) return;
+                
+                currentPage++;
+                loadHistoryData();
+            });
+            
+            // 筛选器变更事件 - 自动刷新
+            document.getElementById('billingPeriod').addEventListener('change', function() {
+                if (isLoading) return;
+                currentPage = 1;
+                loadHistoryData();
+            });
+            
+            document.getElementById('department').addEventListener('change', function() {
+                if (isLoading) return;
+                currentPage = 1;
+                loadHistoryData();
+            });
+            
+            document.getElementById('feeType').addEventListener('change', function() {
+                if (isLoading) return;
+                currentPage = 1;
+                loadHistoryData();
+            });
+            
+            document.getElementById('building').addEventListener('change', function() {
+                if (isLoading) return;
+                currentPage = 1;
+                loadHistoryData();
+            });
+            
+            // 详情对话框关闭按钮
+            document.getElementById('closeDetailDialog').addEventListener('click', closeDetailDialog);
+            document.getElementById('closeDetailBtn').addEventListener('click', closeDetailDialog);
+        }
+        
+        // 加载筛选条件数据（恢复原始接口）
+        function loadFilterData() {
+            // 加载账期
+            const billingPeriodSelect = document.getElementById('billingPeriod');
+            fetch('/fee_subsidy/periods')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`加载账期失败: ${response.statusText}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.success) {
+                        billingPeriodSelect.innerHTML = '<option value="">全部月份</option>';
+                        data.data.sort((a, b) => b.localeCompare(a));
+                        data.data.forEach(period => {
+                            const option = document.createElement('option');
+                            option.value = period;
+                            option.textContent = `${period.substring(0, 4)}年${period.substring(5, 7)}月`;
+                            billingPeriodSelect.appendChild(option);
+                        });
+                    } else {
+                        throw new Error(data.message || '加载账期数据失败');
+                    }
+                })
+                .catch(error => {
+                    console.error('加载账期失败:', error);
+                    billingPeriodSelect.innerHTML = '<option value="">全部账期</option><option value="" disabled>加载失败，请刷新页面</option>';
+                })
+                .finally(() => {
+                    billingPeriodSelect.classList.remove('select-loading');
+                });
+            
+            // 加载部门
+            const departmentSelect = document.getElementById('department');
+            fetch('/fee_subsidy/departments')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`加载部门失败: ${response.statusText}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.success) {
+                        departmentSelect.innerHTML = '<option value="">全部部门</option>';
+                        data.data.sort((a, b) => a.localeCompare(b));
+                        data.data.forEach(dept => {
+                            const option = document.createElement('option');
+                            option.value = dept;
+                            option.textContent = dept;
+                            departmentSelect.appendChild(option);
+                        });
+                    } else {
+                        throw new Error(data.message || '加载部门数据失败');
+                    }
+                })
+                .catch(error => {
+                    console.error('加载部门失败:', error);
+                    departmentSelect.innerHTML = '<option value="">全部部门</option><option value="" disabled>加载失败，请刷新页面</option>';
+                })
+                .finally(() => {
+                    departmentSelect.classList.remove('select-loading');
+                });
+            
+            // 恢复原始费用类型加载方式（使用OPTIONS请求）
+            const feeTypeSelect = document.getElementById('feeType');
+            fetch('/fee_subsidy/add', { method: 'OPTIONS' })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`加载费用类型失败: ${response.statusText}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.status === 'success' && data.allowed_types) {
+                        feeTypeSelect.innerHTML = '<option value="">全部类型</option>';
+                        data.allowed_types.sort((a, b) => a.localeCompare(b));
+                        data.allowed_types.forEach(type => {
+                            const option = document.createElement('option');
+                            option.value = type;
+                            option.textContent = type;
+                            feeTypeSelect.appendChild(option);
+                        });
+                    } else {
+                        throw new Error('加载费用类型数据失败');
+                    }
+                })
+                .catch(error => {
+                    console.error('加载费用类型失败:', error);
+                    // 移除硬编码选项，仅显示错误提示
+                    feeTypeSelect.innerHTML = '<option value="">全部类型</option><option value="" disabled>加载失败，请刷新页面</option>';
+                })
+                .finally(() => {
+                    feeTypeSelect.classList.remove('select-loading');
+                });
+        }
+        
+        // 从数据库加载历史记录数据
+        async function loadHistoryData() {
+            if (isLoading) return;
+            isLoading = true;
+            
+            const tableBody = document.getElementById('historyTableBody');
+            tableBody.innerHTML = '<tr><td colspan="13" class="px-6 py-10 text-center text-gray-500"><i class="fa fa-spinner fa-spin mr-2"></i> 正在加载历史记录...</td></tr>';
+            
+            try {
+                // 获取筛选条件
+                const billingPeriod = document.getElementById('billingPeriod').value;
+                const department = document.getElementById('department').value;
+                const feeType = document.getElementById('feeType').value;
+                const building = document.getElementById('building').value;
+                const statusFilter = document.getElementById('statusFilter').value;
+                const search = document.getElementById('searchInput').value.trim();
+                
+                // 构建查询参数
+                const params = new URLSearchParams();
+                params.append('page', currentPage);
+                params.append('per_page', pageSize);
+                
+                params.append('billing_period', billingPeriod);
+                params.append('department', department);
+                params.append('fee_type', feeType);
+                params.append('building', building);
+                
+                // 只有当statusFilter不为空时，才添加is_enabled参数
+                if (statusFilter !== '') {
+                    params.append('is_enabled', statusFilter === 'enabled' ? 'true' : 'false');
+                }
+                
+                params.append('search', search);
+                
+                const url = `/fee_subsidy/history?${params.toString()}`;
+                const response = await fetch(url);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP错误：${response.status} ${response.statusText}`);
+                }
+                
+                const result = await response.json();
+                
+                if (!result.success) {
+                    throw new Error(result.message || '加载数据失败');
+                }
+                
+                // 更新总数和总页数
+                totalItems = result.data.total;
+                totalPages = result.data.pages;
+                
+                // 渲染表格
+                renderHistoryTable(result.data.records);
+                
+                // 更新分页
+                updatePagination();
+                
+                // 更新统计信息
+                updateStatistics();
+                
+            } catch (error) {
+                console.error('加载数据失败:', error);
+                tableBody.innerHTML = `<tr><td colspan="13" class="px-6 py-10 text-center text-danger"><i class="fa fa-exclamation-circle mr-2"></i> ${error.message}</td></tr>`;
+            } finally {
+                isLoading = false;
+            }
+        }
+        
+        // 渲染历史记录表格
+        function renderHistoryTable(records) {
+            const tableBody = document.getElementById('historyTableBody');
+            
+            if (!records || records.length === 0) {
+                tableBody.innerHTML = '<tr class="table-hover"><td colspan="13" class="px-6 py-10 text-center text-gray-500"><i class="fa fa-info-circle mr-2"></i> 没有找到匹配的历史记录</td></tr>';
+                return;
+            }
+            
+            let html = '';
+            records.forEach((record, index) => {
+                // 处理不同费用类型的显示数据
+                let amount = '';
+                let electricReduction = '';
+                let waterReduction = '';
+                
+                if (record.fee_type !== "房间水电按用量减免") {
+                    amount = record.amount !== null ? `¥${record.amount.toFixed(2)}` : '';
+                } else {
+                    electricReduction = record.electric_reduction !== null ? `${record.electric_reduction} kWh` : '';
+                    waterReduction = record.water_reduction !== null ? `${record.water_reduction} m³` : '';
+                }
+                
+                // 姓名/房间号显示逻辑，并添加跳转链接和ID
+                let nameOrRoom = '';
+                if (record.user_id && record.user_name) {
+                    // 用户姓名添加跳转链接和ID
+                    nameOrRoom = `<a href="/user/view/${record.user_id}" class="text-blue-600 hover:underline">${record.user_name}</a> (ID:${record.user_id})`;
+                } else if (record.room_id && record.room_full_number) {
+                    // 房间号添加跳转链接和ID
+                    nameOrRoom = `<a href="/room/view/${record.room_id}" class="text-blue-600 hover:underline">${record.room_full_number}</a> (ID:${record.room_id})`;
+                } else {
+                    // 默认显示逻辑
+                    nameOrRoom = record.user_name || (record.room_full_number || '');
+                }
+                
+                html += `
+                <tr class="table-hover">
+                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                        ${(currentPage - 1) * pageSize + index + 1}
+                    </td>
+                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                        ${record.fee_type || ''}
+                    </td>
+                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                        ${nameOrRoom}
+                    </td>
+                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                        ${record.user_department || ''}
+                    </td>
+                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                        ${record.user_position || ''}
+                    </td>
+                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                        ${amount}
+                    </td>
+                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                        ${electricReduction}
+                    </td>
+                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                        ${waterReduction}
+                    </td>
+                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                        ${formatDateTime(record.effective_date) || ''}
+                    </td>
+                    <td class="px-4 py-3 whitespace-nowrap">
+                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${record.is_enabled ? 'bg-success/10 text-success' : 'bg-gray-100 text-gray-800'}">
+                            ${record.is_enabled ? '启用' : '禁用'}
+                        </span>
+                    </td>
+                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                        ${formatDateTime(record.update_time || record.create_time) || ''}
+                    </td>
+                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                        ${record.operator_id || ''}
+                    </td>
+                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                            ${record.change_reason || ''} 
+                    </td>
+                </tr>
+                `;
+            });
+            
+            tableBody.innerHTML = html;
+            
+            // 绑定查看详情事件
+            document.querySelectorAll('.view-detail-btn').forEach(button => {
+                button.addEventListener('click', function() {
+                    viewDetail(this.getAttribute('data-id'));
+                });
+            });
+        }
+        
+        // 更新分页控件
+        function updatePagination() {
+            const paginationNumbers = document.getElementById('paginationNumbers');
+            paginationNumbers.innerHTML = '';
+            
+            totalPages = Math.max(totalPages, 1);
+            
+            // 更新上一页/下一页按钮状态
+            const prevBtn = document.getElementById('prevPage');
+            const nextBtn = document.getElementById('nextPage');
+            
+            prevBtn.disabled = currentPage === 1;
+            prevBtn.classList.toggle('opacity-50', currentPage === 1);
+            prevBtn.classList.toggle('cursor-not-allowed', currentPage === 1);
+            
+            nextBtn.disabled = currentPage === totalPages;
+            nextBtn.classList.toggle('opacity-50', currentPage === totalPages);
+            nextBtn.classList.toggle('cursor-not-allowed', currentPage === totalPages);
+            
+            // 生成页码
+            let startPage = Math.max(1, currentPage - 3);
+            let endPage = Math.min(totalPages, startPage + 6);
+            
+            if (endPage - startPage < 6 && startPage > 1) {
+                startPage = Math.max(1, endPage - 6);
+            }
+            
+            // 添加页码按钮
+            for (let i = startPage; i <= endPage; i++) {
+                const pageBtn = document.createElement('button');
+                pageBtn.type = 'button';
+                pageBtn.className = `relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
+                    i === currentPage 
+                        ? 'z-10 bg-primary text-white border-primary' 
+                        : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
+                }`;
+                pageBtn.textContent = i;
+                pageBtn.addEventListener('click', () => {
+                    if (!isLoading && currentPage !== i) {
+                        currentPage = i;
+                        loadHistoryData();
+                    }
+                });
+                
+                paginationNumbers.appendChild(pageBtn);
+            }
+        }
+        
+        // 更新统计信息
+        function updateStatistics() {
+            const start = totalItems > 0 ? (currentPage - 1) * pageSize + 1 : 0;
+            const end = Math.min(currentPage * pageSize, totalItems);
+            
+            document.getElementById('currentRange').textContent = `${start}-${end}`;
+            document.getElementById('totalItems').textContent = totalItems;
+        }
+        
+        // 查看详情
+        function viewDetail(id) {
+            if (isLoading) return;
+            
+            const detailContent = document.getElementById('detailContent');
+            detailContent.innerHTML = '<div class="text-center py-8"><i class="fa fa-spinner fa-spin text-2xl text-gray-400"></i><p class="mt-2 text-gray-500">加载详情中...</p></div>';
+            
+            document.getElementById('detailDialog').style.display = 'flex';
+            
+            fetch(`/fee_subsidy/history-detail?id=${id}`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`获取详情失败: ${response.statusText}`);
+                    }
+                    return response.json();
+                })
+                .then(result => {
+                    if (!result.success || !result.data) {
+                        throw new Error('未找到记录详情');
+                    }
+                    
+                    const detailData = result.data;
+                    
+                    let amount = '';
+                    let electricReduction = '';
+                    let waterReduction = '';
+                    
+                    if (detailData.fee_type !== "房间水电按用量减免") {
+                        amount = detailData.amount !== null ? `¥${detailData.amount.toFixed(2)}` : '';
+                    } else {
+                        electricReduction = detailData.electric_reduction !== null ? detailData.electric_reduction : '';
+                        waterReduction = detailData.water_reduction !== null ? detailData.water_reduction : '';
+                    }
+                    
+                    let nameOrRoom = detailData.user_name || (detailData.room_full_number || '');
+                    
+                    detailContent.innerHTML = `
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <p class="text-sm text-gray-500">ID</p>
+                                <p class="font-medium">${detailData.id}</p>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-500">费用类型</p>
+                                <p class="font-medium">${detailData.fee_type}</p>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-500">姓名/房间号</p>
+                                <p class="font-medium">${nameOrRoom}</p>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-500">部门</p>
+                                <p class="font-medium">${detailData.user_department || ''}</p>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-500">职位</p>
+                                <p class="font-medium">${detailData.user_position || ''}</p>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-500">补贴金额</p>
+                                <p class="font-medium text-primary">${amount}</p>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-500">电费减免量（度）</p>
+                                <p class="font-medium">${electricReduction}</p>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-500">水费减免量（m³）</p>
+                                <p class="font-medium">${waterReduction}</p>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-500">生效时间</p>
+                                <p class="font-medium">${detailData.effective_date || '-'}</p>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-500">状态</p>
+                                <p class="font-medium">${detailData.is_enabled ? '启用' : '禁用'}</p>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-500">创建时间</p>
+                                <p class="font-medium">${detailData.create_time || '-'}</p>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-500">最后更新时间</p>
+                                <p class="font-medium">${detailData.update_time || '-'}</p>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-500">操作人ID</p>
+                                <p class="font-medium">${detailData.operator_id || '-'}</p>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-500">账期</p>
+                                <p class="font-medium">${detailData.billing_period || '-'}</p>
+                            </div>
+                            <div class="md:col-span-2">
+                                <p class="text-sm text-gray-500">变更原因</p>
+                                <p class="font-medium">${detailData.change_reason || '-'}</p>
+                            </div>
+                            <div class="md:col-span-2">
+                                <p class="text-sm text-gray-500">账期范围</p>
+                                <p class="font-medium">${detailData.billing_start_date || '-'} 至 ${detailData.billing_end_date || '-'}</p>
+                            </div>
+                        </div>
+                    `;
+                })
+                .catch(error => {
+                    console.error('获取详情失败:', error);
+                    detailContent.innerHTML = `<div class="text-center py-8"><i class="fa fa-exclamation-circle text-2xl text-danger"></i><p class="mt-2 text-danger">${error.message}</p></div>`;
+                });
+        }
+        
+        // 关闭详情对话框
+        function closeDetailDialog() {
+            document.getElementById('detailDialog').style.display = 'none';
+        }
+        
+        // 日期时间格式化函数
+        function formatDateTime(dateString) {
+            if (!dateString) return '-';
+            return dateString.replace('T', ' ').split('.')[0];
+        }
+    </script>
+</body>
+</html>

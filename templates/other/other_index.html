@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+   <!--本地化CDN-->
+{% include 'static.html' %}
+
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#165DFF',
+                        secondary: '#36CFC9',
+                        accent: '#722ED1',
+                    },
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .card-hover {
+                transition: all 0.3s ease;
+            }
+            .card-hover:hover {
+                transform: translateY(-5px);
+                box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+            }
+            .btn-hover {
+                transition: all 0.2s ease;
+            }
+            .btn-hover:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            }
+            .fade-in {
+                animation: fadeIn 0.5s ease-in;
+            }
+            @keyframes fadeIn {
+                from { opacity: 0; }
+                to { opacity: 1; }
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+
+{% include 'header.html' %}
+    <main class="container mx-auto px-4 py-6">
+        <!-- 标题和功能按钮区 -->
+        <div class="mb-6 fade-in">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between">
+                <div class="flex items-center">
+                    <button onclick="history.back()" class="text-gray-600 hover:text-primary transition-colors mr-4">
+                        <i class="fa fa-arrow-left"></i>
+                    </button>
+                    <div>
+                        <h2 class="text-[clamp(1.5rem,3vw,2rem)] font-bold text-dark">{{ title }}</h2>
+                        <p class="text-gray-500 mt-1">其他功能入口，包括文件共享、留言管理和待办事项</p>
+                    </div>
+                </div>
+                
+            </div>
+        </div>
+        
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+            
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="bg-{{ 'green' if category == 'success' else 'red' }}-50 border border-{{ 'green' if category == 'success' else 'red' }}-200 rounded-md p-4 mb-6">
+                            <p class="text-{{ 'green' if category == 'success' else 'red' }}-700">
+                                <i class="fa fa-{{ 'check-circle' if category == 'success' else 'exclamation-circle' }} mr-1"></i>
+                                {{ message }}
+                            </p>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+            
+            <!-- 文件共享 -->
+             {% if get_config_value('FEATURE_FILE_SHARING_ENABLED', True) %}
+            <div class="bg-white rounded-xl p-6 shadow-sm card-hover text-center">
+                <div class="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4 mx-auto">
+                    <i class="fa fa-folder-open text-2xl text-blue-600"></i>
+                </div>
+                <h3 class="text-lg font-medium text-dark mb-2">文件共享</h3>
+                <p class="text-gray-500 text-sm mb-4">上传、下载和管理共享文件</p>
+                <button onclick="window.location.href='{{ url_for('file_sharing.file_sharing') }}'" 
+                        class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600">
+                    进入文件共享
+                </button>
+            </div>
+            {% endif %}
+            
+            <!-- 留言管理 -->
+             {% if get_config_value('FEATURE_TICKET_MANAGE_ENABLED', True) %}
+            <div class="bg-white rounded-xl p-6 shadow-sm card-hover text-center">
+                <div class="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mb-4 mx-auto">
+                    <i class="fa fa-ticket text-2xl text-purple-600"></i>
+                </div>
+                <h3 class="text-lg font-medium text-dark mb-2">留言管理</h3>
+                <p class="text-gray-500 text-sm mb-4">查看和回复用户留言</p>
+                <button onclick="window.location.href='{% if current_user.is_admin() %}{{ url_for('ticket_admin.admin_ticket_list') }}{% else %}{{ url_for('ticket_user.user_ticket_list') }}{% endif %}'" 
+                        class="px-4 py-2 bg-purple-500 text-white rounded-md hover:bg-purple-600">
+                    进入留言管理
+                </button>
+            </div>
+            {% endif %}
+            
+            <!-- 待办事项 -->
+             {% if get_config_value('FEATURE_TODO_MANAGE_ENABLED', True) %}
+            <div class="bg-white rounded-xl p-6 shadow-sm card-hover text-center">
+                <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4 mx-auto">
+                    <i class="fa fa-list-alt text-2xl text-green-600"></i>
+                </div>
+                <h3 class="text-lg font-medium text-dark mb-2">待办事项</h3>
+                <p class="text-gray-500 text-sm mb-4">创建和管理待办事项</p>
+                <button onclick="window.location.href='{{ url_for('todo.index') }}'" 
+                        class="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600">
+                    进入待办事项
+                </button>
+            </div>
+            {% endif %}
+            
+            <!-- 补贴管理 -->
+             {% if current_user.is_admin() %}
+             {% if get_config_value('FEATURE_FEE_SUBSIDY_ENABLED', True) %}
+            <div class="bg-white rounded-xl p-6 shadow-sm card-hover text-center">
+                <div class="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4 mx-auto">
+                    <i class="fa fa-credit-card text-2xl text-blue-600"></i>
+                </div>
+                <h3 class="text-lg font-medium text-dark mb-2">补贴管理</h3>
+                <p class="text-gray-500 text-sm mb-4">管理用户住宿费用补贴</p>
+                <button onclick="window.location.href='{{ url_for('fee_subsidy.fee_subsidy_index') }}'" 
+                        class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600">
+                    补贴管理
+                </button>
+            </div>
+            {% endif %}
+            {% endif %}
+            
+            <!-- OA聊天 -->
+             {% if get_config_value('FEATURE_CHAT_ENABLED', True) %}
+            <div class="bg-white rounded-xl p-6 shadow-sm card-hover text-center">
+                <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4 mx-auto">
+                    <i class="fa fa-comments text-2xl text-green-600"></i>
+                </div>
+                <h3 class="text-lg font-medium text-dark mb-2">OA聊天</h3>
+                <p class="text-gray-500 text-sm mb-4">与朋友进行一对一或群聊交流</p>
+                <button onclick="window.location.href='{{ url_for('chat.chat_index') }}'" 
+                        class="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600">
+                    进入OA聊天
+                </button>
+            </div>
+            {% endif %}
+        </div>
+        
+    </main>
+    <!-- 页脚 -->
+    {% include 'footer.html' %}
+
+</body>
+</html>

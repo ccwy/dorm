@@ -1,0 +1,1718 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <!-- 本地化CDN -->
+    {% include 'static.html' %}
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#165DFF',
+                        secondary: '#36CFC9',
+                        accent: '#722ED1',
+                        dark: '#1F2937'
+                    },
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .config-card {
+                @apply bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden transition-all duration-300 hover:shadow-md;
+            }
+            .btn-primary {
+                @apply bg-primary text-white px-4 py-2 rounded-md hover:bg-primary/90 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary/50;
+            }
+            .btn-primary:disabled {
+                @apply bg-gray-300 cursor-not-allowed hover:bg-gray-300;
+            }
+            .btn-secondary {
+                @apply bg-gray-100 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-200 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-gray-300;
+            }
+            .form-input {
+                @apply w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition duration-200;
+            }
+            .fade-in {
+                animation: fadeIn 0.3s ease-in-out;
+            }
+            @keyframes fadeIn {
+                from { opacity: 0; transform: translateY(10px); }
+                to { opacity: 1; transform: translateY(0); }
+            }
+            .fade-out {
+                animation: fadeOut 0.3s ease-in-out;
+            }
+            @keyframes fadeOut {
+                from { opacity: 1; transform: translateY(0); }
+                to { opacity: 0; transform: translateY(10px); }
+            }
+            .close-btn {
+                @apply ml-auto text-gray-400 hover:text-gray-600 cursor-pointer transition-colors;
+                font-size: 1.2rem;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen flex flex-col">
+    {% include 'header.html' %}
+    <main class="flex-grow container mx-auto px-4 py-6 pb-20">
+        <!-- 页面标题 -->
+        <div class="mb-6 fade-in">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between">
+                <div class="flex items-center">
+                    <button onclick="history.back()" class="text-gray-600 hover:text-primary transition-colors mr-4">
+                        <i class="fa fa-arrow-left"></i>
+                    </button>
+                    <div>
+                        <h2 class="text-[clamp(1.5rem,3vw,2rem)] font-bold text-dark">{{ title }}</h2>
+                        <p class="text-gray-500 mt-1">管理各项系统配置，包括系统参数、用户，房间、水电费、日志、备份管理等</p>
+                    </div>
+                </div>
+                
+            </div>
+        </div>
+        <div class="flex flex-col lg:flex-row gap-6">
+            <!-- 左侧导航 - 配置模块 -->
+            <div class="lg:w-1/4">
+                <div class="config-card sticky top-4">
+                    <div class="p-4 bg-gray-50 border-b border-gray-200">
+                        <h3 class="font-medium">配置模块</h3>
+                    </div>
+                    <ul id="moduleList" class="divide-y divide-gray-100">
+                        <!-- 模块列表将通过JavaScript动态生成 -->
+                        <li class="p-4 text-center text-gray-500">
+                            <i class="fa fa-spinner fa-spin mr-2"></i>加载模块中...
+                        </li>
+                    </ul>
+                    <div class="p-4 border-t border-gray-200 bg-gray-50">
+                        <button id="initializeAllBtn" class="w-full btn-secondary text-sm flex items-center justify-center">
+                            <i class="fa fa-refresh mr-2"></i>初始化所有配置
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 右侧内容区 -->
+            <div class="flex-1">
+                <!-- 模块标题和操作 -->
+                <div class="config-card mb-6">
+                    <div class="p-5 border-b border-gray-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                        <div>
+                            <h2 id="moduleTitle" class="text-xl font-semibold text-dark">请选择配置模块</h2>
+                            <p id="moduleDescription" class="text-gray-500 text-sm mt-1">选择左侧的配置模块查看和管理相关设置</p>
+                        </div>
+                        <div class="flex gap-3 w-full sm:w-auto">
+                            <button id="initializeModuleBtn" class="btn-secondary text-sm flex-1 sm:flex-none" disabled>
+                                <i class="fa fa-refresh mr-1"></i>初始化模块配置
+                            </button>
+                            <button id="saveConfigBtn" class="btn-primary text-sm flex-1 sm:flex-none" disabled>
+                                <i class="fa fa-save mr-1"></i>保存配置
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 配置项内容区 -->
+                <div id="configContent" class="config-card p-6">
+                    <div class="flex flex-col items-center justify-center py-12 text-center text-gray-500">
+                        <i class="fa fa-cogs text-5xl mb-4 text-gray-300"></i>
+                        <h3 class="text-lg font-medium mb-2">配置管理</h3>
+                        <p>从左侧选择一个配置模块来查看和编辑详细配置项</p>
+                    </div>
+                </div>
+
+                <!-- 备份管理区域 - 仅在备份模块显示 -->
+                <div id="backupSection" class="config-card p-6 mt-6 hidden">
+                    <h3 class="text-lg font-medium mb-4 flex items-center">
+                        <i class="fa fa-database text-primary mr-2"></i>备份管理
+                    </h3>
+                    
+                    <!-- 备份管理按钮组 -->
+                    <div class="flex flex-wrap gap-3 mb-6">
+                        <button id="createBackupBtn" class="btn-primary flex items-center">
+                            <i class="fa fa-plus mr-2"></i>创建新备份
+                        </button>
+                        <button id="createAndDownloadBtn" class="btn-primary flex items-center bg-purple-600">
+                            <i class="fa fa-download mr-2"></i>创建并下载
+                        </button>
+                        <button id="restoreFromFileBtn" class="btn-primary flex items-center bg-blue-600">
+                            <i class="fa fa-upload mr-2"></i>恢复备份
+                        </button>
+                        <input type="file" id="backupFileInput" accept=".sql" class="hidden" />
+                        <button id="deleteSelectedBtn" class="btn-secondary flex items-center" disabled>
+                            <i class="fa fa-trash mr-2"></i>批量删除选中
+                        </button>
+                        <button id="clearAllBackupsBtn" class="btn-secondary flex items-center text-red-600">
+                            <i class="fa fa-trash-o mr-2"></i>清空所有备份
+                        </button>
+                        <button id="initializeDbBtn" class="btn-secondary flex items-center">
+                            <i class="fa fa-database mr-2"></i>初始化数据库
+                        </button>
+                        <!-- 新增：查看数据库信息按钮 -->
+                        <button id="viewDbInfoBtn" class="btn-secondary flex items-center ml-2">
+                            <i class="fa fa-info-circle mr-2"></i>查看数据库信息
+                        </button>
+                    </div>
+                    
+                    <!-- 新增：数据库信息展示区 -->
+                    <div id="dbInfoSection" class="config-card p-6 mb-6 hidden fade-in">
+                        <h4 class="text-md font-medium mb-4 flex items-center justify-between">
+                            <div class="flex items-center">
+                                <i class="fa fa-database text-primary mr-2"></i>数据库连接信息
+                            </div>
+                            <button id="closeDbInfoBtn" class="close-btn">
+                                <i class="fa fa-times"></i>
+                            </button>
+                        </h4>
+                        <div id="dbInfoContent" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <!-- 数据库信息将通过JavaScript动态生成 -->
+                        </div>
+                    </div>
+                    
+                    <!-- 备份列表表格 -->
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead>
+                                <tr>
+                                    <th class="px-4 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        <input type="checkbox" id="selectAllBackups" class="w-4 h-4 text-primary">
+                                    </th>
+                                    <th class="px-4 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">备份文件</th>
+                                    <th class="px-4 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">创建时间</th>
+                                    <th class="px-4 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">大小</th>
+                                    <th class="px-4 py-3 bg-gray-50 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="backupList" class="bg-white divide-y divide-gray-200">
+                                <!-- 备份文件列表将通过JavaScript动态生成 -->
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- 分页控件 -->
+                    <div id="backupPagination" class="flex flex-wrap justify-between items-center mt-4 hidden">
+                        <div class="text-sm text-gray-500">
+                            <span id="recordRange">1 到 0</span> 条，共 <span id="totalBackups">0</span> 条记录，当前第 <span id="currentPage">1</span>/<span id="totalPages">1</span> 页
+                        </div>
+                        <div class="flex flex-wrap items-center gap-2 sm:gap-2">
+                            <div class="flex items-center space-x-1">
+                                <span class="text-sm text-gray-500">每页显示：</span>
+                                <select id="pageSizeSelect" class="px-2 py-1 rounded border border-gray-300 text-sm">
+                                    <option value="5">5</option>
+                                    <option value="10" selected>10</option>
+                                    <option value="20">20</option>
+                                    <option value="50">50</option>
+                                </select>
+                            </div>
+                            <button id="prevPageBtn" class="px-3 py-1 rounded border border-gray-300 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                                上一页
+                            </button>
+                            <button id="nextPageBtn" class="px-3 py-1 rounded border border-gray-300 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                                下一页
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- 确认对话框 -->
+    <div id="confirmDialog" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-lg max-w-md w-full mx-4 shadow-xl">
+            <div class="p-6">
+                <h3 id="dialogTitle" class="text-lg font-medium text-gray-900 mb-2">确认操作</h3>
+                <p id="dialogMessage" class="text-gray-600 mb-4">确认要执行此操作吗？</p>
+                <div class="flex justify-end gap-3">
+                    <button id="dialogCancelBtn" class="btn-secondary">取消</button>
+                    <button id="dialogConfirmBtn" class="btn-primary" disabled>确认</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 通知提示 -->
+    <div id="toast" class="fixed top-4 right-4 px-6 py-3 rounded-md shadow-lg transform transition-all duration-300 translate-x-full opacity-0 z-50 flex items-center">
+        <i id="toastIcon" class="mr-2"></i>
+        <span id="toastMessage"></span>
+    </div>
+    <!-- 页脚 -->
+    {% include 'footer.html' %}
+    
+    <script>
+        // 当前选中的模块
+        let currentModule = null;
+        // 配置项数据
+        let configData = {};
+        // 备份文件列表
+        backupFiles = [];
+        // 复选框变化处理函数引用，用于正确移除事件监听
+        let checkboxChangeHandler = null;
+        // 当前要恢复的备份文件名
+        let currentRestoreFile = null;
+        // 新增：数据库信息显示状态
+        let dbInfoVisible = false;
+        // 保存原始SERVER_PORT值
+        let originalServerPort = null;
+
+        // DOM 加载完成后初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            // 加载模块列表
+            loadModules();
+
+            // 绑定按钮事件
+            document.getElementById('saveConfigBtn').addEventListener('click', saveConfigChanges);
+            document.getElementById('initializeModuleBtn').addEventListener('click', showInitializeModuleConfirm);
+            document.getElementById('initializeAllBtn').addEventListener('click', showInitializeAllConfirm);
+            document.getElementById('createBackupBtn').addEventListener('click', createBackup);
+            document.getElementById('createAndDownloadBtn').addEventListener('click', createAndDownloadBackup);
+            document.getElementById('restoreFromFileBtn').addEventListener('click', selectBackupFile);
+            document.getElementById('backupFileInput').addEventListener('change', handleBackupFileSelect);
+            document.getElementById('initializeDbBtn').addEventListener('click', showInitializeDbConfirm);
+            document.getElementById('deleteSelectedBtn').addEventListener('click', deleteSelectedBackups);
+            document.getElementById('clearAllBackupsBtn').addEventListener('click', showClearAllConfirm);
+            document.getElementById('selectAllBackups').addEventListener('change', toggleSelectAll);
+            // 新增：绑定查看和关闭数据库信息按钮事件
+            document.getElementById('viewDbInfoBtn').addEventListener('click', toggleDatabaseInfo);
+            document.getElementById('closeDbInfoBtn').addEventListener('click', toggleDatabaseInfo);
+            
+            // 对话框事件
+            document.getElementById('dialogCancelBtn').addEventListener('click', hideConfirmDialog);
+            document.getElementById('dialogConfirmBtn').addEventListener('click', executeConfirmedAction);
+        });
+
+        // 新增：创建并下载备份
+        function createAndDownloadBackup() {
+            showLoadingBackup();
+            
+            // 创建一个隐藏的iframe用于文件下载
+            const iframe = document.createElement('iframe');
+            iframe.style.display = 'none';
+            document.body.appendChild(iframe);
+            
+            // 发送请求创建并下载备份
+            fetch('/system/api/backup/create-and-download', {
+                method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => {
+                console.log('创建并下载备份响应状态码:', response.status);
+                if (!response.ok) {
+                    // 尝试解析JSON错误信息
+                    return response.json().catch(() => {
+                        // 如果无法解析JSON（可能是二进制文件），抛出带有状态码的错误
+                        throw new Error(`创建并下载备份失败: HTTP ${response.status}`);
+                    }).then(data => {
+                        // 如果能解析到JSON，抛出包含详细错误信息的错误
+                        if (data && data.message) {
+                            throw new Error(`创建并下载备份失败: ${data.message}`);
+                        }
+                        throw new Error(`创建并下载备份失败: HTTP ${response.status}`);
+                    });
+                }
+                
+                // 获取文件名
+                const contentDisposition = response.headers.get('content-disposition');
+                let filename = 'backup.sql';
+                if (contentDisposition && contentDisposition.includes('filename=')) {
+                    filename = contentDisposition.split('filename=')[1].replace(/["']/g, '');
+                }
+                
+                // 处理文件下载
+                return response.blob().then(blob => {
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = filename;
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    window.URL.revokeObjectURL(url);
+                    
+                    return { success: true };
+                });
+            })
+            .then(data => {
+                if (data.success) {
+                    showToast('备份创建并下载成功', 'success');
+                    loadBackupList();
+                } else {
+                    showToast('创建并下载备份失败: ' + (data.message || '未知错误'), 'error');
+                }
+            })
+            .catch(error => {
+                console.error('创建并下载备份错误:', error);
+                showToast(error.message, 'error');
+                loadBackupList(); // 无论如何都重新加载备份列表
+            });
+        }
+
+        // 新增：下载备份文件
+        function downloadBackup(filename) {
+            // 创建一个隐藏的链接用于文件下载
+            const a = document.createElement('a');
+            a.href = `/system/api/backup/download/${filename}`;
+            a.download = filename;
+            a.style.display = 'none';
+            document.body.appendChild(a);
+            
+            // 监听下载完成事件
+            const cleanup = () => {
+                a.remove();
+                window.removeEventListener('focus', cleanup);
+            };
+            
+            window.addEventListener('focus', cleanup);
+            a.click();
+            
+            // 记录下载日志
+            showToast(`开始下载备份文件: ${filename}`, 'info');
+        }
+
+        // 新增：切换数据库信息显示/隐藏
+        function toggleDatabaseInfo() {
+            const dbInfoSection = document.getElementById('dbInfoSection');
+            if (!dbInfoSection) return;
+            
+            if (dbInfoVisible) {
+                // 隐藏数据库信息
+                dbInfoSection.classList.add('fade-out');
+                setTimeout(() => {
+                    dbInfoSection.classList.add('hidden');
+                    dbInfoSection.classList.remove('fade-out');
+                }, 300);
+                dbInfoVisible = false;
+            } else {
+                // 显示数据库信息并加载数据
+                const dbInfoContent = document.getElementById('dbInfoContent');
+                // 显示加载状态
+                dbInfoContent.innerHTML = `
+                    <div class="col-span-full flex justify-center py-6">
+                        <i class="fa fa-spinner fa-spin text-2xl text-gray-300"></i>
+                    </div>
+                `;
+                
+                dbInfoSection.classList.remove('hidden');
+                dbInfoSection.classList.add('fade-in');
+                dbInfoVisible = true;
+                
+                // 调用API获取数据库信息
+                fetch('/system/api/db/info', {
+                    method: 'GET',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                })
+                .then(response => {
+                    console.log('获取数据库信息响应状态码:', response.status);
+                    return response.json().catch(() => {
+                        throw new Error(`获取数据库信息失败: 无法解析响应`);
+                    }).then(data => {
+                        if (!response.ok) {
+                            if (data && data.message) {
+                                throw new Error(`获取数据库信息失败: ${data.message}`);
+                            }
+                            throw new Error(`获取数据库信息失败: HTTP ${response.status}`);
+                        }
+                        return data;
+                    });
+                })
+                .then(data => {
+                    if (data.success) {
+                        renderDatabaseInfo(data.data);
+                    } else {
+                        showToast('获取数据库信息失败: ' + data.message, 'error');
+                        dbInfoContent.innerHTML = `
+                            <div class="col-span-full text-center py-6 text-gray-500">
+                                <i class="fa fa-exclamation-triangle text-yellow-400 mr-2"></i>
+                                ${data.message || '无法获取数据库信息'}
+                            </div>
+                        `;
+                    }
+                })
+                .catch(error => {
+                    console.error('获取数据库信息错误:', error);
+                    showToast(error.message, 'error');
+                    dbInfoContent.innerHTML = `
+                        <div class="col-span-full text-center py-6 text-gray-500">
+                            <i class="fa fa-exclamation-circle text-red-400 mr-2"></i>
+                            ${error.message}
+                        </div>
+                    `;
+                });
+            }
+        }
+
+        // 新增：渲染数据库信息
+        function renderDatabaseInfo(dbInfo) {
+            const dbInfoContent = document.getElementById('dbInfoContent');
+            let html = '';
+            
+            // 基本数据库信息
+            html += `
+                <div class="p-4 border border-gray-100 rounded-lg bg-gray-50">
+                    <h5 class="text-sm font-medium text-gray-700 mb-3">数据库类型</h5>
+                    <p class="text-gray-900">${dbInfo.db_type || '未知'}</p>
+                </div>
+                <div class="p-4 border border-gray-100 rounded-lg bg-gray-50">
+                    <h5 class="text-sm font-medium text-gray-700 mb-3">主机地址</h5>
+                    <p class="text-gray-900">${dbInfo.host || '未知'}</p>
+                </div>
+                <div class="p-4 border border-gray-100 rounded-lg bg-gray-50">
+                    <h5 class="text-sm font-medium text-gray-700 mb-3">端口</h5>
+                    <p class="text-gray-900">${dbInfo.port || '默认'}</p>
+                </div>
+                <div class="p-4 border border-gray-100 rounded-lg bg-gray-50">
+                    <h5 class="text-sm font-medium text-gray-700 mb-3">数据库名称</h5>
+                    <p class="text-gray-900">${dbInfo.database || '未知'}</p>
+                </div>
+                <div class="p-4 border border-gray-100 rounded-lg bg-gray-50">
+                    <h5 class="text-sm font-medium text-gray-700 mb-3">用户名</h5>
+                    <p class="text-gray-900">${dbInfo.username || '无'}</p>
+                </div>
+                <div class="p-4 border border-gray-100 rounded-lg bg-gray-50">
+                    <h5 class="text-sm font-medium text-gray-700 mb-3">密码</h5>
+                    <p class="text-gray-900">${dbInfo.has_password ? '已设置 (隐藏)' : '未设置'}</p>
+                </div>
+            `;
+            
+            // 对于SQLite数据库，显示文件路径
+            if (dbInfo.db_type === 'sqlite' && dbInfo.file_path) {
+                html += `
+                    <div class="p-4 border border-gray-100 rounded-lg bg-gray-50 col-span-full">
+                        <h5 class="text-sm font-medium text-gray-700 mb-3">数据库文件路径</h5>
+                        <p class="text-gray-900 break-all">${dbInfo.file_path}</p>
+                    </div>
+                `;
+            }
+            
+            // 显示掩码后的连接字符串
+            html += `
+                <div class="p-4 border border-gray-100 rounded-lg bg-gray-50 col-span-full">
+                    <h5 class="text-sm font-medium text-gray-700 mb-3">连接字符串 (已掩码)</h5>
+                    <p class="text-gray-900 text-sm break-all font-mono">${dbInfo.uri_masked || '未知'}</p>
+                </div>
+            `;
+            
+            dbInfoContent.innerHTML = html;
+        }
+
+        // 选择备份文件
+        function selectBackupFile() {
+            document.getElementById('backupFileInput').click();
+        }
+
+        // 处理选择的备份文件
+        function handleBackupFileSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            // 验证文件类型
+            if (!file.name.endsWith('.sql')) {
+                showToast('请选择SQL格式的备份文件', 'error');
+                event.target.value = '';
+                return;
+            }
+            
+            currentRestoreFile = file;
+            showConfirmDialog(
+                '恢复备份',
+                `确定要从文件 "${file.name}" 恢复数据吗？这将完全覆盖当前系统数据，请确保已创建备份。`,
+                () => uploadAndRestoreBackup(file),
+                true // 显示强制确认选项
+            );
+            
+            // 清除文件选择，允许重复选择同一文件
+            event.target.value = '';
+        }
+
+        // 上传并恢复备份
+        function uploadAndRestoreBackup(file) {
+            showLoadingBackup();
+            
+            const formData = new FormData();
+            formData.append('backup_file', file);
+            
+            fetch('/system/api/backup/restore-from-upload', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => {
+                console.log('恢复备份响应状态码:', response.status);
+                return response.json().catch(() => {
+                    throw new Error(`恢复备份失败: 无法解析响应`);
+                }).then(data => {
+                    if (!response.ok) {
+                        if (data && data.message) {
+                            throw new Error(`恢复备份失败: ${data.message}`);
+                        }
+                        throw new Error(`恢复备份失败: HTTP ${response.status}`);
+                    }
+                    return data;
+                });
+            })
+            .then(data => {
+                if (data.success) {
+                    showToast('备份恢复成功，系统将重启生效', 'success');
+                    loadBackupList();
+                } else {
+                    showToast('恢复备份失败: ' + data.message, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('恢复备份错误:', error);
+                showToast(error.message, 'error');
+            });
+        }
+
+        // 加载模块列表
+        function loadModules() {
+            fetch('/system/api/modules')
+                .then(response => {
+                    console.log('加载模块响应状态码:', response.status);
+                    return response.json().catch(() => {
+                        throw new Error(`加载模块失败: 无法解析响应`);
+                    }).then(data => {
+                        if (!response.ok) {
+                            if (data && data.message) {
+                                throw new Error(`加载模块失败: ${data.message}`);
+                            }
+                            throw new Error(`加载模块失败: HTTP ${response.status}`);
+                        }
+                        return data;
+                    });
+                })
+                .then(data => {
+                    if (data.success) {
+                        renderModuleList(data.data);
+                    } else {
+                        showToast('加载模块失败: ' + data.message, 'error');
+                    }
+                })
+                .catch(error => {
+                    console.error('加载模块错误:', error);
+                    showToast(error.message, 'error');
+                });
+        }
+
+        // 渲染模块列表
+        function renderModuleList(modules) {
+            const moduleListEl = document.getElementById('moduleList');
+            moduleListEl.innerHTML = '';
+
+            modules.forEach(module => {
+                const li = document.createElement('li');
+                li.innerHTML = `
+                    <a href="#${module.category}" class="config-module-link block px-4 py-3 hover:bg-gray-50 flex items-center ${module.has_config ? '' : 'opacity-70'}" 
+                       data-category="${module.category}">
+                        <i class="fa fa-${module.icon} text-primary mr-3 w-5 text-center"></i>
+                        <span>${module.name}</span>
+                        ${module.has_config ? '<span class="ml-auto bg-green-100 text-green-800 text-xs px-2 py-0.5 rounded-full">已配置</span>' : ''}
+                    </a>
+                `;
+                moduleListEl.appendChild(li);
+                
+                // 绑定点击事件
+                li.querySelector('a').addEventListener('click', function(e) {
+                    e.preventDefault();
+                    selectModule(module);
+                });
+            });
+        }
+
+        // 选择模块
+        function selectModule(module) {
+            // 更新当前模块
+            currentModule = module;
+            
+            // 更新UI
+            document.querySelectorAll('.config-module-link').forEach(link => {
+                link.classList.remove('bg-primary/10', 'text-primary', 'font-medium');
+            });
+            document.querySelector(`.config-module-link[data-category="${module.category}"]`).classList.add('bg-primary/10', 'text-primary', 'font-medium');
+            
+            // 更新模块标题
+            document.getElementById('moduleTitle').textContent = module.name;
+            document.getElementById('moduleDescription').textContent = `管理${module.name}的相关配置项`;
+            
+            // 启用按钮
+            document.getElementById('saveConfigBtn').disabled = false;
+            document.getElementById('initializeModuleBtn').disabled = false;
+            
+            // 加载模块配置
+            loadModuleConfigs(module.category);
+            
+            // 显示或隐藏备份区域
+            if (module.category === 'system.backup') {
+                document.getElementById('backupSection').classList.remove('hidden');
+                loadBackupList();
+            } else {
+                document.getElementById('backupSection').classList.add('hidden');
+                // 新增：隐藏数据库信息区域
+                if (dbInfoVisible) {
+                    toggleDatabaseInfo();
+                }
+            }
+        }
+
+        // 加载模块配置
+        function loadModuleConfigs(category) {
+            showLoading();
+            
+            fetch(`/system/api/configs/${category}`)
+                .then(response => {
+                    console.log('加载配置响应状态码:', response.status);
+                    return response.json().catch(() => {
+                        throw new Error(`加载配置失败: 无法解析响应`);
+                    }).then(data => {
+                        if (!response.ok) {
+                            if (data && data.message) {
+                                throw new Error(`加载配置失败: ${data.message}`);
+                            }
+                            throw new Error(`加载配置失败: HTTP ${response.status}`);
+                        }
+                        return data;
+                    });
+                })
+                .then(data => {
+                    if (data.success) {
+                        configData = data.data;
+                        // 保存原始SERVER_PORT值
+                        if (data.data && data.data.SERVER_PORT !== undefined) {
+                            originalServerPort = data.data.SERVER_PORT;
+                        } else {
+                            originalServerPort = null;
+                        }
+                        renderConfigItems(data.data, data.metadata, data.module);
+                    } else {
+                        showToast('加载配置失败: ' + data.message, 'error');
+                        renderEmptyConfig();
+                    }
+                })
+                .catch(error => {
+                    console.error('加载配置错误:', error);
+                    showToast(error.message, 'error');
+                    renderEmptyConfig();
+                });
+        }
+
+        // 渲染配置项
+        function renderConfigItems(configs, metadata, module) {
+            const configContentEl = document.getElementById('configContent');
+            
+            if (Object.keys(configs).length === 0) {
+                configContentEl.innerHTML = `
+                    <div class="flex flex-col items-center justify-center py-12 text-center text-gray-500">
+                        <i class="fa fa-file-text-o text-5xl mb-4 text-gray-300"></i>
+                        <h3 class="text-lg font-medium mb-2">暂无配置项</h3>
+                        <p class="mb-4">该模块尚未初始化配置项</p>
+                        <button id="initEmptyModuleBtn" class="btn-primary">
+                            <i class="fa fa-refresh mr-2"></i>初始化模块配置
+                        </button>
+                    </div>
+                `;
+                document.getElementById('initEmptyModuleBtn').addEventListener('click', showInitializeModuleConfirm);
+                return;
+            }
+            
+            let html = `
+                <div class="flex flex-wrap gap-6">
+            `;
+            
+            // 确保配置项按照sort_order排序，数字越小越靠前
+            // 如果sort_order相同则按config_key字母顺序排序
+            const keys = Object.keys(configs).sort((a, b) => {
+                const orderA = metadata[a]?.sort_order || 999;
+                const orderB = metadata[b]?.sort_order || 999;
+                
+                if (orderA !== orderB) {
+                    return orderA - orderB;
+                }
+                return a.localeCompare(b);
+            });
+            
+            keys.forEach(key => {
+                const config = configs[key];
+                const meta = metadata[key];
+                const isEditable = meta.is_editable !== false;
+                
+                // 根据配置类型生成不同的表单控件
+                let inputHtml = '';
+                
+                switch (meta.config_type) {
+                    case 'bool':
+                        inputHtml = `
+                            <div class="flex items-center mt-1">
+                                <input type="checkbox" id="config_${key}" class="w-5 h-5 text-primary" 
+                                       ${config ? 'checked' : ''} ${!isEditable ? 'disabled' : ''}>
+                                <label for="config_${key}" class="ml-2 text-gray-700">
+                                    ${config ? '启用' : '禁用'}
+                                </label>
+                            </div>
+                        `;
+                        break;
+                        
+                    case 'int':
+                    case 'float':
+                        inputHtml = `
+                            <input type="number" id="config_${key}" value="${config}" 
+                                   class="form-input mt-1" ${!isEditable ? 'disabled' : ''}
+                                   ${meta.config_type === 'int' ? 'step="1"' : 'step="0.01"'}>
+                        `;
+                        break;
+                        
+                    case 'list':
+                        inputHtml = `
+                            <textarea id="config_${key}" class="form-input mt-1 h-24" 
+                                      ${!isEditable ? 'disabled' : ''}>${Array.isArray(config) ? config.join(',') : config}</textarea>
+                            <p class="text-xs text-gray-500 mt-1">提示: 使用逗号分隔多个值</p>
+                        `;
+                        break;
+                        
+                    case 'dict':
+                        inputHtml = `
+                            <textarea id="config_${key}" class="form-input mt-1 h-24" 
+                                      ${!isEditable ? 'disabled' : ''}>${formatDictForInput(config)}</textarea>
+                            <p class="text-xs text-gray-500 mt-1">提示: 使用"键:值"格式，每行一个</p>
+                        `;
+                        break;
+                        
+                    default:
+                        // 对SQL_TYPE特殊处理，渲染为下拉框
+                        if (key === 'SQL_TYPE') {
+                            inputHtml = `
+                                <select id="config_${key}" class="form-input mt-1" ${!isEditable ? 'disabled' : ''}>
+                                    <option value="SQLITE" ${config === 'SQLITE' ? 'selected' : ''}>SQLite</option>
+                                    <option value="MYSQL" ${config === 'MYSQL' ? 'selected' : ''}>MySQL</option>
+                                </select>
+                            `;
+                        } else if (key === 'SERVER_MODE') {
+                            // 对SERVER_MODE特殊处理，渲染为下拉框
+                            inputHtml = `
+                                <select id="config_${key}" class="form-input mt-1" ${!isEditable ? 'disabled' : ''}>
+                                    <option value="客户端" ${config === '客户端' ? 'selected' : ''}>客户端</option>
+                                    <option value="服务端" ${config === '服务端' ? 'selected' : ''}>服务端</option>
+                                </select>
+                            `;
+                        } else {
+                            inputHtml = `
+                                <input type="text" id="config_${key}" value="${config}" 
+                                       class="form-input mt-1" ${!isEditable ? 'disabled' : ''}>
+                            `;
+                        }
+                }
+                
+                html += `
+                    <div class="config-item w-full md:w-[calc(50%-12px)]">
+                        <label for="config_${key}" class="block text-sm font-medium text-gray-700">
+                            ${key}
+                            ${!isEditable ? '<span class="ml-2 text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded">系统配置</span>' : ''}
+                            
+                        </label>
+                        ${inputHtml}
+                        <p class="text-xs text-gray-500 mt-1">${meta.description || '无描述'}</p>
+                        <p class="text-xs text-gray-400 mt-0.5">类型: ${meta.config_type}</p>
+                    </div>
+                `;
+            });
+            
+            html += `</div>`;
+            configContentEl.innerHTML = html;
+            configContentEl.classList.add('fade-in');
+        }
+
+        // 格式化字典类型为输入框格式
+        function formatDictForInput(dict) {
+            if (typeof dict !== 'object' || dict === null) return '';
+            return Object.entries(dict).map(([k, v]) => `${k}:${v}`).join('\n');
+        }
+
+        // 渲染空配置状态
+        function renderEmptyConfig() {
+            const configContentEl = document.getElementById('configContent');
+            configContentEl.innerHTML = `
+                <div class="flex flex-col items-center justify-center py-12 text-center text-gray-500">
+                    <i class="fa fa-exclamation-triangle text-5xl mb-4 text-yellow-300"></i>
+                    <h3 class="text-lg font-medium mb-2">加载配置失败</h3>
+                    <p>无法加载当前模块的配置项，请重试</p>
+                    <button id="retryLoadConfigBtn" class="btn-secondary mt-4">
+                        <i class="fa fa-refresh mr-2"></i>重试
+                    </button>
+                </div>
+            `;
+            document.getElementById('retryLoadConfigBtn').addEventListener('click', () => {
+                if (currentModule) {
+                    loadModuleConfigs(currentModule.category);
+                }
+            });
+        }
+
+        // 显示加载状态
+        function showLoading() {
+            const configContentEl = document.getElementById('configContent');
+            configContentEl.innerHTML = `
+                <div class="flex flex-col items-center justify-center py-12 text-center text-gray-500">
+                    <i class="fa fa-spinner fa-spin text-5xl mb-4 text-gray-300"></i>
+                    <h3 class="text-lg font-medium mb-2">加载中</h3>
+                    <p>正在加载配置项，请稍候...</p>
+                </div>
+            `;
+        }
+
+        // 保存配置更改
+        function saveConfigChanges() {
+            if (!currentModule) return;
+            
+            // 收集表单数据
+            const formData = {};
+
+            
+            document.querySelectorAll('.config-item').forEach(item => {
+                const key = item.querySelector('label').getAttribute('for').replace('config_', '');
+                const meta = configData.metadata ? configData.metadata[key] : null;
+                const input = item.querySelector('input, textarea, select');
+                
+                if (!input || input.disabled) return;
+                
+                let value = input.value;
+                
+                
+                
+                // 根据类型处理值
+                if (input.tagName === 'INPUT' && input.type === 'checkbox') {
+                    value = input.checked;
+                } else if (meta && meta.config_type === 'int') {
+                    value = parseInt(value, 10);
+                } else if (meta && meta.config_type === 'float') {
+                    value = parseFloat(value);
+                } else if (meta && meta.config_type === 'list') {
+                    value = value.split(',').map(item => item.trim()).filter(item => item);
+                }
+                
+                formData[key] = value;
+            });
+            
+            // 发送保存请求
+            fetch('/system/api/configs/update', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({
+                    category: currentModule.category,
+                    configs: formData
+                })
+            })
+            .then(response => {
+                console.log('响应状态码:', response.status);
+                return response.json().catch(() => {
+                    throw new Error(`保存配置失败: 无法解析响应`);
+                }).then(data => {
+                    if (!response.ok) {
+                        if (data && data.message) {
+                            throw new Error(`保存配置失败: ${data.message}`);
+                        }
+                        throw new Error(`保存配置失败: HTTP ${response.status}`);
+                    }
+                    return data;
+                });
+            })
+            .then(data => {
+                if (data.success) {
+					//直接显示后端返回的消息
+                    showToast(data.message, 'success');
+                    // 重新加载配置以显示最新数据
+                    loadModuleConfigs(currentModule.category);  
+                } else {
+                    showToast('保存配置失败: ' + data.message, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('保存配置错误:', error);
+                showToast(error.message, 'error');
+            });
+        }
+
+        // 显示初始化模块确认对话框
+        function showInitializeModuleConfirm() {
+            if (!currentModule) return;
+            
+            showConfirmDialog(
+                '初始化模块配置',
+                `确定要初始化"${currentModule.name}"的默认配置吗？这将添加缺失的默认配置项，但不会覆盖已存在的配置。`,
+                () => initializeModuleConfig(currentModule.category),
+                false // 不显示强制清空选项
+            );
+        }
+
+        // 初始化模块配置
+        function initializeModuleConfig(category) {
+            fetch(`/system/api/configs/initialize/${category}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({ reset: true })
+            })
+            .then(response => {
+                console.log('初始化配置响应状态码:', response.status);
+                return response.json().catch(() => {
+                    throw new Error(`初始化配置失败: 无法解析响应`);
+                }).then(data => {
+                    if (!response.ok) {
+                        if (data && data.message) {
+                            throw new Error(`初始化配置失败: ${data.message}`);
+                        }
+                        throw new Error(`初始化配置失败: HTTP ${response.status}`);
+                    }
+                    return data;
+                });
+            })
+            .then(data => {
+                if (data.success) {
+                    showToast(data.message, 'success');
+                    // 重新加载模块列表和配置
+                    loadModules();
+                    loadModuleConfigs(category);
+                } else {
+                    showToast('初始化配置失败: ' + data.message, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('初始化配置错误:', error);
+                showToast(error.message, 'error');
+            });
+        }
+
+        // 显示初始化所有配置确认对话框
+        function showInitializeAllConfirm() {
+            showConfirmDialog(
+                '初始化所有配置',
+                '确定要初始化所有模块的默认配置吗？这将添加所有缺失的默认配置项，但不会覆盖已存在的配置。',
+                initializeAllConfigs,
+                false // 不显示强制清空选项
+            );
+        }
+
+        // 初始化所有配置
+        function initializeAllConfigs() {
+            fetch('/system/api/configs/initialize-all', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({ reset: true })
+            })
+            .then(response => {
+                console.log('初始化所有配置响应状态码:', response.status);
+                return response.json().catch(() => {
+                    throw new Error(`初始化所有配置失败: 无法解析响应`);
+                }).then(data => {
+                    if (!response.ok) {
+                        if (data && data.message) {
+                            throw new Error(`初始化所有配置失败: ${data.message}`);
+                        }
+                        throw new Error(`初始化所有配置失败: HTTP ${response.status}`);
+                    }
+                    return data;
+                });
+            })
+            .then(data => {
+                if (data.success) {
+                    showToast(data.message, 'success');
+                    // 重新加载模块列表
+                    loadModules();
+                    // 如果有选中的模块，重新加载其配置
+                    if (currentModule) {
+                        loadModuleConfigs(currentModule.category);
+                    }
+                } else {
+                    showToast('初始化所有配置失败: ' + data.message, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('初始化所有配置错误:', error);
+                showToast(error.message, 'error');
+            });
+        }
+
+        // 分页相关变量
+        let currentPage = 1;
+        let pageSize = 10;
+        let totalBackups = 0;
+        let totalPages = 1;
+        backupFiles = [];
+        
+        // 加载备份列表（支持分页）
+        function loadBackupList(pageNum = 1, pageSizeNum = 10) {
+            currentPage = pageNum;
+            pageSize = pageSizeNum;
+            
+            const backupListEl = document.getElementById('backupList');
+            backupListEl.innerHTML = `
+                <tr>
+                    <td colspan="5" class="px-4 py-8 text-center text-gray-500">
+                        <i class="fa fa-spinner fa-spin mr-2"></i>加载备份文件中...
+                    </td>
+                </tr>
+            `;
+            
+            // 构建带分页参数的URL
+            const url = new URL('/system/api/backup/list', window.location.origin);
+            url.searchParams.append('page', currentPage);
+            url.searchParams.append('pageSize', pageSize);
+            
+            fetch(url)
+                .then(response => {
+                    console.log('加载备份列表响应状态码:', response.status);
+                    return response.json().catch(() => {
+                        throw new Error(`加载备份列表失败: 无法解析响应`);
+                    }).then(data => {
+                        if (!response.ok) {
+                            if (data && data.message) {
+                                throw new Error(`加载备份列表失败: ${data.message}`);
+                            }
+                            throw new Error(`加载备份列表失败: HTTP ${response.status}`);
+                        }
+                        return data;
+                    });
+                })
+                .then(data => {
+                    if (data.success) {
+                        backupFiles = data.data;
+                        totalBackups = data.total;
+                        totalPages = data.totalPages;
+                        
+                        // 更新分页信息
+                        document.getElementById('totalBackups').textContent = totalBackups;
+                        document.getElementById('currentPage').textContent = currentPage;
+                        document.getElementById('totalPages').textContent = totalPages;
+                        
+                        // 更新当前页记录范围
+                        const startRecord = (currentPage - 1) * pageSize + 1;
+                        const endRecord = Math.min(currentPage * pageSize, totalBackups);
+                        document.getElementById('recordRange').textContent = `${startRecord} 到 ${endRecord}`;
+                        
+                        // 更新分页按钮状态
+                        document.getElementById('prevPageBtn').disabled = currentPage <= 1;
+                        document.getElementById('nextPageBtn').disabled = currentPage >= totalPages;
+                        
+                        // 显示或隐藏分页控件
+                        const paginationEl = document.getElementById('backupPagination');
+                        if (totalBackups > 0) {
+                            paginationEl.classList.remove('hidden');
+                        } else {
+                            paginationEl.classList.add('hidden');
+                        }
+                        
+                        // 渲染当前页的备份列表
+                        renderBackupList(data.data);
+                    } else {
+                        showToast('加载备份列表失败: ' + data.message, 'error');
+                        backupListEl.innerHTML = `
+                            <tr>
+                                <td colspan="5" class="px-4 py-8 text-center text-gray-500">
+                                    加载备份文件失败
+                                </td>
+                            </tr>
+                        `;
+                    }
+                })
+                .catch(error => {
+                    console.error('加载备份列表错误:', error);
+                    showToast(error.message, 'error');
+                    backupListEl.innerHTML = `
+                        <tr>
+                            <td colspan="5" class="px-4 py-8 text-center text-gray-500">
+                                ${error.message}
+                            </td>
+                        </tr>
+                    `;
+                });
+        }
+
+        // 渲染备份列表
+        function renderBackupList(files) {
+            const backupListEl = document.getElementById('backupList');
+            
+            if (files.length === 0) {
+                backupListEl.innerHTML = `
+                    <tr>
+                        <td colspan="5" class="px-4 py-8 text-center text-gray-500">
+                            暂无备份文件，请创建新备份
+                        </td>
+                    </tr>
+                `;
+                updateDeleteButtonState();
+                return;
+            }
+            
+            backupListEl.innerHTML = '';
+            files.forEach(file => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="px-4 py-3 whitespace-nowrap">
+                        <input type="checkbox" class="backup-checkbox w-4 h-4 text-primary" data-filename="${file.filename}">
+                    </td>
+                    <td class="px-4 py-3 whitespace-nowrap">
+                        <div class="text-sm font-medium text-gray-900">${file.filename}</div>
+                    </td>
+                    <td class="px-4 py-3 whitespace-nowrap">
+                        <div class="text-sm text-gray-500">${file.created_at}</div>
+                    </td>
+                    <td class="px-4 py-3 whitespace-nowrap">
+                        <div class="text-sm text-gray-500">${formatFileSize(file.size)}</div>
+                    </td>
+                    <td class="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
+                        <button class="text-green-600 hover:text-green-800 mr-4 download-backup" data-filename="${file.filename}">
+                            下载
+                        </button>
+                        <button class="text-primary hover:text-primary/80 mr-4 restore-backup" data-filename="${file.filename}">
+                            恢复
+                        </button>
+                        <button class="text-red-500 hover:text-red-700 delete-backup" data-filename="${file.filename}">
+                            删除
+                        </button>
+                    </td>
+                `;
+                backupListEl.appendChild(tr);
+            });
+            
+            // 绑定备份操作事件
+            document.querySelectorAll('.download-backup').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const filename = this.getAttribute('data-filename');
+                    downloadBackup(filename);
+                });
+            });
+            
+            // 绑定分页控件事件
+            document.getElementById('prevPageBtn').addEventListener('click', function() {
+                if (currentPage > 1) {
+                    loadBackupList(currentPage - 1, pageSize);
+                }
+            });
+            
+            document.getElementById('nextPageBtn').addEventListener('click', function() {
+                if (currentPage < totalPages) {
+                    loadBackupList(currentPage + 1, pageSize);
+                }
+            });
+            
+            document.getElementById('pageSizeSelect').addEventListener('change', function() {
+                const newPageSize = parseInt(this.value, 10);
+                loadBackupList(1, newPageSize); // 更改每页条数时重置为第1页
+            });
+            
+            document.querySelectorAll('.restore-backup').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const filename = this.getAttribute('data-filename');
+                    showRestoreBackupConfirm(filename);
+                });
+            });
+            
+            document.querySelectorAll('.delete-backup').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const filename = this.getAttribute('data-filename');
+                    showDeleteBackupConfirm(filename);
+                });
+            });
+            
+            // 绑定复选框事件
+            document.querySelectorAll('.backup-checkbox').forEach(checkbox => {
+                checkbox.addEventListener('change', updateDeleteButtonState);
+            });
+            
+            // 更新全选框状态
+            updateSelectAllState();
+            // 更新删除按钮状态
+            updateDeleteButtonState();
+        }
+
+        // 格式化文件大小
+        function formatFileSize(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / 1048576).toFixed(1) + ' MB';
+        }
+
+        // 创建新备份
+        function createBackup() {
+            showLoadingBackup();
+            
+            fetch('/system/api/backup/create', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => {
+                console.log('创建备份响应状态码:', response.status);
+                return response.json().catch(() => {
+                    throw new Error(`创建备份失败: 无法解析响应`);
+                }).then(data => {
+                    if (!response.ok) {
+                        if (data && data.message) {
+                            throw new Error(`创建备份失败: ${data.message}`);
+                        }
+                        throw new Error(`创建备份失败: HTTP ${response.status}`);
+                    }
+                    return data;
+                });
+            })
+            .then(data => {
+                if (data.success) {
+                    showToast('备份创建成功: ' + data.backup_file, 'success');
+                    loadBackupList(1, pageSize); // 创建新备份后，显示第一页以看到最新创建的备份
+                } else {
+                    const errorMessage = data.message || '创建备份失败';
+                    showToast('创建备份失败: ' + errorMessage, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('创建备份错误:', error);
+                showToast(error.message, 'error');
+            });
+        }
+
+        // 显示备份加载状态
+        function showLoadingBackup() {
+            const backupListEl = document.getElementById('backupList');
+            backupListEl.innerHTML = `
+                <tr>
+                    <td colspan="5" class="px-4 py-8 text-center text-gray-500">
+                        <i class="fa fa-spinner fa-spin mr-2"></i>正在处理备份...
+                    </td>
+                </tr>
+            `;
+        }
+
+        // 显示恢复备份确认对话框
+        function showRestoreBackupConfirm(filename) {
+            currentRestoreFile = filename;
+            showConfirmDialog(
+                '恢复备份',
+                `确定要从备份文件 "${filename}" 恢复数据吗？这将完全覆盖当前系统数据，请谨慎操作。`,
+                () => restoreBackup(filename),
+                true // 显示强制确认选项
+            );
+        }
+
+        // 恢复备份
+        function restoreBackup(filename) {
+            showLoadingBackup();
+            
+            fetch(`/system/api/backup/restore/${filename}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => {
+                console.log('恢复备份响应状态码:', response.status);
+                return response.json().catch(() => {
+                    throw new Error(`恢复备份失败: 无法解析响应`);
+                }).then(data => {
+                    if (!response.ok) {
+                        if (data && data.message) {
+                            throw new Error(`恢复备份失败: ${data.message}`);
+                        }
+                        throw new Error(`恢复备份失败: HTTP ${response.status}`);
+                    }
+                    return data;
+                });
+            })
+            .then(data => {
+                if (data.success) {
+                    showToast('备份恢复成功，系统将重启生效', 'success');
+                    loadBackupList();
+                } else {
+                    const errorMessage = data.message || '恢复备份失败';
+                    showToast('恢复备份失败: ' + errorMessage, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('恢复备份错误:', error);
+                showToast(error.message, 'error');
+            });
+        }
+
+        // 显示删除备份确认对话框
+        function showDeleteBackupConfirm(filename) {
+            showConfirmDialog(
+                '删除备份',
+                `确定要删除备份文件 "${filename}" 吗？此操作不可恢复。`,
+                () => deleteBackup(filename),
+                false // 不显示强制清空选项
+            );
+        }
+
+        // 删除备份
+        function deleteBackup(filename) {
+            fetch(`/system/api/backup/delete/${filename}`, {
+                method: 'DELETE',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => {
+                console.log('删除备份响应状态码:', response.status);
+                return response.json().catch(() => {
+                    throw new Error(`删除备份失败: 无法解析响应`);
+                }).then(data => {
+                    if (!response.ok) {
+                        if (data && data.message) {
+                            throw new Error(`删除备份失败: ${data.message}`);
+                        }
+                        throw new Error(`删除备份失败: HTTP ${response.status}`);
+                    }
+                    return data;
+                });
+            })
+            .then(data => {
+                if (data.success) {
+                    showToast('备份文件已成功删除', 'success');
+                    // 如果当前页没有数据了，返回上一页
+                    if (backupFiles.length === 1 && currentPage > 1) {
+                        loadBackupList(currentPage - 1, pageSize);
+                    } else {
+                        loadBackupList(currentPage, pageSize);
+                    }
+                } else {
+                    const errorMessage = data.message || '删除备份失败';
+                    showToast('删除备份失败: ' + errorMessage, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('删除备份错误:', error);
+                showToast(error.message, 'error');
+            });
+        }
+
+        // 全选/取消全选
+        function toggleSelectAll() {
+            const isChecked = this.checked;
+            document.querySelectorAll('.backup-checkbox').forEach(checkbox => {
+                checkbox.checked = isChecked;
+            });
+            updateDeleteButtonState();
+        }
+
+        // 更新全选框状态
+        function updateSelectAllState() {
+            const checkboxes = document.querySelectorAll('.backup-checkbox');
+            if (checkboxes.length === 0) {
+                document.getElementById('selectAllBackups').checked = false;
+                return;
+            }
+            
+            let allChecked = true;
+            checkboxes.forEach(checkbox => {
+                if (!checkbox.checked) {
+                    allChecked = false;
+                }
+            });
+            
+            document.getElementById('selectAllBackups').checked = allChecked;
+        }
+
+        // 更新删除按钮状态
+        function updateDeleteButtonState() {
+            const checkedCount = document.querySelectorAll('.backup-checkbox:checked').length;
+            document.getElementById('deleteSelectedBtn').disabled = checkedCount === 0;
+        }
+
+        // 获取选中的备份文件
+        function getSelectedBackups() {
+            const selected = [];
+            document.querySelectorAll('.backup-checkbox:checked').forEach(checkbox => {
+                selected.push(checkbox.getAttribute('data-filename'));
+            });
+            return selected;
+        }
+
+        // 批量删除选中的备份
+        function deleteSelectedBackups() {
+            const selected = getSelectedBackups();
+            if (selected.length === 0) return;
+            
+            showConfirmDialog(
+                '批量删除备份',
+                `确定要删除选中的 ${selected.length} 个备份文件吗？此操作不可恢复。`,
+                () => {
+                    showLoadingBackup();
+                    
+                    fetch('/system/api/backup/delete-batch', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        body: JSON.stringify({ filenames: selected })
+                    })
+                    .then(response => {
+                        console.log('批量删除备份响应状态码:', response.status);
+                        return response.json().catch(() => {
+                            throw new Error(`批量删除备份失败: 无法解析响应`);
+                        }).then(data => {
+                            if (!response.ok) {
+                                if (data && data.message) {
+                                    throw new Error(`批量删除备份失败: ${data.message}`);
+                                }
+                                throw new Error(`批量删除备份失败: HTTP ${response.status}`);
+                            }
+                            return data;
+                        });
+                    })
+                    .then(data => {
+                        if (data.success) {
+                            showToast(`成功删除${data.success_count}个备份文件`, 'success');
+                            // 如果删除后当前页没有数据了，返回上一页
+                            if (backupFiles.length === data.success_count && currentPage > 1) {
+                                loadBackupList(currentPage - 1, pageSize);
+                            } else {
+                                loadBackupList(currentPage, pageSize);
+                            }
+                        } else {
+                            showToast('批量删除备份失败: ' + data.message, 'error');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('批量删除备份错误:', error);
+                        showToast(error.message, 'error');
+                    });
+                },
+                false
+            );
+        }
+
+        // 显示清空所有备份确认对话框
+        function showClearAllConfirm() {
+            showConfirmDialog(
+                '清空所有备份',
+                '确定要删除所有备份文件吗？此操作不可恢复，建议保留最新的几个备份。',
+                () => {
+                    showLoadingBackup();
+                    
+                    fetch('/system/api/backup/clear-all', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest'
+                        }
+                    })
+                    .then(response => {
+                        console.log('清空所有备份响应状态码:', response.status);
+                        return response.json().catch(() => {
+                            throw new Error(`清空所有备份失败: 无法解析响应`);
+                        }).then(data => {
+                            if (!response.ok) {
+                                if (data && data.message) {
+                                    throw new Error(`清空所有备份失败: ${data.message}`);
+                                }
+                                throw new Error(`清空所有备份失败: HTTP ${response.status}`);
+                            }
+                            return data;
+                        });
+                    })
+                    .then(data => {
+                        if (data.success) {
+                            showToast(`成功清空${data.deleted_count}个备份文件`, 'success');
+                            loadBackupList(1, pageSize); // 清空所有备份后，显示第一页
+                        } else {
+                            showToast('清空所有备份失败: ' + data.message, 'error');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('清空所有备份错误:', error);
+                        showToast(error.message, 'error');
+                    });
+                },
+                true // 需要强制确认
+            );
+        }
+
+        // 显示初始化数据库确认对话框
+        function showInitializeDbConfirm() {
+            showConfirmDialog(
+                '初始化数据库',
+                '确定要初始化数据库吗？这将重置所有系统数据，请确保已创建备份。',
+                (forceClear) => initializeDatabase(forceClear),
+                true // 显示强制清空选项
+            );
+        }
+
+        // 初始化数据库
+        function initializeDatabase(forceClear) {
+            fetch('/system/api/db/initialize', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({ force_clear: forceClear })
+            })
+            .then(response => {
+                console.log('初始化数据库响应状态码:', response.status);
+                return response.json().catch(() => {
+                    throw new Error(`初始化数据库失败: 无法解析响应`);
+                }).then(data => {
+                    if (!response.ok) {
+                        if (data && data.message) {
+                            throw new Error(`初始化数据库失败: ${data.message}`);
+                        }
+                        throw new Error(`初始化数据库失败: HTTP ${response.status}`);
+                    }
+                    return data;
+                });
+            })
+            .then(data => {
+                if (data.success) {
+                    // 显示成功提示并在1.5秒后自动刷新页面
+                    showToast(`数据库${forceClear ? '强制清空并' : ''}初始化成功，页面将自动刷新...`, 'success');
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1000);
+                } else {
+                    // 显式检查data.message是否存在
+                    const errorMessage = data.message || '初始化数据库失败';
+                    showToast('初始化数据库失败: ' + errorMessage, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('初始化数据库错误:', error);
+                showToast(error.message, 'error');
+            });
+        }
+
+        // 确认对话框相关
+        let confirmedAction = null;
+        let forceClearCheckbox = null;
+
+        function showConfirmDialog(title, message, action, showForceOption = false) {
+            document.getElementById('dialogTitle').textContent = title;
+            document.getElementById('dialogMessage').textContent = message;
+            confirmedAction = action;
+            
+            // 清除之前的强制选项（如果存在）
+            const existingForceOption = document.getElementById('forceOptionContainer');
+            if (existingForceOption) {
+                existingForceOption.remove();
+            }
+            
+            // 禁用确认按钮
+            document.getElementById('dialogConfirmBtn').disabled = true;
+            
+            // 显示或隐藏强制清空选项
+            if (showForceOption) {
+                const forceOption = document.createElement('div');
+                forceOption.id = 'forceOptionContainer';
+                forceOption.innerHTML = `
+                    <div class="flex items-center mt-4">
+                        <input type="checkbox" id="forceClearCheckbox" class="w-5 h-5 text-red-500">
+                        <label for="forceClearCheckbox" class="ml-2 text-sm text-red-500">
+                            我已了解风险，确认执行此操作（此操作不可恢复）
+                        </label>
+                    </div>
+                `;
+                document.getElementById('dialogMessage').after(forceOption);
+                
+                // 获取复选框元素并绑定事件
+                forceClearCheckbox = document.getElementById('forceClearCheckbox');
+                forceClearCheckbox.checked = false;
+                
+                // 定义复选框变化处理函数并保存引用
+                checkboxChangeHandler = function() {
+                    document.getElementById('dialogConfirmBtn').disabled = !this.checked;
+                };
+                
+                // 绑定事件监听
+                forceClearCheckbox.addEventListener('change', checkboxChangeHandler);
+            } else {
+                // 如果不需要强制选项，直接启用确认按钮
+                document.getElementById('dialogConfirmBtn').disabled = false;
+            }
+            
+            document.getElementById('confirmDialog').classList.remove('hidden');
+        }
+
+        function hideConfirmDialog() {
+            document.getElementById('confirmDialog').classList.add('hidden');
+            confirmedAction = null;
+            
+            // 移除事件监听并清除引用
+            if (forceClearCheckbox && checkboxChangeHandler) {
+                forceClearCheckbox.removeEventListener('change', checkboxChangeHandler);
+                checkboxChangeHandler = null;
+                forceClearCheckbox = null;
+            }
+            
+            // 移除强制清空选项
+            const forceOption = document.querySelector('#forceOptionContainer');
+            if (forceOption) {
+                forceOption.remove();
+            }
+        }
+
+        function executeConfirmedAction() {
+            if (confirmedAction) {
+                // 检查是否有强制清空选项
+                const forceClear = forceClearCheckbox ? forceClearCheckbox.checked : false;
+                confirmedAction(forceClear);
+            }
+            hideConfirmDialog();
+        }
+
+        // 显示提示消息
+        function showToast(message, type = 'info') {
+            const toast = document.getElementById('toast');
+            const toastIcon = document.getElementById('toastIcon');
+            const toastMessage = document.getElementById('toastMessage');
+            
+            // 设置图标和样式
+            toast.className = 'fixed top-4 right-4 px-6 py-3 rounded-md shadow-lg transform transition-all duration-300 translate-x-full opacity-0 z-50 flex items-center';
+            if (type === 'success') {
+                toast.classList.add('bg-green-50', 'text-green-800', 'border', 'border-green-200');
+                toastIcon.className = 'fa fa-check-circle mr-2';
+            } else if (type === 'error') {
+                toast.classList.add('bg-red-50', 'text-red-800', 'border', 'border-red-200');
+                toastIcon.className = 'fa fa-exclamation-circle mr-2';
+            } else {
+                toast.classList.add('bg-blue-50', 'text-blue-800', 'border', 'border-blue-200');
+                toastIcon.className = 'fa fa-info-circle mr-2';
+            }
+            
+            // 设置消息内容
+            toastMessage.textContent = message;
+            
+            // 显示提示
+            setTimeout(() => {
+                toast.classList.remove('translate-x-full', 'opacity-0');
+                toast.classList.add('translate-x-0', 'opacity-100');
+            }, 100);
+            
+            // 10秒后隐藏
+            setTimeout(() => {
+                toast.classList.remove('translate-x-0', 'opacity-100');
+                toast.classList.add('translate-x-full', 'opacity-0');
+            }, 10000);
+        }
+    </script>
+</body>
+</html>

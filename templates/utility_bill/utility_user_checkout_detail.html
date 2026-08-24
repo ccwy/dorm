@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <!--本地化CDN-->
+{% include 'static.html' %}
+
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#165DFF',
+                        secondary: '#36CFC9',
+                        accent: '#722ED1',
+                    },
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .btn-effect {
+                transition: all 0.2s ease;
+            }
+            .btn-effect:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            }
+            .card-hover {
+                transition: all 0.3s ease;
+            }
+            .card-hover:hover {
+                box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen flex flex-col">
+    <!-- 顶部导航 -->
+    {% include 'header.html' %}
+
+    <div class="flex flex-1 overflow-hidden">
+        <!-- 侧边导航 -->
+        <div id="sidebar-container"></div>
+
+        <!-- 主内容区 -->
+        <main class="flex-1 overflow-y-auto">
+            <section class="container mx-auto px-4 py-6">
+                <!-- 页面标题和返回按钮 -->
+                <div class="flex items-center mb-6">
+                    <button onclick="history.back()" class="text-primary hover:text-primary/80 mr-2">
+                        <i class="fa fa-arrow-left"></i>
+                    </button>
+                    <div>
+                        <h2 class="text-2xl font-semibold text-gray-800">{{ title }}</h2>
+                        <p class="text-gray-500 mt-1">查看用户退宿费用核算详情</p>
+                    </div>
+                </div>
+                
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <div class="flash-messages mb-6 mx-auto" style="max-width: 500px;">
+                    {% for category, message in messages %}
+                        <div class="p-4 rounded-md mb-2 text-center {% if category == 'success' %}bg-green-100 text-green-800{% elif category == 'error' or category == 'danger' %}bg-red-100 text-red-800{% elif category == 'warning' %}bg-yellow-100 text-yellow-800{% else %}bg-blue-100 text-blue-800{% endif %}">
+                        <button type="button" class="float-right ml-2 text-gray-500 hover:text-gray-700" onclick="this.parentElement.remove()">×</button>
+                        {{ message }}
+                        </div>
+                    {% endfor %}
+                    </div>
+                {% endif %}
+                {% endwith %}
+
+                <!-- 用户信息卡片 -->
+                <div class="bg-white rounded-lg shadow-sm overflow-hidden mb-6 card-hover">
+                    <div class="px-6 py-4 border-b border-gray-200">
+                        <h3 class="font-medium flex items-center">
+                            <i class="fa fa-user text-primary mr-2"></i>
+                            用户信息
+                        </h3>
+                    </div>
+                    <div class="p-6">
+                        <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-x-8 gap-y-4">
+                            <div>
+                                <h4 class="text-sm text-gray-500">姓名</h4>
+                                <p class="font-medium text-lg"><a href="{{ url_for('user.view', id=user.id) }}" class="text-primary hover:text-primary/80 hover:underline">{{ user.name if user else '未知用户' }}</a>(ID:{{ user.id }})</p>
+                            </div>
+                            <div>
+                                <h4 class="text-sm text-gray-500">房间信息</h4>
+                                <p class="font-medium"><a href="{{ url_for('room.view', id=room.id) }}" class="text-primary hover:text-primary/80 hover:underline">{{ room.building }}{{ room.room_number }}</a>(ID:{{ room.id }})</p>
+                            </div>
+                            <div>
+                                <h4 class="text-sm text-gray-500">入住日期</h4>
+                                <p class="font-medium">{{ checkout_record.checkin_date.strftime('%Y-%m-%d') }}</p>
+                            </div>
+                            <div>
+                                <h4 class="text-sm text-gray-500">退宿日期</h4>
+                                <p class="font-medium">{{ checkout_record.checkout_date.strftime('%Y-%m-%d') }}</p>
+                            </div>
+                            <div>
+                                <h4 class="text-sm text-gray-500">费用核算总天数</h4>
+                                <p class="font-medium">{{ checkout_record.total_period_days }} 天</p>
+                            </div>
+                            <div>
+                                <h4 class="text-sm text-gray-500">当月已住天数</h4>
+                                <p class="font-medium">{{ checkout_record.user_period_days }} 天</p>
+                            </div>
+                            <div>
+                                <h4 class="text-sm text-gray-500">分摊比例</h4>
+                                <p class="font-medium">{{ "{:.2f}".format((checkout_record.user_period_days / checkout_record.total_period_days) * 100) }}%</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 抄表记录卡片 -->
+                <div class="bg-white rounded-lg shadow-sm overflow-hidden mb-6 card-hover">
+                    <div class="px-6 py-4 border-b border-gray-200">
+                        <h3 class="font-medium flex items-center">
+                            <i class="fa fa-calendar-check-o text-primary mr-2"></i>
+                            抄表记录
+                        </h3>
+                    </div>
+                    <div class="p-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <!-- 电表信息 -->
+                            <div class="bg-gray-50 p-4 rounded-lg">
+                                <h4 class="text-md font-medium text-gray-900 mb-3">电表信息</h4>
+                                <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+                                    <div>
+                                        <p class="text-sm text-gray-500 mb-1">上次读数</p>
+                                        <p class="text-lg font-medium text-gray-900">{{ checkout_record.electric_previous if checkout_record.electric_previous else '-' }} kWh</p>
+                                    </div>
+                                    <div>
+                                        <p class="text-sm text-gray-500 mb-1">本次读数</p>
+                                        <p class="text-lg font-medium text-gray-900">{{ checkout_record.electric_reading if checkout_record.electric_reading else '-' }} kWh</p>
+                                    </div>
+                                    <div>
+                                        <p class="text-sm text-gray-500 mb-1">房间用量</p>
+                                        <p class="text-lg font-medium text-gray-900">{{ checkout_record.meter_electric_usage }} kWh</p>
+                                    </div>
+                                    <div>
+                                        <p class="text-sm text-gray-500 mb-1">单价</p>
+                                        <p class="text-lg font-medium text-gray-900">{{ checkout_record.electric_price }} 元/kWh</p>
+                                    </div>
+                                    <div>
+                                        <p class="text-sm text-gray-500 mb-1">房间费用</p>
+                                        <p class="text-lg font-medium text-gray-900">{{ checkout_record.meter_electric_fee }} 元</p>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- 水表信息 -->
+                            <div class="bg-gray-50 p-4 rounded-lg">
+                                <h4 class="text-md font-medium text-gray-900 mb-3">水表信息</h4>
+                                <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+                                    <div>
+                                        <p class="text-sm text-gray-500 mb-1">上次读数</p>
+                                        <p class="text-lg font-medium text-gray-900">{{ checkout_record.water_previous if checkout_record.water_previous else '-' }} m³</p>
+                                    </div>
+                                    <div>
+                                        <p class="text-sm text-gray-500 mb-1">本次读数</p>
+                                        <p class="text-lg font-medium text-gray-900">{{ checkout_record.water_reading if checkout_record.water_reading else '-' }} m³</p>
+                                    </div>
+                                    <div>
+                                        <p class="text-sm text-gray-500 mb-1">房间用量</p>
+                                        <p class="text-lg font-medium text-gray-900">{{ checkout_record.meter_water_usage }} m³</p>
+                                    </div>
+                                    <div>
+                                        <p class="text-sm text-gray-500 mb-1">单价</p>
+                                        <p class="text-lg font-medium text-gray-900">{{ checkout_record.water_price }} 元/m³</p>
+                                    </div>
+                                    <div>
+                                        <p class="text-sm text-gray-500 mb-1">房间费用</p>
+                                        <p class="text-lg font-medium text-gray-900">{{ checkout_record.meter_water_fee }} 元</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 费用结果卡片 -->
+                <div class="bg-white rounded-lg shadow-sm overflow-hidden mb-6 card-hover">
+                    <div class="px-6 py-4 border-b border-gray-200">
+                        <h3 class="font-medium flex items-center">
+                            <i class="fa fa-calculator text-primary mr-2"></i>
+                            费用明细
+                        </h3>
+                    </div>
+                    <div class="p-6">
+                        <!-- 原始费用 -->
+                        <div class="mb-6">
+                            <h4 class="text-md font-medium text-gray-900 mb-3">房间总费用</h4>
+                            <div class="grid grid-cols-3 md:grid-cols-3 gap-4 text-center">
+                                <div class="bg-gray-50 p-4 rounded">
+                                    <p class="text-sm text-gray-500 mb-1">电费</p>
+                                    <p class="text-lg font-semibold text-gray-900">{{ checkout_record.meter_electric_fee }} 元</p>
+                                </div>
+                                <div class="bg-gray-50 p-4 rounded">
+                                    <p class="text-sm text-gray-500 mb-1">水费</p>
+                                    <p class="text-lg font-semibold text-gray-900">{{ checkout_record.meter_water_fee }} 元</p>
+                                </div>
+                                <div class="bg-gray-50 p-4 rounded">
+                                    <p class="text-sm text-gray-500 mb-1">合计</p>
+                                    <p class="text-lg font-semibold text-gray-900">{{ checkout_record.meter_total_fee }} 元</p>
+                                </div>
+                                
+                            </div>
+                        </div>
+                        
+                        <!-- 用电用水费用明细表格 -->
+                        <div class="mb-8">
+                            <h4 class="text-md font-medium text-gray-900 mb-3">用户级费用明细</h4>
+                            <div class="overflow-x-auto">
+                                <table class="min-w-full bg-white rounded-lg overflow-hidden">
+                                    <thead class="bg-gray-50">
+                                        <tr>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">项目</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">用户级原始用量</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">减免用量</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">计费用量</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">用户级原始费用</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">计费费用</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-gray-200">
+                                        <tr>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">电费</td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ checkout_record.user_original_electric_usage }} kWh</td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-green-600">{{ checkout_record.user_reduction_electric }} kWh</td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ checkout_record.user_billing_electric_usage }} kWh</td>
+                                            
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ checkout_record.user_original_electric_fee }} 元</td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ checkout_record.user_billing_electric_fee }} 元</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">水费</td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ checkout_record.user_original_water_usage }} m³</td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-green-600">{{ checkout_record.user_reduction_water }} m³</td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ checkout_record.user_billing_water_usage }} m³</td>
+                                            
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ checkout_record.user_original_water_fee }} 元</td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ checkout_record.user_billing_water_fee }} 元</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <!-- 计费费用 -->
+                        <div class="mb-6">
+                            <h4 class="text-md font-medium text-gray-900 mb-3">用户计费费用</h4>
+                            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                                <div class="bg-gray-50 p-4 rounded">
+                                    <p class="text-sm text-gray-500 mb-1">用户原始费用</p>
+                                    <p class="text-lg font-semibold text-gray-900">{{ checkout_record.user_original_total_fee }} 元</p>
+                                </div>
+                                <div class="bg-gray-50 p-4 rounded">
+                                    <p class="text-sm text-gray-500 mb-1">按用量减免费用</p>
+                                    <p class="text-lg font-semibold text-gray-900">-{{ ((checkout_record.user_reduction_electric * checkout_record.electric_price)+(checkout_record.user_reduction_water * checkout_record.water_price))|round(2) }} 元</p>
+                                </div>
+                                <div class="bg-gray-50 p-4 rounded">
+                                    <p class="text-sm text-gray-500 mb-1">用户计费费用</p>
+                                    <p class="text-lg font-semibold text-gray-900">{{ checkout_record.user_billing_total_fee }} 元</p>
+                                </div>
+                                <div class="bg-gray-50 p-4 rounded">
+                                    <p class="text-sm text-gray-500 mb-1">房间级减免费用</p>
+                                    <p class="text-lg font-semibold text-gray-900">{{ checkout_record.user_proportional_reduction }} 元</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 减免信息 -->
+                        {% if checkout_record.user_reduction_electric > 0 or checkout_record.user_reduction_water > 0 or checkout_record.user_proportional_reduction > 0 or checkout_record.user_independent_reduction > 0 %}
+                        <div class="mb-6">
+                            <h4 class="text-md font-medium text-gray-900 mb-3">减免费用明细</h4>
+                            <div class="bg-green-50 p-4 rounded">
+                                <table class="min-w-full">
+                                    <thead>
+                                        <tr class="border-b border-green-100">
+                                            <th class="text-left py-2 px-2 text-sm font-medium text-gray-700">减免类型</th>
+                                            <th class="text-left py-2 px-2 text-sm font-medium text-gray-700">减免说明</th>
+                                            <th class="text-right py-2 px-2 text-sm font-medium text-gray-700">减免金额</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% if checkout_record.user_reduction_electric > 0 %}
+                                        <tr class="border-b border-green-100">
+                                            <td class="py-2 px-2 text-sm text-gray-700">用量减免</td>
+                                            <td class="py-2 px-2 text-sm text-gray-700">电费减免（{{ checkout_record.user_reduction_electric }} kWh）</td>
+                                            <td class="py-2 px-2 text-sm text-right text-green-600 font-medium">-{{ (checkout_record.user_reduction_electric * checkout_record.electric_price)|round(2) }} 元</td>
+                                        </tr>
+                                        {% endif %}
+                                        {% if checkout_record.user_reduction_water > 0 %}
+                                        <tr class="border-b border-green-100">
+                                            <td class="py-2 px-2 text-sm text-gray-700">用量减免</td>
+                                            <td class="py-2 px-2 text-sm text-gray-700">水费减免（{{ checkout_record.user_reduction_water }} m³）</td>
+                                            <td class="py-2 px-2 text-sm text-right text-green-600 font-medium">-{{ (checkout_record.user_reduction_water * checkout_record.water_price)|round(2) }} 元</td>
+                                        </tr>
+                                        {% endif %}
+                                        {% if checkout_record.user_proportional_reduction > 0 %}
+                                        <tr class="border-b border-green-100">
+                                            <td class="py-2 px-2 text-sm text-gray-700">费用减免</td>
+                                            <td class="py-2 px-2 text-sm text-gray-700">房间级用户按比例减免费用</td>
+                                            <td class="py-2 px-2 text-sm text-right text-green-600 font-medium">-{{ checkout_record.user_proportional_reduction }} 元</td>
+                                        </tr>
+                                        {% endif %}
+                                        {% if checkout_record.user_independent_reduction > 0 %}
+                                        <tr class="border-b border-green-100">
+                                            <td class="py-2 px-2 text-sm text-gray-700">费用减免</td>
+                                            <td class="py-2 px-2 text-sm text-gray-700">个人级独立减免费用</td>
+                                            <td class="py-2 px-2 text-sm text-right text-green-600 font-medium">-{{ checkout_record.user_independent_reduction }} 元</td>
+                                        </tr>
+                                        {% endif %}
+                                        <!-- 减免合计行 -->
+                                        <tr class="bg-green-100">
+                                            <td class="py-3 px-2 text-sm font-bold text-gray-800" colspan="2">合计</td>
+                                            <td class="py-3 px-2 text-sm text-right text-green-700 font-bold">
+                                                -{{ ((checkout_record.user_reduction_electric * checkout_record.electric_price) + 
+                                                (checkout_record.user_reduction_water * checkout_record.water_price) + 
+                                                checkout_record.user_proportional_reduction + checkout_record.user_independent_reduction)|round(2) }} 元
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        <!-- 最终应付 -->
+                        <div class="bg-blue-50 p-4 rounded border-l-4 border-primary">
+                            <div class="flex justify-between items-center">
+                                <span class="text-xl font-semibold text-gray-900">最终应付金额</span>
+                                <span class="text-3xl font-bold text-primary">{{ checkout_record.payable_fee }} 元</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 操作按钮 -->
+                <div class="flex justify-center gap-4 mt-8 mb-8">
+                    <a href="/utility/utility_room_checkout_edit?id={{ checkout_record.id }}" class="px-8 py-3 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 btn-effect">
+                        <i class="fa fa-pencil mr-2"></i>编辑退宿费用
+                    </a>
+                    <a href="{{ url_for('dorm.dorm_query') }}" class="px-8 py-3 bg-primary text-white rounded-md hover:bg-primary/90 btn-effect">
+                        <i class="fa fa-check mr-2"></i>返回
+                    </a>
+                </div>
+            </section>
+        </main>
+    </div>
+    
+    <!-- 页脚 -->
+    {% include 'footer.html' %}
+</body>
+</html>

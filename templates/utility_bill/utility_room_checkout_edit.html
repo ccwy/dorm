@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <!--本地化CDN-->
+    {% include 'static.html' %}
+
+    <!-- 配置Tailwind自定义颜色和字体 -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#165DFF',
+                        secondary: '#36CFC9',
+                        neutral: '#86909C',
+                        light: '#F2F3F5',
+                        dark: '#1D2129',
+                        success: '#52C41A',
+                        warning: '#FAAD14',
+                        danger: '#FF4D4F'
+                    },
+                    fontFamily: {
+                        inter: ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                },
+            }
+        }
+    </script>
+    
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .form-input-focus {
+                @apply focus:ring-2 focus:ring-primary/50 focus:border-primary focus:outline-none;
+            }
+            .card-hover {
+                @apply transition-all duration-300 hover:shadow-lg;
+            }
+            .btn-effect {
+                @apply transform transition-all duration-200 active:scale-95;
+            }
+            .info-label {
+                @apply text-sm font-medium text-gray-500;
+            }
+            .info-value {
+                @apply text-base font-normal text-dark;
+            }
+            .loading {
+                @apply animate-pulse bg-gray-200 rounded;
+            }
+        }
+    </style>
+</head>
+<body class="font-inter bg-gray-50 text-dark min-h-screen flex flex-col">
+    <!-- 顶部导航栏 -->
+    {% include 'header.html' %}
+    
+    <!-- 主要内容区 -->
+    <main class="flex-grow container mx-auto px-4 py-6">
+        <!-- 页面标题和路径导航 -->
+        <div class="mb-6">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between">
+                <div>
+                    <div class="flex items-center">
+                        <button onclick="history.back()" class="text-gray-600 hover:text-primary transition-all-300 mr-4">
+                            <i class="fa fa-arrow-left"></i>
+                        </button>
+                        <h2 class="text-[clamp(1.5rem,3vw,2rem)] font-bold">{{ title }} <span id="feeMainId"></span></h2>
+                    </div>
+                </div>
+                <div class="mt-4 md:mt-0">
+                    <button class="bg-white border border-neutral text-neutral px-4 py-2 rounded-md mr-2 flex items-center btn-effect" id="backButton">
+                        <i class="fa fa-arrow-left mr-2"></i>返回列表
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 加载状态 -->
+        <div id="loadingIndicator" class="bg-white rounded-xl shadow-sm p-6 mb-6 card-hover flex justify-center items-center h-96">
+            <div class="text-center">
+                <i class="fa fa-circle-o-notch fa-spin text-primary text-4xl mb-4"></i>
+                <p class="text-neutral">正在加载数据，请稍候...</p>
+                <p class="text-xs text-gray-400 mt-2" id="loadingTimeoutWarning" style="display: none;">
+                    加载时间较长，可能存在网络问题...
+                </p>
+            </div>
+        </div>
+        
+        <!-- 错误状态 -->
+        <div id="errorMessage" class="bg-white rounded-xl shadow-sm p-6 mb-6 card-hover" style="display: none;">
+            <div class="text-center text-danger">
+                <i class="fa fa-exclamation-circle text-4xl mb-4"></i>
+                <p id="errorText">加载数据失败，请刷新页面重试</p>
+                <button id="retryButton" class="mt-4 px-6 py-2 bg-primary text-white rounded-md hover:bg-primary/90 transition-colors btn-effect">
+                    重试
+                </button>
+            </div>
+        </div>
+        
+        <!-- 内容区域（初始隐藏） -->
+            <div id="contentContainer" style="display: none;">
+                <!-- 信息卡片 -->
+                <div id="contentCard" class="bg-white rounded-xl shadow-sm p-6 mb-6 card-hover">
+                    <!-- 内容将通过JavaScript动态填充 -->
+                </div>
+            </div>
+    </main>
+
+    <!-- 成功提示弹窗 -->
+    <div id="successToast" class="fixed bottom-6 right-6 bg-success text-white px-6 py-3 rounded-lg shadow-lg transform translate-y-20 opacity-0 transition-all duration-300 flex items-center">
+        <i class="fa fa-check-circle mr-2"></i>
+        <span>保存成功！</span>
+    </div>
+
+    <!-- 错误提示弹窗 -->
+    <div id="errorToast" class="fixed bottom-6 right-6 bg-danger text-white px-6 py-3 rounded-lg shadow-lg transform translate-y-20 opacity-0 transition-all duration-300 flex items-center">
+        <i class="fa fa-exclamation-circle mr-2"></i>
+        <span id="errorToastText">操作失败，请重试</span>
+    </div>
+    <!-- 页脚 -->
+    {% include 'footer.html' %}
+    
+    <script>
+        // 获取退宿记录ID（从URL的id参数）
+        function getCheckoutId() {
+            // 1. 从URL参数中获取id（匹配URL中的?id=10）
+            const urlParams = new URLSearchParams(window.location.search);
+            const urlCheckoutId = urlParams.get('id');
+            if (urlCheckoutId) {
+                console.log('从URL参数(id)获取到退宿记录ID:', urlCheckoutId);
+                return urlCheckoutId;
+            }
+            
+            // 2. 尝试从模板变量获取（后端渲染时传递）
+            const templateCheckoutId = {{ id|tojson if id is defined else 'null' }};
+            if (templateCheckoutId) {
+                console.log('从模板变量(id)获取到退宿记录ID:', templateCheckoutId);
+                return templateCheckoutId;
+            }
+            
+            // 3. 尝试从页面元数据获取
+            const metaTag = document.querySelector('meta[name="checkout-id"]');
+            if (metaTag && metaTag.content) {
+                console.log('从meta标签获取到退宿记录ID:', metaTag.content);
+                return metaTag.content;
+            }
+            
+            console.error('未找到任何有效的退宿记录ID');
+            return null;
+        }
+        
+        // 全局变量
+        const checkoutId = getCheckoutId();
+        let originalData = null;
+        
+        // 安全地格式化数字为两位小数
+        function safeToFixed(value, decimals = 2) {
+            // 如果值为undefined或null，返回0.00
+            if (value === undefined || value === null) return '0.00';
+            // 如果值不是数字，尝试转换
+            const num = typeof value === 'number' ? value : parseFloat(value);
+            // 如果转换失败，返回0.00
+            if (isNaN(num)) return '0.00';
+            // 正常格式化
+            return num.toFixed(decimals);
+        }
+        
+        // 页面加载完成后执行
+        document.addEventListener('DOMContentLoaded', function() {
+            // 绑定事件监听
+            document.getElementById('retryButton').addEventListener('click', loadData);
+            document.getElementById('backButton').addEventListener('click', handleBack);
+            
+            // 检查checkoutId是否存在
+            if (!checkoutId) {
+                const possibleReasons = [
+                    "URL中未包含id参数（如：?id=10）",
+                    "后端渲染页面时未传递id变量"
+                ];
+                showError(`未找到退宿记录ID，请检查：<br>${possibleReasons.join('<br>')}`);
+                return;
+            }
+            
+            // 验证checkout_id格式是否正确
+            if (isNaN(Number(checkoutId))) {
+                showError(`退宿记录ID格式错误，应为数字，实际值：${checkoutId}`);
+                return;
+            }
+            
+            // 设置加载超时提示
+            setTimeout(() => {
+                document.getElementById('loadingTimeoutWarning').style.display = 'block';
+            }, 5000);
+            
+            // 加载数据
+            loadData();
+        });
+        
+        // 加载数据
+        async function loadData() {
+            try {
+                // 显示加载状态
+                document.getElementById('loadingIndicator').style.display = 'flex';
+                document.getElementById('errorMessage').style.display = 'none';
+                document.getElementById('contentContainer').style.display = 'none';
+                
+                // 调用API获取数据（使用正确的API地址）
+                const response = await fetch(`/utility_room_bill_checkout/edit/${checkoutId}`);
+                const result = await response.json();
+                
+                if (!response.ok || result.status !== 'success') {
+                    throw new Error(result.message || `加载失败，状态码: ${response.status}`);
+                }
+                
+                // 保存原始数据
+                originalData = result.data;
+                
+                // 渲染页面内容
+            renderContent(result.data);
+            // 更新页面标题中的费用主ID
+            document.getElementById('feeMainId').textContent = `(ID:${result.data.id || '-'})`;
+                
+                // 隐藏加载状态，显示内容
+                document.getElementById('loadingIndicator').style.display = 'none';
+                document.getElementById('contentContainer').style.display = 'block';
+                
+                // 绑定表单事件
+                document.getElementById('feeForm').addEventListener('submit', handleFormSubmit);
+                document.getElementById('cancelButton').addEventListener('click', handleCancel);
+                
+            } catch (error) {
+                console.error('加载数据失败:', error);
+                showError(error.message || '加载数据失败，请重试');
+            }
+        }
+        
+        // 渲染页面内容
+        function renderContent(data) {
+            renderContentCard(data);
+        }
+        
+        // 渲染基本信息卡片
+        function renderContentCard(data) {
+            const contentCard = document.getElementById('contentCard');
+            // 确保fee_info存在
+            const feeInfo = data.fee_info || {};
+            
+            contentCard.innerHTML = `
+                <!-- 基本信息部分 -->
+                <div class="mb-8">
+                    <h3 class="text-lg font-semibold mb-4 pb-2 border-b border-gray-100">基本信息</h3>
+                    <div class="grid grid-cols-2 md:grid-cols-5 lg:grid-cols-10 gap-6">
+                        
+                        
+                        <div>
+                            <p class="info-label">用户姓名</p>
+                            <p class="info-value">
+                                ${data.user_info?.user_id ? 
+                                    `<a href="/user/view/${data.user_info.user_id}" class="font-medium text-blue-600 hover:underline">${data.user_info.name || '-'}</a>(ID:${data.user_info.user_id || '-'})` : 
+                                    `${data.user_info?.name || '-'}(ID:${data.user_info?.user_id || '-'})`}
+                            </p>
+                        </div>
+                        
+                        <div>
+                            <p class="info-label">性别</p>
+                            <p class="info-value">${data.user_info?.gender || '-'}</p>
+                        </div>
+                        
+                        <div>
+                            <p class="info-label">房间号</p>
+                            <p class="info-value">
+                                ${data.room_info?.room_id ? 
+                                    `<a href="/room/view/${data.room_info.room_id}" class="font-medium text-blue-600 hover:underline">${data.room_info.room_number || '-'} </a>(ID:${data.room_info.room_id || '-'})` : 
+                                    (data.room_info?.room_number ? `${data.room_info.room_number} (ID:${data.room_info?.room_id || '-'})` : '-')}
+                            </p>
+                        </div>
+                        
+                        <div>
+                            <p class="info-label">部门</p>
+                            <p class="info-value">${data.user_info?.department || '-'}</p>
+                        </div>
+                        
+                        <div>
+                            <p class="info-label">职位</p>
+                            <p class="info-value">${data.user_info?.position || '-'}</p>
+                        </div>
+                        
+                        <div>
+                            <p class="info-label">入住日期</p>
+                            <p class="info-value">${formatDate(data.room_info?.check_in_date) || '-'}</p>
+                        </div>
+                        
+                        <div>
+                            <p class="info-label">退宿日期</p>
+                            <p class="info-value">${formatDate(data.room_info?.check_out_date) || '-'}</p>
+                        </div>
+                        
+                        <div>
+                            <p class="info-label">费用核算总天数</p>
+                            <p class="info-value">${data.room_info?.total_period_days || 0}</p>
+                        </div>
+                        
+                        <div>
+                            <p class="info-label">本月已住天数</p>
+                            <p class="info-value">${data.room_info?.user_period_days || 0}</p>
+                        </div>
+                        
+                        <div>
+                            <p class="info-label">费用分摊比例</p>
+                            <p class="info-value">${feeInfo.user_ratio ? (feeInfo.user_ratio * 100).toFixed(2) + '%' : '0%'}</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 室友信息 -->
+                <div class="mb-8">
+                    <h3 class="text-lg font-semibold mb-4 pb-2 border-b border-gray-100">室友信息</h3>
+                    <div id="roommatesContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                        ${data.roommates && data.roommates.length > 0 ? 
+                            data.roommates.map(roommate => `
+                                <div class="p-4 bg-gray-50 rounded-lg border border-gray-100 hover:border-primary/30 transition-all">
+                                    <div class="flex justify-between items-start">
+                                        <p class="font-medium">
+                                            <a href="/user/view/${roommate.user_id}" class="text-blue-600 hover:underline">${roommate.name}</a> (ID:${roommate.user_id})
+                                        </p>
+                                        <span class="px-2 py-0.5 rounded-full text-xs font-medium 
+                                            ${roommate.status_type === 'success' ? 'bg-success/10 text-success' : 'bg-neutral/10 text-neutral'}">
+                                            ${roommate.status_text}
+                                        </span>
+                                    </div>
+                                    <p class="text-sm text-gray-600 mt-2">
+                                        入住: ${formatDate(roommate.check_in_date) || '-'}
+                                        ${roommate.check_out_date ? '<br>退宿: ' + formatDate(roommate.check_out_date) : ''}
+                                    </p>
+                                    
+                                    ${roommate.has_transfer ? `
+                                        <div class="flex items-center text-warning text-sm mt-1">
+                                            <i class="fa fa-exchange mr-1"></i>
+                                            <span>有换宿记录</span>
+                                        </div>
+                                        
+                                        <div class="text-xs text-gray-500 mt-1">
+                                            ${roommate.transfer_prev_room ? `来自: ${roommate.transfer_prev_room}` : ''}
+                                            ${roommate.transfer_prev_room && roommate.transfer_next_room ? ' | ' : ''}
+                                            ${roommate.transfer_next_room ? `去向: ${roommate.transfer_next_room}` : ''}
+                                        </div>
+                                    ` : ''}
+                                </div>
+                            `).join('') : `
+                                <div class="p-4 bg-gray-50 rounded-lg col-span-full">
+                                    <p class="info-value">无其他室友信息</p>
+                                </div>
+                            `}
+                    </div>
+                </div>
+                
+                <!-- 费用信息和抄表记录 -->
+                <form id="feeForm">
+                    <div class="mb-8">
+                        <h3 class="text-lg font-semibold mb-4 pb-2 border-b border-gray-100">抄表记录与费用信息</h3>
+                        <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-6">
+                            <!-- 上次抄表记录 -->
+                            <div>
+                                <p class="info-label">上次抄表 - 电表</p>
+                                <p class="info-value">${data.meter_data?.electric?.previous_reading || 0} kWh</p>
+                            </div>
+                            
+                            <div>
+                                <p class="info-label">上次抄表 - 水表</p>
+                                <p class="info-value">${data.meter_data?.water?.previous_reading || 0} m³</p>
+                            </div>
+                            
+                            <!-- 单价信息 -->
+                            <div>
+                                <p class="info-label">电费单价</p>
+                                <p class="info-value">${data.meter_data?.electric?.electric_price || 0} 元/kWh</p>
+                            </div>
+                            
+                            <div>
+                                <p class="info-label">水费单价</p>
+                                <p class="info-value">${data.meter_data?.water?.water_price || 0} 元/m³</p>
+                            </div>
+                            
+                            <!-- 本次抄表记录输入 -->
+                            <div>
+                                <label for="currentElectricReading" class="block info-label mb-1">
+                                    本次抄表 - 电表 <span class="text-danger">*</span>
+                                </label>
+                                <div class="relative">
+                                    <input type="number" step="0.01" id="currentElectricReading" name="currentElectricReading" 
+                                        value="${data.meter_data?.electric?.current_reading || 0}" 
+                                        placeholder="请输入度数" 
+                                        class="w-full px-4 py-2 border border-gray-300 rounded-md form-input-focus" required>
+                                    <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-neutral">
+                                        <span>kWh</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <label for="currentWaterReading" class="block info-label mb-1">
+                                    本次抄表 - 水表 <span class="text-danger">*</span>
+                                </label>
+                                <div class="relative">
+                                    <input type="number" step="0.01" id="currentWaterReading" name="currentWaterReading" 
+                                        value="${data.meter_data?.water?.current_reading || 0}" 
+                                        placeholder="请输入吨数" 
+                                        class="w-full px-4 py-2 border border-gray-300 rounded-md form-input-focus" required>
+                                    <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-neutral">
+                                        <span>m³</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- 费用信息 -->
+                            <div>
+                                <p class="info-label">电费金额</p>
+                                <p class="info-value text-primary font-medium">${safeToFixed(feeInfo.meter_electric_fee)} 元</p>
+                            </div>
+                            
+                            <div>
+                                <p class="info-label">水费金额</p>
+                                <p class="info-value text-primary font-medium">${safeToFixed(feeInfo.meter_water_fee)} 元</p>
+                            </div>
+                            
+                            <div>
+                                <p class="info-label">总费用</p>
+                                <p class="info-value text-danger font-bold">${safeToFixed(feeInfo.meter_total_fee)} 元</p>
+                            </div>
+                            <div>
+                                <p class="info-label">分摊总费用</p>
+                                <p class="info-value text-danger font-bold">${safeToFixed(feeInfo.user_original_total_fee)} 元</p>
+                            </div>
+                            <div>
+                                <p class="info-label">计费总费用</p>
+                                <p class="info-value text-danger font-bold">${safeToFixed(feeInfo.user_billing_total_fee)} 元</p>
+                            </div>
+                            <div>
+                                <p class="info-label">房间级费用减免</p>
+                                <p class="info-value text-danger font-bold">${safeToFixed(feeInfo.user_proportional_reduction || 0)} 元</p>
+                            </div>
+                            <div>
+                                <p class="info-label">个人级费用减免</p>
+                                <p class="info-value text-danger font-bold">${safeToFixed(feeInfo.user_independent_reduction || 0)} 元</p>
+                            </div>
+                            <div>
+                                <p class="info-label">个人应付</p>
+                                <p class="info-value text-primary font-bold text-xl">${safeToFixed(feeInfo.payable_fee )} 元</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 费用明细 -->
+                    <div class="mb-8">
+                        <h3 class="text-lg font-semibold mb-4 pb-2 border-b border-gray-100">费用明细</h3>
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead>
+                                    <tr>
+                                        <th class="px-4 py-3 bg-gray-50 text-left text-xs font-medium text-neutral uppercase tracking-wider">费用类型</th>
+                                        <th class="px-4 py-3 bg-gray-50 text-left text-xs font-medium text-neutral uppercase tracking-wider">上次读数</th>
+                                        <th class="px-4 py-3 bg-gray-50 text-left text-xs font-medium text-neutral uppercase tracking-wider">本次读数</th>
+                                        <th class="px-4 py-3 bg-gray-50 text-left text-xs font-medium text-neutral uppercase tracking-wider">抄表用量</th>
+                                        <th class="px-4 py-3 bg-gray-50 text-left text-xs font-medium text-neutral uppercase tracking-wider">用户原始用量</th>
+                                        <th class="px-4 py-3 bg-gray-50 text-left text-xs font-medium text-neutral uppercase tracking-wider">减免用量</th>
+                                        <th class="px-4 py-3 bg-gray-50 text-left text-xs font-medium text-neutral uppercase tracking-wider">用户计费用量</th>
+                                        <th class="px-4 py-3 bg-gray-50 text-left text-xs font-medium text-neutral uppercase tracking-wider">单价</th>
+                                        <th class="px-4 py-3 bg-gray-50 text-left text-xs font-medium text-neutral uppercase tracking-wider">总费用</th>
+                                        <th class="px-4 py-3 bg-gray-50 text-left text-xs font-medium text-neutral uppercase tracking-wider">用户原始费用</th>
+                                        <th class="px-4 py-3 bg-gray-50 text-left text-xs font-medium text-neutral uppercase tracking-wider">用户计费费用</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200">
+                                    <tr class="hover:bg-gray-50 transition-colors">
+                                        <td class="px-4 py-3 whitespace-nowrap">
+                                            <div class="text-sm font-medium">电费</div>
+                                        </td>
+                                        <td class="px-4 py-3 whitespace-nowrap">
+                                            <div class="text-sm">${data.meter_data?.electric?.previous_reading || 0} kWh</div>
+                                        </td>
+                                        <td class="px-4 py-3 whitespace-nowrap">
+                                            <div class="text-sm text-primary font-medium">${data.meter_data?.electric?.current_reading || 0} kWh</div>
+                                        </td>
+                                        <td class="px-4 py-3 whitespace-nowrap">
+                                            <div class="text-sm">${data.meter_data?.electric?.meter_electric_usage || 0} kWh</div>
+                                        </td>
+                                        <td class="px-4 py-3 whitespace-nowrap">
+                                            <div class="text-sm">${data.meter_data?.electric?.user_original_electric_usage || 0} kWh</div>
+                                        </td>
+                                        <td class="px-4 py-3 whitespace-nowrap">
+                                            <div class="text-sm text-success">${data.meter_data?.electric?.electric_reduction || 0} kWh</div>
+                                        </td>
+                                        <td class="px-4 py-3 whitespace-nowrap">
+                                            <div class="text-sm">${data.meter_data?.electric?.electric_billing_usage || 0} kWh</div>
+                                        </td>
+                                        <td class="px-4 py-3 whitespace-nowrap">
+                                            <div class="text-sm">${data.meter_data?.electric?.electric_price || 0} 元/kWh</div>
+                                        </td>
+                                        <td class="px-4 py-3 whitespace-nowrap">
+                                            <div class="text-sm">${safeToFixed(feeInfo.meter_electric_fee)} 元</div>
+                                        </td>
+                                        <td class="px-4 py-3 whitespace-nowrap">
+                                            <div class="text-sm">${safeToFixed(data.meter_data?.electric?.user_original_electric_fee)} 元</div>
+                                        </td>
+                                        <td class="px-4 py-3 whitespace-nowrap">
+                                            <div class="text-sm">${safeToFixed(data.meter_data?.electric?.user_billing_electric_fee)} 元</div>
+                                        </td>
+                                    </tr>
+                                    <tr class="hover:bg-gray-50 transition-colors">
+                                        <td class="px-4 py-3 whitespace-nowrap">
+                                            <div class="text-sm font-medium">水费</div>
+                                        </td>
+                                        <td class="px-4 py-3 whitespace-nowrap">
+                                            <div class="text-sm">${data.meter_data?.water?.previous_reading || 0} m³</div>
+                                        </td>
+                                        <td class="px-4 py-3 whitespace-nowrap">
+                                            <div class="text-sm text-primary font-medium">${data.meter_data?.water?.current_reading || 0} m³</div>
+                                        </td>
+                                        <td class="px-4 py-3 whitespace-nowrap">
+                                            <div class="text-sm">${data.meter_data?.water?.meter_water_usage || 0} m³</div>
+                                        </td>
+                                        <td class="px-4 py-3 whitespace-nowrap">
+                                            <div class="text-sm">${data.meter_data?.water?.user_original_water_usage || 0} m³</div>
+                                        </td>
+                                        <td class="px-4 py-3 whitespace-nowrap">
+                                            <div class="text-sm text-success">${data.meter_data?.water?.user_reduction_water || 0} m³</div>
+                                        </td>
+                                        <td class="px-4 py-3 whitespace-nowrap">
+                                            <div class="text-sm">${data.meter_data?.water?.user_billing_water_usage || 0} m³</div>
+                                        </td>
+                                        <td class="px-4 py-3 whitespace-nowrap">
+                                            <div class="text-sm">${data.meter_data?.water?.water_price || 0} 元/m³</div>
+                                        </td>
+                                        <td class="px-4 py-3 whitespace-nowrap">
+                                            <div class="text-sm">${safeToFixed(feeInfo.meter_water_fee)} 元</div>
+                                        </td>
+                                        <td class="px-4 py-3 whitespace-nowrap">
+                                            <div class="text-sm">${safeToFixed(data.meter_data?.water?.user_original_water_fee)} 元</div>
+                                        </td>
+                                        <td class="px-4 py-3 whitespace-nowrap">
+                                            <div class="text-sm">${safeToFixed(data.meter_data?.water?.user_billing_water_fee)} 元</div>
+                                        </td>
+                                    </tr>
+                                    <tr class="bg-gray-50">
+                                        <td colspan="7" class="px-4 py-3 whitespace-nowrap text-right">
+                                            <div class="text-sm font-bold">合计</div>
+                                        </td>
+                                        <td class="px-4 py-3 whitespace-nowrap">
+                                            <div class="text-sm font-bold">-</div>
+                                        </td>
+                                        <td class="px-4 py-3 whitespace-nowrap">
+                                            <div class="text-sm font-bold">${safeToFixed(feeInfo.meter_total_fee)} 元</div>
+                                        </td>
+                                        <td class="px-4 py-3 whitespace-nowrap">
+                                            <div class="text-sm font-bold">${safeToFixed((feeInfo.user_original_total_fee || 0))} 元</div>
+                                        </td>
+                                        <td class="px-4 py-3 whitespace-nowrap">
+                                            <div class="text-sm font-bold">${safeToFixed((feeInfo.user_billing_total_fee || 0))} 元</div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- 退宿备注 -->
+                    <div class="mb-8">
+                        <label for="remarks" class="block info-label mb-1">退宿备注</label>
+                        <textarea id="remarks" name="remarks" rows="3" placeholder="请输入相关备注信息..."
+                            class="w-full px-4 py-2 border border-gray-300 rounded-md form-input-focus"></textarea>
+                    </div>
+                    
+                    <!-- 操作按钮 -->
+                    <div class="flex justify-end space-x-3 pt-4 border-t border-gray-100">
+                        <button type="button" class="px-6 py-2 border border-neutral text-neutral rounded-md hover:bg-gray-50 transition-colors btn-effect" id="cancelButton">
+                            取消
+                        </button>
+                        <button type="submit" class="px-6 py-2 bg-primary text-white rounded-md hover:bg-primary/90 transition-colors btn-effect flex items-center" id="saveButton">
+                            <i class="fa fa-save mr-2"></i>保存修改
+                        </button>
+                    </div>
+                </form>
+            `;
+        }
+        
+        // 渲染费用明细卡片函数已移除，现在在renderContentCard中直接渲染费用明细内容
+        
+        // 处理表单提交
+        async function handleFormSubmit(e) {
+            e.preventDefault();
+            
+            if (!checkoutId || !originalData) {
+                showErrorToast('未找到有效的退宿记录ID');
+                return;
+            }
+            
+            // 获取表单数据
+            const newElectricReading = parseFloat(document.getElementById('currentElectricReading').value);
+            const newWaterReading = parseFloat(document.getElementById('currentWaterReading').value);
+            
+            // 验证
+            if (isNaN(newElectricReading) || isNaN(newWaterReading)) {
+                showErrorToast('请填写有效的抄表记录');
+                return;
+            }
+            
+            const electricPrevious = originalData.meter_data?.electric?.previous_reading || 0;
+            const waterPrevious = originalData.meter_data?.water?.previous_reading || 0;
+            
+            if (newElectricReading < electricPrevious) {
+                showErrorToast('电费本次读数不能小于上次读数');
+                return;
+            }
+            
+            if (newWaterReading < waterPrevious) {
+                showErrorToast('水费本次读数不能小于上次读数');
+                return;
+            }
+            
+            // 禁用保存按钮
+            const saveButton = document.getElementById('saveButton');
+            saveButton.disabled = true;
+            saveButton.innerHTML = '<i class="fa fa-spinner fa-spin mr-2"></i>保存中...';
+            
+            try {
+                // 发送更新请求（使用正确的API地址）
+                const response = await fetch(`/utility_room_bill_checkout/update/${checkoutId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        new_electric_reading: newElectricReading,
+                        new_water_reading: newWaterReading
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (!response.ok || result.status !== 'success') {
+                    throw new Error(result.message || `更新失败，状态码: ${response.status}`);
+                }
+                
+                // 显示成功提示
+                showSuccessToast();
+                
+                // 重新加载数据
+                setTimeout(loadData, 1000);
+                
+            } catch (error) {
+                console.error('更新数据失败:', error);
+                showErrorToast(error.message);
+            } finally {
+                // 恢复按钮状态
+                saveButton.disabled = false;
+                saveButton.innerHTML = '<i class="fa fa-save mr-2"></i>保存修改';
+            }
+        }
+        
+
+        
+        // 处理取消
+        function handleCancel() {
+            window.history.back();
+        }
+        
+        // 处理返回
+        function handleBack() {
+            window.location.href = '{{ url_for('utility_index.utility_room_checkout') }}';
+        }
+        
+        // 显示错误信息
+        function showError(message) {
+            document.getElementById('loadingIndicator').style.display = 'none';
+            document.getElementById('errorMessage').style.display = 'block';
+            document.getElementById('errorText').innerHTML = message;
+        }
+        
+        // 显示成功提示
+        function showSuccessToast() {
+            const toast = document.getElementById('successToast');
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3000);
+        }
+        
+        // 显示错误提示
+        function showErrorToast(message) {
+            const toast = document.getElementById('errorToast');
+            document.getElementById('errorToastText').textContent = message;
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3000);
+        }
+        
+        // 格式化日期
+        function formatDate(dateString) {
+            if (!dateString) return '';
+            
+            const date = new Date(dateString);
+            if (isNaN(date.getTime())) return dateString;
+            
+            return `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getDate().toString().padStart(2, '0')}`;
+        }
+    </script>
+</body>
+</html>

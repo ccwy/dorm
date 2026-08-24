@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+   <!--本地化CDN-->
+{% include 'static.html' %}
+
+
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#165DFF',
+                        secondary: '#36CFC9',
+                        accent: '#722ED1',
+                    },
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!--<header class="bg-primary text-white shadow-md">
+        <div class="container mx-auto px-4 py-4 flex justify-between items-center">
+            <h1 class="text-xl font-bold">
+                <a href="{{ url_for('index') }}" class="flex items-center">
+                    <i class="fa fa-arrow-left mr-2"></i>
+                    宿舍管理系统
+                </a>
+            </h1>
+            <div class="text-sm" id="currentTime"></div>
+        </div>
+    </header>-->
+{% include 'header.html' %}
+    <main class="container mx-auto px-4 py-6">
+        <div class="flex items-center mb-6">
+            <button onclick="history.back()" class="text-primary hover:text-primary/80 mr-2">
+                <i class="fa fa-arrow-left"></i>
+            </button>
+            <h2 class="text-2xl font-semibold text-dark">{{ title }}</h2>
+        </div>
+        
+        <!-- 显示flash消息 -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="max-w-3xl mx-auto mb-4">
+                    {% for category, message in messages %}
+                        <div class="p-3 rounded-md {% if category == 'danger' %}bg-red-100 text-red-700{% elif category == 'success' %}bg-green-100 text-green-700{% else %}bg-blue-100 text-blue-700{% endif %}">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+        
+        <div class="bg-white rounded-lg shadow-sm p-6 mx-auto">
+            <form id="addPersonForm" method="POST">
+                <!-- 基本信息区域 -->
+                <div class="mb-8">
+                    <h3 class="text-lg font-medium text-gray-800 mb-4 flex items-center">
+                        <i class="fa fa-user-circle text-primary mr-2"></i>基本信息
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div>
+                            <label for="name" class="block text-sm font-medium text-gray-700 mb-1">姓名 <span class="text-red-500">*</span></label>
+                            <input type="text" id="name" name="name" required
+                                   value="{{ form_data.name if form_data else '' }}"
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                                   <p class="mt-1 text-xs text-gray-500">姓名为必填项</p>
+                        </div>
+                        
+                        
+
+                        <div>
+                            <label for="username" class="block text-sm font-medium text-gray-700 mb-1">用户名</label>
+                            <input type="text" id="username" name="username"
+                                   value="{{ form_data.username if form_data else '' }}"
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                                   <p class="mt-1 text-xs text-gray-500">未输入用户名则默认用户名为用户姓名</p>
+                        </div>
+
+                        <div>
+                            <label for="student_id" class="block text-sm font-medium text-gray-700 mb-1">工号</label>
+                            <input type="text" id="student_id" name="student_id"
+                                   value="{{ form_data.student_id if form_data else '' }}"
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                                   <p class="mt-1 text-xs text-gray-500">未输入工号则默认工号为自动生成</p>
+                        </div>
+
+                        <div>
+                            <label for="gender" class="block text-sm font-medium text-gray-700 mb-1">性别 <span class="text-red-500">*</span></label>
+                            <select id="gender" name="gender" required
+                                    class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                                <option value="">-- 请选择性别 --</option>
+                                <option value="男" {{ 'selected' if form_data and form_data.gender == '男' else 'selected' }}>男</option>
+                                <option value="女" {{ 'selected' if form_data and form_data.gender == '女' else '' }}>女</option>
+                            </select>
+                            <p class="mt-1 text-xs text-gray-500">未选择性别则默认性别为男</p>
+                        </div>
+                        <!-- 用户类别字段 - 核心区域 -->
+                        <div>
+                            <label for="category" class="block text-sm font-medium text-gray-700 mb-1">用户类别</label>
+                            <select id="category" name="category"
+                                    class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                                <option value="">-- 请选择用户类别 --</option>
+                                {% if category_options and category_options|length > 0 %}
+                                    {% for option in category_options %}
+                                        <option value="{{ option.value }}" 
+                                            {{ 'selected' if form_data and form_data.category == option.value else '' }}>
+                                            {{ option.label }}
+                                        </option>
+                                    {% endfor %}
+                                {% endif %}
+                            </select>
+                            <p class="mt-1 text-xs text-gray-500">未选择用户类别则默认用户类别为员工</p>
+                        </div>
+                        
+                       
+
+                        <div>
+                            <label for="marital_status" class="block text-sm font-medium text-gray-700 mb-1">婚姻状态</label>
+                            <select id="marital_status" name="marital_status"
+                                    class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                                <option value="">-- 请选择婚姻状态 --</option>
+                                {% if marital_status_options and marital_status_options|length > 0 %}
+                                    {% for option in marital_status_options %}
+                                        <option value="{{ option.value }}" 
+                                            {{ 'selected' if form_data and form_data.marital_status == option.value else '' }}>
+                                            {{ option.label }}
+                                        </option>
+                                    {% endfor %}
+                                {% endif %}
+                            </select>
+                        </div>
+                        <div>
+                            <label for="phone" class="block text-sm font-medium text-gray-700 mb-1">联系电话</label>
+                            <input type="tel" id="phone" name="phone" maxlength="11"
+                                   value="{{ form_data.phone if form_data else '' }}"
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                        </div>
+                        <div>
+                            <label for="ethnicity" class="block text-sm font-medium text-gray-700 mb-1">民族</label>
+                            <input type="text" id="ethnicity" name="ethnicity"
+                                   value="{{ form_data.ethnicity if form_data else '' }}"
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                        </div>
+                        <div>
+                            <label for="hire_date" class="block text-sm font-medium text-gray-700 mb-1">入职日期</label>
+                            <input type="datetime-local" id="hire_date" name="hire_date"
+                                   value="{{ form_data.hire_date if form_data else '' }}"
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                        </div>
+
+                        
+                         
+                    </div>
+                </div>
+                
+                <!-- 单位信息区域 -->
+                <div class="mb-8">
+                    <h3 class="text-lg font-medium text-gray-800 mb-4 flex items-center">
+                        <i class="fa fa-building text-primary mr-2"></i>单位信息
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                        <div>
+                            <label for="company" class="block text-sm font-medium text-gray-700 mb-1">公司</label>
+                            <input type="text" id="company" name="company"
+                                   value="{{ form_data.company if form_data else '' }}"
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                        </div>
+                        
+                        <div>
+                            <label for="department" class="block text-sm font-medium text-gray-700 mb-1">部门</label>
+                            <input type="text" id="department" name="department"
+                                   value="{{ form_data.department if form_data else '' }}"
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                        </div>
+                        
+                        <div>
+                            <label for="position" class="block text-sm font-medium text-gray-700 mb-1">职位</label>
+                            <input type="text" id="position" name="position"
+                                   value="{{ form_data.position if form_data else '' }}"
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                        </div>
+                        
+
+                        
+                        <div>
+                            <label for="status" class="block text-sm font-medium text-gray-700 mb-1">状态</label>
+                            <select id="status" name="status"
+                                    class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                                <option value="">-- 请选择用户状态 --</option>
+                                {% if status_options and status_options|length > 0 %}
+                                    {% for option in status_options %}
+                                        <option value="{{ option.value }}" 
+                                            {{ 'selected' if form_data and form_data.status == option.value else '' }}>
+                                            {{ option.label }}
+                                        </option>
+                                    {% endfor %}
+                                {% endif %}
+                            </select>
+                            <p class="mt-1 text-xs text-gray-500">未选择用户状态则默认用户状态为在职</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 联系信息区域 -->
+                <div class="mb-8">
+                    <h3 class="text-lg font-medium text-gray-800 mb-4 flex items-center">
+                        <i class="fa fa-phone text-primary mr-2"></i>联系信息
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div>
+                            <label for="id_card" class="block text-sm font-medium text-gray-700 mb-1">身份证号码</label>
+                            <input type="text" id="id_card" name="id_card" maxlength="18"
+                                   value="{{ form_data.id_card if form_data else '' }}"
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                            <p class="mt-1 text-xs text-gray-500">输入18位身份证号码，格式如：110101199001011234</p>
+                        </div>
+                        <div>
+                            <label for="emergency_contact" class="block text-sm font-medium text-gray-700 mb-1">紧急联系人</label>
+                            <input type="text" id="emergency_contact" name="emergency_contact"
+                                   value="{{ form_data.emergency_contact if form_data else '' }}"
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                        </div>
+                        
+                        <div>
+                            <label for="emergency_phone" class="block text-sm font-medium text-gray-700 mb-1">紧急联系人电话</label>
+                            <input type="tel" id="emergency_phone" name="emergency_phone"
+                                   value="{{ form_data.emergency_phone if form_data else '' }}"
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                        </div>
+                        <div>
+                            <label for="id_address" class="block text-sm font-medium text-gray-700 mb-1">身份证地址</label>
+                            <textarea id="id_address" name="id_address" rows="2"
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">{{ form_data.id_address if form_data else '' }}</textarea>
+                        </div>
+                        <div>
+                            <label for="lodging_address" class="block text-sm font-medium text-gray-700 mb-1">外宿地址</label>
+                            <textarea id="lodging_address" name="lodging_address" rows="2"
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">{{ form_data.lodging_address if form_data else '' }}</textarea>
+                        </div>
+                        
+                        
+                    </div>
+                </div>
+                
+                <!-- 账号信息区域 -->
+                <div class="mb-8">
+                    <h3 class="text-lg font-medium text-gray-800 mb-4 flex items-center">
+                        <i class="fa fa-key text-primary mr-2"></i>账号信息
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label for="role" class="block text-sm font-medium text-gray-700 mb-1">角色</label>
+                            <select id="role" name="role"
+                                    class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                                <option value="">-- 请选择用户角色 --</option>
+                                {% if role_options and role_options|length > 0 %}
+                                    {% for option in role_options %}
+                                        <option value="{{ option.value }}" 
+                                            {{ 'selected' if form_data and form_data.role == option.value else '' }}>
+                                            {{ option.label }}
+                                        </option>
+                                    {% endfor %}
+                                {% endif %}
+                            </select>
+                            <p class="mt-1 text-xs text-gray-500">未选择角色则默认角色为普通用户</p>
+                        </div>
+                        
+                        <div>
+                            <label for="password" class="block text-sm font-medium text-gray-700 mb-1">密码</label>
+                            <input type="text" id="password" name="password"
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                            <p class="mt-1 text-xs text-gray-500">不填写则默认密码为123456，建议至少6位</p>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">账号状态</label>
+                            <div class="flex items-center">
+                                <input type="checkbox" id="is_active" name="is_active"
+                                       {{ 'checked' if form_data and form_data.is_active == 'true' else 'checked' if default_is_active else '' }}
+                                       class="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded">
+                                <label for="is_active" class="ml-2 block text-sm text-gray-700">
+                                    是否激活账号（勾选后账号可登录系统）
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">账号限制</label>
+                            <div class="flex items-center">
+                                <input type="checkbox" id="is_banned" name="is_banned"
+                                       {{ 'checked' if form_data and form_data.is_banned == 'true' else 'checked' if default_is_banned else '' }}
+                                       class="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded">
+                                <label for="is_banned" class="ml-2 block text-sm text-gray-700">
+                                    是否允许登录（勾选后账号可登录系统）
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 其他信息 -->
+                <div class="mb-6">
+                    <label for="remarks" class="block text-sm font-medium text-gray-700 mb-1">备注</label>
+                    <textarea id="remarks" name="remarks" rows="3"
+                              class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">{{ form_data.remarks if form_data else '' }}</textarea>
+                </div>
+                
+                <div class="flex justify-end gap-3">
+                    <button type="button" onclick="history.back()" class="px-6 py-2 border border-gray-300 rounded-md hover:bg-gray-50">取消</button>
+                    <button type="submit" name="action" value="continue"
+                            class="px-6 py-2 bg-primary text-white rounded-md hover:bg-primary/90">保存并继续添加</button>
+                    <button type="submit" name="action" value="return"
+                            class="px-6 py-2 bg-green-500 text-white rounded-md hover:bg-green-600">保存并返回列表</button>
+                </div>
+            </form>
+        </div>
+    </main>
+    <!-- 页脚 -->
+    {% include 'footer.html' %}
+    
+
+    <script>
+        
+        
+        // 表单提交处理
+        document.addEventListener('DOMContentLoaded', function() {
+
+            const form = document.getElementById('addPersonForm');
+
+            // 表单提交验证
+            form.addEventListener('submit', function(e) {
+                // 姓名验证
+                const name = document.getElementById('name').value.trim();
+                if (!name) {
+                    alert('请输入姓名');
+                    e.preventDefault();
+                    return false;
+                }
+                
+                // 性别验证
+                const genderValue = document.getElementById('gender').value;
+                if (!genderValue) {
+                    alert('请选择性别');
+                    e.preventDefault();
+                    return false;
+                }
+                
+                // 不验证用户类别（允许为空提交）
+                
+                // 身份证格式验证（如果填写）
+                const idCard = document.getElementById('id_card').value.trim();
+                if (idCard && !/^\d{17}[\dXx]$/.test(idCard)) {
+                    alert('身份证号码格式不正确');
+                    e.preventDefault();
+                    return false;
+                }
+                
+                // 密码验证（如果填写）
+                const password = document.getElementById('password').value;
+                if (password && password.length < 6) {
+                    alert('密码长度不能少于6位');
+                    e.preventDefault();
+                    return false;
+                }
+                
+                return true;
+            });
+            
+       
+
+            // 设置入职时间默认值为当前时间
+            const hireDateInput = document.getElementById('hire_date');
+            if (hireDateInput && !hireDateInput.value) {
+                const now = new Date();
+                // 格式化为YYYY-MM-DDTHH:MM
+                const year = now.getFullYear();
+                const month = String(now.getMonth() + 1).padStart(2, '0');
+                const day = String(now.getDate()).padStart(2, '0');
+                const hours = String(now.getHours()).padStart(2, '0');
+                const minutes = String(now.getMinutes()).padStart(2, '0');
+                const formattedDate = `${year}-${month}-${day}T${hours}:${minutes}`;
+                hireDateInput.value = formattedDate;
+            }
+            
+            
+        });
+    </script>
+</body>
+</html>
+    

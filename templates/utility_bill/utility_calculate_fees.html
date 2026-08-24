@@ -1,0 +1,1367 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+   <!--本地化CDN-->
+{% include 'static.html' %}
+
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3b82f6',
+                        success: '#10b981',
+                        danger: '#ef4444',
+                        warning: '#f59e0b',
+                        info: '#06b6d4',
+                        light: '#f8fafc',
+                        dark: '#1e293b'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .card-shadow {
+                box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            }
+            .transition-custom {
+                transition: all 0.3s ease;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 min-h-screen">
+    <!-- 顶部导航 -->
+
+{% include 'header.html' %}
+    <!-- 主内容区 -->
+    <main class="container mx-auto px-4 py-8">
+        <!-- 页面标题 -->
+        <div class="mb-6 fade-in">
+            <div class="flex flex-col">
+                <!-- 第一行：h2标题 + 按钮（左右分布） -->
+                <div class="mb-6 fade-in">
+                    <div class="flex flex-col">
+                        <!-- 第一行：h2标题 + 按钮（左右分布） -->
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="flex items-center">
+                                <button onclick="history.back()" class="text-gray-600 hover:text-primary transition-all-300 mr-4">
+                                <i class="fa fa-arrow-left"></i>
+                                </button>
+                                <h2 class="text-[clamp(1.5rem,3vw,2rem)] font-bold">{{ title }}</h2>
+                            </div>
+                            
+                            <div class="flex flex-wrap justify-center items-center gap-2">
+                                <button onclick="window.location.href='{{ url_for('utility_index.utility_occupant_manage') }}'" class="bg-primary text-white px-5 py-2 rounded-md flex items-center btn-effect hover:bg-primary/90 transition-colors flex-shrink-0 justify-center">
+                                用户费用
+                                </button>
+                                <button onclick="window.location.href='{{ url_for('utility_index.utility_room_checkout') }}'" class="bg-primary text-white px-5 py-2 rounded-md flex items-center btn-effect hover:bg-primary/90 transition-colors flex-shrink-0 justify-center">
+                                退宿费用
+                                </button>
+                                <button onclick="window.location.href='{{ url_for('utility_user_records_detail.user_records_detail') }}'" class="bg-primary text-white px-5 py-2 rounded-md flex items-center btn-effect hover:bg-primary/90 transition-colors flex-shrink-0 justify-center">
+                                费用查询
+                                </button>
+                                <button onclick="window.location.href='{{ url_for('utility_room_meter.utility_reading_manage') }}'" class="bg-primary text-white px-5 py-2 rounded-md flex items-center btn-effect hover:bg-primary/90 transition-colors flex-shrink-0 justify-center">
+                                抄表记录
+                                </button>
+                            </div>
+                            </div>
+                            
+                            <!-- 第二行：p标签单独显示 -->
+                            <div class="flex items-center">
+                            <p class="text-gray-500">管理各账期的水电费账单记录，支持从抄表记录一键核算</p>
+                            </div>
+                        </div>
+                    </div>
+
+        <!-- 操作区域 -->
+        <div class="bg-white rounded-lg shadow-sm p-6 mb-8">
+            <div class="flex flex-col gap-4">
+                <!-- 第一行：筛选控件 -->
+                <div class="flex flex-wrap items-center gap-4">
+                    <!-- 账期选择 -->
+                    <div class="w-full sm:w-auto">
+                        <label for="billingPeriod" class="block text-sm font-medium text-gray-700 mb-1">选择账期 <span class="text-danger">*</span></label>
+                        <select id="billingPeriod" class="w-full sm:w-56 md:w-64 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary">
+                            <option value="">-- 请选择账期 --</option>
+                            <!-- 账期选项将通过JS动态加载 -->
+                        </select>
+                    </div>
+
+                    <!-- 楼栋筛选 -->
+                    <div class="w-full sm:w-auto">
+                        <label for="buildingFilter" class="block text-sm font-medium text-gray-700 mb-1">选择楼栋</label>
+                        <select id="buildingFilter" class="w-full sm:w-56 md:w-64 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary">
+                            <option value="">-- 所有楼栋 --</option>
+                            <!-- 楼栋选项将通过JS动态加载 -->
+                        </select>
+                    </div>
+
+                    <!-- 房间号搜索 -->
+                    <div class="w-full sm:w-auto">
+                        <label for="roomNumberFilter" class="block text-sm font-medium text-gray-700 mb-1">房间号搜索</label>
+                        <input type="text" id="roomNumberFilter" class="w-full sm:w-56 md:w-64 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary" placeholder="输入房间号">
+                    </div>
+
+                    <!-- 操作按钮 -->
+                    <div class="w-full sm:w-auto flex flex-wrap items-center gap-2 mt-2 sm:mt-0">
+                        <button id="calculateBtn" class="px-3 py-1.5 sm:px-4 sm:py-2 bg-success text-white rounded-md hover:bg-success/90 flex items-center transition-custom text-sm sm:text-base" disabled>
+                            <i class="fa fa-calculator mr-2"></i>核算费用
+                        </button>
+                        <button id="clearPeriodBtn" class="px-3 py-1.5 sm:px-4 sm:py-2 bg-warning text-white rounded-md hover:bg-warning/90 flex items-center transition-custom text-sm sm:text-base" disabled>
+                            <i class="fa fa-eraser mr-2"></i>清空数据
+                        </button>
+                        <button id="deleteAllBtn" class="px-3 py-1.5 sm:px-4 sm:py-2 bg-danger text-white rounded-md hover:bg-danger/90 flex items-center transition-custom text-sm sm:text-base" disabled>
+                            <i class="fa fa-trash mr-2"></i>删除账期
+                        </button>
+                        <!-- 新增：生成空账期按钮 -->
+                        <button id="createEmptyPeriodBtn" class="px-3 py-1.5 sm:px-4 sm:py-2 bg-info text-white rounded-md hover:bg-info/90 flex items-center transition-custom text-sm sm:text-base">
+                            <i class="fa fa-plus mr-2"></i>生成空账期
+                        </button>
+                        
+                        <!-- 新增：刷新按钮 -->
+                        <button id="refreshBtn" class="px-3 py-1.5 sm:px-4 sm:py-2 btn btn-primary flex items-center transition-custom text-sm sm:text-base">
+                            <i class="fa fa-refresh mr-2"></i>刷新
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 账期信息 -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6 hidden" id="periodInfo">
+                <div class="bg-gray-50 p-3 rounded-md">
+                    <div class="text-sm text-gray-500">账期范围</div>
+                    <div class="font-medium" id="periodRange">-</div>
+                </div>
+                <div class="bg-gray-50 p-3 rounded-md">
+                    <div class="text-sm text-gray-500">抄表记录数量</div>
+                    <div class="font-medium" id="meterCount">-</div>
+                </div>
+                <div class="bg-gray-50 p-3 rounded-md">
+                    <div class="text-sm text-gray-500">最近核算时间</div>
+                    <div class="font-medium" id="calculateTime">-</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 数据统计 -->
+        <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-8 hidden" id="statsContainer">
+            <div class="bg-white p-4 rounded-lg shadow-sm">
+                <div class="text-sm text-gray-500">总宿舍数</div>
+                <div class="text-2xl font-bold text-primary" id="totalRooms">0</div>
+            </div>
+            <!-- 新增：单价卡片 -->
+            <div class="bg-white p-4 rounded-lg shadow-sm">
+                <div class="text-sm text-gray-500">单价(元)</div>
+                <div class="text-lg font-bold text-gray-800">
+                    电: <span id="electricityPrice" class="text-warning">0.00</span>/kWh<br>
+                    水: <span id="waterPrice" class="text-info">0.00</span>/m³
+                </div>
+            </div>
+            <div class="bg-white p-4 rounded-lg shadow-sm">
+                <div class="text-sm text-gray-500">总电费(元)</div>
+                <div class="text-2xl font-bold text-warning" id="totalElectricity">0.00</div>
+            </div>
+            <div class="bg-white p-4 rounded-lg shadow-sm">
+                <div class="text-sm text-gray-500">总水费(元)</div>
+                <div class="text-2xl font-bold text-info" id="totalWater">0.00</div>
+            </div>
+            <div class="bg-white p-4 rounded-lg shadow-sm">
+                <div class="text-sm text-gray-500">总费用(元)</div>
+                <div class="text-2xl font-bold text-success" id="totalAmount">0.00</div>
+            </div>
+        </div>
+
+        <!-- 表格区域 -->
+        <div class="bg-white rounded-lg shadow-sm overflow-hidden">
+            <div class="flex justify-between items-center p-6 border-b border-gray-200">
+                <h3 class="text-lg font-medium">账单记录列表</h3>
+                <div class="flex items-center">
+                    <label for="perPage" class="text-sm text-gray-500 mr-2">每页记录数:</label>
+                    <select id="perPage" class="px-2 py-1 border border-gray-300 rounded-md text-sm">
+                        <option value="10">10</option>
+                        <option value="20" selected>20</option>
+                        <option value="50">50</option>
+                        <option value="100">100</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- 加载状态 -->
+            <div id="loadingState" class="py-16 text-center hidden">
+                <div class="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary"></div>
+                <p class="mt-4 text-gray-500">正在加载数据...</p>
+            </div>
+
+            <!-- 空状态 -->
+            <div id="emptyState" class="py-16 text-center">
+                <div class="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mx-auto">
+                    <i class="fa fa-file-text-o text-2xl text-gray-500"></i>
+                </div>
+                <h3 class="text-lg font-medium text-gray-900 mt-4">暂无账单记录</h3>
+                <p class="text-gray-500 mt-2 max-w-md mx-auto">请选择账期并加载或核算账单记录</p>
+            </div>
+
+            <!-- 表格 -->
+            <div id="tableContainer" class="overflow-x-auto hidden">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                <i class="fa fa-chevron-down cursor-pointer mr-2" id="toggleAllDetails"></i>序号
+                            </th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden">ID</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">宿舍</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">电实际用量</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider fee-meter-reduction-column">电减免用量</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider fee-meter-reduction-column">电计费用量</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">水实际用量</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider fee-meter-reduction-column">水减免用量</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider fee-meter-reduction-column">水计费用量</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">电费(元)</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">水费(元)</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">总费用(元)</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider fee-room-fee-column">减免费用(元)</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">退宿费用(元)</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">实际总费用(元)</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">状态</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="recordsTableBody" class="bg-white divide-y divide-gray-200">
+                        <!-- 表格内容将通过JS动态填充 -->
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- 分页 -->
+            <div id="pagination" class="px-6 py-4 border-t border-gray-200 flex flex-col sm:flex-row justify-between items-center hidden">
+                <div class="text-sm text-gray-500 mb-2 sm:mb-0">
+                    显示 <span id="startRecord">0</span> 到 <span id="endRecord">0</span> 条，共 <span id="totalRecords">0</span> 条
+                </div>
+                <div class="flex items-center space-x-4 w-full sm:w-auto">
+                    <div class="text-sm text-gray-500">
+                        第 <span id="currentPageDisplay">1</span> 页，共 <span id="totalPagesDisplay">0</span> 页
+                    </div>
+                    <div class="flex space-x-2">
+                        <button id="prevPage" class="px-3 py-1 border border-gray-300 rounded-md text-sm hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                            上一页
+                        </button>
+                        <button id="nextPage" class="px-3 py-1 border border-gray-300 rounded-md text-sm hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                            下一页
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- 确认操作模态框 -->
+    <div id="confirmModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-lg p-6 w-full max-w-md">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-semibold text-gray-900" id="modalTitle">确认操作</h3>
+                <button id="closeModal" class="text-gray-500 hover:text-gray-700">
+                    <i class="fa fa-times"></i>
+                </button>
+            </div>
+            <p class="text-gray-600 mb-6" id="modalMessage">确定要执行此操作吗？</p>
+            <div class="flex justify-end space-x-3">
+                <button id="cancelActionBtn" class="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 transition-custom">
+                    取消
+                </button>
+                <button id="confirmActionBtn" class="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90 transition-custom">
+                    确认
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 新增：生成空账期模态框 -->
+    <div id="createPeriodModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-lg p-6 w-full max-w-md">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-semibold text-gray-900">生成空账期</h3>
+                <button id="closeCreatePeriodModal" class="text-gray-500 hover:text-gray-700">
+                    <i class="fa fa-times"></i>
+                </button>
+            </div>
+            <div class="mb-4">
+                <label for="newBillingPeriod" class="block text-sm font-medium text-gray-700 mb-1">选择账期 <span class="text-danger">*</span></label>
+                <input type="month" id="newBillingPeriod" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary">
+            </div>
+            <div class="flex justify-end space-x-3">
+                <button id="cancelCreatePeriodBtn" class="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 transition-custom">
+                    取消
+                </button>
+                <button id="confirmCreatePeriodBtn" class="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90 transition-custom">
+                    确认生成
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 通知提示 -->
+    <div id="toast" class="fixed bottom-4 right-4 px-6 py-3 rounded-md shadow-lg transform transition-all duration-300 translate-y-20 opacity-0 z-50 flex items-center">
+        <i id="toastIcon" class="mr-2 text-xl"></i>
+        <span id="toastMessage"></span>
+    </div>
+    <!-- 页脚 -->
+    {% include 'footer.html' %}
+    
+    <script>
+        // 全局变量
+        let currentBillingPeriod = '';
+        let currentBuilding = '';
+        let currentPage = 1;
+        let perPage = 20;
+        let totalRecords = 0;
+        let recordsData = [];
+        let actionType = '';
+        // 新增：系统配置变量
+        let showMeterReduction = true; // 是否显示用量减免相关列
+        let showRoomFeeReduction = true; // 是否显示金额减免相关列
+        // 新增：房间信息缓存，避免重复请求
+        let roomInfoCache = new Map();
+
+        // 防抖函数
+        function debounce(func, wait) {
+            let timeout;
+            return function(...args) {
+                clearTimeout(timeout);
+                timeout = setTimeout(() => func.apply(this, args), wait);
+            };
+        }
+
+        // 房间号搜索处理函数
+        const handleRoomNumberSearch = debounce(() => {
+            currentPage = 1; // 搜索时重置到第一页
+            loadRecords();
+        }, 500);
+
+        // DOM 元素
+        const billingPeriodSelect = document.getElementById('billingPeriod');
+        const buildingFilter = document.getElementById('buildingFilter');
+        const loadRecordsBtn = document.getElementById('loadRecordsBtn');
+        const calculateBtn = document.getElementById('calculateBtn');
+        const clearPeriodBtn = document.getElementById('clearPeriodBtn');
+        const deleteAllBtn = document.getElementById('deleteAllBtn');
+        // 新增：生成空账期按钮
+        const createEmptyPeriodBtn = document.getElementById('createEmptyPeriodBtn');
+        const periodInfo = document.getElementById('periodInfo');
+        const periodRange = document.getElementById('periodRange');
+        const meterCount = document.getElementById('meterCount');
+        const calculateTime = document.getElementById('calculateTime');
+        const statsContainer = document.getElementById('statsContainer');
+        const totalRooms = document.getElementById('totalRooms');
+        // 新增：单价显示元素
+        const electricityPrice = document.getElementById('electricityPrice');
+        const waterPrice = document.getElementById('waterPrice');
+        const totalElectricity = document.getElementById('totalElectricity');
+        const totalWater = document.getElementById('totalWater');
+        const totalAmount = document.getElementById('totalAmount');
+        const loadingState = document.getElementById('loadingState');
+        const emptyState = document.getElementById('emptyState');
+        const tableContainer = document.getElementById('tableContainer');
+        const recordsTableBody = document.getElementById('recordsTableBody');
+        const pagination = document.getElementById('pagination');
+        const startRecord = document.getElementById('startRecord');
+        const endRecord = document.getElementById('endRecord');
+        const totalRecordsEl = document.getElementById('totalRecords');
+        const prevPageBtn = document.getElementById('prevPage');
+        const nextPageBtn = document.getElementById('nextPage');
+        const perPageSelect = document.getElementById('perPage');
+        const toggleAllDetails = document.getElementById('toggleAllDetails');
+        
+        // 模态框元素
+        const confirmModal = document.getElementById('confirmModal');
+        const closeModal = document.getElementById('closeModal');
+        const cancelActionBtn = document.getElementById('cancelActionBtn');
+        const confirmActionBtn = document.getElementById('confirmActionBtn');
+        const modalTitle = document.getElementById('modalTitle');
+        const modalMessage = document.getElementById('modalMessage');
+        
+        // 新增：生成空账期模态框元素
+        const createPeriodModal = document.getElementById('createPeriodModal');
+        const closeCreatePeriodModal = document.getElementById('closeCreatePeriodModal');
+        const cancelCreatePeriodBtn = document.getElementById('cancelCreatePeriodBtn');
+        const confirmCreatePeriodBtn = document.getElementById('confirmCreatePeriodBtn');
+        const newBillingPeriodInput = document.getElementById('newBillingPeriod');
+        
+        // 通知元素
+        const toast = document.getElementById('toast');
+        const toastIcon = document.getElementById('toastIcon');
+        const toastMessage = document.getElementById('toastMessage');
+
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            // 先获取系统配置，再初始化页面
+            loadSystemConfigs().then(() => {
+                initPage();
+                bindEvents();
+                // 根据配置更新表格列显示状态
+                updateTableColumnsVisibility();
+            });
+        });
+
+        // 加载系统配置
+        async function loadSystemConfigs() {
+            try {
+                // 获取用量减免配置
+                const meterReductionResponse = await fetch('/system/api/by_configs_key/FEE_METER_reduction');
+                if (meterReductionResponse.ok) {
+                    const meterReductionData = await meterReductionResponse.json();
+                    if (meterReductionData.success && meterReductionData.data) {
+                        // 转换为布尔值
+                        showMeterReduction = meterReductionData.data.value === 'True' || 
+                                            meterReductionData.data.value === true;
+                    }
+                }
+                
+                // 获取金额减免配置
+                const roomFeeResponse = await fetch('/system/api/by_configs_key/FEE_ROOM_FEE');
+                if (roomFeeResponse.ok) {
+                    const roomFeeData = await roomFeeResponse.json();
+                    if (roomFeeData.success && roomFeeData.data) {
+                        // 转换为布尔值
+                        showRoomFeeReduction = roomFeeData.data.value === 'True' || 
+                                              roomFeeData.data.value === true;
+                    }
+                }
+            } catch (error) {
+                console.error('加载系统配置失败:', error);
+                // 配置加载失败时使用默认值
+                showMeterReduction = true;
+                showRoomFeeReduction = true;
+            }
+        }
+
+        // 根据配置更新表格列显示状态
+        function updateTableColumnsVisibility() {
+            // 处理用量减免相关列
+            const meterReductionColumns = document.querySelectorAll('.fee-meter-reduction-column');
+            meterReductionColumns.forEach(column => {
+                column.style.display = showMeterReduction ? '' : 'none';
+            });
+            
+            // 处理金额减免相关列
+            const roomFeeColumns = document.querySelectorAll('.fee-room-fee-column');
+            roomFeeColumns.forEach(column => {
+                column.style.display = showRoomFeeReduction ? '' : 'none';
+            });
+        }
+
+        // 初始化页面
+        function initPage() {
+            loadBillingPeriods();
+            loadBuildings();  // 加载楼栋列表
+            // 设置默认账期为当前月份
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            newBillingPeriodInput.value = `${year}-${month}`;
+        }
+
+        // 加载楼栋列表
+        async function loadBuildings() {
+            try {
+                // 直接调用楼栋API接口获取楼栋数据
+                const response = await fetch('/api/rooms/buildings');
+                if (!response.ok) throw new Error('加载楼栋列表失败');
+                
+                const result = await response.json();
+                if (!result.success || !result.data) throw new Error(result.error || '加载楼栋列表失败');
+                
+                // 获取排序后的楼栋列表
+                const buildings = result.data.sort();
+                
+                // 清空现有选项（保留第一个空选项）
+                while (buildingFilter.options.length > 1) {
+                    buildingFilter.remove(1);
+                }
+                
+                // 添加楼栋选项
+                buildings.forEach(building => {
+                    const option = document.createElement('option');
+                    option.value = building;
+                    option.textContent = building;
+                    buildingFilter.appendChild(option);
+                });
+            } catch (error) {
+                showToast('加载楼栋列表失败: ' + error.message, 'error');
+                console.error('加载楼栋列表失败:', error);
+            }
+        }
+
+        // 绑定事件
+        function bindEvents() {
+            // 账期选择变化
+            billingPeriodSelect.addEventListener('change', (e) => {
+                currentBillingPeriod = e.target.value;
+                currentPage = 1;  // 重置为第一页
+                updateActionButtons();
+                loadRecords();  // 自动加载数据
+            });
+
+            // 楼栋选择变化
+            buildingFilter.addEventListener('change', (e) => {
+                currentBuilding = e.target.value;
+                currentPage = 1;  // 重置为第一页
+                if (currentBillingPeriod) {
+                    loadRecords();
+                }
+            });
+
+            // 房间号搜索
+            const roomNumberFilter = document.getElementById('roomNumberFilter');
+            if (roomNumberFilter) {
+                // 移除input事件监听，避免自动搜索
+                // 只保留回车键搜索支持
+                roomNumberFilter.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault(); // 阻止默认行为
+                        currentPage = 1; // 搜索时重置到第一页
+                        loadRecords(); // 直接调用加载记录函数
+                    }
+                });
+            }
+
+            // 一键核算按钮
+            calculateBtn.addEventListener('click', () => {
+                if (!currentBillingPeriod) return;
+                
+                actionType = 'calculate';
+                modalTitle.textContent = '确认核算费用';
+                modalMessage.textContent = `确定要根据${currentBillingPeriod}的抄表记录更新主表数据吗？
+这将：
+1. 从抄表记录中提取首尾读数
+2. 自动计算各房间的水电用量和费用
+3. 更新现有主表记录（不会创建新记录）`;
+                confirmModal.classList.remove('hidden');
+            });
+
+            // 清空当期数据按钮事件
+            clearPeriodBtn.addEventListener('click', () => {
+                if (!currentBillingPeriod) return;
+                
+                actionType = 'clearPeriod';
+                modalTitle.textContent = '确认清空当期数据';
+                modalMessage.textContent = `确定要清空${currentBillingPeriod}账期的主表数据吗？
+此操作将：
+1. 保留主表记录，但清除所有抄表读数信息
+2. 重置所有费用核算数据（电费、水费、总费用等）
+3. 将状态重置为"待核算"
+4. 不会删除主表记录本身，也不会影响子表抄表记录`;
+                confirmModal.classList.remove('hidden');
+            });
+
+            // 删除所有记录按钮
+            deleteAllBtn.addEventListener('click', () => {
+                if (!currentBillingPeriod) return;
+                
+                actionType = 'deleteAll';
+                modalTitle.textContent = '确认删除整期账单';
+                modalMessage.textContent = `确定要删除${currentBillingPeriod}账期的所有账单记录吗？
+此操作将删除该账期的所有记录，包括主表和关联的抄表记录，且不可撤销，请谨慎操作。`;
+                confirmModal.classList.remove('hidden');
+            });
+
+            // 新增：生成空账期按钮事件
+            createEmptyPeriodBtn.addEventListener('click', () => {
+                createPeriodModal.classList.remove('hidden');
+            });
+
+            // 新增：刷新按钮事件 - 执行页面整体刷新
+            const refreshBtn = document.getElementById('refreshBtn');
+            if (refreshBtn) {
+                refreshBtn.addEventListener('click', () => {
+                    // 显示加载状态
+                    showLoading('正在刷新页面...');
+                    // 延迟一小段时间后执行页面刷新，让用户看到加载提示
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 300);
+                });
+            }
+
+            // 新增：生成空账期模态框关闭按钮
+            closeCreatePeriodModal.addEventListener('click', () => {
+                createPeriodModal.classList.add('hidden');
+            });
+
+            // 新增：生成空账期模态框取消按钮
+            cancelCreatePeriodBtn.addEventListener('click', () => {
+                createPeriodModal.classList.add('hidden');
+            });
+
+            // 新增：生成空账期模态框确认按钮
+            confirmCreatePeriodBtn.addEventListener('click', () => {
+                const newPeriod = newBillingPeriodInput.value;
+                if (!newPeriod) {
+                    showToast('请选择账期', 'warning');
+                    return;
+                }
+                createPeriodModal.classList.add('hidden');
+                createEmptyPeriod(newPeriod);
+            });
+
+            // 分页相关
+            perPageSelect.addEventListener('change', (e) => {
+                perPage = parseInt(e.target.value);
+                currentPage = 1;
+                loadRecords();
+            });
+
+            prevPageBtn.addEventListener('click', () => {
+                if (currentPage > 1) {
+                    currentPage--;
+                    loadRecords();
+                }
+            });
+
+            nextPageBtn.addEventListener('click', () => {
+                if (currentPage < Math.ceil(totalRecords / perPage)) {
+                    currentPage++;
+                    loadRecords();
+                }
+            });
+
+            // 展开/折叠所有记录详情
+            toggleAllDetails.addEventListener('click', toggleAllRecordDetails);
+
+            // 模态框相关
+            closeModal.addEventListener('click', () => {
+                confirmModal.classList.add('hidden');
+                actionType = '';
+            });
+
+            cancelActionBtn.addEventListener('click', () => {
+                confirmModal.classList.add('hidden');
+                actionType = '';
+            });
+
+            confirmActionBtn.addEventListener('click', executeConfirmedAction);
+        }
+
+        // 执行确认的操作
+        async function executeConfirmedAction() {
+            confirmModal.classList.add('hidden');
+            
+            if (actionType === 'calculate') {
+                await calculateBill();
+            } else if (actionType === 'clearPeriod') {
+                await clearPeriodData(currentBillingPeriod);
+            } else if (actionType === 'deleteAll') {
+                await deleteAllRecords(currentBillingPeriod);
+            } else if (actionType === 'deleteSingle') {
+                const recordId = parseInt(confirmActionBtn.getAttribute('data-delete-id'));
+                deleteSingleRecord(recordId);
+            }
+            
+            actionType = '';
+        }
+
+        // 新增：生成空账期
+        async function createEmptyPeriod(period) {
+            if (!period) {
+                showToast('请选择账期', 'warning');
+                return;
+            }
+
+            showLoading('正在生成空账期...');
+
+            try {
+                const response = await fetch(`/utility_room_bill_records_bp/create_empty_period`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ 
+                        billing_period: period
+                    })
+                });
+
+                // 处理响应
+                let result;
+                try {
+                    result = await response.json();
+                } catch (e) {
+                    throw new Error(`服务器返回无效响应: ${await response.text()}`);
+                }
+                
+                if (!response.ok || !result.success) {
+                    throw new Error(result.error || '生成空账期失败');
+                }
+                
+                showToast(`成功生成${period}空账期，共创建${result.created_count}条记录`, 'success');
+                // 重新加载账期列表和数据
+                loadBillingPeriods();
+                // 如果当前没有选中账期，自动选中新生成的账期并加载
+                if (!currentBillingPeriod) {
+                    billingPeriodSelect.value = period;
+                    currentBillingPeriod = period;
+                    updateActionButtons();
+                    loadRecords();
+                }
+            } catch (error) {
+                console.error('生成空账期失败:', error);
+                showToast('生成失败: ' + (error.message || '网络错误'), 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        // 更新操作按钮状态
+        function updateActionButtons() {
+            const hasPeriod = !!currentBillingPeriod;
+            calculateBtn.disabled = !hasPeriod;
+            clearPeriodBtn.disabled = !hasPeriod;
+            deleteAllBtn.disabled = !hasPeriod;
+        }
+
+        // 加载账期列表
+        async function loadBillingPeriods() {
+            try {
+                const response = await fetch('/utility_room_bill_records_bp/periods');
+                if (!response.ok) throw new Error('加载账期失败');
+                
+                const result = await response.json();
+                if (!result.success) throw new Error(result.error || '加载账期失败');
+                
+                const periods = result.periods;
+                
+                // 清空现有选项（保留第一个空选项）
+                while (billingPeriodSelect.options.length > 1) {
+                    billingPeriodSelect.remove(1);
+                }
+                
+                // 添加账期选项
+                periods.forEach(period => {
+                    const option = document.createElement('option');
+                    option.value = period;
+                    option.textContent = period;
+                    billingPeriodSelect.appendChild(option);
+                });
+            } catch (error) {
+                showToast('加载账期失败: ' + error.message, 'error');
+                console.error('加载账期失败:', error);
+            }
+        }
+
+        // 新增：通过API获取房间详情
+        async function getRoomDetails(roomId) {
+            // 先检查缓存
+            if (roomInfoCache.has(roomId)) {
+                return roomInfoCache.get(roomId);
+            }
+            
+            try {
+                const response = await fetch(`/api/rooms/${roomId}`);
+                if (!response.ok) {
+                    throw new Error(`获取房间信息失败 (HTTP ${response.status})`);
+                }
+                
+                const result = await response.json();
+                if (!result.success || !result.data || !result.data.room) {
+                    throw new Error(result.message || '未找到房间房间信息');
+                }
+                
+                // 缓存房间信息
+                const roomInfo = result.data.room;
+                roomInfoCache.set(roomId, roomInfo);
+                
+                return roomInfo;
+            } catch (error) {
+                console.error(`获取房间ID为${roomId}的信息失败:`, error);
+                // 返回默认信息，避免影响整体显示
+                return {
+                    building: '未知',
+                    room_number: '未知',
+                    full_identifier: `未知房间(${roomId})`
+                };
+            }
+        }
+
+        // 加载账单记录
+        async function loadRecords() {
+            if (!currentBillingPeriod) {
+                showToast('请先选择账期', 'warning');
+                return;
+            }
+
+            showLoading();
+
+            try {
+                // 构建查询参数
+                let queryParams = `billing_period=${currentBillingPeriod}&page=${currentPage}&per_page=${perPage}`;
+                if (currentBuilding) {
+                    queryParams += `&building=${currentBuilding}`;
+                }
+                // 添加房间号搜索参数
+                const roomNumberFilter = document.getElementById('roomNumberFilter');
+                if (roomNumberFilter && roomNumberFilter.value.trim()) {
+                    queryParams += `&room_number=${encodeURIComponent(roomNumberFilter.value.trim())}`;
+                }
+                
+                // 并行加载记录和账期信息
+                const [recordsResponse, periodInfoResponse] = await Promise.all([
+                    fetch(`/utility_room_bill_records_bp/search?${queryParams}`),
+                    fetch(`/utility_room_bill_records_bp/period-info/${currentBillingPeriod}`)
+                ]);
+
+                if (!recordsResponse.ok) throw new Error('加载记录失败');
+                if (!periodInfoResponse.ok) throw new Error('加载账期信息失败');
+                
+                const recordsResult = await recordsResponse.json();
+                const periodInfoResult = await periodInfoResponse.json();
+                
+                if (!recordsResult.success) throw new Error(recordsResult.error || '加载记录失败');
+                if (!periodInfoResult.success) throw new Error(periodInfoResult.error || '加载账期信息失败');
+                
+                // 更新数据（包含子表抄表记录）
+                recordsData = recordsResult.data;
+                totalRecords = recordsResult.pagination.total;
+                
+                // 预加载房间信息到缓存
+                if (recordsData.length > 0) {
+                    // 收集所有不重复的room_id
+                    const uniqueRoomIds = [...new Set(recordsData.map(record => record.room_id))];
+                    
+                    // 批量获取房间信息
+                    await Promise.all(
+                        uniqueRoomIds.map(roomId => getRoomDetails(roomId))
+                    );
+                }
+                
+                // 更新UI
+                updatePeriodInfo(periodInfoResult.data);
+                updateStats(periodInfoResult.data);
+                renderTable();
+                updatePagination();
+                
+                // 显示表格，隐藏空状态
+                tableContainer.classList.remove('hidden');
+                pagination.classList.remove('hidden');
+                emptyState.classList.add('hidden');
+            } catch (error) {
+                showToast('加载记录失败: ' + error.message, 'error');
+                console.error('加载记录失败:', error);
+                
+                // 显示空状态
+                tableContainer.classList.add('hidden');
+                pagination.classList.add('hidden');
+                emptyState.classList.remove('hidden');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        // 一键核算费用
+        async function calculateBill() {
+            if (!currentBillingPeriod) {
+                showToast('请先选择账期', 'warning');
+                return;
+            }
+
+            showLoading('正在进行费用核算...');
+
+            try {
+                const response = await fetch(`/utility_room_bill_records_bp/fee_bill`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ 
+                        calculate: true,
+                        billing_period: currentBillingPeriod
+                    })
+                });
+
+                // 处理非JSON响应
+                let result;
+                try {
+                    result = await response.json();
+                } catch (e) {
+                    throw new Error(`服务器返回无效响应: ${await response.text()}`);
+                }
+                
+                if (!response.ok || !result.success) {
+                    throw new Error(result.error || '费用核算核算失败');
+                }
+                
+                showToast(`费用核算完成，共更新${result.updated_count}条主表记录`, 'success');
+                loadRecords(); // 重新加载记录
+            } catch (error) {
+                showToast('核算失败: ' + error.message, 'error');
+                console.error('核算失败:', error);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        // 清空当期主表数据（仅清除抄表信息和费用核算信息）
+        async function clearPeriodData(period) {
+            if (!period) {
+                showToast('请先选择账期', 'warning');
+                return;
+            }
+
+            showLoading('正在清空当期数据...');
+            
+            try {
+                // 调用后端后端端清空接口
+                const response = await fetch(`/utility_room_bill_records_bp/clear-period`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        billing_period: period
+                    })
+                });
+
+                // 处理响应
+                let result;
+                try {
+                    result = await response.json();
+                } catch (e) {
+                    throw new Error(`服务器返回无效响应: ${await response.text()}`);
+                }
+                
+                if (!response.ok || !result.success) {
+                    throw new Error(result.error || '清空空数据失败');
+                }
+                
+                showToast(`成功清空${period}账期的主表数据，共处理${result.cleared_count}条记录`, 'success');
+                // 重新加载数据
+                loadRecords();
+            } catch (error) {
+                console.error('清空当期期数据失败:', error);
+                showToast('清空失败: ' + (error.message || '网络错误'), 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        // 按账期删除所有记录 - 与后端batch-delete接口匹配
+        async function deleteAllRecords(period) {
+            if (!period) {
+                showToast('请先选择账期', 'warning');
+                return;
+            }
+
+            // 首先获取当前账期的所有记录ID
+            showLoading('正在获取记录ID...');
+            
+            try {
+                // 先获取当前账期的所有记录
+                const response = await fetch(`/utility_room_bill_records_bp/search?billing_period=${period}&page=1&per_page=1000`);
+                if (!response.ok) throw new Error('获取记录列表失败');
+                
+                const result = await response.json();
+                if (!result.success) throw new Error(result.error || '获取记录列表失败');
+                
+                const records = result.data;
+                if (records.length === 0) {
+                    hideLoading();
+                    showToast('当前账期没有记录可删除', 'info');
+                    return;
+                }
+                
+                // 提取所有记录ID
+                const recordIds = records.map(record => record.record_id);
+                
+                // 调用批量删除接口
+                showLoading('正在删除记录...');
+                const deleteResponse = await fetch(`/utility_room_bill_records_bp/batch-delete`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        record_ids: recordIds  // 后端需要的参数名是record_ids
+                    })
+                });
+
+                // 处理删除响应
+                let deleteResult;
+                try {
+                    deleteResult = await deleteResponse.json();
+                } catch (e) {
+                    throw new Error(`服务器返回无效响应: ${await deleteResponse.text()}`);
+                }
+                
+                if (!deleteResponse.ok || !deleteResult.success) {
+                    throw new Error(deleteResult.error || '删除失败');
+                }
+                
+                showToast(`成功删除${period}账期的所有记录，共${deleteResult.deleted_ids.length}条`, 'success');
+                // 重新加载数据
+                loadRecords();
+            } catch (error) {
+                console.error('批量删除请求失败:', error);
+                showToast('删除失败: ' + (error.message || '网络错误'), 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        // 单行删除 - 与后端接口匹配
+        function deleteSingleRecord(recordId) {
+            if (!recordId || isNaN(recordId)) {
+                showToast('无效的记录ID', 'warning');
+                return;
+            }
+
+            showLoading('正在删除记录...');
+
+            // 与后端接口匹配：DELETE /utility_room_bill_records_bp/<record_id>
+            fetch(`/utility_room_bill_records_bp/${recordId}`, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    // 尝试解析错误响应
+                    return response.text().then(text => {
+                        try {
+                            const err = JSON.parse(text);
+                            throw new Error(err.error || `删除失败 (HTTP ${response.status})`);
+                        } catch {
+                            throw new Error(`删除失败 (HTTP ${response.status}): ${text.substring(0, 100)}`);
+                        }
+                    });
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.success) {
+                    showToast('删除成功', 'success');
+                    // 重新加载数据确保一致性
+                    loadRecords();
+                } else {
+                    showToast('删除失败: ' + (data.error || '未知错误'), 'error');
+                }
+            })
+            .catch(error => {
+                console.error('删除请求失败:', error);
+                showToast('删除失败: ' + error.message, 'error');
+            })
+            .finally(() => {
+                hideLoading();
+            });
+        }
+
+        // 更新账期信息
+        function updatePeriodInfo(info) {
+            if (!info) return;
+            
+            periodInfo.classList.remove('hidden');
+            periodRange.textContent = `${info.start_date ? new Date(info.start_date).toLocaleDateString() : '-'} 至 ${info.end_date ? new Date(info.end_date).toLocaleDateString() : '-'}`;
+            meterCount.textContent = info.meter_count || 0;
+            calculateTime.textContent = info.generate_time ? new Date(info.generate_time).toLocaleString() : '未核算';
+        }
+
+        // 更新统计信息
+        function updateStats(stats) {
+            if (!stats) return;
+            
+            statsContainer.classList.remove('hidden');
+            totalRooms.textContent = stats.record_count || 0;
+            // 新增：显示单价信息
+            electricityPrice.textContent = (Number(stats.electric_price) || 0).toFixed(2);
+            waterPrice.textContent = (Number(stats.water_price) || 0).toFixed(2);
+            totalElectricity.textContent = (Number(stats.total_electric) || 0).toFixed(2);
+            totalWater.textContent = (Number(stats.total_water) || 0).toFixed(2);
+            totalAmount.textContent = (Number(stats.total_amount) || 0).toFixed(2);
+        }
+
+        // 渲染表格
+        function renderTable() {
+            recordsTableBody.innerHTML = '';
+            
+            if (recordsData.length === 0) {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td colspan="17" class="px-6 py-10 text-center text-gray-500">
+                        没有找到账单记录
+                    </td>
+                `;
+                recordsTableBody.appendChild(row);
+                return;
+            }
+            
+            recordsData.forEach((record, index) => {
+                // 计算序号，考虑分页因素
+                const serialNumber = index + 1 + (currentPage - 1) * perPage;
+                
+                // 获取房间信息
+                const roomInfo = roomInfoCache.get(record.room_id) || {
+                    building: '未知',
+                    room_number: '未知',
+                    full_identifier: `未知房间(${record.room_id})`
+                };
+                
+                // 主记录行
+                const mainRow = document.createElement('tr');
+                mainRow.className = 'hover:bg-gray-50 transition-custom';
+                mainRow.setAttribute('data-record-id', record.record_id);
+                
+                // 状态样式
+                let statusClass = '';
+                let statusText = '';
+                
+                switch (record.status) {
+                    case 'pending':
+                        statusClass = 'bg-yellow-100 text-yellow-800';
+                        statusText = '待核算';
+                        break;
+                    case 'completed':
+                        statusClass = 'bg-green-100 text-green-800';
+                        statusText = '已完成';
+                        break;
+                    case 'processing':
+                        statusClass = 'bg-blue-100 text-blue-800';
+                        statusText = '计算中';
+                        break;
+                    default:
+                        statusClass = 'bg-gray-100 text-gray-800';
+                        statusText = '未知';
+                }
+                
+                // 主记录行内容 - 已按要求修改列结构
+                mainRow.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <i class="fa fa-chevron-right cursor-pointer toggle-details mr-2" data-record-id="${record.record_id}"></i>
+                        <span class="text-sm">${serialNumber}</span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm hidden">${record.record_id}</td>
+                    
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">
+                        <a href="/room/view/${record.room_id}" class="font-medium text-blue-600 hover:underline">
+                        ${roomInfo.building}${roomInfo.room_number}</a>(ID:${record.room_id})
+                        
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">${record.electric_usage !== undefined ? record.electric_usage : '-'}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm fee-meter-reduction-column">${record.electric_reduction !== undefined ? record.electric_reduction : '-'}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm fee-meter-reduction-column">${record.electric_billing_usage !== undefined ? record.electric_billing_usage : '-'}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">${record.water_usage !== undefined ? record.water_usage : '-'}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm fee-meter-reduction-column">${record.water_reduction !== undefined ? record.water_reduction : '-'}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm fee-meter-reduction-column">${record.water_billing_usage !== undefined ? record.water_billing_usage : '-'}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">${(Number(record.billing_electric_fee) || 0).toFixed(2)}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">${(Number(record.billing_water_fee) || 0).toFixed(2)}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">${(Number(record.billing_total_fee) || 0).toFixed(2)}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium fee-room-fee-column">${(Number(record.room_reduction_fee) || 0).toFixed(2)}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">${(Number(record.checked_out_total_fee) || 0).toFixed(2)}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">${(Number(record.actual_total_fee) || 0).toFixed(2)}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="px-2 py-1 text-xs rounded-full ${statusClass}">${statusText}</span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap  text-sm font-medium">
+                        <!-- 新增详情按钮 -->
+                        <a href="{{ url_for('utility_index.utility_room_records_detail') }}?record_id=${record.record_id}" class="text-primary hover:text-blue-700 mr-3">
+                            <i class="fa fa-eye"></i> 详情
+                        </a>
+                        <button class="text-danger hover:text-red-700 delete-single-btn" data-record-id="${record.record_id}">
+                            <i class="fa fa-trash"></i> 删除
+                        </button>
+                    </td>
+                `;
+                
+                recordsTableBody.appendChild(mainRow);
+                
+                // 创建子表数据行（默认隐藏）
+                const subRow = document.createElement('tr');
+                subRow.className = 'bg-gray-50 hidden sub-record-row';
+                subRow.setAttribute('data-parent-id', record.record_id);
+                
+                // 构建抄表记录表格 - 保留详情中的读数信息
+                let meterReadingsHtml = '';
+                if (record.meter_readings && record.meter_readings.length > 0) {
+                    meterReadingsHtml = `
+                    <table class="min-w-full">
+                        <thead>
+                            <tr class="bg-gray-100">
+                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500">抄表日期</th>
+                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500">电表读数</th>
+                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500">水表读数</th>
+                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500">是否换表</th>
+                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500">备注</th>
+                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500">抄表人</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                    `;
+                    
+                    // 构建抄表记录行
+                    record.meter_readings.forEach(reading => {
+                        meterReadingsHtml += `
+                        <tr class="border-b border-gray-200">
+                            <td class="px-4 py-2 text-sm">${reading.reading_date ? new Date(reading.reading_date).toLocaleDateString() : '-'}</td>
+                            <td class="px-4 py-2 text-sm">${reading.electric_reading != null ? reading.electric_reading : '-'}</td>
+                            <td class="px-4 py-2 text-sm">${reading.water_reading != null ? reading.water_reading : '-'}</td>
+                            <td class="px-4 py-2 text-sm">${(reading.water_meter_replaced ? '水表更换' : '') + (reading.electric_meter_replaced ? (reading.water_meter_replaced ? ', ' : '') + '电表更换' : '') || '-'}</td>
+                            <td class="px-4 py-2 text-sm">${(reading.water_notes || '') + (reading.electric_notes ? `, ${reading.electric_notes}` : '') || '-'}</td>
+                            <td class="px-4 py-2 text-sm">${reading.reader || '-'}</td>
+                        </tr>
+                        `;
+                    });
+                    
+                    meterReadingsHtml += `
+                        </tbody>
+                    </table>
+                    `;
+                } else {
+                    meterReadingsHtml = '<p class="text-gray-500 italic px-4 py-2">没有相关的抄表记录</p>';
+                }
+                
+                // 子行内容
+                subRow.innerHTML = `
+                    <td colspan="17" class="px-6 py-4">
+                        <div class="ml-8">
+                            <h4 class="font-medium text-gray-900 mb-2">抄表记录详情</h4>
+                            ${meterReadingsHtml}
+                        </div>
+                    </td>
+                `;
+                
+                recordsTableBody.appendChild(subRow);
+            });
+            
+            // 绑定展开/折叠事件
+            document.querySelectorAll('.toggle-details').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const recordId = e.currentTarget.getAttribute('data-record-id');
+                    toggleRecordDetails(recordId);
+                });
+            });
+            
+            // 绑定单行删除按钮事件
+            document.querySelectorAll('.delete-single-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const recordId = parseInt(this.getAttribute('data-record-id'));
+                    actionType = 'deleteSingle';
+                    modalTitle.textContent = '确认删除';
+                    modalMessage.textContent = `确定要删除ID为${recordId}的账单记录吗？此操作不可撤销。`;
+                    confirmModal.classList.remove('hidden');
+                    // 存储要删除的记录ID
+                    confirmActionBtn.setAttribute('data-delete-id', recordId);
+                });
+            });
+
+            // 确保表格渲染后应用配置的显示状态
+            updateTableColumnsVisibility();
+        }
+
+        // 展开/折叠单条记录详情
+        function toggleRecordDetails(recordId) {
+            const subRow = document.querySelector(`tr[data-parent-id="${recordId}"]`);
+            const icon = document.querySelector(`.toggle-details[data-record-id="${recordId}"]`);
+            
+            if (subRow.classList.contains('hidden')) {
+                subRow.classList.remove('hidden');
+                icon.classList.remove('fa-chevron-right');
+                icon.classList.add('fa-chevron-down');
+            } else {
+                subRow.classList.add('hidden');
+                icon.classList.remove('fa-chevron-down');
+                icon.classList.add('fa-chevron-right');
+            }
+        }
+
+        // 展开/折叠所有记录详情
+        function toggleAllRecordDetails() {
+            const allSubRows = document.querySelectorAll('.sub-record-row');
+            const allIcons = document.querySelectorAll('.toggle-details');
+            const isAnyHidden = document.querySelector('.sub-record-row.hidden') !== null;
+            
+            if (isAnyHidden) {
+                // 展开所有
+                allSubRows.forEach(row => row.classList.remove('hidden'));
+                allIcons.forEach(icon => {
+                    icon.classList.remove('fa-chevron-right');
+                    icon.classList.add('fa-chevron-down');
+                });
+                toggleAllDetails.classList.remove('fa-chevron-down');
+                toggleAllDetails.classList.add('fa-chevron-up');
+            } else {
+                // 折叠所有
+                allSubRows.forEach(row => row.classList.add('hidden'));
+                allIcons.forEach(icon => {
+                    icon.classList.remove('fa-chevron-down');
+                    icon.classList.add('fa-chevron-right');
+                });
+                toggleAllDetails.classList.remove('fa-chevron-up');
+                toggleAllDetails.classList.add('fa-chevron-down');
+            }
+        }
+
+        // 更新分页
+        function updatePagination() {
+            const start = (currentPage - 1) * perPage + 1;
+            const end = Math.min(currentPage * perPage, totalRecords);
+            const totalPages = Math.ceil(totalRecords / perPage);
+            
+            startRecord.textContent = start;
+            endRecord.textContent = end;
+            totalRecordsEl.textContent = totalRecords;
+            currentPageDisplay.textContent = currentPage;
+            totalPagesDisplay.textContent = totalPages;
+            
+            prevPageBtn.disabled = currentPage <= 1;
+            nextPageBtn.disabled = currentPage >= totalPages;
+        }
+
+        // 显示加载状态
+        function showLoading(message = '加载中...') {
+            loadingState.querySelector('p').textContent = message;
+            loadingState.classList.remove('hidden');
+        }
+
+        // 隐藏加载状态
+        function hideLoading() {
+            loadingState.classList.add('hidden');
+        }
+
+        // 显示提示消息
+        function showToast(message, type = 'info') {
+            toastMessage.textContent = message;
+            
+            // 设置图标和样式
+            switch (type) {
+                case 'success':
+                    toastIcon.className = 'fa fa-check-circle text-success mr-2 text-xl';
+                    toast.className = 'fixed bottom-4 right-4 px-6 py-3 bg-success text-white rounded-md shadow-lg transform transition-all duration-300 translate-y-0 opacity-100 z-50 flex items-center';
+                    break;
+                case 'error':
+                    toastIcon.className = 'fa fa-exclamation-circle text-danger mr-2 text-xl';
+                    toast.className = 'fixed bottom-4 right-4 px-6 py-3 bg-danger text-white rounded-md shadow-lg transform transition-all duration-300 translate-y-0 opacity-100 z-50 flex items-center';
+                    break;
+                case 'warning':
+                    toastIcon.className = 'fa fa-exclamation-triangle text-warning mr-2 text-xl';
+                    toast.className = 'fixed bottom-4 right-4 px-6 py-3 bg-warning text-white rounded-md shadow-lg transform transition-all duration-300 translate-y-0 opacity-100 z-50 flex items-center';
+                    break;
+                default:
+                    toastIcon.className = 'fa fa-info-circle text-primary mr-2 text-xl';
+                    toast.className = 'fixed bottom-4 right-4 px-6 py-3 bg-primary text-white rounded-md shadow-lg transform transition-all duration-300 translate-y-0 opacity-100 z-50 flex items-center';
+            }
+            
+            // 3秒后隐藏
+            setTimeout(() => {
+                toast.className = 'fixed bottom-4 right-4 px-6 py-3 rounded-md shadow-lg transform transition-all duration-300 translate-y-20 opacity-0 z-50 flex items-center';
+            }, 3000);
+        }
+    </script>
+</body>
+</html>

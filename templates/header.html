@@ -1,0 +1,261 @@
+<header class="bg-white shadow-sm sticky top-0 z-50">
+  <div class="container mx-auto px-4 py-3 flex items-center justify-between">
+    <div class="flex items-center space-x-2">
+      <a href="{{ url_for('index') }}" class="flex items-center">
+        <i class="fa fa-building-o text-primary text-2xl"></i>
+      </a>
+      <a href="{{ url_for('index') }}" class="flex items-center">
+      <h1 class="text-xl font-semibold text-primary">{{ system_title }}</h1></a>
+    </div>
+    
+    <div class="flex items-center space-x-6">
+      <!-- 汉堡菜单按钮 - 仅在小屏幕显示 -->
+      <button id="mobile-menu-btn" class="md:hidden text-gray-700 hover:text-primary transition-colors">
+        <i class="fa fa-bars text-xl"></i>
+      </button>
+      
+      <!-- 导航菜单 -->
+      <nav id="main-nav" class="hidden md:flex items-center space-x-6">
+        <a href="{{ url_for('index') }}" 
+           class="nav-item nav-home text-gray-700 hover:text-primary transition-colors py-1 border-b-2 {% if request.endpoint == 'index' %}border-primary text-primary{% else %}border-transparent{% endif %}">
+           <i class="fa fa-home mr-2"></i>首页
+        </a>
+        {% if current_user.is_admin() %}
+        {% if get_config_value('FEATURE_USER_MANAGE_ENABLED', True) %}
+        <a href="{{ url_for('user.manage') }}" 
+           class="nav-item nav-user text-gray-700 hover:text-primary transition-colors py-1 border-b-2 {% if request.endpoint == 'user.manage' %}border-primary text-primary{% else %}border-transparent{% endif %}">
+           <i class="fa fa-users mr-2"></i>用户
+        </a>
+        {% endif %}
+        <!-- 隐藏房间管理菜单
+        <a href="{{ url_for('room.manage') }}" 
+           class="nav-item nav-room text-gray-700 hover:text-primary transition-colors py-1 border-b-2 {% if request.endpoint == 'room.manage' %}border-primary text-primary{% else %}border-transparent{% endif %}">
+           <i class="fa fa-bed mr-2"></i>房间
+        </a>-->
+        {% if get_config_value('FEATURE_DORM_MANAGE_ENABLED', True) %}
+        <a href="{{ url_for('dorm.manage') }}" 
+           class="nav-item nav-dorm text-gray-700 hover:text-primary transition-colors py-1 border-b-2 {% if request.endpoint == 'dorm.manage' %}border-primary text-primary{% else %}border-transparent{% endif %}">
+           <i class="fa fa-building mr-2"></i>宿舍
+        </a>
+        {% endif %}
+        <!--水电费核算菜单
+        <a href="{{ url_for('utility_index.utility_index') }}" 
+           class="nav-item nav-utility text-gray-700 hover:text-primary transition-colors py-1 border-b-2 {% if request.endpoint == 'utility_index.utility_index' %}border-primary text-primary{% else %}border-transparent{% endif %}">
+           <i class="fa fa-bolt mr-2"></i>水电
+        </a>-->
+        <!-- 新增：补贴管理导航项 
+        <a href="{{ url_for('fee_subsidy.fee_subsidy_index') }}" 
+           class="nav-item nav-subsidy text-gray-700 hover:text-primary transition-colors py-1 border-b-2 {% if request.endpoint == 'fee_subsidy.fee_subsidy_index' %}border-primary text-primary{% else %}border-transparent{% endif %}">
+           <i class="fa fa-gift mr-2"></i>补贴
+        </a>-->
+        <!-- 留言菜单 
+        <a href="{{ url_for('ticket_admin.admin_ticket_list') }}" 
+           class="nav-item nav-ticket text-gray-700 hover:text-primary transition-colors py-1 border-b-2 {% if request.endpoint == 'ticket_admin.admin_ticket_list' or request.endpoint == 'ticket_admin.ticket_detail' %}border-primary text-primary{% else %}border-transparent{% endif %}">
+           <i class="fa fa-ticket mr-2"></i>留言
+        </a>-->
+        <!-- 文件共享导航项 
+        <a href="{{ url_for('file_sharing.file_sharing') }}" 
+           class="nav-item nav-file text-gray-700 hover:text-primary transition-colors py-1 border-b-2 {% if request.endpoint == 'file_sharing.file_sharing' %}border-primary text-primary{% else %}border-transparent{% endif %}">
+           <i class="fa fa-folder-open mr-2"></i>文件
+        </a>-->
+
+        <a href="{{ url_for('other.index') }}" 
+           class="nav-item nav-other text-gray-700 hover:text-primary transition-colors py-1 border-b-2 {% if request.endpoint == 'other.index' %}border-primary text-primary{% else %}border-transparent{% endif %}">
+           <i class="fa fa-th-large mr-2"></i>其他
+        </a>
+        <a href="{{ url_for('system_settings.settings') }}" 
+           class="nav-item nav-settings text-gray-700 hover:text-primary transition-colors py-1 border-b-2 {% if request.endpoint == 'system_settings.settings' %}border-primary text-primary{% else %}border-transparent{% endif %}">
+           <i class="fa fa-cog mr-2"></i>设置
+        </a>
+        {% if get_config_value('FEATURE_SYSTEM_LOG_ENABLED', True) %}
+        <a href="{{ url_for('log.log') }}" 
+           class="nav-item nav-log text-gray-700 hover:text-primary transition-colors py-1 border-b-2 {% if request.endpoint == 'log.log' %}border-primary text-primary{% else %}border-transparent{% endif %}">
+           <i class="fa fa-file-text-o mr-2"></i>日志
+        </a>
+        {% endif %}
+        {% else %}        
+        <a href="{{ url_for('other.index') }}" 
+           class="nav-item nav-other text-gray-700 hover:text-primary transition-colors py-1 border-b-2 {% if request.endpoint == 'other.index' %}border-primary text-primary{% else %}border-transparent{% endif %}">
+           <i class="fa fa-th-large mr-2"></i>其他
+        </a>
+        {% endif %}
+
+      </nav>
+      
+      <div class="flex items-center space-x-3">
+          <button class="text-gray-700 hover:text-primary transition-colors">
+           <!-- 隐藏<i class="fa fa-bell-o"></i>-->
+          </button>
+          <div class="flex items-center space-x-2">
+            <a href="{{ url_for('user.user_info') }}" class="flex items-center space-x-2 hover:opacity-80 transition-opacity">
+              <img src="{{ url_for('static', filename='images/admin.jpg') }}" alt="用户头像" class="w-8 h-8 rounded-full object-cover">
+              <span class="hidden md:inline text-sm font-medium">{{ current_user.username }}</span>
+            </a>
+            <a href="{{ url_for('login.logout') }}" class="text-gray-500 hover:text-gray-700">
+              <i class="fa fa-sign-out"></i>
+            </a>
+          </div>
+        </div>
+    </div>
+  </div>
+</header>
+
+<style>
+/* 修复核心：默认文字颜色与背景形成足够对比度 */
+nav a.text-gray-700 {
+  color: #374151 !important; /* 深灰色，与白色背景形成明显对比 */
+}
+
+/* 活跃状态样式 */
+nav a.border-primary {
+  border-color: #3b82f6 !important; /* 蓝色边框 */
+  font-weight: 500;
+}
+
+nav a.text-primary {
+  color: #3b82f6 !important; /* 蓝色文字 */
+}
+
+/* 图标与文字间距 */
+nav a i {
+  width: 20px; /* 固定图标宽度，保持对齐 */
+}
+
+/* 菜单项图标颜色 */
+  /* 首页图标 - 蓝色 */
+  .nav-item.nav-home i {
+    color: #3b82f6;
+  }
+  
+  /* 用户图标 - 绿色 */
+  .nav-item.nav-user i {
+    color: #22c55e;
+  }
+  
+  /* 房间图标 - 紫色 */
+  .nav-item.nav-room i {
+    color: #a855f7;
+  }
+  
+  /* 宿舍图标 - 橙色 */
+  .nav-item.nav-dorm i {
+    color: #f97316;
+  }
+  
+  /* 水电图标 - 黄色 */
+  .nav-item.nav-utility i {
+    color: #eab308;
+  }
+  
+  /* 文件图标 - 青色 */
+  .nav-item.nav-file i {
+    color: #06b6d4;
+  }
+  
+  /* 其他功能图标 - 蓝紫色 */
+  .nav-item.nav-other i {
+    color: #8b5cf6;
+  }
+  
+  /* 设置图标 - 灰色 */
+  .nav-item.nav-settings i {
+    color: #64748b;
+  }
+  
+  /* 日志图标 - 红色 */
+  .nav-item.nav-log i {
+    color: #ef4444;
+  }
+  
+  /* 留言图标 - 靛蓝色 */
+  .nav-item.nav-ticket i {
+    color: #6366f1;
+  }
+
+/* 移动端菜单样式 */
+@media (max-width: 768px) {
+  /* 初始隐藏移动端菜单 */
+  #main-nav {
+    display: none;
+  }
+  
+  /* 展开状态的菜单 */
+  #main-nav.active {
+    display: flex;
+    flex-direction: column;
+    position: absolute;
+    top: 60px;
+    left: 0;
+    right: 0;
+    background: white;
+    padding: 1rem;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    z-index: 40;
+  }
+  
+  /* 移动端菜单项样式 */
+  #main-nav.active a {
+    width: 100%;
+    padding: 0.5rem 0;
+    margin: 0.25rem 0;
+    border-bottom: 1px solid #f0f0f0;
+    color: #374151 !important; /* 确保移动端默认文字可见 */
+  }
+  
+  /* 最后一个菜单项去掉下边框 */
+  #main-nav.active a:last-child {
+    border-bottom: none;
+  }
+}
+
+/* 菜单展开/收起动画 */
+#main-nav {
+  transition: all 0.3s ease-in-out;
+}
+</style>
+
+<script>
+// 汉堡菜单交互逻辑
+document.addEventListener('DOMContentLoaded', function() {
+  const mobileMenuBtn = document.getElementById('mobile-menu-btn');
+  const mainNav = document.getElementById('main-nav');
+  
+  // 点击汉堡按钮切换菜单状态
+  mobileMenuBtn.addEventListener('click', function() {
+    mainNav.classList.toggle('active');
+    
+    // 切换按钮图标（菜单/关闭）
+    const icon = mobileMenuBtn.querySelector('i');
+    if (mainNav.classList.contains('active')) {
+      icon.classList.remove('fa-bars');
+      icon.classList.add('fa-times');
+    } else {
+      icon.classList.remove('fa-times');
+      icon.classList.add('fa-bars');
+    }
+  });
+  
+  // 点击菜单项后在移动端自动关闭菜单
+  const navLinks = document.querySelectorAll('#main-nav a');
+  navLinks.forEach(link => {
+    link.addEventListener('click', function() {
+      if (window.innerWidth <= 768) {
+        mainNav.classList.remove('active');
+        const icon = mobileMenuBtn.querySelector('i');
+        icon.classList.remove('fa-times');
+        icon.classList.add('fa-bars');
+      }
+    });
+  });
+  
+  // 窗口大小改变时重置菜单状态
+  window.addEventListener('resize', function() {
+    if (window.innerWidth > 768) {
+      mainNav.classList.remove('active');
+      const icon = mobileMenuBtn.querySelector('i');
+      icon.classList.remove('fa-times');
+      icon.classList.add('fa-bars');
+    }
+  });
+});
+</script>

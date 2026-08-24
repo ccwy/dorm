@@ -1,0 +1,1016 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <!-- 静态资源引入 -->
+    {% include 'static.html' %}
+
+    <!-- Tailwind配置 -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#165DFF',
+                        secondary: '#6B7280',
+                        success: '#00B42A',
+                        danger: '#F53F3F',
+                        warning: '#FF7D00',
+                        info: '#86909C',
+                        light: '#F2F3F5',
+                        dark: '#1D2129'
+                    },
+                    fontFamily: {
+                        inter: ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .card-shadow {
+                box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            }
+            .btn-hover {
+                @apply transition-all duration-300 hover:shadow-lg transform hover:-translate-y-0.5;
+            }
+            .fade-in {
+                animation: fadeIn 0.5s ease-in-out;
+            }
+            .slide-in {
+                animation: slideIn 0.3s ease-out;
+            }
+            .select-item-hover {
+                @apply hover:bg-primary/5 cursor-pointer transition-colors;
+            }
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        @keyframes slideIn {
+            from { transform: translateY(10px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 font-inter text-dark min-h-screen flex flex-col">
+    {% include 'header.html' %}
+    
+    <!-- 主内容区 -->
+    <main class="flex-grow container mx-auto px-4 py-6">
+        <!-- 页面标题 -->
+        <div class="mb-6 fade-in">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between">
+                <div class="flex items-center">
+                        <button onclick="history.back()" class="text-gray-600 hover:text-primary transition-colors mr-4">
+                            <i class="fa fa-arrow-left"></i>
+                        </button>
+                        <div>
+                            <h2 class="text-[clamp(1.5rem,3vw,2rem)] font-bold text-dark">{{ title }}</h2>
+                            <p class="text-gray-500 mt-1">请填写费用补贴相关信息，带 <span class="text-danger">*</span> 为必填项</p>
+                        </div>
+                </div>
+                <div class="mt-4 md:mt-0">
+                    <button onclick="history.back()" class="text-gray-600 hover:text-primary transition-colors">
+                        <i class="fa fa-arrow-left mr-1"></i> 返回列表
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 表单卡片 -->
+        <div class="bg-white rounded-lg card-shadow p-6 mb-6 fade-in" style="animation-delay: 100ms;">
+            <form id="subsidyForm" class="space-y-6">
+                <!-- 三列布局 -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div>
+                        <label for="formFeeType" class="block text-sm font-medium text-gray-700 mb-1">费用类型 <span class="text-danger">*</span></label>
+                        <select id="formFeeType" required
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all text-sm">
+                            <option value="">请选择费用类型</option>
+                            <!-- 费用类型将通过JavaScript动态加载 -->
+                        </select>
+                    </div>
+                    
+                    <!-- 用户选择字段 -->
+                    <div id="userIdField" class="hidden">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">用户 <span class="text-danger">*</span></label>
+                        <div class="flex">
+                            <input type="hidden" id="formUserId" name="formUserId">
+                            <input type="text" id="userDisplay" placeholder="请选择用户" readonly
+                                   class="flex-grow px-3 py-2 border border-gray-300 rounded-l-lg focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all text-sm bg-gray-50">
+                            <button type="button" id="selectUserBtn" class="bg-primary hover:bg-primary/90 text-white px-3 py-2 border border-primary rounded-r-lg transition-colors">
+                                选择
+                            </button>
+                        </div>
+                        <div id="userInfo" class="text-xs text-gray-500 mt-1 hidden">
+                            <span id="userDepartment"></span>  <span id="userPosition"></span>
+                        </div>
+                    </div>
+                    
+                    <!-- 房间选择字段 -->
+                    <div id="roomIdField" class="hidden">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">房间 <span class="text-danger">*</span></label>
+                        <div class="flex">
+                            <input type="hidden" id="formRoomId" name="formRoomId">
+                            <input type="text" id="roomDisplay" placeholder="请选择房间" readonly
+                                   class="flex-grow px-3 py-2 border border-gray-300 rounded-l-lg focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all text-sm bg-gray-50">
+                            <button type="button" id="selectRoomBtn" class="bg-primary hover:bg-primary/90 text-white px-3 py-2 border border-primary rounded-r-lg transition-colors">
+                                选择
+                            </button>
+                        </div>
+                        <div id="roomInfo" class="text-xs text-gray-500 mt-1 hidden">
+                            <span id="roomType"></span> | 容量: <span id="roomCapacity"></span>
+                        </div>
+                    </div>
+                    
+                    <div id="amountField">
+                        <label for="formAmount" class="block text-sm font-medium text-gray-700 mb-1">补贴金额（元）<span class="text-danger">*</span></label>
+                        <input type="number" id="formAmount" min="0" step="0.01" placeholder="0.00"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all text-sm">
+                    </div>
+                    
+                    <!-- 电费减免量字段 -->
+                    <div id="electricReductionField" class="hidden">
+                        <label for="formElectricReduction" class="block text-sm font-medium text-gray-700 mb-1">用电量减免（kWh）<span class="text-danger">*</span></label>
+                        <input type="number" id="formElectricReduction" min="0" step="0.01" placeholder="0.00"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all text-sm">
+                    </div>
+                    
+                    <!-- 水费减免量字段 -->
+                    <div id="waterReductionField" class="hidden">
+                        <label for="formWaterReduction" class="block text-sm font-medium text-gray-700 mb-1">用水量减免（m³）<span class="text-danger">*</span></label>
+                        <input type="number" id="formWaterReduction" min="0" step="0.01" placeholder="0.00"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all text-sm">
+                    </div>
+                    
+                    <div>
+                        <label for="formEffectiveDate" class="block text-sm font-medium text-gray-700 mb-1">生效时间<span class="text-danger">*</span></label>
+                        <!-- 添加step="1"以支持秒级选择 -->
+                        <input type="datetime-local" id="formEffectiveDate" step="1" required
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all text-sm">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">是否启用</label>
+                        <div class="flex items-center">
+                            <input type="radio" id="formEnabledYes" name="enabled" value="1" checked
+                                   class="h-4 w-4 text-primary focus:ring-primary border-gray-300">
+                            <label for="formEnabledYes" class="ml-2 text-sm text-gray-700">是</label>
+                            <input type="radio" id="formEnabledNo" name="enabled" value="0"
+                                   class="h-4 w-4 text-primary focus:ring-primary border-gray-300 ml-4">
+                            <label for="formEnabledNo" class="ml-2 text-sm text-gray-700">否</label>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 变更原因 -->
+                <div>
+                    <label for="formChangeReason" class="block text-sm font-medium text-gray-700 mb-1">变更原因</label>
+                    <textarea id="formChangeReason" rows="2" placeholder="请输入变更原因"
+                              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all text-sm"></textarea>
+                </div>
+                
+                <!-- 操作按钮 -->
+                <div class="flex flex-wrap gap-3 justify-end pt-4 border-t border-gray-100">
+                    <button type="button" id="cancelBtn" class="px-6 py-2.5 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors btn-hover">
+                        取消
+                    </button>
+                    <button type="button" id="saveAndContinueBtn" class="px-6 py-2.5 bg-secondary text-white rounded-lg hover:bg-secondary/90 transition-colors btn-hover">
+                        <i class="fa fa-plus-circle mr-2"></i> 继续添加
+                    </button>
+                    <button type="button" id="saveBtn" class="px-6 py-2.5 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors btn-hover">
+                        <i class="fa fa-save mr-2"></i> 保存
+                    </button>
+                </div>
+            </form>
+        </div>
+    </main>
+    
+    <!-- 用户选择对话框 -->
+    <div id="userSelectDialog" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden items-center justify-center fade-in">
+        <div class="bg-white rounded-lg w-full max-w-3xl max-h-[90vh] overflow-hidden slide-in">
+            <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+                <h3 class="text-lg font-semibold">选择用户</h3>
+                <button id="closeUserDialog" class="text-gray-500 hover:text-gray-700">
+                    <i class="fa fa-times"></i>
+                </button>
+            </div>
+            
+            <div class="p-4 border-b border-gray-200">
+                <div class="relative">
+                    <input type="text" id="userSearchInput" placeholder="输入姓名、工号、部门搜索"
+                           class="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all text-sm">
+                    <i class="fa fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                </div>
+            </div>
+            
+            <div class="overflow-y-auto max-h-[calc(90vh-220px)]">
+                <table class="min-w-full divide-y divide-gray-200" style="table-layout: fixed;">
+                    <thead class="bg-gray-50 sticky top-0">
+                        <tr>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style="width: 10%;">ID</th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style="width: 20%;">姓名</th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style="width: 20%;">住宿补贴</th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style="width: 20%;">外宿补贴</th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style="width: 20%;">房间号</th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style="width: 20%;">部门</th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style="width: 20%;">职位</th>
+                        </tr>
+                    </thead>
+                    <tbody id="userSelectTableBody" class="bg-white divide-y divide-gray-200">
+                        <tr>
+                            <td colspan="5" class="px-6 py-10 text-center text-gray-500">
+                                <i class="fa fa-spinner fa-spin mr-2"></i> 加载用户列表中...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-between items-center">
+                <div class="text-sm text-gray-500">
+                    共 <span id="userTotalCount">0</span> 位用户
+                </div>
+                <div class="flex items-center space-x-2">
+                    <button id="prevUserPage" class="px-3 py-1 border border-gray-300 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed">
+                        <i class="fa fa-chevron-left text-xs"></i>
+                    </button>
+                    <span class="text-sm">第 <span id="currentUserPage">1</span> 页 / 共 <span id="totalUserPages">1</span> 页</span>
+                    <button id="nextUserPage" class="px-3 py-1 border border-gray-300 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed">
+                        <i class="fa fa-chevron-right text-xs"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 房间选择对话框 -->
+    <div id="roomSelectDialog" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden items-center justify-center fade-in">
+        <div class="bg-white rounded-lg w-full max-w-3xl max-h-[90vh] overflow-hidden slide-in">
+            <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+                <h3 class="text-lg font-semibold">选择房间</h3>
+                <button id="closeRoomDialog" class="text-gray-500 hover:text-gray-700">
+                    <i class="fa fa-times"></i>
+                </button>
+            </div>
+            
+            <div class="p-4 border-b border-gray-200">
+                <div class="relative">
+                    <input type="text" id="roomSearchInput" placeholder="输入楼栋、房间号搜索"
+                           class="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all text-sm">
+                    <i class="fa fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                </div>
+            </div>
+            
+            <div class="overflow-y-auto max-h-[calc(90vh-220px)]">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50 sticky top-0">
+                        <tr>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">房间号</th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">类型</th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">容量</th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">按用量减免</th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">按金额减免</th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">状态</th>
+                        </tr>
+                    </thead>
+                    <tbody id="roomSelectTableBody" class="bg-white divide-y divide-gray-200">
+                        <tr>
+                            <td colspan="7" class="px-6 py-10 text-center text-gray-500">
+                                <i class="fa fa-spinner fa-spin mr-2"></i> 加载房间列表中...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-between items-center">
+                <div class="text-sm text-gray-500">
+                    共 <span id="roomTotalCount">0</span> 个房间
+                </div>
+                <div class="flex items-center space-x-2">
+                    <button id="prevRoomPage" class="px-3 py-1 border border-gray-300 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed">
+                        <i class="fa fa-chevron-left text-xs"></i>
+                    </button>
+                    <span class="text-sm">第 <span id="currentRoomPage">1</span> 页 / 共 <span id="totalRoomPages">1</span> 页</span>
+                    <button id="nextRoomPage" class="px-3 py-1 border border-gray-300 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed">
+                        <i class="fa fa-chevron-right text-xs"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 提示对话框 -->
+    <div id="dialog" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden items-center justify-center fade-in">
+        <div class="bg-white rounded-lg w-full max-w-md slide-in">
+            <div class="p-6">
+                <div class="flex items-center mb-4">
+                    <div class="flex-shrink-0">
+                        <i id="dialogIcon" class="fa fa-check-circle text-success text-2xl"></i>
+                    </div>
+                    <div class="ml-3">
+                        <h3 id="dialogTitle" class="text-lg font-medium text-gray-900">操作成功</h3>
+                    </div>
+                </div>
+                <div class="mt-2">
+                    <p id="dialogMessage" class="text-sm text-gray-500">
+                        费用补贴信息已成功保存。
+                    </p>
+                </div>
+            </div>
+            <div class="bg-gray-50 px-6 py-3 rounded-b-lg flex justify-end">
+                <button id="dialogOkBtn" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors">
+                    确定
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 页脚 -->
+    {% include 'footer.html' %}
+    
+
+    <script>
+        // 全局变量
+        let allowedFeeTypes = [];
+        let currentUserPage = 1;
+        let currentRoomPage = 1;
+        let userTotalPages = 1;
+        let roomTotalPages = 1;
+        
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            // 设置默认日期时间为当前本地时间，精确到秒
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const seconds = String(now.getSeconds()).padStart(2, '0');
+            const formattedDateTime = `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
+            document.getElementById('formEffectiveDate').value = formattedDateTime;
+            
+            // 加载允许的费用类型
+            loadAllowedFeeTypes();
+            
+            // 绑定事件监听器
+            bindEventListeners();
+        });
+        
+        // 从后端加载允许的费用类型
+        function loadAllowedFeeTypes() {
+            fetch('/fee_subsidy/add', {
+                method: 'OPTIONS',
+                headers: {
+                    'Accept': 'application/json; charset=utf-8',
+                    'Content-Type': 'application/json; charset=utf-8'
+                }
+            })
+            .then(response => response.text().then(text => ({
+                status: response.status,
+                text: text
+            })))
+            .then(({status, text}) => {
+                if (status !== 200) {
+                    throw new Error(`服务器响应错误: 状态码 ${status}`);
+                }
+                if (!text.trim()) {
+                    throw new Error('服务器返回空内容');
+                }
+                try {
+                    // 尝试解析JSON前先处理可能的BOM字符
+                    const cleanedText = text.replace(/^\uFEFF/, '');
+                    const data = JSON.parse(cleanedText);
+                    if (!data.allowed_types || !data.allowed_types.length) {
+                        throw new Error("配置中未设置费用类型，请联系管理员");
+                    }
+                    allowedFeeTypes = data.allowed_types;
+                    populateFeeTypeSelect();
+                } catch (e) {
+                    throw new Error(`数据解析失败: ${e.message}\n原始响应: ${text.substring(0, 100)}...`);
+                }
+            })
+            .catch(error => {
+                console.error('加载费用类型失败:', error);
+                allowedFeeTypes = ['加载失败，请刷新页面重试'];
+                populateFeeTypeSelect();
+                showDialog(false, '初始化错误', error.message);
+            });
+        }
+        
+        // 填充费用类型下拉菜单
+        function populateFeeTypeSelect() {
+            const select = document.getElementById('formFeeType');
+            while (select.options.length > 1) {
+                select.remove(1);
+            }
+            
+            allowedFeeTypes.forEach(type => {
+                const option = document.createElement('option');
+                option.value = type;
+                option.textContent = type;
+                select.appendChild(option);
+            });
+        }
+        
+        // 根据选中的费用类型显示/隐藏相应字段
+        function handleFeeTypeChange() {
+            const feeType = document.getElementById('formFeeType').value;
+            
+            // 重置所有字段显示状态
+            document.getElementById('userIdField').classList.add('hidden');
+            document.getElementById('roomIdField').classList.add('hidden');
+            document.getElementById('amountField').classList.add('hidden');
+            document.getElementById('electricReductionField').classList.add('hidden');
+            document.getElementById('waterReductionField').classList.add('hidden');
+            
+            // 重置选择值
+            document.getElementById('formUserId').value = '';
+            document.getElementById('userDisplay').value = '';
+            document.getElementById('userInfo').classList.add('hidden');
+            
+            document.getElementById('formRoomId').value = '';
+            document.getElementById('roomDisplay').value = '';
+            document.getElementById('roomInfo').classList.add('hidden');
+            
+            // 根据费用类型显示相应字段
+            if (feeType === "外宿补贴" || feeType === "住宿补贴" || feeType === "话费补贴") {
+                document.getElementById('userIdField').classList.remove('hidden');
+                document.getElementById('amountField').classList.remove('hidden');
+                document.getElementById('formUserId').required = true;
+                document.getElementById('formAmount').required = true;
+            } 
+            else if (feeType === "房间水电按用量减免") {
+                document.getElementById('roomIdField').classList.remove('hidden');
+                document.getElementById('electricReductionField').classList.remove('hidden');
+                document.getElementById('waterReductionField').classList.remove('hidden');
+                document.getElementById('formRoomId').required = true;
+                document.getElementById('formElectricReduction').required = true;
+                document.getElementById('formWaterReduction').required = true;
+            } 
+            else if (feeType === "房间水电按金额减免") {
+                document.getElementById('roomIdField').classList.remove('hidden');
+                document.getElementById('amountField').classList.remove('hidden');
+                document.getElementById('formRoomId').required = true;
+                document.getElementById('formAmount').required = true;
+            }
+        }
+        
+        // 绑定所有事件监听器
+        function bindEventListeners() {
+            // 费用类型变更
+            document.getElementById('formFeeType').addEventListener('change', handleFeeTypeChange);
+            
+            // 取消按钮
+            document.getElementById('cancelBtn').addEventListener('click', function() {
+                history.back();
+            });
+            
+            // 保存按钮
+            document.getElementById('saveBtn').addEventListener('click', saveSubsidy);
+            
+            // 对话框按钮
+            document.getElementById('dialogOkBtn').addEventListener('click', function() {
+                document.getElementById('dialog').style.display = 'none';
+                if (document.getElementById('dialogIcon').classList.contains('text-success')) {
+                    // 只有在普通保存模式下才跳转到列表页
+                    // 继续添加模式下的跳转逻辑已在saveSubsidy函数中处理
+                    window.location.href = "{{ url_for('fee_subsidy.fee_subsidy_index') }}";
+                }
+            });
+            
+            // 继续添加按钮
+            document.getElementById('saveAndContinueBtn').addEventListener('click', function() {
+                saveSubsidy(true);
+            });
+            
+            // 用户选择相关
+            document.getElementById('selectUserBtn').addEventListener('click', function() {
+                currentUserPage = 1;
+                loadUsers();
+                document.getElementById('userSelectDialog').style.display = 'flex';
+            });
+            
+            document.getElementById('closeUserDialog').addEventListener('click', function() {
+                document.getElementById('userSelectDialog').style.display = 'none';
+            });
+            
+            document.getElementById('userSearchInput').addEventListener('input', function(e) {
+                clearTimeout(this.searchTimeout);
+                this.searchTimeout = setTimeout(() => {
+                    currentUserPage = 1;
+                    loadUsers();
+                }, 300);
+            });
+            
+            document.getElementById('prevUserPage').addEventListener('click', function() {
+                if (currentUserPage > 1) {
+                    currentUserPage--;
+                    loadUsers();
+                }
+            });
+            
+            document.getElementById('nextUserPage').addEventListener('click', function() {
+                if (currentUserPage < userTotalPages) {
+                    currentUserPage++;
+                    loadUsers();
+                }
+            });
+            
+            // 房间选择相关
+            document.getElementById('selectRoomBtn').addEventListener('click', function() {
+                currentRoomPage = 1;
+                loadRooms();
+                document.getElementById('roomSelectDialog').style.display = 'flex';
+            });
+            
+            document.getElementById('closeRoomDialog').addEventListener('click', function() {
+                document.getElementById('roomSelectDialog').style.display = 'none';
+            });
+            
+            document.getElementById('roomSearchInput').addEventListener('input', function(e) {
+                clearTimeout(this.searchTimeout);
+                this.searchTimeout = setTimeout(() => {
+                    currentRoomPage = 1;
+                    loadRooms();
+                }, 300);
+            });
+            
+            document.getElementById('prevRoomPage').addEventListener('click', function() {
+                if (currentRoomPage > 1) {
+                    currentRoomPage--;
+                    loadRooms();
+                }
+            });
+            
+            document.getElementById('nextRoomPage').addEventListener('click', function() {
+                if (currentRoomPage < roomTotalPages) {
+                    currentRoomPage++;
+                    loadRooms();
+                }
+            });
+        }
+        
+        // 加载用户列表
+        function loadUsers() {
+            const search = document.getElementById('userSearchInput').value.trim();
+            const tableBody = document.getElementById('userSelectTableBody');
+            
+            // 显示加载状态
+                    tableBody.innerHTML = '<tr><td colspan="7" class="px-6 py-10 text-center text-gray-500"><i class="fa fa-spinner fa-spin mr-2"></i> 加载中...</td></tr>';
+            
+            // 构建查询参数
+            const params = new URLSearchParams();
+            params.append('page', currentUserPage);
+            params.append('per_page', 20);
+            if (search) {
+                params.append('query', search);
+            }
+            
+            // 调用用户搜索API
+            fetch(`/api/users/search?${params.toString()}`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP错误：${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (!data.success) {
+                        throw new Error(data.message || '加载用户失败');
+                    }
+                    
+                    const users = data.data.users || [];
+                    const totalCount = data.data.count || 0;
+                    userTotalPages = Math.ceil(totalCount / 20);
+                    
+                    // 更新总数显示
+                    document.getElementById('userTotalCount').textContent = totalCount;
+                    document.getElementById('currentUserPage').textContent = currentUserPage;
+                    document.getElementById('totalUserPages').textContent = userTotalPages;
+                    
+                    // 更新分页按钮状态
+                    const prevUserBtn = document.getElementById('prevUserPage');
+                    const nextUserBtn = document.getElementById('nextUserPage');
+                    if (prevUserBtn) prevUserBtn.disabled = currentUserPage <= 1;
+                    if (nextUserBtn) nextUserBtn.disabled = currentUserPage >= userTotalPages;
+                    
+                    // 渲染用户列表
+                    if (users.length === 0) {
+                        tableBody.innerHTML = '<tr><td colspan="7" class="px-6 py-10 text-center text-gray-500"><i class="fa fa-info-circle mr-2"></i> 未找到匹配的用户</td></tr>';
+                        return;
+                    }
+                    
+                    let html = '';
+                    users.forEach(user => {
+                        html += `
+                        <tr class="select-item-hover" data-id="${user.id}" data-name="${user.name}" 
+                            data-department="${user.department || ''}" data-position="${user.position || ''}">
+                            <td class="px-4 py-3 text-sm text-gray-500 overflow-hidden text-overflow-ellipsis whitespace-nowrap">${user.id}</td>
+                            <td class="px-4 py-3 text-sm font-medium text-gray-900 overflow-hidden text-overflow-ellipsis whitespace-nowrap">${user.name}</td>
+                            <td class="px-4 py-3 text-sm text-gray-500 overflow-hidden text-overflow-ellipsis whitespace-nowrap">${user.reduction_fee ||'-'}</td>
+                            <td class="px-4 py-3 text-sm text-gray-500 overflow-hidden text-overflow-ellipsis whitespace-nowrap">${user.lodging_allowance || '-'}</td>
+                            <td class="px-4 py-3 text-sm text-gray-500 overflow-hidden text-overflow-ellipsis whitespace-nowrap">${user.room_full_identifier || '-'}</td>
+                            <td class="px-4 py-3 text-sm text-gray-500 overflow-hidden text-overflow-ellipsis whitespace-nowrap">${user.department || '-'}</td>
+                            <td class="px-4 py-3 text-sm text-gray-500 overflow-hidden text-overflow-ellipsis whitespace-nowrap">${user.position || '-'}</td>
+                        </tr>
+                        `;
+                    });
+                    
+                    tableBody.innerHTML = html;
+                    
+                    // 绑定选择事件
+                    document.querySelectorAll('#userSelectTableBody tr.select-item-hover').forEach(row => {
+                        row.addEventListener('click', function() {
+                            const userId = this.getAttribute('data-id');
+                            const userName = this.getAttribute('data-name');
+                            const userDepartment = this.getAttribute('data-department');
+                            const userPosition = this.getAttribute('data-position');
+                            
+                            // 填充表单
+                            document.getElementById('formUserId').value = userId;
+                            document.getElementById('userDisplay').value = userName;
+                            
+                            // 显示附加信息
+                            document.getElementById('userDepartment').textContent = userDepartment;
+                            document.getElementById('userPosition').textContent = userPosition;
+                            document.getElementById('userInfo').classList.remove('hidden');
+                            
+                            // 关闭对话框
+                            document.getElementById('userSelectDialog').style.display = 'none';
+                        });
+                    });
+                })
+                .catch(error => {
+                    console.error('加载用户失败:', error);
+                    tableBody.innerHTML = `<tr><td colspan="7" class="px-6 py-10 text-center text-danger"><i class="fa fa-exclamation-circle mr-2"></i> 加载失败: ${translateSystemError(error.message)}</td></tr>`;
+                });
+        }
+        
+        // 加载房间列表
+        function loadRooms() {
+            const search = document.getElementById('roomSearchInput').value.trim();
+            const tableBody = document.getElementById('roomSelectTableBody');
+            
+            // 显示加载状态
+            tableBody.innerHTML = '<tr><td colspan="7" class="px-6 py-10 text-center text-gray-500"><i class="fa fa-spinner fa-spin mr-2"></i> 加载中...</td></tr>';
+            
+            // 构建查询参数
+            const params = new URLSearchParams();
+            params.append('page', currentRoomPage);
+            params.append('per_page', 20);
+            if (search) {
+                params.append('building', search);
+                params.append('room_number', search);
+            }
+            
+            // 调用房间列表API
+            fetch(`/api/rooms?${params.toString()}`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP错误：${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (!data.success) {
+                        throw new Error(data.message || '加载房间失败');
+                    }
+                    
+                    const rooms = data.data.rooms || [];
+                    const totalCount = data.data.pagination?.total || 0;
+                    roomTotalPages = data.data.pagination?.pages || 1;
+                    
+                    // 更新总数显示
+                    document.getElementById('roomTotalCount').textContent = totalCount;
+                    document.getElementById('currentRoomPage').textContent = currentRoomPage;
+                    document.getElementById('totalRoomPages').textContent = roomTotalPages;
+                    
+                    // 更新分页按钮状态
+                    const prevBtn = document.getElementById('prevRoomPage');
+                    const nextBtn = document.getElementById('nextRoomPage');
+                    if (prevBtn) prevBtn.disabled = currentRoomPage <= 1;
+                    if (nextBtn) nextBtn.disabled = currentRoomPage >= roomTotalPages;
+                    
+                    // 渲染房间列表
+                    if (rooms.length === 0) {
+                        tableBody.innerHTML = '<tr><td colspan="7" class="px-6 py-10 text-center text-gray-500"><i class="fa fa-info-circle mr-2"></i> 未找到匹配的房间</td></tr>';
+                        return;
+                    }
+                    
+                    let html = '';
+                    rooms.forEach(room => {
+                        html += `
+                        <tr class="select-item-hover" data-id="${room.id}" 
+                            data-identifier="${room.full_identifier || `${room.building}-${room.room_number}`}"
+ 
+                            data-type="${room.room_type_display || room.room_type}"
+                            data-capacity="${room.capacity}" 
+                            data-electric-reduction="${room.electric_reduction || 0}" 
+                            data-water-reduction="${room.water_reduction || 0}" 
+                            data-amount-reduction="${room.amount_reduction || 0}">
+                            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">${room.id}</td>
+                            <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">${room.full_identifier || `${room.building}-${room.room_number}`}</td>
+                            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">${room.room_type_display || room.room_type}</td>
+                            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">${room.capacity}</td>
+                            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">电：${room.electric_reduction || 0} kWh / 水：${room.water_reduction || 0} m³</td>
+                            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">¥${room.amount_reduction || 0}</td>
+                            <td class="px-4 py-3 whitespace-nowrap">
+                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                                    room.status_display === '可用' ? 'bg-success/10 text-success' : 
+                                    room.status_display === '已满' ? 'bg-warning/10 text-warning' :
+                                    room.status_display === '维护中' ? 'bg-info/10 text-info' :
+                                    'bg-gray-100 text-gray-800'
+                                }">
+                                    ${room.status_display}
+                                </span>
+                            </td>
+                        </tr>
+                        `;
+                    });
+                    
+                    tableBody.innerHTML = html;
+                    
+                    // 绑定选择事件
+                    document.querySelectorAll('#roomSelectTableBody tr.select-item-hover').forEach(row => {
+                        row.addEventListener('click', function() {
+                            const roomId = this.getAttribute('data-id');
+                            const roomIdentifier = this.getAttribute('data-identifier');
+                            const roomType = this.getAttribute('data-type');
+                            const roomCapacity = this.getAttribute('data-capacity');
+                            
+                            // 填充表单
+                            document.getElementById('formRoomId').value = roomId;
+                            document.getElementById('roomDisplay').value = roomIdentifier;
+                            
+                            // 显示附加信息
+                            document.getElementById('roomType').textContent = roomType;
+                            document.getElementById('roomCapacity').textContent = roomCapacity;
+                            document.getElementById('roomInfo').classList.remove('hidden');
+                            
+                            // 关闭对话框
+                            document.getElementById('roomSelectDialog').style.display = 'none';
+                        });
+                    });
+                })
+                .catch(error => {
+                    console.error('加载房间失败:', error);
+                    tableBody.innerHTML = `<tr><td colspan="7" class="px-6 py-10 text-center text-danger"><i class="fa fa-exclamation-circle mr-2"></i> 加载失败: ${translateSystemError(error.message)}</td></tr>`;
+                });
+        }
+        
+        // 显示提示对话框
+        function showDialog(isSuccess, title, message) {
+            const dialog = document.getElementById('dialog');
+            const icon = document.getElementById('dialogIcon');
+            const titleEl = document.getElementById('dialogTitle');
+            const messageEl = document.getElementById('dialogMessage');
+            
+            titleEl.textContent = title;
+            // 对于业务错误信息直接显示，系统错误才翻译
+            messageEl.textContent = isSuccess ? message : message;
+            icon.className = isSuccess ? 
+                'fa fa-check-circle text-success text-2xl' : 
+                'fa fa-exclamation-circle text-danger text-2xl';
+            
+            dialog.style.display = 'flex';
+        }
+        
+        // 仅翻译系统级错误（网络错误、HTTP错误等）
+        function translateSystemError(message) {
+            // 只处理系统级错误，不处理业务逻辑错误
+            const errorMap = {
+                // 网络相关错误
+                'Failed to fetch': '无法连接到服务器，请检查网络连接',
+                'NetworkError': '网络连接错误，请稍后重试',
+                'Timeout': '请求超时，请稍后重试',
+                
+                // HTTP状态码错误
+                'HTTP错误：400': '请求参数错误',
+                'HTTP错误：401': '您未登录或登录已过期，请重新登录',
+                'HTTP错误：403': '您没有权限执行此操作',
+                'HTTP错误：404': '请求的资源不存在',
+                'HTTP错误：5': '服务器内部错误，请联系管理员'
+            };
+            
+            // 检查是否有匹配的系统错误
+            for (const [key, value] of Object.entries(errorMap)) {
+                if (message.includes(key)) {
+                    return value;
+                }
+            }
+            
+            // 如果包含中文，认为是业务错误信息，直接返回
+            if (/[\u4e00-\u9fa5]/.test(message)) {
+                return message;
+            }
+            
+            // 默认系统错误提示
+            return `系统错误: ${message.substring(0, 100)}...`;
+        }
+        
+        // 验证表单数据
+        function validateFormData(data) {
+            const feeType = data.fee_type;
+            
+            if (feeType === "外宿补贴" || feeType === "住宿补贴" || feeType === "话费补贴") {
+                if (!data.user_id || data.user_id <= 0) {
+                    return { valid: false, message: "请选择有效的用户" };
+                }
+                if (data.amount === null || data.amount <= 0) {
+                    return { valid: false, message: "请输入有效的补贴金额" };
+                }
+            } 
+            else if (feeType === "房间水电按用量减免") {
+                if (!data.room_id || data.room_id <= 0) {
+                    return { valid: false, message: "请选择有效的房间" };
+                }
+                if (data.electric_reduction === null || data.electric_reduction < 0) {
+                    return { valid: false, message: "请输入有效的电费减免量" };
+                }
+                if (data.water_reduction === null || data.water_reduction < 0) {
+                    return { valid: false, message: "请输入有效的水费减免量" };
+                }
+            } 
+            else if (feeType === "房间水电按金额减免") {
+                if (!data.room_id || data.room_id <= 0) {
+                    return { valid: false, message: "请选择有效的房间" };
+                }
+                if (data.amount === null || data.amount <= 0) {
+                    return { valid: false, message: "请输入有效的减免金额" };
+                }
+            }
+            else {
+                return { valid: false, message: "请选择费用类型" };
+            }
+            
+            // 验证时间格式是否包含秒
+            if (!data.effective_date || !data.effective_date.includes(':')) {
+                return { valid: false, message: "请选择有效的生效时间（需包含秒）" };
+            }
+            
+            return { valid: true };
+        }
+        
+        // 重置表单
+        function resetForm() {
+            // 重置表单字段
+            document.getElementById('formFeeType').value = '';
+            document.getElementById('formUserId').value = '';
+            document.getElementById('userDisplay').value = '';
+            document.getElementById('userInfo').classList.add('hidden');
+            document.getElementById('formRoomId').value = '';
+            document.getElementById('roomDisplay').value = '';
+            document.getElementById('roomInfo').classList.add('hidden');
+            document.getElementById('formAmount').value = '';
+            document.getElementById('formElectricReduction').value = '';
+            document.getElementById('formWaterReduction').value = '';
+            document.getElementById('formChangeReason').value = '';
+            document.getElementById('formEnabledYes').checked = true;
+            
+            // 重置字段显示
+            document.getElementById('userIdField').classList.add('hidden');
+            document.getElementById('roomIdField').classList.add('hidden');
+            document.getElementById('amountField').classList.add('hidden');
+            document.getElementById('electricReductionField').classList.add('hidden');
+            document.getElementById('waterReductionField').classList.add('hidden');
+            
+            // 设置当前时间为生效时间
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const seconds = String(now.getSeconds()).padStart(2, '0');
+            const formattedDateTime = `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
+            document.getElementById('formEffectiveDate').value = formattedDateTime;
+        }
+        
+        // 保存补贴信息
+        function saveSubsidy(saveAndContinue = false) {
+            const feeType = document.getElementById('formFeeType').value;
+            
+            // 处理生效时间格式，确保包含秒
+            const effectiveDateInput = document.getElementById('formEffectiveDate').value;
+            let effectiveDate = null;
+            if (effectiveDateInput) {
+                // 将datetime-local的T分隔符替换为空格
+                const dateTimeStr = effectiveDateInput.replace('T', ' ');
+                // 确保包含秒，如果没有则添加:00
+                if (dateTimeStr.split(':').length < 3) {
+                    effectiveDate = `${dateTimeStr}:00`;
+                } else {
+                    effectiveDate = dateTimeStr;
+                }
+            }
+            
+            // 根据费用类型，只提交相关的字段，避免提交不必要的字段导致后端错误
+            let data = {
+                fee_type: feeType,
+                effective_date: effectiveDate,
+                is_enabled: document.getElementById('formEnabledYes').checked,
+                change_reason: document.getElementById('formChangeReason').value
+            };
+            
+            // 根据费用类型添加相关字段
+            if (feeType === "外宿补贴" || feeType === "住宿补贴" || feeType === "话费补贴") {
+                data.user_id = document.getElementById('formUserId').value ? parseInt(document.getElementById('formUserId').value) : null;
+                data.amount = document.getElementById('formAmount').value ? parseFloat(document.getElementById('formAmount').value) : null;
+            } else if (feeType === "房间水电按用量减免") {
+                data.room_id = document.getElementById('formRoomId').value ? parseInt(document.getElementById('formRoomId').value) : null;
+                data.electric_reduction = document.getElementById('formElectricReduction').value ? parseFloat(document.getElementById('formElectricReduction').value) : null;
+                data.water_reduction = document.getElementById('formWaterReduction').value ? parseFloat(document.getElementById('formWaterReduction').value) : null;
+            } else if (feeType === "房间水电按金额减免") {
+                data.room_id = document.getElementById('formRoomId').value ? parseInt(document.getElementById('formRoomId').value) : null;
+                data.amount = document.getElementById('formAmount').value ? parseFloat(document.getElementById('formAmount').value) : null;
+            }
+            
+            // 验证表单数据
+            const validation = validateFormData(data);
+            if (!validation.valid) {
+                showDialog(false, '验证失败', validation.message);
+                return;
+            }
+            
+            // 发送保存请求
+            const saveBtn = document.getElementById('saveBtn');
+            saveBtn.innerHTML = '<i class="fa fa-spinner fa-spin mr-2"></i> 保存中...';
+            saveBtn.disabled = true;
+            
+            fetch('{{ url_for('fee_subsidy.add_record') }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json; charset=utf-8',
+                    'Accept': 'application/json; charset=utf-8'
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => {
+                // 统一处理响应解析
+                return response.text().then(text => {
+                    try {
+                        // 尝试解析JSON
+                        const jsonData = JSON.parse(text);
+                        return {
+                            ok: response.ok,
+                            data: jsonData
+                        };
+                    } catch (e) {
+                        // 非JSON响应处理（系统级错误）
+                        return {
+                            ok: response.ok,
+                            data: {
+                                success: false,
+                                message: translateSystemError(text || `服务器返回非JSON响应 (状态码: ${response.status})`)
+                            }
+                        };
+                    }
+                });
+            })
+            .then(result => {
+                if (result.ok && result.data.success) {
+                    if (saveAndContinue) {
+                        // 显示保存成功提示
+                        showDialog(true, '操作成功', result.data.message || '费用补贴信息已成功保存');
+                        // 清空表单以便继续添加
+                        setTimeout(() => {
+                            document.getElementById('dialog').style.display = 'none';
+                            resetForm();
+                        }, 1000);
+                    } else {
+                        // 正常保存后显示对话框
+                        showDialog(true, '操作成功', result.data.message || '费用补贴信息已成功保存');
+                    }
+                } else {
+                    // 直接使用后端返回的错误信息，不进行翻译
+                    // 后端已经在raise ValueError时返回了具体的业务错误提示
+                    const errorMsg = result.data.message || '保存失败，请重试';
+                    showDialog(false, '保存失败', errorMsg);
+                }
+            })
+            .catch(error => {
+                console.error('保存费用补贴出错:', error);
+                // 网络层面的错误才进行翻译
+                showDialog(false, '通信错误', translateSystemError(error.message || '保存过程中发生错误'));
+            })
+            .finally(() => {
+                saveBtn.innerHTML = '<i class="fa fa-save mr-2"></i> 保存';
+                saveBtn.disabled = false;
+            });
+        }
+    </script>
+</body>
+</html>
+    

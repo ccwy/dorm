@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    {% include 'static.html' %}
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#165DFF',
+                        secondary: '#36CFC9',
+                        accent: '#722ED1',
+                        neutral: '#F5F7FA',
+                        dark: '#1D2129',
+                        danger: '#F5222D',
+                        warning: '#FAAD14',
+                        success: '#52C41A',
+                        info: '#1890FF'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .card-shadow {
+                box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+            }
+            .btn-effect {
+                transition: all 0.2s ease;
+            }
+            .btn-effect:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    {% include 'header.html' %}
+
+    <main class="container mx-auto px-4 py-6">
+        <!-- 标题和功能按钮区 -->
+        <div class="mb-6 fade-in">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between">
+                <div class="flex items-center">
+                    <button onclick="history.back()" class="text-gray-600 hover:text-primary transition-colors mr-4">
+                        <i class="fa fa-arrow-left"></i>
+                    </button>
+                    <div>
+                        <h2 class="text-[clamp(1.5rem,3vw,2rem)] font-bold text-dark">{{ title }}</h2>
+                        <p class="text-gray-500 mt-1">查看和管理所有待办事项</p>
+                    </div>
+                </div>
+                <div class="mt-4 md:mt-0 flex flex-wrap gap-3">
+                    <a href="/todo/add" class="btn-effect bg-primary text-white px-4 py-2 rounded-md flex items-center">
+                        <i class="fa fa-plus mr-2"></i>添加
+                    </a>
+                    <button onclick="window.location.reload()" class="btn-effect bg-gray-200 text-gray-700 px-4 py-2 rounded-md flex items-center">
+                        <i class="fa fa-refresh mr-2"></i>刷新
+                    </button>
+                    <button id="batchDeleteBtn" class="btn-effect px-3 py-2 bg-danger text-white rounded-md flex items-center" disabled>
+                        <i class="fa fa-trash mr-1"></i>批量删除
+                    </button>
+                    <button id="deleteAllBtn" class="btn-effect px-3 py-2 bg-gray-600 text-white rounded-md flex items-center">
+                        <i class="fa fa-trash-o mr-1"></i>删除全部
+                    </button>
+                    <button id="exportExcelBtn" class="btn-effect bg-secondary text-white px-4 py-2 rounded-md flex items-center">
+                        <i class="fa fa-download mr-2"></i>导出
+                    </button>
+                </div>
+            </div>
+        </div>
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="flash-messages mb-6 mx-auto" style="max-width: 500px;">
+                {% for category, message in messages %}
+                    <div class="p-4 rounded-md mb-2 text-center {% if category == 'success' %}bg-green-100 text-green-800{% elif category == 'error' or category == 'danger' %}bg-red-100 text-red-800{% elif category == 'warning' %}bg-yellow-100 text-yellow-800{% else %}bg-blue-100 text-blue-800{% endif %}">
+                    <button type="button" class="float-right ml-2 text-gray-500 hover:text-gray-700" onclick="this.parentElement.remove()">×</button>
+                    {{ message }}
+                    </div>
+                {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+        <!-- 筛选条件 -->
+        <div class="bg-white rounded-lg p-4 shadow-sm mb-6">
+            <form id="filterForm" class="flex flex-col md:flex-row gap-4">
+                
+                <div class="w-full md:w-64">
+                    <label for="status" class="block text-sm font-medium text-gray-700 mb-1">状态</label>
+                    <select id="status" name="status"
+                        class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary">
+                        <option value="">全部状态</option>
+                        {% for status in status_options %}
+                        <option value="{{ status }}" {% if status == request.args.get('status') or (not request.args.get('status') and status == '进行中') %}selected{% endif %}>{{ status }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="w-full md:w-64">
+                    <label for="priority" class="block text-sm font-medium text-gray-700 mb-1">优先级</label>
+                    <select id="priority" name="priority"
+                        class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary">
+                        <option value="">全部优先级</option>
+                        {% for priority in priority_options %}
+                        <option value="{{ priority }}" {% if priority == request.args.get('priority') %}selected{% endif %}>{{ priority }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="w-full md:w-64">
+                    <label for="category" class="block text-sm font-medium text-gray-700 mb-1">分类</label>
+                    <select id="category" name="category"
+                        class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary">
+                        <option value="">全部分类</option>
+                        {% for category in category_options %}
+                        <option value="{{ category }}" {% if category == request.args.get('category') %}selected{% endif %}>{{ category }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="flex-grow">
+                    <label for="search" class="block text-sm font-medium text-gray-700 mb-1">搜索</label>
+                    <div class="relative">
+                        <input type="text" id="search" name="search" placeholder="搜索标题或描述" 
+                            class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary">
+                        <span class="absolute inset-y-0 right-0 flex items-center pr-3">
+                            <i class="fa fa-search text-gray-400"></i>
+                        </span>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        
+
+        <!-- 数据表格 -->
+        <div class="bg-white rounded-lg shadow-sm overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                    <tr>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <input type="checkbox" id="selectAll" class="rounded text-primary focus:ring-primary">
+                        </th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">标题</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">分类</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">状态</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">优先级</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">负责人</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">进度</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">计划完成时间</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">创建时间</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
+                    </tr>
+                </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        {% if todos %}
+                            {% for todo in todos %}
+                            <tr class="hover:bg-gray-50 transition-colors">
+                                <td class="px-4 py-3 whitespace-nowrap">
+                                    <input type="checkbox" value="{{ todo.id }}" class="rounded text-primary focus:ring-primary">
+                                </td>
+                                <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">{{ todo.id }}</td>
+                                <td class="px-4 py-3 whitespace-nowrap">
+                                    <a href="/todo/detail/{{ todo.id }}" class="text-primary hover:underline">{{ todo.title }}</a>
+                                </td>
+                                <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">{{ todo.category if todo.category else '-' }}</td>
+                                <td class="px-4 py-3 whitespace-nowrap">
+                                    <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full 
+                                        {% if todo.status == '未开始' %}bg-gray-100 text-gray-800
+                                        {% elif todo.status == '进行中' %}bg-blue-100 text-blue-800
+                                        {% elif todo.status == '已完成' %}bg-green-100 text-green-800
+                                        {% elif todo.status == '已暂停' %}bg-yellow-100 text-yellow-800
+                                        {% elif todo.status == '已取消' %}bg-red-100 text-red-800
+                                        {% else %}bg-gray-100 text-gray-800
+                                        {% endif %}">
+                                        {{ todo.status }}
+                                    </span>
+                                </td>
+                                <td class="px-4 py-3 whitespace-nowrap">
+                                    <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full 
+                                        {% if todo.priority == '低' %}bg-blue-100 text-blue-800
+                                        {% elif todo.priority == '中' %}bg-green-100 text-green-800
+                                        {% elif todo.priority == '高' %}bg-yellow-100 text-yellow-800
+                                        {% elif todo.priority == '紧急' %}bg-red-100 text-red-800
+                                        {% else %}bg-gray-100 text-gray-800
+                                        {% endif %}">
+                                        {{ todo.priority or '未设置' }}
+                                    </span>
+                                </td>
+                                <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">{{ todo.assignee or '未指定' }}</td>
+                                <td class="px-4 py-3 whitespace-nowrap">
+                                    <div class="w-full bg-gray-200 rounded-full h-2.5">
+                                        <div class="bg-success h-2.5 rounded-full" style="width: {{ todo.progress }}%"></div>
+                                    </div>
+                                    <div class="text-xs text-gray-500 mt-1">{{ todo.progress }}%</div>
+                                </td>
+                                <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                                    {{ todo.planned_end_time.strftime('%Y-%m-%d') if todo.planned_end_time else '-' }}
+                                </td>
+                                <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                                    {{ todo.created_at.strftime('%Y-%m-%d') }}
+                                </td>
+                                <td class="px-4 py-3 whitespace-nowrap">
+                                    <div class="flex gap-2">
+                                        <a href="/todo/detail/{{ todo.id }}" 
+                                            class="btn-effect bg-blue-500 text-white px-2 py-1 rounded-md text-sm flex items-center">
+                                            <i class="fa fa-eye mr-1"></i>详情
+                                        </a>
+                                        <a href="/todo/edit/{{ todo.id }}" 
+                                            class="btn-effect bg-amber-500 text-white px-2 py-1 rounded-md text-sm flex items-center">
+                                            <i class="fa fa-pencil mr-1"></i>编辑
+                                        </a>
+                                        <button type="button" 
+                                            data-todo-id="{{ todo.id }}" 
+                                            class="btn-effect bg-red-500 text-white px-2 py-1 rounded-md text-sm flex items-center delete-btn">
+                                            <i class="fa fa-trash mr-1"></i>删除
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="10" class="px-4 py-8 text-center text-gray-500">
+                                    暂无数据
+                                </td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 分页 -->
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mt-6">
+            <div class="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                <div class="text-sm text-gray-700">
+                    显示 {{ (page-1)*per_page + 1 }} 到 {{ page*per_page if page*per_page < pagination.total else pagination.total }} 条，共 {{ pagination.total }} 条记录
+                </div>
+                <div class="flex items-center space-x-2">
+                    <span class="text-sm text-gray-700">每页显示：</span>
+                    <select id="pageSizeSelect" class="px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
+                        <option value="10" {% if per_page == 10 %}selected{% endif %}>10条/页</option>
+                        <option value="20" {% if per_page == 20 %}selected{% endif %}>20条/页</option>
+                        <option value="50" {% if per_page == 50 or not request.args.get('per_page') %}selected{% endif %}>50条/页</option>
+                        <option value="100" {% if per_page == 100 %}selected{% endif %}>100条/页</option>
+                    </select>
+                </div>
+            </div>
+            <div class="flex items-center space-x-4">
+                <div class="text-sm text-gray-700">
+                    第<span id="currentPageDisplay">{{ page }}</span>页/共<span id="totalPagesDisplay">{{ pagination.pages }}</span>页
+                </div>
+                <div class="flex space-x-1">
+                    <button id="prevPage" class="px-3 py-1 border border-gray-300 rounded-md text-sm hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed" {% if not pagination.has_prev %}disabled{% endif %}>
+                        上一页
+                    </button>
+                    <button id="nextPage" class="px-3 py-1 border border-gray-300 rounded-md text-sm hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed" {% if not pagination.has_next %}disabled{% endif %}>
+                        下一页
+                    </button>
+                </div>
+            </div>
+        </div>
+    </main>
+    {% include 'footer.html' %}
+    <!-- 导出弹窗 -->
+    <div id="exportModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-lg p-6 w-full max-w-md">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-semibold text-gray-900">导出待办事项</h3>
+                <button id="closeExportModal" class="text-gray-500 hover:text-gray-700">
+                    <i class="fa fa-times"></i>
+                </button>
+            </div>
+            <form id="exportForm">
+                <div class="mb-4">
+                    <label for="exportStartDate" class="block text-sm font-medium text-gray-700 mb-1">开始日期</label>
+                    <input type="date" id="exportStartDate" name="start_date" 
+                        class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary">
+                </div>
+                <div class="mb-6">
+                    <label for="exportEndDate" class="block text-sm font-medium text-gray-700 mb-1">结束日期</label>
+                    <input type="date" id="exportEndDate" name="end_date" 
+                        class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary">
+                </div>
+                <div class="flex justify-end space-x-3">
+                    <button type="button" id="cancelExportBtn" class="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors">
+                        取消
+                    </button>
+                    <button type="submit" class="px-4 py-2 bg-info text-white rounded-md hover:bg-info/90 transition-colors">
+                        <i class="fa fa-download mr-1"></i>导出
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 确认弹窗 -->
+    <div id="confirmModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-lg p-6 w-full max-w-md">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-semibold text-gray-900">确认操作</h3>
+                <button id="closeConfirmModal" class="text-gray-500 hover:text-gray-700">
+                    <i class="fa fa-times"></i>
+                </button>
+            </div>
+            <p id="confirmMessage" class="mb-6">您确定要执行此操作吗？</p>
+            <div class="flex justify-end space-x-3">
+                <button type="button" id="cancelConfirmBtn" class="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors">
+                    取消
+                </button>
+                <button type="button" id="confirmActionBtn" class="px-4 py-2 bg-danger text-white rounded-md hover:bg-danger/90 transition-colors">
+                    确认
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 页面加载完成后执行
+        document.addEventListener('DOMContentLoaded', function() {
+            // 筛选表单相关事件
+            const filterForm = document.getElementById('filterForm');
+            const statusSelect = document.getElementById('status');
+            const prioritySelect = document.getElementById('priority');
+            const searchInput = document.getElementById('search');
+            
+            // 监听状态下拉框变化
+            if (statusSelect) {
+                statusSelect.addEventListener('change', function() {
+                    filterForm.submit();
+                });
+            }
+            
+            // 监听优先级下拉框变化
+            if (prioritySelect) {
+                prioritySelect.addEventListener('change', function() {
+                    filterForm.submit();
+                });
+            }
+            
+            // 监听分类下拉框变化
+            const categorySelect = document.getElementById('category');
+            if (categorySelect) {
+                categorySelect.addEventListener('change', function() {
+                    filterForm.submit();
+                });
+            }
+            
+            // 监听搜索框回车事件
+            if (searchInput) {
+                searchInput.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        filterForm.submit();
+                    }
+                });
+            }
+            
+            // 导出按钮点击事件
+            document.getElementById('exportExcelBtn').addEventListener('click', function() {
+                document.getElementById('exportModal').classList.remove('hidden');
+            });
+
+            // 关闭导出弹窗
+            document.getElementById('closeExportModal').addEventListener('click', function() {
+                document.getElementById('exportModal').classList.add('hidden');
+            });
+
+            document.getElementById('cancelExportBtn').addEventListener('click', function() {
+                document.getElementById('exportModal').classList.add('hidden');
+            });
+
+            // 导出表单提交
+            document.getElementById('exportForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                const startDate = document.getElementById('exportStartDate').value;
+                const endDate = document.getElementById('exportEndDate').value;
+                
+                let url = '/todo/excel';
+                const params = new URLSearchParams();
+                if (startDate) params.append('start_date', startDate);
+                if (endDate) params.append('end_date', endDate);
+                
+                if (params.toString()) {
+                    url += '?' + params.toString();
+                }
+                
+                window.location.href = url;
+                document.getElementById('exportModal').classList.add('hidden');
+            });
+
+            // 全选复选框
+            const selectAllCheckbox = document.getElementById('selectAll');
+            if (selectAllCheckbox) {
+                selectAllCheckbox.addEventListener('change', function() {
+                    const checkboxes = document.querySelectorAll('tbody input[type="checkbox"]');
+                    checkboxes.forEach(checkbox => {
+                        checkbox.checked = selectAllCheckbox.checked;
+                    });
+                    updateBatchDeleteButton();
+                });
+            }
+
+            // 单个复选框变化
+            document.addEventListener('change', function(e) {
+                if (e.target.type === 'checkbox' && e.target.closest('tbody')) {
+                    updateBatchDeleteButton();
+                    // 检查是否所有都选中
+                    const checkboxes = document.querySelectorAll('tbody input[type="checkbox"]');
+                    const allChecked = Array.from(checkboxes).every(checkbox => checkbox.checked);
+                    if (selectAllCheckbox) {
+                        selectAllCheckbox.checked = allChecked;
+                    }
+                }
+            });
+
+            // 更新批量删除按钮状态
+            function updateBatchDeleteButton() {
+                const checkedBoxes = document.querySelectorAll('tbody input[type="checkbox"]:checked');
+                const batchDeleteBtn = document.getElementById('batchDeleteBtn');
+                if (batchDeleteBtn) {
+                    if (checkedBoxes.length > 0) {
+                        batchDeleteBtn.disabled = false;
+                    } else {
+                        batchDeleteBtn.disabled = true;
+                    }
+                }
+            }
+
+            // 单个删除按钮点击事件
+            document.querySelectorAll('.delete-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const todoId = this.getAttribute('data-todo-id');
+                    document.getElementById('confirmMessage').textContent = '您确定要删除这个待办事项吗？此操作不可恢复！';
+                    document.getElementById('confirmModal').classList.remove('hidden');
+                    
+                    // 保存当前待办事项ID到确认按钮的自定义属性
+                    document.getElementById('confirmActionBtn').setAttribute('data-todo-id', todoId);
+                    
+                    // 重新绑定确认按钮事件，确保执行正确的操作
+                    document.getElementById('confirmActionBtn').onclick = function() {
+                        const form = document.createElement('form');
+                        form.method = 'POST';
+                        form.action = '/todo/delete/' + this.getAttribute('data-todo-id');
+                        document.body.appendChild(form);
+                        form.submit();
+                    };
+                });
+            });
+
+            // 批量删除按钮点击事件
+            document.getElementById('batchDeleteBtn').addEventListener('click', function() {
+                const checkedBoxes = document.querySelectorAll('tbody input[type="checkbox"]:checked');
+                if (checkedBoxes.length > 0) {
+                    document.getElementById('confirmMessage').textContent = `您确定要删除选中的 ${checkedBoxes.length} 条待办事项吗？`;
+                    document.getElementById('confirmModal').classList.remove('hidden');
+                    document.getElementById('confirmActionBtn').onclick = function() {
+                        const form = document.createElement('form');
+                        form.method = 'POST';
+                        form.action = '/todo/batch_delete';
+                        
+                        checkedBoxes.forEach(checkbox => {
+                            const input = document.createElement('input');
+                            input.type = 'hidden';
+                            input.name = 'todo_ids[]';
+                            input.value = checkbox.value;
+                            form.appendChild(input);
+                        });
+                        
+                        document.body.appendChild(form);
+                        form.submit();
+                    };
+                }
+            });
+
+            // 删除全部按钮点击事件
+            document.getElementById('deleteAllBtn').addEventListener('click', function() {
+                document.getElementById('confirmMessage').textContent = '您确定要删除所有待办事项吗？此操作不可恢复！';
+                document.getElementById('confirmModal').classList.remove('hidden');
+                document.getElementById('confirmActionBtn').onclick = function() {
+                    const form = document.createElement('form');
+                    form.method = 'POST';
+                    form.action = '/todo/delete_all';
+                    document.body.appendChild(form);
+                    form.submit();
+                };
+            });
+
+            // 关闭确认弹窗
+            document.getElementById('closeConfirmModal').addEventListener('click', function() {
+                document.getElementById('confirmModal').classList.add('hidden');
+            });
+
+            document.getElementById('cancelConfirmBtn').addEventListener('click', function() {
+                document.getElementById('confirmModal').classList.add('hidden');
+            });
+
+            // 分页按钮点击事件
+            document.getElementById('prevPage').addEventListener('click', function() {
+                // 分页逻辑会通过后端实现
+                const currentPage = parseInt(document.getElementById('currentPageDisplay').textContent);
+                if (currentPage > 1) {
+                    updatePageUrl(currentPage - 1);
+                }
+            });
+
+            document.getElementById('nextPage').addEventListener('click', function() {
+                // 分页逻辑会通过后端实现
+                const currentPage = parseInt(document.getElementById('currentPageDisplay').textContent);
+                const totalPages = parseInt(document.getElementById('totalPagesDisplay').textContent);
+                if (currentPage < totalPages) {
+                    updatePageUrl(currentPage + 1);
+                }
+            });
+
+            // 页面大小选择事件
+            document.getElementById('pageSizeSelect').addEventListener('change', function() {
+                const perPage = this.value;
+                const searchParams = new URLSearchParams(window.location.search);
+                searchParams.set('page', '1');
+                searchParams.set('per_page', perPage);
+                window.location.href = '{{ url_for('todo.index') }}?' + searchParams.toString();
+            });
+
+            // 更新页面URL
+            function updatePageUrl(page) {
+                const searchParams = new URLSearchParams(window.location.search);
+                searchParams.set('page', page);
+                window.location.href = '{{ url_for('todo.index') }}?' + searchParams.toString();
+            }
+        });
+    </script>
+</body>
+</html>

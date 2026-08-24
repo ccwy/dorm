@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+   <!--本地化CDN-->
+{% include 'static.html' %}
+
+
+    <script>
+        // 设置北京时区
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#165DFF',
+                        secondary: '#36CFC9',
+                        accent: '#722ED1',
+                        neutral: '#F5F7FA',
+                        dark: '#1D2129',
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .card-shadow {
+                box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+            }
+            .btn-hover {
+                transition: all 0.3s ease;
+            }
+            .btn-hover:hover {
+                transform: translateY(-2px);
+            }
+        }
+    </style>
+    <style>
+        /* 确保页面占满全屏并将页脚固定在底部 */
+        html {
+            height: 100%;
+        }
+        body {
+            min-height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+        main {
+            flex: 1; /* 让主内容区域自动填充剩余空间 */
+        }
+        footer {
+            margin-top: auto; /* 自动推到页面底部 */
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <header class="bg-primary text-white shadow-md">
+        <div class="container mx-auto px-4 py-6">
+            <h1 class="text-[clamp(1.5rem,3vw,2.5rem)] font-bold text-center" id="systemTitle">{{ system_title }}</h1>
+            
+        </div>
+    </header>
+
+    <main class="container mx-auto px-4 py-12">
+        <h2 class="text-[clamp(1.2rem,2vw,1.8rem)] font-semibold text-center mb-10 text-dark" id="mainPageTitle">功能导航</h2>
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="flash-messages mb-6 mx-auto" style="max-width: 500px;">
+                {% for category, message in messages %}
+                    <div class="p-4 rounded-md mb-2 text-center {% if category == 'success' %}bg-green-100 text-green-800{% elif category == 'error' or category == 'danger' %}bg-red-100 text-red-800{% elif category == 'warning' %}bg-yellow-100 text-yellow-800{% else %}bg-blue-100 text-blue-800{% endif %}">
+                    <button type="button" class="float-right ml-2 text-gray-500 hover:text-gray-700" onclick="this.parentElement.remove()">×</button>
+                    {{ message }}
+                    </div>
+                {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+        <!-- 卡片容器添加额外的居中控制 -->
+        <div class="flex justify-center">
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 max-w-6xl w-full">
+                <!-- 用户管理 -->
+                {% if get_config_value('FEATURE_USER_MANAGE_ENABLED', True) %}
+                <div class="bg-white rounded-xl p-6 card-shadow btn-hover">
+                    <a href="{{ url_for('user.manage') }}" class="flex flex-col items-center text-center">
+                        <div class="w-16 h-16 bg-secondary/10 rounded-full flex items-center justify-center mb-4">
+                            <i class="fa fa-users text-2xl text-secondary"></i>
+                        </div>
+                        <h3 class="text-lg font-medium text-dark mb-2">用户管理</h3>
+                        <p class="text-gray-500 text-sm">管理住宿用户基本信息</p>
+                    </a>
+                </div>
+                {% endif %}
+
+                <!-- 房间管理 -->
+                {% if get_config_value('FEATURE_ROOM_MANAGE_ENABLED', True) %}
+                <div class="bg-white rounded-xl p-6 card-shadow btn-hover">
+                    <a href="{{ url_for('room.manage') }}" class="flex flex-col items-center text-center">
+                        <div class="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mb-4">
+                            <i class="fa fa-building-o text-2xl text-primary"></i>
+                        </div>
+                        <h3 class="text-lg font-medium text-dark mb-2">房间管理</h3>
+                        <p class="text-gray-500 text-sm">管理宿舍房间信息及楼栋</p>
+                    </a>
+                </div>
+                {% endif %}
+
+                <!-- 宿舍分配管理 -->
+                {% if get_config_value('FEATURE_DORM_MANAGE_ENABLED', True) %}
+                <div class="bg-white rounded-xl p-6 card-shadow btn-hover">
+                    <a href="{{ url_for('dorm.manage') }}" class="flex flex-col items-center text-center">
+                        <div class="w-16 h-16 bg-accent/10 rounded-full flex items-center justify-center mb-4">
+                            <i class="fa fa-exchange text-2xl text-accent"></i>
+                        </div>
+                        <h3 class="text-lg font-medium text-dark mb-2">宿舍管理</h3>
+                        <p class="text-gray-500 text-sm">分配、更换、退宿及退宿管理</p>
+                    </a>
+                </div>
+                {% endif %}
+
+                <!-- 水电费管理（暂保留，需确认对应路由） -->
+                {% if get_config_value('FEATURE_UTILITY_BILL_ENABLED', True) %}
+                <div class="bg-white rounded-xl p-6 card-shadow btn-hover">
+                    <a href="{{ url_for('utility_index.utility_index') }}" class="flex flex-col items-center text-center">
+                        <div class="w-16 h-16 bg-amber-500/10 rounded-full flex items-center justify-center mb-4">
+                            <i class="fa fa-bolt text-2xl text-amber-500"></i>
+                        </div>
+                        <h3 class="text-lg font-medium text-dark mb-2">水电费管理</h3>
+                        <p class="text-gray-500 text-sm">抄表、核算及费用管理</p>
+                    </a>
+                </div>
+                {% endif %}
+
+                <!-- 补贴管理 -->
+                {% if get_config_value('FEATURE_FEE_SUBSIDY_ENABLED', True) %}
+                <div class="bg-white rounded-xl p-6 card-shadow btn-hover">
+                    <a href="{{ url_for('fee_subsidy.fee_subsidy_index') }}" class="flex flex-col items-center text-center">
+                        <div class="w-16 h-16 bg-purple-500/10 rounded-full flex items-center justify-center mb-4">
+                            <i class="fa fa-money text-2xl text-purple-500"></i>
+                        </div>
+                        <h3 class="text-lg font-medium text-dark mb-2">补贴管理</h3>
+                        <p class="text-gray-500 text-sm">费用补贴设置与管理</p>
+                    </a>
+                </div>
+                {% endif %}
+                
+                <!-- 文件共享 -->
+                {% if get_config_value('FEATURE_FILE_SHARING_ENABLED', True) %}
+                <div class="bg-white rounded-xl p-6 card-shadow btn-hover">
+                    <a href="{{ url_for('file_sharing.file_sharing') }}" class="flex flex-col items-center text-center">
+                        <div class="w-16 h-16 bg-green-500/10 rounded-full flex items-center justify-center mb-4">
+                            <i class="fa fa-folder-open text-2xl text-green-500"></i>
+                        </div>
+                        <h3 class="text-lg font-medium text-dark mb-2">文件共享</h3>
+                        <p class="text-gray-500 text-sm">共享文件上传、下载与管理</p>
+                    </a>
+                </div>
+                {% endif %}
+
+                <!-- 留言管理 -->
+                {% if get_config_value('FEATURE_TICKET_MANAGE_ENABLED', True) %}
+                <div class="bg-white rounded-xl p-6 card-shadow btn-hover">
+                    <a href="{{ url_for('ticket_admin.admin_ticket_list') }}" class="flex flex-col items-center text-center">
+                        <div class="w-16 h-16 bg-purple-500/10 rounded-full flex items-center justify-center mb-4">
+                            <i class="fa fa-ticket text-2xl text-purple-500"></i>
+                        </div>
+                        <h3 class="text-lg font-medium text-dark mb-2">留言管理</h3>
+                        <p class="text-gray-500 text-sm">管理员工提交的问题留言，包括处理、回复、统计等操作。</p>
+                    </a>
+                </div>
+                {% endif %}
+                <!-- 待办事项 -->
+                {% if get_config_value('FEATURE_TODO_MANAGE_ENABLED', True) %}
+                <div class="bg-white rounded-xl p-6 card-shadow btn-hover">
+                    <a href="/todo/" class="flex flex-col items-center text-center">
+                        <div class="w-16 h-16 bg-green-500/10 rounded-full flex items-center justify-center mb-4">
+                            <i class="fa fa-list text-2xl text-green-500"></i>
+                        </div>
+                        <h3 class="text-lg font-medium text-dark mb-2">待办事项</h3>
+                        <p class="text-gray-500 text-sm">管理和跟踪各类待办任务</p>
+                    </a>
+                </div>
+                {% endif %}
+
+                <!-- 聊天功能 -->
+                {% if get_config_value('FEATURE_CHAT_ENABLED', True) %}
+                <div class="bg-white rounded-xl p-6 card-shadow btn-hover">
+                    <a href="{{ url_for('chat.chat_index') }}" class="flex flex-col items-center text-center">
+                        <div class="w-16 h-16 bg-blue-500/10 rounded-full flex items-center justify-center mb-4">
+                            <i class="fa fa-comments text-2xl text-green-500"></i>
+                        </div>
+                        <h3 class="text-lg font-medium text-dark mb-2">OA聊天</h3>
+                        <p class="text-gray-500 text-sm">与朋友进行一对一或群聊交流</p>
+                    </a>
+                </div>
+                {% endif %}
+
+                <!-- 系统设置 -->
+                <div class="bg-white rounded-xl p-6 card-shadow btn-hover">
+                    <a href="{{ url_for('system_settings.settings') }}" class="flex flex-col items-center text-center">
+                        <div class="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mb-4">
+                            <i class="fa fa-cog text-2xl text-red-500"></i>
+                        </div>
+                        <h3 class="text-lg font-medium text-dark mb-2">系统设置</h3>
+                        <p class="text-gray-500 text-sm">系统参数及账户设置</p>
+                    </a>
+                </div>
+
+
+                <!-- 操作日志记录 -->
+                {% if get_config_value('FEATURE_SYSTEM_LOG_ENABLED', True) %}
+                <div class="bg-white rounded-xl p-6 card-shadow btn-hover">
+                    <a href="{{ url_for('log.log') }}" class="flex flex-col items-center text-center">
+                        <div class="w-16 h-16 bg-indigo-500/10 rounded-full flex items-center justify-center mb-4">
+                            <i class="fa fa-history text-2xl text-indigo-500"></i>
+                        </div>
+                        <h3 class="text-lg font-medium text-dark mb-2">操作日志记录</h3>
+                        <p class="text-gray-500 text-sm">查看系统操作历史记录</p>
+                    </a>
+                </div>
+                {% endif %}
+
+            </div>
+        </div>
+    </main>
+
+    <footer class="bg-dark text-white py-6">
+        <div class="container mx-auto px-4 text-center">
+            <p>&copy; <span id="currentYear"></span> {{ system_title }} - 版权所有
+            <!-- 新增退出登录按钮 -->
+            <a href="{{ url_for('login.logout') }}" >
+                <i class="fa fa-sign-out mr-2"></i>
+            </a>
+            </p>
+            <p class="text-gray-400 text-sm mt-2" id="currentTime"></p>
+        </div>
+    </footer>
+
+    <script>
+        // 设置北京时区时间
+        function updateDateTime() {
+            const now = new Date();
+            // 北京时区 (UTC+8)
+            const beijingTime = new Date(now.getTime());
+            
+            // 更新年份
+            document.getElementById('currentYear').textContent = beijingTime.getUTCFullYear();
+            
+            // 格式化时间显示
+            const options = { 
+                year: 'numeric', 
+                month: '2-digit', 
+                day: '2-digit', 
+                hour: '2-digit', 
+                minute: '2-digit', 
+                second: '2-digit',
+                hour12: false,
+                timeZone: 'Asia/Shanghai'
+            };
+            document.getElementById('currentTime').textContent = beijingTime.toLocaleString('zh-CN', options);
+        }
+        
+        // 初始化更新时间并设置定时器
+        updateDateTime();
+        setInterval(updateDateTime, 1000);
+
+        // 从配置加载系统标题
+        function loadSystemTitles() {
+            const systemTitle = "{{ system_title }}";
+            const mainPageTitle = "功能导航";
+            
+            document.getElementById('systemTitle').textContent = systemTitle;
+            document.getElementById('mainPageTitle').textContent = mainPageTitle;
+        }
+        
+        // 页面加载时加载标题设置
+        window.addEventListener('DOMContentLoaded', loadSystemTitles);
+    </script>
+</body>
+</html>

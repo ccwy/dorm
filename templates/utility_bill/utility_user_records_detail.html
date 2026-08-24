@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+   <!--本地化CDN-->
+{% include 'static.html' %}
+
+  <!-- Tailwind配置 -->
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: '#165DFF',
+            secondary: '#36CFC9',
+            success: '#52C41A',
+            warning: '#FAAD14',
+            danger: '#FF4D4F',
+            gray: {
+              100: '#F5F7FA',
+              200: '#E4E6EB',
+              300: '#C9CDD4',
+              400: '#86909C',
+              500: '#4E5969',
+              600: '#272E3B',
+              700: '#1D2129',
+            }
+          },
+          fontFamily: {
+            inter: ['Inter', 'system-ui', 'sans-serif'],
+          },
+          boxShadow: {
+            'card': '0 2px 14px 0 rgba(0, 0, 0, 0.06)',
+            'hover': '0 6px 20px 0 rgba(0, 0, 0, 0.1)',
+          }
+        },
+      }
+    }
+  </script>
+  
+  <!-- 自定义工具类 -->
+  <style type="text/tailwindcss">
+    @layer utilities {
+      .content-auto {
+        content-visibility: auto;
+      }
+      .transition-bg {
+        transition: background-color 0.2s ease-in-out;
+      }
+      .transition-transform {
+        transition: transform 0.2s ease-in-out;
+      }
+      .filter-active {
+        @apply bg-primary text-white border-primary;
+      }
+      .table-row-hover {
+        @apply hover:bg-gray-50 transition-all duration-200;
+      }
+      .room-list-enter {
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height 0.3s ease-out;
+      }
+      .room-list-enter-active {
+        max-height: 200px;
+        transition: max-height 0.3s ease-in;
+      }
+      .fee-detail-enter {
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height 0.3s ease-out;
+      }
+      .fee-detail-enter-active {
+        max-height: 200px;
+        transition: max-height 0.3s ease-in;
+      }
+      .toggle-btn {
+        @apply inline-flex items-center justify-center w-5 h-5 rounded border border-gray-300 text-gray-600 bg-white transition-all duration-200 hover:border-primary hover:text-primary text-xs;
+      }
+    }
+  </style>
+</head>
+<body class="font-inter bg-gray-100 min-h-screen">
+  <!-- 顶部导航 
+  <header class="bg-white shadow-sm sticky top-0 z-10">
+    <div class="container mx-auto px-4 py-3 flex justify-between items-center">
+      <div class="flex items-center space-x-2">
+        <i class="fa fa-tint text-primary text-xl"></i>
+        <span class="text-gray-700 font-semibold text-lg">水电管理系统</span>
+      </div>
+      <div class="flex items-center space-x-4">
+        <button class="text-gray-500 hover:text-primary transition-colors">
+          <i class="fa fa-bell-o"></i>
+        </button>
+        <div class="flex items-center space-x-2">
+          <img src="https://picsum.photos/id/1005/40/40" alt="用户头像" class="w-8 h-8 rounded-full object-cover">
+          <span class="text-gray-600 text-sm hidden md:inline">管理员</span>
+        </div>
+      </div>
+    </div>
+  </header>-->
+  {% include 'header.html' %}
+  
+  <!-- 主内容区 -->
+  <main class="container mx-auto px-4 py-6">
+    <!-- 页面标题 -->
+    
+     <div class="mb-6 fade-in">
+      <div class="flex flex-col">
+        <!-- 第一行：h2标题 + 按钮（左右分布） -->
+        <div class="flex items-center justify-between mb-4">
+          <div class="flex items-center">
+            <button onclick="history.back()" class="text-gray-600 hover:text-primary transition-all-300 mr-4">
+              <i class="fa fa-arrow-left"></i>
+            </button>
+            <h2 class="text-[clamp(1.5rem,3vw,2rem)] font-bold">{{ title }}</h2>
+          </div>
+          
+          <div class="flex flex-wrap justify-center items-center gap-2">
+            <button onclick="window.location.href='{{ url_for('utility_index.utility_calculate_fees') }}'" class="bg-primary text-white px-5 py-2 rounded-md flex items-center btn-effect hover:bg-primary/90 transition-colors flex-shrink-0 justify-center">
+              房间费用
+            </button>
+            <button onclick="window.location.href='{{ url_for('utility_index.utility_occupant_manage') }}'" class="bg-primary text-white px-5 py-2 rounded-md flex items-center btn-effect hover:bg-primary/90 transition-colors flex-shrink-0 justify-center">
+            用户费用
+            </button>
+            <button onclick="window.location.href='{{ url_for('utility_index.utility_room_checkout') }}'" class="bg-primary text-white px-5 py-2 rounded-md flex items-center btn-effect hover:bg-primary/90 transition-colors flex-shrink-0 justify-center">
+              退宿费用
+            </button>
+            <button onclick="window.location.href='{{ url_for('utility_room_meter.utility_reading_manage') }}'" class="bg-primary text-white px-5 py-2 rounded-md flex items-center btn-effect hover:bg-primary/90 transition-colors flex-shrink-0 justify-center">
+              抄表记录
+            </button>
+          </div>
+        </div> 
+        <!-- 第二行：p标签单独显示 -->
+        <div class="flex items-center">
+          <p class="text-gray-500">查看和管理用户的水电费记录信息</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 筛选区 -->
+    <div class="bg-white rounded-lg shadow-card rounded-lg p-4 mb-6 transition-all duration-300 hover:shadow-hover">
+      <form id="filterForm" class="space-y-4">
+        <div class="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-6 gap-4">
+          <!-- 账期筛选 -->
+          <div class="space-y-2">
+            <label for="billingPeriod" class="block text-sm font-medium text-gray-600">账期</label>
+            <div class="relative">
+              <select id="billingPeriod" class="w-full px-3 py-2 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary appearance-none">
+                <option value="">全部账期</option>
+                {% for period in billing_periods %}
+                <option value="{{ period }}" {% if current_filters.billing_period == period %}selected{% endif %}>{{ period }}月</option>
+                {% endfor %}
+              </select>
+              <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                <i class="fa fa-chevron-down text-gray-400 text-xs"></i>
+              </div>
+            </div>
+          </div>
+
+          <!-- 楼栋筛选 -->
+          <div class="space-y-2">
+            <label for="building" class="block text-sm font-medium text-gray-600">楼栋</label>
+            <div class="relative">
+              <select id="building" class="w-full px-3 py-2 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary appearance-none">
+                <option value="">全部楼栋</option>
+                {% for building in buildings %}
+                <option value="{{ building }}" {% if current_filters.building == building %}selected{% endif %}>{{ building }}</option>
+                {% endfor %}
+              </select>
+              <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                <i class="fa fa-chevron-down text-gray-400 text-xs"></i>
+              </div>
+            </div>
+          </div>
+
+          <!-- 部门筛选 -->
+          <div class="space-y-2">
+            <label for="department" class="block text-sm font-medium text-gray-600">部门</label>
+            <div class="relative">
+              <select id="department" class="w-full px-3 py-2 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary appearance-none">
+                <option value="">全部部门</option>
+                {% for dept in departments %}
+                <option value="{{ dept }}" {% if current_filters.department == dept %}selected{% endif %}>{{ dept }}</option>
+                {% endfor %}
+              </select>
+              <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                <i class="fa fa-chevron-down text-gray-400 text-xs"></i>
+              </div>
+            </div>
+          </div>
+
+          <!-- 类型筛选（替代原职位筛选） -->
+          <div class="space-y-2">
+            <label for="type" class="block text-sm font-medium text-gray-600">类型</label>
+            <div class="relative">
+              <select id="type" class="w-full px-3 py-2 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary appearance-none">
+                <option value="">全部类型</option>
+                <option value="在住" {% if current_filters.type == '在住' %}selected{% endif %}>在住</option>
+                <option value="退宿" {% if current_filters.type == '退宿' %}selected{% endif %}>退宿</option>
+                <option value="换宿" {% if current_filters.type == '换宿' %}selected{% endif %}>换宿</option>
+                <option value="在住+换宿" {% if current_filters.type == '在住+换宿' %}selected{% endif %}>在住+换宿</option>
+              </select>
+              <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                <i class="fa fa-chevron-down text-gray-400 text-xs"></i>
+              </div>
+            </div>
+          </div>
+
+          <!-- 搜索框 -->
+          <div class="space-y-2">
+            <label for="search" class="block text-sm font-medium text-gray-600">搜索（姓名/房间号）</label>
+            <div class="relative">
+              <input 
+                type="text" 
+                id="search" 
+                placeholder="请输入姓名或房间号" 
+                value="{{ current_filters.search }}"
+                class="w-full pl-10 pr-3 py-2 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+              >
+              <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                <i class="fa fa-search text-gray-400"></i>
+              </div>
+            </div>
+          </div>
+        
+
+          <!-- 操作按钮 -->
+          <div class="flex gap-2 space-y-0 items-center">
+            <button 
+              type="button" 
+              id="refreshBtn" 
+              class="px-4 py-[6px] h-[45px] border border-gray-200 rounded-md text-gray-600 hover:bg-gray-50 transition-bg flex items-center justify-center"
+            >
+              <i class="fa fa-refresh mr-2"></i>
+              刷新
+            </button>
+            <button 
+              type="button" 
+              id="exportBtn" 
+              class="px-4 py-[6px] h-[45px] border border-primary text-primary rounded-md hover:bg-primary/5 transition-bg flex items-center justify-center"
+            >
+              <i class="fa fa-download mr-2"></i>
+              <span id="exportBtnText">导出</span>
+              <span id="exportingIndicator" class="hidden ml-2">
+                <i class="fa fa-circle-o-notch fa-spin"></i> 导出中...
+              </span>
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
+
+    <!-- 表单区 -->
+    <div class="bg-white rounded-lg shadow-card overflow-hidden transition-all duration-300 hover:shadow-hover overflow-x-auto">
+      <!-- 表格工具栏 -->
+      <div class="p-4 border-b border-gray-100 flex flex-wrap justify-between items-center whitespace-nowrap">
+        <div class="text-sm text-gray-500">
+          共 <span class="text-primary font-medium">{{ total_count }}</span> 条记录
+        </div>
+        <div class="flex items-center space-x-2">
+          <label for="pageSize" class="text-sm text-gray-500">每页显示:</label>
+          <select id="pageSize" class="text-sm px-2 py-1 border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-primary appearance-none">
+            <option value="10" {% if page_size == 10 %}selected{% endif %}>10条</option>
+            <option value="20" {% if page_size == 20 %}selected{% endif %}>20条</option>
+            <option value="50" {% if page_size == 50 %}selected{% endif %}>50条</option>
+            <option value="100" {% if page_size == 100 %}selected{% endif %}>100条</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- 表格 -->
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm whitespace-nowrap">
+          <thead>
+            <tr class="bg-gray-50 text-left">
+              <th class="px-6 py-3 font-medium text-gray-600 border-b border-gray-100 w-16">序号</th>
+              <th class="px-6 py-3 font-medium text-gray-600 border-b border-gray-100">账期</th>
+              <th class="px-6 py-3 font-medium text-gray-600 border-b border-gray-100">姓名</th>
+              <th class="px-6 py-3 font-medium text-gray-600 border-b border-gray-100 w-16">性别</th>
+              <th class="px-6 py-3 font-medium text-gray-600 border-b border-gray-100">部门</th>
+              <th class="px-6 py-3 font-medium text-gray-600 border-b border-gray-100">职位</th>
+              <th class="px-6 py-3 font-medium text-gray-600 border-b border-gray-100">类型</th>
+              <th class="px-6 py-3 font-medium text-gray-600 border-b border-gray-100">房间号</th>
+              <th class="px-6 py-3 font-medium text-gray-600 border-b border-gray-100">当月住宿天数</th>
+              <th class="px-6 py-3 font-medium text-gray-600 border-b border-gray-100">应付费用</th>
+            </tr>
+          </thead>
+          <tbody>
+              <!-- 表格数据行 -->
+            {% for user in users %}
+            <tr class="table-row-hover">
+              <td class="px-6 py-4 border-b border-gray-100 text-gray-600">{{ loop.index + (current_page - 1) * page_size }}</td>
+              <td class="px-6 py-4 border-b border-gray-100 text-gray-700">
+                <a href="{{ url_for('utility_index.utility_room_records_detail', record_id=user.record_id) }}" class="text-primary hover:underline">{{ user.billing_period }}</a>
+              </td>
+              <td class="px-6 py-4 border-b border-gray-100 text-gray-700">
+                <a href="{{ url_for('user.view', id=user.user_id) }}" class="text-primary hover:underline">{{ user.name }}</a>（ID:{{ user.user_id }}）
+              </td>
+              <td class="px-6 py-4 border-b border-gray-100">
+                <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-blue-800 text-xs" {% if user.gender == '女' %}style="background-color: #fee2e2; color: #be123c"{% endif %}>{{ user.gender }}</span>
+              </td>
+              <td class="px-6 py-4 border-b border-gray-100 text-gray-700">{{ user.department or '-'}}</td>
+              <td class="px-6 py-4 border-b border-gray-100 text-gray-700">{{ user.position or '-'}}</td>
+              <td class="px-6 py-4 border-b border-gray-100">
+                <span class="inline-flex items-center justify-center px-2 py-1 rounded-full 
+                {% if user.type == '在住' %}bg-success/10 text-success
+                {% elif user.type == '换宿' %}bg-warning/10 text-warning
+                {% else %}bg-danger/10 text-danger{% endif %} text-xs">{{ user.type }}</span>
+              </td>
+              <td class="px-6 py-4 border-b border-gray-100">
+                <div class="space-y-1">
+                  {% if user.is_multi_room %}
+                  <div class="flex items-center cursor-pointer room-toggle" data-target="room-list-{{ loop.index }}">
+                    <a href="{{ url_for('room.view', id=user.room_ids[0]) }}" class="text-primary hover:underline">
+                      {{ user.rooms[0] }}</a>（ID:{% if user.room_ids and user.room_ids[0] %}{{ user.room_ids[0] }}{% else %}-{% endif %}）
+                    
+                    <span class="toggle-btn ml-2">
+                      <i class="fa fa-plus"></i>
+                    </span>
+                  </div>
+                  <div id="room-list-{{ loop.index }}" class="room-list-enter text-gray-600">
+                    {% for i in range(1, user.rooms|length) %}
+                    <div>
+                      <a href="{{ url_for('room.view', id=user.room_ids[i]) }}" class="text-primary hover:underline">
+                        {{ user.rooms[i] }}</a>（ID:{% if user.room_ids and i < user.room_ids|length and user.room_ids[i] %}{{ user.room_ids[i] }}{% else %}-{% endif %}）
+                      
+                    </div>
+                    {% endfor %}
+                  </div>
+                  {% else %}
+                  <div>
+                    <a href="{{ url_for('room.view', id=user.room_ids[0]) }}" class="text-primary hover:underline">
+                      {{ user.rooms[0] }} </a>（ID:{% if user.room_ids and user.room_ids[0] %}{{ user.room_ids[0] }}{% else %}-{% endif %}）
+                   
+                  </div>
+                  {% endif %}
+                </div>
+              </td>
+              <td class="px-6 py-4 border-b border-gray-100">
+                <div class="space-y-1">
+                  {% if user.is_multi_room %}
+                  <div class="text-gray-700 cursor-pointer room-toggle" data-target="room-list-{{ loop.index }}">
+                    <span>{{ user.stay_days[0] }}</span>
+                  </div>
+                  <div id="days-list-{{ loop.index }}" class="room-list-enter text-gray-600">
+                    {% for days in user.stay_days[1:] %}
+                    <div>{{ days }}</div>
+                    {% endfor %}
+                  </div>
+                  {% else %}
+                  <div class="text-gray-700">{{ user.stay_days[0] }}</div>
+                  {% endif %}
+                </div>
+              </td>
+              <td class="px-6 py-4 border-b border-gray-100">
+                <div class="space-y-1">
+                  <div class="font-medium text-danger">￥{{ "%.2f"|format(user.total_fee) }}</div>
+                  {% if user.is_multi_room %}
+                  <div id="fee-detail-{{ loop.index }}" class="fee-detail-enter text-gray-600">
+                    {% for detail in user.fee_details %}
+                    <div>{{ detail.room }}: ￥{{ "%.2f"|format(detail.fee) }}</div>
+                    {% endfor %}
+                  </div>
+                  {% endif %}
+                </div>
+              </td>
+            </tr>
+            {% else %}
+            <tr>
+              <td colspan="10" class="px-6 py-10 text-center text-gray-500">暂无数据</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- 分页 -->
+      <div class="px-6 py-4 border-t border-gray-100 flex flex-col sm:flex-row justify-between items-center">
+        <div class="text-sm text-gray-500 mb-4 sm:mb-0">
+          显示 {{ (current_page - 1) * page_size + 1 }}-{{ [current_page * page_size, total_count]|min }} 条，共 {{ total_count }} 条
+        </div>
+        <div class="flex items-center space-x-2">
+          <button class="px-3 h-8 flex items-center justify-center rounded border border-gray-300 bg-white text-gray-700 hover:border-primary hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed" {% if current_page == 1 %}disabled{% endif %}>
+            <i class="fa fa-angle-left mr-1"></i>
+            上一页
+          </button>
+          <span class="px-3 py-2 text-sm font-medium text-gray-700">
+            第 {{ current_page }} / {{ total_pages }} 页
+          </span>
+          <button class="px-3 h-8 flex items-center justify-center rounded border border-gray-300 bg-white text-gray-700 hover:border-primary hover:text-primary" {% if current_page == total_pages %}disabled{% endif %}>
+            下一页
+            <i class="fa fa-angle-right ml-1"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+    <!-- 页脚 -->
+    {% include 'footer.html' %}
+    
+  <!-- 房间号和费用明细展开/折叠功能的JavaScript -->
+  <script>
+    // 为所有房间号切换按钮添加点击事件
+    document.querySelectorAll('.room-toggle').forEach(toggle => {
+      toggle.addEventListener('click', function() {
+        // 获取目标房间列表的ID
+        const targetId = this.getAttribute('data-target');
+        const roomList = document.getElementById(targetId);
+        const icon = this.querySelector('.toggle-btn i');
+        
+        // 获取对应的天数列表和费用明细ID
+        const daysListId = targetId.replace('room-list', 'days-list');
+        const daysList = document.getElementById(daysListId);
+        const feeDetailId = targetId.replace('room-list', 'fee-detail');
+        const feeDetail = document.getElementById(feeDetailId);
+        
+        // 切换房间列表、天数列表和费用明细的显示状态
+        if (roomList.classList.contains('room-list-enter')) {
+          roomList.classList.remove('room-list-enter');
+          roomList.classList.add('room-list-enter-active');
+          
+          if (daysList) {
+            daysList.classList.remove('room-list-enter');
+            daysList.classList.add('room-list-enter-active');
+          }
+          
+          if (feeDetail) {
+            feeDetail.classList.remove('fee-detail-enter');
+            feeDetail.classList.add('fee-detail-enter-active');
+          }
+          
+          if (icon) {
+            icon.classList.remove('fa-plus');
+            icon.classList.add('fa-minus');
+          }
+        } else {
+          roomList.classList.remove('room-list-enter-active');
+          roomList.classList.add('room-list-enter');
+          
+          if (daysList) {
+            daysList.classList.remove('room-list-enter-active');
+            daysList.classList.add('room-list-enter');
+          }
+          
+          if (feeDetail) {
+            feeDetail.classList.remove('fee-detail-enter-active');
+            feeDetail.classList.add('fee-detail-enter');
+          }
+          
+          if (icon) {
+            icon.classList.remove('fa-minus');
+            icon.classList.add('fa-plus');
+          }
+        }
+      });
+    });
+    
+    // 筛选表单提交事件
+    document.getElementById('filterForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+      updateFilters();
+    });
+    
+    // 为筛选区的select元素添加change事件监听，实现选择后自动更新
+    const filterSelects = ['billingPeriod', 'building', 'department', 'type'];
+    filterSelects.forEach(selectId => {
+      const selectElement = document.getElementById(selectId);
+      if (selectElement) {
+        selectElement.addEventListener('change', function() {
+          updateFilters();
+        });
+      }
+    });
+    
+    // 搜索框添加回车事件
+    document.getElementById('search').addEventListener('keypress', function(e) {
+      if (e.key === 'Enter') {
+        updateFilters();
+      }
+    });
+    
+    // 更新筛选条件的通用函数
+    function updateFilters() {
+      const billingPeriod = document.getElementById('billingPeriod').value;
+      const building = document.getElementById('building').value;
+      const department = document.getElementById('department').value;
+      const type = document.getElementById('type').value;
+      const search = document.getElementById('search').value;
+      const pageSize = document.getElementById('pageSize').value;
+      
+      // 构建查询参数
+      let queryParams = new URLSearchParams();
+      if (billingPeriod) queryParams.append('billing_period', billingPeriod);
+      if (building) queryParams.append('building', building);
+      if (department) queryParams.append('department', department);
+      if (type) queryParams.append('type', type);
+      if (search) queryParams.append('search', search);
+      if (pageSize) queryParams.append('pageSize', pageSize);
+      
+      // 跳转到新的URL
+      window.location.href = '/utility/user_records_detail?' + queryParams.toString();
+    };
+    
+    // 刷新按钮点击事件
+    document.getElementById('refreshBtn').addEventListener('click', function() {
+      window.location.href = '/utility/user_records_detail';
+    });
+    
+    // 导出按钮点击事件
+    document.getElementById('exportBtn').addEventListener('click', function() {
+      // 获取筛选条件
+      const billingPeriod = document.getElementById('billingPeriod').value;
+      
+      // 验证账期是否选择
+      if (!billingPeriod) {
+        alert('请先选择账期');
+        return;
+      }
+      
+      // 获取其他筛选条件
+      const building = document.getElementById('building').value;
+      const department = document.getElementById('department').value;
+      const type = document.getElementById('type').value;
+      const search = document.getElementById('search').value;
+      
+      // 构建查询参数
+      let queryParams = new URLSearchParams();
+      queryParams.append('billing_period', billingPeriod);
+      if (building) queryParams.append('building', building);
+      if (department) queryParams.append('department', department);
+      if (type) queryParams.append('type', type);
+      if (search) queryParams.append('search', search);
+      
+      // 显示导出中状态
+      const exportBtnText = document.getElementById('exportBtnText');
+      const exportingIndicator = document.getElementById('exportingIndicator');
+      const exportBtn = document.getElementById('exportBtn');
+      
+      exportBtnText.textContent = '';
+      exportingIndicator.classList.remove('hidden');
+      exportBtn.disabled = true;
+      exportBtn.style.opacity = '0.7';
+      
+      // 使用简单直接的方式触发导出
+      window.location.href = '/utility/export_user_records_excel?' + queryParams.toString();
+      
+      // 60秒后恢复按钮状态
+      setTimeout(function() {
+        exportBtnText.textContent = '导出';
+        exportingIndicator.classList.add('hidden');
+        exportBtn.disabled = false;
+        exportBtn.style.opacity = '1';
+      }, 60000);
+    });
+    
+    // 上一页按钮点击事件
+    const prevButton = document.querySelector('.flex.items-center.space-x-2 button:nth-child(1)');
+    if (prevButton && !prevButton.disabled) {
+      prevButton.addEventListener('click', function() {
+        // 构建包含上一页参数的URL
+        const url = new URL(window.location);
+        const currentPage = parseInt(url.searchParams.get('page') || '1');
+        url.searchParams.set('page', Math.max(1, currentPage - 1));
+        window.location.href = url.toString();
+      });
+    }
+    
+    // 下一页按钮点击事件
+    const nextButton = document.querySelector('.flex.items-center.space-x-2 button:nth-child(3)');
+    if (nextButton && !nextButton.disabled) {
+      nextButton.addEventListener('click', function() {
+        // 构建包含下一页参数的URL
+        const url = new URL(window.location);
+        const currentPage = parseInt(url.searchParams.get('page') || '1');
+        url.searchParams.set('page', currentPage + 1);
+        window.location.href = url.toString();
+      });
+    };
+    
+    // 每页显示数量改变事件
+    document.getElementById('pageSize').addEventListener('change', function() {
+      // 获取当前的查询参数
+      const url = new URL(window.location);
+      url.searchParams.set('pageSize', this.value);
+      url.searchParams.set('page', 1); // 重置为第一页
+      window.location.href = url.toString();
+    });
+  </script>
+</body>
+</html>
+    

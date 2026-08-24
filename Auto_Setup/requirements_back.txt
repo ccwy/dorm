@@ -1,0 +1,26 @@
+# 核心Web框架
+Flask>=2.3.3
+Flask-SQLAlchemy>=3.1.1
+Flask-WTF>=1.2.1
+Flask-Login>=0.6.3
+Flask-Migrate>=4.0.5
+
+# 数据处理
+openpyxl>=3.1.2  # Excel文件处理
+pandas>=2.1.4    # 数据处理与分析
+numpy>=1.26.3    # 数值计算
+
+# 其他工具
+python-dotenv>=1.0.0  # 环境变量管理
+PyMySQL>=1.1.0        # MySQL数据库连接
+cryptography>=41.0.7  # 数据加密
+Werkzeug>=2.3.7       # Web工具库
+Jinja2>=3.1.2         # 模板引擎
+schedule>=1.2.0
+xlsxwriter>=3.2.5       ##Excel工具
+waitress>=2.1.2  # 或与项目兼容的版本
+pywebview==3.7  # 正确的包名是 pywebview，3.3.1 是兼容 Python 3.10 的稳定版
+requests>=2.31.0
+psutil >=7.0.0
+Pillow>=9.5.0  # PIL的现代替代品，用于图像处理和托盘图标
+pystray>=0.19

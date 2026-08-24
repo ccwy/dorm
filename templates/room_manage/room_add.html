@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+   <!--本地化CDN-->
+{% include 'static.html' %}
+
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#165DFF',
+                        secondary: '#36CFC9',
+                        accent: '#722ED1',
+                    },
+                }
+            }
+        }
+    </script>
+    <style>
+        /* 自定义flash消息样式 */
+        .flash-message {
+            animation: fadeIn 0.3s ease-in-out, fadeOut 0.3s ease-in-out 3s;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes fadeOut {
+            from { opacity: 1; transform: translateY(0); }
+            to { opacity: 0; transform: translateY(-10px); }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    {% include 'header.html' %}
+    <main class="container mx-auto px-4 py-6">
+        <!-- 显示后端flash消息 -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    <div class="flash-messages mb-6 mx-auto" style="max-width: 500px;">
+      {% for category, message in messages %}
+        <div class="p-4 rounded-md mb-2 text-center {% if category == 'success' %}bg-green-100 text-green-800{% elif category == 'error' or category == 'danger' %}bg-red-100 text-red-800{% elif category == 'warning' %}bg-yellow-100 text-yellow-800{% else %}bg-blue-100 text-blue-800{% endif %}">
+          <button type="button" class="float-right ml-2 text-gray-500 hover:text-gray-700" onclick="this.parentElement.remove()">×</button>
+          {{ message }}
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+{% endwith %}
+
+        <div class="flex items-center mb-6">
+            <button onclick="history.back()" class="text-primary hover:text-primary/80 mr-2">
+                <i class="fa fa-arrow-left"></i>
+            </button>
+            <h2 class="text-2xl font-semibold text-dark">{{ title }}</h2>
+        </div>
+        
+        <div class="bg-white rounded-lg shadow-sm p-6 mx-auto">
+            <form id="addRoomForm" method="POST" action="{{ url_for('room.add') }}">
+                <input type="hidden" id="formAction" name="action" value="return">
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+                    
+                        <div>
+                            <label for="building" class="block text-sm font-medium text-gray-700 mb-1">宿舍楼 <span class="text-red-500">*</span></label>
+                            <select id="building" name="building" required
+                                    class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                                <option value="">请选择宿舍楼</option>
+                                {% if buildings and buildings|length > 0 %}
+                                    {% for building in buildings %}
+                                        <option value="{{ building }}" {% if loop.first %}selected{% endif %}>{{ building }}</option>
+                                    {% endfor %}
+                                {% else %}
+                                    <option value="">暂无宿舍楼数据</option>
+                                {% endif %}
+                            </select>
+                            {% if not buildings or buildings|length == 0 %}
+                                <p class="text-xs text-amber-500 mt-1">
+                                    <i class="fa fa-exclamation-circle mr-1"></i> 系统配置中未找到宿舍楼信息，请先配置
+                                </p>
+                            {% endif %}
+                        </div>
+                        
+                        <div>
+                            <label for="room_number" class="block text-sm font-medium text-gray-700 mb-1">房间号 <span class="text-red-500">*</span></label>
+                            <input type="text" id="room_number" name="room_number" required
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                   placeholder="例如：101、202、303">
+                        </div>
+                        <div>
+                            <label for="gender_restriction" class="block text-sm font-medium text-gray-700 mb-1">性别限制 <span class="text-red-500">*</span></label>
+                            <select id="gender_restriction" name="gender_restriction" required
+                                    class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                                <option value="男">男</option>
+                                <option value="女">女</option>
+                                <option value="无限制">无限制</option>
+                            </select>
+                        </div>
+                        
+                        <div>
+                            <label for="room_level" class="block text-sm font-medium text-gray-700 mb-1">房间级别 <span class="text-red-500">*</span></label>
+                            <select id="room_level" name="room_level" required
+                                    class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                                <option value="">请选择房间级别</option>
+                                {% if room_levels and room_levels|length > 0 %}
+                                    {% for level in room_levels %}
+                                        <option value="{{ level }}" {% if loop.first %}selected{% endif %}>{{ level }}</option>
+                                    {% endfor %}
+                                {% else %}
+                                     <option value="">暂无可用房间级别</option>
+                                  {% endif %}
+                                  {% if not room_levels or room_levels|length == 0 %}
+                                      <p class="text-xs text-amber-500 mt-1">
+                                          <i class="fa fa-exclamation-circle mr-1"></i> 系统配置中未找到房间级别信息，请先配置
+                                      </p>
+                                  {% endif %}
+                            </select>
+                        </div>
+                        
+                        <div>
+                            <label for="room_type" class="block text-sm font-medium text-gray-700 mb-1">房间类型 <span class="text-red-500">*</span></label>
+                            <select id="room_type" name="room_type" required
+                                    class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                                <option value="">请选择房间类型</option>
+                                {% if room_types and room_types|length > 0 %}
+                                    {% for type in room_types %}
+                                        <option value="{{ type }}" 
+                                                {% if loop.first or '四人间' in type %}selected{% endif %}>
+                                            {{ type }}
+                                        </option>
+                                    {% endfor %}
+                                {% endif %}
+                            </select>
+                        </div>
+
+                        <div>
+                            <label for="capacity" class="block text-sm font-medium text-gray-700 mb-1">容纳人数 <span class="text-red-500">*</span></label>
+                            <input type="number" id="capacity" name="capacity" min="1" required
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                   value="4">
+                            <p class="text-xs text-gray-500 mt-1">根据房间类型填写标准容纳人数</p>
+                        </div>
+
+                        <div>
+                            <label for="status" class="block text-sm font-medium text-gray-700 mb-1">房间状态 <span class="text-red-500">*</span></label>
+                            <select id="status" name="status" required
+                                    class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                                <option value="available">可用</option>
+                                <option value="full">已满</option>
+                                <option value="maintenance">维护中</option>
+                                <option value="closed">已关闭</option>
+                            </select>
+                        </div>
+
+                            <div>
+                                <label for="electric_meter_max" class="block text-sm font-medium text-gray-700 mb-1">电表最大量程 (kWh)</label>
+                                <input type="number" id="electric_meter_max" name="electric_meter_max" min="0" step="0.01" 
+                                       value="9999.99"
+                                       class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                                <p class="text-xs text-gray-500 mt-1">电表可计量的最大值，超过将自动归零</p>
+                            </div>
+                            <div>
+                                <label for="water_meter_max" class="block text-sm font-medium text-gray-700 mb-1">水表最大量程 (m³)</label>
+                                <input type="number" id="water_meter_max" name="water_meter_max" min="0" step="0.01" 
+                                       value="9999.99"
+                                       class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                                <p class="text-xs text-gray-500 mt-1">水表可计量的最大值，超过将自动归零</p>
+                            </div>
+
+                            <div>
+                                <label for="external_rent" class="block text-sm font-medium text-gray-700 mb-1">对外租金 (元/月)</label>
+                                <input type="number" id="external_rent" name="external_rent" min="0" step="0.01"
+                                       class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                            </div>
+                            <div>
+                                <label for="cost_rent" class="block text-sm font-medium text-gray-700 mb-1">成本租金 (元/月)</label>
+                                <input type="number" id="cost_rent" name="cost_rent" min="0" step="0.01"
+                                       class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                            </div>
+                            <div>
+                                <label for="created_at" class="block text-sm font-medium text-gray-700 mb-1">创建时间</label>
+                                <input type="datetime-local" id="created_at" name="created_at"
+                                    class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                    value="{{ current_time }}">
+                                <p class="text-xs text-gray-500 mt-1">不填则使用当前时间</p>
+                            </div>
+                    <!-- 设施选择区 -->
+                    <div class="lg:col-span-4 md:col-span-2 col-span-1">
+                        <label class="block text-sm font-medium text-gray-700 mb-3">房间设施</label>
+                        
+                        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-10 gap-4 mb-2">
+                            {% for facility in valid_facilities %}
+                            <div class="flex flex-col items-center p-3 border border-gray-200 rounded-md hover:bg-gray-50 transition-all">
+                                <label class="flex flex-col items-center cursor-pointer w-full">
+                                    <input type="checkbox" 
+                                           name="facility_name[]" 
+                                           value="{{ facility.name }}" 
+                                           class="form-checkbox text-primary self-start"
+                                           data-facility="{{ facility.name }}">
+                                    <i class="fa {{ 
+                                        'fa-snowflake-o' if facility.name == '空调' else 
+                                        'fa-sliders' if facility.name == '空调遥控器' else 
+                                        'fa-fire' if facility.name == '暖气' else  
+                                        'fa-shower' if facility.name == '热水器' else
+                                        'fa-refresh' if facility.name == '洗衣机' else
+                                        'fa-snowflake-o' if facility.name == '冰箱' else
+                                        'fa-table' if facility.name == '办公桌' else  
+                                        'fa-archive' if facility.name == '衣柜' else
+                                        'fa-user' if facility.name == '椅子' else
+                                        'fa-bed' if facility.name == '床' else
+                                        'fa-wifi' if facility.name == 'WiFi' else
+                                        'fa-television' if facility.name == '电视' else
+                                        'fa-bolt' if facility.name == '供电' else  
+                                        'fa-tint' if facility.name == '供水' else  
+                                        'fa-bath' if facility.name == '洗手间' else  
+                                        'fa-sun-o' if facility.name == '阳台' else  
+                                        'fa-tint' if facility.name == '水龙头' else
+                                        'fa-lock' if facility.name == '门锁' else
+                                        'fa-key' if facility.name == '钥匙' else  
+                                        'fa-ellipsis-h'  
+                                    }} text-xl text-primary my-2"></i>
+                                    <span>{{ facility.label }}</span>
+                                </label>
+                                
+                                <div class="mt-2 w-full hidden" id="quantity-{{ facility.name }}">
+                                    <input type="number" 
+                                           name="facility_quantity[{{ facility.name }}]" 
+                                           min="1" 
+                                           value="1" 
+                                           class="w-full px-2 py-1 border border-gray-300 rounded text-center text-sm" 
+                                           data-for="{{ facility.name }}">
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        
+                        <p class="text-xs text-gray-500">
+                            <i class="fa fa-info-circle mr-1"></i> 勾选房间配备的设施并设置数量
+                        </p>
+                    </div>
+
+                     <!-- 地址信息 -->
+                        <div class="lg:col-span-4 md:col-span-2 col-span-1 pt-4 border-t border-gray-200">
+                            <label for="address" class="block text-sm font-medium text-gray-700 mb-1">房间地址</label>
+                            <textarea id="address" name="address" rows="3"
+                                class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                placeholder="例如：1号楼3单元101室"></textarea>
+                        </div>
+
+                        <!-- 备注信息 -->
+                        <div class="lg:col-span-4 md:col-span-2 col-span-1 pt-4 border-t border-gray-200">
+                            <label for="remark" class="block text-sm font-medium text-gray-700 mb-1">备注</label>
+                            <textarea id="remark" name="remark" rows="3"
+                                class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                placeholder="请输入房间相关备注信息，如设施情况、特殊说明等..."></textarea>
+                        </div>
+                   
+                    <!-- 提交按钮区域 -->
+                    <div class="lg:col-span-4 md:col-span-2 col-span-1 pt-4 border-t border-gray-200">
+                        <div class="flex justify-end gap-3">
+                            <button type="button" onclick="history.back()" class="px-6 py-2 border border-gray-300 rounded-md hover:bg-gray-50">取消</button>
+                            <button type="button" 
+                                    onclick="document.getElementById('formAction').value='continue'; document.getElementById('addRoomForm').submit();" 
+                                    id="saveAndContinueBtn" 
+                                    class="px-6 py-2 bg-secondary text-white rounded-md hover:bg-secondary/90 transition-colors">
+                                <i class="fa fa-plus-circle mr-1"></i> 保存并继续添加
+                            </button>
+                            <button type="button" 
+                                    onclick="document.getElementById('formAction').value='return'; document.getElementById('addRoomForm').submit();" 
+                                    id="saveRoomBtn" 
+                                    class="px-6 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors">
+                                <i class="fa fa-save mr-1"></i> 保存并返回列表
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </main>
+    <!-- 页脚 -->
+    {% include 'footer.html' %}
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const saveRoomBtn = document.getElementById('saveRoomBtn');
+            const saveAndContinueBtn = document.getElementById('saveAndContinueBtn');
+            const roomTypeSelect = document.getElementById('room_type');
+            const capacityInput = document.getElementById('capacity');
+            const form = document.getElementById('addRoomForm');
+            
+            // 设施复选框与数量输入框联动
+            const checkboxes = document.querySelectorAll('input[name="facility_name[]"]');
+            
+            checkboxes.forEach(checkbox => {
+                const facilityName = checkbox.getAttribute('data-facility');
+                const quantityInput = document.getElementById(`quantity-${facilityName}`);
+                
+                // 初始化状态
+                checkbox.checked = false;
+                quantityInput.classList.add('hidden');
+                
+                // 复选框状态变化时显示/隐藏数量输入
+                checkbox.addEventListener('change', function() {
+                    if (this.checked) {
+                        quantityInput.classList.remove('hidden');
+                    } else {
+                        quantityInput.classList.add('hidden');
+                    }
+                });
+            });
+            
+            // 房间类型变化时自动填充容量
+            roomTypeSelect.addEventListener('change', function() {
+                const roomTypeMap = {
+                    '单人间': 1,
+                    '双人间': 2,
+                    '三人间': 3,
+                    '四人间': 4,
+                    '五人间': 5,
+                    '六人间': 6,
+                    '七人间': 7,
+                    '八人间': 8
+                };
+                
+                if (roomTypeMap[this.value]) {
+                    capacityInput.value = roomTypeMap[this.value];
+                }
+            });
+            
+            // 表单提交处理
+            form.addEventListener('submit', function(e) {
+                // 显示加载状态
+                const submitButtons = document.querySelectorAll('button[type="button"]');
+                submitButtons.forEach(btn => {
+                    btn.disabled = true;
+                    btn.innerHTML = '<i class="fa fa-spinner fa-spin mr-2"></i>处理中...';
+                });
+            });
+            
+
+            
+        });
+    </script>
+</body>
+</html>
+    

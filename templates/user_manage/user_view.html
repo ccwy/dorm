@@ -1,0 +1,745 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+   <!--本地化CDN-->
+{% include 'static.html' %}
+
+
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#165DFF',
+                        secondary: '#36CFC9',
+                        accent: '#722ED1',
+                    },
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .btn-effect {
+                transition: all 0.2s ease;
+            }
+            .btn-effect:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            }
+            .card-hover {
+                transition: all 0.3s ease;
+            }
+            .card-hover:hover {
+                box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen flex flex-col">
+    <!-- 顶部蓝色导航栏 
+    <header class="bg-primary text-white shadow-md">
+        <div class="container mx-auto px-4 py-4 flex justify-between items-center">
+            <h1 class="text-xl font-bold">
+                <a href="{{ url_for('index') }}" class="flex items-center">
+                    <i class="fa fa-arrow-left mr-2"></i>
+                    宿舍管理系统
+                </a>
+            </h1>
+            <div class="text-sm" id="currentTime"></div>
+        </div>
+    </header>-->
+    {% include 'header.html' %}
+
+    <div class="flex flex-1 overflow-hidden">
+        <!-- 侧边导航 -->
+        <div id="sidebar-container"></div>
+
+        <!-- 主内容区 -->
+        <main class="flex-1 overflow-y-auto">
+            <section class="container mx-auto px-4 py-6">
+                <!-- 页面标题和操作按钮 -->
+                <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-6 gap-4">
+                    <div class="flex items-center">
+                        <button onclick="history.back()" class="text-primary hover:text-primary/80 mr-2">
+                            <i class="fa fa-arrow-left"></i>
+                        </button>
+                        <div>
+                            <h2 class="text-2xl font-semibold text-gray-800">{{ title }} (ID:{{ user.id }})</h2>
+                            <p class="text-gray-500 mt-1">查看和管理用户的详细信息</p>
+                        </div>
+                    </div>
+                    <div class="flex gap-3">
+                        <a href="{{ url_for('user_operations.edit', id=user.id) }}" id="editUserBtn" class="px-4 py-2 border border-primary text-primary rounded-md hover:bg-primary/5 btn-effect">
+                            <i class="fa fa-pencil-square-o mr-2"></i>编辑用户
+                        </a>
+                        {% if is_user_boarding %}
+                        <a href="{{ url_for('dorm.swap') }}?user_id={{ user.id }}" class="px-4 py-2 border border-primary text-primary rounded-md hover:bg-primary/5 btn-effect">
+                            <i class="fa fa-exchange mr-2"></i>更换宿舍
+                        </a>
+                        <a href="{{ url_for('dorm.checkout') }}?user_id={{ user.id }}" class="px-4 py-2 border border-primary text-primary rounded-md hover:bg-primary/5 btn-effect">
+                            <i class="fa fa-sign-out mr-2"></i>办理退宿
+                        </a>
+                        {% else %}
+                        {% if user.status == '在职' %}
+                        <a href="{{ url_for('dorm.create_allocation', user_id=user.id) }}" class="px-4 py-2 border border-primary text-primary rounded-md hover:bg-primary/5 btn-effect">
+                            <i class="fa fa-home mr-2"></i>分配宿舍
+                        </a>
+                        {% endif %}
+                        {% endif %}
+                    </div>
+                </div>
+                            {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="flash-messages mb-6 mx-auto" style="max-width: 500px;">
+                {% for category, message in messages %}
+                    <div class="p-4 rounded-md mb-2 text-center {% if category == 'success' %}bg-green-100 text-green-800{% elif category == 'error' or category == 'danger' %}bg-red-100 text-red-800{% elif category == 'warning' %}bg-yellow-100 text-yellow-800{% else %}bg-blue-100 text-blue-800{% endif %}">
+                    <button type="button" class="float-right ml-2 text-gray-500 hover:text-gray-700" onclick="this.parentElement.remove()">×</button>
+                    {{ message }}
+                    </div>
+                {% endfor %}
+                </div>
+            {% endif %}
+            {% endwith %}
+                <!-- 用户基本信息卡片 -->
+                <div class="bg-white rounded-lg shadow-sm overflow-hidden mb-6 card-hover">
+                    <div class="px-6 py-4 border-b border-gray-200">
+                        <h3 class="font-medium flex items-center">
+                            <i class="fa fa-user text-primary mr-2"></i>
+                            用户基本信息
+                        </h3>
+                    </div>
+                    <div class="p-6">
+                        <div class="flex flex-col md:flex-row gap-6">
+                            
+                            
+                            <div class="flex-1 grid grid-cols-1 md:grid-cols-3 gap-x-8 gap-y-4">
+                                <div>
+                                    <h3 class="text-sm text-gray-500">姓名</h3>
+                                    <p class="font-medium text-lg">{{ user.name }}</p>
+                                </div>
+                                <div>
+                                    <h3 class="text-sm text-gray-500">性别</h3>
+                                    <p class="font-medium">{{ user.gender or '-'}}</p>
+                                </div>
+                                <div>
+                                    <h3 class="text-sm text-gray-500">年龄</h3>
+                                    <p class="font-medium">{{ user.get_age() or '-' }}</p>
+                                </div>
+                                <div>
+                                    <h3 class="text-sm text-gray-500">工号</h3>
+                                    <p class="font-medium">{{ user.student_id }}</p>
+                                </div>
+                                <div>
+                                    <h3 class="text-sm text-gray-500">公司</h3>
+                                    <p class="font-medium">{{ user.company or '-' }}</p>
+                                </div>
+                                
+                                <div>
+                                    <h3 class="text-sm text-gray-500">部门</h3>
+                                    <p class="font-medium">{{ user.department or '-' }}</p>
+                                </div>
+                                <div>
+                                    <h3 class="text-sm text-gray-500">职位</h3>
+                                    <p class="font-medium">{{ user.position or '-' }}</p>
+                                </div>
+                                <div>
+                                    <h3 class="text-sm text-gray-500">人员类别</h3>
+                                    <p class="font-medium">
+                                        {% set category_label = user.category or '-' %}
+                                        {% set found = false %}
+                                        {% for option in category_options if not found %}
+                                            {% if option.value == user.category %}
+                                                {% set category_label = option.label %}
+                                                {% set found = true %}
+                                            {% endif %}
+                                        {% endfor %}
+                                        {{ category_label }}
+                                    </p>
+                                </div>
+                                
+                                <div>
+                                    <h3 class="text-sm text-gray-500">用户状态</h3>
+                                    <span class="px-2 py-1 {% if user.status == '在职' %}bg-green-100 text-green-800{% elif user.status == '离职' %}bg-red-100 text-red-800{% elif user.status == '自离' %}bg-amber-100 text-amber-800{% else %}bg-gray-200 text-gray-800{% endif %} rounded-full text-xs">
+                                        {{ user.status}}
+                                    </span>
+                                </div>
+                                <div>
+                                    <h3 class="text-sm text-gray-500">联系电话</h3>
+                                    <p class="font-medium">{{ user.phone or '-' }}</p>
+                                </div>
+                                <div>
+                                    <h3 class="text-sm text-gray-500">外宿补贴</h3>
+                                    <p class="font-medium">{{ user.lodging_allowance or '-' }}</p>
+                                </div>
+                                <div>
+                                    <h3 class="text-sm text-gray-500">住宿补贴</h3>
+                                    <p class="font-medium">{{ user.reduction_fee or '-' }}</p>
+                                </div>
+                                <div>
+                                    <h3 class="text-sm text-gray-500">入职日期</h3>
+                                    <p class="font-medium">{{ format_datetime(user.hire_date) if user.hire_date else '-' }}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 用户详细信息和账号信息 -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+                    <!-- 用户详细信息 -->
+                    <div class="bg-white rounded-lg shadow-sm overflow-hidden card-hover lg:col-span-1">
+                        <div class="px-6 py-4 border-b border-gray-200">
+                            <h3 class="font-medium flex items-center">
+                                <i class="fa fa-user text-primary mr-2"></i>
+                                个人详细信息
+                            </h3>
+                        </div>
+                        <div class="p-6">
+                            <ul class="space-y-4">
+                                <li class="flex justify-between pb-4 border-b border-gray-100">
+                                    <span class="text-gray-500">民族</span>
+                                    <span class="font-medium">{{ user.ethnicity or '-' }}</span>
+                                </li>
+                                
+                                <li class="flex justify-between pb-4 border-b border-gray-100">
+                                    <span class="text-gray-500">出生日期</span>
+                                    <span class="font-medium">{{ format_datetime(birth_date) if birth_date else '-' }}</span>
+                                </li>
+                                <li class="flex justify-between pb-4 border-b border-gray-100">
+                                    <span class="text-gray-500">籍贯</span>
+                                    <span class="font-medium">{{ user.native_place or '-' }}</span>
+                                </li>
+                                <li class="flex justify-between pb-4 border-b border-gray-100">
+                                    <span class="text-gray-500">婚姻状态</span>
+                                    <span class="font-medium">{{ user.marital_status or '-' }}</span>
+                                </li>
+                                <li class="flex justify-between pb-4 border-b border-gray-100">
+                                    <span class="text-gray-500">身份证号</span>
+                                    <span class="font-medium">
+                                        {{ user.id_card or '-' }}
+                                    </span>
+                                </li>
+                                <li class="flex justify-between pb-4 border-b border-gray-100">
+                                    <span class="text-gray-500">身份证地址</span>
+                                    <span class="font-medium text-right">{{ user.id_address or '-' }}</span>
+                                </li>
+                                <li class="flex justify-between pb-4 border-b border-gray-100">
+                                    <span class="text-gray-500">紧急联系人</span>
+                                    <span class="font-medium">{{ user.emergency_contact or '-' }}</span>
+                                </li>
+                                <li class="flex justify-between pb-4 border-b border-gray-100">
+                                    <span class="text-gray-500">紧急联系电话</span>
+                                    <span class="font-medium">{{ user.emergency_phone or '-' }}</span>
+                                </li>
+                                <li class="flex justify-between ">
+                                    <span class="text-gray-500">外宿地址</span>
+                                    <span class="font-medium">{{ user.lodging_address or '-' }}</span>
+                                </li>
+                                
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <!-- 账号信息 -->
+                    <div class="bg-white rounded-lg shadow-sm overflow-hidden card-hover lg:col-span-1">
+                        <div class="px-6 py-4 border-b border-gray-200">
+                            <h3 class="font-medium flex items-center">
+                                <i class="fa fa-key text-primary mr-2"></i>
+                                账号信息
+                            </h3>
+                        </div>
+                        <div class="p-6">
+                            <ul class="space-y-4">
+                                 <li class="flex justify-between pb-4 border-b border-gray-100">
+                                    <span class="text-gray-500">ID</span>
+                                    <span class="font-medium">{{ user.id }}</span>
+                                </li>
+                                <li class="flex justify-between pb-4 border-b border-gray-100">
+                                    <span class="text-gray-500">用户名</span>
+                                    <span class="font-medium">{{ user.username }}</span>
+                                </li>
+                                <li class="flex justify-between pb-4 border-b border-gray-100">
+                                    <span class="text-gray-500">角色</span>
+                                    <span class="font-medium">{{ user.role }}</span>
+                                </li>
+                                <li class="flex justify-between pb-4 border-b border-gray-100">
+                                    <span class="text-gray-500">账号状态</span>
+                                    <span class="px-2 py-1 {% if user.is_active %}bg-green-100 text-green-800{% else %}bg-red-100 text-red-800{% endif %} rounded-full text-xs">
+                                        {{ active_status }}
+                                    </span>
+                                </li>
+                                <li class="flex justify-between pb-4 border-b border-gray-100">
+                                    <span class="text-gray-500">登录权限</span>
+                                    <span class="px-2 py-1 {% if user.is_banned %}bg-green-100 text-green-800{% else %}bg-red-100 text-red-800{% endif %} rounded-full text-xs">
+                                        {{ login_status }}
+                                    </span>
+                                </li>
+                                
+                                <li class="flex justify-between pb-4 border-b border-gray-100">
+                                    <span class="text-gray-500">备注</span>
+                                    <span class="font-medium text-right">{{ user.remarks or '无备注' }}</span>
+                                </li>
+                                <li class="flex justify-between pb-4 border-b border-gray-100">
+                                    <span class="text-gray-500">创建时间</span>
+                                    <span class="px-2 py-1 {% if user.status == '在职' %}bg-green-100 text-green-800{% elif user.status == '离职' %}bg-gray-100 text-gray-800{% else %}bg-amber-100 text-amber-800{% endif %} rounded-full text-xs">
+                                        {{ format_datetime(user.created_at) }}
+                                    </span>
+                                </li>
+                                <li class="flex justify-between  pb-4 border-b border-gray-100">
+                                    <span class="text-gray-500">更新时间</span>
+                                    <span class="px-2 py-1 {% if user.status == '在职' %}bg-green-100 text-green-800{% elif user.status == '离职' %}bg-gray-100 text-gray-800{% else %}bg-amber-100 text-amber-800{% endif %} rounded-full text-xs">
+                                        {{ format_datetime(user.updated_at) }}
+                                    </span>
+                                </li>
+                                <li class="flex justify-between ">
+                                    <span class="text-gray-500">最后登录时间</span>
+                                    <span class="px-2 py-1 {% if user.status == '在职' %}bg-green-100 text-green-800{% elif user.status == '离职' %}bg-gray-100 text-gray-800{% else %}bg-amber-100 text-amber-800{% endif %} rounded-full text-xs">
+                                        {{ format_datetime(user.last_login_at) }}
+                                    </span>
+                                </li>
+                                
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <!-- 住宿信息 -->
+                                        <!-- 住宿信息 -->
+                    <div class="bg-white rounded-lg shadow-sm overflow-hidden card-hover lg:col-span-1">
+                        <div class="px-6 py-4 border-b border-gray-200">
+                            <h3 class="font-medium flex items-center">
+                                <i class="fa fa-home text-primary mr-2"></i>
+                                住宿信息
+                            </h3>
+                        </div>
+                        <div class="p-6">
+                            {% if latest_dorm %}
+                                <ul class="space-y-4">
+                                    <!-- 住宿状态（直接使用Dorm模型的status字段） -->
+                                    <li class="flex justify-between pb-4 border-b border-gray-100">
+                                        <span class="text-gray-500">住宿状态</span>
+                                        <span class="px-2 py-1 
+                                            {% if latest_dorm.status == 'active' %}bg-green-100 text-green-800
+                                            {% elif latest_dorm.status == 'checked_out' %}bg-red-100 text-red-800
+                                            {% else %}bg-amber-100 text-amber-800{% endif %} 
+                                            rounded-full text-xs">
+                                            {{ '在住' if latest_dorm.status == 'active' else '已退宿' if latest_dorm.status == 'checked_out' else '异常' }}
+                                        </span>
+                                    </li>
+
+                                    <!-- 房间号（直接使用Room模型的room_number字段） -->
+                                    <li class="flex justify-between pb-4 border-b border-gray-100">
+                                        <span class="text-gray-500">房间号</span>
+                                        {% if latest_dorm.room %}<span class="font-medium"><a href="{{ url_for('room.view', id=latest_dorm.room.id) }}" class="text-blue-600 hover:underline">{{ latest_dorm.room.building }}{{ latest_dorm.room.room_number }}</a>(ID:{{ latest_dorm.room.id }})</span>{% else %}<span class="font-medium">-</span>{% endif %}
+                                    </li>
+                                    
+                                    <!-- 入住日期（直接使用Dorm模型的check_in_date字段） -->
+                                    <li class="flex justify-between pb-4 border-b border-gray-100">
+                                        <span class="text-gray-500">入住日期</span>
+                                        <span class="font-medium">{{ format_datetime(latest_dorm.check_in_date) if latest_dorm.check_in_date else '-' }}</span>
+                                    </li>
+                                    
+                                    <!-- 退宿日期（直接使用Dorm模型的check_out_date字段） -->
+                                    <li class="flex justify-between pb-4 border-b border-gray-100">
+                                        <span class="text-gray-500">退宿日期</span>
+                                        <span class="font-medium">{{ format_datetime(latest_dorm.check_out_date) if latest_dorm.check_out_date else '未退宿' }}</span>
+                                    </li>
+                                    
+                                    <!-- 住宿天数（通过Dorm模型方法计算） -->
+                                    <li class="flex justify-between">
+                                        <span class="text-gray-500">住宿天数</span>
+                                        <span class="font-medium">{{ latest_dorm.stay_days if latest_dorm and latest_dorm.stay_days else '-' }} 天</span>  
+                                    </li>
+                                </ul>
+                                
+                                <!-- 室友信息表格 -->
+                                {% if latest_dorm.status == 'active' and latest_dorm.room %}
+                                <div class="mt-6">
+                                    <h4 class="text-sm font-medium text-gray-700 mb-3">室友信息</h4>
+                                    <div class="overflow-x-auto">
+                                        <table class="min-w-full divide-y divide-gray-200">
+                                            <thead>
+                                                <tr>
+                                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">姓名</th>
+													<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">性别</th>
+                                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">年龄</th>
+                                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">部门</th>
+                                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">职位</th>
+													<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">已住天数</th>
+                                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">入住日期</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody class="bg-white divide-y divide-gray-200">
+                                                {% if roommates and roommates|length > 0 %}
+                                                    {% for roommate in roommates %}
+                                                    <tr class="hover:bg-gray-50 transition duration-200">
+                                                        <td class="px-4 py-3 whitespace-nowrap text-sm ">
+                                                            <a href="{{ url_for('user.view', id=roommate.id) }}" class="font-medium text-blue-600 hover:underline">
+                                                                {{ roommate.name }}
+                                                            </a>(ID:{{ roommate.id }})
+                                                        </td>
+														<td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                                                            {{ roommate.gender if roommate.gender else '-' }}
+                                                        </td>
+                                                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                                                            {{ roommate.age if roommate.age else '-' }}
+                                                        </td>
+                                                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                                                            {{ roommate.department if roommate.department else '-' }}
+                                                        </td>
+                                                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                                                            {{ roommate.position if roommate.position else '-' }}
+                                                        </td>
+														<td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                                                            {{ roommate.stay_days if roommate and roommate.stay_days else '-' }} 天
+                                                        </td>
+                                                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                                                            {{ format_datetime(roommate.check_in_date) if roommate.check_in_date else '-' }}
+                                                        </td>
+                                                    </tr>
+                                                    {% endfor %}
+                                                {% else %}
+                                                    <tr>
+                                                        <td colspan="6" class="px-4 py-6 text-center text-sm text-gray-500">
+                                                            暂无其他室友
+                                                        </td>
+                                                    </tr>
+                                                {% endif %}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                                {% endif %}
+                            {% else %}
+                                <div class="text-center py-6">
+                                    <i class="fa fa-building-o text-gray-300 text-4xl mb-3"></i>
+                                    <p class="text-gray-500">该用户暂无住宿信息</p>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+    
+                </div>
+                
+                <!-- 历史住宿记录 -->
+{% if historical_dorms and historical_dorms|length > 0 %}
+<div class="bg-white rounded-lg shadow-sm overflow-hidden card-hover mb-6">
+    <div class="px-6 py-4 border-b border-gray-200">
+        <h3 class="font-medium flex items-center">
+            <i class="fa fa-history text-primary mr-2"></i>
+            住宿历史记录（含换宿）
+        </h3>
+    </div>
+    <div class="p-6">
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead>
+                    <tr>
+                        
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">房间号</th>
+						<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">性别限制</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">房间类型</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">房间级别</th>
+						<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">平均年龄</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">入住日期</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">退宿日期</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">住宿天数</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">状态</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">换宿记录</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for dorm in historical_dorms %}
+                    <tr class="hover:bg-gray-50 transition duration-200">
+                        
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <a href="{{ url_for('room.view', id=dorm.room.id) }}" class="font-medium text-blue-600 hover:underline">
+                            {{ dorm.room.building if dorm.room else '未知' }}{{ dorm.room.room_number if dorm.room else '未知' }}
+                            </a>(ID:{{ dorm.room.id}})
+                        </td>
+						<td class="px-6 py-4 whitespace-nowrap">{{ dorm.room.gender_restriction if dorm.room.gender_restriction else '-' }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">{{ dorm.room.room_type if dorm.room.room_type else '-' }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">{{ dorm.room.room_level if dorm.room.room_level else '-' }}</td>
+						<td class="px-6 py-4 whitespace-nowrap">{{ dorm.room.average_age if dorm.room.average_age else '-' }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            {{ format_datetime(dorm.check_in_date) }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            {{ format_datetime(dorm.check_out_date) if dorm.check_out_date else '未退宿' }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <span class="font-medium">
+                                {{ dorm.stay_days }} 天
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <span class="px-2 py-1 
+                                {% if dorm.status == 'active' %}bg-green-100 text-green-800
+                                {% else %}bg-red-100 text-red-800{% endif %} 
+                                rounded-full text-xs">
+                                {{ '在住' if dorm.status == 'active' else '已退宿' }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            {% set transfer = dorm.get_transfer_details() %}
+                            {% if transfer.prev %}
+                            <div class="text-xs text-blue-600 mb-1">
+                                <i class="fa fa-arrow-up mr-1"></i>
+                                来自: {{ transfer.prev.room_number }}
+                            </div>
+                            {% endif %}
+                            {% if transfer.next %}
+                            <div class="text-xs text-amber-600">
+                                <i class="fa fa-arrow-down mr-1"></i>
+                                换到: {{ transfer.next.room_number }}
+                            </div>
+                            {% endif %}
+                            {% if not transfer.prev and not transfer.next %}
+                            <span class="text-xs text-gray-500">无换宿记录</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <div class="mt-4 text-sm text-gray-500">
+            <p><i class="fa fa-info-circle mr-1"></i> 记录按时间顺序排列，包含所有住宿及换宿历史</p>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+                <!-- 水电费记录卡片 -->
+                {% if utility_records and utility_records|length > 0 %}
+                <div class="bg-white rounded-lg shadow-sm overflow-hidden card-hover mb-6">
+                    <div class="px-6 py-4 border-b border-gray-200">
+                        <h3 class="font-medium flex items-center">
+                            <i class="fa fa-bolt text-primary mr-2"></i>
+                            每月水电费记录
+                        </h3>
+                    </div>
+                    <div class="p-6">
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead>
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">账期</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">房间号</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">电费</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">水费</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">总费用</th>
+                                        <!-- 新增：减免费用列 -->
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">减免费用</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">应付费用</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">住宿天数</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">类型</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200">
+                                    {% for record in utility_records %}
+                                    <tr class="hover:bg-gray-50 transition duration-200">
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            
+                                        <a href="{{ url_for('utility_index.utility_room_records_detail', record_id=record.record_id) }}" class="text-primary hover:underline">
+                                               {{ record.billing_period }}
+                                            </a>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+										<a href="{{ url_for('room.view', id=record.room_id) }}" class="font-medium text-blue-600 hover:underline">
+										{{ record.room_building }}{{ record.room_number }}
+										</a>(ID:{{ record.room_id }})
+										</td>
+                                        <td class="px-6 py-4 whitespace-nowrap">¥{{ "%.2f"|format(record.electric_fee or 0) }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap">¥{{ "%.2f"|format(record.water_fee or 0) }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap">¥{{ "%.2f"|format(record.total_fee or 0) }}</td>
+                                        <!-- 新增：减免费用显示 -->
+                                        <td class="px-6 py-4 whitespace-nowrap text-green-600">¥{{ "%.2f"|format(record.reduction_fee or 0) }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap font-medium">
+                                            {% if record.type == 'checkout' and record.checkout_id %}
+                                                <a href="{{ url_for('utility_index.utility_room_checkout_edit', id=record.checkout_id) }}" class="text-primary hover:underline">¥{{ "%.2f"|format(record.payable_fee or 0) }}</a>
+                                            {% else %}
+                                                ¥{{ "%.2f"|format(record.payable_fee or 0) }}
+                                            {% endif %}
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap font-medium">
+                                            {% if record.type == 'checkout' and record.checkout_id %}
+                                                <a href="{{ url_for('utility_index.utility_user_checkout_detail', id=record.checkout_id) }}" class="text-primary hover:underline">{{ record.stay_days or 0 }} 天</a>
+                                            {% else %}
+                                                {{ record.stay_days or 0 }} 天
+                                            {% endif %}
+                                        </td>
+                                        
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <span class="px-2 py-1 
+                                                {% if record.type == 'active' %}bg-green-100 text-green-800
+                                                {% else %}bg-amber-100 text-amber-800{% endif %} 
+                                                rounded-full text-xs">
+                                                {{ '在住' if record.type == 'active' else '退宿' }}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <div class="mt-4 text-sm text-gray-500">
+                            <p><i class="fa fa-info-circle mr-1"></i> 记录按账期倒序排列，包含在住和退宿期间的水电费</p>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- 新增：留言记录卡片 -->
+                {% if ticket_records %}
+                <div class="bg-white rounded-lg shadow-sm overflow-hidden card-hover mb-6">
+                    <div class="px-6 py-4 border-b border-gray-200">
+                        <h3 class="font-medium flex items-center">
+                            <i class="fa fa-ticket text-info mr-2"></i>
+                            留言记录
+                            <span class="ml-2 px-2 py-1 bg-info/10 text-info rounded-full text-xs">共 {{ ticket_records|length }} 条</span>
+                        </h3>
+                    </div>
+                    <div class="p-6">
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead>
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">标题</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">分类</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">状态</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">优先级</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">回复数</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">创建时间</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">更新时间</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200">
+                                    {% for ticket in ticket_records %}
+                                    <tr class="hover:bg-gray-50 transition duration-200">
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            {{ ticket.id }}
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap max-w-xs truncate">
+                                            <a href="{{ url_for('ticket_admin.ticket_detail', ticket_id=ticket.id) }}" class="text-blue-600 hover:underline">
+                                                {{ ticket.title }}
+                                            </a>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            {% if ticket.category == 'repair' %}维修申请
+                                            {% elif ticket.category == 'complaint' %}投诉建议
+                                            {% elif ticket.category == 'query' %}咨询疑问
+                                            {% else %}{{ ticket.category }}{% endif %}
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            {% if ticket.status == 'open' %}<span class="px-2 py-1 bg-primary/10 text-primary rounded-full text-xs">待处理</span>
+                                            {% elif ticket.status == 'processing' %}<span class="px-2 py-1 bg-warning/10 text-warning rounded-full text-xs">处理中</span>
+                                            {% elif ticket.status == 'closed' %}<span class="px-2 py-1 bg-success/10 text-success rounded-full text-xs">已解决</span>
+                                            {% else %}{{ ticket.status }}{% endif %}
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            {% if ticket.priority == 'high' %}<span class="px-2 py-1 bg-danger/10 text-danger rounded-full text-xs">高</span>
+                                            {% elif ticket.priority == 'medium' %}<span class="px-2 py-1 bg-warning/10 text-warning rounded-full text-xs">中</span>
+                                            {% elif ticket.priority == 'low' %}<span class="px-2 py-1 bg-gray-100 text-gray-800 rounded-full text-xs">低</span>
+                                            {% else %}{{ ticket.priority }}{% endif %}
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-center">
+                                            {{ ticket.reply_count }}
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                            {{ format_datetime(ticket.created_at) }}
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                            {{ format_datetime(ticket.updated_at) }}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- 操作日志 -->
+                <div class="bg-white rounded-lg shadow-sm overflow-hidden card-hover">
+                    <div class="px-6 py-4 border-b border-gray-200">
+                        <h3 class="font-medium flex items-center">
+                            <i class="fa fa-file-text-o text-primary mr-2"></i>
+                            操作记录
+                        </h3>
+                    </div>
+                    <div class="p-6">
+                        <div class="space-y-4">
+                            <div class="flex pb-4 border-b border-gray-100">
+                                <div class="flex-shrink-0 w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center mr-4">
+                                    <i class="fa fa-eye text-blue-600"></i>
+                                </div>
+                                <div>
+                                    <p class="font-medium">查看信息</p>
+                                    <p class="text-sm text-gray-500 mt-1">查看了该用户的详细信息</p>
+                                    <p class="text-xs text-gray-400 mt-2">{{ current_time_formatted }} <span class="ml-2">操作人：{{ current_user.name }}</span></p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+    <!-- 页脚 -->
+    {% include 'footer.html' %}
+    
+    <script src="{{ url_for('static', filename='js/common.js') }}"></script>
+    <script>
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', function() {
+           /* fetch("{{ url_for('static', filename='components/sidebar.html') }}")
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('侧边栏组件加载失败');
+                    }
+                    return response.text();
+                })
+                .then(data => {
+                    document.getElementById('sidebar-container').innerHTML = data;
+                    
+                    // 高亮当前页面导航
+                    const currentPage = 'user_view.html';
+                    const navLinks = document.querySelectorAll('aside a');
+                    navLinks.forEach(link => {
+                        if (link.getAttribute('href').includes(currentPage)) {
+                            link.classList.add('bg-primary/5', 'text-primary', 'border-primary');
+                            link.classList.remove('text-gray-700', 'hover:bg-primary/5', 'hover:text-primary', 'border-transparent', 'hover:border-primary');
+                        }
+                    });
+                })
+                .catch(error => {
+                    console.error('加载侧边栏时出错:', error);
+                    document.getElementById('sidebar-container').innerHTML = `
+                        <aside class="bg-white border-r border-gray-200 p-4">
+                            <p class="text-gray-500 text-sm">侧边栏加载失败</p>
+                        </aside>
+                    `;
+                });*/
+
+            
+            
+
+            initUserDetails();
+        });
+
+        function initUserDetails() {
+            // 编辑用户按钮已经通过模板引擎绑定了正确的URL
+        }
+    </script>
+</body>
+</html>
+    

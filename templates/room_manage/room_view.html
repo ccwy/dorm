@@ -1,0 +1,828 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+   <!--本地化CDN-->
+{% include 'static.html' %}
+
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#165DFF',
+                        secondary: '#36CFC9',
+                        accent: '#722ED1',
+                    },
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!--<header class="bg-primary text-white shadow-md">
+        <div class="container mx-auto px-4 py-4 flex justify-between items-center">
+            <h1 class="text-xl font-bold">
+                <a href="{{ url_for('index') }}" class="flex items-center">
+                    <i class="fa fa-arrow-left mr-2"></i>
+                    宿舍管理系统
+                </a>
+            </h1>
+            <div class="text-sm" id="currentTime"></div>
+        </div>
+    </header>-->
+{% include 'header.html' %}
+    <main class="container mx-auto px-4 py-6">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-4">
+            <div class="flex items-center">
+                <button onclick="history.back()" class="text-primary hover:text-primary/80 mr-2">
+                    <i class="fa fa-arrow-left"></i>
+                </button>
+                <h2 class="text-2xl font-semibold text-dark">{{ title }} (ID:{{ room.id }})</h2>
+            </div>
+            <div class="flex gap-3">
+                <button type="button" id="uploadMediaBtn" class="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors">
+                    <i class="fa fa-upload mr-2"></i>添加照片/视频
+                </button>
+                <input type="file" id="mediaFileInput" accept="image/*,video/*" multiple class="hidden" />
+                <a href="{{ url_for('room.edit', id=room.id) }}" class="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90">
+                    <i class="fa fa-pencil mr-2"></i>编辑房间
+                </a>
+				{% if room.status == 'available' %}
+                <a href="{{ url_for('dorm.add') }}" class="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90">
+                    <i class="fa fa-pencil mr-2"></i>分配用户
+                </a>
+				{% endif %}
+            </div>
+        </div>
+        
+        <!-- 上传进度条和反馈消息 -->
+        <div id="uploadProgressContainer" class="hidden bg-white rounded-lg shadow-sm p-4 mb-4">
+            <div class="flex items-center justify-between mb-2">
+                <span id="uploadStatusText" class="text-sm font-medium text-gray-700">上传中...</span>
+                <span id="uploadProgressPercentage" class="text-sm text-gray-500">0%</span>
+            </div>
+            <div class="w-full bg-gray-200 rounded-full h-2">
+                <div id="uploadProgressBar" class="bg-green-500 h-2 rounded-full" style="width: 0%"></div>
+            </div>
+        </div>
+
+        <!-- 上传结果反馈消息 -->
+        <div id="uploadFeedback" class="hidden px-4 py-3 rounded-md mb-4"></div>
+
+        <div class="bg-white rounded-lg shadow-sm p-6 mx-auto">
+            <!-- 基本信息和状态信息部分保持不变 -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <!-- 基本信息 -->
+                <div>
+                    <h3 class="text-lg font-medium mb-4 pb-2 border-b border-gray-200">基本信息</h3>
+                    
+                    <div class="space-y-4">
+
+                        <div>
+                            <p class="text-sm text-gray-500">宿舍楼</p>
+                            <p class="font-medium">{{ room.building }}</p>
+                        </div>
+                        
+                        <div>
+                            <p class="text-sm text-gray-500">房间号</p>
+                            <p class="font-medium">{{ room.room_number }}</p>
+                        </div>
+
+                        <div>
+                            <p class="text-sm text-gray-500">房间类型</p>
+                            <p class="font-medium">{{ reverse_type[room.room_type] }}</p>
+                        </div>
+                        <div>
+                            <p class="text-sm text-gray-500">容纳人数</p>
+                            <p class="font-medium">{{ room.capacity }}人</p>
+                        </div>
+                        
+                        <div>
+                            <p class="text-sm text-gray-500">当前入住人数</p>
+                            <p class="font-medium">{{ current_residents|length if current_residents else 0 }}人</p>
+                        </div>
+
+                        <div>
+                            <p class="text-sm text-gray-500">性别限制</p>
+                            <p class="font-medium">{{ room.gender_restriction or '-' }}</p>
+                        </div>
+                        
+                       
+                        <div>
+                            <p class="text-sm text-gray-500">房间地址</p>
+                            <p class="font-medium">{{ room.address if room.address else '暂无地址信息' }}</p>
+                        </div>
+
+                    </div>
+                </div>
+                
+                <!-- 状态信息 -->
+                <div>
+                    <h3 class="text-lg font-medium mb-4 pb-2 border-b border-gray-200">状态信息</h3>
+                    
+                    <div class="space-y-4">
+                        
+                        <div>
+                            <p class="text-sm text-gray-500">平均年龄</p>
+                            <p class="font-medium">{{ room.average_age if room.average_age else '-' }}</p>
+                        </div>
+
+                        <div>
+                            <p class="text-sm text-gray-500">房间状态</p>
+                            <p class="font-medium">
+                                {% if room.status == 'available' %}
+                                    <span class="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs">有空位</span>
+                                {% elif room.status == 'full' %}
+                                    <span class="px-2 py-1 bg-red-100 text-red-800 rounded-full text-xs">已满</span>
+                                {% elif room.status == 'maintenance' %}
+                                    <span class="px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs">维护中</span>
+                                {% else %}
+                                    <span class="px-2 py-1 bg-gray-100 text-gray-800 rounded-full text-xs">已关闭</span>
+                                {% endif %}
+                            </p>
+                        </div>                        
+                        
+                        <div>
+                            <p class="text-sm text-gray-500">房间级别</p>
+                            <p class="font-medium">{{ room.room_level if room.room_level else '-' }}</p>
+                        </div>
+                         <div>
+                            <p class="text-sm text-gray-500">房间电表最大量程</p>
+                            <p class="font-medium">{{ room.electric_meter_max if room.electric_meter_max else '-' }}</p>
+                        </div>
+                        <div>
+                            <p class="text-sm text-gray-500">房间水表最大量程</p>
+                            <p class="font-medium">{{ room.water_meter_max if room.water_meter_max else '-' }}</p>
+                        </div>
+
+                        <div>
+                            <p class="text-sm text-gray-500">创建时间</p>
+                            <p class="font-medium">{{ room.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</p>
+                        </div>
+                        
+                        <div>
+                            <p class="text-sm text-gray-500">上次更新时间</p>
+                            <p class="font-medium">{{ room.updated_at.strftime('%Y-%m-%d %H:%M:%S') }}</p>
+                        </div>
+                        
+                    </div>
+                </div>
+                <!-- 费用信息 -->
+                <div>
+                    <h3 class="text-lg font-medium mb-4 pb-2 border-b border-gray-200">费用信息</h3>
+                    
+                    <div class="space-y-4">
+                        
+                        <div>
+                            <p class="text-sm text-gray-500">房间成本</p>
+                            <p class="font-medium">{{ "%.2f"|format(room.cost_rent) }} 元/月</p>
+                        </div>
+
+                        <div>
+                            <p class="text-sm text-gray-500">对外租金</p>
+                            <p class="font-medium">{{ "%.2f"|format(room.external_rent) }} 元/月</p>
+                        </div>
+                        
+                        <div>
+                            <p class="text-sm text-gray-500">房间水电费减免金额</p>
+                            <p class="font-medium">{{ room.reduction_fee if room.reduction_fee else '-' }}</p>
+                        </div>
+
+                        <div>
+                            <p class="text-sm text-gray-500">房间用电减免额度</p>
+                            <p class="font-medium">{{ room.electric_reduction if room.electric_reduction else '-' }}</p>
+                        </div>
+                        
+                        <div>
+                            <p class="text-sm text-gray-500">房间用水减免额度</p>
+                            <p class="font-medium">{{ room.water_reduction if room.water_reduction else '-' }}</p>
+                        </div> 
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 房间媒体文件部分 -->
+            {% if media_files and media_files|length > 0 %}
+            <div class="mb-8">
+                <h3 class="text-lg font-medium mb-4 pb-2 border-b border-gray-200">房间照片和视频</h3>
+                <div class="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+                    {% for media in media_files %}
+                        <div class="media-item bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                            {% if media.type == 'image' %}
+                                <div class="relative h-48 overflow-hidden">
+                                    <img src="{{ media.url }}" alt="房间照片" class="w-full h-full object-cover cursor-pointer" onclick="openImageModal('{{ media.url }}')">
+                                    <button type="button" class="absolute top-3 right-3 bg-transparent text-red-500 hover:text-white hover:bg-red-500 rounded-full p-2 shadow-lg border border-transparent transition-all duration-300 hover:translate-y-[-2px]" onclick="deleteMedia('{{ media.filename }}')">
+                                        <i class="fa fa-trash-o fa-lg"></i>
+                                    </button>
+                                </div>
+                            {% elif media.type == 'video' %}
+                                <div class="relative h-48 overflow-hidden">
+                                    <!-- 页面上的视频缩略图 - 禁用控制按钮 -->
+                                    <video class="w-full h-full object-cover" poster="" preload="metadata">
+                                        <source src="{{ media.url }}" type="video/mp4">
+                                        您的浏览器不支持视频播放
+                                    </video>
+                                    <button type="button" class="absolute top-3 right-3 bg-transparent text-red-500 hover:text-white hover:bg-red-500 rounded-full p-2 shadow-lg border border-transparent transition-all duration-300 hover:translate-y-[-2px] z-10" onclick="deleteMedia('{{ media.filename }}');">
+                                        <i class="fa fa-trash-o fa-lg"></i>
+                                    </button>
+                                    <!-- 播放图标覆盖层 - 添加点击事件 -->
+                                    <div class="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30 cursor-pointer z-0" onclick="openVideoModal('{{ media.url }}')">
+                                        <i class="fa fa-play-circle text-white text-4xl opacity-80"></i>
+                                    </div>
+                                </div>
+                            {% endif %}
+                            <div class="p-3">
+                                <p class="text-sm text-gray-600">文件名：{{ media.filename }}<br>上传时间：{{ media.upload_time.strftime('%Y-%m-%d %H:%M:%S') }}</p>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- 图片查看模态框 -->
+            <div id="imageModal" class="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 hidden">
+                <div class="relative max-w-[90%] max-h-[90%]">
+                    <button type="button" class="closeModalBtn absolute -top-12 right-0 text-white text-2xl hover:text-gray-300 transition-colors">
+                        <i class="fa fa-times"></i>
+                    </button>
+                    <img id="modalImage" src="" alt="原图预览" class="max-w-full max-h-[80vh] object-contain">
+                </div>
+            </div>
+
+            <!-- 视频查看模态框 -->
+            <div id="videoModal" class="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 hidden">
+                <div class="relative max-w-[90%] max-h-[90%]">
+                    <button type="button" class="closeModalBtn absolute -top-12 right-0 text-white text-2xl hover:text-gray-300 transition-colors">
+                        <i class="fa fa-times"></i>
+                    </button>
+                    <video id="modalVideo" controls autoplay class="max-w-full max-h-[80vh] object-contain">
+                        <source id="modalVideoSource" src="" type="video/mp4">
+                        您的浏览器不支持视频播放
+                    </video>
+                </div>
+            </div>
+            {% endif %}
+
+        <!-- 房间设施部分保持不变 -->
+            <div class="mb-8">
+                <h3 class="text-lg font-medium mb-4 pb-2 border-b border-gray-200">房间设施</h3>
+                
+                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                    {% for facility in facilities %}
+                     <div class="flex items-center p-3 bg-gray-50 rounded-md">
+                        {% if facility.name == '空调' %}
+    <i class="fa fa-snowflake-o text-primary mr-2"></i>
+{% elif facility.name == '空调遥控器' %}
+    <i class="fa fa-snowflake-o text-primary mr-2"></i>
+{% elif facility.name == '暖气' %}
+    <i class="fa fa-fire text-primary mr-2"></i>
+{% elif facility.name == '热水器' %}
+    <i class="fa fa-shower text-primary mr-2"></i>
+{% elif facility.name == '洗衣机' %}
+    <i class="fa fa-refresh text-primary mr-2"></i>
+{% elif facility.name == '冰箱' %}
+    <i class="fa fa-snowflake-o text-primary mr-2"></i>
+{% elif facility.name == '办公桌' %}
+    <i class="fa fa-table text-primary mr-2"></i>
+{% elif facility.name == '衣柜' %}
+    <i class="fa fa-archive text-primary mr-2"></i>
+{% elif facility.name == '椅子' %}
+    <i class="fa fa-user text-primary mr-2"></i>
+{% elif facility.name == '床' %}
+    <i class="fa fa-bed text-primary mr-2"></i>
+{% elif facility.name == 'WiFi' %}
+    <i class="fa fa-wifi text-primary mr-2"></i>
+{% elif facility.name == '电视' %}
+    <i class="fa fa-television text-primary mr-2"></i>
+{% elif facility.name == '供电' %}
+    <i class="fa fa-bolt text-primary mr-2"></i>
+{% elif facility.name == '供水' %}
+    <i class="fa fa-tint text-primary mr-2"></i>
+{% elif facility.name == '洗手间' %}
+    <i class="fa fa-bath text-primary mr-2"></i>
+{% elif facility.name == '阳台' %}
+    <i class="fa fa-sun-o text-primary mr-2"></i>
+{% elif facility.name == '水龙头' %}
+    <i class="fa fa-tint text-primary mr-2"></i>
+{% elif facility.name == '门锁' %}
+    <i class="fa fa-lock text-primary mr-2"></i>
+{% elif facility.name == '钥匙' %}
+    <i class="fa fa-key text-primary mr-2"></i>
+{% else %}
+    <i class="fa fa-cog text-primary mr-2"></i>
+{% endif %}
+                        <span>{{ facility.name }} (数量: {{ facility.quantity }})</span>
+                    </div>
+                    {% else %}
+                    <p class="text-gray-500 col-span-full text-center py-4">暂无设施信息</p>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <!-- 居住用户部分 - 使用后端数据直接渲染 -->
+            <div class="mb-8">
+                <h3 class="text-lg font-medium mb-4 pb-2 border-b border-gray-200">居住用户</h3>
+                
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">序号</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">姓名</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">性别</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">年龄</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">部门</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">岗位</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">联系电话</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">入住日期</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">住宿天数</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            {% if current_residents and current_residents|length > 0 %}
+                                {% for resident in current_residents %}
+                                    <tr>
+                                        <td class="px-6 py-4 whitespace-nowrap">{{ loop.index }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <a href="{{ url_for('user.view', id=resident.user.id) }}" class="text-primary hover:underline">{{ resident.user.name }}</a>(ID:{{ resident.user.id }})
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">{{ resident.user.gender or '-' }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap">{{ resident.user.get_age() or '-' }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap">{{ resident.user.department or '-' }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap">{{ resident.user.position or '-' }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap">{{ resident.user.phone or '-' }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap">{{ resident.dorm.check_in_date.strftime('%Y-%m-%d') }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap">{{ resident.dorm.stay_days }}天</td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <a href="{{ url_for('dorm.checkout', user_id=resident.user.id) }}" class="text-red-500 hover:text-red-700 text-sm ml-2 action-btn">
+                                                退宿<i class="fa fa-sign-out mr-1"></i>
+                                            </a>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr>
+                                    <td colspan="11" class="px-6 py-8 text-center text-gray-500">
+                                        <i class="fa fa-info-circle mr-2"></i>该房间暂无入住人员
+                                    </td>
+                                </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="mt-4">
+                    <p class="text-sm text-gray-500">
+                        <i class="fa fa-info-circle mr-1"></i> 该房间还有 <span>{{ room.capacity - current_residents|length if current_residents else room.capacity }}</span> 个空位
+                    </p>
+                </div>
+            </div>
+
+            <!-- 住宿历史记录部分 -->
+            <div class="mb-8">
+                <h3 class="text-lg font-medium mb-4 pb-2 border-b border-gray-200">住宿历史记录</h3>
+                
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">序号</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">用户</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">性别</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">年龄</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">部门</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">岗位</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">入住日期</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">退宿日期</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">住宿天数</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">状态</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">换宿记录</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            {% if all_dorms and all_dorms|length > 0 %}
+                                {% for dorm in all_dorms %}
+                                    <tr>
+                                        <td class="px-6 py-4 whitespace-nowrap">{{ loop.index }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <a href="{{ url_for('user.view', id=dorm.user_id) }}" class="text-primary hover:underline">
+                                                {{ dorm.user.name }}
+                                            </a>(ID:{{ dorm.user_id }})
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">{{ dorm.user.gender }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap">{{ dorm.user.get_age() or '-' }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap">{{ dorm.user.department or '-' }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap">{{ dorm.user.position or '-' }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            {{ dorm.check_in_date.strftime('%Y-%m-%d') }}
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            {% if dorm.check_out_date %}
+                                                {{ dorm.check_out_date.strftime('%Y-%m-%d') }}
+                                            {% else %}
+                                                <span class="text-green-600">在住</span>
+                                            {% endif %}
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            {% if dorm.status == 'active' %}
+                                                {{ dorm.stay_days }}天
+                                            {% else %}
+                                                {{ dorm.stay_days }}天
+                                            {% endif %}
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            {% if dorm.status == 'active' %}
+                                                <span class="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs">在住</span>
+                                            {% else %}
+                                                <span class="px-2 py-1 bg-gray-100 text-gray-800 rounded-full text-xs">已退宿</span>
+                                            {% endif %}
+                                        </td>
+                                        <td class="px-6 py-4">
+                                            {% if dorm.prev_dorm %}
+                                                <div class="text-sm text-gray-600">
+                                                    <i class="fa fa-arrow-right text-blue-500 mr-1"></i>
+                                                    从{{ dorm.prev_dorm.room.building }}{{ dorm.prev_dorm.room.room_number }}换入
+                                                </div>
+                                            {% endif %}
+                                            {% if dorm.next_dorms %}
+                                                <div class="text-sm text-gray-600">
+                                                    <i class="fa fa-arrow-right text-blue-500 mr-1"></i>
+                                                    换到{{ dorm.next_dorms[0].room.building }}{{ dorm.next_dorms[0].room.room_number }}
+                                                </div>
+                                            {% endif %}
+											{% if not dorm.prev_dorm and not dorm.next_dorms %}
+											<span class="text-xs text-gray-500">无换宿记录</span>
+											{% endif %}
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr>
+                                    <td colspan="11" class="px-6 py-8 text-center text-gray-500">
+                                        <i class="fa fa-info-circle mr-2"></i>该房间暂无住宿历史记录
+                                    </td>
+                                </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <!-- 水电费记录部分 -->
+            <div class="mb-8">
+                <h3 class="text-lg font-medium mb-4 pb-2 border-b border-gray-200">水电费记录</h3>
+                
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">序号</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">账期</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">原始用电量(kWh)</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">用电减免度数(kWh)</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">用电计费用量(kWh)</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">电价(元/kWh)</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">电费金额(元)</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">原始用水量(m³)</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">用水减免度数(m³)</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">用水计费用量(m³)</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">水价(元/m³)</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">水费金额(元)</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">房间级减免费用(元)</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">退宿费用(元)</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">应付费用(元)</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            {% if utility_records and utility_records|length > 0 %}
+                                {% for record in utility_records %}
+                                    <tr>
+                                        <td class="px-6 py-4 whitespace-nowrap">{{ loop.index }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <a href="{{ url_for('utility_index.utility_room_records_detail') }}?record_id={{ record.record_id }}" class="text-primary hover:text-blue-700 mr-3">
+                                                {{ record.billing_period }}
+                                            </a>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">{{ record.electric_usage }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap">{{ record.electric_reduction }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap">{{ record.electric_billing_usage }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap">{{ record.electric_price }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap">{{ record.billing_electric_fee }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap">{{ record.water_usage }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap">{{ record.water_reduction }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap">{{ record.water_billing_usage }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap">{{ record.water_price }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap">{{ record.billing_water_fee }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap">{{ record.room_reduction_fee }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap">{{ record.checked_out_total_fee }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap">{{ record.actual_total_fee }}</td>
+                                    </tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr>
+                                    <td colspan="15" class="px-6 py-8 text-center text-gray-500">
+                                        <i class="fa fa-info-circle mr-2"></i>该房间暂无水电费记录
+                                    </td>
+                                </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 备注信息部分保持不变 -->
+            <div>
+                <h3 class="text-lg font-medium mb-4 pb-2 border-b border-gray-200">备注信息</h3>
+                
+                <div class="bg-gray-50 p-4 rounded-md">
+                    {% if room.remark %}
+                        <p class="text-gray-700">{{ room.remark|replace('\n', '<br>')|safe }}</p>
+                    {% else %}
+                        <p class="text-gray-500 italic">无备注信息</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </main>
+    <!-- 页脚 -->
+    {% include 'footer.html' %}
+    
+    <!-- 图片和视频模态框相关JavaScript -->
+    <script>
+        // 打开图片模态框
+        function openImageModal(imageUrl) {
+            const modal = document.getElementById('imageModal');
+            const modalImage = document.getElementById('modalImage');
+            const closeModalBtn = modal.querySelector('.closeModalBtn');
+
+            // 设置图片URL
+            modalImage.src = imageUrl;
+            
+            // 显示模态框
+            modal.classList.remove('hidden');
+            
+            // 添加关闭事件
+            function closeModal() {
+                modal.classList.add('hidden');
+                document.body.style.overflow = ''; // 恢复背景滚动
+                // 移除事件监听器，避免重复绑定
+                document.removeEventListener('keydown', handleEscKey);
+            }
+            
+            // 点击关闭按钮关闭模态框
+            closeModalBtn.onclick = closeModal;
+            
+            // 点击模态框背景关闭模态框
+            modal.onclick = function(event) {
+                if (event.target === modal) {
+                    closeModal();
+                }
+            };
+            
+            // 按ESC键关闭模态框
+            function handleEscKey(event) {
+                if (event.key === 'Escape') {
+                    closeModal();
+                }
+            }
+            document.addEventListener('keydown', handleEscKey);
+            
+            // 防止背景滚动
+            document.body.style.overflow = 'hidden';
+        }
+
+        // 打开视频模态框
+        function openVideoModal(videoUrl) {
+            const modal = document.getElementById('videoModal');
+            const modalVideo = document.getElementById('modalVideo');
+            const modalVideoSource = document.getElementById('modalVideoSource');
+            const closeModalBtn = document.querySelector('#videoModal .closeModalBtn');
+
+            // 设置视频URL
+            modalVideoSource.src = videoUrl;
+            modalVideo.load(); // 重新加载视频以应用新的源
+            
+            // 显示模态框
+            modal.classList.remove('hidden');
+            
+            // 添加关闭事件
+            function closeModal() {
+                modal.classList.add('hidden');
+                modalVideo.pause(); // 暂停视频
+                document.body.style.overflow = ''; // 恢复背景滚动
+                // 移除事件监听器，避免重复绑定
+                document.removeEventListener('keydown', handleEscKey);
+            }
+            
+            // 点击关闭按钮关闭模态框
+            if (closeModalBtn) {
+                closeModalBtn.onclick = closeModal;
+            }
+            
+            // 点击模态框背景关闭模态框
+            modal.onclick = function(event) {
+                if (event.target === modal) {
+                    closeModal();
+                }
+            };
+            
+            // 按ESC键关闭模态框
+            function handleEscKey(event) {
+                if (event.key === 'Escape') {
+                    closeModal();
+                }
+            }
+            document.addEventListener('keydown', handleEscKey);
+            
+            // 防止背景滚动
+            document.body.style.overflow = 'hidden';
+        }
+
+        // 删除媒体文件
+        function deleteMedia(filename) {
+            if (confirm('确定要删除这个媒体文件吗？')) {
+                // 发送删除请求到服务器
+                fetch('/room/delete_media', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        room_id: '{{ room.id }}',
+                        filename: filename
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // 刷新页面以更新媒体文件列表
+                        location.reload();
+                    } else {
+                        alert('删除失败: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('删除失败，请重试');
+                });
+            }
+        }
+
+        // 媒体文件上传相关JavaScript
+        // 获取元素
+        const uploadMediaBtn = document.getElementById('uploadMediaBtn');
+        const mediaFileInput = document.getElementById('mediaFileInput');
+        const uploadProgressContainer = document.getElementById('uploadProgressContainer');
+        const uploadProgressBar = document.getElementById('uploadProgressBar');
+        const uploadProgressPercentage = document.getElementById('uploadProgressPercentage');
+        const uploadStatusText = document.getElementById('uploadStatusText');
+        const uploadFeedback = document.getElementById('uploadFeedback');
+        
+        // 上传按钮点击事件
+        uploadMediaBtn.addEventListener('click', function() {
+            mediaFileInput.click();
+        });
+        
+        // 文件选择变化事件
+        mediaFileInput.addEventListener('change', function() {
+            if (this.files.length > 0) {
+                const totalFiles = this.files.length;
+                let uploadedCount = 0;
+                let successCount = 0;
+                
+                // 显示进度条容器
+                uploadProgressContainer.classList.remove('hidden');
+                // 隐藏之前的反馈消息
+                uploadFeedback.classList.add('hidden');
+                
+                // 初始化进度
+                updateProgress(0, 0, totalFiles);
+                
+                // 保存this引用，避免回调中丢失上下文
+                const fileInput = this;
+                
+                // 遍历所有文件并上传（并行上传）
+                Array.from(fileInput.files).forEach((file, index) => {
+                    uploadStatusText.textContent = `正在上传文件 ${index + 1}/${totalFiles}: ${file.name}`;
+                    
+                    uploadFile(file).then(() => {
+                        successCount++;
+                        uploadedCount++;
+                        updateProgress(uploadedCount, successCount, totalFiles);
+                        
+                        // 所有文件上传完成
+                        if (uploadedCount === totalFiles) {
+                            checkUploadComplete(successCount, totalFiles);
+                        }
+                    }).catch(error => {
+                        uploadedCount++;
+                        updateProgress(uploadedCount, successCount, totalFiles);
+                        showErrorFeedback(`文件上传失败: ${file.name} - ${error.message}`);
+                        
+                        // 3秒后隐藏错误消息
+                        setTimeout(() => {
+                            hideFeedback();
+                            
+                            // 所有文件上传完成
+                            if (uploadedCount === totalFiles) {
+                                checkUploadComplete(successCount, totalFiles);
+                            }
+                        }, 3000);
+                    });
+                });
+                
+                this.value = ''; // 清空input值
+                
+                // 更新进度条和状态文本
+                function updateProgress(uploaded, success, total) {
+                    const percentage = Math.round((uploaded / total) * 100);
+                    uploadProgressBar.style.width = `${percentage}%`;
+                    uploadProgressPercentage.textContent = `${percentage}%`;
+                    uploadStatusText.textContent = `已上传 ${uploaded}/${total} 个文件，成功 ${success} 个`;
+                }
+                
+                // 显示错误反馈
+                function showErrorFeedback(message) {
+                    uploadFeedback.textContent = message;
+                    uploadFeedback.className = 'px-4 py-3 bg-red-100 text-red-800 rounded-md mb-4';
+                    uploadFeedback.classList.remove('hidden');
+                }
+                
+                // 隐藏反馈消息
+                function hideFeedback() {
+                    uploadFeedback.classList.add('hidden');
+                }
+                
+                // 检查是否所有文件都上传完成
+                function checkUploadComplete(success, total) {
+                    setTimeout(() => {
+                        if (success === total) {
+                            // 全部成功
+                            uploadFeedback.textContent = `上传完成: 成功上传 ${success}/${total} 个文件`;
+                            uploadFeedback.className = 'px-4 py-3 bg-green-100 text-green-800 rounded-md mb-4';
+                        } else {
+                            // 部分成功
+                            uploadFeedback.textContent = `上传完成: 成功 ${success}/${total} 个文件，失败 ${total - success} 个文件`;
+                            uploadFeedback.className = 'px-4 py-3 bg-yellow-100 text-yellow-800 rounded-md mb-4';
+                        }
+                        uploadFeedback.classList.remove('hidden');
+                        
+                        // 延迟刷新页面，确保所有上传操作完成
+                        setTimeout(() => {
+                            location.reload();
+                        }, 1500);
+                    }, 500);
+                }
+            }
+        });
+        
+        // 单个文件上传 - 返回Promise便于错误处理和进度管理
+        function uploadFile(file) {
+            return new Promise((resolve, reject) => {
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('room_id', '{{ room.id }}');
+                
+                const xhr = new XMLHttpRequest();
+                
+                // 监听上传完成事件
+                xhr.onload = function() {
+                    if (xhr.status >= 200 && xhr.status < 300) {
+                        try {
+                            const response = JSON.parse(xhr.responseText);
+                            if (response.success) {
+                                resolve(response);
+                            } else {
+                                reject(new Error(response.message || '上传失败'));
+                            }
+                        } catch (error) {
+                            reject(new Error('上传失败: 响应格式错误'));
+                        }
+                    } else {
+                        reject(new Error(`上传失败: HTTP错误 ${xhr.status}`));
+                    }
+                };
+                
+                // 监听上传错误事件
+                xhr.onerror = function() {
+                    reject(new Error('上传失败: 网络错误'));
+                };
+                
+                // 监听上传超时事件
+                xhr.ontimeout = function() {
+                    reject(new Error('上传失败: 超时'));
+                };
+                
+                // 设置超时时间为10分钟
+                xhr.timeout = 600000;
+                
+                // 发送请求
+                xhr.open('POST', '{{ url_for('room.upload_media') }}', true);
+                xhr.send(formData);
+            });
+        }
+    </script>
+</body>
+</html>

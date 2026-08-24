@@ -1,0 +1,1029 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+   <!--本地化CDN-->
+{% include 'static.html' %}
+
+    
+    <!-- 配置Tailwind自定义颜色和字体 -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#165DFF',
+                        secondary: '#36CFC9',
+                        success: '#52C41A',
+                        warning: '#FAAD14',
+                        danger: '#FF4D4F',
+                        water: '#4096ff',      // 水表颜色
+                        electricity: '#fa8c16', // 电表颜色
+                        neutral: {
+                            100: '#F5F5F5',
+                            200: '#E5E5E5',
+                            300: '#D4D4D4',
+                            400: '#A3A3A3',
+                            500: '#737373',
+                            600: '#525252',
+                            700: '#404040',
+                            800: '#262626',
+                            900: '#171717',
+                        }
+                    },
+                    fontFamily: {
+                        inter: ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    
+    <!-- 自定义工具类 -->
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .form-input-focus {
+                @apply focus:ring-2 focus:outline-none transition-all duration-300;
+            }
+            .card-shadow {
+                @apply shadow-lg shadow-neutral-200/80;
+            }
+            .transition-custom {
+                @apply transition-all duration-300 ease-in-out;
+            }
+            .water-focus {
+                @apply border-water focus:border-water focus:ring-water/20;
+            }
+            .electricity-focus {
+                @apply border-electricity focus:border-electricity focus:ring-electricity/20;
+            }
+            .meter-replaced-indicator {
+                @apply text-xs text-warning font-medium mt-1;
+            }
+        }
+    </style>
+</head>
+<body class="bg-neutral-100 font-inter text-neutral-800 min-h-screen flex flex-col">
+    <!-- 顶部导航栏 -->
+    <!--<header class="bg-white shadow-sm sticky top-0 z-50 transition-custom">
+        <div class="container mx-auto px-4 py-3 flex items-center justify-between">
+            <div class="flex items-center space-x-2">
+                <button id="backBtn" class="p-2 rounded-full hover:bg-neutral-100 transition-custom">
+                    <i class="fa fa-arrow-left text-neutral-600"></i>
+                </button>
+                <h1 class="text-lg md:text-xl font-semibold text-neutral-800">修改抄表记录</h1>
+            </div>
+            <div class="flex items-center space-x-4">
+                <button class="text-neutral-600 hover:text-primary transition-custom">
+                    <i class="fa fa-question-circle-o text-lg"></i>
+                </button>
+                <div class="flex items-center space-x-2">
+                    <img src="https://picsum.photos/id/1005/40/40" alt="用户头像" class="w-8 h-8 rounded-full object-cover border border-neutral-200">
+                    <span class="hidden md:inline text-sm font-medium">抄表管理员</span>
+                </div>
+            </div>
+        </div>
+    </header>-->
+{% include 'header.html' %}
+    <!-- 主内容区 -->
+    <main class="container mx-auto px-4 py-6">
+        <!-- 记录ID信息 -->
+         <!-- 页面标题和描述 -->
+        <div class="mb-8 fade-in">
+            <div class="flex items-center mb-4">
+            <button onclick="history.back()" class="text-gray-600 hover:text-primary transition-all-300 mr-4">
+                <i class="fa fa-arrow-left"></i>
+            </button>
+            <h2 class="text-[clamp(1.5rem,3vw,2rem)] font-bold text-gray-800">{{ title }}(ID:<span id="recordId"></span>)</h2>
+            </div>
+            <p class="text-gray-500 mt-1">修改抄表记录</p>
+        </div>
+        
+        <!-- 表单卡片 -->
+        <div class="bg-white rounded-lg shadow-sm p-6 mx-auto">
+            <form id="meterForm" class="space-y-8">
+                <!-- 基本抄表信息 -->
+                <div class="border-b border-neutral-200 pb-6">
+                    <h2 class="text-lg font-semibold mb-4 text-neutral-800">基本抄表信息</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-5 gap-6">
+                        <div>
+                            <label class="block text-sm font-medium text-neutral-700 mb-1">抄表日期</label>
+                            <input type="datetime-local" id="readingDate" name="readingDate"
+                                class="w-full py-2.5 px-3 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                                placeholder="选择抄表日期时间">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-neutral-700 mb-1">房间号</label>
+                            <div class="flex items-center p-2.5 bg-neutral-50 rounded-lg border border-neutral-200">
+                                <span class="mr-3 text-neutral-500"><i class="fa fa-home"></i></span>
+                                <span id="roomNumberText" class="text-neutral-800">加载中...</span>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-neutral-700 mb-1">抄表员</label>
+                            <div class="flex items-center p-2.5 bg-neutral-50 rounded-lg border border-neutral-200">
+                                <span class="mr-3 text-neutral-500"><i class="fa fa-user"></i></span>
+                                <span id="readerNameText" class="text-neutral-800">加载中...</span>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-neutral-700 mb-1">账期</label>
+                            <div class="flex items-center p-2.5 bg-neutral-50 rounded-lg border border-neutral-200">
+                                <span class="mr-3 text-neutral-500"><i class="fa fa-calendar"></i></span>
+                                <span id="billingPeriodText" class="text-neutral-800">加载中...</span>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-neutral-700 mb-1">记录类型</label>
+                            <div class="flex items-center p-2.5 bg-neutral-50 rounded-lg border border-neutral-200">
+                                <span class="mr-3 text-neutral-500"><i class="fa fa-flag"></i></span>
+                                <span id="statusText" class="text-neutral-800">加载中...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 水表信息 -->
+                <div class="border-b border-neutral-200 pb-6">
+                    <div class="flex items-center mb-4">
+                        <div class="w-8 h-8 rounded-full bg-water/10 flex items-center justify-center mr-2">
+                            <i class="fa fa-tint text-water"></i>
+                        </div>
+                        <h2 class="text-lg font-semibold text-neutral-800">水表读数</h2>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-4">
+                        <div>
+                            <label class="block text-sm font-medium text-neutral-700 mb-1">上次读数</label>
+                            <div class="flex items-center p-2.5 bg-neutral-50 rounded-lg border border-neutral-200">
+                                <span class="mr-3 text-water"><i class="fa fa-hashtag"></i></span>
+                                <span id="waterPreviousText" class="text-neutral-800">加载中...</span>
+                                <span class="ml-auto text-neutral-500 text-sm">m³</span>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-neutral-700 mb-1">是否换表</label>
+                            <div>
+                                <select id="waterReplace" name="waterReplace" class="w-full py-2.5 px-3 border border-neutral-300 rounded-lg form-input-focus transition-custom">
+                                    <option value="false">否</option>
+                                    <option value="true">是</option>
+                                </select>
+                                <div class="meter-replaced-indicator" id="water-replaced-indicator" style="display: none;">
+                                    表具已更换，当前为初始值
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label for="waterCurrent" class="block text-sm font-medium text-neutral-700 mb-1">本次读数</label>
+                            <div class="relative">
+                                <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-water">
+                                    <i class="fa fa-hashtag"></i>
+                                </span>
+                                <input type="number" step="0.01" id="waterCurrent" name="waterCurrent"
+                                    class="w-full pl-10 pr-10 py-2.5 border border-neutral-300 rounded-lg form-input-focus water-focus transition-custom"
+                                    placeholder="0.00">
+                                <span class="absolute inset-y-0 right-3 flex items-center text-neutral-500 text-sm">m³</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 水表备注 - 可编辑 -->
+                    <div>
+                        <label for="waterNotes" class="block text-sm font-medium text-neutral-700 mb-1">水表备注</label>
+                        <div class="relative">
+                            <textarea id="waterNotes" name="waterNotes" rows="2"
+                                class="w-full pl-3 pr-3 py-2.5 border border-neutral-300 rounded-lg form-input-focus water-focus transition-custom resize-none"
+                                placeholder="请输入水表相关备注信息（可选）"></textarea>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 电表信息 -->
+                <div class="border-b border-neutral-200 pb-6">
+                    <div class="flex items-center mb-4">
+                        <div class="w-8 h-8 rounded-full bg-electricity/10 flex items-center justify-center mr-2">
+                            <i class="fa fa-bolt text-electricity"></i>
+                        </div>
+                        <h2 class="text-lg font-semibold text-neutral-800">电表读数</h2>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-4">
+                        <div>
+                            <label class="block text-sm font-medium text-neutral-700 mb-1">上次读数</label>
+                            <div class="flex items-center p-2.5 bg-neutral-50 rounded-lg border border-neutral-200">
+                                <span class="mr-3 text-electricity"><i class="fa fa-hashtag"></i></span>
+                                <span id="electricPreviousText" class="text-neutral-800">加载中...</span>
+                                <span class="ml-auto text-neutral-500 text-sm">kWh</span>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-neutral-700 mb-1">是否换表</label>
+                            <div>
+                                <select id="electricReplace" name="electricReplace" class="w-full py-2.5 px-3 border border-neutral-300 rounded-lg form-input-focus transition-custom">
+                                    <option value="false">否</option>
+                                    <option value="true">是</option>
+                                </select>
+                                <div class="meter-replaced-indicator" id="electric-replaced-indicator" style="display: none;">
+                                    表具已更换，当前为初始值
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label for="electricCurrent" class="block text-sm font-medium text-neutral-700 mb-1">本次读数</label>
+                            <div class="relative">
+                                <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-electricity">
+                                    <i class="fa fa-hashtag"></i>
+                                </span>
+                                <input type="number" step="0.01" id="electricCurrent" name="electricCurrent"
+                                    class="w-full pl-10 pr-10 py-2.5 border border-neutral-300 rounded-lg form-input-focus electricity-focus transition-custom"
+                                    placeholder="0.00">
+                                <span class="absolute inset-y-0 right-3 flex items-center text-neutral-500 text-sm">kWh</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 电表备注 - 可编辑 -->
+                    <div>
+                        <label for="electricNotes" class="block text-sm font-medium text-neutral-700 mb-1">电表备注</label>
+                        <div class="relative">
+                            <textarea id="electricNotes" name="electricNotes" rows="2"
+                                class="w-full pl-3 pr-3 py-2.5 border border-neutral-300 rounded-lg form-input-focus electricity-focus transition-custom resize-none"
+                                placeholder="请输入电表相关备注信息（可选）"></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 抄表照片/视频上传 -->
+                <div class="border-b border-neutral-200 pb-6">
+                    <div class="flex items-center mb-4">
+                        <div class="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center mr-2">
+                            <i class="fa fa-camera text-primary"></i>
+                        </div>
+                        <h2 class="text-lg font-semibold text-neutral-800">抄表照片/视频</h2>
+                    </div>
+                    
+                    <!-- 上传按钮 -->
+                    <div class="mb-4">
+                        <button type="button" id="uploadMediaBtn"
+                            class="px-5 py-2.5 bg-white border border-primary text-primary rounded-lg font-medium hover:bg-primary/5 transition-custom flex items-center">
+                            <i class="fa fa-upload mr-2"></i> 上传照片/视频
+                        </button>
+                        <input type="file" id="mediaFileInput" accept="image/*,video/*" multiple
+                            class="hidden">
+                        <p class="text-xs text-neutral-500 mt-1">支持 JPG、PNG、GIF、MP4、MOV 格式</p>
+                    </div>
+                    
+                    <!-- 上传进度 -->
+                    <div id="uploadProgressContainer" class="mb-4 hidden">
+                        <div class="flex justify-between mb-1">
+                            <span class="text-sm text-neutral-600">上传进度</span>
+                            <span id="uploadProgressPercentage" class="text-sm text-neutral-600">0%</span>
+                        </div>
+                        <div class="w-full bg-neutral-200 rounded-full h-2">
+                            <div id="uploadProgressBar" class="bg-primary h-2 rounded-full" style="width: 0%"></div>
+                        </div>
+                        <p id="uploadStatus" class="text-xs text-neutral-500 mt-1"></p>
+                    </div>
+                    
+                    <!-- 已上传媒体预览 -->
+                    <div id="mediaPreviewContainer" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 mt-4">
+                        <!-- 媒体预览项将通过JavaScript动态添加 -->
+                        <div id="noMediaMessage" class="col-span-full text-center py-6 text-neutral-500">
+                            <i class="fa fa-file-image-o text-4xl mb-2"></i>
+                            <p>暂无抄表照片/视频</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 操作按钮 -->
+                <div class="flex flex-col sm:flex-row justify-end items-center space-y-3 sm:space-y-0 sm:space-x-4 pt-4 border-t border-neutral-200">
+                    <button type="button" id="cancelBtn" 
+                        class="px-6 py-2.5 bg-white border border-neutral-300 rounded-lg text-neutral-700 font-medium hover:bg-neutral-50 transition-custom w-full sm:w-auto">
+                        取消
+                    </button>
+                    <button type="submit" 
+                        class="px-6 py-2.5 bg-primary text-white rounded-lg font-medium hover:bg-primary/90 transition-custom shadow-md hover:shadow-lg w-full sm:w-auto flex items-center justify-center">
+                        <i class="fa fa-save mr-2"></i> 保存修改
+                    </button>
+                </div>
+            </form>
+        </div>
+    </main>
+
+        <!-- 页脚 -->
+    {% include 'footer.html' %}
+    
+
+    <!-- 成功提示弹窗 -->
+    <div id="successToast" class="fixed bottom-6 right-6 bg-success text-white px-6 py-3 rounded-lg shadow-lg transform translate-y-20 opacity-0 transition-all duration-300 flex items-center z-50">
+        <i class="fa fa-check-circle mr-2"></i>
+        <span>修改保存成功！</span>
+    </div>
+
+    <!-- 错误提示弹窗 -->
+    <div id="errorToast" class="fixed bottom-6 right-6 bg-danger text-white px-6 py-3 rounded-lg shadow-lg transform translate-y-20 opacity-0 transition-all duration-300 flex items-center z-50">
+        <i class="fa fa-exclamation-circle mr-2"></i>
+        <span id="errorMessage">提交失败，请重试</span>
+    </div>
+
+    <!-- 图片预览模态框 -->
+    <div id="imageModal" class="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 hidden">
+        <div class="relative max-w-[90%] max-h-[90%]">
+            <button type="button" id="closeModalBtn" class="absolute -top-12 right-0 text-white text-2xl hover:text-gray-300 transition-colors">
+                <i class="fa fa-times"></i>
+            </button>
+            <img id="modalImage" src="" alt="原图预览" class="max-w-full max-h-[80vh] object-contain">
+        </div>
+    </div>
+
+    <!-- 视频查看模态框 -->
+    <div id="videoModal" class="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 hidden">
+        <div class="relative max-w-[90%] max-h-[90%]">
+            <button type="button" id="closeVideoModalBtn" class="absolute -top-12 right-0 text-white text-2xl hover:text-gray-300 transition-colors">
+                <i class="fa fa-times"></i>
+            </button>
+            <video id="modalVideo" controls autoplay class="max-w-full max-h-[80vh] object-contain">
+                <source id="modalVideoSource" src="" type="video/mp4">
+                您的浏览器不支持视频播放
+            </video>
+        </div>
+    </div>
+
+    <script>
+        // 从URL获取记录ID（适配/edit/{id}路径）
+        function getRecordIdFromUrl() {
+            const path = window.location.pathname;
+            const segments = path.split('/');
+            // 查找"edit"之后的ID部分
+            const editIndex = segments.indexOf('edit');
+            if (editIndex !== -1 && editIndex + 1 < segments.length) {
+                return segments[editIndex + 1];
+            }
+            return null;
+        }
+
+        // 从后端API加载记录数据
+        async function loadRecordData(recordId) {
+            if (!recordId) {
+                showToast('errorToast', '未找到有效的记录ID');
+                return;
+            }
+            
+            try {
+                // 显示加载状态
+                setLoadingState(true);
+                
+                // 使用正确的API端点获取记录详情
+                const response = await fetch(`/utility-meter/${recordId}`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    credentials: 'include' // 包含认证信息
+                });
+                
+                const result = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(result.message || '加载数据失败');
+                }
+                
+                const data = result.data;
+                console.log('后端返回数据:', data); // 调试用
+                
+                // 填充页面数据（与后端返回的嵌套数据结构匹配）
+                document.getElementById('recordId').textContent = data.id;
+                // 将日期转换为datetime-local格式（YYYY-MM-DDTHH:MM）
+                const readingDate = new Date(data.reading_date);
+                const formattedDate = readingDate.toISOString().slice(0, 16);
+                document.getElementById('readingDate').value = formattedDate;
+                document.getElementById('readerNameText').textContent = data.meter_reader || '未知';
+                const billingPeriodText = document.getElementById('billingPeriodText');
+                billingPeriodText.textContent = data.billing_period || '未知';
+                
+                // 为账期添加点击跳转功能
+                if (data.billing_period) {
+                    billingPeriodText.style.cursor = 'pointer';
+                    billingPeriodText.style.color = '#165DFF';
+                    billingPeriodText.onclick = function() {
+                        window.location.href = `/utility/utility_room_records_detail?record_id=${data.record_id}`;
+                    };
+                } else {
+                    billingPeriodText.style.cursor = 'default';
+                    billingPeriodText.style.color = '#262626';
+                }
+                
+                // 显示楼栋、房间号和房间ID，并添加点击跳转功能
+                const roomNumberText = document.getElementById('roomNumberText');
+                if (data.building && data.room_number) {
+                    roomNumberText.textContent = `${data.building}${data.room_number} (ID: ${data.room_id})`;
+                } else {
+                    roomNumberText.textContent = `未知 (ID: ${data.room_id || '未知'})`;
+                }
+                
+                // 只有当房间ID有效时才添加点击跳转功能
+                if (data.room_id) {
+                    roomNumberText.style.cursor = 'pointer';
+                    roomNumberText.style.color = '#165DFF';
+                    roomNumberText.onclick = function() {
+                        window.location.href = `/room/view/${data.room_id}`;
+                    };
+                } else {
+                    roomNumberText.style.cursor = 'default';
+                    roomNumberText.style.color = '#262626';
+                }
+                
+                // 根据后端reading_type显示状态
+                const statusMap = {
+                    1: '正常',
+                    2: '退宿抄表'
+                };
+                document.getElementById('statusText').textContent = statusMap[data.reading_type] || '未知';
+                
+                // 水表数据 - 正确访问嵌套的water对象属性
+                document.getElementById('waterPreviousText').textContent = data.water?.previous !== null ? data.water.previous : '无';
+                document.getElementById('waterCurrent').value = data.water?.current !== null ? data.water.current : '';
+                document.getElementById('waterNotes').value = data.water?.notes || '';
+                
+                // 电表数据 - 正确访问嵌套的electric对象属性
+                document.getElementById('electricPreviousText').textContent = data.electric?.previous !== null ? data.electric.previous : '无';
+                document.getElementById('electricCurrent').value = data.electric?.current !== null ? data.electric.current : '';
+                document.getElementById('electricNotes').value = data.electric?.notes || '';
+                
+                // 设置是否换表字段的值
+                document.getElementById('waterReplace').value = data.water?.replaced ? 'true' : 'false';
+                document.getElementById('electricReplace').value = data.electric?.replaced ? 'true' : 'false';
+                
+                // 如果是换表，显示提示信息
+                const waterIndicator = document.getElementById('water-replaced-indicator');
+                const electricIndicator = document.getElementById('electric-replaced-indicator');
+                waterIndicator.style.display = data.water?.replaced ? 'block' : 'none';
+                electricIndicator.style.display = data.electric?.replaced ? 'block' : 'none';
+                
+                // 更新全局抄表记录数据
+                updateMeterRecordData(data);
+                
+                // 恢复输入框状态
+                setLoadingState(false);
+                
+            } catch (error) {
+                console.error('加载数据失败:', error);
+                showToast('errorToast', error.message || '加载数据失败，请刷新页面重试');
+                
+                // 恢复输入框状态
+                setLoadingState(false);
+            }
+        }
+
+        // 设置加载状态
+        function setLoadingState(isLoading) {
+            const inputs = [
+                document.getElementById('waterCurrent'),
+                document.getElementById('electricCurrent'),
+                document.getElementById('waterNotes'),
+                document.getElementById('electricNotes')
+            ];
+            
+            inputs.forEach(input => {
+                input.disabled = isLoading;
+                if (isLoading) {
+                    input.classList.add('opacity-50', 'cursor-not-allowed');
+                } else {
+                    input.classList.remove('opacity-50', 'cursor-not-allowed');
+                }
+            });
+        }
+
+        // 显示图片预览模态框
+        function showImageModal(imageUrl) {
+            const modal = document.getElementById('imageModal');
+            const modalImage = document.getElementById('modalImage');
+            const closeModalBtn = document.getElementById('closeModalBtn');
+
+            // 设置图片URL
+            modalImage.src = imageUrl;
+            
+            // 显示模态框
+            modal.classList.remove('hidden');
+            
+            // 添加关闭事件
+            function closeModal() {
+                modal.classList.add('hidden');
+                // 移除事件监听器，避免重复绑定
+                document.removeEventListener('keydown', handleEscKey);
+            }
+            
+            // 点击关闭按钮关闭模态框
+            closeModalBtn.onclick = closeModal;
+            
+            // 点击模态框背景关闭模态框
+            modal.onclick = function(event) {
+                if (event.target === modal) {
+                    closeModal();
+                }
+            };
+            
+            // 按ESC键关闭模态框
+            function handleEscKey(event) {
+                if (event.key === 'Escape') {
+                    closeModal();
+                }
+            }
+            document.addEventListener('keydown', handleEscKey);
+        }
+
+        // 显示提示消息
+        function showToast(elementId, message = '') {
+            const toast = document.getElementById(elementId);
+            if (message && elementId === 'errorToast') {
+                document.getElementById('errorMessage').textContent = message;
+            }
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            toast.classList.add('translate-y-0', 'opacity-100');
+            
+            setTimeout(() => {
+                toast.classList.remove('translate-y-0', 'opacity-100');
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3000);
+        }
+
+        // 保存修改到后端
+        async function saveRecordData(e) {
+            e.preventDefault();
+            
+            // 获取记录ID
+            const recordId = document.getElementById('recordId').textContent;
+            if (!recordId || recordId === '加载中...') {
+                showToast('errorToast', '未找到有效的记录ID');
+                return;
+            }
+            
+            // 获取表单数据
+            const formData = {
+                // 基本信息
+                reading_date: formatDateForBackend(document.getElementById('readingDate').value),
+                // 水表数据
+                water_current: document.getElementById('waterCurrent').value ? parseFloat(document.getElementById('waterCurrent').value) : null,
+                water_notes: document.getElementById('waterNotes').value,
+                water_meter_replaced: document.getElementById('waterReplace').value === 'true',
+                // 电表数据
+                electric_current: document.getElementById('electricCurrent').value ? parseFloat(document.getElementById('electricCurrent').value) : null,
+                electric_notes: document.getElementById('electricNotes').value,
+                electric_meter_replaced: document.getElementById('electricReplace').value === 'true'
+            };
+
+            // 辅助函数：将 datetime-local 格式转换为后端期望的日期格式
+            function formatDateForBackend(datetimeLocalValue) {
+                if (!datetimeLocalValue) return '';
+                
+                // datetime-local 格式为 YYYY-MM-DDThh:mm
+                // 将其转换为 YYYY-MM-DD HH:mm:00 格式，符合后端期望的 '%Y-%m-%d %H:%M:%S'
+                const date = new Date(datetimeLocalValue);
+                const year = date.getFullYear();
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const day = String(date.getDate()).padStart(2, '0');
+                const hours = String(date.getHours()).padStart(2, '0');
+                const minutes = String(date.getMinutes()).padStart(2, '0');
+                
+                return `${year}-${month}-${day} ${hours}:${minutes}:00`;
+            }
+
+            // 取消必填限制，允许两项读数都不填写
+            // 但如果填写了读数，仍需验证有效性
+            
+            if (formData.water_current !== null && (isNaN(formData.water_current) || formData.water_current < 0)) {
+                showToast('errorToast', '请输入有效的水表读数');
+                return;
+            }
+            
+            if (formData.electric_current !== null && (isNaN(formData.electric_current) || formData.electric_current < 0)) {
+                showToast('errorToast', '请输入有效的电表读数');
+                return;
+            }
+            
+            // 保存到数据库
+            const submitBtn = e.submitter;
+            const originalText = submitBtn.innerHTML;
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fa fa-spinner fa-spin mr-2"></i> 保存中...';
+            
+            try {
+                const response = await fetch(`/utility-meter/edit/${recordId}/save`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(formData),
+                    credentials: 'include' // 包含认证信息
+                });
+                
+                const result = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(result.message || '保存失败');
+                }
+                
+                showToast('successToast');
+                
+                // 2秒后返回列表页
+                setTimeout(() => {
+                    window.location.href = '/utility-meter/utility_reading_manage';
+                }, 2000);
+                
+            } catch (error) {
+                console.error('保存失败:', error);
+                showToast('errorToast', error.message || '保存失败，请重试');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalText;
+            }
+        }
+
+        // 更新换表指示器显示状态
+        function updateReplacedIndicator(type) {
+            const selectElement = document.getElementById(`${type}Replace`);
+            const indicator = document.getElementById(`${type}-replaced-indicator`);
+            indicator.style.display = selectElement.value === 'true' ? 'block' : 'none';
+        }
+
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            // 从URL获取并设置记录ID
+            const recordId = getRecordIdFromUrl();
+            if (recordId) {
+                document.getElementById('recordId').textContent = recordId;
+                // 从后端加载记录数据
+                loadRecordData(recordId);
+            } else {
+                showToast('errorToast', '无法获取记录ID，请检查URL');
+                setLoadingState(false);
+            }
+            
+            // 表单提交事件
+            document.getElementById('meterForm').addEventListener('submit', saveRecordData);
+            
+            // 返回和取消按钮事件 - 直接返回上一页，不显示确认弹窗
+            
+            document.getElementById('cancelBtn').addEventListener('click', () => {
+                window.history.back();
+            });
+            
+            // 为是否换表下拉框添加事件监听器
+            document.getElementById('waterReplace').addEventListener('change', function() {
+                updateReplacedIndicator('water');
+            });
+            
+            document.getElementById('electricReplace').addEventListener('change', function() {
+                updateReplacedIndicator('electric');
+            });
+            
+            // 滚动时导航栏效果
+            window.addEventListener('scroll', () => {
+                const header = document.querySelector('header');
+                if (window.scrollY > 10) {
+                    header.classList.add('py-2', 'shadow');
+                    header.classList.remove('py-3', 'shadow-sm');
+                } else {
+                    header.classList.add('py-3', 'shadow-sm');
+                    header.classList.remove('py-2', 'shadow');
+                }
+            });
+            
+            // 初始化抄表照片/视频上传功能
+            initMeterMediaUpload();
+        });
+        
+        // 抄表信息（全局变量，用于上传媒体文件）
+        let meterRecordData = null;
+        
+        // 更新抄表记录数据（用于文件上传）
+        function updateMeterRecordData(data) {
+            meterRecordData = data;
+            // 加载已上传的媒体文件
+            if (data && data.room_id) {
+                // 尝试从record_id获取账期信息，或者从reading_date计算账期
+                let billingPeriod = data.billing_period;
+                
+                
+                
+                // 存储账期和房间ID信息，以便后续上传操作使用
+                meterRecordData.billing_period = billingPeriod;
+                
+                loadMediaFiles(billingPeriod, data.room_id);
+            }
+        }
+        
+        // 初始化抄表照片/视频上传功能
+        function initMeterMediaUpload() {
+            const uploadBtn = document.getElementById('uploadMediaBtn');
+            const fileInput = document.getElementById('mediaFileInput');
+            
+            // 点击上传按钮触发文件选择
+            uploadBtn.addEventListener('click', () => {
+                if (!meterRecordData) {
+                    showToast('errorToast', '请先等待抄表记录数据加载完成');
+                    return;
+                }
+                fileInput.click();
+            });
+            
+            // 文件选择后执行上传
+            fileInput.addEventListener('change', (e) => {
+                if (e.target.files.length > 0) {
+                    uploadMediaFiles(e.target.files);
+                }
+            });
+        }
+        
+        // 上传媒体文件
+        async function uploadMediaFiles(files) {
+            if (!meterRecordData) {
+                showToast('errorToast', '请先等待抄表记录数据加载完成');
+                return;
+            }
+            
+            const { billing_period, room_id } = meterRecordData;
+            
+            // 检查并显示上传进度
+            const progressContainer = document.getElementById('uploadProgressContainer');
+            const progressBar = document.getElementById('uploadProgressBar');
+            const progressPercentage = document.getElementById('uploadProgressPercentage');
+            const uploadStatus = document.getElementById('uploadStatus');
+            
+            // 显示进度条
+            progressContainer.classList.remove('hidden');
+            progressBar.style.width = '0%';
+            progressPercentage.textContent = '0%';
+            
+            // 依次上传文件
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                
+                // 检查文件大小 - 限制为10MB
+                if (file.size > 10 * 1024 * 1024) {
+                    showToast('errorToast', `${file.name} 文件大小超过10MB限制`);
+                    continue;
+                }
+                
+                // 检查文件类型
+                const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'video/mp4', 'video/quicktime'];
+                if (!validTypes.includes(file.type)) {
+                    showToast('errorToast', `${file.name} 文件格式不支持`);
+                    continue;
+                }
+                
+                // 显示上传状态
+                uploadStatus.textContent = `正在上传 ${file.name} (${i+1}/${files.length})`;
+                
+                // 创建FormData对象
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('billing_period', billing_period);
+                formData.append('room_id', room_id);
+                
+                try {
+                    // 使用XMLHttpRequest以获取上传进度
+                    const xhr = new XMLHttpRequest();
+                    
+                    // 监听上传进度
+                    xhr.upload.addEventListener('progress', (e) => {
+                        if (e.lengthComputable) {
+                            const progress = Math.round((e.loaded / e.total) * 100);
+                            progressBar.style.width = `${progress}%`;
+                            progressPercentage.textContent = `${progress}%`;
+                        }
+                    });
+                    
+                    // 发送请求
+                    xhr.open('POST', '/utility-meter/upload_media');
+                    
+                    // 使用Promise包装xhr请求
+                    await new Promise((resolve, reject) => {
+                        xhr.onload = () => {
+                            if (xhr.status >= 200 && xhr.status < 300) {
+                                resolve(xhr.responseText);
+                            } else {
+                                reject(new Error(xhr.responseText || `上传失败: ${xhr.statusText}`));
+                            }
+                        };
+                        xhr.onerror = () => {
+                            reject(new Error('上传过程中发生网络错误'));
+                        };
+                        xhr.send(formData);
+                    });
+                    
+                    // 上传成功，重新加载媒体文件列表
+                    loadMediaFiles(billing_period, room_id);
+                    
+                } catch (error) {
+                    console.error('文件上传失败:', error);
+                    showToast('errorToast', error.message || '文件上传失败');
+                }
+            }
+            
+            // 上传完成后隐藏进度条
+            setTimeout(() => {
+                progressContainer.classList.add('hidden');
+            }, 1000);
+            
+            // 清空文件选择
+            document.getElementById('mediaFileInput').value = '';
+        }
+        
+        // 加载媒体文件列表
+        async function loadMediaFiles(billingPeriod, roomId) {
+            try {
+                const response = await fetch(`/utility-meter/get_media_files?billing_period=${billingPeriod}&room_id=${roomId}`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    credentials: 'include'
+                });
+                
+                const result = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(result.message || '加载媒体文件失败');
+                }
+                
+                // 获取grid容器
+                const container = document.getElementById('mediaPreviewContainer');
+                
+                // 清空容器
+                container.innerHTML = '';
+                
+                if (result.files && result.files.length > 0) {
+                    // 构建所有预览项的HTML
+                    let html = '';
+                    result.files.forEach(file => {
+                        const isImage = file.type === 'image';
+                        
+                        if (isImage) {
+                            // 图片预览 - 点击查看原图（模态框）
+                            html += `
+                                <div class="media-item bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                                    <div class="relative h-48 overflow-hidden">
+                                        <img src="${file.url}" alt="抄表照片" class="w-full h-full object-cover cursor-pointer" onclick="showImageModal('${file.url}')">
+                                        <button type="button" class="absolute top-3 right-3 bg-transparent text-red-500 hover:text-white hover:bg-red-500 rounded-full p-2 shadow-lg border border-transparent transition-all duration-300 hover:translate-y-[-2px]" onclick="deleteMediaFile('${file.filename}', '${billingPeriod}', '${roomId}'); event.stopPropagation();">
+                                            <i class="fa fa-trash-o fa-lg"></i>
+                                        </button>
+                                    </div>
+                                    <div class="p-2 text-xs text-gray-600">文件名：${file.filename}<br>上传时间：${new Date(file.upload_time).toLocaleString()}</div>
+                                </div>
+                            `;
+                        } else {
+                            // 视频预览 - 使用真实视频展示缩略图，参考room_view.html实现
+                            html += `
+                                <div class="media-item bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                                    <div class="relative h-48 overflow-hidden">
+                                        <!-- 页面上的视频缩略图 - 禁用控制按钮 -->
+                                        <video class="w-full h-full object-cover" poster="" preload="metadata">
+                                            <source src="${file.url}" type="video/mp4">
+                                            您的浏览器不支持视频播放
+                                        </video>
+                                        <button type="button" class="absolute top-3 right-3 bg-transparent text-red-500 hover:text-white hover:bg-red-500 rounded-full p-2 shadow-lg border border-transparent transition-all duration-300 hover:translate-y-[-2px] z-10" onclick="deleteMediaFile('${file.filename}', '${billingPeriod}', '${roomId}'); event.stopPropagation();">
+                                            <i class="fa fa-trash-o fa-lg"></i>
+                                        </button>
+                                        <!-- 播放图标覆盖层 - 添加点击事件 -->
+                                        <div class="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30 cursor-pointer z-0 video-preview" data-url="${file.url}">
+                                            <i class="fa fa-play-circle text-white text-4xl opacity-80"></i>
+                                        </div>
+                                    </div>
+                                    <div class="p-2 text-xs text-gray-600">文件名：${file.filename}<br>上传时间：${new Date(file.upload_time).toLocaleString()}</div>
+                                </div>
+                            `;
+                        }
+                    });
+                    
+                    // 设置容器内容
+                    container.innerHTML = html;
+                    
+                    // 绑定视频预览点击事件
+                    document.querySelectorAll('.video-preview').forEach(preview => {
+                        preview.addEventListener('click', function() {
+                            const videoUrl = this.getAttribute('data-url');
+                            openVideoModal(videoUrl);
+                        });
+                    });
+                } else {
+                    // 显示无媒体文件提示
+                    container.innerHTML = `
+                        <div id="noMediaMessage" class="col-span-full text-center py-6 text-neutral-500">
+                            <i class="fa fa-file-image-o text-4xl mb-2"></i>
+                            <p>暂无抄表照片/视频</p>
+                        </div>
+                    `;
+                }
+                
+            } catch (error) {
+                console.error('加载媒体文件失败:', error);
+                // 出错时也显示无媒体文件提示
+                const container = document.getElementById('mediaPreviewContainer');
+                container.innerHTML = `
+                    <div id="noMediaMessage" class="col-span-full text-center py-6 text-neutral-500">
+                        <i class="fa fa-file-image-o text-4xl mb-2"></i>
+                        <p>暂无抄表照片/视频</p>
+                    </div>
+                `;
+            }
+        }
+        
+
+        
+        // 打开视频模态框
+        function openVideoModal(videoUrl) {
+            const modal = document.getElementById('videoModal');
+            const modalVideo = document.getElementById('modalVideo');
+            const modalVideoSource = document.getElementById('modalVideoSource');
+            const closeModalBtn = document.getElementById('closeVideoModalBtn');
+            
+            // 设置视频源并加载
+            modalVideoSource.src = videoUrl;
+            modalVideo.load();
+            
+            // 显示模态框
+            modal.classList.remove('hidden');
+            document.body.style.overflow = 'hidden'; // 防止背景滚动
+            
+            // 定义关闭模态框函数
+            function closeModal() {
+                modal.classList.add('hidden');
+                document.body.style.overflow = ''; // 恢复背景滚动
+                modalVideo.pause(); // 暂停视频播放
+                
+                // 移除事件监听器，避免重复绑定
+                modal.removeEventListener('click', handleModalClick);
+                document.removeEventListener('keydown', handleEscKey);
+            }
+            
+            // 点击关闭按钮关闭模态框
+            closeModalBtn.onclick = closeModal;
+            
+            // 点击模态框背景关闭模态框
+            function handleModalClick(event) {
+                if (event.target === modal) {
+                    closeModal();
+                }
+            }
+            modal.addEventListener('click', handleModalClick);
+            
+            // 按ESC键关闭模态框
+            function handleEscKey(event) {
+                if (event.key === 'Escape') {
+                    closeModal();
+                }
+            }
+            document.addEventListener('keydown', handleEscKey);
+        }
+        
+        // 删除媒体文件
+        async function deleteMediaFile(filename, billingPeriod, roomId) {
+            if (!confirm(`确定要删除文件 ${filename} 吗？`)) {
+                return;
+            }
+            
+            try {
+                const response = await fetch('/utility-meter/delete_media', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        billing_period: billingPeriod,
+                        room_id: roomId,
+                        filename: filename
+                    }),
+                    credentials: 'include'
+                });
+                
+                const result = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(result.message || '删除文件失败');
+                }
+                
+                showToast('successToast', '文件删除成功');
+                
+                // 重新加载媒体文件列表
+                loadMediaFiles(billingPeriod, roomId);
+                
+            } catch (error) {
+                console.error('删除文件失败:', error);
+                showToast('errorToast', error.message || '文件删除失败');
+            }
+        }
+    </script>
+    </body>
+</html>
+    

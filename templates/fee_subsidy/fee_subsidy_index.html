@@ -1,0 +1,1423 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <!--本地化CDN-->
+    {% include 'static.html' %}
+ 
+    <!-- Tailwind配置 -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#165DFF',
+                        secondary: '#6B7280',
+                        success: '#00B42A',
+                        danger: '#F53F3F',
+                        warning: '#FF7D00',
+                        info: '#86909C',
+                        light: '#F2F3F5',
+                        dark: '#1D2129'
+                    },
+                    fontFamily: {
+                        inter: ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .card-shadow {
+                box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            }
+            .btn-hover {
+                @apply transition-all duration-300 hover:shadow-lg transform hover:-translate-y-0.5;
+            }
+            .table-hover {
+                @apply transition-colors duration-200 hover:bg-primary/5;
+            }
+            .fade-in {
+                animation: fadeIn 0.5s ease-in-out;
+            }
+            .slide-in {
+                animation: slideIn 0.3s ease-out;
+            }
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        @keyframes slideIn {
+            from { transform: translateY(10px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 font-inter text-dark min-h-screen flex flex-col">
+    {% include 'header.html' %}
+    
+    <!-- 主内容区 -->
+    <main class="flex-grow container mx-auto px-4 py-6">
+        <!-- 页面标题 -->
+        <div class="mb-6 fade-in">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between">
+                <div class="flex items-center">
+                    <button onclick="history.back()" class="text-gray-600 hover:text-primary transition-colors mr-4">
+                        <i class="fa fa-arrow-left"></i>
+                    </button>
+                    <div>
+                        <h2 class="text-[clamp(1.5rem,3vw,2rem)] font-bold text-dark">{{ title }}</h2>
+                        <p class="text-gray-500 mt-1">管理员工的各类费用补贴记录，包括查询、禁用等操作</p>
+                    </div>
+                </div>
+                <div class="mt-4 md:mt-0">
+                    <button onclick="window.location.href='{{ url_for('fee_subsidy.fee_subsidy_history') }}'"  class="text-gray-600 hover:text-primary transition-colors">
+                        查看历史记录<i class="fa fa-arrow-right mr-1"></i> 
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 筛选区域 -->
+        <div class="bg-white rounded-lg card-shadow p-5 mb-6 fade-in" style="animation-delay: 100ms;">
+            <form id="filterForm" class="space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                    <!-- 月份筛选 -->
+                    <div>
+                        <label for="billingPeriod" class="block text-sm font-medium text-gray-700 mb-1">选择月份</label>
+                        <select id="billingPeriod" name="billingPeriod" 
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all text-sm">
+                            <option value="">全部月份</option>
+                            <!-- 月份将通过JavaScript动态加载 -->
+                        </select>
+                    </div>
+                    
+                    <!-- 费用类型筛选 -->
+                    <div>
+                        <label for="feeType" class="block text-sm font-medium text-gray-700 mb-1">费用类型</label>
+                        <select id="feeType" name="feeType" 
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all text-sm">
+                            <option value="">全部类型</option>
+                            <!-- 费用类型将通过JavaScript动态加载 -->
+                        </select>
+                    </div>
+                    
+                    <!-- 楼栋筛选 -->
+                    <div>
+                        <label for="building" class="block text-sm font-medium text-gray-700 mb-1">楼栋</label>
+                        <select id="building" name="building" 
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all text-sm">
+                            <option value="">全部楼栋</option>
+                            {% if buildings %}
+                                {% for building in buildings %}
+                                    <option value="{{ building }}">{{ building }}</option>
+                                {% endfor %}
+                            {% endif %}
+                        </select>
+                    </div>
+                    
+                    <!-- 部门筛选 -->
+                    <div>
+                        <label for="department" class="block text-sm font-medium text-gray-700 mb-1">部门</label>
+                        <select id="department" name="department" 
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all text-sm">
+                            <option value="">全部部门</option>
+                            <!-- 部门将通过JavaScript动态加载 -->
+                        </select>
+                    </div>
+                    
+                    <!-- 搜索框 -->
+                    <div>
+                        <label for="searchInput" class="block text-sm font-medium text-gray-700 mb-1">搜索</label>
+                        <div class="relative">
+                            <input type="text" id="searchInput" name="searchInput" placeholder="输入姓名或房间号"
+                                   class="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all text-sm">
+                            <i class="fa fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 操作按钮组 -->
+                <div class="flex flex-wrap gap-3 justify-between items-center">
+                    <div class="flex flex-wrap gap-2">
+                        <button type="submit" class="bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded-lg btn-hover flex items-center">
+                            <i class="fa fa-search mr-2"></i> 搜索
+                        </button>
+                        <button type="reset" id="resetBtn" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg btn-hover flex items-center">
+                            <i class="fa fa-refresh mr-2"></i> 重置
+                        </button>
+                        <button type="button" id="refreshBtn" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg btn-hover flex items-center">
+                            <i class="fa fa-repeat mr-2"></i> 刷新
+                        </button>
+                    </div>
+                    
+                    <div class="flex flex-wrap gap-2">
+                        <button type="button" id="addBtn" class="bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded-lg btn-hover flex items-center">
+                            <i class="fa fa-plus mr-2"></i> 添加
+                        </button>
+                        <button type="button" id="batchDeleteBtn" class="bg-danger hover:bg-danger/90 text-white px-4 py-2 rounded-lg btn-hover flex items-center" disabled>
+                            <i class="fa fa-trash mr-2"></i> 批量禁用
+                        </button>
+                        <button type="button" id="clearAllBtn" class="bg-warning hover:bg-warning/90 text-white px-4 py-2 rounded-lg btn-hover flex items-center">
+                            <i class="fa fa-eraser mr-2"></i> 清空当前账期
+                        </button>
+                        <button type="button" id="importBtn" class="bg-info hover:bg-info/90 text-white px-4 py-2 rounded-lg btn-hover flex items-center">
+                            <i class="fa fa-upload mr-2"></i> 导入
+                        </button>
+                        <button type="button" id="exportBtn" class="bg-success hover:bg-success/90 text-white px-4 py-2 rounded-lg btn-hover flex items-center">
+                            <i class="fa fa-download mr-2"></i> 导出
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+        
+        <!-- 表格区域 -->
+        <div class="bg-white rounded-lg card-shadow overflow-hidden fade-in" style="animation-delay: 200ms;">
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th scope="col" class="px-4 py-3 text-left w-14">
+                                <div class="flex items-center">
+                                    <input type="checkbox" id="selectAll" class="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded">
+                                </div>
+                            </th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                序号
+                            </th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                费用类型
+                            </th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                姓名/房间号
+                            </th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                部门
+                            </th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                职位
+                            </th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                补贴金额
+                            </th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                用电量减免
+                            </th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                用水量减免
+                            </th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                生效时间
+                            </th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                是否启用
+                            </th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                备注
+                            </th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                操作
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody id="subsidyTableBody" class="bg-white divide-y divide-gray-200">
+                        <!-- 表格数据将通过JavaScript动态生成 -->
+                        <tr class="table-hover">
+                            <td colspan="13" class="px-6 py-10 text-center text-gray-500">
+                                <div class="flex flex-col items-center">
+                                    <i class="fa fa-file-text-o text-3xl mb-2 text-gray-300"></i>
+                                    <p>请使用筛选条件查询数据</p>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- 分页控件 -->
+            <div class="px-4 py-3 bg-gray-50 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between">
+                <div class="flex items-center mb-3 sm:mb-0">
+                    <span class="text-sm text-gray-700 mr-3">
+                        显示 <span id="currentRange" class="font-medium">0-0</span> 条，共 <span id="totalItems" class="font-medium">0</span> 条记录
+                    </span>
+                    <div class="flex items-center border rounded-md">
+                        <label for="pageSize" class="text-sm text-gray-700 px-2">每页显示:</label>
+                        <select id="pageSize" class="text-sm border-0 focus:ring-0 py-1 px-2">
+                            <option value="10">10</option>
+                            <option value="20">20</option>
+                            <option value="50">50</option>
+                            <option value="100">100</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="flex items-center">
+                    <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                        <button id="prevPage" class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                            <span class="sr-only">上一页</span>
+                            <i class="fa fa-chevron-left text-xs"></i>
+                        </button>
+                        <span id="paginationNumbers" class="flex">
+                            <!-- 页码将通过JavaScript动态生成 -->
+                        </span>
+                        <button id="nextPage" class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                            <span class="sr-only">下一页</span>
+                            <i class="fa fa-chevron-right text-xs"></i>
+                        </button>
+                    </nav>
+                </div>
+            </div>
+        </div>
+    </main>
+    
+    <!-- 确认对话框 -->
+    <div id="confirmDialog" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden items-center justify-center fade-in">
+        <div class="bg-white rounded-lg w-full max-w-md slide-in">
+            <div class="p-6">
+                <div class="flex items-center mb-4">
+                    <div class="flex-shrink-0">
+                        <i class="fa fa-exclamation-triangle text-warning text-2xl"></i>
+                    </div>
+                    <div class="ml-3">
+                        <h3 id="confirmTitle" class="text-lg font-medium text-gray-900">确认操作</h3>
+                    </div>
+                </div>
+                <div class="mt-2">
+                    <p id="confirmMessage" class="text-sm text-gray-500">
+                        您确定要执行此操作吗？
+                    </p>
+                </div>
+            </div>
+            <div class="bg-gray-50 px-6 py-3 rounded-b-lg flex justify-end space-x-3">
+                <button id="cancelConfirmBtn" class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors">
+                    取消
+                </button>
+                <button id="confirmActionBtn" class="px-4 py-2 bg-danger text-white rounded-lg hover:bg-danger/90 transition-colors">
+                    确认
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 导入文件对话框 -->
+    <div id="importDialog" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden items-center justify-center fade-in">
+        <div class="bg-white rounded-lg w-full max-w-md slide-in">
+            <div class="p-6">
+                <div class="flex items-center mb-4">
+                    <div class="flex-shrink-0">
+                        <i class="fa fa-upload text-primary text-2xl"></i>
+                    </div>
+                    <div class="ml-3">
+                        <h3 class="text-lg font-medium text-gray-900">导入费用补贴数据</h3>
+                    </div>
+                </div>
+                <div class="mt-2">
+                    <form id="importForm" enctype="multipart/form-data">
+                        <div class="mb-4">
+                            <label for="importFile" class="block text-sm font-medium text-gray-700 mb-1">选择Excel文件</label>
+                            <input type="file" id="importFile" name="file" accept=".xlsx" 
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all text-sm">
+                            <p class="mt-1 text-xs text-gray-500">请上传.xlsx格式的Excel文件</p>
+                        </div>
+                        
+                        <!-- 导入模板下载链接 -->
+                        <div class="mb-2">
+                            <a href="/fee_subsidy_import_export/import-template" class="text-primary hover:text-primary/80 text-sm flex items-center transition-colors">
+                                <i class="fa fa-file-excel-o mr-1"></i> 下载导入模板
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            <div class="bg-gray-50 px-6 py-3 rounded-b-lg flex justify-end space-x-3">
+                <button id="cancelImportBtn" class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors">
+                    取消
+                </button>
+                <button id="confirmImportBtn" class="px-4 py-2 bg-primary text-white-white roundedrounded-lg hover:bg-primary/90 transition-colors">
+                    确认导入
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 导出对话框 -->
+    <div id="exportDialog" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden items-center justify-center fade-in">
+        <div class="bg-white rounded-lg w-full max-w-md slide-in max-h-[80vh] flex flex-col">
+            <div class="p-6 overflow-y-auto flex-grow">
+                <div class="flex items-center mb-4">
+                    <div class="flex-shrink-0">
+                        <i class="fa fa-download text-primary text-2xl"></i>
+                    </div>
+                    <div class="ml-3">
+                        <h3 class="text-lg font-medium text-gray-900">导出费用补贴数据</h3>
+                    </div>
+                </div>
+                <div class="mt-4 space-y-4">
+                    <div>
+                        <label for="exportBillingPeriod" class="block text-sm font-medium text-gray-700 mb-1">选择账期</label>
+                        <select id="exportBillingPeriod" 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all text-sm">
+                            <option value="">全部账期（全部）</option>
+                            <!-- 账期选项将通过JavaScript动态加载 -->
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label for="exportFeeType" class="block text-sm font-medium text-gray-700 mb-1">选择费用类型</label>
+                        <select id="exportFeeType" 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all text-sm">
+                            <option value="">所有类型</option>
+                            <!-- 费用类型选项将通过JavaScript动态加载 -->
+                        </select>
+                    </div>
+                    
+                    <div class="text-sm text-gray-500">
+                        <i class="fa fa-info-circle mr-1"></i>
+                        提示：未选择账期和类型将导出所有启用状态的记录
+                    </div>
+                </div>
+            </div>
+            <div class="bg-gray-50 px-6 py-3 rounded-b-lg flex justify-end space-x-3 border-t">
+                <button id="cancelExportBtn" class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors">
+                    取消
+                </button>
+                <button id="confirmExportBtn" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors">
+                    开始导出
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 操作结果提示 -->
+    <div id="toast" class="fixed bottom-5 right-5 px-6 py-3 rounded-lg shadow-lg transform translate-y-20 opacity-0 transition-all duration-300 z-50 hidden">
+        <div class="flex items-center">
+            <i id="toastIcon" class="mr-2 text-xl"></i>
+            <span id="toastMessage"></span>
+        </div>
+    </div>
+
+     <!-- 页脚 -->
+    {% include 'footer.html' %}
+    
+
+    <script>
+        // 全局变量
+        let currentPage = 1;
+        let pageSize = 10;
+        let totalPages = 1;
+        let totalItems = 0;
+        let selectedIds = new Set(); // 用于存储选中的记录ID
+        let currentAction = null; // 用于存储当前确认对话框的操作类型
+        let showReductionColumns = true; // 控制水电减免列显示的变量
+        let isFiltering = false; // 防止重复请求的标记
+        
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            // 移除对currentUser的依赖，不再需要获取用户ID
+            console.log('用户信息由后端自动处理，前端无需传递');
+            
+            // 先获取配置项，再进行其他初始化操作
+            fetchReductionConfig().then(() => {
+                bindEventListeners();
+                loadBillingPeriods();
+                loadDepartments();
+                loadFeeTypes(); // 加载费用类型
+                fetchSubsidyData();
+                initExportFunctionality(); // 初始化导出功能
+            });
+        });
+        
+        // 加载费用类型
+        function loadFeeTypes() {
+            // 发送OPTIONS请求获取允许的费用类型
+           fetch('/fee_subsidy/add', {
+        method: 'OPTIONS',  // 与后端接口支持的方法匹配
+        headers: {
+            'Content-Type': 'application/json'
+            
+        },
+        credentials: 'include'  // 携带cookie，适配后端@login_required装饰器
+    })
+    .then(response => {
+        console.log('费用类型接口响应状态:', response.status);
+        
+        if (!response.ok) {
+            throw new Error(`请求失败，状态码: ${response.status}`);
+        }
+        return response.json().catch(() => {
+            throw new Error('后端返回数据不是JSON格式');
+        });
+    })
+            .then(data => {
+        console.log('后端返回的费用类型数据:', data);
+        
+        // 匹配后端OPTIONS响应结构：{ allowed_types: [], status: 'success', ... }
+        // 同时兼容POST响应的success字段
+        const isSuccess = data.status === 'success' || data.success === true;
+        const feeTypes = data.allowed_types;  // 后端明确使用allowed_types字段
+        
+        // 检查DOM元素是否存在（与后端无关，但影响前端渲染）
+        const feeTypeSelect = document.getElementById('feeType');
+        if (!feeTypeSelect) {
+            throw new Error('未找到id为feeType的下拉框元素');
+        }
+        
+        // 验证数据有效性（后端返回的是字符串数组，如['房间水电按用量减免', ...]）
+        if (isSuccess && Array.isArray(feeTypes) && feeTypes.length > 0) {
+            // 清空现有选项（保留第一个"全部类型"选项）
+            while (feeTypeSelect.options.length > 1) {
+                feeTypeSelect.remove(1);
+            }
+            
+            // 添加费用类型选项（后端返回的是字符串，直接作为value和label）
+            feeTypes.forEach(type => {
+                const option = document.createElement('option');
+                option.value = type;  // 字符串直接作为value
+                option.textContent = type;  // 字符串直接作为显示文本
+                feeTypeSelect.appendChild(option);
+            });
+            console.log(`成功加载${feeTypes.length}种费用类型`);
+        } else {
+            // 处理后端返回空数据或失败的情况
+            const errorMsg = data.message || '未获取到可用的费用类型';
+            console.warn('费用类型加载警告:', errorMsg);
+            showToast(errorMsg, 'warning');
+        }
+    })
+            .catch(error => {
+                console.error('加载费用类型失败:', error);
+                showToast('加载费用类型数据失败', 'error');
+            });
+        }
+        
+        // 获取水电减免配置
+        function fetchReductionConfig() {
+            return fetch('/system/api/by_configs_key/FEE_METER_reduction')
+                .then(response => {
+                    if (!response.ok) {
+                        console.warn('获取水电减免配置失败，默认显示相关列');
+                        return { success: true, data: { value: 'True' } };
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.success) {
+                        // 转换为布尔值
+                        showReductionColumns = data.data.value === 'True' || data.data.value === true;
+                        console.log('水电减免配置加载成功，显示状态:', showReductionColumns);
+                    } else {
+                        console.warn('获取水电减免配置失败，默认显示相关列');
+                        showReductionColumns = true;
+                    }
+                    return true;
+                })
+                .catch(error => {
+                    console.error('获取水电减免配置时发生错误:', error);
+                    showReductionColumns = true; // 出错时默认显示
+                    return true;
+                });
+        }
+        
+        // 绑定所有事件监听器
+        function bindEventListeners() {
+            // 筛选表单提交
+            document.getElementById('filterForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                currentPage = 1; // 重置为第一页
+                fetchSubsidyData();
+            });
+            
+            // 为筛选控件添加实时响应事件
+            document.getElementById('billingPeriod').addEventListener('change', function() {
+                currentPage = 1;
+                fetchSubsidyData();
+            });
+            
+            document.getElementById('feeType').addEventListener('change', function() {
+                currentPage = 1;
+                fetchSubsidyData();
+            });
+            
+            document.getElementById('department').addEventListener('change', function() {
+                currentPage = 1;
+                fetchSubsidyData();
+            });
+            
+            // 楼栋筛选器变更事件
+            document.getElementById('building').addEventListener('change', function() {
+                currentPage = 1;
+                fetchSubsidyData();
+            });
+            
+            // 搜索框支持回车键
+            document.getElementById('searchInput').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    currentPage = 1;
+                    fetchSubsidyData();
+                }
+            });
+            
+            // 重置按钮
+            document.getElementById('resetBtn').addEventListener('click', function() {
+                currentPage = 1;
+                setTimeout(() => {
+                    loadFeeTypes(); // 重置时重新加载费用类型
+                    fetchSubsidyData();
+                }, 100);
+            });
+            
+            // 刷新按钮
+            document.getElementById('refreshBtn').addEventListener('click', async function() {
+                const btn = this;
+                btn.innerHTML = '<i class="fa fa-spinner fa-spin mr-2"></i> 刷新中...';
+                btn.disabled = true;
+                
+                try {
+                    loadFeeTypes(); // 刷新时重新加载费用类型
+                    await fetchSubsidyData();
+                } catch (error) {
+                    console.error('刷新数据失败:', error);
+                    showToast('刷新数据失败', 'error');
+                } finally {
+                    btn.innerHTML = '<i class="fa fa-repeat mr-2"></i> 刷新';
+                    btn.disabled = false;
+                }
+            });
+            
+            // 导入按钮
+            document.getElementById('importBtn').addEventListener('click', function() {
+                document.getElementById('importDialog').style.display = 'flex';
+            });
+            
+            // 关闭导入对话框
+            document.getElementById('cancelImportBtn').addEventListener('click', function() {
+                document.getElementById('importDialog').style.display = 'none';
+            });
+            
+            // 确认导入
+            document.getElementById('confirmImportBtn').addEventListener('click', function() {
+                const fileInput = document.getElementById('importFile');
+                if (!fileInput.files || fileInput.files.length === 0) {
+                    showToast('请选择要导入的Excel文件', 'warning');
+                    return;
+                }
+                
+                const formData = new FormData();
+                formData.append('file', fileInput.files[0]);
+                
+                const btn = this;
+                btn.innerHTML = '<i class="fa fa-spinner fa-spin mr-1"></i> 导入中...';
+                btn.disabled = true;
+                
+                fetch('/fee_subsidy_import_export/import', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showToast(data.message, 'success');
+                        document.getElementById('importDialog').style.display = 'none';
+                        fetchSubsidyData();
+                    } else {
+                        showToast(data.message, 'error');
+                    }
+                    btn.innerHTML = '确认导入';
+                    btn.disabled = false;
+                })
+                .catch(error => {
+                    showToast('导入失败: ' + error.message, 'error');
+                    btn.innerHTML = '确认导入';
+                    btn.disabled = false;
+                });
+            });
+            
+            // 导出按钮
+            document.getElementById('exportBtn').addEventListener('click', function() {
+                // 显示导出对话框
+                document.getElementById('exportDialog').style.display = 'flex';
+                // 加载账期和费用类型数据
+                loadExportBillingPeriods();
+                loadExportFeeTypes();
+            });
+            
+            // 添加按钮
+            document.getElementById('addBtn').addEventListener('click', function() {
+                window.location.href = '/fee_subsidy/fee_subsidy_add';
+            });
+            
+            // 批量禁用按钮
+            document.getElementById('batchDeleteBtn').addEventListener('click', function() {
+                showConfirmDialog(
+                    '确认批量禁用',
+                    `您确定要禁用选中的 ${selectedIds.size} 条记录吗？此操作不可恢复。`,
+                    'batchDelete'
+                );
+            });
+            
+            // 清空当前账期按钮
+            document.getElementById('clearAllBtn').addEventListener('click', function() {
+                const billingPeriod = document.getElementById('billingPeriod').value;
+                if (!billingPeriod) {
+                    showToast('请先选择要清空的账期', 'warning');
+                    return;
+                }
+                
+                showConfirmDialog(
+                    '确认清空当前账期',
+                    `您确定要清空 ${billingPeriod} 账期的所有记录吗？此操作不可恢复。`,
+                    'clearCurrentPeriod',
+                    billingPeriod
+                );
+            });
+            
+            // 全选复选框
+            document.getElementById('selectAll').addEventListener('change', function() {
+                const isChecked = this.checked;
+                const checkboxes = document.querySelectorAll('.record-checkbox');
+                
+                checkboxes.forEach(checkbox => {
+                    checkbox.checked = isChecked;
+                    const id = checkbox.getAttribute('data-id');
+                    
+                    if (isChecked) {
+                        selectedIds.add(id);
+                    } else {
+                        selectedIds.delete(id);
+                        document.getElementById('selectAll').checked = false;
+                    }
+                });
+                
+                updateBatchDeleteButton();
+            });
+            
+            // 页码大小选择
+            document.getElementById('pageSize').addEventListener('change', function() {
+                pageSize = parseInt(this.value);
+                currentPage = 1; // 重置为第一页
+                fetchSubsidyData();
+            });
+            
+            // 上一页按钮
+            document.getElementById('prevPage').addEventListener('click', function() {
+                if (currentPage > 1) {
+                    currentPage--;
+                    fetchSubsidyData();
+                }
+            });
+            
+            // 下一页按钮
+            document.getElementById('nextPage').addEventListener('click', function() {
+                if (currentPage < totalPages) {
+                    currentPage++;
+                    fetchSubsidyData();
+                }
+            });
+            
+            // 确认对话框按钮
+            document.getElementById('cancelConfirmBtn').addEventListener('click', hideConfirmDialog);
+            document.getElementById('confirmActionBtn').addEventListener('click', executeConfirmedAction);
+        }
+        
+        // 初始化导出功能
+        function initExportFunctionality() {
+            // 绑定取消导出按钮事件
+            document.getElementById('cancelExportBtn').addEventListener('click', function() {
+                document.getElementById('exportDialog').style.display = 'none';
+            });
+            
+            // 绑定确认导出按钮事件
+            document.getElementById('confirmExportBtn').addEventListener('click', function() {
+                performExport();
+            });
+        }
+        
+        // 加载导出对话框的账期数据
+        function loadExportBillingPeriods() {
+            const select = document.getElementById('exportBillingPeriod');
+            // 保留"全部"选项，清空其他选项
+            while (select.options.length > 1) {
+                select.remove(1);
+            }
+            
+            // 调用已有的获取账期接口
+            fetch('/fee_subsidy/periods')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.data && data.data.length > 0) {
+                        // 添加从API获取的账期
+                        data.data.forEach(period => {
+                            const option = document.createElement('option');
+                            option.value = period;
+                            option.textContent = period;
+                            select.appendChild(option);
+                        });
+                    }
+                })
+                .catch(error => {
+                    console.error('加载导出账期失败:', error);
+                });
+        }
+        
+        // 为导出对话框加载费用类型数据
+        function loadExportFeeTypes() {
+            const select = document.getElementById('exportFeeType');
+            // 保留"所有类型"选项，清空其他选项
+            while (select.options.length > 1) {
+                select.remove(1);
+            }
+            
+            // 调用获取费用类型的接口
+            fetch('/fee_subsidy/add', {
+                method: 'OPTIONS',
+                headers: {'Accept': 'application/json'}
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.allowed_types && data.allowed_types.length) {
+                    data.allowed_types.forEach(type => {
+                        const option = document.createElement('option');
+                        option.value = type;
+                        option.textContent = type;
+                        select.appendChild(option);
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('加载导出费用类型失败:', error);
+            });
+        }
+        
+        // 执行导出操作
+        function performExport() {
+            const billingPeriod = document.getElementById('exportBillingPeriod').value;
+            const feeType = document.getElementById('exportFeeType').value;
+            
+            // 获取确认导出按钮并修改状态为导出中
+            const confirmBtn = document.getElementById('confirmExportBtn');
+            const originalText = confirmBtn.innerHTML;
+            confirmBtn.innerHTML = '<i class="fa fa-spinner fa-spin mr-2"></i> 导出中...';
+            confirmBtn.disabled = true;
+            
+            // 构建查询参数
+            const params = new URLSearchParams();
+            if (billingPeriod) params.append('billing_period', billingPeriod);
+            if (feeType) params.append('fee_type', feeType);
+            
+            // 构建导出URL
+            let url = '/fee_subsidy_import_export/export';
+            if (params.toString()) {
+                url += `?${params.toString()}`;
+            }
+            
+            // 执行导出
+            window.location.href = url;
+            
+            // 60秒后恢复按钮状态并关闭对话框
+            setTimeout(() => {
+                confirmBtn.innerHTML = originalText;
+                confirmBtn.disabled = false;
+                document.getElementById('exportDialog').style.display = 'none';
+            }, 60000);
+        }
+        
+        // 加载账期数据
+        function loadBillingPeriods() {
+            fetch('/fee_subsidy/periods')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.data && data.data.length > 0) {
+                        const periodSelect = document.getElementById('billingPeriod');
+                        
+                        // 清空现有选项（保留"全部账期"）
+                        while (periodSelect.options.length > 1) {
+                            periodSelect.remove(1);
+                        }
+                        
+                        // 添加从API获取的账期
+                        data.data.forEach(period => {
+                            const option = document.createElement('option');
+                            option.value = period;
+                            option.textContent = period;
+                            periodSelect.appendChild(option);
+                        });
+                    }
+                })
+                .catch(error => {
+                    console.error('加载账期失败:', error);
+                    showToast('加载账期数据失败', 'error');
+                });
+        }
+        
+        // 加载部门数据
+        function loadDepartments() {
+            fetch('/fee_subsidy/departments')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.data && data.data.length > 0) {
+                        const departmentSelect = document.getElementById('department');
+                        
+                        // 清空现有选项（保留"全部部门"）
+                        while (departmentSelect.options.length > 1) {
+                            departmentSelect.remove(1);
+                        }
+                        
+                        // 添加从API获取的部门
+                        data.data.forEach(dept => {
+                            const option = document.createElement('option');
+                            option.value = dept;
+                            option.textContent = dept;
+                            departmentSelect.appendChild(option);
+                        });
+                    }
+                })
+                .catch(error => {
+                    console.error('加载部门失败:', error);
+                    showToast('加载部门数据失败', 'error');
+                });
+        }
+        
+        // 获取补贴数据
+        function fetchSubsidyData() {
+            // 防止重复请求
+            if (isFiltering) return Promise.resolve();
+            isFiltering = true;
+            
+            return new Promise((resolve, reject) => {
+                // 显示加载状态
+                const tableBody = document.getElementById('subsidyTableBody');
+                tableBody.innerHTML = '<tr><td colspan="13" class="px-6 py-10 text-center text-gray-500"><i class="fa fa-spinner fa-spin mr-2"></i> 正在加载数据...</td></tr>';
+                
+                // 获取筛选条件
+                const billingPeriod = document.getElementById('billingPeriod').value;
+                const feeType = document.getElementById('feeType').value;
+                const department = document.getElementById('department').value;
+                const building = document.getElementById('building').value;
+                const searchInput = document.getElementById('searchInput').value.trim();
+                
+                // 构建查询参数
+                const params = new URLSearchParams();
+                params.append('page', currentPage);
+                params.append('per_page', pageSize);
+                if (billingPeriod) params.append('billing_period', billingPeriod);
+                if (feeType) params.append('fee_type', feeType);
+                if (department) params.append('department', department);
+                if (building) params.append('building', building);
+                if (searchInput) params.append('search', searchInput);
+                
+                // 调用API获取数据
+                fetch(`/fee_subsidy/list?${params.toString()}`)
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('网络响应不正常');
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        isFiltering = false;
+                        if (data.success) {
+                            totalItems = data.data.total;
+                            totalPages = data.data.pages;
+                            
+                            // 渲染表格
+                            renderSubsidyTable(data.data.records);
+                            
+                            // 更新分页
+                            updatePagination();
+                            
+                            // 更新统计信息
+                            updateStatistics();
+                            
+                            // 重置选中状态
+                            selectedIds.clear();
+                            document.getElementById('selectAll').checked = false;
+                            updateBatchDeleteButton();
+                            resolve();
+                        } else {
+                            showToast('获取数据失败: ' + (data.message || '未知错误'), 'error');
+                            tableBody.innerHTML = '<tr class="table-hover"><td colspan="13" class="px-6 py-10 text-center text-gray-500"><i class="fa fa-info-circle mr-2"></i> 获取数据失败，请重试</td></tr>';
+                            reject(new Error(data.message || '未知错误'));
+                        }
+                    })
+                    .catch(error => {
+                        isFiltering = false;
+                        console.error('获取补贴数据失败:', error);
+                        showToast('获取数据失败: ' + error.message, 'error');
+                        tableBody.innerHTML = '<tr class="table-hover"><td colspan="13" class="px-6 py-10 text-center text-gray-500"><i class="fa fa-exclamation-circle mr-2"></i> 网络错误，请重试</td></tr>';
+                        reject(error);
+                    });
+            });
+        }
+        
+        // 渲染补贴表格
+        function renderSubsidyTable(records) {
+            const tableBody = document.getElementById('subsidyTableBody');
+            
+            if (records.length === 0) {
+                // 处理空数据状态，根据配置决定是否显示列
+                let emptyColumns = 11; // 基础列数（不含水电减免列）
+                if (showReductionColumns) {
+                    emptyColumns = 13; // 包含水电减免列
+                }
+                
+                tableBody.innerHTML = `<tr class="table-hover">
+                    <td colspan="${emptyColumns}" class="px-6 py-10 text-center text-gray-500">
+                        <div class="flex flex-col items-center">
+                            <i class="fa fa-file-text-o text-3xl mb-2 text-gray-300"></i>
+                            <p>没有找到匹配的数据</p>
+                        </div>
+                    </td>
+                </tr>`;
+                return;
+            }
+            
+            let html = '';
+            records.forEach((record, index) => {
+                // 判断是否为水电相关类型
+                const isWaterElectricType = ['房间水电按用量减免', '房间水电按金额减免'].includes(record.fee_type);
+                
+                // 确定显示姓名还是房间号，并添加跳转链接
+                let nameOrRoom = '';
+                if (isWaterElectricType) {
+                    // 房间号添加跳转链接和ID
+                    if (record.room_full_number && record.room_id) {
+                        nameOrRoom = `<a href="/room/view/${record.room_id}" class="text-blue-600 hover:underline">${record.room_full_number}</a> (ID:${record.room_id})`;
+                    } else {
+                        nameOrRoom = record.room_full_number || '';
+                    }
+                } else {
+                    // 姓名添加跳转链接和ID
+                    if (record.user_name && record.user_id) {
+                        nameOrRoom = `<a href="/user/view/${record.user_id}" class="text-blue-600 hover:underline">${record.user_name}</a> (ID:${record.user_id})`;
+                    } else {
+                        nameOrRoom = record.user_name || '';
+                    }
+                }
+                
+                // 确定部门和职位是否显示
+                const department = isWaterElectricType ? '' : (record.user_department || '');
+                const position = isWaterElectricType ? '' : (record.user_position || '');
+                
+                // 确定金额和水电减免是否显示
+                // 明确指定需要隐藏金额的类型
+                const hideAmountTypes = ['房间水电按用量减免'];
+                // 统一处理类型值，避免空格或格式问题导致匹配失败
+                const currentFeeType = String(record.fee_type || '').trim();
+
+                // 金额显示逻辑：隐藏类型显示空，其他类型显示金额
+                const amountDisplay = hideAmountTypes.includes(currentFeeType)
+                    ? ''  // 房间水电按用量减免类型不显示金额
+                    : `¥${record.amount !== null ? Number(record.amount) : 0}`;  // 其他类型显示金额（不加toFixed）
+
+                
+                const electricReductionDisplay = record.fee_type === '房间水电按用量减免' 
+                    ? `${record.electric_reduction || '0.00'} kWh` 
+                    : '';
+                
+                const waterReductionDisplay = record.fee_type === '房间水电按用量减免' 
+                    ? `${record.water_reduction || '0.00'} m³` 
+                    : '';
+                
+                // 构建表格行HTML
+                html += `<tr class="table-hover">
+                    <td class="px-4 py-3 whitespace-nowrap">
+                        <input type="checkbox" class="record-checkbox h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded" data-id="${record.id}">
+                    </td>
+                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                        ${(currentPage - 1) * pageSize + index + 1}
+                    </td>
+                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                        ${record.fee_type || ''}
+                    </td>
+                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                        ${nameOrRoom}
+                    </td>
+                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                        ${department}
+                    </td>
+                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                        ${position}
+                    </td>
+                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                        ${amountDisplay}
+                    </td>`;
+                
+                // 根据配置决定是否显示水电减免列
+                if (showReductionColumns) {
+                    html += `<td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                        ${electricReductionDisplay}
+                    </td>
+                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                        ${waterReductionDisplay}
+                    </td>`;
+                }
+                
+                // 继续添加其他列
+                html += `<td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                        ${formatDate(record.effective_date)}
+                    </td>
+                    <td class="px-4 py-3 whitespace-nowrap">
+                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${record.is_enabled ? 'bg-success/10 text-success' : 'bg-gray-100 text-gray-800'}">
+                            ${record.is_enabled ? '启用' : '禁用'}
+                        </span>
+                    </td>
+                    <td class="px-4 py-3 text-sm text-gray-500 max-w-xs truncate">
+                        ${record.change_reason || ''}
+                    </td>
+                    <td class="px-4 py-3 whitespace-nowrap text-sm font-medium">
+                        <div class="flex space-x-2">
+                            <button class="text-danger hover:text-danger/80 transition-colors delete-btn" data-id="${record.id}" data-name="${isWaterElectricType ? (record.room_full_number || '') : (record.user_name || '')}">
+                                <i class="fa fa-trash"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>`;
+            });
+            
+            tableBody.innerHTML = html;
+            
+            // 同时更新表头显示
+            updateTableHeaders();
+            
+            // 绑定表格内按钮事件
+            bindTableEvents();
+        }
+        
+        // 更新表头显示状态
+        function updateTableHeaders() {
+            // 获取表头元素
+            const headers = document.querySelectorAll('thead th');
+            const electricHeader = headers[7]; // 用电量减免表头
+            const waterHeader = headers[8];   // 用水量减免表头
+            
+            // 根据配置显示或隐藏表头
+            if (showReductionColumns) {
+                if (electricHeader) electricHeader.style.display = '';
+                if (waterHeader) waterHeader.style.display = '';
+            } else {
+                if (electricHeader) electricHeader.style.display = 'none';
+                if (waterHeader) waterHeader.style.display = 'none';
+            }
+        }
+        
+        // 绑定表格内元素的事件
+        function bindTableEvents() {
+            // 记录选择复选框
+            document.querySelectorAll('.record-checkbox').forEach(checkbox => {
+                checkbox.addEventListener('change', function() {
+                    const id = this.getAttribute('data-id');
+                    
+                    if (this.checked) {
+                        selectedIds.add(id);
+                    } else {
+                        selectedIds.delete(id);
+                        document.getElementById('selectAll').checked = false;
+                    }
+                    
+                    updateBatchDeleteButton();
+                });
+            });
+            
+            // 禁用按钮
+            document.querySelectorAll('.delete-btn').forEach(button => {
+                button.addEventListener('click', function() {
+                    const id = this.getAttribute('data-id');
+                    const name = this.getAttribute('data-name');
+                    
+                    showConfirmDialog(
+                        '确认禁用',
+                        `您确定要禁用 ${name} 的费用补贴记录吗？此操作不可恢复。`,
+                        'delete',
+                        id
+                    );
+                });
+            });
+        }
+        
+        // 更新批量禁用按钮状态
+        function updateBatchDeleteButton() {
+            const batchDeleteBtn = document.getElementById('batchDeleteBtn');
+            
+            if (selectedIds.size > 0) {
+                batchDeleteBtn.disabled = false;
+                batchDeleteBtn.innerHTML = `<i class="fa fa-trash mr-2"></i> 批量禁用 (${selectedIds.size})`;
+            } else {
+                batchDeleteBtn.disabled = true;
+                batchDeleteBtn.innerHTML = '<i class="fa fa-trash mr-2"></i> 批量禁用';
+            }
+        }
+        
+        // 更新分页控件
+        function updatePagination() {
+            const paginationNumbers = document.getElementById('paginationNumbers');
+            paginationNumbers.innerHTML = '';
+            
+            // 确保总页数至少为1
+            totalPages = Math.max(totalPages, 1);
+            
+            // 更新上一页/下一页按钮状态
+            document.getElementById('prevPage').classList.toggle('opacity-50', currentPage === 1);
+            document.getElementById('prevPage').classList.toggle('cursor-not-allowed', currentPage === 1);
+            document.getElementById('nextPage').classList.toggle('opacity-50', currentPage === totalPages);
+            document.getElementById('nextPage').classList.toggle('cursor-not-allowed', currentPage === totalPages);
+            
+            // 生成页码
+            let startPage, endPage;
+            
+            if (totalPages <= 5) {
+                // 总页数较少时显示所有页码
+                startPage = 1;
+                endPage = totalPages;
+            } else if (currentPage <= 3) {
+                // 当前页在前3页时，显示1-5页
+                startPage = 1;
+                endPage = 5;
+            } else if (currentPage >= totalPages - 2) {
+                // 当前页在后3页时，显示最后5页
+                startPage = totalPages - 4;
+                endPage = totalPages;
+            } else {
+                // 其他情况显示当前页前后2页
+                startPage = currentPage - 2;
+                endPage = currentPage + 2;
+            }
+            
+            // 添加页码按钮
+            for (let i = startPage; i <= endPage; i++) {
+                const pageBtn = document.createElement('button');
+                pageBtn.type = 'button';
+                pageBtn.className = `relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
+                    i === currentPage 
+                        ? 'z-10 bg-primary text-white border-primary' 
+                        : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
+                }`;
+                pageBtn.textContent = i;
+                pageBtn.addEventListener('click', function() {
+                    currentPage = i;
+                    fetchSubsidyData();
+                });
+                
+                paginationNumbers.appendChild(pageBtn);
+            }
+        }
+        
+        // 更新统计信息
+        function updateStatistics() {
+            const start = totalItems > 0 ? (currentPage - 1) * pageSize + 1 : 0;
+            const end = Math.min(currentPage * pageSize, totalItems);
+            
+            document.getElementById('currentRange').textContent = `${start}-${end}`;
+            document.getElementById('totalItems').textContent = totalItems;
+        }
+        
+        // 显示确认对话框
+        function showConfirmDialog(title, message, action, data = null) {
+            document.getElementById('confirmTitle').textContent = title;
+            document.getElementById('confirmMessage').textContent = message;
+            
+            // 存储当前操作
+            currentAction = {
+                type: action,
+                data: data
+            };
+            
+            // 显示对话框
+            document.getElementById('confirmDialog').style.display = 'flex';
+        }
+        
+        // 隐藏确认对话框
+        function hideConfirmDialog() {
+            document.getElementById('confirmDialog').style.display = 'none';
+            currentAction = null;
+        }
+        
+        // 执行确认的操作
+        function executeConfirmedAction() {
+            if (!currentAction) return;
+            
+            const actionBtn = document.getElementById('confirmActionBtn');
+            actionBtn.innerHTML = '<i class="fa fa-spinner fa-spin mr-1"></i> 处理中...';
+            actionBtn.disabled = true;
+            
+            switch (currentAction.type) {
+                case 'delete':
+                    // 单个禁用
+                    fetch(`/fee_subsidy/delete/${currentAction.data}`, {
+                        method: 'DELETE',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            reason: '手动禁用'
+                        })
+                    })
+                    .then(response => {
+                        if (!response.ok) {
+                            return response.json().then(data => {
+                                throw new Error(data.message || `HTTP错误: ${response.status}`);
+                            });
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        if (data.success) {
+                            showToast('禁用成功', 'success');
+                            fetchSubsidyData();
+                        } else {
+                            showToast('禁用失败: ' + (data.message || '未知错误'), 'error');
+                        }
+                        hideConfirmDialog();
+                        actionBtn.innerHTML = '确认';
+                        actionBtn.disabled = false;
+                    })
+                    .catch(error => {
+                        showToast('禁用失败: ' + error.message, 'error');
+                        hideConfirmDialog();
+                        actionBtn.innerHTML = '确认';
+                        actionBtn.disabled = false;
+                    });
+                    break;
+                    
+                case 'batchDelete':
+                    // 批量禁用
+                    fetch('/fee_subsidy/batch-delete', {
+                        method: 'DELETE',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            ids: Array.from(selectedIds),
+                            reason: '批量禁用'
+                        })
+                    })
+                    .then(response => {
+                        if (!response.ok) {
+                            return response.json().then(data => {
+                                throw new Error(data.message || `HTTP错误: ${response.status}`);
+                            });
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        if (data.success) {
+                            showToast(data.message, 'success');
+                            fetchSubsidyData();
+                        } else {
+                            showToast('批量禁用失败: ' + (data.message || '未知错误'), 'error');
+                        }
+                        hideConfirmDialog();
+                        actionBtn.innerHTML = '确认';
+                        actionBtn.disabled = false;
+                    })
+                    .catch(error => {
+                        showToast('批量禁用失败: ' + error.message, 'error');
+                        hideConfirmDialog();
+                        actionBtn.innerHTML = '确认';
+                        actionBtn.disabled = false;
+                    });
+                    break;
+                    
+                case 'clearCurrentPeriod':
+                    // 清空当前账期
+                    fetch('/fee_subsidy/clear-current-period', {
+                        method: 'DELETE',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            billing_period: currentAction.data
+                        })
+                    })
+                    .then(response => {
+                        if (!response.ok) {
+                            return response.json().then(data => {
+                                throw new Error(data.message || `HTTP错误: ${response.status}`);
+                            });
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        if (data.success) {
+                            showToast(data.message, 'success');
+                            fetchSubsidyData();
+                        } else {
+                            showToast('清空失败: ' + (data.message || '未知错误'), 'error');
+                        }
+                        hideConfirmDialog();
+                        actionBtn.innerHTML = '确认';
+                        actionBtn.disabled = false;
+                    })
+                    .catch(error => {
+                        showToast('清空失败: ' + error.message, 'error');
+                        hideConfirmDialog();
+                        actionBtn.innerHTML = '确认';
+                        actionBtn.disabled = false;
+                    });
+                    break;
+            }
+        }
+        
+        // 显示提示消息
+        function showToast(message, type = 'info') {
+            const toast = document.getElementById('toast');
+            const toastIcon = document.getElementById('toastIcon');
+            const toastMessage = document.getElementById('toastMessage');
+            
+            // 确保toast可见
+            toast.classList.remove('hidden');
+            
+            // 设置消息内容和图标
+            toastMessage.textContent = message;
+            
+            // 设置图标和样式
+            toastIcon.className = '';
+            toast.className = 'fixed bottom-5 right-5 px-6 py-3 rounded-lg shadow-lg transform translate-y-0 opacity-100 transition-all duration-300 z-50';
+            
+            switch (type) {
+                case 'success':
+                    toastIcon.className = 'fa fa-check-circle mr-2 text-xl text-success';
+                    toast.classList.add('bg-success/10', 'text-success', 'border', 'border-success/20');
+                    break;
+                case 'error':
+                    toastIcon.className = 'fa fa-times-circle mr-2 text-xl text-danger';
+                    toast.classList.add('bg-danger/10', 'text-danger', 'border', 'border-danger/20');
+                    break;
+                case 'warning':
+                    toastIcon.className = 'fa fa-exclamation-circle mr-2 text-xl text-warning';
+                    toast.classList.add('bg-warning/10', 'text-warning', 'border', 'border-warning/20');
+                    break;
+                default:
+                    toastIcon.className = 'fa fa-info-circle mr-2 text-xl text-primary';
+                    toast.classList.add('bg-primary/10', 'text-primary', 'border', 'border-primary/20');
+            }
+            
+            // 3秒后隐藏
+            setTimeout(() => {
+                toast.classList.remove('translate-y-0', 'opacity-100');
+                toast.classList.add('translate-y-20', 'opacity-0');
+                // 完全隐藏
+                setTimeout(() => {
+                    toast.classList.add('hidden');
+                }, 300);
+            }, 3000);
+        }
+        
+        // 格式化日期显示
+        function formatDate(dateString) {
+            if (!dateString) return '-';
+            // 去除T并确保只显示到秒
+            return dateString.replace('T', ' ').split('.')[0];
+        }
+    </script>
+</body>
+</html>
+    

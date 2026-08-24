@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <!--本地化CDN-->
+    {% include 'static.html' %}
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#165DFF',
+                        secondary: '#36CFC9',
+                        accent: '#722ED1',
+                    },
+                }
+            }
+        }
+    </script>
+    
+</head>
+<body class="bg-gray-50 min-h-screen">
+    {% include 'header.html' %}
+    <main class="container mx-auto px-4 py-6">
+        <div class="flex items-center mb-6">
+            <button onclick="history.back()" class="text-primary hover:text-primary/80 mr-2">
+                <i class="fa fa-arrow-left"></i>
+            </button>
+            <h2 class="text-2xl font-semibold text-gray-800">{{ title }}</h2>
+        </div>
+        
+        <div class="bg-white rounded-lg shadow-sm p-6 mx-auto">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="bg-{{ 'green' if category == 'success' else 'red' }}-50 border border-{{ 'green' if category == 'success' else 'red' }}-200 rounded-md p-4 mb-6">
+                            <p class="text-{{ 'green' if category == 'success' else 'red' }}-700">
+                                <i class="fa fa-{{ 'check-circle' if category == 'success' else 'exclamation-circle' }} mr-1"></i>
+                                {{ message }}
+                            </p>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+            
+            {% if error_message %}
+                <div class="bg-red-50 border border-red-200 rounded-md p-4 mb-6">
+                    <p class="text-red-700"><i class="fa fa-exclamation-circle mr-1"></i>{{ error_message }}</p>
+                </div>
+                <div class="text-center py-8">
+                    <a href="{{ url_for('dorm.dorm_query') }}" class="px-6 py-2 bg-primary text-white rounded-md hover:bg-primary/90">
+                        返回宿舍列表
+                    </a>
+                </div>
+            {% else %}
+                <form method="POST" action="{{ url_for('dorm.swap') }}">
+                    <input type="hidden" name="user_id" value="{{ request.args.get('user_id') or (current_dorm.user.id if current_dorm and current_dorm.user else '') }}">
+                    
+                    <!-- 用于接收从模态框选择的房间ID -->
+                    <input type="hidden" name="new_room_id" id="selected_room_id" value="{{ request.form.new_room_id if request.method == 'POST' else '' }}">
+                    
+                    <!-- 用户信息 -->
+                    <div class="bg-white rounded-lg shadow-sm overflow-hidden mb-8">
+                        <div class="p-6">
+                            <h3 class="text-lg font-medium mb-4 pb-2 border-b border-gray-200">用户信息</h3>
+                            <div class="grid grid-cols-1 md:grid-cols-6 gap-x-8 gap-y-4">
+                                <div>
+                                    <h3 class="text-sm text-gray-500">姓名</h3>
+                                    <p class="font-medium text-lg"><a href="{{ url_for('user.view', id=user.id) }}" class="text-primary hover:underline">{{ user.name }}</a>(ID:{{ user.id }})</p>
+                                </div>
+                                <div>
+                                    <h3 class="text-sm text-gray-500">性别</h3>
+                                    <p class="font-medium">{{ user.gender or '-'}}</p>
+                                </div>
+                                <div>
+                                    <h3 class="text-sm text-gray-500">年龄</h3>
+                                    <p class="font-medium">{{ user.get_age() or '-' }}</p>
+                                </div>
+                                <div>
+                                    <h3 class="text-sm text-gray-500">公司</h3>
+                                    <p class="font-medium">{{ user.company or '-' }}</p>
+                                </div>
+                                <div>
+                                    <h3 class="text-sm text-gray-500">部门</h3>
+                                    <p class="font-medium">{{ user.department or '-' }}</p>
+                                </div>
+                                <div>
+                                    <h3 class="text-sm text-gray-500">职位</h3>
+                                    <p class="font-medium">{{ user.position or '-' }}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 住宿信息 -->
+                    <div class="mb-8 bg-white rounded-lg shadow-sm overflow-hidden">
+                        <div class="p-6">
+                            <h3 class="text-lg font-medium mb-4 pb-2 border-b border-gray-200">住宿信息</h3>
+                            {% if current_dorm and current_room %}
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-x-8 gap-y-4 mb-6">
+                                    <div>
+                                        <h3 class="text-sm text-gray-500">当前房间</h3>
+                                        <p class="font-medium text-lg">
+                                            <a href="{{ url_for('room.view', id=current_room.id) }}" class="text-blue-600 hover:underline">
+                                                {{ current_room.building }}{{ current_room.room_number }}
+                                            </a>(ID:{{ current_room.id }})
+                                        </p>
+                                        <p class="text-sm text-gray-600 mt-1">
+                                            类型：{{ current_room.room_type if current_room.room_type else '-' }} | 级别：{{ current_room.room_level if current_room.room_level else '-' }} | 已住：{{ current_room.current_occupancy if current_room.current_occupancy else '-' }}
+                                        </p>
+                                    </div>
+                                    <div>
+                                        <h3 class="text-sm text-gray-500">入住时间</h3>
+                                        <p class="font-medium">
+                                            {{ current_dorm.check_in_date if current_dorm.check_in_date else '-' }}
+                                        </p>
+                                    </div>
+                                    <div>
+                                        <h3 class="text-sm text-gray-500">已住天数</h3>
+                                        <p class="font-medium">
+                                            {% if current_dorm.check_in_date %}
+                                                {% set check_in_date = current_dorm.check_in_date %}
+                                                {% set end_date = datetime.now() %}
+                                                {% set check_in_date_only = check_in_date.date() if check_in_date.hour == 0 and check_in_date.minute == 0 and check_in_date.second == 0 else check_in_date.date() %}
+                                                {% set end_date_only = end_date.date() %}
+                                                {% if end_date_only < check_in_date_only %}
+                                                    0
+                                                {% else %}
+                                                    {{ (end_date_only - check_in_date_only).days + 1 }}
+                                                {% endif %}
+                                            {% else %}
+                                                0
+                                            {% endif %}
+                                        </p>
+                                    </div>
+                                </div>
+                                
+                                <!-- 室友信息 -->
+                                <div>
+                                    <h3 class="text-sm text-gray-600 font-medium mb-3">室友信息</h3>
+                                    {% if roommates and roommates|length > 0 %}
+                                        <div class="overflow-x-auto min-w-full">
+                                            <table class="min-w-full bg-white rounded-lg overflow-hidden">
+                                                <thead class="bg-gray-50">
+                                                    <tr>
+                                                        <th class="py-2 px-4 text-left text-sm font-medium text-gray-700 border-b">姓名</th>
+                                                        <th class="py-2 px-4 text-left text-sm font-medium text-gray-700 border-b">性别</th>
+                                                        <th class="py-2 px-4 text-left text-sm font-medium text-gray-700 border-b">年龄</th>
+                                                        <th class="py-2 px-4 text-left text-sm font-medium text-gray-700 border-b">部门</th>
+                                                        <th class="py-2 px-4 text-left text-sm font-medium text-gray-700 border-b">职位</th>
+                                                        <th class="py-2 px-4 text-left text-sm font-medium text-gray-700 border-b">入住日期</th>
+                                                        <th class="py-2 px-4 text-left text-sm font-medium text-gray-700 border-b">已住天数</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {% for roommate in roommates %}
+                                                    <tr>
+                                                        <td class="py-2 px-4 text-sm text-gray-800 border-b whitespace-nowrap"><a href="{{ url_for('user.view', id=roommate.id) }}" class="text-blue-600 hover:underline">{{ roommate.name }}</a>(ID:{{ roommate.id }})</td>
+                                                        <td class="py-2 px-4 text-sm text-gray-800 border-b whitespace-nowrap">{{ roommate.gender or '-' }}</td>
+                                                        <td class="py-2 px-4 text-sm text-gray-800 border-b whitespace-nowrap">{{ roommate.age or '-' }}</td>
+                                                        <td class="py-2 px-4 text-sm text-gray-800 border-b whitespace-nowrap">{{ roommate.department or '-' }}</td>
+                                                        <td class="py-2 px-4 text-sm text-gray-800 border-b whitespace-nowrap">{{ roommate.position or '-' }}</td>
+                                                        <td class="py-2 px-4 text-sm text-gray-800 border-b whitespace-nowrap">{{ roommate.check_in_date or '-' }}</td>
+                                                        <td class="py-2 px-4 text-sm text-gray-800 border-b whitespace-nowrap">
+                                                            {% if roommate.check_in_date %}
+                                                                {% set check_in_date = roommate.check_in_date %}
+                                                                {% set end_date = datetime.now() %}
+                                                                {% set check_in_date_only = check_in_date.date() if check_in_date.hour == 0 and check_in_date.minute == 0 and check_in_date.second == 0 else check_in_date.date() %}
+                                                                {% set end_date_only = end_date.date() %}
+                                                                {% if end_date_only < check_in_date_only %}
+                                                                    0
+                                                                {% else %}
+                                                                    {{ (end_date_only - check_in_date_only).days + 1 }}
+                                                                {% endif %}
+                                                            {% else %}
+                                                                -
+                                                            {% endif %}
+                                                        </td>
+                                                    </tr>
+                                                    {% endfor %}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    {% else %}
+                                        <div class="bg-gray-50 p-4 rounded-md text-gray-500 text-sm">
+                                            暂无室友
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            {% else %}
+                                <div class="bg-gray-50 p-4 rounded-md text-gray-500 text-sm">
+                                    暂无住宿信息
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <!-- 换宿记录 -->
+                    <div class="mb-8 bg-white rounded-lg shadow-sm overflow-hidden">
+                        <div class="p-6">
+                            <h3 class="text-lg font-medium mb-4 pb-2 border-b border-gray-200">换宿记录</h3>
+                            
+                            {% if transfer_records and transfer_records|length > 0 %}
+                                <div class="overflow-x-auto min-w-full">
+                                    <table class="min-w-full bg-white rounded-lg overflow-hidden whitespace-nowrap">
+                                        <thead class="bg-gray-50">
+                                            <tr>
+                                                <th class="py-2 px-4 text-left text-sm font-medium text-gray-700 border-b">房间号</th>
+												<th class="py-2 px-4 text-left text-sm font-medium text-gray-700 border-b">性别限制</th>
+                                                <th class="py-2 px-4 text-left text-sm font-medium text-gray-700 border-b">房间类型</th>
+                                                <th class="py-2 px-4 text-left text-sm font-medium text-gray-700 border-b">房间级别</th>
+												<th class="py-2 px-4 text-left text-sm font-medium text-gray-700 border-b">平均年龄</th>
+                                                <th class="py-2 px-4 text-left text-sm font-medium text-gray-700 border-b">入住日期</th>
+                                                <th class="py-2 px-4 text-left text-sm font-medium text-gray-700 border-b">退宿日期</th>
+                                                <th class="py-2 px-4 text-left text-sm font-medium text-gray-700 border-b">已住天数</th>
+                                                <th class="py-2 px-4 text-left text-sm font-medium text-gray-700 border-b">状态</th>
+                                                <th class="py-2 px-4 text-left text-sm font-medium text-gray-700 border-b">备注</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for record in transfer_records %}
+                                            <tr>
+                                                <td class="py-2 px-4 text-sm text-gray-800 border-b"><a href="{{ url_for('room.view', id=record.room_id) }}" class="text-blue-600 hover:underline">{{ record.room_number }}</a>(ID:{{ record.room_id }})</td>
+                                                <td class="py-2 px-4 text-sm text-gray-800 border-b">{{ record.gender_restriction if record.gender_restriction else '-' }}</td>
+												<td class="py-2 px-4 text-sm text-gray-800 border-b">{{ record.room_type if record.room_type else '-' }}</td>
+                                                <td class="py-2 px-4 text-sm text-gray-800 border-b">{{ record.room_level if record.room_level else '-' }}</td>
+												<td class="py-2 px-4 text-sm text-gray-800 border-b">{{ record.average_age if record.average_age else '-' }}</td>
+                                                <td class="py-2 px-4 text-sm text-gray-800 border-b">{{ record.check_in_date }}</td>
+                                                <td class="py-2 px-4 text-sm text-gray-800 border-b">{{ record.check_out_date if record.check_out_date else '-' }}</td>
+                                                <td class="py-2 px-4 text-sm text-gray-800 border-b">
+                                                    {% if record.check_in_date %}
+                                                        {% set check_in_date = record.check_in_date %}
+                                                        {% set end_date = record.check_out_date if record.check_out_date else datetime.now() %}
+                                                        {% set check_in_date_only = check_in_date.date() if check_in_date.hour == 0 and check_in_date.minute == 0 and check_in_date.second == 0 else check_in_date.date() %}
+                                                        {% set end_date_only = end_date.date() %}
+                                                        {% if end_date_only < check_in_date_only %}
+                                                            0
+                                                        {% else %}
+                                                            {{ (end_date_only - check_in_date_only).days + 1 }}
+                                                        {% endif %}
+                                                    {% else %}
+                                                        -
+                                                    {% endif %}
+                                                </td>												
+                                                <td class="py-2 px-4 text-sm border-b">
+                                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium 
+                                                        {{ 'bg-green-100 text-green-800' if record.status == '在住' else 'bg-gray-100 text-gray-800' }}">
+                                                        {{ record.status }}
+                                                    </span>
+                                                </td>
+                                                <td class="py-2 px-4 text-sm text-gray-800 border-b">{{ record.remarks if record.remarks else '-' }}</td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            {% else %}
+                                <div class="bg-gray-50 p-4 rounded-md text-gray-500 text-sm">
+                                    暂无换宿记录
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <!-- 用户每月水电费记录 -->
+                    <div class="mb-8 bg-white rounded-lg shadow-sm overflow-hidden card-hover">
+                        <div class="p-6">
+                            <h3 class="font-medium flex items-center mb-4 pb-2 border-b border-gray-200">
+                                <i class="fa fa-bolt text-primary mr-2"></i>
+                                每月水电费记录
+                            </h3>
+                            
+                            {% if utility_records and utility_records|length > 0 %}
+                                <div class="overflow-x-auto min-w-full">
+                                    <table class="min-w-full bg-white rounded-lg overflow-hidden">
+                                        <thead class="bg-gray-50">
+                                            <tr>
+                                                <th class="py-2 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">账期</th>
+                                                <th class="py-2 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">房间号</th>
+                                                <th class="py-2 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">电费</th>
+                                                <th class="py-2 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">水费</th>
+                                                <th class="py-2 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">总费用</th>
+                                                <th class="py-2 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">减免费用</th>
+                                                <th class="py-2 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">应付费用</th>
+                                                <th class="py-2 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">住宿天数</th>
+                                                <th class="py-2 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">类型</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="bg-white divide-y divide-gray-200">
+                                            {% for record in utility_records %}
+                                            <tr class="hover:bg-gray-50 transition duration-200">
+                                                <td class="py-2 px-4 whitespace-nowrap">
+                                                    <a href="{{ url_for('utility_index.utility_room_records_detail', record_id=record.record_id) }}" class="text-primary hover:underline">
+                                                        {{ record.billing_period }}
+                                                    </a>
+                                                </td>
+                                                <td class="py-2 px-4 whitespace-nowrap">
+                                                    <a href="{{ url_for('room.view', id=record.room_id) }}" class="font-medium text-blue-600 hover:underline">
+                                                        {{ record.room_building }}{{ record.room_number }}
+                                                    </a>(ID:{{ record.room_id }})
+                                                </td>
+                                                <td class="py-2 px-4 whitespace-nowrap">¥{{ "%.2f"|format(record.electric_fee or 0) }}</td>
+                                                <td class="py-2 px-4 whitespace-nowrap">¥{{ "%.2f"|format(record.water_fee or 0) }}</td>
+                                                <td class="py-2 px-4 whitespace-nowrap">¥{{ "%.2f"|format(record.total_fee or 0) }}</td>
+                                                <td class="py-2 px-4 whitespace-nowrap text-green-600">¥{{ "%.2f"|format(record.reduction_fee or 0) }}</td>
+                                                <td class="py-2 px-4 whitespace-nowrap font-medium">
+                                                    {% if record.type == 'checkout' and record.checkout_id %}
+                                                        <a href="{{ url_for('utility_index.utility_room_checkout_edit', id=record.checkout_id) }}" class="text-primary hover:underline">¥{{ "%.2f"|format(record.payable_fee or 0) }}</a>
+                                                    {% else %}
+                                                        ¥{{ "%.2f"|format(record.payable_fee or 0) }}
+                                                    {% endif %}
+                                                </td>
+                                                <td class="py-2 px-4 whitespace-nowrap font-medium">
+                                                    {% if record.type == 'checkout' and record.checkout_id %}
+                                                        <a href="{{ url_for('utility_index.utility_room_checkout_edit', id=record.checkout_id) }}" class="text-primary hover:underline">{{ record.stay_days or 0 }} 天</a>
+                                                    {% else %}
+                                                        {{ record.stay_days or 0 }} 天
+                                                    {% endif %}
+                                                </td>
+                                                <td class="py-2 px-4 whitespace-nowrap">
+                                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium 
+                                                        {% if record.type == 'active' %}bg-green-100 text-green-800
+                                                        {% else %}bg-amber-100 text-amber-800{% endif %}">
+                                                        {{ '在住' if record.type == 'active' else '退宿' }}
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                
+                                <div class="mt-4 text-sm text-gray-500">
+                                    <p><i class="fa fa-info-circle mr-1"></i> 记录按账期倒序排列，包含在住和退宿期间的水电费</p>
+                                </div>
+                            {% else %}
+                                <div class="bg-gray-50 p-4 rounded-md text-gray-500 text-sm">
+                                    暂无水电费记录
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <!-- 房间筛选和列表区域 -->
+                    <div class="mb-8 bg-gray-50 rounded-lg p-6">
+                        <!-- 房间筛选 -->
+                        <h3 class="text-lg font-medium mb-4">可用房间列表</h3>                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                            <div>
+                                <label for="buildingFilter" class="block text-sm font-medium text-gray-700 mb-1">楼栋</label>
+                                <select id="buildingFilter" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                                    <option value="">所有楼栋</option>
+                                    {% if building_list %}
+                                        {% for building in building_list %}
+                                            <option value="{{ building }}">{{ building }}</option>
+                                        {% endfor %}
+                                    {% endif %}
+                                </select>
+                            </div>
+                            <div>
+                                <label for="roomTypeFilter" class="block text-sm font-medium text-gray-700 mb-1">房间类型</label>
+                                <select id="roomTypeFilter" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                                    <option value="">所有类型</option>
+                                    {% if room_type_list %}
+                                        {% for room_type in room_type_list %}
+                                            <option value="{{ room_type }}">{{ room_type }}</option>
+                                        {% endfor %}
+                                    {% endif %}
+                                </select>
+                            </div>
+                            <div>
+                                <label for="roomLevelFilter" class="block text-sm font-medium text-gray-700 mb-1">房间级别</label>
+                                <select id="roomLevelFilter" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                                    <option value="">所有级别</option>
+                                    {% if room_level_list %}
+                                        {% for room_level in room_level_list %}
+                                            <option value="{{ room_level }}">{{ room_level }}</option>
+                                        {% endfor %}
+                                    {% endif %}
+                                </select>
+                            </div>
+                            <div class="flex items-end gap-2">
+                                <div class="flex-1">
+                                    <label for="roomNumberSearch" class="block text-sm font-medium text-gray-700 mb-1">房间号</label>
+                                    <input type="text" id="roomNumberSearch" placeholder="搜索房间号" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                                </div>
+                                <button type="button" id="refreshRooms" class="px-4 py-2 bg-gray-100 text-gray-700 border border-gray-300 rounded-md hover:bg-gray-200 flex items-center justify-center h-10">
+                                    <i class="fa fa-refresh mr-1"></i>
+                                    刷新
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- 可用房间列表 -->
+                        
+                        
+                        <div class="overflow-x-auto min-w-full">
+                            <table class="min-w-full bg-white rounded-lg overflow-hidden">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="py-3 px-4 text-left text-sm font-medium text-gray-700 border-b">选择</th>
+                                        <th class="py-3 px-4 text-left text-sm font-medium text-gray-700 border-b">房间号</th>
+                                        <th class="py-3 px-4 text-left text-sm font-medium text-gray-700 border-b">性别</th>
+                                        <th class="py-3 px-4 text-left text-sm font-medium text-gray-700 border-b">房间类别</th>
+                                        <th class="py-3 px-4 text-left text-sm font-medium text-gray-700 border-b">房间级别</th>
+                                        <th class="py-3 px-4 text-left text-sm font-medium text-gray-700 border-b">容量</th>
+                                        <th class="py-3 px-4 text-left text-sm font-medium text-gray-700 border-b">已住</th>
+                                        <th class="py-3 px-4 text-left text-sm font-medium text-gray-700 border-b">可用</th>
+                                        <th class="py-3 px-4 text-left text-sm font-medium text-gray-700 border-b">平均年龄</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="roomList" class="divide-y divide-gray-200">
+                                    <!-- 房间列表将通过JavaScript动态加载 -->
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <!-- 分页控制 -->
+                        <div id="pagination" class="mt-4 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
+                            <div class="text-sm text-gray-500">
+                                显示 <span id="showingFrom">0</span>-<span id="showingTo">0</span> 条，共 <span id="totalRooms">0</span> 条
+                            </div>
+                            <div class="flex flex-wrap items-center gap-4">
+                                <span id="pageInfo" class="text-sm text-gray-700">第 <span id="currentPage">1</span>/<span id="totalPages">0</span> 页</span>
+                                <select id="pageSizeSelect" class="border border-gray-300 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
+                                    <option value="10">10条/页</option>
+                                    <option value="20">20条/页</option>
+                                    <option value="50">50条/页</option>
+                                    <option value="100">100条/页</option>
+                                </select>
+                                <button id="prevPage" class="px-3 py-1 border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                                    <i class="fa fa-chevron-left"></i> 上一页
+                                </button>
+                                
+                                <button id="nextPage" class="px-3 py-1 border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                                    下一页 <i class="fa fa-chevron-right"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 房间当前用户信息 -->
+                    <div id="roomOccupantsInfo" class="mb-8 p-6 bg-gray-50 rounded-lg">
+                        <h3 class="text-lg font-medium mb-4">房间当前用户信息</h3>
+                        <div class="text-gray-500" id="roomOccupantsContent">
+                            请选择一个房间以查看当前用户信息
+                        </div>
+                    </div>
+
+                    <!-- 当前选择的信息 -->
+                    <div class="mb-8 p-6 bg-blue-50 rounded-lg">
+                        <h3 class="text-lg font-medium mb-4">当前选择信息</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">用户</label>
+                                <div class="font-medium"><a href="{{ url_for('user.view', id=user.id) }}" class="text-blue-600 hover:underline">{{ user.name }}</a>（ID:{{ user.id }}）
+                                <p class="text-xs text-gray-600">
+                                    性别：{{ user.gender or '-' }} | 年龄：{{ user.get_age() or '-' }} 岁 | 部门：{{ user.department or '-' }} | 职务：{{ user.position or '-' }}
+                                </p>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">当前房间号</label>
+                                <div class="font-medium"><a href="{{ url_for('room.view', id=current_dorm.room_id) }}" class="text-blue-600 hover:underline">{{ current_room.building }}{{ current_room.room_number }}</a>(ID:{{ current_room.id }})</div>
+                                <p class="text-xs text-gray-600">
+                                    类型：{{ current_room.room_type if current_room.room_type else '-' }} | 级别：{{ current_room.room_level if current_room.room_level else '-' }} | 已住：{{ current_room.current_occupancy if current_room.current_occupancy else '-' }}
+                                </p>
+                            </div>
+                            <div>
+                                <label for="selected_room_display" class="block text-sm font-medium text-gray-700 mb-1">新房间号</label>
+                                <div id="selected_room_display" class="font-medium text-primary">
+                                    {% if request.form.new_room_id and available_rooms %}
+                                        {% for room in available_rooms if room.id|string == request.form.new_room_id %}
+                                            {{ room.building }}{{ room.room_number }}
+                                        {% endfor %}
+                                    {% else %}
+                                        请选择房间
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="md:col-span-3">
+                                <label for="change_date" class="block text-sm font-medium text-gray-700 mb-1">换宿日期时间 <span class="text-red-500">*</span></label>
+                                <input type="datetime-local" step="1" id="change_date" name="change_date" required
+                                       value="{{ request.form.change_date if request.method == 'POST' else default_datetime }}"
+                                       class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                            </div>
+                            <div class="md:col-span-3">
+                                <label for="remarks" class="block text-sm font-medium text-gray-700 mb-1">备注</label>
+                                <textarea id="remarks" name="remarks" rows="3"
+                                          class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">{{ request.form.remarks if request.method == 'POST' else (current_dorm.remarks if current_dorm and current_dorm.remarks else '') }}</textarea>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 操作按钮 -->
+                    <div class="flex justify-end gap-3">
+                        <button type="button" onclick="history.back()" class="px-6 py-2 border border-gray-300 rounded-md hover:bg-gray-50 text-center">
+                            取消
+                        </button>
+                        <button type="submit" id="confirmBtn" class="px-6 py-2 bg-primary text-white rounded-md hover:bg-primary/90" disabled>
+                            确认换宿
+                        </button>
+                    </div>
+                </form>
+            {% endif %}
+        </div>
+    </main>
+    <!-- 页脚 -->
+    {% include 'footer.html' %}
+
+    <script>
+        $(document).ready(function() {
+            // 当前页码和每页显示数量
+            let currentPage = 1;
+            let perPage = 10;
+            
+            // 筛选和搜索元素
+            const roomLevelFilter = $('#roomLevelFilter');
+            const roomTypeFilter = $('#roomTypeFilter');
+            const buildingFilter = $('#buildingFilter');
+            const roomNumberSearch = $('#roomNumberSearch');
+            const refreshRooms = $('#refreshRooms');
+            
+            // 分页相关元素
+            const roomList = $('#roomList');
+            const prevPage = $('#prevPage');
+            const nextPage = $('#nextPage');
+            const currentPageEl = $('#currentPage');
+            const totalPagesEl = $('#totalPages');
+            const showingFrom = $('#showingFrom');
+            const showingTo = $('#showingTo');
+            const totalRooms = $('#totalRooms');
+            
+            // 其他元素
+            const selectedRoomId = $('#selected_room_id');
+            const selectedRoomDisplay = $('#selected_room_display');
+            const confirmBtn = $('#confirmBtn');
+            
+            // 阻止所有按钮的默认表单提交行为
+            $(document).on('click', 'button[type="button"]', function(e) {
+                e.preventDefault();
+            });
+            
+            // 监听筛选条件变化，自动刷新列表
+            roomLevelFilter.on('change', function() {
+                currentPage = 1;
+                loadRooms();
+            });
+            
+            roomTypeFilter.on('change', function() {
+                currentPage = 1;
+                loadRooms();
+            });
+            
+            buildingFilter.on('change', function() {
+                currentPage = 1;
+                loadRooms();
+            });
+            
+            roomNumberSearch.on('keypress', function(e) {
+                if (e.which === 13) { // Enter键
+                    currentPage = 1;
+                    loadRooms();
+                }
+            });
+            
+            // 用户信息
+            const userId = '{{ request.args.get('user_id') or (current_dorm.user.id if current_dorm and current_dorm.user else '') }}';
+            const userGender = '{{ user.gender }}';
+            
+            // 初始化加载房间列表
+            loadRooms();
+            
+            // 监听每页显示条数变化
+            const pageSizeSelect = $('#pageSizeSelect');
+            pageSizeSelect.on('change', function() {
+                perPage = parseInt($(this).val());
+                currentPage = 1; // 重置为第1页
+                loadRooms();
+            });
+            
+            // 加载房间当前用户信息
+            function loadRoomOccupants(roomId, roomNumber) {
+                const roomOccupantsContent = $('#roomOccupantsContent');
+                
+                // 显示加载状态
+                roomOccupantsContent.html('<div class="flex justify-center py-4"><div class="w-6 h-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin"></div></div>');
+                
+                try {
+                    // 调用API获取房间已住人员信息
+                    $.ajax({
+                        url: '/api/rooms/' + roomId,
+                        type: 'GET',
+                        success: function(response) {
+                            if (response.success && response.data) {
+                                const room = response.data;
+                                const occupants = room.occupants || [];
+                                
+                                if (occupants.length > 0) {
+                                    let html = `<div class="text-gray-700 mb-2"><a href="/room/view/${roomId}" class="text-primary hover:underline font-medium">${roomNumber}</a>(ID:${roomId})  已住 ${occupants.length} 人：</div>`;
+                                    html += '<ul class="list-disc pl-5 space-y-2">';
+                                    
+                                    occupants.forEach(occupant => {
+                                        html += `<li><a href="/user/view/${occupant.id}" class="text-primary hover:underline">${occupant.name}</a> (ID:${occupant.id})，${occupant.gender || '-'}，${occupant.age || '-'}岁，${occupant.department || '-'}，${occupant.position || '-'}，${occupant.check_in_date || '-'}，${occupant.days_stayed || '-'}天</li>`;
+                                    });
+                                    
+                                    html += '</ul>';
+                                    roomOccupantsContent.html(html);
+                                } else {
+                                    roomOccupantsContent.html(`<div class="text-gray-600"><a href="/room/view/${roomId}" class="text-primary hover:underline font-medium">${roomNumber}</a>(ID:${roomId}) 暂无人员入住</div>`);
+                                }
+                            } else {
+                                roomOccupantsContent.html('<div class="text-red-500">获取房间信息失败：' + (response.message || '未知错误') + '</div>');
+                            }
+                        },
+                        error: function(xhr, status, error) {
+                            console.error('获取房间信息失败:', error);
+                            roomOccupantsContent.html('<div class="text-red-500">获取房间信息失败，请重试</div>');
+                        }
+                    });
+                } catch (e) {
+                    console.error('获取房间信息异常:', e);
+                    roomOccupantsContent.html('<div class="text-red-500">获取房间信息异常，请重试</div>');
+                }
+            }
+            
+            // 刷新按钮点击事件
+            refreshRooms.on('click', function(e) {
+                e.preventDefault();
+                location.reload(); // 刷新整个页面
+            });
+            
+            // 添加重置筛选的快捷键
+            $(document).on('keydown', function(e) {
+                // Ctrl/Cmd + R 重置筛选
+                if ((e.ctrlKey || e.metaKey) && e.key === 'r') {
+                    e.preventDefault();
+                    roomLevelFilter.val('');
+                    roomTypeFilter.val('');
+                    buildingFilter.val('');
+                    roomNumberSearch.val('');
+                    currentPage = 1;
+                    loadRooms();
+                }
+            });
+            
+            // 上一页
+            prevPage.on('click', function(e) {
+                e.preventDefault();
+                if (currentPage > 1) {
+                    currentPage--;
+                    loadRooms();
+                }
+            });
+            
+            // 下一页
+            nextPage.on('click', function(e) {
+                e.preventDefault();
+                const totalPages = parseInt(totalPagesEl.text());
+                if (currentPage < totalPages) {
+                    currentPage++;
+                    loadRooms();
+                }
+            });
+            
+            // 加载房间列表
+            function loadRooms() {
+                // 构建筛选参数
+                const filters = {
+                    gender: userGender !== '-' ? userGender : '',
+                    status: 'available',
+                    room_level: roomLevelFilter.val(),
+                    room_type: roomTypeFilter.val(),
+                    building: buildingFilter.val(),
+                    room_number: roomNumberSearch.val(),
+                    exclude_user_id: userId, // 排除当前用户住宿的房间
+                    page: currentPage,
+                    per_page: perPage
+                };
+                
+                // 发送AJAX请求获取房间列表
+                $.ajax({
+                    url: '{{ url_for('room_api.get_rooms') }}',
+                    type: 'GET',
+                    data: filters,
+                    success: function(response) {
+                        // 检查响应结构是否正确
+                        if (response.success && response.data && response.data.rooms) {
+                            // 更新房间列表
+                            updateRoomList(response.data.rooms);
+                            
+                            // 更新分页信息
+                            if (response.data.pagination) {
+                                updatePagination(response.data.pagination.total, response.data.pagination.page, response.data.pagination.pages);
+                            }
+                        } else {
+                            console.error('响应结构不正确:', response);
+                            roomList.html('<tr><td colspan="9" class="py-4 px-4 text-center text-gray-500">加载失败，请重试</td></tr>');
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        console.error('加载房间列表失败:', error);
+                        roomList.html('<tr><td colspan="9" class="py-4 px-4 text-center text-gray-500">加载失败，请重试</td></tr>');
+                    }
+                });
+            }
+            
+            // 更新房间列表
+            function updateRoomList(rooms) {
+                roomList.empty();
+                const currentSelectedRoomId = selectedRoomId.val();
+                
+                if (rooms.length === 0) {
+                    roomList.html('<tr><td colspan="9" class="py-4 px-4 text-center text-gray-500">没有找到符合条件的房间</td></tr>');
+                    confirmBtn.prop('disabled', true);
+                    return;
+                }
+                
+                rooms.forEach(room => {
+                    const isSelected = currentSelectedRoomId === room.id;
+                    const row = $('<tr>').addClass('hover:bg-gray-50');
+                    
+                    // 选择按钮
+                    const selectCell = $('<td>').addClass('py-3 px-4 whitespace-nowrap text-left');
+                    const radioBtn = $('<input>')
+                        .attr('type', 'radio')
+                        .attr('name', 'selectedRoom')
+                        .attr('value', room.id)
+                        .prop('checked', isSelected)
+                        .addClass('form-radio h-4 w-4 text-primary focus:ring-primary');
+                    
+                    radioBtn.on('change', function(e) {
+                        e.stopPropagation(); // 阻止事件冒泡
+                        const roomId = $(this).val();
+                        const roomNumber = $(this).closest('tr').find('td:nth-child(2)').text();
+                        
+                        // 更新选中的房间信息
+                        selectedRoomId.val(roomId);
+                        selectedRoomDisplay.text(roomNumber);
+                        confirmBtn.prop('disabled', false);
+                        
+                        // 加载房间当前用户信息
+                        loadRoomOccupants(roomId, roomNumber);
+                    });
+                    
+                    selectCell.append(radioBtn);
+                    
+                    // 房间号
+                    const roomNumberCell = $('<td>').addClass('py-3 px-4 whitespace-nowrap font-medium');
+                    roomNumberCell.text(room.building + room.room_number);
+                    
+                    // 性别
+                    const genderCell = $('<td>').addClass('py-3 px-4 whitespace-nowrap');
+                    genderCell.text(room.gender_restriction);
+                    
+                    // 房间类型
+                    const roomTypeCell = $('<td>').addClass('py-3 px-4 whitespace-nowrap');
+                    roomTypeCell.text(room.room_type);
+                    
+                    // 房间级别
+                    const roomLevelCell = $('<td>').addClass('py-3 px-4 whitespace-nowrap');
+                    roomLevelCell.text(room.room_level || '无');
+                    
+                    // 容量
+                    const capacityCell = $('<td>').addClass('py-3 px-4 whitespace-nowrap');
+                    capacityCell.text(room.capacity);
+                    
+                    // 已住
+                    const occupancyCell = $('<td>').addClass('py-3 px-4 whitespace-nowrap');
+                    occupancyCell.text(room.current_occupancy);
+                    
+                    // 可用
+                    const availableCell = $('<td>').addClass('py-3 px-4 whitespace-nowrap');
+                    availableCell.text(room.remaining_capacity);
+                    
+                    // 平均年龄
+                    const avgAgeCell = $('<td>').addClass('py-3 px-4 whitespace-nowrap');
+                    avgAgeCell.text(room.average_age || '-');
+                    
+                    // 将所有单元格添加到行
+                    row.append(selectCell, roomNumberCell, genderCell, roomTypeCell, roomLevelCell, capacityCell, occupancyCell, availableCell, avgAgeCell);
+                    
+                    // 添加点击整行选中房间的功能
+                    row.on('click', function() {
+                        const radioBtn = $(this).find('input[name="selectedRoom"]');
+                        if (!radioBtn.is(':checked')) {
+                            radioBtn.prop('checked', true).trigger('change');
+                        }
+                        // 高亮显示选中行
+                        $(this).siblings().removeClass('bg-blue-50');
+                        if (radioBtn.is(':checked')) {
+                            $(this).addClass('bg-blue-50');
+                        } else {
+                            $(this).removeClass('bg-blue-50');
+                        }
+                    });
+                    
+                    // 如果当前行是选中状态，添加高亮样式
+                    if (isSelected) {
+                        row.addClass('bg-blue-50');
+                    }
+                    
+                    // 添加到房间列表
+                    roomList.append(row);
+                });
+                
+                // 如果已经有选中的房间，启用确认按钮并加载房间用户信息
+                if (currentSelectedRoomId) {
+                    confirmBtn.prop('disabled', false);
+                    // 找到已选中的房间并加载其用户信息
+                    const selectedRoom = rooms.find(room => room.id === currentSelectedRoomId);
+                    if (selectedRoom) {
+                        loadRoomOccupants(currentSelectedRoomId, selectedRoom.building + selectedRoom.room_number);
+                    }
+                }
+            }
+            
+            // 更新分页信息
+            function updatePagination(total, page, pages) {
+                // 更新总数和显示范围
+                totalRooms.text(total);
+                const from = (page - 1) * perPage + 1;
+                const to = Math.min(page * perPage, total);
+                showingFrom.text(from);
+                showingTo.text(to);
+                
+                // 更新页码信息
+                currentPage = page;
+                currentPageEl.text(page);
+                totalPagesEl.text(pages);
+                
+                // 更新上一页/下一页按钮状态
+                prevPage.prop('disabled', page === 1);
+                nextPage.prop('disabled', page === pages);
+            }
+        });
+    </script>
+
+</body>
+</html>
+    

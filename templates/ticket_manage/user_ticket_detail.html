@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    {% include 'static.html' %}
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#165DFF',
+                        secondary: '#36CFC9',
+                        accent: '#722ED1',
+                        danger: '#F5222D',
+                        info: '#1890FF',
+                        warning: '#FAAD14'
+                    },
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .btn-effect {
+                transition: all 0.2s ease;
+            }
+            .btn-effect:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            }
+            /* 确保模态框居中显示 */
+            .modal-container {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 50;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    {% include 'header.html' %}
+
+    <main class="container mx-auto px-4 py-6">
+        <!-- 标题和返回按钮区 -->
+        <div class="mb-6 fade-in">
+            <div class="flex items-center">
+                <a href="{{ url_for('ticket_user.user_ticket_list') }}" class="text-gray-600 hover:text-primary transition-colors mr-4">
+                    <i class="fa fa-arrow-left"></i>
+                </a>
+                <div>
+                    <h2 class="text-[clamp(1.5rem,3vw,2rem)] font-bold text-dark">留言详情</h2>
+                    <p class="text-gray-500 mt-1">留言ID: {{ ticket.id }}</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 消息提示区域 -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            <div class="flash-messages mb-6">
+              {% for category, message in messages %}
+                <div class="p-4 rounded-md mb-2 {% if category == 'success' %}bg-green-100 text-green-800{% elif category == 'error' or category == 'danger' %}bg-red-100 text-red-800{% elif category == 'warning' %}bg-yellow-100 text-yellow-800{% else %}bg-blue-100 text-blue-800{% endif %}">
+                  <button type="button" class="float-right ml-2 text-gray-500 hover:text-gray-700" onclick="this.parentElement.remove()">×</button>
+                  {{ message }}
+                </div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        {% endwith %}
+        
+        <!-- 留言详情区域 -->
+        <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+            <div class="flex flex-col md:flex-row md:items-start md:justify-between mb-6">
+                <div class="mb-4 md:mb-0">
+                    <h3 class="text-xl font-semibold text-gray-800 mb-2">{{ ticket.title }}</h3>
+                    <div class="flex flex-wrap gap-2 mb-2">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                            {% if ticket.priority == '低' %}bg-blue-100 text-blue-800
+                            {% elif ticket.priority == '一般' %}bg-green-100 text-green-800
+                            {% elif ticket.priority == '高' %}bg-orange-100 text-orange-800
+                            {% elif ticket.priority == '紧急' %}bg-red-100 text-red-800
+                            {% endif %}">
+                            {{ ticket.priority }}
+                        </span>
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                            {% if ticket.status == '待处理' %}bg-yellow-100 text-yellow-800
+                            {% elif ticket.status == '处理中' %}bg-blue-100 text-blue-800
+                            {% elif ticket.status == '已解决' %}bg-green-100 text-green-800
+                            {% elif ticket.status == '已关闭' %}bg-gray-100 text-gray-800
+                            {% endif %}">
+                            {{ ticket.status }}
+                        </span>
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                            {{ ticket.category }}
+                        </span>
+                    </div>
+                </div>
+                <div class="flex flex-wrap gap-3">
+                    <button onclick="location.reload()" class="btn-effect px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90 transition-colors flex items-center">
+                        <i class="fa fa-refresh mr-2"></i>刷新页面
+                    </button>
+                    {% if ticket.status != '已关闭' %}
+                        <button onclick="confirmClose({{ ticket.id }})" class="btn-effect px-4 py-2 bg-warning text-white rounded-md hover:bg-warning/90 transition-colors flex items-center">
+                            <i class="fa fa-times-circle mr-2"></i>关闭留言
+                        </button>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- 留言基本信息 -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div class="bg-gray-50 p-4 rounded-lg">
+                    <h4 class="text-sm font-medium text-gray-500 mb-2">提交信息</h4>
+                    <ul class="space-y-2 text-sm text-gray-700">
+                        <li class="flex justify-between">
+                            <span>提交人:</span>
+                            <span>{{ ticket.user.name }} (ID: {{ ticket.user.id }})</span>
+                        </li>
+                        <li class="flex justify-between">
+                            <span>提交时间:</span>
+                            <span>{{ ticket.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</span>
+                        </li>
+                        <li class="flex justify-between">
+                            <span>最近更新:</span>
+                            <span>{{ ticket.updated_at.strftime('%Y-%m-%d %H:%M:%S') }}</span>
+                        </li>
+                    </ul>
+                </div>
+                <div class="bg-gray-50 p-4 rounded-lg">
+                    <h4 class="text-sm font-medium text-gray-500 mb-2">留言信息</h4>
+                    <ul class="space-y-2 text-sm text-gray-700">
+                        <li class="flex justify-between">
+                            <span>留言编号:</span>
+                            <span>{{ ticket.id }}</span>
+                        </li>
+                        <li class="flex justify-between">
+                            <span>分类:</span>
+                            <span>{{ ticket.category }}</span>
+                        </li>
+                        <li class="flex justify-between">
+                            <span>回复次数:</span>
+                            <span>{{ ticket.replies | length }}</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            
+            <!-- 留言描述 -->
+            <div class="mb-6">
+                <h4 class="text-sm font-medium text-gray-500 mb-2">留言描述</h4>
+                <div class="bg-gray-50 p-4 rounded-lg text-gray-700 whitespace-pre-line">
+                    {{ ticket.description }}
+                </div>
+            </div>
+            
+            <!-- 媒体文件上传区域 -->
+        <div class="mb-8">
+            <h3 class="text-lg font-medium mb-4 pb-2 border-b border-gray-200">相关附件</h3>
+            
+            <!-- 上传按钮 -->
+            <div class="flex flex-wrap items-center mb-6">
+                <button type="button" id="uploadMediaBtn" class="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors">
+                    <i class="fa fa-upload mr-2"></i>添加照片/视频
+                </button>
+                <input type="file" id="mediaFileInput" accept="image/*,video/*" multiple class="hidden" />
+                <p class="text-xs text-gray-500 mt-2 sm:mt-0 sm:ml-4">支持上传的文件格式：JPG、PNG、GIF、BMP、WebP、MP4、WebM、AVI、MOV、M4V</p>
+            </div>
+            
+            <!-- 上传进度条和反馈消息 -->
+            <div id="uploadProgressContainer" class="hidden bg-white rounded-lg shadow-sm p-4 mb-4">
+                <div class="flex items-center justify-between mb-2">
+                    <span id="uploadStatusText" class="text-sm font-medium text-gray-700">上传中...</span>
+                    <span id="uploadProgressPercentage" class="text-sm text-gray-500">0%</span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-2">
+                    <div id="uploadProgressBar" class="bg-green-500 h-2 rounded-full" style="width: 0%"></div>
+                </div>
+            </div>
+
+            <!-- 上传结果反馈消息 -->
+            <div id="uploadFeedback" class="hidden px-4 py-3 rounded-md mb-4"></div>
+            
+            <!-- 媒体文件列表 -->
+            {% if media_files and media_files|length > 0 %}
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
+                {% for media in media_files %}
+                <div class="media-item bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                    {% if media.type == 'image' %}
+                    <div class="relative h-48 overflow-hidden">
+                        <img src="{{ media.url }}" alt="附件图片" class="w-full h-full object-cover cursor-pointer" onclick="openImageModal('{{ media.url }}')">
+                        <button type="button" class="absolute top-3 right-3 bg-transparent text-red-500 hover:text-white hover:bg-red-500 rounded-full p-2 shadow-lg border border-transparent transition-all duration-300 hover:translate-y-[-2px]" onclick="deleteMedia('{{ media.filename }}')">
+                            <i class="fa fa-trash-o fa-lg"></i>
+                        </button>
+                    </div>
+                    {% elif media.type == 'video' %}
+                    <div class="relative h-48 overflow-hidden">
+                        <!-- 页面上的视频缩略图 - 禁用控制按钮 -->
+                        <video class="w-full h-full object-cover" poster="" preload="metadata">
+                            <source src="{{ media.url }}" type="video/mp4">
+                            您的浏览器不支持视频播放
+                        </video>
+                        <button type="button" class="absolute top-3 right-3 bg-transparent text-red-500 hover:text-white hover:bg-red-500 rounded-full p-2 shadow-lg border border-transparent transition-all duration-300 hover:translate-y-[-2px] z-10" onclick="deleteMedia('{{ media.filename }}');">
+                            <i class="fa fa-trash-o fa-lg"></i>
+                        </button>
+                        <!-- 播放图标覆盖层 - 添加点击事件 -->
+                        <div class="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30 cursor-pointer z-0" onclick="openVideoModal('{{ media.url }}')">
+                            <i class="fa fa-play-circle text-white text-4xl opacity-80"></i>
+                        </div>
+                    </div>
+                    {% endif %}
+                    <div class="p-3">
+                        <p class="text-sm text-gray-600">文件名：{{ media.filename }}<br>上传时间：{{ media.upload_time }}</p>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-gray-500 py-4">暂无附件</p>
+            {% endif %}
+        </div>
+        
+        <!-- 图片查看模态框 -->
+        <div id="imageModal" class="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 hidden">
+            <div class="relative max-w-[90%] max-h-[90%]">
+                <button type="button" class="closeModalBtn absolute -top-12 right-0 text-white text-2xl hover:text-gray-300 transition-colors">
+                    <i class="fa fa-times"></i>
+                </button>
+                <img id="modalImage" src="" alt="原图预览" class="max-w-full max-h-[80vh] object-contain">
+            </div>
+        </div>
+
+        <!-- 视频查看模态框 -->
+        <div id="videoModal" class="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 hidden">
+            <div class="relative max-w-[90%] max-h-[90%]">
+                <button type="button" class="closeModalBtn absolute -top-12 right-0 text-white text-2xl hover:text-gray-300 transition-colors">
+                    <i class="fa fa-times"></i>
+                </button>
+                <video id="modalVideo" controls autoplay class="max-w-full max-h-[80vh] object-contain">
+                    <source id="modalVideoSource" src="" type="video/mp4">
+                    您的浏览器不支持视频播放
+                </video>
+            </div>
+        </div>
+        </div>
+        
+        <!-- 留言回复区域 -->
+        <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+            <h4 class="text-lg font-semibold text-gray-800 mb-4">留言回复</h4>
+            
+            {% if ticket.replies %}
+                <!-- 回复列表 -->
+                <div class="space-y-4 mb-6">
+                    {% for reply in ticket.replies %}
+                        <div class="border-l-4 {% if reply.user.is_admin() %}border-blue-500 bg-blue-50{% else %}border-orange-500 bg-orange-50{% endif %} pl-4 py-3 rounded-r-lg">
+                            <div class="flex justify-between items-start mb-2">
+                                <div class="flex items-center">
+                                    <span class="font-medium {% if reply.user.is_admin() %}text-blue-700{% else %}text-orange-700{% endif %} mr-2">{{ reply.user.name }}</span>
+                                    {% if reply.user.is_admin() %}
+                                        <span class="text-xs px-2 py-0.5 bg-blue-100 text-blue-800 rounded">管理员</span>
+                                    {% else %}
+                                        <span class="text-xs px-2 py-0.5 bg-orange-100 text-orange-800 rounded">用户</span>
+                                    {% endif %}
+                                </div>
+                                <span class="text-xs text-gray-500">{{ reply.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</span>
+                            </div>
+                            <div class="{% if reply.user.is_admin() %}text-blue-800{% else %}text-orange-800{% endif %} whitespace-pre-line">
+                                {{ reply.content }}
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="text-center py-8 text-gray-500">
+                    <i class="fa fa-comments-o text-4xl mb-2 opacity-30"></i>
+                    <p>暂无回复记录</p>
+                </div>
+            {% endif %}
+            
+            <!-- 添加回复表单 -->
+            <form id="addReplyForm" action="{{ url_for('ticket_user.add_ticket_reply', ticket_id=ticket.id) }}" method="post">
+                <div class="mb-4">
+                    <label for="replyContent" class="block text-sm font-medium text-gray-700 mb-1">添加回复</label>
+                    <textarea id="replyContent" name="content" rows="4" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50" required></textarea>
+                </div>
+                <div class="flex justify-end">
+                    <button type="submit" class="btn-effect px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90 transition-colors flex items-center">
+                        <i class="fa fa-paper-plane mr-2"></i>发送回复
+                    </button>
+                </div>
+            </form>
+        </div>
+    </main>
+
+    {% include 'footer.html' %}
+
+    <!-- 关闭留言确认模态框 -->
+    <div id="closeConfirmModal" class="modal-container bg-black bg-opacity-50" style="display: none">
+        <div class="bg-white rounded-lg shadow-lg w-full max-w-md">
+            <div class="p-4 border-b border-gray-200">
+                <h3 class="text-lg font-semibold text-gray-800">确认关闭留言</h3>
+            </div>
+            <div class="p-4">
+                <p class="text-gray-700">确定要关闭该留言吗？</p>
+            </div>
+            <div class="p-4 border-t border-gray-200 flex justify-end space-x-3">
+                <button onclick="document.getElementById('closeConfirmModal').style.display='none'" class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors">
+                    取消
+                </button>
+                <form id="closeForm" method="post">
+                    <button type="submit" class="px-4 py-2 bg-warning text-white rounded-md hover:bg-warning/90 transition-colors">
+                        确认关闭
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 关闭留言确认处理
+        function confirmClose(ticketId) {
+            document.getElementById('closeForm').action = '{{ url_for('ticket_user.close_ticket', ticket_id=0) }}'.replace('0', ticketId);
+            document.getElementById('closeConfirmModal').style.display = 'flex';
+        }
+
+        // 点击模态框外部关闭模态框
+        window.addEventListener('click', function(event) {
+            const modal = document.getElementById('closeConfirmModal');
+            if (modal && event.target === modal) {
+                modal.style.display = 'none';
+            }
+        });
+
+        // 文件上传相关功能
+        const uploadMediaBtn = document.getElementById('uploadMediaBtn');
+        const mediaFileInput = document.getElementById('mediaFileInput');
+        const uploadProgressContainer = document.getElementById('uploadProgressContainer');
+        const uploadStatusText = document.getElementById('uploadStatusText');
+        const uploadProgressBar = document.getElementById('uploadProgressBar');
+        const uploadProgressPercentage = document.getElementById('uploadProgressPercentage');
+        const uploadFeedback = document.getElementById('uploadFeedback');
+
+        // 点击上传按钮时触发文件选择
+        uploadMediaBtn.addEventListener('click', function() {
+            mediaFileInput.click();
+        });
+
+        // 当用户选择文件后，开始上传
+        mediaFileInput.addEventListener('change', function() {
+            if (this.files.length > 0) {
+                // 显示上传进度条
+                uploadProgressContainer.classList.remove('hidden');
+                uploadProgressBar.style.width = '0%';
+                uploadProgressPercentage.textContent = '0%';
+                uploadFeedback.classList.add('hidden');
+                
+                const totalFiles = this.files.length;
+                let uploadedCount = 0;
+                let successCount = 0;
+
+                // 遍历所有文件并上传（并行上传）
+                Array.from(this.files).forEach((file, index) => {
+                    uploadStatusText.textContent = `正在上传文件 ${index + 1}/${totalFiles}: ${file.name}`;
+                    
+                    uploadFile(file).then(() => {
+                        successCount++;
+                        uploadedCount++;
+                        updateProgress(uploadedCount, successCount, totalFiles);
+                        
+                        // 所有文件上传完成
+                        if (uploadedCount === totalFiles) {
+                            checkUploadComplete(successCount, totalFiles);
+                        }
+                    }).catch(error => {
+                        uploadedCount++;
+                        updateProgress(uploadedCount, successCount, totalFiles);
+                        showErrorFeedback(`文件上传失败: ${file.name} - ${error.message}`);
+                        
+                        // 3秒后隐藏错误消息
+                        setTimeout(() => {
+                            hideFeedback();
+                            
+                            // 所有文件上传完成
+                            if (uploadedCount === totalFiles) {
+                                checkUploadComplete(successCount, totalFiles);
+                            }
+                        }, 3000);
+                    });
+                });
+                
+                this.value = ''; // 清空input值
+            }
+        });
+
+        // 更新进度条和状态文本
+        function updateProgress(uploaded, success, total) {
+            const percentage = Math.round((uploaded / total) * 100);
+            uploadProgressBar.style.width = `${percentage}%`;
+            uploadProgressPercentage.textContent = `${percentage}%`;
+            uploadStatusText.textContent = `已上传 ${uploaded}/${total} 个文件，成功 ${success} 个`;
+        }
+        
+        // 显示错误反馈
+        function showErrorFeedback(message) {
+            uploadFeedback.textContent = message;
+            uploadFeedback.className = 'px-4 py-3 bg-red-100 text-red-800 rounded-md mb-4';
+            uploadFeedback.classList.remove('hidden');
+        }
+        
+        // 隐藏反馈消息
+        function hideFeedback() {
+            uploadFeedback.classList.add('hidden');
+        }
+        
+        // 检查是否所有文件都上传完成
+        function checkUploadComplete(success, total) {
+            setTimeout(() => {
+                if (success === total) {
+                    // 全部成功
+                    uploadFeedback.textContent = `上传完成: 成功上传 ${success}/${total} 个文件`;
+                    uploadFeedback.className = 'px-4 py-3 bg-green-100 text-green-800 rounded-md mb-4';
+                } else {
+                    // 部分成功
+                    uploadFeedback.textContent = `上传完成: 成功 ${success}/${total} 个文件，失败 ${total - success} 个文件`;
+                    uploadFeedback.className = 'px-4 py-3 bg-yellow-100 text-yellow-800 rounded-md mb-4';
+                }
+                uploadFeedback.classList.remove('hidden');
+                
+                // 延迟刷新页面，确保所有上传操作完成
+                setTimeout(() => {
+                    location.reload();
+                }, 1500);
+            }, 500);
+        }
+
+        // 单个文件上传 - 返回Promise便于错误处理和进度管理
+        function uploadFile(file) {
+            return new Promise((resolve, reject) => {
+                const formData = new FormData();
+                formData.append('file', file);
+                
+                const xhr = new XMLHttpRequest();
+                
+                // 监听上传完成事件
+                xhr.onload = function() {
+                    if (xhr.status >= 200 && xhr.status < 300) {
+                        try {
+                            const response = JSON.parse(xhr.responseText);
+                            if (response.success) {
+                                resolve(response);
+                            } else {
+                                reject(new Error(response.message || '上传失败'));
+                            }
+                        } catch (error) {
+                            reject(new Error('上传失败: 响应格式错误'));
+                        }
+                    } else {
+                        reject(new Error(`上传失败: HTTP错误 ${xhr.status}`));
+                    }
+                };
+                
+                // 监听上传错误事件
+                xhr.onerror = function() {
+                    reject(new Error('上传失败: 网络错误'));
+                };
+                
+                // 监听上传超时事件
+                xhr.ontimeout = function() {
+                    reject(new Error('上传失败: 超时'));
+                };
+                
+                // 设置超时时间为10分钟
+                xhr.timeout = 600000;
+                
+                // 发送请求
+                xhr.open('POST', '{{ url_for('ticket_user.upload_ticket_media', ticket_id=ticket.id) }}', true);
+                xhr.send(formData);
+            });
+        }
+
+        // 删除文件函数
+        function deleteMedia(filename) {
+            if (confirm('确定要删除这个文件吗？')) {
+                // 创建表单并提交
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = '{{ url_for('ticket_user.delete_ticket_media', ticket_id=ticket.id, filename='filename_placeholder') }}'.replace('filename_placeholder', encodeURIComponent(filename));
+                document.body.appendChild(form);
+                form.submit();
+            }
+        }
+
+        // 打开图片查看模态框
+        function openImageModal(imageUrl) {
+            const imageModal = document.getElementById('imageModal');
+            const modalImage = document.getElementById('modalImage');
+            
+            modalImage.src = imageUrl;
+            imageModal.classList.remove('hidden');
+        }
+
+        // 打开视频查看模态框
+        function openVideoModal(videoUrl) {
+            const videoModal = document.getElementById('videoModal');
+            const modalVideo = document.getElementById('modalVideo');
+            const modalVideoSource = document.getElementById('modalVideoSource');
+            
+            modalVideoSource.src = videoUrl;
+            modalVideo.load();
+            videoModal.classList.remove('hidden');
+        }
+
+        // 关闭模态框
+        document.querySelectorAll('.closeModalBtn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                document.getElementById('imageModal').classList.add('hidden');
+                
+                // 关闭视频模态框时暂停视频播放
+                const videoModal = document.getElementById('videoModal');
+                const modalVideo = document.getElementById('modalVideo');
+                if (modalVideo && !videoModal.classList.contains('hidden')) {
+                    modalVideo.pause();
+                    modalVideo.currentTime = 0; // 重置播放位置
+                }
+                videoModal.classList.add('hidden');
+            });
+        });
+
+        // 点击模态框背景关闭
+        document.getElementById('imageModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                this.classList.add('hidden');
+            }
+        });
+
+        document.getElementById('videoModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                const modalVideo = document.getElementById('modalVideo');
+                if (modalVideo) {
+                    modalVideo.pause();
+                    modalVideo.currentTime = 0; // 重置播放位置
+                }
+                this.classList.add('hidden');
+            }
+        });
+
+        // ESC键关闭模态框
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                const videoModal = document.getElementById('videoModal');
+                const modalVideo = document.getElementById('modalVideo');
+                const imageModal = document.getElementById('imageModal');
+                
+                // 检查视频模态框是否可见
+                if (videoModal && !videoModal.classList.contains('hidden') && modalVideo) {
+                    modalVideo.pause();
+                    modalVideo.currentTime = 0; // 重置播放位置
+                    videoModal.classList.add('hidden');
+                } else if (imageModal && !imageModal.classList.contains('hidden')) {
+                    imageModal.classList.add('hidden');
+                }
+            }
+        });
+
+        // 页面滚动到回复列表顶部
+        document.addEventListener('DOMContentLoaded', function() {
+            // 平滑滚动到回复区域
+            const repliesSection = document.querySelector('h4');
+            if (repliesSection && repliesSection.textContent === '留言回复') {
+                repliesSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        });
+    </script>
+</body>
+</html>

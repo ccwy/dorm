@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+
+       <!--本地化CDN-->
+{% include 'static.html' %}
+    <!-- 配置Tailwind自定义颜色和字体 -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#1e40af',
+                        secondary: '#3b82f6',
+                        accent: '#60a5fa', // 淡蓝色
+                        neutral: '#f3f4f6',
+                        'status-occupied': '#a7f3d0',
+                        'status-vacant': '#fef3c7',
+                        'status-staff': '#dbeafe',
+                        'status-couple': '#fce7f3',
+                        'status-special': '#fee2e2',
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .table-shadow {
+                box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            }
+            .section-transition {
+                transition: all 0.3s ease;
+            }
+            .resident-tag {
+                @apply inline-block px-2 py-1 rounded text-sm mr-1 mb-1 whitespace-nowrap;
+            }
+            .resident-link {
+                @apply text-primary hover:underline hover:font-medium transition-all;
+            }
+            .region-card {
+                @apply bg-white rounded-xl p-5 shadow-md section-transition;
+            }
+            .region-card.hidden-region {
+                @apply hidden;
+            }
+            .region-card.visible-region {
+                @apply block;
+            }
+            .dorm-table {
+                @apply min-w-full table-shadow border-collapse;
+                table-layout: fixed;
+            }
+            .dorm-table th, .dorm-table td {
+                @apply px-4 py-3 text-sm border-b align-middle;
+                /* 全局设置为不换行，但居住人员列会通过内部的flex-wrap保持换行 */
+                white-space: nowrap;
+            }
+            /* 保持居住人员列的现有显示方式 */
+            .dorm-table td:nth-child(6) {
+                white-space: normal;
+            }
+            .btn-loading {
+                @apply opacity-70 cursor-not-allowed;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 font-sans">
+    {% include 'header.html' %}
+    <!-- 主内容区 -->
+    <main class="container mx-auto px-4 py-6">
+        <!-- 页面标题和状态统计 -->
+        <div class="mb-8">
+            <!-- 标题与搜索、导出功能组合 -->
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-4">
+                <div class="flex items-center">
+                    <!-- 返回上一页按钮 -->
+                    <button onclick="history.back()" class="text-primary hover:text-primary/80 mr-2 p-2">
+                        <i class="fa fa-arrow-left"></i>
+                    </button>
+                    <h2 class="text-[clamp(1.2rem,2vw,1.8rem)] font-bold text-gray-800">{{ title }}</h2>
+                </div>
+                
+                <div class="flex flex-col sm:flex-row w-full md:w-auto gap-3 items-start sm:items-center">
+                    <!-- 搜索表单 -->
+                    <form method="get" action="{{ url_for('dorm.dorm_query_2') }}" class="relative w-full sm:w-64">
+                        <input type="text" name="search" placeholder="搜索房间或人员..." 
+                               value="{{ search_query }}"
+                               class="pl-9 pr-4 py-2 rounded-lg text-gray-800 w-full border-2 border-accent focus:outline-none focus:ring-2 focus:ring-accent">
+                        <button type="submit" class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </form>
+                    <!-- 按钮容器 - 使用flex确保小屏幕上也能保持在一行 -->
+                    <div class="flex space-x-3">
+                        
+                        <!-- 刷新按钮 -->
+                        <button onclick="fullRefresh()" 
+                                class="bg-gray-500 text-white hover:bg-gray-600 px-5 py-2.5 rounded-lg transition-all duration-200 flex items-center shadow-sm whitespace-nowrap">
+                            <i class="fa fa-refresh mr-2"></i>
+                            <span>刷新</span>
+                        </button>
+                        <!-- 分配按钮 -->
+                        <button type="button" onclick="window.location.href='{{ url_for('dorm.add') }}'"  class="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90 whitespace-nowrap">
+                            <i class="fa fa-user-plus mr-2"></i>分配
+                        </button>
+                        <!-- 导出按钮 -->
+                        <button id="export-btn" class="bg-accent hover:bg-blue-600 px-5 py-2.5 rounded-lg transition-all duration-200 flex items-center shadow-sm whitespace-nowrap">
+                            <i class="fa fa-download mr-2"></i>
+                            <span>导出</span>
+                        </button>
+                    </div>
+                    
+                </div>
+            </div>
+            
+            <!-- 统计卡片 -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                <div class="bg-white rounded-xl p-4 shadow-md border-l-4 border-primary">
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <p class="text-gray-500 text-sm">总房间数</p>
+                            <p id="total-rooms" class="text-2xl font-bold mt-1">{{ stats.total_rooms }}</p>
+                            <p class="text-sm text-gray-500">总床位数：<span id="total-beds">{{ stats.total_beds }}</span></p>
+                        </div>
+                        <div class="bg-primary/10 p-3 rounded-lg">
+                            <i class="fa fa-home text-primary text-xl"></i>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="bg-white rounded-xl p-4 shadow-md border-l-4 border-green-500">
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <p class="text-gray-500 text-sm">已入住房间</p>
+                            <p id="occupied-rooms" class="text-2xl font-bold mt-1">{{ stats.occupied_rooms }}</p>
+                            <p class="text-sm text-gray-500">已使用床位数：<span id="occupied-beds">{{ stats.occupied_beds }}</span></p>
+                        </div>
+                        <div class="bg-green-500/10 p-3 rounded-lg">
+                            <i class="fa fa-user text-green-500 text-xl"></i>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="bg-white rounded-xl p-4 shadow-md border-l-4 border-yellow-500">
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <p class="text-gray-500 text-sm">空置房间</p>
+                            <p id="vacant-rooms" class="text-2xl font-bold mt-1">{{ stats.vacant_rooms }}</p>
+                            <p class="text-sm text-gray-500">可用床位数：<span id="available-beds">{{ stats.available_beds }}</span></p>
+                        </div>
+                        <div class="bg-yellow-500/10 p-3 rounded-lg">
+                            <i class="fa fa-square-o text-yellow-500 text-xl"></i>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="bg-white rounded-xl p-4 shadow-md border-l-4 border-purple-500">
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <p class="text-gray-500 text-sm">总入住人数</p>
+                            <p id="total-residents" class="text-2xl font-bold mt-1">{{ stats.total_residents }}</p>
+                        </div>
+                        <div class="bg-purple-500/10 p-3 rounded-lg">
+                            <i class="fa fa-users text-purple-500 text-xl"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 区域导航 -->
+            <div class="flex flex-wrap gap-3 mb-6">
+                <button class="region-btn bg-primary text-white px-4 py-2 rounded-lg transition-all duration-200 flex items-center" data-region="all">
+                    <i class="fa fa-map-marker mr-2"></i>全部区域
+                </button>
+                
+                {% for region in original_regions %}
+                <button class="region-btn bg-white text-gray-700 hover:bg-gray-100 px-4 py-2 rounded-lg transition-all duration-200 flex items-center" data-region="{{ region }}">
+                    <i class="fa fa-building mr-2"></i>{{ region }}
+                </button>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <!-- 宿舍区域内容 -->
+        <div class="space-y-8" id="regions-container">
+            {% for region, rooms in regions.items() %}
+            <section class="region-card visible-region" id="region-{{ region|lower|replace(' ', '') }}" data-region-name="{{ region }}">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-xl font-bold text-gray-800 flex items-center">
+                        <i class="fa fa-building text-primary mr-2"></i>{{ region }}
+                        <span class="ml-2 text-sm font-normal text-gray-500">(共 {{ rooms|length }} 间房)</span>
+                    </h3>
+                </div>
+                
+                <div class="overflow-x-auto">
+                    <table class="dorm-table">
+                        <thead>
+                            <tr class="bg-gray-100 text-left">
+                                <th style="width: 5%;" class="font-semibold text-gray-700">序号</th>
+                                <th style="width: 10%;" class="font-semibold text-gray-700">房间号</th>
+                                <th style="width: 10%;" class="font-semibold text-gray-700">性别</th>
+                                <th style="width: 10%;" class="font-semibold text-gray-700">级别</th>
+                                <th style="width: 15%;" class="font-semibold text-gray-700">房间类型</th>
+                                <th style="width: 40%;" class="font-semibold text-gray-700">居住人员</th>
+                                <th style="width: 10%;" class="font-semibold text-gray-700">备注</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for room in rooms %}
+                            <tr class="hover:bg-gray-50 transition-colors" data-region="{{ region }}">
+                                <td class="text-gray-800 serial-number"></td>
+                                <td class="font-medium text-gray-800 whitespace-nowrap">
+                                    <a href="{{ url_for('room.view', id=room.id) }}" class="font-medium text-blue-600 hover:underline">
+                                        {{ room.room_number }}
+                                    </a>
+                                </td>
+                                <td class="text-gray-800 whitespace-nowrap">{{ room.gender }}</td>
+                                <td class="text-gray-800 whitespace-nowrap">{{ room.level }}</td>
+                                <td class="text-gray-800 whitespace-nowrap">{{ room.room_type }}(住{{ room.current_occupancy }}/空{% if room.vacant_beds > 0 %}<span class="text-green-600 font-medium">{{ room.vacant_beds }}</span>{% else %}{{ room.vacant_beds }}{% endif %})</td>
+                                <td class="text-gray-800">
+                                    <div class="flex flex-wrap gap-1">
+                                        {% for resident in room.residents %}
+                                        <span class="resident-tag bg-status-occupied">
+                                            <a href="{{ url_for('user.view', id=resident.id) }}" class="resident-link">
+                                                {{ resident.name }}
+                                            </a>
+                                        </span>
+                                        {% endfor %}
+                                        <!--{% for i in range(room.vacant_beds) %}
+                                        <span class="resident-tag bg-status-vacant font-medium">空置</span>
+                                        {% endfor %}-->
+                                    </div>
+                                </td>
+                                <td class="{% if room.remark == 'OK' %}text-green-600{% else %}text-orange-600{% endif %}">{{ room.remark }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+            {% endfor %}
+            
+            <!-- 无搜索结果提示 -->
+            {% if regions|length == 0 %}
+            <div class="bg-white rounded-xl p-8 text-center shadow-md">
+                <i class="fa fa-search text-gray-300 text-5xl mb-4"></i>
+                <h3 class="text-xl font-bold text-gray-700 mb-2">未找到匹配的结果</h3>
+                <p class="text-gray-500 mb-6">请尝试使用不同的搜索关键词</p>
+                <a href="{{ url_for('room.manage') }}" class="inline-block bg-primary text-white px-6 py-2 rounded-lg hover:bg-primary/90 transition-colors">
+                    查看所有房间
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </main>
+    
+    <!-- 导出加载提示 -->
+    <div id="export-toast" class="fixed bottom-6 right-6 bg-gray-800 text-white px-4 py-3 rounded-lg shadow-lg transform translate-y-20 opacity-0 transition-all duration-300 flex items-center z-50">
+        <i class="fa fa-circle-o-notch fa-spin mr-2"></i>
+        <span>正在导出数据，请稍候...</span>
+    </div>
+        <!-- 页脚 -->
+    {% include 'footer.html' %}
+    
+    <!-- JavaScript -->
+    <script>
+        // 存储区域统计数据
+        const regionStats = {{ region_stats|tojson }};
+        const totalStats = {{ stats|tojson }};
+        
+        // 更新序号显示
+        function updateSerialNumbers(selectedRegion = 'all') {
+            if (selectedRegion === 'all') {
+                // 全部区域 - 序号连续
+                let globalCounter = 1;
+                document.querySelectorAll('.region-card.visible-region').forEach(regionCard => {
+                    const rows = regionCard.querySelectorAll('tbody tr');
+                    rows.forEach(row => {
+                        const serialCell = row.querySelector('.serial-number');
+                        if (serialCell) {
+                            serialCell.textContent = globalCounter++;
+                        }
+                    });
+                });
+            } else {
+                // 特定区域 - 单独编号
+                document.querySelectorAll('.region-card.visible-region').forEach(regionCard => {
+                    let regionCounter = 1;
+                    const rows = regionCard.querySelectorAll('tbody tr');
+                    rows.forEach(row => {
+                        const serialCell = row.querySelector('.serial-number');
+                        if (serialCell) {
+                            serialCell.textContent = regionCounter++;
+                        }
+                    });
+                });
+            }
+        }
+        
+        // 页面滚动时改变导航栏样式
+        window.addEventListener('scroll', function() {
+            const header = document.querySelector('header');
+            if (window.scrollY > 10) {
+                header.classList.add('py-2');
+                header.classList.remove('py-3');
+            } else {
+                header.classList.add('py-3');
+                header.classList.remove('py-2');
+            }
+        });
+        
+        // 更新统计数据显示
+        function updateStats(region) {
+            let statsToShow = totalStats;
+            
+            if (region !== 'all' && regionStats[region]) {
+                statsToShow = regionStats[region];
+            }
+            
+            document.getElementById('total-rooms').textContent = statsToShow.total_rooms;
+            document.getElementById('occupied-rooms').textContent = statsToShow.occupied_rooms;
+            document.getElementById('vacant-rooms').textContent = statsToShow.vacant_rooms;
+            document.getElementById('total-residents').textContent = statsToShow.total_residents;
+            document.getElementById('total-beds').textContent = statsToShow.total_beds;
+            document.getElementById('occupied-beds').textContent = statsToShow.occupied_beds;
+            document.getElementById('available-beds').textContent = statsToShow.available_beds;
+        }
+        
+        // 显示指定区域，隐藏其他区域
+        function showRegion(region) {
+            const regions = document.querySelectorAll('.region-card');
+            
+            regions.forEach(regionCard => {
+                if (region === 'all') {
+                    // 显示所有区域
+                    regionCard.classList.remove('hidden-region');
+                    regionCard.classList.add('visible-region');
+                } else {
+                    // 只显示选中的区域
+                    const regionId = `region-${region.toLowerCase().replace(' ', '')}`;
+                    if (regionCard.id === regionId) {
+                        regionCard.classList.remove('hidden-region');
+                        regionCard.classList.add('visible-region');
+                    } else {
+                        regionCard.classList.add('hidden-region');
+                        regionCard.classList.remove('visible-region');
+                    }
+                }
+            });
+            
+            // 更新序号和统计数据
+            updateSerialNumbers(region);
+            updateStats(region);
+        }
+        
+        // 显示导出提示
+        function showExportToast() {
+            const toast = document.getElementById('export-toast');
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            toast.classList.add('translate-y-0', 'opacity-100');
+        }
+        
+        // 隐藏导出提示
+        function hideExportToast() {
+            const toast = document.getElementById('export-toast');
+            toast.classList.remove('translate-y-0', 'opacity-100');
+            toast.classList.add('translate-y-20', 'opacity-0');
+        }
+        
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            const regionBtns = document.querySelectorAll('.region-btn');
+            
+            // 初始化序号和统计数据
+            updateSerialNumbers('all');
+            updateStats('all');
+            
+            // 区域切换功能
+            regionBtns.forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const selectedRegion = this.getAttribute('data-region');
+                    
+                    // 更新按钮样式
+                    regionBtns.forEach(b => {
+                        b.classList.remove('bg-primary', 'text-white');
+                        b.classList.add('bg-white', 'text-gray-700', 'hover:bg-gray-100');
+                    });
+                    this.classList.remove('bg-white', 'text-gray-700', 'hover:bg-gray-100');
+                    this.classList.add('bg-primary', 'text-white');
+                    
+                    // 显示选中区域
+                    showRegion(selectedRegion);
+                    
+                    // 滚动到页面顶部
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                });
+            });
+            
+            // 搜索框回车提交
+            const searchInput = document.querySelector('input[name="search"]');
+            if (searchInput) {
+                searchInput.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        this.closest('form').submit();
+                    }
+                });
+            }
+            
+            // 导出功能
+            const exportBtn = document.getElementById('export-btn');
+            if (exportBtn) {
+                exportBtn.addEventListener('click', function() {
+                    this.classList.add('btn-loading');
+                    this.innerHTML = '<i class="fa fa-circle-o-notch fa-spin mr-2"></i><span>导出中...</span>';
+                    showExportToast();
+                    
+                    let exportUrl = "{{ url_for('dorm_import_export.export_residents') }}";
+                    
+                    const link = document.createElement('a');
+                    link.href = exportUrl;
+                    link.download = `在住人员数据_${new Date().toLocaleDateString().replace(/\//g, '-')}.xlsx`;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    
+                    // 60秒后重置按钮状态
+                    setTimeout(() => {
+                        exportBtn.classList.remove('btn-loading');
+                        exportBtn.innerHTML = '<i class="fa fa-download mr-2"></i><span>导出</span>';
+                        document.getElementById('export-toast').classList.add('translate-y-20', 'opacity-0');
+                    }, 60000);
+                });
+            }
+        });
+        // 完全刷新页面并清除搜索条件
+        function fullRefresh() {
+            // 获取当前URL
+            const currentUrl = window.location.href;
+            // 分离URL和查询参数
+            const baseUrl = currentUrl.split('?')[0];
+            
+            // 如果有查询参数，则清除并重新加载
+            if (currentUrl.includes('?')) {
+                window.location.href = baseUrl;
+            } else {
+                // 没有查询参数时直接刷新
+                location.reload(true); // 强制从服务器重新加载，不使用缓存
+            }
+        }
+
+    </script>
+</body>
+</html>
+    
