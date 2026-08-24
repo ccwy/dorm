@@ -956,7 +956,7 @@ jobs:
           # SPK格式: tar.gz，根目录直接包含 INFO, PACKAGE_ICON 等文件
           # 参考: DSM Developer Guide - Build and Install Package
           # ============================================================
-          mkdir -p dist/synology
+          mkdir -p "${GITHUB_WORKSPACE}/dist/synology"
           cd "${PKG_DIR}"
           tar -czf "${GITHUB_WORKSPACE}/dist/synology/宿舍管理系统_dsm7_x86_64.spk" \
             INFO \
