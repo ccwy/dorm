@@ -4,12 +4,16 @@ import subprocess
 import threading
 import time
 import logging
+import ctypes
+from ctypes import wintypes
 
-# webview 采用延迟导入，避免模块顶层加载时触发 multiprocessing 安全验证
-# 在 PyInstaller 打包环境中，顶层 import webview 会导致子进程重启时
-# 出现 "Security validation failure: parent process has different executable" 错误
-# 因为 webview 内部依赖 Windows WebView2 API，会在进程初始化阶段
-# 触发 multiprocessing.spawn 的安全检查，发现父子进程可执行文件不一致
+# 【重要】本模块绝不导入 webview，即使在函数内部也不行。
+# 原因：import webview 会触发 edgechromium.py 的模块级代码，
+# 通过 pythonnet/clr 加载 WebView2 .NET 程序集，
+# 而 WebView2 Core DLL 内部的安全验证机制会检查父进程可执行文件路径，
+# 在 PyInstaller 打包环境中导致：
+#   "Security validation failure: failed to obtain executable path for parent process!"
+# 因此，关闭 WebView 窗口必须使用 Windows API (ctypes) 而非 webview.windows.destroy()
 
 # 批处理脚本内容模板 - 打包环境使用，包含自动删除功能
 batch_script_template = '''@echo off
@@ -47,23 +51,57 @@ def get_environment():
     return "windows"
 
 def _close_all_webview_windows():
-    """专门关闭所有WebView窗口的函数"""
+    """使用 Windows API 关闭所有属于当前进程的可见窗口
+    
+    通过 ctypes 调用 user32.dll 的 EnumWindows/PostMessageW 实现，
+    避免 import webview 触发 WebView2 安全验证失败。
+    """
     try:
-        import webview  # 延迟导入，仅在需要关闭窗口时才加载
-        logging.info("准备关闭所有WebView窗口")
-        if hasattr(webview, 'windows') and webview.windows:
-            logging.info(f"找到{len(webview.windows)}个WebView窗口，开始关闭")
-            for window in webview.windows:
-                try:
-                    window.destroy()
-                    logging.info(f"成功关闭一个WebView窗口")
-                except Exception as e:
-                    logging.warning(f"关闭WebView窗口失败: {str(e)}")
+        # Windows 消息常量
+        WM_CLOSE = 0x0010
+        
+        # 获取当前进程ID
+        current_pid = os.getpid()
+        
+        # 定义回调函数类型
+        WNDENUMPROC = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
+        
+        # 加载 user32.dll
+        user32 = ctypes.windll.user32
+        
+        # 记录关闭的窗口数
+        closed_count = [0]  # 使用列表以便在闭包中修改
+        
+        def enum_callback(hwnd, lparam):
+            """枚举窗口回调：找到属于当前进程的可见窗口并发送 WM_CLOSE"""
+            # 获取窗口所属进程ID
+            pid = wintypes.DWORD()
+            user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
+            
+            if pid.value == current_pid:
+                # 只关闭可见窗口（跳过隐藏的消息窗口等）
+                if user32.IsWindowVisible(hwnd):
+                    window_title = ctypes.create_unicode_buffer(256)
+                    user32.GetWindowTextW(hwnd, window_title, 256)
+                    title = window_title.value.strip()
+                    
+                    # 发送 WM_CLOSE 消息优雅关闭窗口
+                    user32.PostMessageW(hwnd, WM_CLOSE, 0, 0)
+                    closed_count[0] += 1
+                    logging.info(f"已发送关闭消息到窗口: hwnd={hwnd}, title='{title}'")
+            return True  # 继续枚举
+        
+        callback = WNDENUMPROC(enum_callback)
+        user32.EnumWindows(callback, 0)
+        
+        if closed_count[0] > 0:
+            logging.info(f"已向 {closed_count[0]} 个窗口发送关闭消息，等待窗口关闭...")
+            time.sleep(1)  # 给窗口关闭足够的时间
         else:
-            logging.info("没有找到WebView窗口")
-        time.sleep(1)  # 给窗口关闭足够的时间
+            logging.info("未找到需要关闭的窗口（可能已关闭或无可见窗口）")
+            
     except Exception as e:
-        logging.error(f"关闭WebView窗口过程出错: {str(e)}")
+        logging.warning(f"通过 Windows API 关闭窗口失败: {str(e)}，将依赖进程终止自动关闭窗口")
 
 def _ensure_batch_script_exists():
     """确保批处理脚本存在于data目录（仅处理打包环境）"""
