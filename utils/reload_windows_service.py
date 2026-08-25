@@ -4,36 +4,68 @@ import subprocess
 import threading
 import time
 import logging
-import webview
 
-# 确保webview模块正确导入
-if not hasattr(webview, 'windows'):
-    webview.windows = []
+# 延迟导入webview，避免在服务端模式下也加载WebView2运行时
+# 仅在客户端模式实际需要关闭WebView窗口时才导入
+_webview = None
+
+def _get_webview():
+    """延迟获取webview模块，仅在需要时才导入"""
+    global _webview
+    if _webview is None:
+        try:
+            import webview as _w
+            _webview = _w
+            # 确保webview模块正确导入
+            if not hasattr(_webview, 'windows'):
+                _webview.windows = []
+        except ImportError:
+            logging.warning("webview模块导入失败，WebView窗口关闭功能将不可用")
+    return _webview
 
 # 批处理脚本内容模板 - 打包环境使用，包含自动删除功能
-batch_script_template = '''@echo off
+# 关键：必须确保旧进程完全退出后再启动新进程，避免WebView2安全验证失败
+batch_script_template = r'''@echo off
 setlocal enabledelayedexpansion
 
 :: 配置程序名称
 set "APP_NAME=宿舍管理系统.exe"
 
-:: 强制关闭所有现有的程序实例
-taskkill /F /IM %APP_NAME% >nul 2>&1
+:: 第一步：强制关闭所有现有的程序实例（包括整个进程树）
+taskkill /F /T /IM %APP_NAME% >nul 2>&1
 taskkill /F /IM python.exe /FI "WINDOWTITLE eq *宿舍管理系统*" >nul 2>&1
 taskkill /F /IM pythonw.exe /FI "WINDOWTITLE eq *宿舍管理系统*" >nul 2>&1
 
-:: 检查是否还有残留进程
-tasklist | findstr /i "%APP_NAME% python.exe pythonw.exe" >nul
+:: 第二步：循环等待，确保旧进程完全退出
+:: 最多等待10秒（100次 x 100毫秒），避免无限等待
+set "WAIT_COUNT=0"
+:wait_loop
+tasklist /FI "IMAGENAME eq %APP_NAME%" 2>nul | findstr /i "%APP_NAME%" >nul
 if %errorlevel% equ 0 (
-    taskkill /F /IM %APP_NAME% /T >nul 2>&1
+    set /a WAIT_COUNT+=1
+    if !WAIT_COUNT! geq 100 (
+        echo 警告：旧进程未能在10秒内退出，强制终止
+        taskkill /F /T /IM %APP_NAME% >nul 2>&1
+        goto :wait_done
+    )
+    :: 进程仍存在，短暂等待后重试
+    ping -n 1 127.0.0.1 >nul
+    goto :wait_loop
 )
+:wait_done
+
+:: 第三步：额外等待500毫秒，让操作系统完成资源清理
+:: 这是关键步骤——WebView2需要父进程完全释放资源后才能正确初始化
+ping -n 1 127.0.0.1 >nul
 
 :: 切换到data目录的上一层目录
 cd /d "%~dp0.."
 
-:: 启动新的程序实例（仅打包环境）
+:: 第四步：启动全新的程序实例
+:: 不使用/b参数，让新进程作为独立进程运行，拥有自己的进程上下文
+:: 这样WebView2能正确获取自身的进程信息，避免Security validation failure错误
 if exist "%CD%\%APP_NAME%" (
-    start "" /b "%CD%\%APP_NAME%"
+    start "" "%CD%\%APP_NAME%"
 )
 
 :: 执行完毕后自动删除当前批处理脚本
@@ -48,6 +80,10 @@ def get_environment():
 def _close_all_webview_windows():
     """专门关闭所有WebView窗口的函数"""
     try:
+        webview = _get_webview()
+        if webview is None:
+            logging.info("webview模块未加载，跳过WebView窗口关闭")
+            return
         logging.info("准备关闭所有WebView窗口")
         if hasattr(webview, 'windows') and webview.windows:
             logging.info(f"找到{len(webview.windows)}个WebView窗口，开始关闭")
@@ -80,12 +116,11 @@ def _ensure_batch_script_exists():
         # 批处理脚本路径
         batch_script_path = os.path.join(data_dir, 'auto_restart_app.bat')
         
-        # 检查批处理脚本是否存在，如果不存在则创建
-        if not os.path.exists(batch_script_path):
-            # 使用ANSI编码保存批处理文件
-            with open(batch_script_path, 'w', encoding='mbcs') as f:
-                f.write(batch_script_template)
-            logging.info(f"已创建批处理脚本: {batch_script_path}")
+        # 始终重新创建批处理脚本，确保使用最新版本
+        # 使用ANSI编码保存批处理文件
+        with open(batch_script_path, 'w', encoding='mbcs') as f:
+            f.write(batch_script_template)
+        logging.info(f"已创建/更新批处理脚本: {batch_script_path}")
         
         return batch_script_path
     except Exception as e:
@@ -197,7 +232,7 @@ def reload_service():
             current_pid = os.getpid()
             logging.info(f"准备触发自动重启 | 当前进程ID: {current_pid}")
 
-            # 确保批处理脚本存在
+            # 确保批处理脚本存在（始终重新创建，确保使用最新版本）
             script_path = _ensure_batch_script_exists()
             
             if not script_path:
