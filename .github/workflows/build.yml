@@ -19,7 +19,7 @@ on:
 
 env:
   PYTHON_VERSION: '3.10'
-  APP_NAME: '宿舍管理程序'
+  APP_NAME: 'DormManagement'
   DOCKER_IMAGE_NAME: 'dorm-management-system'
   PYTHONIOENCODING: 'utf-8'
 
@@ -51,7 +51,7 @@ jobs:
             HAS_VERSION=true
           else
             COMMIT_MSG="${{ github.event.head_commit.message }}"
-            TAG_NAME=$(echo "$COMMIT_MSG" | grep -oiE 'v[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1)
+            TAG_NAME=$(echo "$COMMIT_MSG" | grep -oiE 'v[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1 || true)
             if [ -n "$TAG_NAME" ]; then
               HAS_VERSION=true
             fi
@@ -244,7 +244,7 @@ jobs:
             HAS_VERSION=true
           else
             COMMIT_MSG="${{ github.event.head_commit.message }}"
-            TAG_NAME=$(echo "$COMMIT_MSG" | grep -oiE 'v[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1)
+            TAG_NAME=$(echo "$COMMIT_MSG" | grep -oiE 'v[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1 || true)
             if [ -n "$TAG_NAME" ]; then
               HAS_VERSION=true
             fi
