@@ -57,22 +57,24 @@ class RoomMeterManager:
         return billing_dir
     
     @staticmethod
-    def get_room_directory(billing_period, room_id):
-        """获取指定账期和room_id的房间目录，确保目录存在
+    def get_room_directory(billing_period, room_id, create=True):
+        """获取指定账期和room_id的房间目录
         
         Args:
             billing_period: 账期，格式应为 'YYYY-MM'
             room_id: 房间ID
+            create: 是否自动创建目录，默认True。查询文件时传False避免空目录产生。
             
         Returns:
             str: 房间目录的绝对路径
         """
         # 获取账期目录
-        billing_dir = RoomMeterManager.get_billing_period_dir(billing_period)
+        billing_dir = RoomMeterManager.get_billing_period_dir(billing_period) if create else os.path.join(RoomMeterManager.get_media_root_dir(), secure_filename(billing_period))
         # 构建房间目录路径：data/room_meter_photo/YYYY-MM/房间ID
         room_dir = os.path.join(billing_dir, str(room_id))
-        # 确保目录存在
-        os.makedirs(room_dir, exist_ok=True)
+        # 仅在create=True时确保目录存在
+        if create:
+            os.makedirs(room_dir, exist_ok=True)
         return room_dir
     
     @staticmethod
@@ -156,7 +158,8 @@ class RoomMeterManager:
         Returns:
             str: 文件的绝对路径
         """
-        room_dir = RoomMeterManager.get_room_directory(billing_period, room_id)
+        # 不自动创建目录，仅拼接路径
+        room_dir = RoomMeterManager.get_room_directory(billing_period, room_id, create=False)
         return os.path.join(room_dir, secure_filename(filename))
     
     @staticmethod
@@ -171,7 +174,8 @@ class RoomMeterManager:
             list: 媒体文件列表，每个元素包含文件名、类型和相对路径
         """
         media_files = []
-        room_dir = RoomMeterManager.get_room_directory(billing_period, room_id)
+        # 查询时不自动创建目录，避免打开页面时产生空目录
+        room_dir = RoomMeterManager.get_room_directory(billing_period, room_id, create=False)
         
         # 检查目录是否存在
         if not os.path.exists(room_dir):
@@ -333,6 +337,327 @@ class RoomMeterManager:
         except Exception as e:
             print(f"遍历账期目录时发生错误: {str(e)}")
             return False
+
+    @staticmethod
+    def get_temp_dir(create=True):
+        """获取临时上传目录的根目录
+        
+        临时文件存储在 media_root 的 __temp__ 子目录下，
+        按 room_id 组织：data/photo/room_meter_photo/__temp__/{room_id}/
+        
+        Args:
+            create: 是否自动创建目录，默认True。查询时传False避免空目录产生。
+            
+        Returns:
+            str: 临时目录的根目录绝对路径
+        """
+        media_root = RoomMeterManager.get_media_root_dir()
+        temp_root = os.path.join(media_root, '__temp__')
+        if create:
+            os.makedirs(temp_root, exist_ok=True)
+        return temp_root
+    
+    @staticmethod
+    def get_temp_room_dir(room_id, create=True):
+        """获取指定房间的临时上传目录
+        
+        Args:
+            room_id: 房间ID
+            create: 是否自动创建目录，默认True。查询时传False避免空目录产生。
+            
+        Returns:
+            str: 房间临时目录的绝对路径
+        """
+        temp_root = RoomMeterManager.get_temp_dir(create=False)
+        room_temp_dir = os.path.join(temp_root, str(room_id))
+        if create:
+            os.makedirs(room_temp_dir, exist_ok=True)
+        return room_temp_dir
+    
+    @staticmethod
+    def upload_to_temp(file, room_id):
+        """上传文件到临时目录（抄表登记页面使用，此时账期尚未确定）
+        
+        Args:
+            file: Flask文件对象
+            room_id: 房间ID
+            
+        Returns:
+            str: 保存的文件名，如果上传失败则返回None
+        """
+        if not RoomMeterManager.allowed_file(file.filename):
+            return None
+        
+        room_temp_dir = RoomMeterManager.get_temp_room_dir(room_id)
+        new_filename = secure_filename(file.filename)
+        
+        # 如果文件名已存在，添加时间戳避免覆盖
+        target_path = os.path.join(room_temp_dir, new_filename)
+        if os.path.exists(target_path):
+            name, ext = os.path.splitext(new_filename)
+            new_filename = f"{name}_{datetime.now().strftime('%Y%m%d%H%M%S')}{ext}"
+        
+        try:
+            file.save(os.path.join(room_temp_dir, new_filename))
+            return new_filename
+        except Exception as e:
+            print(f"上传临时文件失败: {str(e)}")
+            return None
+    
+    @staticmethod
+    def get_temp_files(room_id):
+        """获取指定房间临时目录中的所有媒体文件
+        
+        Args:
+            room_id: 房间ID
+            
+        Returns:
+            list: 媒体文件列表
+        """
+        media_files = []
+        # 查询时不自动创建目录
+        room_temp_dir = RoomMeterManager.get_temp_room_dir(room_id, create=False)
+        
+        if not os.path.exists(room_temp_dir):
+            return media_files
+        
+        for filename in os.listdir(room_temp_dir):
+            file_path = os.path.join(room_temp_dir, filename)
+            
+            if os.path.isdir(file_path):
+                continue
+            
+            if not RoomMeterManager.allowed_file(filename):
+                continue
+            
+            file_type = 'image' if RoomMeterManager.is_image_file(filename) else 'video'
+            
+            media_files.append({
+                'filename': filename,
+                'type': file_type,
+                'path': file_path,
+                'upload_time': datetime.fromtimestamp(os.path.getmtime(file_path))
+            })
+        
+        return media_files
+    
+    @staticmethod
+    def delete_temp_file(filename, room_id):
+        """删除临时目录中的指定文件，删除后若目录为空则自动清理
+        
+        Args:
+            filename: 文件名
+            room_id: 房间ID
+            
+        Returns:
+            bool: 是否删除成功
+        """
+        room_temp_dir = RoomMeterManager.get_temp_room_dir(room_id, create=False)
+        file_path = os.path.join(room_temp_dir, secure_filename(filename))
+        
+        if not os.path.exists(file_path):
+            return False
+        
+        try:
+            os.remove(file_path)
+            # 删除后检查目录是否为空，为空则清理
+            RoomMeterManager._cleanup_empty_temp_dir(room_temp_dir)
+            return True
+        except Exception as e:
+            print(f"删除临时文件失败: {str(e)}")
+            return False
+    
+    @staticmethod
+    def move_temp_to_billing_period(room_id, billing_period):
+        """将房间临时目录中的所有文件移动到正式的账期目录
+        
+        在保存抄表记录时调用，此时账期已确定。
+        如果目标目录已有同名文件，添加时间戳避免覆盖。
+        移动完成后自动清理空的临时目录。
+        
+        Args:
+            room_id: 房间ID
+            billing_period: 账期，格式 'YYYY-MM'
+            
+        Returns:
+            dict: {'moved': int, 'errors': list} 移动数量和错误信息
+        """
+        # 查询临时目录时不自动创建
+        room_temp_dir = RoomMeterManager.get_temp_room_dir(room_id, create=False)
+        
+        if not os.path.exists(room_temp_dir):
+            return {'moved': 0, 'errors': []}
+        
+        # 目标目录需要创建（这是正式保存，需要确保目录存在）
+        target_dir = RoomMeterManager.get_room_directory(billing_period, room_id, create=True)
+        
+        moved = 0
+        errors = []
+        
+        for filename in os.listdir(room_temp_dir):
+            file_path = os.path.join(room_temp_dir, filename)
+            
+            if os.path.isdir(file_path):
+                continue
+            
+            if not RoomMeterManager.allowed_file(filename):
+                continue
+            
+            target_path = os.path.join(target_dir, filename)
+            
+            # 如果目标已有同名文件，添加时间戳
+            if os.path.exists(target_path):
+                name, ext = os.path.splitext(filename)
+                new_filename = f"{name}_{datetime.now().strftime('%Y%m%d%H%M%S')}{ext}"
+                target_path = os.path.join(target_dir, new_filename)
+            
+            try:
+                shutil.move(file_path, target_path)
+                moved += 1
+            except Exception as e:
+                errors.append(f"移动文件 {filename} 失败: {str(e)}")
+                print(f"移动临时文件失败: {str(e)}")
+        
+        # 移动完成后清理空的临时目录
+        RoomMeterManager._cleanup_empty_temp_dir(room_temp_dir)
+        
+        return {'moved': moved, 'errors': errors}
+    
+    @staticmethod
+    def get_temp_file_path(filename, room_id):
+        """获取临时目录中文件的绝对路径
+        
+        Args:
+            filename: 文件名
+            room_id: 房间ID
+            
+        Returns:
+            str: 文件的绝对路径
+        """
+        # 不自动创建目录，仅拼接路径
+        room_temp_dir = RoomMeterManager.get_temp_room_dir(room_id, create=False)
+        return os.path.join(room_temp_dir, secure_filename(filename))
+    
+    @staticmethod
+    def get_temp_media_url(filename, room_id):
+        """获取临时文件的URL路径
+        
+        Args:
+            filename: 文件名
+            room_id: 房间ID
+            
+        Returns:
+            str: 文件的URL路径
+        """
+        return f"/utility-meter/temp_media/{room_id}/{filename}"
+
+    @staticmethod
+    def _cleanup_empty_temp_dir(room_temp_dir):
+        """清理空的临时目录，向上递归删除空的父目录直到__temp__为止
+        
+        Args:
+            room_temp_dir: 房间临时目录路径
+        """
+        try:
+            # 检查房间临时目录是否为空，为空则删除
+            if os.path.exists(room_temp_dir) and not os.listdir(room_temp_dir):
+                os.rmdir(room_temp_dir)
+            
+            # 检查__temp__根目录是否为空，为空也删除
+            temp_root = RoomMeterManager.get_temp_dir(create=False)
+            if os.path.exists(temp_root) and not os.listdir(temp_root):
+                os.rmdir(temp_root)
+        except Exception:
+            pass
+
+    @staticmethod
+    def clear_room_temp_files(room_id):
+        """清理指定房间临时目录中的所有媒体文件
+
+        Args:
+            room_id: 房间ID
+
+        Returns:
+            dict: {'deleted': int, 'errors': list} 删除数量和错误信息
+        """
+        room_temp_dir = RoomMeterManager.get_temp_room_dir(room_id, create=False)
+
+        if not os.path.exists(room_temp_dir):
+            return {'deleted': 0, 'errors': []}
+
+        deleted = 0
+        errors = []
+
+        for filename in os.listdir(room_temp_dir):
+            file_path = os.path.join(room_temp_dir, filename)
+
+            if os.path.isdir(file_path):
+                continue
+
+            if not RoomMeterManager.allowed_file(filename):
+                continue
+
+            try:
+                os.remove(file_path)
+                deleted += 1
+            except Exception as e:
+                errors.append(f"删除文件 {filename} 失败: {str(e)}")
+
+        # 清理空的临时目录
+        RoomMeterManager._cleanup_empty_temp_dir(room_temp_dir)
+
+        return {'deleted': deleted, 'errors': errors}
+
+    @staticmethod
+    def clear_all_temp_files():
+        """清理所有房间临时目录中的媒体文件
+
+        Returns:
+            dict: {'deleted': int, 'errors': list, 'rooms_cleared': int} 删除数量、错误信息和清理的房间数
+        """
+        temp_root = RoomMeterManager.get_temp_dir(create=False)
+
+        if not os.path.exists(temp_root):
+            return {'deleted': 0, 'errors': [], 'rooms_cleared': 0}
+
+        total_deleted = 0
+        all_errors = []
+        rooms_cleared = 0
+
+        try:
+            for room_name in os.listdir(temp_root):
+                room_dir = os.path.join(temp_root, room_name)
+
+                if not os.path.isdir(room_dir):
+                    continue
+
+                room_deleted = 0
+                for filename in os.listdir(room_dir):
+                    file_path = os.path.join(room_dir, filename)
+
+                    if os.path.isdir(file_path):
+                        continue
+
+                    if not RoomMeterManager.allowed_file(filename):
+                        continue
+
+                    try:
+                        os.remove(file_path)
+                        room_deleted += 1
+                        total_deleted += 1
+                    except Exception as e:
+                        all_errors.append(f"房间 {room_name} 文件 {filename} 删除失败: {str(e)}")
+
+                if room_deleted > 0:
+                    rooms_cleared += 1
+
+                # 清理空的房间临时目录
+                RoomMeterManager._cleanup_empty_temp_dir(room_dir)
+
+        except Exception as e:
+            all_errors.append(f"遍历临时目录失败: {str(e)}")
+
+        return {'deleted': total_deleted, 'errors': all_errors, 'rooms_cleared': rooms_cleared}
 
 # 创建room_meter单例对象供其他模块使用
 room_meter_manager = RoomMeterManager()

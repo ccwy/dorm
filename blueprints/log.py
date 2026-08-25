@@ -6,7 +6,7 @@ from flask_login import login_required, current_user
 from utils.log import MODULE_MAP, OPERATION_TYPE_MAP  # 导入字典
 from utils.log import log_operation
 # 导入admin_required装饰器
-from blueprints.system_settings import admin_required
+from utils.auth import admin_required
 
 # 创建蓝图（原有内容不变）
 log_bp = Blueprint('log', __name__, url_prefix='/log')

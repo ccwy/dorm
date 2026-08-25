@@ -9,7 +9,7 @@ from models.system_config import SystemConfig
 from sqlalchemy import or_, and_
 from utils.log import log_operation  # 导入日志工具
 # 导入admin_required装饰器
-from blueprints.system_settings import admin_required
+from utils.auth import admin_required
 
 # 创建蓝图
 fee_subsidy_bp = Blueprint('fee_subsidy', __name__, url_prefix='/fee_subsidy')

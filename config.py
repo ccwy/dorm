@@ -1,8 +1,6 @@
 import os
 import sys
 from datetime import timedelta
-from tkinter import FALSE
-from sqlalchemy import True_
 from utils.db_config import DatabaseConfig
 
 # 确定配置文件路径，支持开发环境和打包环境
@@ -13,6 +11,9 @@ def get_app_dir():
     else:
         # 开发环境 - 使用项目根目录
         return os.path.abspath(os.path.dirname(__file__))
+
+# 启动时仅加载一次配置，避免Config/ProductionConfig/DevelopmentConfig重复调用load_config()
+_shared_db_config = DatabaseConfig.load_config()
 
 class Config:
     # 基础配置
@@ -37,8 +38,8 @@ class Config:
     # 基础目录
     BASE_DIR = os.path.abspath(os.path.dirname(__file__))
     
-    # 从外部数据库配置文件获取连接信息
-    db_config = DatabaseConfig.load_config()
+    # 从外部数据库配置文件获取连接信息（使用共享配置，避免重复load_config调用）
+    db_config = _shared_db_config
     SQL_TYPE = db_config.get('SQL_TYPE', "SQLITE")
     # 服务器配置
     SERVER_HOST = '0.0.0.0'
@@ -76,7 +77,7 @@ class Config:
 
 #生产环境
 class ProductionConfig(Config):
-    db_config = DatabaseConfig.load_config()
+    db_config = _shared_db_config  # 使用共享配置，避免重复load_config调用
     SECRET_KEY = 'WUQIOkxuidS3zcadSwdsdSQzcsWa8dsa'
     DEBUG = True
     SYSTEM_TITLE = db_config.get('SERVER_PORT', "宿舍管理系统")
@@ -93,7 +94,7 @@ class ProductionConfig(Config):
 
 #开发环境
 class DevelopmentConfig(Config):
-    db_config = DatabaseConfig.load_config()
+    db_config = _shared_db_config  # 使用共享配置，避免重复load_config调用
     # 根据SERVER_MODE配置决定SERVER_HOST
     # 服务端模式：使用0.0.0.0
     # 客户端模式：使用127.0.0.1

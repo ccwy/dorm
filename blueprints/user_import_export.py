@@ -15,11 +15,11 @@ from utils.excel_date_utils import excel_date_utils
 import re  # 正则表达式模块，用于处理字符串
 import datetime
 import logging
-import pandas as pd
+from utils.lazy_imports import pd  # 延迟导入pandas，避免启动时加载重型库
 from io import BytesIO
 from models.system_config import SystemConfig  # 导入系统配置模型
 # 导入admin_required装饰器
-from blueprints.system_settings import admin_required
+from utils.auth import admin_required
 
 # 创建导入导出蓝图
 user_import_export_bp = Blueprint('user_import_export', __name__, url_prefix='/user/import-export')

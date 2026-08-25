@@ -14,7 +14,7 @@ from utils.room_meter_photo import room_meter_manager
 import traceback, calendar
 from datetime import datetime,timedelta
 # 导入admin_required装饰器
-from blueprints.system_settings import admin_required
+from utils.auth import admin_required
 
 utility_room_meter_bp = Blueprint('utility_room_meter', __name__, url_prefix='/utility-meter')
 
@@ -138,6 +138,15 @@ def utility_reading():
                                     water_meter_replaced=water_meter_replaced,
                                     electric_meter_replaced=electric_meter_replaced
                                 )
+                                
+                                # 保存成功后，将临时目录的照片移动到正式账期目录
+                                billing_period = reading_date.strftime('%Y-%m')
+                                try:
+                                    move_result = room_meter_manager.move_temp_to_billing_period(room_id, billing_period)
+                                    if move_result['moved'] > 0:
+                                        logging.info(f"批量保存：移动房间 {room_id} 的 {move_result['moved']} 个临时照片到账期 {billing_period}")
+                                except Exception as move_err:
+                                    logging.warning(f"批量保存：移动房间 {room_id} 的临时照片失败: {str(move_err)}")
                                 
                                 success_count += 1
                                 success_rooms.append(room.room_full_identifier)
@@ -329,6 +338,15 @@ def utility_reading():
                     
                     # 提交事务
                     db.session.commit()
+                    
+                    # 保存成功后，将临时目录的照片移动到正式账期目录
+                    billing_period = reading_date.strftime('%Y-%m')
+                    try:
+                        move_result = room_meter_manager.move_temp_to_billing_period(room_id, billing_period)
+                        if move_result['moved'] > 0:
+                            logging.info(f"单个保存：移动房间 {room_id} 的 {move_result['moved']} 个临时照片到账期 {billing_period}")
+                    except Exception as move_err:
+                        logging.warning(f"单个保存：移动房间 {room_id} 的临时照片失败: {str(move_err)}")
                     
                     # 记录操作日志
                     log_operation(
@@ -1394,3 +1412,257 @@ def get_meter_media_files():
         traceback.print_exc()
         
         return jsonify({'success': False, 'message': f'获取失败: {str(e)}'})
+
+
+# ========== 临时上传相关路由（抄表登记页面使用，账期尚未确定时） ==========
+
+@utility_room_meter_bp.route('/upload_temp_media', methods=['POST'])
+@login_required
+@admin_required
+def upload_temp_media():
+    """上传抄表照片到临时目录（抄表登记页面，账期尚未确定）"""
+    try:
+        room_id = request.form.get('room_id')
+        
+        if not room_id:
+            return jsonify({'success': False, 'message': '缺少房间ID参数'})
+        
+        if 'file' not in request.files:
+            return jsonify({'success': False, 'message': '没有文件被上传'})
+        
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({'success': False, 'message': '没有选择文件'})
+        
+        filename = room_meter_manager.upload_to_temp(file, room_id)
+        if not filename:
+            return jsonify({'success': False, 'message': '不支持的文件格式'})
+        
+        file_url = room_meter_manager.get_temp_media_url(filename, room_id)
+        
+        log_operation(
+            user_id=current_user.id,
+            module='utility',
+            operation_type='meter',
+            action=f"上传临时抄表媒体文件: {filename} 到 room_{room_id}",
+            result="成功"
+        )
+        
+        return jsonify({
+            'success': True,
+            'message': '上传成功',
+            'filename': filename,
+            'file_url': file_url
+        })
+        
+    except Exception as e:
+        logging.error(f"上传临时抄表媒体文件失败: {str(e)}")
+        traceback.print_exc()
+        return jsonify({'success': False, 'message': f'上传失败: {str(e)}'})
+
+
+@utility_room_meter_bp.route('/temp_media/<room_id>/<filename>')
+@login_required
+def serve_temp_media(room_id, filename):
+    """提供临时目录中媒体文件的访问"""
+    try:
+        file_path = room_meter_manager.get_temp_file_path(filename, room_id)
+        
+        if not os.path.exists(file_path):
+            return jsonify({'success': False, 'message': '文件不存在'}), 404
+        
+        mimetype = None
+        if filename.lower().endswith('.png'):
+            mimetype = 'image/png'
+        elif filename.lower().endswith(('.jpg', '.jpeg')):
+            mimetype = 'image/jpeg'
+        elif filename.lower().endswith('.gif'):
+            mimetype = 'image/gif'
+        elif filename.lower().endswith('.bmp'):
+            mimetype = 'image/bmp'
+        elif filename.lower().endswith('.mp4'):
+            mimetype = 'video/mp4'
+        elif filename.lower().endswith('.avi'):
+            mimetype = 'video/x-msvideo'
+        elif filename.lower().endswith('.mov'):
+            mimetype = 'video/quicktime'
+        
+        return send_file(file_path, mimetype=mimetype, conditional=True)
+        
+    except Exception as e:
+        logging.error(f"提供临时媒体文件访问失败: {str(e)}")
+        return jsonify({'success': False, 'message': f'访问失败: {str(e)}'}), 500
+
+
+@utility_room_meter_bp.route('/get_temp_media_files', methods=['GET'])
+@login_required
+def get_temp_media_files():
+    """获取指定房间临时目录中的所有媒体文件"""
+    try:
+        room_id = request.args.get('room_id')
+        
+        if not room_id:
+            return jsonify({'success': False, 'message': '缺少房间ID参数'})
+        
+        media_files = room_meter_manager.get_temp_files(room_id)
+        
+        result_files = []
+        for file in media_files:
+            file_url = room_meter_manager.get_temp_media_url(file['filename'], room_id)
+            result_files.append({
+                'filename': file['filename'],
+                'type': file['type'],
+                'url': file_url,
+                'upload_time': file.get('upload_time')
+            })
+        
+        for file in result_files:
+            if file['upload_time'] and isinstance(file['upload_time'], datetime):
+                file['upload_time'] = file['upload_time'].isoformat()
+        
+        return jsonify({
+            'success': True,
+            'files': result_files
+        })
+        
+    except Exception as e:
+        logging.error(f"获取临时媒体文件列表失败: {str(e)}")
+        traceback.print_exc()
+        return jsonify({'success': False, 'message': f'获取失败: {str(e)}'})
+
+
+@utility_room_meter_bp.route('/delete_temp_media', methods=['POST'])
+@login_required
+@admin_required
+def delete_temp_media():
+    """删除临时目录中的媒体文件"""
+    try:
+        data = request.json
+        room_id = data.get('room_id')
+        filename = data.get('filename')
+        
+        if not room_id or not filename:
+            return jsonify({'success': False, 'message': '缺少必要参数'})
+        
+        success = room_meter_manager.delete_temp_file(filename, room_id)
+        
+        if success:
+            log_operation(
+                user_id=current_user.id,
+                module='utility',
+                operation_type='delete',
+                action=f"删除临时抄表媒体文件: {filename} 从 room_{room_id}",
+                result="成功"
+            )
+            return jsonify({'success': True, 'message': '文件删除成功'})
+        else:
+            return jsonify({'success': False, 'message': '文件删除失败或文件不存在'})
+            
+    except Exception as e:
+        logging.error(f"删除临时媒体文件失败: {str(e)}")
+        traceback.print_exc()
+        return jsonify({'success': False, 'message': f'删除失败: {str(e)}'})
+
+
+@utility_room_meter_bp.route('/move_temp_to_billing', methods=['POST'])
+@login_required
+@admin_required
+def move_temp_to_billing():
+    """将临时目录中的文件移动到正式账期目录（保存抄表记录时调用）"""
+    try:
+        data = request.json
+        room_id = data.get('room_id')
+        billing_period = data.get('billing_period')
+        
+        if not room_id or not billing_period:
+            return jsonify({'success': False, 'message': '缺少必要参数'})
+        
+        result = room_meter_manager.move_temp_to_billing_period(room_id, billing_period)
+        
+        if result['errors']:
+            logging.warning(f"移动临时文件部分失败: {result['errors']}")
+        
+        log_operation(
+            user_id=current_user.id,
+            module='utility',
+            operation_type='meter',
+            action=f"移动临时抄表照片到账期 {billing_period}/room_{room_id} [成功: {result['moved']}, 失败: {len(result['errors'])}]",
+            result="成功" if not result['errors'] else "部分成功"
+        )
+        
+        return jsonify({
+            'success': True,
+            'moved': result['moved'],
+            'errors': result['errors'],
+            'message': f"成功移动 {result['moved']} 个文件" + (f"，{len(result['errors'])} 个失败" if result['errors'] else "")
+        })
+        
+    except Exception as e:
+        logging.error(f"移动临时文件到账期目录失败: {str(e)}")
+        traceback.print_exc()
+        return jsonify({'success': False, 'message': f'移动失败: {str(e)}'})
+
+
+@utility_room_meter_bp.route('/clear_room_temp_media', methods=['POST'])
+@login_required
+@admin_required
+def clear_room_temp_media():
+    """清理指定房间临时目录中的所有媒体文件"""
+    try:
+        data = request.json
+        room_id = data.get('room_id')
+
+        if not room_id:
+            return jsonify({'success': False, 'message': '缺少房间ID参数'})
+
+        result = room_meter_manager.clear_room_temp_files(room_id)
+
+        log_operation(
+            user_id=current_user.id,
+            module='utility',
+            operation_type='delete',
+            action=f"清理房间 {room_id} 所有临时抄表照片 [删除: {result['deleted']}, 失败: {len(result['errors'])}]",
+            result="成功" if not result['errors'] else "部分成功"
+        )
+
+        return jsonify({
+            'success': True,
+            'deleted': result['deleted'],
+            'errors': result['errors'],
+            'message': f"成功清理 {result['deleted']} 个文件" + (f"，{len(result['errors'])} 个失败" if result['errors'] else "")
+        })
+
+    except Exception as e:
+        logging.error(f"清理房间临时媒体文件失败: {str(e)}")
+        traceback.print_exc()
+        return jsonify({'success': False, 'message': f'清理失败: {str(e)}'})
+
+
+@utility_room_meter_bp.route('/clear_all_temp_media', methods=['POST'])
+@login_required
+@admin_required
+def clear_all_temp_media():
+    """清理所有房间临时目录中的媒体文件"""
+    try:
+        result = room_meter_manager.clear_all_temp_files()
+
+        log_operation(
+            user_id=current_user.id,
+            module='utility',
+            operation_type='delete',
+            action=f"清理所有临时抄表照片 [删除: {result['deleted']}, 房间: {result['rooms_cleared']}, 失败: {len(result['errors'])}]",
+            result="成功" if not result['errors'] else "部分成功"
+        )
+
+        return jsonify({
+            'success': True,
+            'deleted': result['deleted'],
+            'rooms_cleared': result['rooms_cleared'],
+            'errors': result['errors'],
+            'message': f"成功清理 {result['rooms_cleared']} 个房间共 {result['deleted']} 个文件" + (f"，{len(result['errors'])} 个失败" if result['errors'] else "")
+        })
+
+    except Exception as e:
+        logging.error(f"清理所有临时媒体文件失败: {str(e)}")
+        traceback.print_exc()
+        return jsonify({'success': False, 'message': f'清理失败: {str(e)}'})

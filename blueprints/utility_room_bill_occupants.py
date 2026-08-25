@@ -8,14 +8,13 @@ from sqlalchemy.exc import SQLAlchemyError
 from utils.log import log_operation
 from models.room import Room
 from datetime import datetime, timedelta  # 修正：移除date，保留datetime和timedelta
-import pandas as pd
 import io
 import logging  # 确保导入logging模块
 from sqlalchemy.exc import SQLAlchemyError
 from flask_login import login_required, current_user
 from models.fee_subsidy_usage import FeeSubsidyUsage  # 导入费用补贴子表
 # 导入admin_required装饰器
-from blueprints.system_settings import admin_required
+from utils.auth import admin_required
 # 创建蓝图
 utility_room_bill_occupants_bp = Blueprint('utility_room_bill_occupants', __name__, url_prefix='/utility_room_bill_occupants')
 
@@ -667,6 +666,7 @@ def create_fee_export_data(billing_period):
 @admin_required  # 添加登录验证，与日志蓝图保持一致
 def export_fee_data():
     """导出人员费用数据为Excel，支持按房间号合并所有相同内容字段并添加完整边框"""
+    import pandas as pd  # 延迟导入，避免启动时加载重型库
     try:
         # 获取筛选参数
         billing_period = request.args.get('billing_period') or request.args.get('billingPeriod')

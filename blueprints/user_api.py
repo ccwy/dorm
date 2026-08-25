@@ -8,7 +8,7 @@ from utils.log import log_operation
 import datetime
 from sqlalchemy import or_
 # 导入admin_required装饰器
-from blueprints.system_settings import admin_required
+from utils.auth import admin_required
 # 移除从蓝图导入的函数（已迁移到g工具）
 from utils.user_utils import process_field_value
 import logging

@@ -6,13 +6,13 @@ from flask_login import login_required, current_user
 import logging
 from datetime import datetime
 import io
-import pandas as pd
 from .todo import todo_bp  # 导入todo蓝图
 
 @todo_bp.route('/excel', methods=['GET'])
 @login_required
 def export_excel():
     """导出待办事项为Excel文件"""
+    import pandas as pd  # 延迟导入，避免启动时加载重型库
     try:
         # 获取时间范围参数
         start_date_str = request.args.get('start_date')

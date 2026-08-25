@@ -31,6 +31,8 @@ db_config_path = os.path.join(data_dir, 'db_config.json')
 data_db_path = os.path.join(data_dir, 'data.db')
 
 # 添加更多的隐藏导入
+# 注意：pandas/openpyxl/pymysql 使用延迟导入（lazy_imports.py），
+# PyInstaller静态分析无法检测到这些依赖，必须显式收集所有子模块
 additional_hidden_imports = [
     'pymysql',
     'cryptography',
@@ -48,8 +50,21 @@ additional_hidden_imports = [
     'schedule',
     'xlsxwriter',
     'requests',
+    'tkinter',
+    'tkinter.ttk',
+    'tkinter.messagebox',
+    'pystray',
+    'PIL',
     'psutil'
 ]
+
+# 收集延迟导入库的所有子模块，确保打包完整
+lazy_import_submodules = (
+    collect_submodules('pymysql') +
+    collect_submodules('pandas') +
+    collect_submodules('openpyxl') +
+    collect_submodules('numpy')
+)
 
 a = Analysis(
     [os.path.join(project_root, 'main.py')],  # 主入口文件
@@ -67,10 +82,21 @@ a = Analysis(
         collect_submodules('blueprints') +  # 收集所有blueprints模块
         collect_submodules('models') +  # 收集所有models模块
         collect_submodules('utils') +  # 收集所有utils模块
-        additional_hidden_imports  # 额外的隐藏导入
+        additional_hidden_imports +  # 额外的隐藏导入
+        lazy_import_submodules  # 延迟导入库的子模块
     ),
-    # 排除不需要的数据库驱动模块以消除警告
-    excludes=['pysqlite2', 'MySQLdb', 'psycopg2'],
+    # 排除不需要的模块以减小包体积和加速启动
+    # 注意：仅排除确定不被任何依赖项使用的模块，避免运行时 ImportError
+    excludes=[
+        'pysqlite2', 'MySQLdb', 'psycopg2',  # 不需要的数据库驱动
+        'unittest', 'test', 'tests',  # 测试框架
+        'setuptools', 'pip', 'wheel',  # 包管理工具
+        'pydoc', 'doctest',  # 文档工具
+        'xmlrpc',  # XML-RPC（不需要）
+        'py_compile', 'compileall',  # 编译工具
+        'cProfile', 'profile', 'pstats',  # 性能分析工具
+        'zipimport',  # ZIP导入
+    ],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
@@ -91,7 +117,7 @@ exe = EXE(
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=True,
+    upx=False,  # 禁用UPX压缩——UPX解压开销会拖慢启动速度
     upx_exclude=[],
     runtime_tmpdir=None,
     console=False,  # 无控制台窗口
@@ -111,7 +137,7 @@ coll = COLLECT(
     a.zipfiles,  # 压缩文件
     a.datas,  # 数据文件
     strip=False,
-    upx=True,
+    upx=False,  # 禁用UPX压缩——UPX解压开销会拖慢启动速度
     upx_exclude=[],
     name='宿舍管理系统',  # 输出文件夹名称
 )

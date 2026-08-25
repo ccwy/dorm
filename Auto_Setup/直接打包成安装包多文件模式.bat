@@ -41,7 +41,7 @@ if %errorlevel% equ 0 (
     echo [%date% %time:~0,8%] pyinstaller 已安装，自动执行下一步...
 ) else (
 	echo [%date% %time:~0,8%] pyinstaller 未安装，开始安装...
-	pip install pyinstaller
+	pip install pyinstaller==6.16
 	if %errorlevel% equ 0 (
 		echo [%date% %time:~0,8%] pyinstaller 安装成功！自动执行下一步...
 	) else (
@@ -62,7 +62,7 @@ set "dep3=Flask-WTF>=1.2.1"
 set "dep4=Flask-Login>=0.6.3"
 set "dep5=Flask-Migrate>=4.0.5"
 set "dep6=openpyxl>=3.1.2"
-set "dep7=pandas>=2.1.4"
+set "dep7=pandas>=2.3"
 set "dep8=numpy>=1.26.3"
 set "dep9=python-dotenv>=1.0.0"
 set "dep10=PyMySQL>=1.1.0"
@@ -76,10 +76,10 @@ set "dep17=pywebview==3.7"
 set "dep18=requests>=2.31.0"
 set "dep19=psutil>=7.0.0"
 set "dep20=Pillow>=9.5.0"
-set "dep21=pystray>=0.19"
+set "dep21=pystray>=0.19.5"
 
 :: 循环检测并安装依赖（使用编号循环避免特殊字符问题）
-for /l %%i in (1,1,19) do (
+for /l %%i in (1,1,21) do (
     :: 获取当前依赖项
     set "current_dep=!dep%%i!"
     

@@ -12,7 +12,7 @@ from datetime import datetime  # 只保留datetime导入
 from werkzeug.utils import secure_filename
 import os
 # 导入admin_required装饰器
-from blueprints.system_settings import admin_required
+from utils.auth import admin_required
 from models.system_config import SystemConfig  # 新增：导入系统配置模型
 from utils.room_photo import RoomPhotoManager
 

@@ -5,20 +5,20 @@ import logging
 import io
 import email.utils
 import calendar
-from openpyxl import Workbook, load_workbook
-from openpyxl.styles import Font, Alignment
-from openpyxl.utils import get_column_letter
+from utils.lazy_imports import Workbook, load_workbook  # 延迟导入openpyxl
+from utils.lazy_imports import Font, Alignment  # 延迟导入openpyxl样式
+from utils.lazy_imports import get_column_letter  # 延迟导入openpyxl工具
 from models.utility_room_meter import UtilityMeterReading
 from models.room import Room
 from utils.log import log_operation
 from sqlalchemy.exc import SQLAlchemyError
 from flask_login import current_user, login_required
 from urllib.parse import quote
-import pandas as pd
+from utils.lazy_imports import pd  # 延迟导入pandas
 from decimal import Decimal  # 确保导入Decimal
 from io import BytesIO
 # 导入admin_required装饰器
-from blueprints.system_settings import admin_required
+from utils.auth import admin_required
 from utils.excel_date_utils import excel_date_utils
 
 

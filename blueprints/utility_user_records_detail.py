@@ -8,13 +8,12 @@ from models.utility_room_bill_record import RoomUtilityRecord
 from models.utility_room_bill_checkout import CheckoutUtilityRecord
 from models.utility_room_bill_occupant import RoomUtilityOccupant
 import logging
-import pandas as pd
 from io import BytesIO
 from datetime import datetime
 from urllib.parse import quote
 from utils.log import log_operation
 # 导入admin_required装饰器
-from blueprints.system_settings import admin_required
+from utils.auth import admin_required
 
 # 创建蓝图
 utility_user_records_detail_bp = Blueprint('utility_user_records_detail', __name__, url_prefix='/utility')
@@ -329,6 +328,7 @@ def export_user_records_excel():
     导出用户水电费详情为Excel文件
     包含用户id、工号、用户姓名、用户性别、部门、职位、房间号、类型、应付金额（多房间时汇总）和备注（每个房间金额）
     """
+    import pandas as pd  # 延迟导入，避免启动时加载重型库
     try:
         # 获取筛选参数
         billing_period = request.args.get('billing_period', '')
