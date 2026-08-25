@@ -5,7 +5,7 @@ import logging
 from utils.todo_photo import TodoMediaManager
 import os
 from models.todo import Todo
-from utils.auth import admin_required
+from .system_settings import admin_required
 from .todo import todo_bp  # 导入todo蓝图
 
 @todo_bp.route('/upload', methods=['POST'])

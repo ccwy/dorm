@@ -18,7 +18,7 @@ from models.utility_room_bill_occupant import RoomUtilityOccupant # 住户费用
 from models.fee_subsidy import FeeSubsidy #费用补贴主表
 from models.fee_subsidy_usage import FeeSubsidyUsage
 # 导入admin_required装饰器
-from utils.auth import admin_required
+from blueprints.system_settings import admin_required
 
 
 # --------------------------

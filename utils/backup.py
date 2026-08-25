@@ -6,6 +6,7 @@ import threading  # 新增：导入线程模块用于锁机制
 from datetime import datetime, date
 import re
 import traceback
+import pymysql
 from utils.db import db
 from utils.db_config import DatabaseConfig  # 新增：导入DatabaseConfig类
 
@@ -128,7 +129,6 @@ class DatabaseBackupManager:
                     
             elif db_type == 'MYSQL':
                 # MySQL备份逻辑
-                import pymysql  # 延迟导入，SQLite模式下不需要加载pymysql
                 mysql_config = cls._get_mysql_config()
                 
                 try:
@@ -291,7 +291,6 @@ class DatabaseBackupManager:
                     
             elif db_type == 'MYSQL':
                 # MySQL恢复逻辑（增加外键约束处理）
-                import pymysql  # 延迟导入，SQLite模式下不需要加载pymysql
                 mysql_config = cls._get_mysql_config()
                 if not mysql_config:
                     logging.error("无法解析MySQL配置参数")

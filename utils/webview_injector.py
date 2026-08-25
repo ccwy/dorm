@@ -1,4 +1,5 @@
 
+import webview
 import threading
 import time
 
@@ -6,8 +7,6 @@ import time
 def inject_login_check():
     """在WebView加载页面时注入登录状态检查的JavaScript"""
     try:
-        import webview  # 延迟导入，避免模块顶层加载时触发 WebView2 安全验证
-        
         # 获取当前窗口引用
         window = webview.windows[0]
         

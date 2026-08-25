@@ -14,7 +14,7 @@ import logging
 from .utility_room_bill_checkout import utility_room_bill_checkout_bp  # 导入退宿费用子表主蓝图
 from models.fee_subsidy_usage import FeeSubsidyUsage  # 导入费用补贴使用记录模型
 # 导入admin_required装饰器
-from utils.auth import admin_required
+from blueprints.system_settings import admin_required
 
 @utility_room_bill_checkout_bp.route('/create', methods=['POST'])
 @login_required

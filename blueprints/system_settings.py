@@ -8,13 +8,11 @@ import json
 import time
 import shutil
 import datetime
+from functools import wraps
 from datetime import timedelta
-from models.user import User
-from models.room import Room
-from models.utility_room_meter import UtilityMeterReading
+from models import User, Room, UtilityMeterReading
 from models.system_config import SystemConfig  # 系统配置模型
 from utils.log import log_operation
-from utils.auth import admin_required  # 从独立模块导入权限装饰器
 from config import Config
 from utils.db_config import DatabaseConfig  # 导入DatabaseConfig类用于读取本地JSON配置
 
@@ -35,6 +33,17 @@ MODULES = [
     #{"name": "日志管理配置", "category": "log", "icon": "history"},
     {"name": "备份配置", "category": "system.backup", "icon": "history"}
 ]
+
+def admin_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not current_user.is_authenticated or not current_user.is_admin():
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return jsonify({"success": False, "message": "无权限访问，需要管理员权限"}), 403
+            flash('无权限访问，需要管理员权限', 'danger')
+            return redirect(url_for('login.login'))
+        return f(*args, **kwargs)
+    return decorated_function
 
 from . import system_settings_backup  # 数据备份模块
 from . import system_settings_initialize  # 数据初始化模块

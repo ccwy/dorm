@@ -10,7 +10,7 @@ from utils.log import log_operation
 from sqlalchemy import or_
 from datetime import datetime, date
 # 导入admin_required装饰器
-from utils.auth import admin_required
+from blueprints.system_settings import admin_required
 import logging
 
 # 创建蓝图

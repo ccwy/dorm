@@ -1,7 +1,7 @@
 from flask import Blueprint, request, make_response, abort, redirect, url_for, flash, jsonify
 from flask_login import login_required, current_user
 from utils.log import log_operation
-from utils.lazy_imports import pd, Font, Alignment  # 延迟导入重型库
+import pandas as pd
 from io import BytesIO
 import requests
 from urllib.parse import quote
@@ -10,9 +10,9 @@ import traceback
 import re
 import logging
 from dateutil import parser
-
+from openpyxl.styles import Font, Alignment
 # 导入admin_required装饰器
-from utils.auth import admin_required
+from blueprints.system_settings import admin_required
 # 导入数据模型
 from models.dorm import Dorm
 from models.user import User

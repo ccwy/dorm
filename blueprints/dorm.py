@@ -9,7 +9,7 @@ from utils.log import log_operation
 import logging
 from sqlalchemy import func  # 新增：导入聚合函数
 # 导入admin_required装饰器
-from utils.auth import admin_required
+from blueprints.system_settings import admin_required
 
 # 定义dorm蓝图
 dorm_bp = Blueprint(

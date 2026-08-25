@@ -7,7 +7,7 @@ from flask_login import login_required, current_user
 from utils.log import log_operation
 import logging
 # 导入admin_required装饰器
-from utils.auth import admin_required
+from blueprints.system_settings import admin_required
 from models.utility_room_bill_record import RoomUtilityRecord
 from models.room_facility import RoomFacility  # 新增：导入房间设施模型
 from utils.room_photo import RoomPhotoManager
@@ -67,6 +67,7 @@ def generate_page_range(current_page, total_pages, show_pages=5):
     
 # 导入其他操作模块
 from . import room_operations
+from . import room_import_export
 
 # 房间管理页面
 @room_bp.route('/manage', methods=['GET'])

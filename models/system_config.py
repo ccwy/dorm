@@ -4,6 +4,7 @@ from datetime import timedelta
 import os, shutil
 import logging
 import json
+import pymysql
 from datetime import datetime, date  # 修正导入方式
 import re
 import traceback

@@ -6,14 +6,15 @@ from .login import login_bp
 from .user import user_bp
 from .user_api import user_api_bp
 from .user_operations import user_operations_bp  # 人员操作蓝图
-from .user_import_export import user_import_export_bp  # 导入导出蓝图（pandas已延迟导入）
+from .user_import_export import user_import_export_bp  # 人员导入导出蓝图
 
 # 宿舍与房间管理相关
 from .room import room_bp
 from .room_api import room_api_bp
-from .room_import_export import room_import_export_bp  # 导入导出蓝图（pandas已延迟导入）
+from .room_import_export import room_import_export_bp
 from .dorm import dorm_bp
-from .dorm_import_export import dorm_import_export_bp  # 导入导出蓝图（pandas/openpyxl已延迟导入）
+
+from .dorm_import_export import dorm_import_export_bp
 
 # 系统配置与日志相关
 from .system_settings import system_config_bp  # 系统配置蓝图
@@ -21,7 +22,7 @@ from .log import log_bp    # 操作日志蓝图
 
 # 水电费相关
 from .utility_room_meter import utility_room_meter_bp    # 抄表记录蓝图
-from .utility_room_meter_import_export import utility_room_meter_import_export_bp  # 导入导出蓝图（openpyxl/pandas已延迟导入）
+from .utility_room_meter_import_export import utility_room_meter_import_export_bp    # 抄表记录蓝图
 
 from .utility_index import utility_index_bp    # 水电费首页蓝图
 
@@ -31,7 +32,7 @@ from .utility_room_bill_checkout import utility_room_bill_checkout_bp #退宿人
 from .utility_user_records_detail import utility_user_records_detail_bp #用户水电费详情蓝图
 
 from .fee_subsidy import fee_subsidy_bp #补贴蓝图
-from .fee_subsidy_import_export import fee_subsidy_import_export_bp  # 导入导出蓝图（openpyxl/pandas已延迟导入）
+from .fee_subsidy_import_export import fee_subsidy_import_export_bp #补贴导入导出蓝图
 
 
 # 文件共享相关

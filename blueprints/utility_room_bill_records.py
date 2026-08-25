@@ -15,7 +15,7 @@ from models.utility_room_bill_checkout import CheckoutUtilityRecord
 from decimal import Decimal  # 使用Decimal处理财务数据
 from models.fee_subsidy_usage import FeeSubsidyUsage  # 导入费用补贴子表
 # 导入admin_required装饰器
-from utils.auth import admin_required
+from blueprints.system_settings import admin_required
 
 # 主表蓝图
 utility_room_bill_records_bp = Blueprint('utility_room_bill_records_bp', __name__, url_prefix='/utility_room_bill_records_bp')

@@ -10,7 +10,7 @@ from .dorm import dorm_bp  # 导入主蓝图
 import logging
 from flask_login import current_user, login_required
 # 导入admin_required装饰器
-from utils.auth import admin_required
+from blueprints.system_settings import admin_required
 
 # 端点注册路径是/dorm ，没有/api这个端点
 # 直接使用主蓝图注册路由，无需创建新蓝图
