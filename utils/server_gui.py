@@ -9,6 +9,7 @@ import socket
 from pystray import Icon, Menu, MenuItem
 from PIL import Image
 import os
+import sys
 
 # 设置PIL的日志级别为WARNING或更高级别，减少日志输出
 import logging as pil_logging
@@ -53,6 +54,7 @@ class ServerGUI:
         # 配置变量
         self.config_data = {}
         self.is_server_mode = tk.StringVar(value="CLIENT")
+        self.auto_start_var = tk.BooleanVar(value=False)
         
         # 初始化UI
         self._init_ui()
@@ -154,16 +156,25 @@ class ServerGUI:
             command=self._on_mode_change
         ).pack(side=tk.LEFT, padx=10)
         
-        # 右侧放置服务器端口设置
-        port_frame = ttk.Frame(mode_and_port_frame)
-        port_frame.pack(side=tk.RIGHT)
+        # 右侧放置开机自启和端口设置
+        right_frame = ttk.Frame(mode_and_port_frame)
+        right_frame.pack(side=tk.RIGHT)
         
-        # 右侧放置服务器端口设置（注意顺序：先输入框后标签，因为是右对齐）
+        # 开机自启复选框
+        auto_start_check = ttk.Checkbutton(
+            right_frame,
+            text="开机自启",
+            variable=self.auto_start_var,
+            command=self._on_auto_start_toggle
+        )
+        auto_start_check.pack(side=tk.LEFT, padx=10)
+        
+        # 服务器端口设置
         port_var = tk.StringVar()
-        port_entry = ttk.Entry(port_frame, textvariable=port_var, width=10)
+        port_entry = ttk.Entry(right_frame, textvariable=port_var, width=10)
         port_entry.pack(side=tk.RIGHT, padx=5)
         
-        port_label = ttk.Label(port_frame, text="服务器端口：", **self.font_config)
+        port_label = ttk.Label(right_frame, text="服务器端口：", **self.font_config)
         port_label.pack(side=tk.RIGHT, padx=(5, 0))
         self.config_entries["SERVER_PORT"] = (port_var, port_entry)
         
@@ -336,8 +347,6 @@ class ServerGUI:
             
     def _get_icon_path(self):
         """获取图标文件路径，支持打包环境"""
-        import sys
-        
         # 检查是否是打包后的环境
         if getattr(sys, 'frozen', False):
             # 打包环境：使用sys._MEIPASS路径
@@ -400,6 +409,13 @@ class ServerGUI:
             
             # 更新服务器卡片显示
             self._update_server_card()
+            
+            # 同步开机自启复选框状态
+            try:
+                self.auto_start_var.set(self._is_auto_start_enabled())
+            except Exception as e:
+                logging.warning(f"检测开机自启状态失败: {str(e)}")
+                self.auto_start_var.set(False)
             
             self.status_var.set("配置已加载")
         except Exception as e:
@@ -506,6 +522,132 @@ class ServerGUI:
             self.sqlite_frame.pack(fill=tk.X, pady=5)
             self.mysql_frame.pack_forget()
             
+    def _on_auto_start_toggle(self):
+        """开机自启复选框切换事件，实时生效"""
+        try:
+            if self.auto_start_var.get():
+                # 勾选：创建快捷方式
+                success = self._create_startup_shortcut()
+                if success:
+                    self.status_var.set("已开启开机自启")
+                    logging.info("开机自启已开启")
+                else:
+                    # 创建失败，恢复复选框状态
+                    self.auto_start_var.set(False)
+                    self.status_var.set("开启开机自启失败")
+                    messagebox.showerror("错误", "无法创建开机自启快捷方式，请检查权限")
+            else:
+                # 取消勾选：删除快捷方式
+                success = self._remove_startup_shortcut()
+                if success:
+                    self.status_var.set("已关闭开机自启")
+                    logging.info("开机自启已关闭")
+                else:
+                    # 删除失败，恢复复选框状态
+                    self.auto_start_var.set(True)
+                    self.status_var.set("关闭开机自启失败")
+                    messagebox.showerror("错误", "无法移除开机自启快捷方式")
+        except Exception as e:
+            logging.error(f"切换开机自启失败: {str(e)}")
+            messagebox.showerror("错误", f"切换开机自启失败: {str(e)}")
+            # 恢复之前的复选框状态
+            self.auto_start_var.set(not self.auto_start_var.get())
+    
+    def _get_startup_folder(self):
+        """获取Windows开机自启文件夹路径"""
+        import ctypes.wintypes
+        # 使用CSIDL_STARTUP获取启动文件夹路径
+        CSIDL_STARTUP = 7
+        buf = ctypes.create_unicode_buffer(ctypes.wintypes.MAX_PATH)
+        ctypes.windll.shell32.SHGetFolderPathW(None, CSIDL_STARTUP, None, 0, buf)
+        return buf.value
+    
+    def _get_startup_shortcut_path(self):
+        """获取开机自启快捷方式的完整路径"""
+        startup_folder = self._get_startup_folder()
+        # 快捷方式名称与当前可执行文件名一致
+        if getattr(sys, 'frozen', False):
+            app_name = os.path.splitext(os.path.basename(sys.executable))[0]
+        else:
+            app_name = "宿舍管理系统"
+        return os.path.join(startup_folder, f"{app_name}.lnk")
+    
+    def _is_auto_start_enabled(self):
+        """检查开机自启是否已开启（快捷方式是否存在）"""
+        shortcut_path = self._get_startup_shortcut_path()
+        return os.path.exists(shortcut_path)
+    
+    def _create_startup_shortcut(self):
+        """在Windows开机自启文件夹创建快捷方式"""
+        try:
+            shortcut_path = self._get_startup_shortcut_path()
+            
+            # 获取目标路径和工作目录
+            if getattr(sys, 'frozen', False):
+                # 打包环境：指向exe文件
+                target_path = sys.executable
+                work_dir = os.path.dirname(sys.executable)
+                arguments = ""
+            else:
+                # 开发环境：指向python解释器，参数为main.py
+                target_path = sys.executable
+                work_dir = os.getcwd()
+                main_py = os.path.join(work_dir, 'main.py')
+                if not os.path.exists(main_py):
+                    logging.error(f"开发环境下未找到main.py: {main_py}")
+                    return False
+                arguments = f'"{main_py}"'
+            
+            return self._create_shortcut_via_powershell(shortcut_path, target_path, work_dir, arguments)
+        except Exception as e:
+            logging.error(f"创建开机自启快捷方式失败: {str(e)}")
+            return False
+    
+    def _create_shortcut_via_powershell(self, lnk_path, target_path, work_dir, arguments=""):
+        """通过PowerShell创建快捷方式"""
+        try:
+            import subprocess
+            
+            # 构建PowerShell命令，使用单引号避免路径中的特殊字符问题
+            ps_command = (
+                f"$ws = New-Object -ComObject WScript.Shell; "
+                f"$sc = $ws.CreateShortcut('{lnk_path}'); "
+                f"$sc.TargetPath = '{target_path}'; "
+                f"$sc.WorkingDirectory = '{work_dir}'; "
+                f"$sc.Description = '宿舍管理系统开机自启'; "
+            )
+            if arguments:
+                ps_command += f"$sc.Arguments = '{arguments}'; "
+            ps_command += "$sc.Save()"
+            
+            # 执行PowerShell命令
+            result = subprocess.run(
+                ['powershell', '-NoProfile', '-NonInteractive', '-Command', ps_command],
+                capture_output=True, text=True, timeout=10
+            )
+            
+            if result.returncode == 0:
+                logging.info(f"已创建开机自启快捷方式: {lnk_path}")
+                return True
+            else:
+                logging.error(f"PowerShell创建快捷方式失败: {result.stderr}")
+                return False
+        except Exception as e:
+            logging.error(f"PowerShell方式创建快捷方式失败: {str(e)}")
+            return False
+    
+    def _remove_startup_shortcut(self):
+        """移除Windows开机自启文件夹中的快捷方式"""
+        try:
+            shortcut_path = self._get_startup_shortcut_path()
+            if os.path.exists(shortcut_path):
+                os.remove(shortcut_path)
+                logging.info(f"已移除开机自启快捷方式: {shortcut_path}")
+            return True
+        except Exception as e:
+            logging.error(f"移除开机自启快捷方式失败: {str(e)}")
+            return False
+
     def _on_mode_change(self):
         # 当启动模式改变时的处理
         self._update_server_card()
