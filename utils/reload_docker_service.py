@@ -226,13 +226,7 @@ exit 0
 restarter = DockerRestarter()
 
 # 蓝图层调用入口（与原始接口完全一致）
-def reload_service(delay=0):
-    """蓝图层调用入口，触发Docker环境下的服务重启
-    
-    Args:
-        delay: 重启前的延迟秒数（Docker环境下忽略此参数，因为需要手动重启）
-    """
-    if delay > 0:
-        logging.info(f"Docker环境下忽略重启延迟参数(delay={delay})，需要手动重启")
+def reload_service():
+    """蓝图层调用入口，触发Docker环境下的服务重启"""
     threading.Thread(target=restarter._restart_logic, daemon=True).start()
     logging.info("Docker服务重启流程已触发")

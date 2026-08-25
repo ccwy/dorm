@@ -14,29 +14,19 @@ if not hasattr(webview, 'windows'):
 batch_script_template = '''@echo off
 setlocal enabledelayedexpansion
 
-:: 动态获取exe文件名（避免硬编码，适应打包后文件名变化）
-set "APP_DIR=%~dp0.."
-cd /d "%APP_DIR%"
-for %%I in (*.exe) do (
-    set "APP_NAME=%%~nxI"
-    goto :found_exe
-)
-echo [ERROR] 未找到exe文件
-exit /b 1
-
-:found_exe
+:: 配置程序名称
+set "APP_NAME=宿舍管理系统.exe"
 
 :: 强制关闭所有现有的程序实例
 taskkill /F /IM %APP_NAME% >nul 2>&1
+taskkill /F /IM python.exe /FI "WINDOWTITLE eq *宿舍管理系统*" >nul 2>&1
+taskkill /F /IM pythonw.exe /FI "WINDOWTITLE eq *宿舍管理系统*" >nul 2>&1
 
 :: 检查是否还有残留进程
 tasklist | findstr /i "%APP_NAME% python.exe pythonw.exe" >nul
 if %errorlevel% equ 0 (
     taskkill /F /IM %APP_NAME% /T >nul 2>&1
 )
-
-:: 等待端口释放
-timeout /t 3 /nobreak >nul 2>&1
 
 :: 切换到data目录的上一层目录
 cd /d "%~dp0.."
@@ -102,16 +92,8 @@ def _ensure_batch_script_exists():
         logging.error(f"确保脚本存在失败: {str(e)}")
         return None
 
-def reload_service(delay=0):
-    """后端服务重载函数，自动判断环境并执行相应的重启逻辑
-    
-    Args:
-        delay: 重启前的延迟秒数，用于让Flask响应先发送到客户端
-    """
-    if delay > 0:
-        import time as _time
-        logging.info(f"等待{delay}秒后执行重载，让Flask响应先发送到客户端")
-        _time.sleep(delay)
+def reload_service():
+    """后端服务重载函数，自动判断环境并执行相应的重启逻辑"""
     def _reload_development():
         """开发环境重启逻辑"""
         try:
