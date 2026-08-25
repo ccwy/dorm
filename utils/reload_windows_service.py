@@ -11,50 +11,49 @@ if not hasattr(webview, 'windows'):
     webview.windows = []
 
 # 批处理脚本内容模板 - 打包环境使用，包含自动删除功能
-# 使用 {{APP_NAME}} 占位符，在写入时替换为实际可执行文件名
 batch_script_template = '''@echo off
-chcp 936 >nul
 setlocal enabledelayedexpansion
 
-:: 配置程序名称（由Python动态写入实际exe名称）
-set "APP_NAME={{APP_NAME}}"
+:: 动态获取exe文件名（避免硬编码，适应打包后文件名变化）
+set "APP_DIR=%~dp0.."
+cd /d "%APP_DIR%"
+for %%I in (*.exe) do (
+    set "APP_NAME=%%~nxI"
+    goto :found_exe
+)
+echo [ERROR] 未找到exe文件
+exit /b 1
+
+:found_exe
 
 :: 强制关闭所有现有的程序实例
 taskkill /F /IM %APP_NAME% >nul 2>&1
-taskkill /F /IM python.exe /FI "WINDOWTITLE eq *{{APP_NAME}}*" >nul 2>&1
-taskkill /F /IM pythonw.exe /FI "WINDOWTITLE eq *{{APP_NAME}}*" >nul 2>&1
-
-:: 等待旧进程完全退出并释放资源
-timeout /t 2 /nobreak >nul
 
 :: 检查是否还有残留进程
 tasklist | findstr /i "%APP_NAME% python.exe pythonw.exe" >nul
 if %errorlevel% equ 0 (
     taskkill /F /IM %APP_NAME% /T >nul 2>&1
-    timeout /t 1 /nobreak >nul
 )
 
-:: 使用for命令可靠解析上级目录路径（比cd /d更稳定，避免中文路径问题）
-for %%I in ("%~dp0..") do set "APP_DIR=%%~fI"
+:: 等待端口释放
+timeout /t 3 /nobreak >nul 2>&1
 
-:: 启动新的程序实例（仅打包环境，不使用/b避免新进程随控制台退出而终止）
-if exist "%APP_DIR%\\%APP_NAME%" (
-    start "" "%APP_DIR%\\%APP_NAME%"
+:: 切换到data目录的上一层目录
+cd /d "%~dp0.."
+
+:: 启动新的程序实例（仅打包环境）
+if exist "%CD%\%APP_NAME%" (
+    start "" /b "%CD%\%APP_NAME%"
 )
-
-:: 等待新进程启动
-timeout /t 2 /nobreak >nul
 
 :: 执行完毕后自动删除当前批处理脚本
 start /b cmd /c "del "%0" >nul 2>&1"
 
 exit /b 0'''
 
-
 def get_environment():
     """获取当前运行环境"""
     return "windows"
-
 
 def _close_all_webview_windows():
     """专门关闭所有WebView窗口的函数"""
@@ -74,7 +73,6 @@ def _close_all_webview_windows():
     except Exception as e:
         logging.error(f"关闭WebView窗口过程出错: {str(e)}")
 
-
 def _ensure_batch_script_exists():
     """确保批处理脚本存在于data目录（仅处理打包环境）"""
     try:
@@ -92,30 +90,20 @@ def _ensure_batch_script_exists():
         # 批处理脚本路径
         batch_script_path = os.path.join(data_dir, 'auto_restart_app.bat')
         
-        # 动态获取实际的可执行文件名，替换模板中的占位符
-        actual_app_name = os.path.basename(sys.executable)
-        script_content = batch_script_template.replace('{{APP_NAME}}', actual_app_name)
-        logging.info(f"批处理脚本使用实际exe名称: {actual_app_name}")
-        
-        # 每次都重写批处理脚本，确保使用最新模板
-        # （批处理脚本执行后会自删除，但也可能因异常残留旧版本）
-        with open(batch_script_path, 'w', encoding='mbcs') as f:
-            f.write(script_content)
-        logging.info(f"已更新批处理脚本: {batch_script_path}")
+        # 检查批处理脚本是否存在，如果不存在则创建
+        if not os.path.exists(batch_script_path):
+            # 使用ANSI编码保存批处理文件
+            with open(batch_script_path, 'w', encoding='mbcs') as f:
+                f.write(batch_script_template)
+            logging.info(f"已创建批处理脚本: {batch_script_path}")
         
         return batch_script_path
     except Exception as e:
         logging.error(f"确保脚本存在失败: {str(e)}")
         return None
 
-
-def reload_service(delay=0):
-    """后端服务重载函数，自动判断环境并执行相应的重启逻辑
-    
-    Args:
-        delay: 重启前的延迟秒数，用于让调用方（如Flask）完成响应发送。
-               在客户端模式(WebView)下建议设为3秒，确保用户能看到重启提示。
-    """
+def reload_service():
+    """后端服务重载函数，自动判断环境并执行相应的重启逻辑"""
     def _reload_development():
         """开发环境重启逻辑"""
         try:
@@ -263,11 +251,6 @@ def reload_service(delay=0):
     
     def _trigger_restart():
         """根据环境类型触发相应的重启逻辑"""
-        # 延迟等待，让调用方（如Flask请求处理）完成响应发送
-        if delay > 0:
-            logging.info(f"重启延迟 {delay} 秒，等待响应发送完成")
-            time.sleep(delay)
-        
         # 判断是否为打包环境
         is_frozen = getattr(sys, 'frozen', False)
         
