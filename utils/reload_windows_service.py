@@ -19,13 +19,13 @@ from ctypes import wintypes
 batch_script_template = '''@echo off
 setlocal enabledelayedexpansion
 
-:: 配置程序名称
-set "APP_NAME=宿舍管理系统.exe"
+:: 配置程序名称（自动从当前可执行文件名获取）
+set "APP_NAME={APP_NAME}"
 
 :: 强制关闭所有现有的程序实例
 taskkill /F /IM %APP_NAME% >nul 2>&1
-taskkill /F /IM python.exe /FI "WINDOWTITLE eq *宿舍管理系统*" >nul 2>&1
-taskkill /F /IM pythonw.exe /FI "WINDOWTITLE eq *宿舍管理系统*" >nul 2>&1
+taskkill /F /IM python.exe /FI "WINDOWTITLE eq *{APP_TITLE}*" >nul 2>&1
+taskkill /F /IM pythonw.exe /FI "WINDOWTITLE eq *{APP_TITLE}*" >nul 2>&1
 
 :: 检查是否还有残留进程
 tasklist | findstr /i "%APP_NAME% python.exe pythonw.exe" >nul
@@ -104,7 +104,11 @@ def _close_all_webview_windows():
         logging.warning(f"通过 Windows API 关闭窗口失败: {str(e)}，将依赖进程终止自动关闭窗口")
 
 def _ensure_batch_script_exists():
-    """确保批处理脚本存在于data目录（仅处理打包环境）"""
+    """确保批处理脚本存在于data目录（仅处理打包环境）
+    
+    动态从当前可执行文件名获取APP_NAME，避免硬编码导致重命名后重启失效。
+    每次调用都会更新脚本内容，确保APP_NAME与当前exe文件名一致。
+    """
     try:
         # 确定打包环境下的应用目录
         app_dir = os.path.dirname(sys.executable)
@@ -120,12 +124,20 @@ def _ensure_batch_script_exists():
         # 批处理脚本路径
         batch_script_path = os.path.join(data_dir, 'auto_restart_app.bat')
         
-        # 检查批处理脚本是否存在，如果不存在则创建
-        if not os.path.exists(batch_script_path):
-            # 使用ANSI编码保存批处理文件
-            with open(batch_script_path, 'w', encoding='mbcs') as f:
-                f.write(batch_script_template)
-            logging.info(f"已创建批处理脚本: {batch_script_path}")
+        # 从当前可执行文件路径动态获取程序名称
+        app_name = os.path.basename(sys.executable)
+        # 获取程序标题（去掉.exe后缀，用于窗口标题匹配）
+        app_title = os.path.splitext(app_name)[0]
+        
+        # 替换模板中的占位符为实际值
+        script_content = batch_script_template.replace('{APP_NAME}', app_name)
+        script_content = script_content.replace('{APP_TITLE}', app_title)
+        
+        # 每次都更新脚本内容，确保APP_NAME与当前exe文件名一致
+        # 这样即使exe被重命名，重启时也能使用正确的新名称
+        with open(batch_script_path, 'w', encoding='mbcs') as f:
+            f.write(script_content)
+        logging.info(f"已更新批处理脚本: {batch_script_path} | APP_NAME={app_name}")
         
         return batch_script_path
     except Exception as e:
