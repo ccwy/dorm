@@ -102,8 +102,16 @@ def _ensure_batch_script_exists():
         logging.error(f"确保脚本存在失败: {str(e)}")
         return None
 
-def reload_service():
-    """后端服务重载函数，自动判断环境并执行相应的重启逻辑"""
+def reload_service(delay=0):
+    """后端服务重载函数，自动判断环境并执行相应的重启逻辑
+    
+    Args:
+        delay: 重启前的延迟秒数，用于让Flask响应先发送到客户端
+    """
+    if delay > 0:
+        import time as _time
+        logging.info(f"等待{delay}秒后执行重载，让Flask响应先发送到客户端")
+        _time.sleep(delay)
     def _reload_development():
         """开发环境重启逻辑"""
         try:
