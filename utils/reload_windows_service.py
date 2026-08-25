@@ -11,16 +11,18 @@ if not hasattr(webview, 'windows'):
     webview.windows = []
 
 # 批处理脚本内容模板 - 打包环境使用，包含自动删除功能
+# 使用 {{APP_NAME}} 占位符，在写入时替换为实际可执行文件名
 batch_script_template = '''@echo off
+chcp 936 >nul
 setlocal enabledelayedexpansion
 
-:: 配置程序名称
-set "APP_NAME=宿舍管理系统.exe"
+:: 配置程序名称（由Python动态写入实际exe名称）
+set "APP_NAME={{APP_NAME}}"
 
 :: 强制关闭所有现有的程序实例
 taskkill /F /IM %APP_NAME% >nul 2>&1
-taskkill /F /IM python.exe /FI "WINDOWTITLE eq *宿舍管理系统*" >nul 2>&1
-taskkill /F /IM pythonw.exe /FI "WINDOWTITLE eq *宿舍管理系统*" >nul 2>&1
+taskkill /F /IM python.exe /FI "WINDOWTITLE eq *{{APP_NAME}}*" >nul 2>&1
+taskkill /F /IM pythonw.exe /FI "WINDOWTITLE eq *{{APP_NAME}}*" >nul 2>&1
 
 :: 等待旧进程完全退出并释放资源
 timeout /t 2 /nobreak >nul
@@ -32,12 +34,12 @@ if %errorlevel% equ 0 (
     timeout /t 1 /nobreak >nul
 )
 
-:: 切换到data目录的上一层目录
-cd /d "%~dp0.."
+:: 使用for命令可靠解析上级目录路径（比cd /d更稳定，避免中文路径问题）
+for %%I in ("%~dp0..") do set "APP_DIR=%%~fI"
 
 :: 启动新的程序实例（仅打包环境，不使用/b避免新进程随控制台退出而终止）
-if exist "%CD%\%APP_NAME%" (
-    start "" "%CD%\%APP_NAME%"
+if exist "%APP_DIR%\\%APP_NAME%" (
+    start "" "%APP_DIR%\\%APP_NAME%"
 )
 
 :: 等待新进程启动
@@ -48,9 +50,11 @@ start /b cmd /c "del "%0" >nul 2>&1"
 
 exit /b 0'''
 
+
 def get_environment():
     """获取当前运行环境"""
     return "windows"
+
 
 def _close_all_webview_windows():
     """专门关闭所有WebView窗口的函数"""
@@ -70,6 +74,7 @@ def _close_all_webview_windows():
     except Exception as e:
         logging.error(f"关闭WebView窗口过程出错: {str(e)}")
 
+
 def _ensure_batch_script_exists():
     """确保批处理脚本存在于data目录（仅处理打包环境）"""
     try:
@@ -87,16 +92,22 @@ def _ensure_batch_script_exists():
         # 批处理脚本路径
         batch_script_path = os.path.join(data_dir, 'auto_restart_app.bat')
         
+        # 动态获取实际的可执行文件名，替换模板中的占位符
+        actual_app_name = os.path.basename(sys.executable)
+        script_content = batch_script_template.replace('{{APP_NAME}}', actual_app_name)
+        logging.info(f"批处理脚本使用实际exe名称: {actual_app_name}")
+        
         # 每次都重写批处理脚本，确保使用最新模板
         # （批处理脚本执行后会自删除，但也可能因异常残留旧版本）
         with open(batch_script_path, 'w', encoding='mbcs') as f:
-            f.write(batch_script_template)
+            f.write(script_content)
         logging.info(f"已更新批处理脚本: {batch_script_path}")
         
         return batch_script_path
     except Exception as e:
         logging.error(f"确保脚本存在失败: {str(e)}")
         return None
+
 
 def reload_service(delay=0):
     """后端服务重载函数，自动判断环境并执行相应的重启逻辑
