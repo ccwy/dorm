@@ -620,10 +620,15 @@ class ServerGUI:
                 ps_command += f"$sc.Arguments = '{arguments}'; "
             ps_command += "$sc.Save()"
             
-            # 执行PowerShell命令
+            # 执行PowerShell命令（隐藏窗口，避免闪现控制台）
+            startupinfo = subprocess.STARTUPINFO()
+            startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+            startupinfo.wShowWindow = 0  # SW_HIDE
+            
             result = subprocess.run(
-                ['powershell', '-NoProfile', '-NonInteractive', '-Command', ps_command],
-                capture_output=True, text=True, timeout=10
+                ['powershell', '-NoProfile', '-NonInteractive', '-WindowStyle', 'Hidden', '-Command', ps_command],
+                capture_output=True, text=True, timeout=10,
+                startupinfo=startupinfo
             )
             
             if result.returncode == 0:
