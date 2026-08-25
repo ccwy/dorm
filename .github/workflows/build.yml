@@ -19,7 +19,7 @@ on:
 
 env:
   PYTHON_VERSION: '3.10'
-  APP_NAME: 'DormManagement'
+  APP_NAME: '宿舍管理程序'
   DOCKER_IMAGE_NAME: 'dorm-management-system'
   PYTHONIOENCODING: 'utf-8'
 

@@ -419,7 +419,7 @@ def update_configs():
             logging.info("数据库类型配置已更改，触发系统重载")
             # 优先判断Docker环境
             if SystemDetector.is_docker():
-                from utils.reload_docker_service import reload_servicereload_service
+                from utils.reload_docker_service import reload_service
                 logging.info("使用Docker环境重载服务")
                 message = f"更新{category}模块配置,成功更新{len(updated_keys)}项配置，数据库配置已更新，当前是Docker环境，需要你手动重启Docker生效"
             # 其次判断Windows系统

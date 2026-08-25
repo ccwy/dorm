@@ -50,12 +50,12 @@ additional_hidden_imports = [
     'schedule',
     'xlsxwriter',
     'requests',
-    'psutil',
     'tkinter',
     'tkinter.ttk',
     'tkinter.messagebox',
     'pystray',
-    'PIL'
+    'PIL',
+    'psutil'
 ]
 
 # 收集延迟导入库的所有子模块，确保打包完整

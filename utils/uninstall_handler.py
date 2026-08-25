@@ -79,10 +79,6 @@ def handle_uninstall():
             
             # 应用程序可执行文件名（用于匹配注册表值）
             app_exe_names = ["宿舍管理系统.exe", "dorm_management.exe"]
-            # 动态添加当前实际运行的exe名称
-            current_exe_name = os.path.basename(sys.executable)
-            if current_exe_name not in app_exe_names:
-                app_exe_names.append(current_exe_name)
             
             # 清理用户注册表项
             for reg_path in reg_paths:

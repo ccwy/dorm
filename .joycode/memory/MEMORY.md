@@ -1,1 +1,0 @@
-- [startup-optimization](startup_optimization.md) — 启动性能优化记录：延迟导入策略和打包环境优化
