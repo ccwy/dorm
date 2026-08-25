@@ -68,14 +68,10 @@
                 </button>
                 <h2 class="text-2xl font-semibold text-dark">{{ title }}</h2>
             </div>
-            <div class="flex items-center">
-                <button id="refreshBtn" class="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50">
-                    <i class="fa fa-refresh mr-1"></i>刷新数据
-                </button>
-                <button id="clearAllTempPhotosBtn" class="px-4 py-2 border border-red-300 text-red-600 rounded-md hover:bg-red-50 ml-2">
-                    <i class="fa fa-trash mr-1"></i>清理临时照片
-                </button>
-            </div>
+            <!-- 刷新按钮 -->
+            <button id="refreshBtn" class="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50">
+                <i class="fa fa-refresh mr-1"></i>刷新数据
+            </button>
         </div>
         
         <div class="bg-white rounded-lg shadow-sm p-6 mx-auto">
@@ -174,14 +170,13 @@
                                     </th>
                                     <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">电表备注</th>
                                     <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">水表备注</th>
-                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">抄表照片</th>
                                     <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
                                 </tr>
                             </thead>
                             <tbody class="bg-white divide-y divide-gray-200" id="roomsTableBody">
                                 {% if rooms %}
                                     {% for room in rooms %}
-                                    <tr data-room-id="{{ room.id }}">
+                                    <tr>
                                         <td class="px-6 py-4 whitespace-nowrap text-gray-700 font-mono">
                                             {{ room.id }}
                                         </td>
@@ -283,15 +278,6 @@
                                             <div class="text-xs text-gray-500 mt-1">{{ room.building or '' }}{{ room.room_number or '' }}</div>
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap">
-                                            <div class="flex items-center space-x-2">
-                                                <button type="button" class="px-2 py-1 bg-blue-500 text-white rounded-md hover:bg-blue-600 text-sm"
-                                                        onclick="openPhotoModal({{ room.id }}, '{{ room.building or '' }}{{ room.room_number or '' }}')">
-                                                    <i class="fa fa-camera mr-1"></i>照片
-                                                </button>
-                                                <span id="photo-count-{{ room.id }}" class="text-xs text-gray-500"></span>
-                                            </div>
-                                        </td>
-                                        <td class="px-6 py-4 whitespace-nowrap">
                                             <!-- 移除嵌套表单，使用按钮+隐藏字段的方式 -->
                                             <input type="hidden" name="room_id" value="{{ room.id }}" id="room_id_{{ room.id }}">
                                             <input type="hidden" name="reading_date" value="{{ reading_date_time }}" id="reading_date_{{ room.id }}">
@@ -312,13 +298,13 @@
                                 {% else %}
                                     {% if buildings and buildings|length > 0 %}
                                     <tr class="text-center">
-                                        <td colspan="12" class="px-6 py-8 text-gray-500">
+                                        <td colspan="11" class="px-6 py-8 text-gray-500">
                                             未找到符合条件的房间
                                         </td>
                                     </tr>
                                     {% else %}
                                     <tr class="text-center">
-                                        <td colspan="12" class="px-6 py-8 text-gray-500">
+                                        <td colspan="11" class="px-6 py-8 text-gray-500">
                                             当前系统中没有任何房间信息，无法进行抄表登记。请先添加房间信息后再进行抄表操作。
                                         </td>
                                     </tr>
@@ -500,63 +486,6 @@
             {% endfor %}
         {% endif %}
     {% endwith %}
-
-
-    <!-- 抄表照片管理模态框 -->
-    <div id="photoModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
-        <div class="bg-white rounded-lg p-6 w-full max-w-3xl max-h-[80vh] overflow-y-auto">
-            <div class="flex justify-between items-center mb-4">
-                <h3 class="text-lg font-semibold">
-                    <span id="photoModalTitle">抄表照片管理</span>
-                </h3>
-                <button type="button" onclick="closePhotoModal()" class="text-gray-500 hover:text-gray-700">
-                    <i class="fa fa-times text-xl"></i>
-                </button>
-            </div>
-            
-            <!-- 上传按钮 -->
-            <div class="mb-4">
-                <button type="button" id="photoUploadBtn" class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600">
-                    <i class="fa fa-upload mr-1"></i>上传照片/视频
-                </button>
-                <button type="button" id="clearRoomPhotosBtn" class="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 ml-2">
-                    <i class="fa fa-trash mr-1"></i>清理所有文件
-                </button>
-                <input type="file" id="photoFileInput" accept="image/png,image/jpeg,image/gif,image/bmp,video/mp4,video/avi,video/quicktime,video/x-ms-wmv,video/x-flv,video/x-matroska" multiple class="hidden">
-                <p class="text-xs text-gray-500 mt-1">支持 JPG、PNG、GIF、BMP、MP4、AVI、MOV 格式，单文件不超过10MB</p>
-            </div>
-            
-            <!-- 上传进度 -->
-            <div id="photoUploadProgress" class="mb-4 hidden">
-                <div class="flex justify-between mb-1">
-                    <span class="text-sm text-gray-600">上传进度</span>
-                    <span id="photoUploadPercentage" class="text-sm text-gray-600">0%</span>
-                </div>
-                <div class="w-full bg-gray-200 rounded-full h-2">
-                    <div id="photoUploadBar" class="bg-blue-500 h-2 rounded-full" style="width: 0%"></div>
-                </div>
-                <p id="photoUploadStatus" class="text-xs text-gray-500 mt-1"></p>
-            </div>
-            
-            <!-- 已上传照片预览 -->
-            <div id="photoPreviewGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 mt-4">
-                <div id="noPhotoMessage" class="col-span-full text-center py-6 text-gray-500">
-                    <i class="fa fa-file-image-o text-4xl mb-2"></i>
-                    <p>暂无抄表照片</p>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- 图片预览模态框 -->
-    <div id="imagePreviewModal" class="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-[60] hidden">
-        <div class="relative max-w-[90%] max-h-[90%]">
-            <button type="button" onclick="closeImagePreview()" class="absolute -top-12 right-0 text-white text-2xl hover:text-gray-300">
-                <i class="fa fa-times"></i>
-            </button>
-            <img id="previewImage" src="" alt="原图预览" class="max-w-full max-h-[80vh] object-contain">
-        </div>
-    </div>
 
 
      <!-- 简单的JS来处理表具更换开关的视觉效果 -->
@@ -753,212 +682,5 @@
         
 
     </script>
-<script>
-// ========== 抄表照片管理功能（临时上传方案） ==========
-// 核心思路：照片先上传到临时目录（按room_id），保存抄表记录时才移动到正式账期目录
-var currentPhotoRoomId = null;
-var currentPhotoRoomName = '';
-
-function openPhotoModal(roomId, roomName) {
-    currentPhotoRoomId = roomId;
-    currentPhotoRoomName = roomName;
-    document.getElementById('photoModalTitle').textContent = '抄表照片 - ' + roomName;
-    document.getElementById('photoModal').classList.remove('hidden');
-    // 加载临时目录中的照片
-    loadRoomPhotos(roomId);
-}
-
-function closePhotoModal() {
-    document.getElementById('photoModal').classList.add('hidden');
-    currentPhotoRoomId = null;
-    currentPhotoRoomName = '';
-}
-
-async function uploadRoomPhotos(files) {
-    if (!currentPhotoRoomId) { alert('请先选择房间'); return; }
-    var progressContainer = document.getElementById('photoUploadProgress');
-    var progressBar = document.getElementById('photoUploadBar');
-    var progressPercentage = document.getElementById('photoUploadPercentage');
-    var uploadStatus = document.getElementById('photoUploadStatus');
-    progressContainer.classList.remove('hidden');
-    progressBar.style.width = '0%';
-    progressPercentage.textContent = '0%';
-    for (var i = 0; i < files.length; i++) {
-        var file = files[i];
-        if (file.size > 10 * 1024 * 1024) { alert(file.name + ' 文件大小超过10MB限制'); continue; }
-        uploadStatus.textContent = '正在上传 ' + file.name + ' (' + (i+1) + '/' + files.length + ')';
-        var formData = new FormData();
-        formData.append('file', file);
-        formData.append('room_id', currentPhotoRoomId);
-        try {
-            var xhr = new XMLHttpRequest();
-            xhr.upload.addEventListener('progress', function(e) {
-                if (e.lengthComputable) {
-                    var progress = Math.round((e.loaded / e.total) * 100);
-                    progressBar.style.width = progress + '%';
-                    progressPercentage.textContent = progress + '%';
-                }
-            });
-            await new Promise(function(resolve, reject) {
-                xhr.onload = function() {
-                    if (xhr.status >= 200 && xhr.status < 300) {
-                        try { var result = JSON.parse(xhr.responseText); if (result.success) { resolve(result); } else { reject(new Error(result.message || '上传失败')); } }
-                        catch(e) { resolve(xhr.responseText); }
-                    } else { reject(new Error('上传失败: ' + xhr.statusText)); }
-                };
-                xhr.onerror = function() { reject(new Error('上传过程中发生网络错误')); };
-                xhr.open('POST', '/utility-meter/upload_temp_media');
-                xhr.send(formData);
-            });
-        } catch (error) { console.error('文件上传失败:', error); alert(error.message || '文件上传失败'); }
-    }
-    uploadStatus.textContent = '上传完成';
-    setTimeout(function() { progressContainer.classList.add('hidden'); }, 1500);
-    document.getElementById('photoFileInput').value = '';
-    loadRoomPhotos(currentPhotoRoomId);
-}
-
-async function loadRoomPhotos(roomId) {
-    try {
-        // 只加载临时目录的照片（待保存的照片）
-        var response = await fetch('/utility-meter/get_temp_media_files?room_id=' + roomId, {
-            method: 'GET', headers: { 'Content-Type': 'application/json' }, credentials: 'include'
-        });
-        var result = await response.json();
-        if (!response.ok) { throw new Error(result.message || '加载照片失败'); }
-        var container = document.getElementById('photoPreviewGrid');
-        container.innerHTML = '';
-        var tempCount = (result.files && result.files.length) || 0;
-        
-        // 更新表格中的照片计数（仅显示待保存的临时照片数）
-        var countSpan = document.getElementById('photo-count-' + roomId);
-        if (countSpan) { countSpan.textContent = tempCount > 0 ? '(' + tempCount + '张)' : ''; }
-        
-        var html = '';
-        
-        // 显示临时目录的照片（标记为"待保存"）
-        if (result.files && result.files.length > 0) {
-            result.files.forEach(function(file) {
-                var isImage = file.type === 'image';
-                if (isImage) {
-                    html += '<div class="bg-white border border-blue-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow"><div class="bg-blue-50 text-xs text-blue-600 px-2 py-0.5">待保存</div><div class="relative h-32 overflow-hidden"><img src="' + file.url + '" alt="抄表照片" class="w-full h-full object-cover cursor-pointer" onclick="showPhotoPreview(\'' + file.url + '\')"><button type="button" class="absolute top-2 right-2 bg-transparent text-red-500 hover:text-white hover:bg-red-500 rounded-full p-1 shadow-lg" onclick="deleteRoomPhoto(\'' + file.filename + '\', \'' + roomId + '\'); event.stopPropagation();"><i class="fa fa-trash-o"></i></button></div><div class="p-1 text-xs text-gray-600 truncate">' + file.filename + '</div></div>';
-                } else {
-                    html += '<div class="bg-white border border-blue-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow"><div class="bg-blue-50 text-xs text-blue-600 px-2 py-0.5">待保存</div><div class="relative h-32 overflow-hidden bg-gray-100"><video class="w-full h-full object-cover" preload="metadata"><source src="' + file.url + '" type="video/mp4"></video><button type="button" class="absolute top-2 right-2 bg-transparent text-red-500 hover:text-white hover:bg-red-500 rounded-full p-1 shadow-lg z-10" onclick="deleteRoomPhoto(\'' + file.filename + '\', \'' + roomId + '\'); event.stopPropagation();"><i class="fa fa-trash-o"></i></button><div class="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30 cursor-pointer z-0" onclick="window.open(\'' + file.url + '\', \'_blank\')"><i class="fa fa-play-circle text-white text-3xl opacity-80"></i></div></div><div class="p-1 text-xs text-gray-600 truncate">' + file.filename + '</div></div>';
-                }
-            });
-        }
-        
-        if (html) {
-            container.innerHTML = html;
-        } else {
-            container.innerHTML = '<div class="col-span-full text-center py-6 text-gray-500"><i class="fa fa-file-image-o text-4xl mb-2"></i><p>暂无抄表照片</p></div>';
-        }
-    } catch (error) {
-        console.error('加载照片失败:', error);
-        var container = document.getElementById('photoPreviewGrid');
-        container.innerHTML = '<div class="col-span-full text-center py-6 text-gray-500"><i class="fa fa-exclamation-circle text-4xl mb-2"></i><p>加载照片失败</p></div>';
-    }
-}
-
-// 删除临时目录文件
-async function deleteRoomPhoto(filename, roomId) {
-    if (!confirm('确定要删除文件 ' + filename + ' 吗？')) { return; }
-    try {
-        var response = await fetch('/utility-meter/delete_temp_media', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
-            body: JSON.stringify({ filename: filename, room_id: roomId })
-        });
-        var result = await response.json();
-        if (!response.ok) { throw new Error(result.message || '删除失败'); }
-        loadRoomPhotos(roomId);
-    } catch (error) { console.error('删除照片失败:', error); alert(error.message || '删除失败'); }
-}
-
-// 清理当前房间所有临时照片
-async function clearRoomPhotos() {
-    if (!currentPhotoRoomId) { alert('请先选择房间'); return; }
-    if (!confirm('确定要清理当前房间的所有临时照片吗？此操作不可恢复！')) { return; }
-    try {
-        var response = await fetch('/utility-meter/clear_room_temp_media', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
-            body: JSON.stringify({ room_id: currentPhotoRoomId })
-        });
-        var result = await response.json();
-        if (!response.ok) { throw new Error(result.message || '清理失败'); }
-        alert(result.message || '清理成功');
-        loadRoomPhotos(currentPhotoRoomId);
-        loadAllRoomPhotoCounts();
-    } catch (error) { console.error('清理房间照片失败:', error); alert(error.message || '清理失败'); }
-}
-
-// 清理所有房间临时照片
-async function clearAllTempPhotos() {
-    if (!confirm('确定要清理所有房间的临时照片吗？此操作不可恢复！')) { return; }
-    try {
-        var response = await fetch('/utility-meter/clear_all_temp_media', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include'
-        });
-        var result = await response.json();
-        if (!response.ok) { throw new Error(result.message || '清理失败'); }
-        alert(result.message || '清理成功');
-        loadAllRoomPhotoCounts();
-        // 如果模态框打开，也刷新当前房间照片
-        if (currentPhotoRoomId) { loadRoomPhotos(currentPhotoRoomId); }
-    } catch (error) { console.error('清理所有临时照片失败:', error); alert(error.message || '清理失败'); }
-}
-
-function showPhotoPreview(url) {
-    document.getElementById('previewImage').src = url;
-    document.getElementById('imagePreviewModal').classList.remove('hidden');
-}
-
-function closeImagePreview() {
-    document.getElementById('imagePreviewModal').classList.add('hidden');
-}
-
-function initPhotoUploadEvents() {
-    var photoUploadBtn = document.getElementById('photoUploadBtn');
-    var photoFileInput = document.getElementById('photoFileInput');
-    if (photoUploadBtn && photoFileInput) {
-        photoUploadBtn.addEventListener('click', function() { photoFileInput.click(); });
-        photoFileInput.addEventListener('change', function(e) {
-            if (e.target.files.length > 0) { uploadRoomPhotos(e.target.files); }
-        });
-    }
-    // 清理当前房间所有文件按钮
-    var clearRoomPhotosBtn = document.getElementById('clearRoomPhotosBtn');
-    if (clearRoomPhotosBtn) {
-        clearRoomPhotosBtn.addEventListener('click', function() { clearRoomPhotos(); });
-    }
-    // 清理所有临时照片按钮
-    var clearAllTempPhotosBtn = document.getElementById('clearAllTempPhotosBtn');
-    if (clearAllTempPhotosBtn) {
-        clearAllTempPhotosBtn.addEventListener('click', function() { clearAllTempPhotos(); });
-    }
-}
-initPhotoUploadEvents();
-
-// 页面加载时加载所有房间的照片计数（仅显示待保存的临时照片数）
-function loadAllRoomPhotoCounts() {
-    var rows = document.querySelectorAll('#roomsTableBody tr[data-room-id]');
-    rows.forEach(function(row) {
-        var roomId = row.getAttribute('data-room-id');
-        if (roomId) {
-            // 只获取临时目录照片数（待保存的照片）
-            fetch('/utility-meter/get_temp_media_files?room_id=' + roomId, {
-                method: 'GET', headers: { 'Content-Type': 'application/json' }, credentials: 'include'
-            })
-            .then(function(response) { return response.json(); })
-            .then(function(result) {
-                var tempCount = (result.files && result.files.length) || 0;
-                var countSpan = document.getElementById('photo-count-' + roomId);
-                if (countSpan) { countSpan.textContent = tempCount > 0 ? '(' + tempCount + '张)' : ''; }
-            })
-            .catch(function(err) { console.error('加载临时照片计数失败:', err); });
-        }
-    });
-}
-loadAllRoomPhotoCounts();
-</script>
 </body>
 </html>
