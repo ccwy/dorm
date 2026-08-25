@@ -58,17 +58,24 @@ if %errorlevel% equ 0 (
 :: 这是关键步骤——WebView2需要父进程完全释放资源后才能正确初始化
 ping -n 1 127.0.0.1 >nul
 
-:: 切换到data目录的上一层目录
-cd /d "%~dp0.."
+:: 计算程序所在目录（批处理脚本在data子目录下，程序在上一级目录）
+:: %~dp0 是批处理脚本所在目录，带尾部反斜杠，需要去掉反斜杠再拼接
+set "SCRIPT_DIR=%~dp0"
+set "APP_DIR=%SCRIPT_DIR:~0,-1%\.."
+:: 进入程序目录
+cd /d "%APP_DIR%"
 
 :: 第四步：启动全新的程序实例
 :: 不使用/b参数，让新进程作为独立进程运行，拥有自己的进程上下文
 :: 这样WebView2能正确获取自身的进程信息，避免Security validation failure错误
 if exist "%CD%\%APP_NAME%" (
     start "" "%CD%\%APP_NAME%"
+    :: 等待新进程启动完成（给start命令足够时间创建进程）
+    ping -n 3 127.0.0.1 >nul
 )
 
 :: 执行完毕后自动删除当前批处理脚本
+:: 使用独立的cmd进程删除，避免删除正在运行的脚本
 start /b cmd /c "del "%0" >nul 2>&1"
 
 exit /b 0'''
@@ -255,10 +262,12 @@ def reload_service():
                     startupinfo = subprocess.STARTUPINFO()
                     startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
                     
+                    # 使用 /c start 命令启动批处理脚本
+                    # start 会让批处理脚本在新窗口中独立运行，
+                    # 避免当前Python进程退出时影响批处理脚本的执行
                     subprocess.Popen(
-                        ['cmd.exe', '/c', script_path],
-                        shell=False,
-                        close_fds=True,
+                        'start "" /min cmd /c "' + script_path + '"',
+                        shell=True,
                         stdin=subprocess.DEVNULL,
                         stdout=subprocess.DEVNULL,
                         stderr=subprocess.DEVNULL,
