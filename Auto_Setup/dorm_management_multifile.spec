@@ -50,7 +50,12 @@ additional_hidden_imports = [
     'schedule',
     'xlsxwriter',
     'requests',
-    'psutil'
+    'psutil',
+    'tkinter',
+    'tkinter.ttk',
+    'tkinter.messagebox',
+    'pystray',
+    'PIL'
 ]
 
 # 收集延迟导入库的所有子模块，确保打包完整
@@ -84,7 +89,6 @@ a = Analysis(
     # 注意：仅排除确定不被任何依赖项使用的模块，避免运行时 ImportError
     excludes=[
         'pysqlite2', 'MySQLdb', 'psycopg2',  # 不需要的数据库驱动
-        'tkinter', '_tkinter',  # Tkinter GUI库（本项目使用WebView2）
         'unittest', 'test', 'tests',  # 测试框架
         'setuptools', 'pip', 'wheel',  # 包管理工具
         'pydoc', 'doctest',  # 文档工具

@@ -22,19 +22,26 @@ taskkill /F /IM %APP_NAME% >nul 2>&1
 taskkill /F /IM python.exe /FI "WINDOWTITLE eq *宿舍管理系统*" >nul 2>&1
 taskkill /F /IM pythonw.exe /FI "WINDOWTITLE eq *宿舍管理系统*" >nul 2>&1
 
+:: 等待旧进程完全退出并释放资源
+timeout /t 2 /nobreak >nul
+
 :: 检查是否还有残留进程
 tasklist | findstr /i "%APP_NAME% python.exe pythonw.exe" >nul
 if %errorlevel% equ 0 (
     taskkill /F /IM %APP_NAME% /T >nul 2>&1
+    timeout /t 1 /nobreak >nul
 )
 
 :: 切换到data目录的上一层目录
 cd /d "%~dp0.."
 
-:: 启动新的程序实例（仅打包环境）
+:: 启动新的程序实例（仅打包环境，不使用/b避免新进程随控制台退出而终止）
 if exist "%CD%\%APP_NAME%" (
-    start "" /b "%CD%\%APP_NAME%"
+    start "" "%CD%\%APP_NAME%"
 )
+
+:: 等待新进程启动
+timeout /t 2 /nobreak >nul
 
 :: 执行完毕后自动删除当前批处理脚本
 start /b cmd /c "del "%0" >nul 2>&1"
@@ -80,20 +87,24 @@ def _ensure_batch_script_exists():
         # 批处理脚本路径
         batch_script_path = os.path.join(data_dir, 'auto_restart_app.bat')
         
-        # 检查批处理脚本是否存在，如果不存在则创建
-        if not os.path.exists(batch_script_path):
-            # 使用ANSI编码保存批处理文件
-            with open(batch_script_path, 'w', encoding='mbcs') as f:
-                f.write(batch_script_template)
-            logging.info(f"已创建批处理脚本: {batch_script_path}")
+        # 每次都重写批处理脚本，确保使用最新模板
+        # （批处理脚本执行后会自删除，但也可能因异常残留旧版本）
+        with open(batch_script_path, 'w', encoding='mbcs') as f:
+            f.write(batch_script_template)
+        logging.info(f"已更新批处理脚本: {batch_script_path}")
         
         return batch_script_path
     except Exception as e:
         logging.error(f"确保脚本存在失败: {str(e)}")
         return None
 
-def reload_service():
-    """后端服务重载函数，自动判断环境并执行相应的重启逻辑"""
+def reload_service(delay=0):
+    """后端服务重载函数，自动判断环境并执行相应的重启逻辑
+    
+    Args:
+        delay: 重启前的延迟秒数，用于让调用方（如Flask）完成响应发送。
+               在客户端模式(WebView)下建议设为3秒，确保用户能看到重启提示。
+    """
     def _reload_development():
         """开发环境重启逻辑"""
         try:
@@ -241,6 +252,11 @@ def reload_service():
     
     def _trigger_restart():
         """根据环境类型触发相应的重启逻辑"""
+        # 延迟等待，让调用方（如Flask请求处理）完成响应发送
+        if delay > 0:
+            logging.info(f"重启延迟 {delay} 秒，等待响应发送完成")
+            time.sleep(delay)
+        
         # 判断是否为打包环境
         is_frozen = getattr(sys, 'frozen', False)
         

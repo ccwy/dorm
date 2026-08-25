@@ -366,11 +366,11 @@ class ServerGUI:
             self.status_var.set("正在重启系统中...")
             self.root.update()
             
+            # 先提示用户，再触发重启（重启后进程会被os._exit终止，后续代码不会执行）
+            messagebox.showinfo("提示", "系统即将重启，请稍等...")
+            
             # 直接调用重载服务
             reload_windows_service()
-            
-            self.status_var.set("系统正在重启中...")
-            messagebox.showinfo("成功", "系统正在重启，请稍等...")
         except Exception as e:
             logging.error(f"重启系统失败: {str(e)}")
             messagebox.showerror("错误", f"重启系统失败: {str(e)}")
@@ -439,14 +439,14 @@ class ServerGUI:
             if success:
                 self.config_data = new_config
                 try:
-                    self.status_var.set("正在重启服务中...")
+                    self.status_var.set("配置已保存，正在重启服务...")
                     self.root.update()
+                    
+                    # 先提示用户，再触发重启（重启后进程会被os._exit终止，后续代码不会执行）
+                    messagebox.showinfo("成功", "配置保存成功，系统即将自动重启以应用新配置")
                     
                     # 直接调用重载服务，与_restart_system方法保持一致
                     reload_windows_service()
-                    
-                    self.status_var.set("配置已保存")
-                    messagebox.showinfo("成功", "配置保存成功，系统将自动重启服务以应用新配置")
                 except Exception as e:
                     logging.error(f"自动重启服务失败: {str(e)}")
                     messagebox.showerror("错误", f"自动重启服务失败: {str(e)}")

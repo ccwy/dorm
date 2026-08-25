@@ -431,7 +431,7 @@ def update_configs():
             else:
                 # 理论上不会执行到这里，可根据实际需求添加异常处理
                 logging.error("不支持的系统环境，无法执行重载")
-            reload_service() #重载触发
+            reload_service(delay=3) #重载触发，延迟3秒让Flask响应先发送到客户端
             
             
         log_operation(
