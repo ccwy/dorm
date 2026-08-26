@@ -1,0 +1,67 @@
+name: 单文件测试打包
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+env:
+  PYTHON_VERSION: '3.10'
+  PYTHONIOENCODING: 'utf-8'
+
+permissions:
+  contents: write
+
+jobs:
+  # ============================================
+  # 仅打包单文件（测试用，快速验证）
+  # ============================================
+  build-single-file-test:
+    name: 🧪 单文件测试打包
+    runs-on: windows-latest
+
+    steps:
+      - name: 📥 检出代码
+        uses: actions/checkout@v7
+
+      - name: 🐍 设置 Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v7
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: 📦 安装依赖
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller==6.16
+
+      - name: 🔨 创建 data 目录
+        run: |
+          if (-not (Test-Path "data")) {
+            New-Item -ItemType Directory -Path "data" -Force
+          }
+
+      - name: 🏗️ PyInstaller 打包 (单文件模式)
+        run: |
+          pyinstaller Auto_Setup/dorm_management.spec --clean --noconfirm
+        continue-on-error: false
+
+      - name: 📁 整理输出
+        run: |
+          $testDir = "dist/windows-single-test"
+          if (-not (Test-Path $testDir)) { New-Item -ItemType Directory -Path $testDir -Force }
+          if (Test-Path "dist/宿舍管理系统.exe") {
+            Move-Item -Path "dist/宿舍管理系统.exe" -Destination "$testDir/DormManagement_Test_SingleFile.exe" -Force
+            Write-Host "✅ 单文件测试打包成功"
+          } else {
+            Write-Host "❌ 未找到打包输出文件"
+            exit 1
+          }
+
+      - name: 📤 上传测试构建
+        uses: actions/upload-artifact@v7
+        with:
+          name: DormManagement_Test_SingleFile
+          path: dist/windows-single-test/
+          retention-days: 7
