@@ -63,7 +63,9 @@ lazy_import_submodules = (
     collect_submodules('pymysql') +
     collect_submodules('pandas') +
     collect_submodules('openpyxl') +
-    collect_submodules('numpy')
+    collect_submodules('numpy') +
+    collect_submodules('pystray') +
+    collect_submodules('PIL')
 )
 
 a = Analysis(

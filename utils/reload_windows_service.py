@@ -37,6 +37,10 @@ if %errorlevel% equ 0 (
 cd /d "%~dp0.."
 
 :: 启动新的程序实例（仅打包环境）
+:: 设置PYINSTALLER_RESET_ENVIRONMENT=1，确保新进程作为独立实例启动
+:: PyInstaller 6.10.0+ 要求重启时设置此变量，否则新进程会被误判为子进程
+set PYINSTALLER_RESET_ENVIRONMENT=1
+
 if exist "%CD%\%APP_NAME%" (
     start "" /b "%CD%\%APP_NAME%"
 )
