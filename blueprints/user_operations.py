@@ -180,6 +180,33 @@ def add():
                     marital_status_options=marital_status_options  # 新增：婚姻状态选项
                 )
         
+        # 设置超级管理员角色时，验证账号状态和登录权限是否开启
+        if role == '超级管理员':
+            if not is_banned:
+                flash('设置超级管理员失败：超级管理员必须允许登录，请先勾选"允许登录"', 'danger')
+                logging.error(f"添加用户失败，设置超级管理员角色时未勾选允许登录")
+                return render_template(
+                    'user_manage/user_add.html',
+                    title=f"添加用户",
+                    form_data=request.form,
+                    role_options=role_options,
+                    status_options=status_options,
+                    category_options=category_options,
+                    marital_status_options=marital_status_options
+                )
+            if not is_active:
+                flash('设置超级管理员失败：超级管理员账号必须为激活状态，请先勾选"账号激活"', 'danger')
+                logging.error(f"添加用户失败，设置超级管理员角色时未勾选激活账号")
+                return render_template(
+                    'user_manage/user_add.html',
+                    title=f"添加用户",
+                    form_data=request.form,
+                    role_options=role_options,
+                    status_options=status_options,
+                    category_options=category_options,
+                    marital_status_options=marital_status_options
+                )
+        
         try:
             # 创建用户
             new_user = User(
@@ -333,6 +360,12 @@ def edit(id):
         # 修复：正确获取复选框状态（存在即表示勾选）
         is_active = 'is_active' in request.form
         is_banned = 'is_banned' in request.form
+        
+        # 修复：超级管理员的is_active/is_banned字段在前端是disabled状态，
+        # disabled的表单元素不会被提交，因此需要保留数据库中的原值
+        if user.is_super_admin():
+            is_active = user.is_active
+            is_banned = user.is_banned
 
         new_password = request.form.get('new_password', '').strip()
 
@@ -375,10 +408,10 @@ def edit(id):
             gender = user.gender  # 使用数据库中已有的性别值，因为前端字段被禁用不会提交
         
         # 验证必填项
-        required_fields = [('name', '姓名'), ('gender', '性别')]
+        required_fields = [('name', '姓名'), ('gender', '性别'), ('category', '用户类别'), ('role', '角色'), ('status', '状态'), ('hire_date', '入职日期')]
         for field, label in required_fields:
             if not locals()[field]:
-                flash(f'{label}为必填项', 'danger')
+                flash(f'编辑用户失败，{label}为必填项', 'danger')
                 logging.error(f"编辑用户失败，{label}为必填项: {user.name}({user.id})")
                 return render_template(
                     'user_manage/user_edit.html', 
@@ -432,6 +465,34 @@ def edit(id):
                 category_options=category_options,
                 marital_status_options=marital_status_options  # 新增：婚姻状态选项
             )
+        
+        # 角色变更为超级管理员时，验证账号状态和登录权限是否开启
+        # 仅在角色发生变更时验证（已有的超级管理员编辑时其字段为disabled，不触发此验证）
+        if role == '超级管理员' and not user.is_super_admin():
+            if not is_banned:
+                flash('设置超级管理员失败：超级管理员必须允许登录，请先勾选"允许登录"', 'danger')
+                logging.error(f"编辑用户失败，设置超级管理员角色时未勾选允许登录: {user.id}")
+                return render_template(
+                    'user_manage/user_edit.html', 
+                    title=f"编辑用户 - {user.name}",
+                    user=user,
+                    role_options=role_options,
+                    status_options=status_options,
+                    category_options=category_options,
+                    marital_status_options=marital_status_options
+                )
+            if not is_active:
+                flash('设置超级管理员失败：超级管理员账号必须为激活状态，请先勾选"账号激活"', 'danger')
+                logging.error(f"编辑用户失败，设置超级管理员角色时未勾选激活账号: {user.id}")
+                return render_template(
+                    'user_manage/user_edit.html', 
+                    title=f"编辑用户 - {user.name}",
+                    user=user,
+                    role_options=role_options,
+                    status_options=status_options,
+                    category_options=category_options,
+                    marital_status_options=marital_status_options
+                )
         
         try:
             # 更新用户信息（包含是否允许登录）
