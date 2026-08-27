@@ -3,6 +3,7 @@ from utils.db import db
 from models.user import User
 from models.dorm import Dorm
 from models.room import Room
+from models.department import Department
 from flask_login import login_required, current_user
 from utils.log import log_operation
 import datetime
@@ -137,7 +138,7 @@ def search_users():
             query = query.filter(
                 or_(
                     User.name.ilike(f'%{search_query}%'),
-                    User.department.ilike(f'%{search_query}%'),
+                    Department.name.ilike(f'%{search_query}%'),
                     User.position.ilike(f'%{search_query}%'),
                     User.phone.ilike(f'%{search_query}%'),
                     User.student_id.ilike(f'%{search_query}%')

@@ -8,6 +8,7 @@ from models.chat_session import ChatSession
 from models.chat_participant import ChatParticipant
 from models.chat_message import ChatMessage
 from models.user import User
+from models.department import Department
 
 # 创建聊天功能蓝图
 chat_bp = Blueprint('chat', __name__, url_prefix='/chat')
@@ -404,16 +405,16 @@ def get_users_for_chat():
         
         # 应用筛选条件
         if department:
-            query = query.filter(User.department == department)
+            query = query.join(Department, User.department_id == Department.id).filter(Department.name == department)
         if gender:
             query = query.filter(User.gender == gender)
         if company:
             query = query.filter(User.company == company)
         if search_term:
             search_pattern = f"%{search_term}%"
-            query = query.filter(
+            query = query.outerjoin(Department, User.department_id == Department.id).filter(
                 (User.name.like(search_pattern)) |
-                (User.department.like(search_pattern)) |
+                (Department.name.like(search_pattern)) |
                 (User.position.like(search_pattern))
             )
         
@@ -423,7 +424,7 @@ def get_users_for_chat():
         total_count = pagination.total
         
         # 获取所有可选的部门、性别、公司值（用于前端筛选下拉框）
-        all_departments = db.session.query(User.department).filter(User.department.isnot(None), User.department != '').distinct().all()
+        all_departments = Department.query.filter_by(status='正常').with_entities(Department.name).order_by(Department.name).all()
         all_genders = db.session.query(User.gender).filter(User.gender.isnot(None), User.gender != '').distinct().all()
         all_companies = db.session.query(User.company).filter(User.company.isnot(None), User.company != '').distinct().all()
         
@@ -465,7 +466,7 @@ def get_filter_options():
     """获取筛选选项（部门、性别、公司）"""
     try:
         # 获取所有可选的部门、性别、公司值
-        all_departments = db.session.query(User.department).filter(User.department.isnot(None), User.department != '').distinct().all()
+        all_departments = Department.query.filter_by(status='正常').with_entities(Department.name).order_by(Department.name).all()
         all_genders = db.session.query(User.gender).filter(User.gender.isnot(None), User.gender != '').distinct().all()
         all_companies = db.session.query(User.company).filter(User.company.isnot(None), User.company != '').distinct().all()
         

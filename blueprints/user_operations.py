@@ -3,6 +3,7 @@ from utils.db import db
 from models.user import User
 from models.dorm import Dorm
 from models.system_config import SystemConfig  # 导入系统配置模型
+from models.department import Department
 from flask_login import login_required, current_user
 from utils.log import log_operation
 from utils.user_utils import generate_student_id, generate_username  # 引用工具类
@@ -15,6 +16,22 @@ import logging
 
 # 用户操作蓝图（仅保留增删改）
 user_operations_bp = Blueprint('user_operations', __name__, url_prefix='/user')
+
+
+def _ensure_department_exists(name, company=None):
+    """确保部门存在，不存在则自动创建（按name+company联合查找）"""
+    if not name:
+        return None
+    # 按name+company查找
+    query = Department.query.filter_by(name=name)
+    if company:
+        query = query.filter(db.or_(Department.company == company, Department.company.is_(None)))
+    else:
+        query = query.filter(Department.company.is_(None))
+    existing = query.first()
+    if not existing:
+        existing = Department.create(name=name, company=company, status='正常')
+    return existing
 
 @user_operations_bp.route('/add', methods=['GET', 'POST'])
 @login_required
@@ -103,7 +120,8 @@ def add():
                     role_options=role_options,
                     status_options=status_options,
                     category_options=category_options,
-                    marital_status_options=marital_status_options  # 新增：婚姻状态选项
+                    marital_status_options=marital_status_options,
+                    companies=Department.get_all_companies()
                 )
         
         # 验证身份证格式
@@ -117,7 +135,8 @@ def add():
                 role_options=role_options,
                 status_options=status_options,
                 category_options=category_options,
-                marital_status_options=marital_status_options  # 新增：婚姻状态选项
+                marital_status_options=marital_status_options,
+                    companies=Department.get_all_companies()
             )
         
         # 检查工号重复
@@ -131,7 +150,8 @@ def add():
                 role_options=role_options,
                 status_options=status_options,
                 category_options=category_options,
-                marital_status_options=marital_status_options  # 新增：婚姻状态选项
+                marital_status_options=marital_status_options,
+                    companies=Department.get_all_companies()
             )
         
         # 检查用户名重复
@@ -145,7 +165,8 @@ def add():
                 role_options=role_options,
                 status_options=status_options,
                 category_options=category_options,
-                marital_status_options=marital_status_options  # 新增：婚姻状态选项
+                marital_status_options=marital_status_options,
+                    companies=Department.get_all_companies()
             )
         
         # 如果工号为空，自动生成
@@ -161,7 +182,8 @@ def add():
                     role_options=role_options,
                     status_options=status_options,
                     category_options=category_options,
-                    marital_status_options=marital_status_options  # 新增：婚姻状态选项
+                    marital_status_options=marital_status_options,
+                    companies=Department.get_all_companies()
                 )
         
         # 如果用户名为空，自动生成
@@ -177,7 +199,8 @@ def add():
                     role_options=role_options,
                     status_options=status_options,
                     category_options=category_options,
-                    marital_status_options=marital_status_options  # 新增：婚姻状态选项
+                    marital_status_options=marital_status_options,
+                    companies=Department.get_all_companies()
                 )
         
         # 设置超级管理员角色时，验证账号状态和登录权限是否开启
@@ -192,7 +215,8 @@ def add():
                     role_options=role_options,
                     status_options=status_options,
                     category_options=category_options,
-                    marital_status_options=marital_status_options
+                    marital_status_options=marital_status_options,
+                    companies=Department.get_all_companies()
                 )
             if not is_active:
                 flash('设置超级管理员失败：超级管理员账号必须为激活状态，请先勾选"账号激活"', 'danger')
@@ -204,10 +228,14 @@ def add():
                     role_options=role_options,
                     status_options=status_options,
                     category_options=category_options,
-                    marital_status_options=marital_status_options
+                    marital_status_options=marital_status_options,
+                    companies=Department.get_all_companies()
                 )
         
         try:
+            # 处理部门：通过_ensure_department_exists获取或创建部门
+            dept = _ensure_department_exists(department, company)
+            department_id = dept.id if dept else None
             # 创建用户
             new_user = User(
                 student_id=student_id,
@@ -219,7 +247,7 @@ def add():
                 lodging_address=lodging_address,
                 phone=phone,
                 company=company,
-                department=department,
+                department_id=department_id,
                 position=position,
                 emergency_contact=emergency_contact,
                 emergency_phone=emergency_phone,
@@ -282,9 +310,10 @@ def add():
         role_options=role_options,
         status_options=status_options,
         category_options=category_options,
-        marital_status_options=marital_status_options,  # 新增：婚姻状态选项
+        marital_status_options=marital_status_options,
         default_is_banned=default_is_banned,
-        default_is_active=default_is_active
+        default_is_active=default_is_active,
+        companies=Department.get_all_companies()
     )
 
 
@@ -383,7 +412,8 @@ def edit(id):
                     role_options=role_options,
                     status_options=status_options,
                     category_options=category_options,
-                    marital_status_options=marital_status_options  # 新增：婚姻状态选项
+                    marital_status_options=marital_status_options,
+                    companies=Department.get_all_companies()
                 )
         
         # 只有当用户名发生变化时才检查重复
@@ -399,7 +429,8 @@ def edit(id):
                     role_options=role_options,
                     status_options=status_options,
                     category_options=category_options,
-                    marital_status_options=marital_status_options  # 新增：婚姻状态选项
+                    marital_status_options=marital_status_options,
+                    companies=Department.get_all_companies()
                 )
         
         # 有活跃住宿时锁定状态和性别
@@ -420,7 +451,8 @@ def edit(id):
                     role_options=role_options,
                     status_options=status_options,
                     category_options=category_options,
-                    marital_status_options=marital_status_options  # 新增：婚姻状态选项
+                    marital_status_options=marital_status_options,
+                    companies=Department.get_all_companies()
                 )
         
         # 验证身份证格式
@@ -434,7 +466,8 @@ def edit(id):
                 role_options=role_options,
                 status_options=status_options,
                 category_options=category_options,
-                marital_status_options=marital_status_options  # 新增：婚姻状态选项
+                marital_status_options=marital_status_options,
+                    companies=Department.get_all_companies()
             )
         
         
@@ -449,7 +482,8 @@ def edit(id):
                 role_options=role_options,
                 status_options=status_options,
                 category_options=category_options,
-                marital_status_options=marital_status_options  # 新增：婚姻状态选项
+                marital_status_options=marital_status_options,
+                    companies=Department.get_all_companies()
             )
         
         # 登录权限特殊控制：超级管理员不能被禁止登录
@@ -463,7 +497,8 @@ def edit(id):
                 role_options=role_options,
                 status_options=status_options,
                 category_options=category_options,
-                marital_status_options=marital_status_options  # 新增：婚姻状态选项
+                marital_status_options=marital_status_options,
+                    companies=Department.get_all_companies()
             )
         
         # 角色变更为超级管理员时，验证账号状态和登录权限是否开启
@@ -479,7 +514,8 @@ def edit(id):
                     role_options=role_options,
                     status_options=status_options,
                     category_options=category_options,
-                    marital_status_options=marital_status_options
+                    marital_status_options=marital_status_options,
+                    companies=Department.get_all_companies()
                 )
             if not is_active:
                 flash('设置超级管理员失败：超级管理员账号必须为激活状态，请先勾选"账号激活"', 'danger')
@@ -491,7 +527,8 @@ def edit(id):
                     role_options=role_options,
                     status_options=status_options,
                     category_options=category_options,
-                    marital_status_options=marital_status_options
+                    marital_status_options=marital_status_options,
+                    companies=Department.get_all_companies()
                 )
         
         try:
@@ -506,7 +543,8 @@ def edit(id):
             user.lodging_address = lodging_address
             user.phone = phone
             user.company = company
-            user.department = department
+            dept = _ensure_department_exists(department, company)
+            user.department_id = dept.id if dept else None
             user.position = position
             user.emergency_contact = emergency_contact
             user.emergency_phone = emergency_phone
@@ -558,7 +596,8 @@ def edit(id):
         role_options=role_options,
         status_options=status_options,
         category_options=category_options,
-        marital_status_options=marital_status_options  # 新增：婚姻状态选项
+        marital_status_options=marital_status_options,
+        companies=Department.get_all_companies()
     )
     
     

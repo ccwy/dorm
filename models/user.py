@@ -4,6 +4,7 @@ import re
 import logging
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import UserMixin, current_user  # 导入Flask-Login支持类
+from models.department import Department
 
 class User(UserMixin, db.Model):
     __tablename__ = 'users'
@@ -17,7 +18,7 @@ class User(UserMixin, db.Model):
     id_address = db.Column(db.String(500), nullable=True, comment='身份证地址')
     phone = db.Column(db.String(20), nullable=True, comment='电话')
     company = db.Column(db.String(100), nullable=True, comment='公司')
-    department = db.Column(db.String(100), nullable=True, comment='部门')
+    department_id = db.Column(db.Integer, db.ForeignKey('departments.id'), nullable=True, comment='部门ID')
     position = db.Column(db.String(100), nullable=True, comment='职位')
     emergency_contact = db.Column(db.String(50), nullable=True, comment='紧急联系人')
     emergency_phone = db.Column(db.String(50), nullable=True, comment='紧急联系人电话')
@@ -46,7 +47,17 @@ class User(UserMixin, db.Model):
     # 补贴相关字段
     reduction_fee = db.Column(db.Numeric(10, 2), default=0, comment='住宿补贴')
     lodging_allowance = db.Column(db.Numeric(10, 2), default=0, comment='外宿补贴')
-    
+
+    # 部门关系映射
+    dept = db.relationship('Department', foreign_keys=[department_id], backref='users_lazy', lazy='select')
+
+    @property
+    def department(self):
+        """返回部门名称（通过relationship获取）"""
+        if self.dept:
+            return self.dept.name
+        return None
+
     def __repr__(self):
         return f"<User {self.category or '未知'} {self.student_id}: {self.name}>"
 
@@ -480,7 +491,7 @@ class User(UserMixin, db.Model):
                     lodging_address=user_data.get('lodging_address'),
                     phone=user_data.get('phone'),
                     company=user_data.get('company'),
-                    department=user_data.get('department'),
+                    department_id=_get_department_id(user_data.get('department'), user_data.get('company')),
                     position=user_data.get('position'),
                     marital_status=user_data.get('marital_status'),
                     ethnicity=user_data.get('ethnicity'),
@@ -514,6 +525,24 @@ class User(UserMixin, db.Model):
                 })
         
         return result
+
+
+def _get_department_id(dept_name, company=None):
+    """根据部门名称和公司查找部门ID，不存在则自动创建"""
+    if not dept_name:
+        return None
+    # 按name+company查找
+    query = Department.query.filter_by(name=dept_name)
+    if company:
+        query = query.filter(db.or_(Department.company == company, Department.company.is_(None)))
+    else:
+        query = query.filter(Department.company.is_(None))
+    existing = query.first()
+    if existing:
+        return existing.id
+    # 不存在则创建
+    dept = Department.create(name=dept_name, company=company, status='正常')
+    return dept.id
         
     @classmethod
     def batch_update_users(cls, user_data_list):
@@ -591,7 +620,7 @@ class User(UserMixin, db.Model):
                 
                 # 更新用户字段
                 fields_to_update = ['name', 'gender', 'category', 'id_card', 'id_address', 
-                                   'lodging_address', 'phone', 'company', 'department', 
+                                   'lodging_address', 'phone', 'company', 
                                    'position', 'marital_status', 'ethnicity', 'emergency_contact', 
                                    'emergency_phone', 'remarks', 'status', 'hire_date', 'role', 
                                    'is_active', 'is_banned', 'username', 'student_id']
@@ -600,6 +629,10 @@ class User(UserMixin, db.Model):
                     if field in user_data and user_data[field] is not None:
                         value = user_data[field]
                         setattr(user, field, value)
+                
+                # 单独处理department → department_id的转换
+                if 'department' in user_data and user_data['department'] is not None:
+                    user.department_id = _get_department_id(user_data['department'], user_data.get('company'))
                 
                 # 单独处理密码（如果提供了新密码）
                 if 'password' in user_data and user_data['password']:
@@ -621,4 +654,22 @@ class User(UserMixin, db.Model):
                 })
         
         return result
+
+
+def _get_department_id(dept_name, company=None):
+    """根据部门名称和公司查找部门ID，不存在则自动创建"""
+    if not dept_name:
+        return None
+    # 按name+company查找
+    query = Department.query.filter_by(name=dept_name)
+    if company:
+        query = query.filter(db.or_(Department.company == company, Department.company.is_(None)))
+    else:
+        query = query.filter(Department.company.is_(None))
+    existing = query.first()
+    if existing:
+        return existing.id
+    # 不存在则创建
+    dept = Department.create(name=dept_name, company=company, status='正常')
+    return dept.id
 

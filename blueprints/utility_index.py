@@ -3,6 +3,7 @@ from flask_login import login_required, current_user
 import logging
 from models.utility_room_bill_record import RoomUtilityRecord      #导入主表模型
 from models.user import User  # 导入用户模型获取部门信息
+from models.department import Department  # 导入部门模型
 from models.room import Room  # 导入房间模型获取楼栋信息
 from utils.db import db
 from utils.log import log_operation
@@ -131,9 +132,7 @@ def utility_room_checkout():
         room_id = request.args.get('room_id', '未指定')
         
         # 获取所有部门信息（去重并排序）
-        departments = db.session.query(User.department).distinct().filter(User.department.isnot(None)).filter(User.department != '').all()
-        # 转换为列表格式并排序
-        departments_list = sorted([dept[0] for dept in departments])
+        departments_list = [d.name for d in Department.query.filter_by(status='正常').order_by(Department.name).all()]
         
         # 获取所有楼栋信息（去重并排序）
         buildings = db.session.query(Room.building).distinct().filter(Room.building.isnot(None)).filter(Room.building != '').all()
@@ -159,8 +158,7 @@ def utility_room_checkout():
         )
         # 即使出错也尝试获取部门和楼栋信息
         try:
-            departments = db.session.query(User.department).distinct().filter(User.department.isnot(None)).filter(User.department != '').all()
-            departments_list = sorted([dept[0] for dept in departments])
+            departments_list = [d.name for d in Department.query.filter_by(status='正常').order_by(Department.name).all()]
             buildings = db.session.query(Room.building).distinct().filter(Room.building.isnot(None)).filter(Room.building != '').all()
             buildings_list = sorted([building[0] for building in buildings])
         except Exception:
@@ -245,8 +243,7 @@ def utility_occupant_manage():
         building_list = [building[0] for building in buildings if building[0]]
         
         # 获取所有部门数据用于筛选
-        departments = db.session.query(User.department).distinct().order_by(User.department).all()
-        department_list = [dept[0] for dept in departments if dept[0]]
+        department_list = [d.name for d in Department.query.filter_by(status='正常').order_by(Department.name).all()]
         
         log_operation(
             user_id=current_user.id,

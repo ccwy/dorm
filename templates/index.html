@@ -122,6 +122,8 @@
                 </div>
                 {% endif %}
 
+                
+
                 <!-- 水电费管理（暂保留，需确认对应路由） -->
                 {% if get_config_value('FEATURE_UTILITY_BILL_ENABLED', True) %}
                 <div class="bg-white rounded-xl p-6 card-shadow btn-hover">
@@ -195,6 +197,32 @@
                         </div>
                         <h3 class="text-lg font-medium text-dark mb-2">OA聊天</h3>
                         <p class="text-gray-500 text-sm">与朋友进行一对一或群聊交流</p>
+                    </a>
+                </div>
+                {% endif %}
+
+                <!-- 部门管理 -->
+                {% if get_config_value('FEATURE_DEPARTMENT_ENABLED', True) %}
+                <div class="bg-white rounded-xl p-6 card-shadow btn-hover">
+                    <a href="{{ url_for('department.index') }}" class="flex flex-col items-center text-center">
+                        <div class="w-16 h-16 bg-indigo-500/10 rounded-full flex items-center justify-center mb-4">
+                            <i class="fa fa-sitemap text-2xl text-indigo-500"></i>
+                        </div>
+                        <h3 class="text-lg font-medium text-dark mb-2">部门管理</h3>
+                        <p class="text-gray-500 text-sm">部门信息维护与组织架构管理</p>
+                    </a>
+                </div>
+                {% endif %}
+
+                <!-- 固定资产管理 -->
+                {% if get_config_value('FEATURE_FIXED_ASSET_MANAGE_ENABLED', True) %}
+                <div class="bg-white rounded-xl p-6 card-shadow btn-hover">
+                    <a href="{{ url_for('fixed_asset.index') }}" class="flex flex-col items-center text-center">
+                        <div class="w-16 h-16 bg-cyan-500/10 rounded-full flex items-center justify-center mb-4">
+                            <i class="fa fa-cube text-2xl text-cyan-500"></i>
+                        </div>
+                        <h3 class="text-lg font-medium text-dark mb-2">固定资产管理</h3>
+                        <p class="text-gray-500 text-sm">资产登记、转移、盘点及处置</p>
                     </a>
                 </div>
                 {% endif %}

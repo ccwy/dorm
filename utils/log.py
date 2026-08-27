@@ -17,6 +17,8 @@ MODULE_MAP = {
     'feesubsidy': '补贴管理',
     'ticket': '留言管理',
     'todo': '待办事项管理',
+    'asset': '固定资产管理',
+    'department': '部门管理',
     'other': '其他操作',
     'default': '其他模块'  # 默认值
 }
@@ -94,6 +96,29 @@ OPERATION_TYPE_MAP = {
     ('todo', 'update'): '更新待办事项',
     ('todo', 'delete'): '删除待办事项',
     ('todo', 'batch_import_export'): '导入导出',
+    # 固定资产管理模块
+    ('asset', 'asset_add'): '新增资产',
+    ('asset', 'asset_edit'): '编辑资产',
+    ('asset', 'asset_delete'): '删除资产',
+    ('asset', 'asset_batch_delete'): '批量删除资产',
+    ('asset', 'asset_transfer'): '资产转移',
+    ('asset', 'asset_scrap'): '资产报废',
+    ('asset', 'asset_sell'): '资产出售',
+    ('asset', 'asset_inventory_create'): '创建盘点',
+    ('asset', 'asset_inventory_check'): '执行盘点',
+    ('asset', 'asset_inventory_complete'): '完成盘点',
+    ('asset', 'batch_import_export'): '导入导出',
+    ('asset', 'asset_api'): '调用接口',
+    ('asset', 'asset_view'): '查看资产',
+    ('asset', 'upload_photo'): '上传照片',
+    ('asset', 'delete_photo'): '删除照片',
+    ('asset', 'records'): '访问页面',
+    # 部门管理模块
+    ('department', 'department_add'): '新增部门',
+    ('department', 'department_edit'): '编辑部门',
+    ('department', 'department_delete'): '删除部门',
+    ('department', 'batch_import_export'): '导入导出',
+
     # 其他操作模块
     ('other', 'records'): '访问页面',
 

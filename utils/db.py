@@ -213,6 +213,11 @@ def init_db(app: Flask, force_recreate=False):
             import models.chat_session  # 聊天会话模型
             import models.chat_participant  # 聊天参与者模型
             import models.chat_message  # 聊天消息模型
+            import models.department  # 部门管理模型
+            import models.fixed_asset  # 固定资产模型
+            import models.asset_inventory  # 盘点主表模型
+            import models.asset_inventory_detail  # 盘点明细模型
+            import models.asset_operation_record  # 资产操作记录模型
 
             # 创建表结构
             if force_recreate or not _is_initialized:

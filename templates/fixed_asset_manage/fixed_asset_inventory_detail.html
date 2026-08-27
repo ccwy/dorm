@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+   <!--本地化CDN-->
+{% include 'static.html' %}
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#165DFF',
+                        secondary: '#36CFC9',
+                        accent: '#722ED1',
+                        danger: '#F5222D',
+                        info: '#1890FF',
+                        warning: '#FAAD14'
+                    },
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .btn-hover {
+                transition: all 0.2s ease;
+            }
+            .btn-hover:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            }
+            .btn-effect {
+                transition: all 0.15s ease;
+            }
+            .btn-effect:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+            }
+            .fade-in {
+                animation: fadeIn 0.5s ease-in;
+            }
+            @keyframes fadeIn {
+                from { opacity: 0; }
+                to { opacity: 1; }
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+{% include 'header.html' %}
+    <main class="container mx-auto px-4 py-6">
+        <!-- Flash消息 -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            <div class="flash-messages mb-6">
+              {% for category, message in messages %}
+                <div class="p-4 rounded-md mb-2 {% if category == 'success' %}bg-green-100 text-green-800{% elif category == 'error' or category == 'danger' %}bg-red-100 text-red-800{% elif category == 'warning' %}bg-yellow-100 text-yellow-800{% else %}bg-blue-100 text-blue-800{% endif %}">
+                  <button type="button" class="float-right ml-2 text-gray-500 hover:text-gray-700" onclick="this.parentElement.remove()">×</button>
+                  {{ message | safe }}
+                </div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        {% endwith %}
+
+        <div class="flex items-center mb-6 fade-in">
+            <a href="{{ url_for('fixed_asset.inventory') }}" class="text-primary hover:text-primary/80 mr-2">
+                <i class="fa fa-arrow-left"></i>
+            </a>
+            <h2 class="text-2xl font-semibold text-dark">{{ title }}</h2>
+        </div>
+
+        <!-- 盘点概览 -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+            <div class="bg-white rounded-lg shadow-sm p-4">
+                <span class="text-sm text-gray-500">盘点单号</span>
+                <p class="text-lg font-semibold text-gray-800">{{ inventory_record.inventory_number }}</p>
+            </div>
+            <div class="bg-white rounded-lg shadow-sm p-4">
+                <span class="text-sm text-gray-500">盘点日期</span>
+                <p class="text-lg font-semibold text-gray-800">{{ inventory_record.inventory_date.strftime('%Y-%m-%d') if inventory_record.inventory_date else '-' }}</p>
+            </div>
+            <div class="bg-white rounded-lg shadow-sm p-4">
+                <span class="text-sm text-gray-500">盘点状态</span>
+                <p>
+                    {% if inventory_record.status == '进行中' %}
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium bg-blue-100 text-blue-800">{{ inventory_record.status }}</span>
+                    {% elif inventory_record.status == '已完成' %}
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium bg-green-100 text-green-800">{{ inventory_record.status }}</span>
+                    {% elif inventory_record.status == '已取消' %}
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium bg-gray-100 text-gray-800">{{ inventory_record.status }}</span>
+                    {% else %}
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium bg-gray-100 text-gray-800">{{ inventory_record.status }}</span>
+                    {% endif %}
+                </p>
+            </div>
+            <div class="bg-white rounded-lg shadow-sm p-4">
+                <span class="text-sm text-gray-500">盘点进度</span>
+                <p class="text-lg font-semibold text-gray-800">
+                    <span class="text-primary">{{ inventory_record.checked_count }}</span>
+                    <span class="text-gray-400">/</span>
+                    <span>{{ inventory_record.total_count }}</span>
+                </p>
+                {% if inventory_record.total_count > 0 %}
+                <div class="w-full bg-gray-200 rounded-full h-2 mt-1">
+                    <div class="bg-primary h-2 rounded-full" style="width: {{ (inventory_record.checked_count / inventory_record.total_count * 100)|int }}%"></div>
+                </div>
+                {% endif %}
+            </div>
+            <div class="bg-white rounded-lg shadow-sm p-4">
+                <span class="text-sm text-gray-500">正常/异常</span>
+                <p class="text-lg font-semibold">
+                    <span class="text-green-600">{{ inventory_record.normal_count }}</span>
+                    <span class="text-gray-400">/</span>
+                    <span class="text-red-600">{{ inventory_record.abnormal_count }}</span>
+                </p>
+            </div>
+        </div>
+
+        <!-- 备注 -->
+        {% if inventory_record.remark %}
+        <div class="bg-white rounded-lg shadow-sm p-4 mb-6">
+            <span class="text-sm text-gray-500">备注</span>
+            <p class="text-gray-700 mt-1">{{ inventory_record.remark }}</p>
+        </div>
+        {% endif %}
+
+        <!-- 完成盘点按钮 -->
+        {% if inventory_record.status == '进行中' %}
+        <div class="mb-6">
+            <form method="POST" action="{{ url_for('fixed_asset.complete_inventory', id=inventory_record.id) }}" 
+                  onsubmit="return confirm('确定要完成此盘点吗？未盘点的资产将标记为异常。')">
+                <button type="submit" class="btn-hover bg-green-600 text-white px-4 py-2 rounded-md flex items-center">
+                    <i class="fa fa-check-circle mr-2"></i>完成盘点
+                </button>
+            </form>
+        </div>
+        {% endif %}
+
+        <!-- 盘点明细列表 -->
+        <div class="bg-white rounded-lg shadow-sm overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h3 class="text-lg font-medium text-gray-800">
+                    <i class="fa fa-list-alt text-primary mr-2"></i>盘点明细
+                </h3>
+            </div>
+            <!-- 筛选栏 -->
+            <div class="px-6 py-3 border-b border-gray-100 bg-gray-50">
+                <form method="GET" action="{{ url_for('fixed_asset.inventory_detail', id=inventory_record.id) }}" class="flex flex-wrap items-center gap-4">
+                    <div>
+                        <select name="result_filter" class="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" onchange="this.form.submit()">
+                            <option value="">全部结果</option>
+                            <option value="正常" {% if result_filter == '正常' %}selected{% endif %}>正常</option>
+                            <option value="异常" {% if result_filter == '异常' %}selected{% endif %}>异常</option>
+                            <option value="未盘点" {% if result_filter == '未盘点' %}selected{% endif %}>未盘点</option>
+                        </select>
+                    </div>
+                    <div>
+                        <select name="category_filter" class="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" onchange="this.form.submit()">
+                            <option value="">全部分类</option>
+                            {% for cat in categories %}
+                            <option value="{{ cat }}" {% if category_filter == cat %}selected{% endif %}>{{ cat }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <select name="company_filter" class="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" onchange="this.form.submit()">
+                            <option value="">全部公司</option>
+                            {% for comp in companies %}
+                            <option value="{{ comp }}" {% if company_filter == comp %}selected{% endif %}>{{ comp }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <select name="department_filter" class="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" onchange="this.form.submit()">
+                            <option value="">全部部门</option>
+                            {% for dept in departments %}
+                            <option value="{{ dept }}" {% if department_filter == dept %}selected{% endif %}>{{ dept }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <select name="responsible_filter" class="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" onchange="this.form.submit()">
+                            <option value="">全部责任人</option>
+                            {% for person in responsible_persons %}
+                            <option value="{{ person }}" {% if responsible_filter == person %}selected{% endif %}>{{ person }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="flex items-center">
+                        <input type="text" name="search" value="{{ search }}" placeholder="搜索编号/名称/规格/存放位置/责任人" 
+                               class="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 w-64">
+                        <button type="submit" class="ml-2 px-3 py-2 bg-primary text-white rounded-md text-sm hover:bg-primary/90">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+                    <a href="{{ url_for('fixed_asset.inventory_detail', id=inventory_record.id) }}" class="text-sm text-gray-500 hover:text-primary">重置</a>
+                </form>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">资产编号</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">资产名称</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">分类</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">规格型号</th>
+                            <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">数量/单位</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">公司</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">使用部门</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">归属部门</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">责任人</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">关联房间</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">存放位置</th>
+                            <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">盘点结果</th>
+                            <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">盘点数量</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">盘点备注</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">盘点人</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">盘点时间</th>
+                            {% if inventory_record.status == '进行中' %}
+                            <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
+                            {% endif %}
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        {% for detail in details %}
+                        <tr class="hover:bg-gray-50" id="detail-row-{{ detail.id }}">
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-primary">
+                                <a href="{{ url_for('fixed_asset.detail', id=detail.asset_id) }}">
+                                    {{ detail.asset.display_number if detail.asset else '-' }}
+                                </a>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-800">
+                                {{ detail.asset.asset_name if detail.asset else '-' }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                                {{ detail.asset.asset_category if detail.asset else '-' }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                                {{ detail.asset.specification if detail.asset and detail.asset.specification else '-' }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-600">
+                                {{ detail.asset.quantity if detail.asset else '-' }}{{ detail.asset.unit if detail.asset and detail.asset.unit else '' }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                                {{ detail.asset.company if detail.asset and detail.asset.company else '-' }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                                {{ detail.asset.department_using if detail.asset and detail.asset.department_using else '-' }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                                {{ detail.asset.department_owning if detail.asset and detail.asset.department_owning else '-' }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                                {{ detail.asset.responsible_user_name or detail.asset.responsible_person if detail.asset and (detail.asset.responsible_user_name or detail.asset.responsible_person) else '-' }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                                {{ detail.asset.room_display if detail.asset and detail.asset.room_display else '-' }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                                {{ detail.asset.storage_location if detail.asset else '-' }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-center" id="result-{{ detail.id }}">
+                                {% if detail.inventory_result == '正常' %}
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">正常</span>
+                                {% elif detail.inventory_result == '异常' %}
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">异常</span>
+                                {% else %}
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">未盘点</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-600">
+                                {% if detail.actual_quantity is not none %}
+                                    {{ detail.actual_quantity }}{{ detail.asset.unit if detail.asset and detail.asset.unit else '' }}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            <td class="px-6 py-4 text-sm text-gray-600" id="remark-{{ detail.id }}">
+                                {{ detail.inventory_remark or '-' }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600" id="checked-by-{{ detail.id }}">
+                                {{ detail.checked_by or '-' }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600" id="checked-at-{{ detail.id }}">
+                                {{ detail.checked_at.strftime('%Y-%m-%d %H:%M') if detail.checked_at else '-' }}
+                            </td>
+                            {% if inventory_record.status == '进行中' %}
+                            <td class="px-4 py-4 whitespace-nowrap text-sm font-medium">
+                                <div class="flex gap-2">
+                                    {% if detail.inventory_result == '未盘点' %}
+                                    <button type="button" onclick="showCheckModal({{ detail.id }}, {{ detail.inventory_id }}, {{ detail.asset_id }})" 
+                                            class="btn-effect bg-primary text-white px-2 py-1 rounded-md text-sm flex items-center">
+                                        <i class="fa fa-clipboard-check mr-1"></i>盘点
+                                    </button>
+                                    {% else %}
+                                    <button type="button" onclick="showCheckModal({{ detail.id }}, {{ detail.inventory_id }}, {{ detail.asset_id }})" 
+                                            class="btn-effect bg-amber-500 text-white px-2 py-1 rounded-md text-sm flex items-center">
+                                        <i class="fa fa-edit mr-1"></i>修改
+                                    </button>
+                                    {% endif %}
+                                </div>
+                            </td>
+                            {% endif %}
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="{{ 17 if inventory_record.status == '进行中' else 16 }}" class="px-6 py-10 text-center text-gray-500">
+                                <i class="fa fa-clipboard-list text-4xl mb-2 block text-gray-300"></i>
+                                暂无盘点明细
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <!-- 盘点确认模态框 -->
+    <div id="checkModal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-lg mx-4">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h3 class="text-lg font-medium text-gray-800">
+                    <i class="fa fa-clipboard-check text-primary mr-2"></i>盘点确认
+                </h3>
+            </div>
+            <div class="px-6 py-4">
+                <input type="hidden" id="modal_detail_id">
+                <input type="hidden" id="modal_inventory_id">
+                <input type="hidden" id="modal_asset_id">
+
+                <!-- 资产基础信息展示区 -->
+                <div class="mb-4 p-3 bg-gray-50 rounded-md border border-gray-200">
+                    <h4 class="text-sm font-medium text-gray-700 mb-2"><i class="fa fa-info-circle text-primary mr-1"></i>资产信息</h4>
+                    <div class="grid grid-cols-2 gap-2 text-sm">
+                        <div><span class="text-gray-500">资产编号：</span><span id="modal_asset_number" class="text-gray-800">-</span></div>
+                        <div><span class="text-gray-500">资产名称：</span><span id="modal_asset_name" class="text-gray-800">-</span></div>
+                        <div><span class="text-gray-500">规格型号：</span><span id="modal_specification" class="text-gray-800">-</span></div>
+                        <div><span class="text-gray-500">数量/单位：</span><span id="modal_quantity_unit" class="text-gray-800">-</span></div>
+                        <div><span class="text-gray-500">公司：</span><span id="modal_company" class="text-gray-800">-</span></div>
+                        <div><span class="text-gray-500">使用部门：</span><span id="modal_dept_using" class="text-gray-800">-</span></div>
+                        <div><span class="text-gray-500">归属部门：</span><span id="modal_dept_owning" class="text-gray-800">-</span></div>
+                        <div><span class="text-gray-500">责任人：</span><span id="modal_responsible" class="text-gray-800">-</span></div>
+                        <div><span class="text-gray-500">关联房间：</span><span id="modal_room_display" class="text-gray-800">-</span></div>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <label for="actual_quantity" class="block text-sm font-medium text-gray-700 mb-1">实盘数量</label>
+                    <input type="number" id="actual_quantity" name="actual_quantity" min="0" 
+                           class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                           placeholder="请输入实盘数量"
+                           oninput="autoSelectResult()">
+                </div>
+
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">盘点结果 <span class="text-red-500">*</span></label>
+                    <div class="flex gap-4">
+                        <label class="inline-flex items-center">
+                            <input type="radio" name="inventory_result" value="正常" class="form-radio text-green-600" checked>
+                            <span class="ml-2 text-sm text-gray-700">正常</span>
+                        </label>
+                        <label class="inline-flex items-center">
+                            <input type="radio" name="inventory_result" value="异常" class="form-radio text-red-600">
+                            <span class="ml-2 text-sm text-gray-700">异常</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <label for="inventory_remark" class="block text-sm font-medium text-gray-700 mb-1">盘点备注</label>
+                    <textarea id="inventory_remark" name="inventory_remark" rows="3"
+                              class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                              placeholder="请输入盘点备注..."></textarea>
+                </div>
+            </div>
+            <div class="px-6 py-4 border-t border-gray-200 flex justify-end gap-3">
+                <button type="button" onclick="closeCheckModal()" class="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50">取消</button>
+                <button type="button" onclick="submitCheck()" class="btn-hover bg-primary text-white px-4 py-2 rounded-md flex items-center">
+                    <i class="fa fa-check mr-2"></i>确认
+                </button>
+            </div>
+        </div>
+    </div>
+
+    {% include 'footer.html' %}
+
+    <script>
+        // 资产数据缓存（从表格行中获取）
+        var assetDataMap = {};
+        {% for detail in details %}
+        assetDataMap[{{ detail.id }}] = {
+            asset_number: "{{ detail.asset.display_number if detail.asset else '-' }}",
+            asset_name: "{{ detail.asset.asset_name if detail.asset else '-' }}",
+            specification: "{{ detail.asset.specification if detail.asset and detail.asset.specification else '-' }}",
+            quantity: "{{ detail.asset.quantity if detail.asset else '-' }}",
+            unit: "{{ detail.asset.unit if detail.asset and detail.asset.unit else '' }}",
+            company: "{{ detail.asset.company if detail.asset and detail.asset.company else '-' }}",
+            dept_using: "{{ detail.asset.department_using if detail.asset and detail.asset.department_using else '-' }}",
+            dept_owning: "{{ detail.asset.department_owning if detail.asset and detail.asset.department_owning else '-' }}",
+            responsible: "{{ detail.asset.responsible_user_name or detail.asset.responsible_person if detail.asset and (detail.asset.responsible_user_name or detail.asset.responsible_person) else '-' }}",
+            room_display: "{{ detail.asset.room_display if detail.asset and detail.asset.room_display else '-' }}",
+            actual_quantity: {{ detail.actual_quantity if detail.actual_quantity is not none else 'null' }},
+            inventory_result: "{{ detail.inventory_result if detail.inventory_result else '未盘点' }}"
+        };
+        {% endfor %}
+
+        // 显示盘点确认模态框
+        function showCheckModal(detailId, inventoryId, assetId) {
+            document.getElementById('modal_detail_id').value = detailId;
+            document.getElementById('modal_inventory_id').value = inventoryId;
+            document.getElementById('modal_asset_id').value = assetId;
+            document.getElementById('inventory_remark').value = '';
+
+            // 填充资产信息
+            var data = assetDataMap[detailId];
+            if (data) {
+                document.getElementById('modal_asset_number').textContent = data.asset_number;
+                document.getElementById('modal_asset_name').textContent = data.asset_name;
+                document.getElementById('modal_specification').textContent = data.specification;
+                document.getElementById('modal_quantity_unit').textContent = data.quantity + data.unit;
+                document.getElementById('modal_company').textContent = data.company;
+                document.getElementById('modal_dept_using').textContent = data.dept_using;
+                document.getElementById('modal_dept_owning').textContent = data.dept_owning;
+                document.getElementById('modal_responsible').textContent = data.responsible;
+                document.getElementById('modal_room_display').textContent = data.room_display;
+
+                // 实盘数量：优先使用已保存的actual_quantity，否则用账面数量
+                if (data.actual_quantity !== null && data.actual_quantity !== undefined) {
+                    document.getElementById('actual_quantity').value = data.actual_quantity;
+                } else {
+                    var qty = parseInt(data.quantity);
+                    document.getElementById('actual_quantity').value = isNaN(qty) ? 0 : qty;
+                }
+
+                // 盘点结果：优先使用已保存的结果，未盘点时根据数量差异自动选择
+                if (data.inventory_result && data.inventory_result !== '未盘点') {
+                    var radio = document.querySelector('input[name="inventory_result"][value="' + data.inventory_result + '"]');
+                    if (radio) radio.checked = true;
+                } else {
+                    // 未盘点时：根据实盘数量与账面数量自动选择
+                    autoSelectResult();
+                }
+            } else {
+                document.getElementById('modal_asset_number').textContent = '-';
+                document.getElementById('modal_asset_name').textContent = '-';
+                document.getElementById('modal_specification').textContent = '-';
+                document.getElementById('modal_quantity_unit').textContent = '-';
+                document.getElementById('modal_company').textContent = '-';
+                document.getElementById('modal_dept_using').textContent = '-';
+                document.getElementById('modal_dept_owning').textContent = '-';
+                document.getElementById('modal_responsible').textContent = '-';
+                document.getElementById('modal_room_display').textContent = '-';
+                document.getElementById('actual_quantity').value = '';
+            }
+
+            document.getElementById('checkModal').classList.remove('hidden');
+        }
+
+        // 根据实盘数量与账面数量自动选择盘点结果
+        function autoSelectResult() {
+            var actualQty = parseInt(document.getElementById('actual_quantity').value);
+            var detailId = document.getElementById('modal_detail_id').value;
+            var data = assetDataMap[detailId];
+            if (data) {
+                var bookQty = parseInt(data.quantity);
+                if (!isNaN(actualQty) && !isNaN(bookQty) && actualQty !== bookQty) {
+                    document.querySelector('input[name="inventory_result"][value="异常"]').checked = true;
+                } else {
+                    document.querySelector('input[name="inventory_result"][value="正常"]').checked = true;
+                }
+            }
+        }
+
+        // 关闭模态框
+        function closeCheckModal() {
+            document.getElementById('checkModal').classList.add('hidden');
+        }
+
+        // 提交盘点确认(AJAX)
+        function submitCheck() {
+            const inventoryId = document.getElementById('modal_inventory_id').value;
+            const assetId = document.getElementById('modal_asset_id').value;
+            const result = document.querySelector('input[name="inventory_result"]:checked').value;
+            const remark = document.getElementById('inventory_remark').value;
+            const actualQuantity = document.getElementById('actual_quantity').value;
+
+            fetch('{{ url_for("fixed_asset.check_inventory") }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: 'inventory_id=' + encodeURIComponent(inventoryId) +
+                      '&asset_id=' + encodeURIComponent(assetId) +
+                      '&inventory_result=' + encodeURIComponent(result) +
+                      '&inventory_remark=' + encodeURIComponent(remark) +
+                      '&actual_quantity=' + encodeURIComponent(actualQuantity)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    closeCheckModal();
+                    // 刷新页面以更新数据
+                    location.reload();
+                } else {
+                    alert('盘点确认失败: ' + (data.message || '未知错误'));
+                }
+            })
+            .catch(error => {
+                alert('请求出错: ' + error.message);
+            });
+        }
+
+        // 点击模态框背景关闭
+        document.getElementById('checkModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeCheckModal();
+            }
+        });
+    </script>
+</body>
+</html>

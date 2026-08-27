@@ -1,6 +1,7 @@
 from flask import request, jsonify, make_response
 from utils.db import db
 from models.user import User
+from models.department import Department
 from models.room import Room
 from models.utility_room_bill_record import RoomUtilityRecord
 from models.utility_room_bill_checkout import CheckoutUtilityRecord
@@ -40,6 +41,8 @@ def export_checkout_records():
         ).join(
             User, 
             CheckoutUtilityRecord.user_id == User.id
+        ).outerjoin(
+            Department, User.department_id == Department.id
         ).join(
             Room, 
             RoomUtilityRecord.room_id == Room.id
@@ -50,7 +53,7 @@ def export_checkout_records():
             query = query.filter(RoomUtilityRecord.billing_period == billing_period)
         
         if department:
-            query = query.filter(User.department == department)
+            query = query.filter(Department.name == department)
         
         if search_text:
             # 按姓名或房间号搜索

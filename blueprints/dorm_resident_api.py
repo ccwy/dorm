@@ -2,6 +2,7 @@ from flask import request, jsonify
 from datetime import datetime, timedelta  # 修改：移除date导入
 from models.dorm import Dorm
 from models.user import User
+from models.department import Department
 from models.room import Room
 from models.utility_room_meter import UtilityMeterReading
 from utils.db import db
@@ -667,7 +668,7 @@ def get_checkout_residents():
         
         # 添加部门筛选条件
         if department:
-            query = query.filter(User.department == department)
+            query = query.join(Department, User.department_id == Department.id).filter(Department.name == department)
         
         # 执行分页查询
         paginated_records = query.order_by(Dorm.check_out_date.desc()).paginate(

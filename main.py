@@ -93,9 +93,11 @@ from blueprints import (
     utility_room_bill_records_bp, utility_room_bill_occupants_bp, utility_room_bill_checkout_bp,
     fee_subsidy_bp, fee_subsidy_import_export_bp,
     utility_user_records_detail_bp,
-    file_sharing_bp, ticket_user_bp, ticket_admin_bp, todo_bp, other_bp, chat_bp
+    file_sharing_bp, ticket_user_bp, ticket_admin_bp, todo_bp, other_bp, chat_bp,
+    fixed_asset_bp, fixed_asset_api_bp, fixed_asset_import_export_bp,
+    department_bp, department_api_bp, department_import_export_bp
 )
-_stamp("导入26个蓝图")
+_stamp("导入33个蓝图")
 # 注册蓝图（保持不变）
 app.register_blueprint(login_bp)
 app.register_blueprint(user_bp)
@@ -124,7 +126,13 @@ app.register_blueprint(ticket_admin_bp)
 app.register_blueprint(todo_bp)# 注册待办事项蓝图
 app.register_blueprint(other_bp)# 注册其他功能入口蓝图
 app.register_blueprint(chat_bp)# 注册聊天功能蓝图
-_stamp("注册26个蓝图")
+app.register_blueprint(fixed_asset_bp)
+app.register_blueprint(fixed_asset_api_bp)
+app.register_blueprint(fixed_asset_import_export_bp)
+app.register_blueprint(department_bp)
+app.register_blueprint(department_api_bp)
+app.register_blueprint(department_import_export_bp)
+_stamp("注册33个蓝图")
 
 
 

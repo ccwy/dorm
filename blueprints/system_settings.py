@@ -30,6 +30,8 @@ MODULES = [
     {"name": "房间管理配置", "category": "room", "icon": "bed"},
     #{"name": "宿舍管理配置", "category": "dorm", "icon": "building"},
     {"name": "水电费管理配置", "category": "fee", "icon": "money"},
+    {"name": "固定资产管理配置", "category": "asset", "icon": "cube"},
+
     #{"name": "考勤管理配置", "category": "attendance", "icon": "calendar-check-o"},
     #{"name": "合同管理配置", "category": "contract", "icon": "file-text-o"},
     #{"name": "日志管理配置", "category": "log", "icon": "history"},

@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+   <!--本地化CDN-->
+{% include 'static.html' %}
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#165DFF',
+                        secondary: '#36CFC9',
+                        accent: '#722ED1',
+                        danger: '#F5222D',
+                        info: '#1890FF',
+                        warning: '#FAAD14'
+                    },
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .btn-hover {
+                transition: all 0.2s ease;
+            }
+            .btn-hover:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            }
+            .fade-in {
+                animation: fadeIn 0.5s ease-in;
+            }
+            @keyframes fadeIn {
+                from { opacity: 0; }
+                to { opacity: 1; }
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+{% include 'header.html' %}
+    <main class="container mx-auto px-4 py-6">
+        <!-- Flash消息 -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            <div class="flash-messages mb-6">
+              {% for category, message in messages %}
+                <div class="p-4 rounded-md mb-2 {% if category == 'success' %}bg-green-100 text-green-800{% elif category == 'error' or category == 'danger' %}bg-red-100 text-red-800{% elif category == 'warning' %}bg-yellow-100 text-yellow-800{% else %}bg-blue-100 text-blue-800{% endif %}">
+                  <button type="button" class="float-right ml-2 text-gray-500 hover:text-gray-700" onclick="this.parentElement.remove()">×</button>
+                  {{ message | safe }}
+                </div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        {% endwith %}
+
+        <div class="flex items-center mb-6 fade-in">
+            <button onclick="history.back()" class="text-primary hover:text-primary/80 mr-2">
+                <i class="fa fa-arrow-left"></i>
+            </button>
+            <h2 class="text-2xl font-semibold text-dark">{{ title }}</h2>
+        </div>
+
+        <div class="bg-white rounded-lg shadow-sm p-6 mx-auto">
+            <form id="addAssetForm" method="POST" action="{{ url_for('fixed_asset.add_asset') }}">
+                <!-- 基本信息 -->
+                <div class="mb-6">
+                    <h3 class="text-lg font-medium text-gray-800 mb-4 pb-2 border-b border-gray-200">
+                        <i class="fa fa-info-circle text-primary mr-2"></i>基本信息
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <!-- 资产编号 -->
+                        <div>
+                            <label for="asset_number" class="block text-sm font-medium text-gray-700 mb-1">资产编号</label>
+                            <input type="text" id="asset_number" name="asset_number"
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                   placeholder="留空自动生成">
+                            <p class="text-xs text-gray-500 mt-1">留空将自动生成编号，格式：ZC000001</p>
+                        </div>
+
+                        <!-- 资产名称 -->
+                        <div>
+                            <label for="asset_name" class="block text-sm font-medium text-gray-700 mb-1">资产名称 <span class="text-red-500">*</span></label>
+                            <input type="text" id="asset_name" name="asset_name" required
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                   placeholder="请输入资产名称">
+                        </div>
+
+                        <!-- 资产分类 -->
+                        <div>
+                            <label for="asset_category" class="block text-sm font-medium text-gray-700 mb-1">资产分类 <span class="text-red-500">*</span></label>
+                            <select id="asset_category" name="asset_category" required
+                                    class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                                <option value="">请选择分类</option>
+                                {% for c in categories %}
+                                    <option value="{{ c }}">{{ c }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <!-- 规格型号 -->
+                        <div>
+                            <label for="specification" class="block text-sm font-medium text-gray-700 mb-1">规格型号</label>
+                            <input type="text" id="specification" name="specification"
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                   placeholder="请输入规格型号">
+                        </div>
+
+                        <!-- 品牌 -->
+                        <div>
+                            <label for="brand" class="block text-sm font-medium text-gray-700 mb-1">品牌</label>
+                            <input type="text" id="brand" name="brand"
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                   placeholder="请输入品牌">
+                        </div>
+
+                        <!-- 供应商 -->
+                        <div>
+                            <label for="supplier" class="block text-sm font-medium text-gray-700 mb-1">供应商</label>
+                            <input type="text" id="supplier" name="supplier"
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                   placeholder="请输入供应商">
+                        </div>
+
+                        <!-- 数量 -->
+                        <div>
+                            <label for="quantity" class="block text-sm font-medium text-gray-700 mb-1">数量 <span class="text-red-500">*</span></label>
+                            <input type="number" id="quantity" name="quantity" min="1" value="1" required
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                        </div>
+
+                        <!-- 单位 -->
+                        <div>
+                            <label for="unit" class="block text-sm font-medium text-gray-700 mb-1">单位</label>
+                            <input type="text" id="unit" name="unit" value="台"
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                   placeholder="如：台、套、个">
+                        </div>
+
+                        <!-- 资产来源 -->
+                        <div>
+                            <label for="asset_source" class="block text-sm font-medium text-gray-700 mb-1">资产来源</label>
+                            <select id="asset_source" name="asset_source"
+                                    class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                                {% for s in sources %}
+                                    <option value="{{ s }}" {% if s == '采购' %}selected{% endif %}>{{ s }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <!-- 资产状态 -->
+                        <div>
+                            <label for="status" class="block text-sm font-medium text-gray-700 mb-1">资产状态</label>
+                            <select id="status" name="status"
+                                    class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                                {% for s in statuses %}
+                                    <option value="{{ s }}" {% if s == '在用' %}selected{% endif %}>{{ s }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 价值信息 -->
+                <div class="mb-6">
+                    <h3 class="text-lg font-medium text-gray-800 mb-4 pb-2 border-b border-gray-200">
+                        <i class="fa fa-money text-secondary mr-2"></i>价值信息
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <!-- 原值 -->
+                        <div>
+                            <label for="original_value" class="block text-sm font-medium text-gray-700 mb-1">原值（元）</label>
+                            <input type="number" id="original_value" name="original_value" min="0" step="0.01"
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                   placeholder="0.00">
+                        </div>
+
+                        <!-- 净值 -->
+                        <div>
+                            <label for="net_value" class="block text-sm font-medium text-gray-700 mb-1">净值（元）</label>
+                            <input type="number" id="net_value" name="net_value" min="0" step="0.01"
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                   placeholder="0.00">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 日期信息 -->
+                <div class="mb-6">
+                    <h3 class="text-lg font-medium text-gray-800 mb-4 pb-2 border-b border-gray-200">
+                        <i class="fa fa-calendar text-accent mr-2"></i>日期信息
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <!-- 购置日期 -->
+                        <div>
+                            <label for="purchase_date" class="block text-sm font-medium text-gray-700 mb-1">购置日期</label>
+                            <input type="date" id="purchase_date" name="purchase_date"
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                        </div>
+
+                        <!-- 质保到期日 -->
+                        <div>
+                            <label for="warranty_expiry" class="block text-sm font-medium text-gray-700 mb-1">质保到期日</label>
+                            <input type="date" id="warranty_expiry" name="warranty_expiry"
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 位置与部门信息 -->
+                <div class="mb-6">
+                    <h3 class="text-lg font-medium text-gray-800 mb-4 pb-2 border-b border-gray-200">
+                        <i class="fa fa-map-marker text-danger mr-2"></i>位置与部门
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <!-- 存放位置 -->
+                        <div>
+                            <label for="storage_location" class="block text-sm font-medium text-gray-700 mb-1">存放位置</label>
+                            <input type="text" id="storage_location" name="storage_location"
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                   placeholder="请输入存放位置" list="locations_list">
+                            <datalist id="locations_list">
+                                {% for loc in locations %}
+                                <option value="{{ loc }}">
+                                {% endfor %}
+                            </datalist>
+                            <p class="text-xs text-gray-500 mt-1">可自由输入或从建议列表选择</p>
+                        </div>
+
+                        <!-- 所属公司 -->
+                        <div>
+                            <label for="company" class="block text-sm font-medium text-gray-700 mb-1">所属公司</label>
+                            <input type="text" id="company" name="company" list="companyList"
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                   placeholder="请选择或输入所属公司">
+                            <datalist id="companyList">
+                                {% for c in companies %}
+                                <option value="{{ c }}">
+                                {% endfor %}
+                            </datalist>
+                            <p class="text-xs text-gray-500 mt-1">可从已有公司选择或输入新公司</p>
+                        </div>
+
+                        <!-- 使用部门 -->
+                        <div>
+                            <label for="department_using" class="block text-sm font-medium text-gray-700 mb-1">使用部门</label>
+                            <input type="text" id="department_using" name="department_using" list="deptUsingList"
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                   placeholder="请选择或输入使用部门">
+                            <datalist id="deptUsingList">
+                            </datalist>
+                            <p class="text-xs text-gray-500 mt-1">请先选择公司，可从列表选择或自由输入</p>
+                        </div>
+
+                        <!-- 归属部门 -->
+                        <div>
+                            <label for="department_owning" class="block text-sm font-medium text-gray-700 mb-1">归属部门</label>
+                            <input type="text" id="department_owning" name="department_owning" list="deptOwningList"
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                   placeholder="请选择或输入归属部门">
+                            <datalist id="deptOwningList">
+                            </datalist>
+                        </div>
+
+                        <!-- 责任人 -->
+                        <div>
+                            <label for="responsible_person" class="block text-sm font-medium text-gray-700 mb-1">责任人</label>
+                            <div class="flex gap-2">
+                                <input type="text" id="responsible_person" name="responsible_person"
+                                       class="flex-1 px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                       placeholder="可手动输入或点击选择用户"
+                                       oninput="onResponsiblePersonInput()">
+                                <button type="button" onclick="openUserSelector()"
+                                        class="px-3 py-2 bg-primary text-white rounded-md hover:bg-primary/90 text-sm">
+                                    <i class="fa fa-search mr-1"></i>选择
+                                </button>
+                                <button type="button" onclick="clearResponsible()"
+                                        class="px-3 py-2 border border-gray-300 rounded-md hover:bg-gray-50 text-sm">
+                                    <i class="fa fa-times"></i>
+                                </button>
+                            </div>
+                            <input type="hidden" id="responsible_user_id" name="responsible_user_id" value="">
+                            <p class="text-xs text-gray-500 mt-1">可手动输入名称，或点击"选择"从用户列表选取</p>
+                        </div>
+
+                        <!-- 关联房间 -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">关联房间</label>
+                            <div class="flex gap-2">
+                                <input type="text" id="room_display" readonly
+                                       class="flex-1 px-4 py-2 border border-gray-300 rounded-md bg-gray-50 focus:outline-none"
+                                       placeholder="点击选择房间">
+                                <button type="button" onclick="openRoomSelector()"
+                                        class="px-3 py-2 bg-primary text-white rounded-md hover:bg-primary/90 text-sm">
+                                    <i class="fa fa-search mr-1"></i>选择
+                                </button>
+                                <button type="button" onclick="clearRoom()"
+                                        class="px-3 py-2 border border-gray-300 rounded-md hover:bg-gray-50 text-sm">
+                                    清除
+                                </button>
+                            </div>
+                            <input type="hidden" id="room_id" name="room_id" value="">
+                        </div>
+
+
+                    </div>
+                </div>
+
+                <!-- 备注 -->
+                <div class="mb-6">
+                    <h3 class="text-lg font-medium text-gray-800 mb-4 pb-2 border-b border-gray-200">
+                        <i class="fa fa-sticky-note text-warning mr-2"></i>其他信息
+                    </h3>
+                    <div>
+                        <label for="remark" class="block text-sm font-medium text-gray-700 mb-1">备注</label>
+                        <textarea id="remark" name="remark" rows="3"
+                                  class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                  placeholder="请输入备注信息..."></textarea>
+                    </div>
+                </div>
+
+                <!-- 提交按钮 -->
+                <div class="pt-4 border-t border-gray-200">
+                    <div class="flex justify-end gap-3">
+                        <button type="button" onclick="history.back()" class="px-6 py-2 border border-gray-300 rounded-md hover:bg-gray-50">取消</button>
+                        <button type="submit" name="action" value="continue" class="px-6 py-2 bg-primary text-white rounded-md hover:bg-primary/90 btn-hover">
+                            <i class="fa fa-save mr-1"></i>保存并继续添加
+                        </button>
+                        <button type="submit" name="action" value="return" class="px-6 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 btn-hover">
+                            <i class="fa fa-check mr-1"></i>保存并返回列表
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </main>
+
+    <!-- 房间选择模态框 -->
+    <div id="roomSelectorModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-lg shadow-lg w-full max-w-lg mx-4">
+            <div class="p-4 border-b border-gray-200 flex justify-between items-center">
+                <h3 class="text-lg font-semibold">选择房间</h3>
+                <button onclick="closeRoomSelector()" class="text-gray-500 hover:text-gray-700"><i class="fa fa-times"></i></button>
+            </div>
+            <div class="p-4">
+                <input type="text" id="roomSearchInput" placeholder="搜索楼栋/房间号..."
+                       class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 mb-3"
+                       oninput="searchRooms()">
+                <div id="roomSearchResults" class="max-h-64 overflow-y-auto border border-gray-200 rounded-md">
+                    <div class="p-4 text-center text-gray-500">请输入关键词搜索</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 用户选择模态框 -->
+    <div id="userSelectorModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-lg shadow-lg w-full max-w-lg mx-4">
+            <div class="p-4 border-b border-gray-200 flex justify-between items-center">
+                <h3 class="text-lg font-semibold">选择责任人</h3>
+                <button onclick="closeUserSelector()" class="text-gray-500 hover:text-gray-700"><i class="fa fa-times"></i></button>
+            </div>
+            <div class="p-4">
+                <input type="text" id="userSearchInput" placeholder="搜索姓名/工号/手机号..."
+                       class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 mb-3"
+                       oninput="searchUsers()">
+                <div id="userSearchResults" class="max-h-64 overflow-y-auto border border-gray-200 rounded-md">
+                    <div class="p-4 text-center text-gray-500">请输入关键词搜索</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% include 'footer.html' %}
+    <script>
+        // 房间选择器
+        function openRoomSelector() {
+            document.getElementById('roomSelectorModal').classList.remove('hidden');
+            document.getElementById('roomSearchInput').value = '';
+            document.getElementById('roomSearchResults').innerHTML = '<div class="p-4 text-center text-gray-500">请输入关键词搜索</div>';
+            document.getElementById('roomSearchInput').focus();
+        }
+        function closeRoomSelector() {
+            document.getElementById('roomSelectorModal').classList.add('hidden');
+        }
+        function clearRoom() {
+            document.getElementById('room_id').value = '';
+            document.getElementById('room_display').value = '';
+        }
+        let roomSearchTimer;
+        function searchRooms() {
+            clearTimeout(roomSearchTimer);
+            const query = document.getElementById('roomSearchInput').value.trim();
+            if (!query) {
+                document.getElementById('roomSearchResults').innerHTML = '<div class="p-4 text-center text-gray-500">请输入关键词搜索</div>';
+                return;
+            }
+            roomSearchTimer = setTimeout(function() {
+                fetch('/api/fixed_assets/rooms/search?query=' + encodeURIComponent(query))
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.length === 0) {
+                            document.getElementById('roomSearchResults').innerHTML = '<div class="p-4 text-center text-gray-500">未找到匹配的房间</div>';
+                            return;
+                        }
+                        let html = '';
+                        data.forEach(function(room) {
+                            html += '<div class="p-3 hover:bg-blue-50 cursor-pointer border-b border-gray-100 flex justify-between items-center" onclick="selectRoom(' + room.id + ', \'' + room.display.replace(/'/g, "\\'") + '\')">';
+                            html += '<span class="font-medium">' + room.display + '</span>';
+                            html += '<span class="text-xs text-gray-500">' + (room.status || '') + '</span>';
+                            html += '</div>';
+                        });
+                        document.getElementById('roomSearchResults').innerHTML = html;
+                    });
+            }, 300);
+        }
+        function selectRoom(id, display) {
+            document.getElementById('room_id').value = id;
+            document.getElementById('room_display').value = display;
+            closeRoomSelector();
+        }
+
+        // 责任人选择器
+        function openUserSelector() {
+            document.getElementById('userSelectorModal').classList.remove('hidden');
+            document.getElementById('userSearchInput').value = '';
+            document.getElementById('userSearchResults').innerHTML = '<div class="p-4 text-center text-gray-500">请输入关键词搜索</div>';
+            document.getElementById('userSearchInput').focus();
+        }
+        function closeUserSelector() {
+            document.getElementById('userSelectorModal').classList.add('hidden');
+        }
+        function clearResponsible() {
+            document.getElementById('responsible_user_id').value = '';
+            document.getElementById('responsible_person').value = '';
+        }
+        function onResponsiblePersonInput() {
+            // 手动输入时清空user_id，表示自定义名称
+            document.getElementById('responsible_user_id').value = '';
+        }
+        let userSearchTimer;
+        function searchUsers() {
+            clearTimeout(userSearchTimer);
+            const query = document.getElementById('userSearchInput').value.trim();
+            if (!query) {
+                document.getElementById('userSearchResults').innerHTML = '<div class="p-4 text-center text-gray-500">请输入关键词搜索</div>';
+                return;
+            }
+            userSearchTimer = setTimeout(function() {
+                fetch('/api/fixed_assets/users/search?query=' + encodeURIComponent(query))
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.length === 0) {
+                            document.getElementById('userSearchResults').innerHTML = '<div class="p-4 text-center text-gray-500">未找到匹配的用户</div>';
+                            return;
+                        }
+                        let html = '';
+                        data.forEach(function(user) {
+                            html += '<div class="p-3 hover:bg-blue-50 cursor-pointer border-b border-gray-100" onclick="selectUser(' + user.id + ', \'' + user.name.replace(/'/g, "\\'") + '\')">';
+                            html += '<div class="font-medium">' + user.name + '</div>';
+                            html += '<div class="text-xs text-gray-500">' + (user.student_id || '') + ' | ' + (user.department || '') + ' | ' + (user.phone || '') + '</div>';
+                            html += '</div>';
+                        });
+                        document.getElementById('userSearchResults').innerHTML = html;
+                    });
+            }, 300);
+        }
+        function selectUser(id, name) {
+            document.getElementById('responsible_user_id').value = id;
+            document.getElementById('responsible_person').value = name;
+            closeUserSelector();
+        }
+
+        // 公司-部门级联：AJAX加载部门列表到datalist
+        function loadDepartments(company, datalistElement) {
+            datalistElement.innerHTML = '';
+            if (!company) {
+                return;
+            }
+
+            fetch('/fixed_asset/api/departments-by-company?company=' + encodeURIComponent(company))
+                .then(function(response) { return response.json(); })
+                .then(function(data) {
+                    datalistElement.innerHTML = '';
+                    if (data.success && data.departments && data.departments.length > 0) {
+                        data.departments.forEach(function(dept) {
+                            var opt = document.createElement('option');
+                            opt.value = dept.name;
+                            datalistElement.appendChild(opt);
+                        });
+                    }
+                })
+                .catch(function(err) {
+                    datalistElement.innerHTML = '';
+                });
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // 公司change事件：级联刷新使用部门和归属部门datalist
+            var companyInput = document.getElementById('company');
+            var deptUsingList = document.getElementById('deptUsingList');
+            var deptOwningList = document.getElementById('deptOwningList');
+            if (companyInput) {
+                // change事件：选择已有公司时触发
+                companyInput.addEventListener('change', function() {
+                    var company = this.value.trim();
+                    loadDepartments(company, deptUsingList);
+                    loadDepartments(company, deptOwningList);
+                });
+
+                // input事件：自定义输入公司名时触发（带防抖）
+                var debounceTimer = null;
+                companyInput.addEventListener('input', function() {
+                    var company = this.value.trim();
+                    clearTimeout(debounceTimer);
+                    debounceTimer = setTimeout(function() {
+                        loadDepartments(company, deptUsingList);
+                        loadDepartments(company, deptOwningList);
+                    }, 300);
+                });
+
+                // 页面加载时：如果公司已有值，立即加载部门列表
+                if (companyInput.value.trim()) {
+                    loadDepartments(companyInput.value.trim(), deptUsingList);
+                    loadDepartments(companyInput.value.trim(), deptOwningList);
+                }
+            }
+
+            // 购置日期默认今天
+            var purchaseDateInput = document.getElementById('purchase_date');
+            var warrantyInput = document.getElementById('warranty_expiry');
+            var today = new Date().toISOString().split('T')[0];
+            if (purchaseDateInput && !purchaseDateInput.value) {
+                purchaseDateInput.value = today;
+            }
+            // 购置日期变化时自动计算质保到期日（+1年）
+            if (purchaseDateInput) {
+                purchaseDateInput.addEventListener('change', function() {
+                    if (this.value && warrantyInput && !warrantyInput.value) {
+                        var d = new Date(this.value);
+                        d.setFullYear(d.getFullYear() + 1);
+                        warrantyInput.value = d.toISOString().split('T')[0];
+                    }
+                });
+            }
+            // 如果质保到期日为空，也自动填充
+            if (purchaseDateInput && purchaseDateInput.value && warrantyInput && !warrantyInput.value) {
+                var d = new Date(purchaseDateInput.value);
+                d.setFullYear(d.getFullYear() + 1);
+                warrantyInput.value = d.toISOString().split('T')[0];
+            }
+        });
+    </script>
+</body>
+</html>

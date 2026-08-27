@@ -59,6 +59,8 @@
            <i class="fa fa-folder-open mr-2"></i>文件
         </a>-->
 
+
+
         <a href="{{ url_for('other.index') }}" 
            class="nav-item nav-other text-gray-700 hover:text-primary transition-colors py-1 border-b-2 {% if request.endpoint == 'other.index' %}border-primary text-primary{% else %}border-transparent{% endif %}">
            <i class="fa fa-th-large mr-2"></i>其他
@@ -170,6 +172,11 @@ nav a i {
   /* 留言图标 - 靛蓝色 */
   .nav-item.nav-ticket i {
     color: #6366f1;
+  }
+
+  /* 资产图标 - 青色 */
+  .nav-item.nav-asset i {
+    color: #06b6d4;
   }
 
 /* 移动端菜单样式 */

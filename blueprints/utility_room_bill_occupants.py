@@ -3,6 +3,7 @@ from models.utility_room_bill_record import RoomUtilityRecord      #导入主表
 from models.utility_room_bill_occupant import RoomUtilityOccupant  #导入子表模型
 from models.dorm import Dorm
 from models.user import User  # 假设存在用户模型
+from models.department import Department
 from utils.db import db
 from sqlalchemy.exc import SQLAlchemyError
 from utils.log import log_operation
@@ -52,7 +53,7 @@ def get_fee_records():
             RoomUtilityRecord,
             RoomUtilityOccupant,
             User.name,  # 查询用户名
-            User.department,  # 查询部门信息用于筛选
+            Department.name.label('department'),  # 查询部门信息用于筛选
             Dorm,  # 关联Dorm模型获取住宿日期
             Room  # 选择完整的Room对象，确保可以访问room_number字段
         ).join(
@@ -61,6 +62,8 @@ def get_fee_records():
         ).join(
             User, 
             RoomUtilityOccupant.user_id == User.id
+        ).outerjoin(
+            Department, User.department_id == Department.id
         ).join(
             Dorm,  # 关联Dorm表
             db.and_(
@@ -82,7 +85,7 @@ def get_fee_records():
         
         # 部门筛选 - 确保在所有条件下都能正确应用
         if department:
-            query = query.filter(User.department == department)
+            query = query.filter(Department.name == department)
         
         # 搜索筛选（根据搜索类型分别处理房间号或姓名）
         if search_keyword:

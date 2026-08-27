@@ -73,6 +73,9 @@
                         <span id="exportBtnText">导出</span>
                         <span id="exportLoading" class="hidden"><i class="fa fa-circle-o-notch fa-spin ml-2"></i>导出中...</span>
                     </button>
+                    <button onclick="window.location.href='{{ url_for('department.index') }}'" class="btn-hover bg-purple-600 text-white px-4 py-2 rounded-md flex items-center">
+                        <i class="fa fa-sitemap mr-2"></i>部门管理
+                    </button>
                 </div>
             </div>
         </div>
@@ -530,9 +533,11 @@
             const statusFilter = document.getElementById('statusFilter');
             const searchForm = document.getElementById('searchForm');
 
-            // 公司筛选逻辑
+            // 公司筛选逻辑 - 级联加载部门列表
             if (companyFilter && searchForm) {
                 companyFilter.addEventListener('change', function() {
+                    // 更新部门筛选下拉列表
+                    loadDepartmentsByCompany(this.value);
                     searchForm.submit();
                 });
             }
@@ -542,6 +547,42 @@
                 departmentFilter.addEventListener('change', function() {
                     searchForm.submit();
                 });
+            }
+
+            // 级联加载部门列表
+            function loadDepartmentsByCompany(companyName) {
+                if (!departmentFilter) return;
+                // 保存当前选中值
+                const currentDept = departmentFilter.value;
+                
+                if (!companyName) {
+                    // 没有选择公司时，恢复所有部门选项
+                    departmentFilter.innerHTML = '<option value="">所有部门</option>';
+                    {% for dept in departments %}
+                    departmentFilter.innerHTML += '<option value="{{ dept }}">{{ dept }}</option>';
+                    {% endfor %}
+                    departmentFilter.value = currentDept;
+                    return;
+                }
+                
+                fetch('/fixed_asset/api/departments-by-company?company=' + encodeURIComponent(companyName))
+                    .then(response => response.json())
+                    .then(data => {
+                        departmentFilter.innerHTML = '<option value="">所有部门</option>';
+                        if (data.departments) {
+                            data.departments.forEach(dept => {
+                                const option = document.createElement('option');
+                                option.value = dept;
+                                option.textContent = dept;
+                                departmentFilter.appendChild(option);
+                            });
+                        }
+                        // 尝试恢复之前的选中值
+                        if (currentDept) {
+                            departmentFilter.value = currentDept;
+                        }
+                    })
+                    .catch(err => console.error('加载部门列表失败:', err));
             }
 
             // 状态筛选逻辑

@@ -6,6 +6,7 @@ from sqlalchemy import func  # 关键修复：导入func
 from utils.db import db
 from models.dorm import Dorm
 from models.user import User
+from models.department import Department
 from models.room import Room
 from models.room_bed import Bed  # 【新增】导入床位模型
 from utils.log import log_operation
@@ -1016,7 +1017,7 @@ def dorm_gameout():
     
     # 按部门筛选
     if department:
-        query = query.filter(User.department == department)
+        query = query.join(Department, User.department_id == Department.id).filter(Department.name == department)
     
     # 按楼栋筛选
     if building:
@@ -1037,8 +1038,7 @@ def dorm_gameout():
     dorm_records = pagination.items
     
     # 获取所有部门选项
-    departments = db.session.query(User.department).distinct().filter(User.department.isnot(None)).order_by(User.department).all()
-    departments = [dept[0] for dept in departments]
+    departments = [d.name for d in Department.query.filter_by(status='正常').order_by(Department.name).all()]
     
     # 获取所有楼栋选项
     buildings = db.session.query(Room.building).distinct().order_by(Room.building).all()

@@ -4,6 +4,7 @@ from models.user import User
 from models.dorm import Dorm
 from models.room import Room
 from models.system_config import SystemConfig  # 导入系统配置模型
+from models.department import Department
 from config import Config
 from flask_login import login_required, current_user
 from utils.log import log_operation
@@ -56,7 +57,7 @@ def manage():
                     User.name.ilike(f'%{search_query}%'),
                     User.student_id.ilike(f'%{search_query}%'),
                     User.company.ilike(f'%{search_query}%'),
-                    User.department.ilike(f'%{search_query}%'),
+                    Department.name.ilike(f'%{search_query}%'),
                     User.position.ilike(f'%{search_query}%'),
                     User.phone.ilike(f'%{search_query}%')
                 )
@@ -68,7 +69,7 @@ def manage():
         
         # 部门筛选
         if department:
-            query = query.filter(User.department == department)
+            query = query.join(Department, User.department_id == Department.id).filter(Department.name == department)
             
         # 状态筛选
         logging.info(f"状态筛选值: {status}")
@@ -84,12 +85,10 @@ def manage():
         users = pagination.items
         
         # 获取所有公司用于筛选
-        companies = db.session.query(User.company).distinct().all()
-        company_list = [c[0] for c in companies if c[0]]
+        company_list = Department.get_all_companies()
         
-        # 获取所有部门用于筛选
-        departments = db.session.query(User.department).distinct().all()
-        department_list = [d[0] for d in departments if d[0]]
+        # 获取所有部门用于筛选（从Department表获取正常状态的部门）
+        department_list = [d.name for d in Department.query.filter_by(status='正常').order_by(Department.name).all()]
         
         # 获取所有状态用于筛选
         statuses = db.session.query(User.status).distinct().all()

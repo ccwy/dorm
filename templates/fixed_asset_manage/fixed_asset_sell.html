@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+   <!--本地化CDN-->
+{% include 'static.html' %}
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#165DFF',
+                        secondary: '#36CFC9',
+                        accent: '#722ED1',
+                        danger: '#F5222D',
+                        info: '#1890FF',
+                        warning: '#FAAD14'
+                    },
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .btn-hover {
+                transition: all 0.2s ease;
+            }
+            .btn-hover:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            }
+            .fade-in {
+                animation: fadeIn 0.5s ease-in;
+            }
+            @keyframes fadeIn {
+                from { opacity: 0; }
+                to { opacity: 1; }
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+{% include 'header.html' %}
+    <main class="container mx-auto px-4 py-6">
+        <!-- Flash消息 -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            <div class="flash-messages mb-6">
+              {% for category, message in messages %}
+                <div class="p-4 rounded-md mb-2 {% if category == 'success' %}bg-green-100 text-green-800{% elif category == 'error' or category == 'danger' %}bg-red-100 text-red-800{% elif category == 'warning' %}bg-yellow-100 text-yellow-800{% else %}bg-blue-100 text-blue-800{% endif %}">
+                  <button type="button" class="float-right ml-2 text-gray-500 hover:text-gray-700" onclick="this.parentElement.remove()">×</button>
+                  {{ message | safe }}
+                </div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        {% endwith %}
+
+        <div class="flex items-center mb-6 fade-in">
+            <a href="{{ url_for('fixed_asset.detail', id=asset.id) }}" class="text-primary hover:text-primary/80 mr-2">
+                <i class="fa fa-arrow-left"></i>
+            </a>
+            <h2 class="text-2xl font-semibold text-dark">{{ title }}</h2>
+        </div>
+
+        <!-- 当前资产信息 -->
+        <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+            <h3 class="text-lg font-medium text-gray-800 mb-4 pb-2 border-b border-gray-200">
+                <i class="fa fa-info-circle text-primary mr-2"></i>资产信息
+            </h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div>
+                    <span class="text-sm text-gray-500">资产编号</span>
+                    <p class="font-medium text-gray-800">{{ asset.display_number }}</p>
+                </div>
+                <div>
+                    <span class="text-sm text-gray-500">资产名称</span>
+                    <p class="font-medium text-gray-800">{{ asset.asset_name }}</p>
+                </div>
+                <div>
+                    <span class="text-sm text-gray-500">资产分类</span>
+                    <p class="font-medium text-gray-800">{{ asset.asset_category or '-' }}</p>
+                </div>
+                <div>
+                    <span class="text-sm text-gray-500">规格型号</span>
+                    <p class="font-medium text-gray-800">{{ asset.specification or '-' }}</p>
+                </div>
+                <div>
+                    <span class="text-sm text-gray-500">品牌</span>
+                    <p class="font-medium text-gray-800">{{ asset.brand or '-' }}</p>
+                </div>
+                <div>
+                    <span class="text-sm text-gray-500">供应商</span>
+                    <p class="font-medium text-gray-800">{{ asset.supplier or '-' }}</p>
+                </div>
+                <div>
+                    <span class="text-sm text-gray-500">数量/单位</span>
+                    <p class="font-medium text-gray-800">{{ asset.quantity }} {{ asset.unit or '台' }}</p>
+                </div>
+                <div>
+                    <span class="text-sm text-gray-500">当前状态</span>
+                    <p>
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                            {% if asset.status == '在用' %}bg-green-100 text-green-800
+                            {% elif asset.status == '闲置' %}bg-gray-100 text-gray-800
+                            {% elif asset.status == '维修中' %}bg-yellow-100 text-yellow-800
+                            {% else %}bg-blue-100 text-blue-800{% endif %}">
+                            {{ asset.status }}
+                        </span>
+                    </p>
+                </div>
+                <div>
+                    <span class="text-sm text-gray-500">原值</span>
+                    <p class="font-medium text-gray-800">{% if asset.original_value %}¥{{ "%.2f"|format(asset.original_value) }}{% else %}-{% endif %}</p>
+                </div>
+                <div>
+                    <span class="text-sm text-gray-500">净值</span>
+                    <p class="font-medium text-gray-800">{% if asset.net_value %}¥{{ "%.2f"|format(asset.net_value) }}{% else %}-{% endif %}</p>
+                </div>
+                <div>
+                    <span class="text-sm text-gray-500">存放位置</span>
+                    <p class="font-medium text-gray-800">{{ asset.storage_location or '-' }}</p>
+                </div>
+                <div>
+                    <span class="text-sm text-gray-500">所属公司</span>
+                    <p class="font-medium text-gray-800">{{ asset.company or '-' }}</p>
+                </div>
+                <div>
+                    <span class="text-sm text-gray-500">使用部门</span>
+                    <p class="font-medium text-gray-800">{{ asset.department_using or '-' }}</p>
+                </div>
+                <div>
+                    <span class="text-sm text-gray-500">归属部门</span>
+                    <p class="font-medium text-gray-800">{{ asset.department_owning or '-' }}</p>
+                </div>
+                <div>
+                    <span class="text-sm text-gray-500">责任人</span>
+                    <p class="font-medium text-gray-800">{{ asset.responsible_person or '-' }}</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 出售表单 -->
+        <div class="bg-white rounded-lg shadow-sm p-6">
+            <div class="flex items-center mb-4 pb-2 border-b border-gray-200">
+                <i class="fa fa-dollar-sign text-secondary mr-2"></i>
+                <h3 class="text-lg font-medium text-gray-800">出售信息</h3>
+                <span class="ml-3 px-2 py-0.5 bg-cyan-100 text-cyan-800 text-xs rounded-full">此操作将变更资产状态为"已出售"</span>
+            </div>
+            <form method="POST" action="{{ url_for('fixed_asset.sell_asset', id=asset.id) }}">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <!-- 出售日期 -->
+                    <div>
+                        <label for="sale_date" class="block text-sm font-medium text-gray-700 mb-1">出售日期 <span class="text-red-500">*</span></label>
+                        <input type="date" id="sale_date" name="sale_date" required
+                               class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                    </div>
+
+                    <!-- 出售价格 -->
+                    <div>
+                        <label for="sale_price" class="block text-sm font-medium text-gray-700 mb-1">出售价格（元） <span class="text-red-500">*</span></label>
+                        <input type="number" id="sale_price" name="sale_price" min="0" step="0.01" required
+                               class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                               placeholder="请输入出售价格">
+                    </div>
+
+                    <!-- 出售数量 -->
+                    <div>
+                        <label for="quantity" class="block text-sm font-medium text-gray-700 mb-1">出售数量 <span class="text-red-500">*</span></label>
+                        <input type="number" id="quantity" name="quantity" min="1" max="{{ asset.quantity }}" value="{{ asset.quantity }}" required
+                               class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                        <p class="text-xs text-gray-500 mt-1">当前数量: {{ asset.quantity }} {{ asset.unit or '台' }}</p>
+                    </div>
+
+                    <!-- 买方 -->
+                    <div>
+                        <label for="sale_buyer" class="block text-sm font-medium text-gray-700 mb-1">买方</label>
+                        <input type="text" id="sale_buyer" name="sale_buyer"
+                               class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                               placeholder="请输入买方名称">
+                    </div>
+
+                    <!-- 备注 -->
+                    <div class="md:col-span-2 lg:col-span-3">
+                        <label for="sale_remark" class="block text-sm font-medium text-gray-700 mb-1">备注</label>
+                        <textarea id="sale_remark" name="sale_remark" rows="3"
+                                  class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                  placeholder="请输入备注信息..."></textarea>
+                    </div>
+                </div>
+
+                <div class="pt-4 mt-4 border-t border-gray-200">
+                    <div class="flex justify-end gap-3">
+                        <a href="{{ url_for('fixed_asset.detail', id=asset.id) }}" class="px-6 py-2 border border-gray-300 rounded-md hover:bg-gray-50 inline-block">取消</a>
+                        <button type="submit" class="px-6 py-2 bg-secondary text-white rounded-md hover:bg-secondary/90 btn-hover"
+                                onclick="return confirm('确定要出售此资产吗？此操作将变更资产状态为"已出售"。')">
+                            <i class="fa fa-dollar-sign mr-1"></i>确认出售
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </main>
+    {% include 'footer.html' %}
+    <script>
+        // 出售日期默认今天
+        document.addEventListener('DOMContentLoaded', function() {
+            var saleDateInput = document.getElementById('sale_date');
+            if (saleDateInput && !saleDateInput.value) {
+                saleDateInput.value = new Date().toISOString().split('T')[0];
+            }
+        });
+    </script>
+</body>
+</html>

@@ -159,16 +159,27 @@
                     <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
                         <div>
                             <label for="company" class="block text-sm font-medium text-gray-700 mb-1">公司</label>
-                            <input type="text" id="company" name="company"
+                            <input type="text" id="company" name="company" list="companyList"
                                    value="{{ user.company or '' }}"
-                                   class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                   placeholder="请选择或输入所属公司">
+                            <datalist id="companyList">
+                                {% for comp in companies %}
+                                <option value="{{ comp }}">
+                                {% endfor %}
+                            </datalist>
+                            <p class="text-xs text-gray-500 mt-1">可从已有公司选择或输入新公司</p>
                         </div>
                         
                         <div>
                             <label for="department" class="block text-sm font-medium text-gray-700 mb-1">部门</label>
-                            <input type="text" id="department" name="department"
+                            <input type="text" id="department" name="department" list="departmentList"
                                    value="{{ user.department or '' }}"
-                                   class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                   placeholder="请选择或输入所属部门">
+                            <datalist id="departmentList">
+                            </datalist>
+                            <p class="text-xs text-gray-500 mt-1">可从已有部门选择或输入新部门</p>
                         </div>
                         
                         <div>
@@ -402,6 +413,45 @@
                 saveChangesBtn.disabled = true;
             });
             
+            // 部门级联选择逻辑
+            const companyInput = document.getElementById('company');
+            const departmentInput = document.getElementById('department');
+            const departmentList = document.getElementById('departmentList');
+            let deptDebounceTimer = null;
+
+            function loadDepartments(companyName) {
+                if (!companyName) {
+                    departmentList.innerHTML = '';
+                    return;
+                }
+                fetch('/fixed_asset/api/departments-by-company?company=' + encodeURIComponent(companyName))
+                    .then(response => response.json())
+                    .then(data => {
+                        departmentList.innerHTML = '';
+                        if (data.departments) {
+                            data.departments.forEach(dept => {
+                                const option = document.createElement('option');
+                                option.value = dept.name;
+                                departmentList.appendChild(option);
+                            });
+                        }
+                    })
+                    .catch(err => console.error('加载部门列表失败:', err));
+            }
+
+            if (companyInput) {
+                companyInput.addEventListener('input', function() {
+                    clearTimeout(deptDebounceTimer);
+                    deptDebounceTimer = setTimeout(function() {
+                        loadDepartments(companyInput.value.trim());
+                    }, 300);
+                });
+                // 编辑页初始化：加载当前公司对应的部门列表
+                if (companyInput.value.trim()) {
+                    loadDepartments(companyInput.value.trim());
+                }
+            }
+
             // 继续编辑
             continueEditBtn.addEventListener('click', function() {
                 successModal.classList.add('hidden');

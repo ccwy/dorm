@@ -4,6 +4,7 @@ import logging
 from utils.db import db
 from models.fee_subsidy import FeeSubsidy
 from models.user import User
+from models.department import Department
 from models.room import Room
 from models.system_config import SystemConfig
 from sqlalchemy import or_, and_
@@ -340,7 +341,7 @@ def get_list():
         
         # 4. 部门筛选
         if department:
-            query = query.filter(User.department == department, User.department.isnot(None))
+            query = query.join(Department, User.department_id == Department.id).filter(Department.name == department)
         
         # 5. 楼栋筛选
         if building:
@@ -348,6 +349,8 @@ def get_list():
         
         # 5. 搜索功能
         if search:
+            # 确保Department表已关联（用于部门搜索）
+            query = query.outerjoin(Department, User.department_id == Department.id)
             # 构建房间号搜索条件：拼接楼栋+房间号（如"A-101"）
             room_search_condition = and_(
                 Room.building.isnot(None),
@@ -363,8 +366,8 @@ def get_list():
             
             # 构建部门搜索条件，添加非空判断
             department_condition = and_(
-                User.department.isnot(None),
-                User.department.like(f'%{search}%')
+                Department.name.isnot(None),
+                Department.name.like(f'%{search}%')
             )
             
             query = query.filter(
@@ -516,8 +519,8 @@ def get_history():
             query = query.filter(FeeSubsidy.fee_type == fee_type)
         
         if department:
-            query = query.filter(
-                and_(User.id.isnot(None), User.department == department)
+            query = query.join(Department, User.department_id == Department.id).filter(
+                and_(User.id.isnot(None), Department.name == department)
             )
         
         # 楼栋筛选
@@ -877,14 +880,7 @@ def get_departments():
     """获取所有不重复的部门列表"""
     try:
         # 查询所有不重复且非空的部门
-        departments = db.session.query(User.department)\
-                                .distinct()\
-                                .filter(User.department.isnot(None), User.department != '')\
-                                .order_by(User.department)\
-                                .all()
-        
-        # 提取部门列表
-        department_list = [d[0] for d in departments]
+        department_list = [d.name for d in Department.query.filter_by(status='正常').order_by(Department.name).all()]
         
         # 记录接口调用日志
         log_operation(

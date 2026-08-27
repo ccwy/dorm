@@ -4,6 +4,7 @@ from datetime import datetime  # 修改：仅保留datetime导入，移除date
 from utils.db import db
 from models.dorm import Dorm
 from models.user import User
+from models.department import Department
 from models.room import Room ,RoomStatus
 from utils.log import log_operation
 import logging
@@ -435,7 +436,7 @@ def dorm_query():
             
         # 应用部门筛选
         if department_filter:
-            query = query.filter(User.department == department_filter)
+            query = query.join(Department, User.department_id == Department.id).filter(Department.name == department_filter)
             
         # 应用性别筛选
         if gender_filter:
@@ -513,11 +514,7 @@ def dorm_query():
             residents_data.append(resident_info)
             
         # 获取所有部门用于筛选下拉框
-        departments = db.session.query(User.department).distinct().filter(
-            User.department.isnot(None),
-            User.department != ''
-        ).all()
-        department_list = [d[0] for d in departments]
+        department_list = [d.name for d in Department.query.filter_by(status='正常').order_by(Department.name).all()]
         
         # 获取所有楼栋用于筛选下拉框
         buildings = db.session.query(Room.building).distinct().filter(

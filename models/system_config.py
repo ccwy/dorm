@@ -220,6 +220,24 @@ class SystemConfig(db.Model):
                 'is_editable': True,
                 'sort_order': 90
             },
+            {
+                'config_key': 'FEATURE_FIXED_ASSET_MANAGE_ENABLED',
+                'config_value': 'true',
+                'config_type': 'bool',
+                'category': 'system.feature',
+                'description': '固定资产管理功能开关',
+                'is_editable': True,
+                'sort_order': 100
+            },
+            {
+                'config_key': 'FEATURE_DEPARTMENT_ENABLED',
+                'config_value': 'true',
+                'config_type': 'bool',
+                'category': 'system.feature',
+                'description': '部门管理功能开关',
+                'is_editable': True,
+                'sort_order': 110
+            },
             # 3. 用户管理配置 (category: user)
             {
                 'config_key': 'USER_DEFAULT_BANNED',
@@ -587,7 +605,45 @@ class SystemConfig(db.Model):
                 'category': 'system.backup',
                 'description': '是否启用自动备份',
                 'sort_order': 30
-            }
+            },
+            # 固定资产管理配置 (category: asset)
+            {
+                'config_key': 'ASSET_CATEGORIES',
+                'config_value': '办公设备,家具,交通工具,电子设备,机械设备,其他',
+                'config_type': 'list',
+                'category': 'asset',
+                'description': '固定资产分类列表',
+                'is_editable': True,
+                'sort_order': 10
+            },
+            {
+                'config_key': 'ASSET_STATUSES',
+                'config_value': '在用,闲置,维修中,已报废,已转移,已出售',
+                'config_type': 'list',
+                'category': 'asset',
+                'description': '固定资产状态列表',
+                'is_editable': True,
+                'sort_order': 20
+            },
+            {
+                'config_key': 'ASSET_LOCATIONS',
+                'config_value': 'A栋1楼仓库,B栋2楼仓库,C栋3楼办公室',
+                'config_type': 'list',
+                'category': 'asset',
+                'description': '资产存放位置建议列表（仅作输入建议，不限制输入）',
+                'is_editable': True,
+                'sort_order': 30
+            },
+            {
+                'config_key': 'ASSET_SOURCES',
+                'config_value': '采购,捐赠,调入,自建,其他',
+                'config_type': 'list',
+                'category': 'asset',
+                'description': '资产来源选项列表',
+                'is_editable': True,
+                'sort_order': 40
+            },
+
         ]
     
     @classmethod

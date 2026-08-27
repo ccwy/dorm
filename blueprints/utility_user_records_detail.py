@@ -3,6 +3,7 @@ from flask_login import login_required
 from sqlalchemy import or_
 from utils.db import db
 from models.user import User
+from models.department import Department
 from models.room import Room
 from models.utility_room_bill_record import RoomUtilityRecord
 from models.utility_room_bill_checkout import CheckoutUtilityRecord
@@ -45,7 +46,7 @@ def user_records_detail():
             User.id,
             User.name,
             User.gender,
-            User.department,
+            Department.name.label('department'),
             User.position,
             RoomUtilityOccupant.record_id,
             RoomUtilityOccupant.room_id,
@@ -56,6 +57,8 @@ def user_records_detail():
             RoomUtilityOccupant.stay_days
         ).join(
             User, User.id == RoomUtilityOccupant.user_id
+        ).outerjoin(
+            Department, User.department_id == Department.id
         ).join(
             Room, Room.id == RoomUtilityOccupant.room_id
         ).join(
@@ -67,7 +70,7 @@ def user_records_detail():
             User.id,
             User.name,
             User.gender,
-            User.department,
+            Department.name.label('department'),
             User.position,
             CheckoutUtilityRecord.record_id,
             CheckoutUtilityRecord.room_id,
@@ -78,6 +81,8 @@ def user_records_detail():
             CheckoutUtilityRecord.user_period_days
         ).join(
             User, User.id == CheckoutUtilityRecord.user_id
+        ).outerjoin(
+            Department, User.department_id == Department.id
         ).join(
             Room, Room.id == CheckoutUtilityRecord.room_id
         ).join(
@@ -98,8 +103,8 @@ def user_records_detail():
             checkout_query = checkout_query.filter(Room.building == building)
         
         if department:
-            occupant_query = occupant_query.filter(User.department == department)
-            checkout_query = checkout_query.filter(User.department == department)
+            occupant_query = occupant_query.filter(Department.name == department)
+            checkout_query = checkout_query.filter(Department.name == department)
         
         if search_keyword:
             search_filter = or_(
@@ -273,8 +278,7 @@ def user_records_detail():
         buildings = [b[0] for b in buildings]
         
         # 获取部门列表用于筛选器
-        departments = db.session.query(User.department).distinct().filter(User.department != '').order_by(User.department).all()
-        departments = [d[0] for d in departments]
+        departments = [d.name for d in Department.query.filter_by(status='正常').order_by(Department.name).all()]
         
 
         
@@ -351,7 +355,7 @@ def export_user_records_excel():
             User.name,
             User.gender,
             User.company,
-            User.department,
+            Department.name.label('department'),
             User.position,
             RoomUtilityOccupant.record_id,
             RoomUtilityOccupant.room_id,
@@ -362,6 +366,8 @@ def export_user_records_excel():
             RoomUtilityOccupant.stay_days
         ).join(
             User, User.id == RoomUtilityOccupant.user_id
+        ).outerjoin(
+            Department, User.department_id == Department.id
         ).join(
             Room, Room.id == RoomUtilityOccupant.room_id
         ).join(
@@ -375,7 +381,7 @@ def export_user_records_excel():
             User.name,
             User.gender,
             User.company,
-            User.department,
+            Department.name.label('department'),
             User.position,
             CheckoutUtilityRecord.record_id,
             CheckoutUtilityRecord.room_id,
@@ -386,6 +392,8 @@ def export_user_records_excel():
             CheckoutUtilityRecord.user_period_days
         ).join(
             User, User.id == CheckoutUtilityRecord.user_id
+        ).outerjoin(
+            Department, User.department_id == Department.id
         ).join(
             Room, Room.id == CheckoutUtilityRecord.room_id
         ).join(
@@ -401,8 +409,8 @@ def export_user_records_excel():
             checkout_query = checkout_query.filter(Room.building == building)
         
         if department:
-            occupant_query = occupant_query.filter(User.department == department)
-            checkout_query = checkout_query.filter(User.department == department)
+            occupant_query = occupant_query.filter(Department.name == department)
+            checkout_query = checkout_query.filter(Department.name == department)
         
         if search_keyword:
             search_filter = or_(

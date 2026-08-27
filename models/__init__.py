@@ -18,3 +18,8 @@ from .todo_progress import TodoProgress # 待办事项进度记录模型
 from .chat_session import ChatSession  # 聊天会话模型
 from .chat_participant import ChatParticipant  # 聊天参与者模型
 from .chat_message import ChatMessage  # 聊天消息模型
+from .fixed_asset import FixedAsset  # 固定资产模型
+from .asset_operation_record import AssetOperationRecord  # 资产操作记录模型
+from .asset_inventory import AssetInventory  # 资产盘点主表模型
+from .asset_inventory_detail import AssetInventoryDetail  # 资产盘点明细模型
+from .department import Department  # 部门管理模型
