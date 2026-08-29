@@ -788,6 +788,14 @@
                         `;
                         break;
                         
+                    case 'json':
+                        inputHtml = `
+                            <textarea id="config_${key}" class="form-input mt-1 h-24" 
+                                      ${!isEditable ? 'disabled' : ''}>${formatJsonForInput(config)}</textarea>
+                            <p class="text-xs text-gray-500 mt-1">提示: JSON格式，如 {"key":"value"}</p>
+                        `;
+                        break;
+                        
                     default:
                         // 对SQL_TYPE特殊处理，渲染为下拉框
                         if (key === 'SQL_TYPE') {
@@ -836,6 +844,15 @@
         function formatDictForInput(dict) {
             if (typeof dict !== 'object' || dict === null) return '';
             return Object.entries(dict).map(([k, v]) => `${k}:${v}`).join('\n');
+        }
+
+        // 格式化JSON类型为输入框格式
+        function formatJsonForInput(data) {
+            if (typeof data === 'string') return data;
+            if (typeof data === 'object' && data !== null) {
+                return JSON.stringify(data, null, 2);
+            }
+            return String(data);
         }
 
         // 渲染空配置状态
@@ -898,6 +915,17 @@
                     value = parseFloat(value);
                 } else if (meta && meta.config_type === 'list') {
                     value = value.split(',').map(item => item.trim()).filter(item => item);
+                } else if (meta && meta.config_type === 'json') {
+                    try { value = JSON.parse(value); } catch(e) { value = value; }
+                } else if (meta && meta.config_type === 'dict') {
+                    const dictObj = {};
+                    value.split('\n').forEach(line => {
+                        const colonIdx = line.indexOf(':');
+                        if (colonIdx > 0) {
+                            dictObj[line.substring(0, colonIdx).trim()] = line.substring(colonIdx + 1).trim();
+                        }
+                    });
+                    value = dictObj;
                 }
                 
                 formData[key] = value;

@@ -13,6 +13,8 @@ from utils.auth import admin_required
 import logging
 from models.room import Room
 from models.user import User
+from models.supply.supplier import Supplier
+from models.supply.storage_location import StorageLocation
 
 # 定义蓝图
 fixed_asset_bp = Blueprint(
@@ -77,7 +79,7 @@ def index():
         categories = SystemConfig.get_config_value('ASSET_CATEGORIES', ['办公设备', '家具', '交通工具', '电子设备', '机械设备', '其他'])
         statuses = SystemConfig.get_config_value('ASSET_STATUSES', ['在用', '闲置', '维修中', '已报废', '已转移', '已出售'])
         departments = Department.get_all_names()  # 用于筛选下拉选项
-        locations = SystemConfig.get_config_value('ASSET_LOCATIONS', [])
+        locations = StorageLocation.get_all_names()
         companies = Department.get_all_companies()
 
         # 构建查询
@@ -555,10 +557,22 @@ def add_page():
         active_departments = []
 
     try:
-        locations = SystemConfig.get_config_value('ASSET_LOCATIONS', [])
+        locations = StorageLocation.get_all_names()
     except Exception as e:
-        logging.warning(f"获取存放位置配置失败: {str(e)}")
+        logging.warning(f"获取存放位置列表失败: {str(e)}")
         locations = []
+
+    try:
+        suppliers = Supplier.get_all_names()
+    except Exception as e:
+        logging.warning(f"获取供应商列表失败: {str(e)}")
+        suppliers = []
+
+    try:
+        units = SystemConfig.get_config_value('supply_units', ['个', '件', '箱', '包', '盒', '瓶', '支', '本', '张', '套', '台', '把'])
+    except Exception as e:
+        logging.warning(f"获取单位配置失败: {str(e)}")
+        units = ['个', '件', '箱', '包', '盒', '瓶', '支', '本', '张', '套', '台', '把']
 
     try:
         sources = SystemConfig.get_config_value('ASSET_SOURCES', ['采购', '捐赠', '调入', '自建', '其他'])
@@ -588,6 +602,8 @@ def add_page():
         companies=companies,
         active_departments=active_departments,
         locations=locations,
+        suppliers=suppliers,
+        units=units,
         sources=sources
     )
 
@@ -633,10 +649,22 @@ def edit_page(id):
         active_departments = []
 
     try:
-        locations = SystemConfig.get_config_value('ASSET_LOCATIONS', [])
+        locations = StorageLocation.get_all_names()
     except Exception as e:
-        logging.warning(f"获取存放位置配置失败: {str(e)}")
+        logging.warning(f"获取存放位置列表失败: {str(e)}")
         locations = []
+
+    try:
+        suppliers = Supplier.get_all_names()
+    except Exception as e:
+        logging.warning(f"获取供应商列表失败: {str(e)}")
+        suppliers = []
+
+    try:
+        units = SystemConfig.get_config_value('supply_units', ['个', '件', '箱', '包', '盒', '瓶', '支', '本', '张', '套', '台', '把'])
+    except Exception as e:
+        logging.warning(f"获取单位配置失败: {str(e)}")
+        units = ['个', '件', '箱', '包', '盒', '瓶', '支', '本', '张', '套', '台', '把']
 
     try:
         sources = SystemConfig.get_config_value('ASSET_SOURCES', ['采购', '捐赠', '调入', '自建', '其他'])
@@ -674,6 +702,8 @@ def edit_page(id):
         companies=companies,
         active_departments=active_departments,
         locations=locations,
+        suppliers=suppliers,
+        units=units,
         sources=sources,
         media_files=media_files
     )
@@ -713,9 +743,9 @@ def transfer_page(id):
         active_departments = []
 
     try:
-        locations = SystemConfig.get_config_value('ASSET_LOCATIONS', [])
+        locations = StorageLocation.get_all_names()
     except Exception as e:
-        logging.warning(f"获取存放位置配置失败: {str(e)}")
+        logging.warning(f"获取存放位置列表失败: {str(e)}")
         locations = []
 
     logging.info(f"访问资产转移页面，资产ID: {id}")

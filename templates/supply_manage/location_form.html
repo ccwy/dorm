@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+{% include 'static.html' %}
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#165DFF',
+                        secondary: '#36CFC9',
+                        accent: '#722ED1',
+                        danger: '#F5222D',
+                        info: '#1890FF',
+                        warning: '#FAAD14'
+                    },
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .btn-hover {
+                transition: all 0.2s ease;
+            }
+            .btn-hover:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            }
+            .fade-in {
+                animation: fadeIn 0.5s ease-in;
+            }
+            @keyframes fadeIn {
+                from { opacity: 0; }
+                to { opacity: 1; }
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+{% include 'header.html' %}
+    <main class="container mx-auto px-4 py-6">
+        
+        <!-- 标题区 -->
+        <div class="mb-6 fade-in">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between">
+                <div class="flex items-center">
+                    <button type="button" onclick="history.back()" class="text-gray-600 hover:text-primary transition-colors mr-4">
+                        <i class="fa fa-arrow-left"></i>
+                    </button>
+                    <div>
+                        <h2 class="text-[clamp(1.5rem,3vw,2rem)] font-bold text-dark">{{ title }}</h2>
+                        <p class="text-gray-500 mt-1">{% if location %}编辑存放位置信息{% else %}填写新存放位置信息{% endif %}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 消息提示区域 -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            <div class="flash-messages mb-6">
+              {% for category, message in messages %}
+                <div class="p-4 rounded-md mb-2 {% if category == 'success' %}bg-green-100 text-green-800{% elif category == 'error' or category == 'danger' %}bg-red-100 text-red-800{% elif category == 'warning' %}bg-yellow-100 text-yellow-800{% else %}bg-blue-100 text-blue-800{% endif %}">
+                  <button type="button" class="float-right ml-2 text-gray-500 hover:text-gray-700" onclick="this.parentElement.remove()">×</button>
+                  {{ message | safe }}
+                </div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        {% endwith %}
+
+        <div class="bg-white rounded-lg shadow-sm p-6 mx-auto">
+            <form id="locationForm" method="post" action="{% if location %}{{ url_for('storage_location.edit_storage_location', id=location.id) }}{% else %}{{ url_for('storage_location.add_storage_location') }}{% endif %}">
+                
+                <!-- 基本信息 -->
+                <div class="mb-8">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4 pb-2 border-b border-gray-200">
+                        <i class="fa fa-info-circle mr-2 text-primary"></i>基本信息
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <!-- 位置名称 -->
+                        <div>
+                            <label for="name" class="block text-sm font-medium text-gray-700 mb-1">
+                                位置名称 <span class="text-red-500">*</span>
+                            </label>
+                            <input type="text" id="name" name="name" 
+                                   value="{{ location.name if location else '' }}"
+                                   required
+                                   class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                   placeholder="请输入位置名称">
+                        </div>
+
+                        <!-- 位置编码 -->
+                        <div>
+                            <label for="code" class="block text-sm font-medium text-gray-700 mb-1">位置编码</label>
+                            <input type="text" id="code" name="code" 
+                                   value="{{ location.code if location and location.code else '' }}"
+                                   class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                   placeholder="请输入位置编码（可选）">
+                        </div>
+
+                        <!-- 状态 -->
+                        <div>
+                            <label for="status" class="block text-sm font-medium text-gray-700 mb-1">状态</label>
+                            <select id="status" name="status"
+                                    class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                                <option value="启用" {% if location and location.status == '启用' %}selected{% elif not location %}selected{% endif %}>启用</option>
+                                <option value="停用" {% if location and location.status == '停用' %}selected{% endif %}>停用</option>
+                            </select>
+                        </div>
+
+                        <!-- 经手人 -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">经手人</label>
+                            <input type="text" value="{{ current_user.name }}"
+                                   readonly
+                                   class="w-full px-3 py-2 text-sm border border-gray-200 rounded-md bg-gray-50 text-gray-500 cursor-not-allowed"
+                                   placeholder="经手人">
+                            <input type="hidden" name="handler_user_id" value="{{ current_user.id }}">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 位置信息 -->
+                <div class="mb-8">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4 pb-2 border-b border-gray-200">
+                        <i class="fa fa-map-marker mr-2 text-secondary"></i>位置信息
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <!-- 楼栋 -->
+                        <div>
+                            <label for="building" class="block text-sm font-medium text-gray-700 mb-1">楼栋</label>
+                            <input type="text" id="building" name="building" 
+                                   value="{{ location.building if location and location.building else '' }}"
+                                   class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                   placeholder="请输入楼栋名称">
+                        </div>
+
+                        <!-- 楼层 -->
+                        <div>
+                            <label for="floor" class="block text-sm font-medium text-gray-700 mb-1">楼层</label>
+                            <input type="text" id="floor" name="floor" 
+                                   value="{{ location.floor if location and location.floor else '' }}"
+                                   class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                   placeholder="请输入楼层">
+                        </div>
+
+                        <!-- 房间号 -->
+                        <div>
+                            <label for="room" class="block text-sm font-medium text-gray-700 mb-1">房间号</label>
+                            <input type="text" id="room" name="room" 
+                                   value="{{ location.room if location and location.room else '' }}"
+                                   class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                   placeholder="请输入房间号">
+                        </div>
+
+                        <!-- 地址 -->
+                        <div>
+                            <label for="address" class="block text-sm font-medium text-gray-700 mb-1">地址</label>
+                            <textarea id="address" name="address" rows="4"
+                                    class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                   placeholder="请输入详细地址">{{ location.address if location and location.address else '' }}</textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 其他信息 -->
+                <div class="mb-8">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4 pb-2 border-b border-gray-200">
+                        <i class="fa fa-sticky-note mr-2 text-accent"></i>其他信息
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+
+                    </div>
+                    <div class="mt-4">
+                        <label for="remark" class="block text-sm font-medium text-gray-700 mb-1">备注信息</label>
+                        <textarea id="remark" name="remark" rows="4"
+                                  class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                  placeholder="请输入备注信息">{{ location.remark if location and location.remark else '' }}</textarea>
+                    </div>
+                </div>
+
+                <!-- 提交按钮 -->
+                <div class="flex justify-end gap-3 pt-4 border-t border-gray-200">
+                    <button type="button" onclick="history.back()" class="px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 btn-hover">
+                        <i class="fa fa-times mr-2"></i>取消
+                    </button>
+                    {% if not location %}
+                    <button type="submit" name="save_and_continue" value="1" class="px-6 py-2 bg-secondary text-white rounded-md hover:bg-secondary/90 btn-hover">
+                        <i class="fa fa-plus-circle mr-2"></i>保存并继续新增
+                    </button>
+                    {% endif %}
+                    <button type="submit" name="save" value="1" class="px-6 py-2 bg-primary text-white rounded-md hover:bg-primary/90 btn-hover">
+                        <i class="fa fa-save mr-2"></i>{% if location %}保存修改{% else %}保存并返回{% endif %}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </main>
+
+    <!-- 页脚 -->
+    {% include 'footer.html' %}
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const form = document.getElementById('locationForm');
+            form.addEventListener('submit', function(e) {
+                const name = document.getElementById('name').value.trim();
+                if (!name) {
+                    e.preventDefault();
+                    alert('请输入位置名称');
+                    document.getElementById('name').focus();
+                    return;
+                }
+            });
+        });
+    </script>
+</body>
+</html>

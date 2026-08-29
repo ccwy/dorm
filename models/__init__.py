@@ -23,3 +23,4 @@ from .asset_operation_record import AssetOperationRecord  # 资产操作记录�
 from .asset_inventory import AssetInventory  # 资产盘点主表模型
 from .asset_inventory_detail import AssetInventoryDetail  # 资产盘点明细模型
 from .department import Department  # 部门管理模型
+from .supply import Supplier, SupplierOperationRecord, SupplyItem, StorageLocation, SupplyStockDetail, StockIn, StockInDetail, StockOut, StockOutDetail, SupplyInventory, SupplyInventoryDetail, SupplyStockRecord  # 低值易耗品进销存模型

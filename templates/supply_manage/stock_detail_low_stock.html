@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+{% include 'static.html' %}
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#165DFF',
+                        secondary: '#36CFC9',
+                        accent: '#722ED1',
+                        danger: '#F5222D',
+                        info: '#1890FF',
+                        warning: '#FAAD14'
+                    },
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .btn-hover {
+                transition: all 0.2s ease;
+            }
+            .btn-hover:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            }
+            .fade-in {
+                animation: fadeIn 0.5s ease-in;
+            }
+            @keyframes fadeIn {
+                from { opacity: 0; }
+                to { opacity: 1; }
+            }
+            .low-stock-row {
+                background-color: rgb(255 247 237);
+            }
+            .low-stock-row:hover {
+                background-color: rgb(255 237 213);
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+{% include 'header.html' %}
+    <main class="container mx-auto px-4 py-6">
+        <!-- 标题区 -->
+        <div class="mb-6 fade-in">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between">
+                <div class="flex items-center">
+                    <button type="button" onclick="window.location.href='{{ url_for('supply_stock_detail.list_stock_details') }}'" class="text-gray-600 hover:text-primary transition-colors mr-4">
+                        <i class="fa fa-arrow-left"></i>
+                    </button>
+                    <div>
+                        <h2 class="text-[clamp(1.5rem,3vw,2rem)] font-bold text-dark">
+                            <i class="fa fa-exclamation-triangle text-orange-500 mr-2"></i>{{ title }}
+                        </h2>
+                        <p class="text-gray-500 mt-1">显示当前库存低于最低库存预警线的物品，请及时补货</p>
+                    </div>
+                </div>
+                <div class="mt-4 md:mt-0 flex flex-wrap gap-3">
+                    <button onclick="location.reload();" class="btn-hover bg-secondary text-white px-4 py-2 rounded-md flex items-center">
+                        <i class="fa fa-refresh mr-2"></i>刷新
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 消息提示 -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            <div class="flash-messages mb-6">
+              {% for category, message in messages %}
+                <div class="p-4 rounded-md mb-2 {% if category == 'success' %}bg-green-100 text-green-800{% elif category == 'error' or category == 'danger' %}bg-red-100 text-red-800{% elif category == 'warning' %}bg-yellow-100 text-yellow-800{% else %}bg-blue-100 text-blue-800{% endif %}">
+                  <button type="button" class="float-right ml-2 text-gray-500 hover:text-gray-700" onclick="this.parentElement.remove()">×</button>
+                  {{ message | safe }}
+                </div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        {% endwith %}
+
+        {% if not low_stock_alert_enabled %}
+        <!-- 低库存预警已关闭提示 -->
+        <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-6 mb-6">
+            <div class="flex items-center">
+                <i class="fa fa-exclamation-circle text-yellow-500 text-2xl mr-3"></i>
+                <div>
+                    <h3 class="text-lg font-semibold text-yellow-800">低库存预警已关闭</h3>
+                    <p class="text-yellow-700 mt-1">系统配置中低库存预警功能已关闭，当前页面仅显示参考数据。如需启用，请在系统设置中开启"低库存预警"选项。</p>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- 筛选区 -->
+        <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+            <form method="get" action="{{ url_for('supply_stock_detail.low_stock') }}">
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+
+                    <div class="flex items-end gap-2">
+                        <button type="submit" class="px-4 py-2 bg-primary text-white rounded-md text-sm hover:bg-primary/90">
+                            <i class="fa fa-search mr-1"></i>筛选
+                        </button>
+                        <a href="{{ url_for('supply_stock_detail.low_stock') }}" class="px-4 py-2 border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50">
+                            <i class="fa fa-undo mr-1"></i>重置
+                        </a>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <!-- 低库存物品列表 -->
+        <div class="bg-white rounded-lg shadow-sm p-6">
+            {% if low_stock_items %}
+            <div class="mb-4 p-4 bg-orange-50 border border-orange-200 rounded-lg">
+                <div class="flex items-center">
+                    <i class="fa fa-exclamation-triangle text-orange-500 mr-2"></i>
+                    <span class="text-orange-800 font-medium">共 {{ total_count }} 种物品库存不足，请及时补货！</span>
+                </div>
+            </div>
+            {% endif %}
+
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">序号</th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">物品编号</th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">物品名称</th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">规格型号</th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">单位</th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">当前库存</th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">最低库存</th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">缺口数量</th>
+
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        {% for item in low_stock_items %}
+                        <tr class="low-stock-row">
+                            <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-600">{{ (current_page - 1) * per_page + loop.index }}</td>
+                            <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-600">{{ item.item_number or '-' }}</td>
+                            <td class="px-4 py-4 whitespace-nowrap">
+                                <a href="{{ url_for('supply_item.detail', id=item.id) }}" class="text-primary hover:underline">{{ item.name }}</a>
+                            </td>
+                            <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-600">{{ item.specification or '-' }}</td>
+                            <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-600">{{ item.unit or '-' }}</td>
+                            <td class="px-4 py-4 whitespace-nowrap text-sm font-semibold text-red-600">{{ item.current_stock|default(0) }}</td>
+                            <td class="px-4 py-4 whitespace-nowrap text-sm text-orange-600">{{ item.min_stock|default(0) }}</td>
+                            <td class="px-4 py-4 whitespace-nowrap text-sm font-semibold text-red-600">{{ item.min_stock|default(0) - item.current_stock|default(0) }}</td>
+
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="9" class="px-6 py-8 text-center">
+                                <div class="flex flex-col items-center">
+                                    <i class="fa fa-check-circle text-green-500 text-4xl mb-3"></i>
+                                    <p class="text-gray-500 text-lg">所有物品库存充足，暂无低库存预警</p>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- 分页 -->
+            {% if total_pages > 0 %}
+            <div class="px-6 py-4 bg-gray-50 border-t border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between mt-4 gap-4">
+                <div class="text-sm text-gray-700">
+                    共 <span class="font-medium">{{ total_count }}</span> 条记录
+                </div>
+                <div class="flex space-x-1">
+                    <button class="px-3 py-1 border border-gray-300 rounded bg-white text-gray-500 hover:bg-gray-50 {% if current_page == 1 %}opacity-50 cursor-not-allowed{% endif %}" 
+                            {% if current_page > 1 %}onclick="window.location.href='{{ url_for('supply_stock_detail.low_stock', page=current_page-1, per_page=per_page) }}'"{% endif %}>
+                        <i class="fa fa-chevron-left"></i>
+                    </button>
+                    {% for p in page_range %}
+                        {% if p == '...' %}
+                        <button class="px-3 py-1 border border-gray-300 rounded bg-white text-gray-700" disabled>...</button>
+                        {% else %}
+                        <button class="px-3 py-1 border {% if p == current_page %}border-primary bg-primary text-white{% else %}border-gray-300 bg-white text-gray-700 hover:bg-gray-50{% endif %} rounded"
+                                onclick="window.location.href='{{ url_for('supply_stock_detail.low_stock', page=p, per_page=per_page) }}'">{{ p }}</button>
+                        {% endif %}
+                    {% endfor %}
+                    <button class="px-3 py-1 border border-gray-300 rounded bg-white text-gray-500 hover:bg-gray-50 {% if current_page == total_pages %}opacity-50 cursor-not-allowed{% endif %}"
+                            {% if current_page < total_pages %}onclick="window.location.href='{{ url_for('supply_stock_detail.low_stock', page=current_page+1, per_page=per_page) }}'"{% endif %}>
+                        <i class="fa fa-chevron-right"></i>
+                    </button>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </main>
+    {% include 'footer.html' %}
+</body>
+</html>

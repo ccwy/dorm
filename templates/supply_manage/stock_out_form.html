@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+{% include 'static.html' %}
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#165DFF',
+                        secondary: '#36CFC9',
+                        accent: '#722ED1',
+                        danger: '#F5222D',
+                        info: '#1890FF',
+                        warning: '#FAAD14'
+                    },
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .btn-effect {
+                transition: all 0.2s ease;
+            }
+            .btn-effect:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            }
+            .btn-hover {
+                transition: all 0.2s ease;
+            }
+            .btn-hover:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            }
+            .fade-in {
+                animation: fadeIn 0.5s ease-in;
+            }
+            @keyframes fadeIn {
+                from { opacity: 0; }
+                to { opacity: 1; }
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+{% include 'header.html' %}
+    <main class="container mx-auto px-4 py-6">
+        
+        <!-- 标题区 -->
+        <div class="mb-6 fade-in">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between">
+                <div class="flex items-center">
+                    <button type="button" onclick="history.back()" class="text-gray-600 hover:text-primary transition-colors mr-4">
+                        <i class="fa fa-arrow-left"></i>
+                    </button>
+                    <div>
+                        <h2 class="text-[clamp(1.5rem,3vw,2rem)] font-bold text-dark">{{ title }}</h2>
+                        <p class="text-gray-500 mt-1">{% if stock_out %}编辑出库单{% else %}新增出库单{% endif %}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 消息提示区域 -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            <div class="flash-messages mb-6">
+              {% for category, message in messages %}
+                <div class="p-4 rounded-md mb-2 {% if category == 'success' %}bg-green-100 text-green-800{% elif category == 'error' or category == 'danger' %}bg-red-100 text-red-800{% elif category == 'warning' %}bg-yellow-100 text-yellow-800{% else %}bg-blue-100 text-blue-800{% endif %}">
+                  <button type="button" class="float-right ml-2 text-gray-500 hover:text-gray-700" onclick="this.parentElement.remove()">×</button>
+                  {{ message | safe }}
+                </div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        {% endwith %}
+
+        <div class="bg-white rounded-lg shadow-sm p-6 mx-auto">
+            <form id="stockOutForm" method="post" action="{% if stock_out %}{{ url_for('stock_out.update_stock_out', id=stock_out.id) }}{% else %}{{ url_for('stock_out.create_stock_out') }}{% endif %}">
+                <input type="hidden" id="items_json" name="items_json">
+                
+                <!-- 基本信息 -->
+                <div class="mb-8">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4 pb-2 border-b border-gray-200">
+                        <i class="fa fa-info-circle mr-2 text-primary"></i>基本信息
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {% if not get_config_value('supply_auto_number', True) %}
+                        <!-- 出库单号（自动编号关闭时显示） -->
+                        <div>
+                            <label for="stock_out_number" class="block text-sm font-medium text-gray-700 mb-1">
+                                出库单号 <span class="text-red-500">*</span>
+                            </label>
+                            <input type="text" id="stock_out_number" name="stock_out_number"
+                                   class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                   placeholder="请输入出库单号" required>
+                        </div>
+                        {% endif %}
+                        <!-- 出库类型 -->
+                        <div>
+                            <label for="stock_out_type" class="block text-sm font-medium text-gray-700 mb-1">
+                                出库类型 <span class="text-red-500">*</span>
+                            </label>
+                            <select id="stock_out_type" name="stock_out_type"
+                                    class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50" required>
+                                {% for t in stock_out_types %}
+                                <option value="{{ t }}" {% if stock_out and stock_out.stock_out_type == t %}selected{% elif not stock_out and loop.index == 1 %}selected{% endif %}>{{ t }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <!-- 出库日期 -->
+                        <div>
+                            <label for="stock_out_date" class="block text-sm font-medium text-gray-700 mb-1">
+                                出库日期 <span class="text-red-500">*</span>
+                            </label>
+                            <input type="date" id="stock_out_date" name="stock_out_date" 
+                                   value="{% if stock_out %}{{ stock_out.stock_out_date.strftime('%Y-%m-%d') if stock_out.stock_out_date else '' }}{% else %}{{ today }}{% endif %}"
+                                   required
+                                   class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                        </div>
+
+                        <!-- 领用人 -->
+                        <div>
+                            <label for="recipient_name" class="block text-sm font-medium text-gray-700 mb-1">
+                                领用人
+                            </label>
+                            <input type="text" id="recipient_name" name="recipient_name" 
+                                   value="{% if stock_out and stock_out.recipient_user_id %}{{ stock_out.recipient_name }}{% endif %}"
+                                   list="recipientList"
+                                   class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                   placeholder="请输入或选择领用人"
+                                   autocomplete="off">
+                            <input type="hidden" id="recipient_user_id" name="recipient_user_id" value="{{ stock_out.recipient_user_id if stock_out else '' }}">
+                            <datalist id="recipientList">
+                                {% for u in users %}
+                                <option value="{{ u.name }}" data-id="{{ u.id }}">
+                                {% endfor %}
+                            </datalist>
+                        </div>
+
+                        <!-- 领用部门 -->
+                        <div>
+                            <label for="department_name" class="block text-sm font-medium text-gray-700 mb-1">领用部门</label>
+                            <input type="text" id="department_name" name="department_name"
+                                   value="{% if stock_out and stock_out.department_id %}{{ stock_out.department_name }}{% endif %}"
+                                   list="departmentList"
+                                   class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                   placeholder="请输入或选择部门"
+                                   autocomplete="off">
+                            <input type="hidden" id="department_id" name="department_id" value="{{ stock_out.department_id if stock_out else '' }}">
+                            <datalist id="departmentList">
+                                {% for d in departments %}
+                                <option value="{{ d.name }}" data-id="{{ d.id }}">
+                                {% endfor %}
+                            </datalist>
+                        </div>
+
+                        <!-- 经手人 -->
+                        <div>
+                            <label for="handler_name" class="block text-sm font-medium text-gray-700 mb-1">经手人</label>
+                            <input type="text" id="handler_name" name="handler_name"
+                                   value="{{ current_user.name or current_user.username }}"
+                                   class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md bg-gray-50 cursor-not-allowed"
+                                   placeholder="经手人" readonly>
+                            <input type="hidden" id="handler_user_id" name="handler_user_id" value="{{ current_user.id }}">
+                        </div>
+
+                        <!-- 备注 -->
+                        <div class="md:col-span-2 lg:col-span-3">
+                            <label for="remark" class="block text-sm font-medium text-gray-700 mb-1">备注</label>
+                            <textarea id="remark" name="remark" rows="2"
+                                      class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                      placeholder="请输入备注信息">{{ stock_out.remark if stock_out else '' }}</textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 出库明细 -->
+                <div class="mb-8">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4 pb-2 border-b border-gray-200">
+                        <i class="fa fa-list-alt mr-2 text-secondary"></i>出库明细
+                    </h3>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200" id="detailTable">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase w-8">序号</th>
+                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">物品 <span class="text-red-500">*</span></th>
+                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">规格型号</th>
+                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">单位</th>
+                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">库存</th>
+                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">存放位置 <span class="text-red-500">*</span></th>
+                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">出库数量 <span class="text-red-500">*</span></th>
+                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">单价</th>
+                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">小计</th>
+                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase w-12">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="detailBody" class="bg-white divide-y divide-gray-200">
+                                {% if stock_out and stock_out.details %}
+                                {% for d in stock_out.details %}
+                                <tr data-row-index="{{ loop.index0 }}">
+                                    <td class="px-3 py-2 text-sm text-gray-600">{{ loop.index }}</td>
+                                    <td class="px-3 py-2">
+                                        <input type="text" data-name="item_name" class="detail-item-search w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-primary/50" 
+                                               list="item-datalist" placeholder="搜索物品名称" autocomplete="off" required data-row="{{ loop.index0 }}"
+                                               value="{% for item in items %}{% if item.id == d.item_id %}{{ item.name }}{% endif %}{% endfor %}">
+                                        <input type="hidden" data-name="item_id" class="detail-item-id" value="{{ d.item_id if d else '' }}" data-row="{{ loop.index0 }}">
+                                    </td>
+                                    <td class="px-3 py-2">
+                                        <input type="text" data-name="specification" value="{{ d.display_specification if d.display_specification != '-' else '' }}" 
+                                               class="detail-specification w-full px-2 py-1 text-sm border border-gray-300 rounded bg-gray-50" readonly>
+                                    </td>
+                                    <td class="px-3 py-2">
+                                        <input type="text" data-name="unit" value="{{ d.display_unit }}" 
+                                               class="detail-unit w-full px-2 py-1 text-sm border border-gray-300 rounded bg-gray-50" readonly>
+                                    </td>
+                                    <td class="px-3 py-2">
+                                        <span class="detail-stock text-sm text-gray-600">{{ d.current_stock or '-' }}</span>
+                                    </td>
+                                    <td class="px-3 py-2">
+                                        <select data-name="location_id" class="detail-location-select w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-primary/50" required data-row="{{ loop.index0 }}">
+                                            <option value="">请选择位置</option>
+                                            {% for loc in locations %}
+                                            <option value="{{ loc.id }}" {% if d.location_id == loc.id %}selected{% endif %}>{{ loc.name }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </td>
+                                    <td class="px-3 py-2">
+                                        <input type="number" data-name="quantity" value="{{ d.quantity or 1 }}" min="1" step="1"
+                                               class="detail-quantity w-20 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-primary/50" required>
+                                    </td>
+                                    <td class="px-3 py-2">
+                                        <input type="number" data-name="unit_price" value="{{ d.unit_price or 0 }}" min="0" step="0.01"
+                                               class="detail-unit-price w-24 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-primary/50">
+                                    </td>
+                                    <td class="px-3 py-2">
+                                        <span class="detail-subtotal text-sm font-medium text-gray-800">{{ "%.2f"|format((d.quantity or 0) * (d.unit_price or 0)) }}</span>
+                                    </td>
+                                    <td class="px-3 py-2">
+                                        <button type="button" onclick="removeDetailRow(this)" class="text-red-500 hover:text-red-700 text-sm">
+                                            <i class="fa fa-trash"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="mt-3 flex items-center justify-between">
+                        <button type="button" onclick="addDetailRow()" class="px-4 py-2 bg-secondary text-white rounded-md hover:bg-secondary/90 btn-hover text-sm">
+                            <i class="fa fa-plus mr-1"></i>添加明细行
+                        </button>
+                        <div class="text-right">
+                            <span class="text-sm text-gray-600">合计金额：</span>
+                            <span id="totalAmount" class="text-xl font-bold text-primary">¥0.00</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 提交按钮 -->
+                <div class="flex justify-end gap-3 pt-4 border-t border-gray-200">
+                    <button type="button" onclick="history.back()" class="px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 btn-hover">
+                        <i class="fa fa-times mr-2"></i>取消
+                    </button>
+                    {% if not stock_out %}
+                    <button type="submit" name="save_and_continue" value="1" class="px-6 py-2 bg-secondary text-white rounded-md hover:bg-secondary/90 btn-hover">
+                        <i class="fa fa-plus-circle mr-2"></i>保存并继续新增
+                    </button>
+                    {% endif %}
+                    <button type="submit" name="save" value="1" class="px-6 py-2 bg-primary text-white rounded-md hover:bg-primary/90 btn-hover">
+                        <i class="fa fa-save mr-2"></i>{% if stock_out %}保存修改{% else %}保存并返回{% endif %}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </main>
+
+    <!-- 页脚 -->
+    {% include 'footer.html' %}
+    
+    <datalist id="item-datalist">
+        {% for item in items %}
+        <option value="{{ item.name }}">
+        {% endfor %}
+    </datalist>
+
+    <script>
+        // 物品数据映射
+        const itemsData = {
+            {% for item in items %}
+            '{{ item.id }}': {
+                name: '{{ item.name }}',
+                specification: '{{ item.specification or "" }}',
+                unit: '{{ item.unit or "" }}',
+                unitPrice: {{ item.unit_price or 0 }},
+                stock: {{ item.current_stock or 0 }}
+            },
+            {% endfor %}
+        };
+
+        // 物品库存位置缓存
+        const itemLocationsCache = {};
+
+        // 获取物品实际库存位置
+        async function fetchItemLocations(itemId) {
+            if (itemLocationsCache[itemId]) {
+                return itemLocationsCache[itemId];
+            }
+            try {
+                const response = await fetch('{{ url_for("stock_out.get_item_locations", item_id=0) }}'.replace('/0', '/' + itemId));
+                const data = await response.json();
+                if (data.success) {
+                    itemLocationsCache[itemId] = data.locations;
+                    return data.locations;
+                }
+            } catch (e) {
+                console.error('获取物品库存位置失败:', e);
+            }
+            return [];
+        }
+
+        // 更新位置下拉选项
+        function updateLocationSelect(selectEl, locations, selectedLocationId) {
+            selectEl.innerHTML = '<option value="">请选择位置</option>';
+            locations.forEach(loc => {
+                const option = document.createElement('option');
+                option.value = loc.id;
+                option.textContent = loc.name + ' (库存: ' + loc.quantity + ')';
+                if (selectedLocationId && loc.id == selectedLocationId) {
+                    option.selected = true;
+                }
+                selectEl.appendChild(option);
+            });
+        }
+
+        let rowIndex = {{ (stock_out.details|length if stock_out and stock_out.details else 0) }};
+
+        function addDetailRow() {
+            const tbody = document.getElementById('detailBody');
+            const idx = rowIndex;
+            const tr = document.createElement('tr');
+            tr.setAttribute('data-row-index', idx);
+            
+            let locationOptions = '<option value="">请先选择物品</option>';
+
+            tr.innerHTML = `
+                <td class="px-3 py-2 text-sm text-gray-600">${idx + 1}</td>
+                <td class="px-3 py-2">
+                    <input type="text" data-name="item_name" class="detail-item-search w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-primary/50" 
+                           list="item-datalist" placeholder="搜索物品名称" autocomplete="off" required data-row="${idx}">
+                    <input type="hidden" data-name="item_id" class="detail-item-id" value="" data-row="${idx}">
+                </td>
+                <td class="px-3 py-2">
+                    <input type="text" data-name="specification" value="" 
+                           class="detail-specification w-full px-2 py-1 text-sm border border-gray-300 rounded bg-gray-50" readonly>
+                </td>
+                <td class="px-3 py-2">
+                    <input type="text" data-name="unit" value="" 
+                           class="detail-unit w-full px-2 py-1 text-sm border border-gray-300 rounded bg-gray-50" readonly>
+                </td>
+                <td class="px-3 py-2">
+                    <span class="detail-stock text-sm text-gray-600">-</span>
+                </td>
+                <td class="px-3 py-2">
+                    <select data-name="location_id" class="detail-location-select w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-primary/50" required data-row="${idx}">
+                        ${locationOptions}
+                    </select>
+                </td>
+                <td class="px-3 py-2">
+                    <input type="number" data-name="quantity" value="1" min="1" step="1"
+                           class="detail-quantity w-20 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-primary/50" required>
+                </td>
+                <td class="px-3 py-2">
+                    <input type="number" data-name="unit_price" value="0" min="0" step="0.01"
+                           class="detail-unit-price w-24 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-primary/50">
+                </td>
+                <td class="px-3 py-2">
+                    <span class="detail-subtotal text-sm font-medium text-gray-800">0.00</span>
+                </td>
+                <td class="px-3 py-2">
+                    <button type="button" onclick="removeDetailRow(this)" class="text-red-500 hover:text-red-700 text-sm">
+                        <i class="fa fa-trash"></i>
+                    </button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+            rowIndex++;
+            
+            bindRowEvents(tr);
+            recalculateTotal();
+        }
+
+        function removeDetailRow(btn) {
+            const tr = btn.closest('tr');
+            tr.remove();
+            reindexRows();
+            recalculateTotal();
+        }
+
+        function reindexRows() {
+            const rows = document.querySelectorAll('#detailBody tr');
+            rows.forEach((row, i) => {
+                row.querySelector('td:first-child').textContent = i + 1;
+            });
+        }
+
+        function bindRowEvents(row) {
+            const itemSearch = row.querySelector('.detail-item-search');
+            const quantityInput = row.querySelector('.detail-quantity');
+            const unitPriceInput = row.querySelector('.detail-unit-price');
+
+            if (itemSearch) {
+                function handleItemSelection() {
+                    const itemName = itemSearch.value.trim();
+                    const hiddenId = row.querySelector('.detail-item-id');
+                    
+                    // 从itemsData中查找匹配的物品
+                    let foundItem = null;
+                    for (const [id, data] of Object.entries(itemsData)) {
+                        if (data.name === itemName) {
+                            foundItem = { id: id, ...data };
+                            break;
+                        }
+                    }
+                    
+                    if (foundItem) {
+                        hiddenId.value = foundItem.id;
+                        row.querySelector('.detail-specification').value = foundItem.specification || '';
+                        row.querySelector('.detail-unit').value = foundItem.unit || '';
+                        row.querySelector('.detail-unit-price').value = foundItem.unitPrice || '';
+                        row.querySelector('.detail-stock').textContent = foundItem.stock || '0';
+                        // 设置出库数量最大值为库存
+                        quantityInput.max = foundItem.stock || 0;
+                        quantityInput.title = `最大出库数量：${foundItem.stock || 0}`;
+
+                        // 动态加载该物品的实际库存位置
+                        const locationSelect = row.querySelector('.detail-location-select');
+                        if (locationSelect) {
+                            locationSelect.innerHTML = '<option value="">加载中...</option>';
+                            fetchItemLocations(foundItem.id).then(locations => {
+                                if (locations.length > 0) {
+                                    updateLocationSelect(locationSelect, locations);
+                                } else {
+                                    locationSelect.innerHTML = '<option value="">该物品暂无库存</option>';
+                                }
+                            });
+                        }
+                    } else {
+                        hiddenId.value = '';
+                        row.querySelector('.detail-specification').value = '';
+                        row.querySelector('.detail-unit').value = '';
+                        row.querySelector('.detail-unit-price').value = 0;
+                        row.querySelector('.detail-stock').textContent = '-';
+                        quantityInput.removeAttribute('max');
+                        // 清空位置下拉
+                        const locationSelect = row.querySelector('.detail-location-select');
+                        if (locationSelect) {
+                            locationSelect.innerHTML = '<option value="">请先选择物品</option>';
+                        }
+                    }
+                    recalculateRow(row);
+                    recalculateTotal();
+                }
+                
+                itemSearch.addEventListener('input', handleItemSelection);
+                itemSearch.addEventListener('change', handleItemSelection);
+            }
+
+            if (quantityInput) {
+                quantityInput.addEventListener('input', function() {
+                    // 检查出库数量是否超过库存
+                    const stock = parseInt(row.querySelector('.detail-stock').textContent) || 0;
+                    const qty = parseInt(this.value) || 0;
+                    if (stock > 0 && qty > stock) {
+                        this.classList.add('border-red-500');
+                        this.title = `出库数量不能超过库存(${stock})`;
+                    } else {
+                        this.classList.remove('border-red-500');
+                        this.title = '';
+                    }
+                    recalculateRow(row);
+                    recalculateTotal();
+                });
+            }
+
+            if (unitPriceInput) {
+                unitPriceInput.addEventListener('input', function() {
+                    recalculateRow(row);
+                    recalculateTotal();
+                });
+            }
+        }
+
+        function recalculateRow(row) {
+            const quantity = parseFloat(row.querySelector('.detail-quantity').value) || 0;
+            const unitPrice = parseFloat(row.querySelector('.detail-unit-price').value) || 0;
+            const subtotal = quantity * unitPrice;
+            row.querySelector('.detail-subtotal').textContent = subtotal.toFixed(2);
+        }
+
+        function recalculateTotal() {
+            let total = 0;
+            document.querySelectorAll('#detailBody tr').forEach(row => {
+                const subtotal = parseFloat(row.querySelector('.detail-subtotal').textContent) || 0;
+                total += subtotal;
+            });
+            document.getElementById('totalAmount').textContent = '¥' + total.toFixed(2);
+        }
+
+        function collectItemsJson() {
+            const rows = document.querySelectorAll('#detailBody tr');
+            const items = [];
+            rows.forEach(row => {
+                const itemIdInput = row.querySelector('.detail-item-id');
+                const itemNameInput = row.querySelector('.detail-item-search');
+                const locationSelect = row.querySelector('.detail-location-select');
+                const item = {
+                    item_id: itemIdInput ? parseInt(itemIdInput.value) || 0 : 0,
+                    item_name: itemNameInput ? itemNameInput.value : '',
+                    location_id: locationSelect ? parseInt(locationSelect.value) || 0 : 0,
+                    location_name: locationSelect ? locationSelect.options[locationSelect.selectedIndex].text : '',
+                    specification: row.querySelector('.detail-specification') ? row.querySelector('.detail-specification').value : '',
+                    unit: row.querySelector('.detail-unit') ? row.querySelector('.detail-unit').value : '',
+                    quantity: row.querySelector('.detail-quantity') ? parseInt(row.querySelector('.detail-quantity').value) || 0 : 0,
+                    unit_price: row.querySelector('.detail-unit-price') ? parseFloat(row.querySelector('.detail-unit-price').value) || 0 : 0,
+                    remark: ''
+                };
+                items.push(item);
+            });
+            document.getElementById('items_json').value = JSON.stringify(items);
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // 领用人选择交互逻辑
+            const recipientNameInput = document.getElementById('recipient_name');
+            const recipientIdInput = document.getElementById('recipient_user_id');
+            const recipientDatalist = document.getElementById('recipientList');
+
+            if (recipientNameInput && recipientIdInput && recipientDatalist) {
+                const recipientNameToId = {};
+                recipientDatalist.querySelectorAll('option').forEach(opt => {
+                    recipientNameToId[opt.value] = opt.getAttribute('data-id');
+                });
+
+                recipientNameInput.addEventListener('input', function() {
+                    const val = this.value.trim();
+                    if (val && recipientNameToId[val]) {
+                        recipientIdInput.value = recipientNameToId[val];
+                    } else {
+                        recipientIdInput.value = '';
+                    }
+                });
+
+                recipientNameInput.addEventListener('change', function() {
+                    const val = this.value.trim();
+                    if (val && recipientNameToId[val]) {
+                        recipientIdInput.value = recipientNameToId[val];
+                    } else {
+                        recipientIdInput.value = '';
+                    }
+                });
+            }
+
+            // 部门选择交互逻辑
+            const deptNameInput = document.getElementById('department_name');
+            const deptIdInput = document.getElementById('department_id');
+            const deptDatalist = document.getElementById('departmentList');
+
+            if (deptNameInput && deptIdInput && deptDatalist) {
+                const deptNameToId = {};
+                deptDatalist.querySelectorAll('option').forEach(opt => {
+                    deptNameToId[opt.value] = opt.getAttribute('data-id');
+                });
+
+                deptNameInput.addEventListener('input', function() {
+                    const val = this.value.trim();
+                    if (val && deptNameToId[val]) {
+                        deptIdInput.value = deptNameToId[val];
+                    } else {
+                        deptIdInput.value = '';
+                    }
+                });
+
+                deptNameInput.addEventListener('change', function() {
+                    const val = this.value.trim();
+                    if (val && deptNameToId[val]) {
+                        deptIdInput.value = deptNameToId[val];
+                    } else {
+                        deptIdInput.value = '';
+                    }
+                });
+            }
+
+            // 设置出库日期默认值为今天
+            const stockOutDate = document.getElementById('stock_out_date');
+            if (stockOutDate && !stockOutDate.value) {
+                stockOutDate.value = new Date().toISOString().split('T')[0];
+            }
+
+            // 绑定已有行的事件，并初始化编辑模式下已有行的位置下拉
+            document.querySelectorAll('#detailBody tr').forEach(row => {
+                bindRowEvents(row);
+                // 编辑模式：如果已有物品ID，加载该物品的库存位置
+                const itemIdInput = row.querySelector('.detail-item-id');
+                const locationSelect = row.querySelector('.detail-location-select');
+                if (itemIdInput && itemIdInput.value && locationSelect) {
+                    const currentLocationId = locationSelect.value;
+                    fetchItemLocations(itemIdInput.value).then(locations => {
+                        if (locations.length > 0) {
+                            updateLocationSelect(locationSelect, locations, currentLocationId);
+                        }
+                    });
+                }
+            });
+
+            // 初始化合计
+            recalculateTotal();
+
+            // 表单验证
+            const form = document.getElementById('stockOutForm');
+            form.addEventListener('submit', function(e) {
+                const rows = document.querySelectorAll('#detailBody tr');
+                if (rows.length === 0) {
+                    e.preventDefault();
+                    alert('请至少添加一条出库明细');
+                    return;
+                }
+                
+                // 检查每行是否选择了物品
+                let valid = true;
+                let locationValid = true;
+                let stockExceeded = false;
+                rows.forEach(row => {
+                    const itemIdInput = row.querySelector('.detail-item-id');
+                    if (!itemIdInput.value) {
+                        valid = false;
+                    }
+                    const locationSelect = row.querySelector('.detail-location-select');
+                    if (locationSelect && !locationSelect.value) {
+                        locationValid = false;
+                    }
+                    // 检查出库数量是否超过库存
+                    const stock = parseInt(row.querySelector('.detail-stock').textContent) || 0;
+                    const qty = parseInt(row.querySelector('.detail-quantity').value) || 0;
+                    if (stock > 0 && qty > stock) {
+                        stockExceeded = true;
+                    }
+                });
+                if (!valid) {
+                    e.preventDefault();
+                    alert('请为每条明细选择物品');
+                } else if (!locationValid) {
+                    e.preventDefault();
+                    alert('请为每条明细选择存放位置');
+                } else if (stockExceeded) {
+                    if (!confirm('部分物品出库数量超过库存，是否继续？')) {
+                        e.preventDefault();
+                    } else {
+                        // 收集明细数据并设置到items_json隐藏字段
+                        collectItemsJson();
+                    }
+                } else {
+                    // 收集明细数据并设置到items_json隐藏字段
+                    collectItemsJson();
+                }
+            });
+        });
+    </script>
+</body>
+</html>

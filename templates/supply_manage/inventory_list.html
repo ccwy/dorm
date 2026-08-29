@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+   <!--本地化CDN-->
+{% include 'static.html' %}
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#165DFF',
+                        secondary: '#36CFC9',
+                        accent: '#722ED1',
+                        danger: '#F5222D',
+                        info: '#1890FF',
+                        warning: '#FAAD14'
+                    },
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .btn-hover {
+                transition: all 0.2s ease;
+            }
+            .btn-hover:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            }
+            .btn-effect {
+                transition: all 0.15s ease;
+            }
+            .btn-effect:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+            }
+            .fade-in {
+                animation: fadeIn 0.5s ease-in;
+            }
+            @keyframes fadeIn {
+                from { opacity: 0; }
+                to { opacity: 1; }
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+{% include 'header.html' %}
+    <main class="container mx-auto px-4 py-6">
+        <!-- Flash消息 -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            <div class="flash-messages mb-6">
+              {% for category, message in messages %}
+                <div class="p-4 rounded-md mb-2 {% if category == 'success' %}bg-green-100 text-green-800{% elif category == 'error' or category == 'danger' %}bg-red-100 text-red-800{% elif category == 'warning' %}bg-yellow-100 text-yellow-800{% else %}bg-blue-100 text-blue-800{% endif %}">
+                  <button type="button" class="float-right ml-2 text-gray-500 hover:text-gray-700" onclick="this.parentElement.remove()">×</button>
+                  {{ message | safe }}
+                </div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        {% endwith %}
+
+        <div class="flex items-center justify-between mb-6 fade-in">
+            <div class="flex items-center">
+                <a href="{{ url_for('supply_index.supply_home') }}" class="text-primary hover:text-primary/80 mr-2">
+                    <i class="fa fa-arrow-left"></i>
+                </a>
+                <h2 class="text-2xl font-semibold text-dark">{{ title }}</h2>
+            </div>
+            <button onclick="window.location.href='{{ url_for('supply_inventory.create_inventory_page') }}'" class="btn-hover bg-primary text-white px-4 py-2 rounded-md flex items-center">
+                <i class="fa fa-plus mr-2"></i>创建盘点单
+            </button>
+        </div>
+
+        <!-- 筛选栏 -->
+        <div class="bg-white rounded-lg shadow-sm p-4 mb-6">
+            <form method="GET" action="{{ url_for('supply_inventory.list_inventories') }}" class="flex flex-wrap items-center gap-4">
+                <div>
+                    <select name="status" class="px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50" onchange="this.form.submit()">
+                        <option value="">全部状态</option>
+                        <option value="进行中" {% if current_status == '进行中' %}selected{% endif %}>进行中</option>
+                        <option value="已完成" {% if current_status == '已完成' %}selected{% endif %}>已完成</option>
+                        <option value="已取消" {% if current_status == '已取消' %}selected{% endif %}>已取消</option>
+                    </select>
+                </div>
+                <div class="flex items-center">
+                    <input type="text" name="keyword" value="{{ keyword }}" placeholder="搜索盘点单号/标题"
+                           class="px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 w-48">
+                    <button type="submit" class="ml-2 px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90">
+                        <i class="fa fa-search"></i>
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- 盘点列表 -->
+        <div class="bg-white rounded-lg shadow-sm overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">盘点单号</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">标题</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">盘点日期</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">状态</th>
+                            <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">应盘/已盘</th>
+                            <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">正常/异常</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">创建时间</th>
+                            <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        {% for inv in inventories %}
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-primary">
+                                <a href="{{ url_for('supply_inventory.detail_inventory', id=inv.id) }}">{{ inv.inventory_number }}</a>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-800">
+                                {{ inv.title }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                                {{ inv.inventory_date.strftime('%Y-%m-%d') if inv.inventory_date else '-' }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                {% if inv.status == '进行中' %}
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">{{ inv.status }}</span>
+                                {% elif inv.status == '已完成' %}
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">{{ inv.status }}</span>
+                                {% elif inv.status == '已取消' %}
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">{{ inv.status }}</span>
+                                {% else %}
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">{{ inv.status }}</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-600">
+                                <span class="font-medium">{{ inv.checked_count or 0 }}</span>/<span>{{ inv.total_count or 0 }}</span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-center">
+                                <span class="text-green-600 font-medium">{{ inv.normal_count or 0 }}</span>/<span class="text-red-600 font-medium">{{ inv.abnormal_count or 0 }}</span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                                {{ inv.created_at.strftime('%Y-%m-%d %H:%M') if inv.created_at else '-' }}
+                            </td>
+                            <td class="px-4 py-4 whitespace-nowrap text-sm font-medium">
+                                <div class="flex gap-2">
+                                    <button onclick="window.location.href='{{ url_for('supply_inventory.detail_inventory', id=inv.id) }}'" class="btn-effect bg-blue-500 text-white px-2 py-1 rounded-md text-sm flex items-center" title="查看详情">
+                                        <i class="fa fa-eye mr-1"></i>查看
+                                    </button>
+                                    {% if inv.status == '进行中' %}
+                                    <button class="btn-effect bg-green-500 text-white px-2 py-1 rounded-md text-sm flex items-center"
+                                        onclick="if(confirm('确定要完成此盘点吗？未盘点的物品将标记为异常。')) { document.getElementById('completeForm-{{ inv.id }}').submit(); }" title="完成盘点">
+                                        <i class="fa fa-check-circle mr-1"></i>完成
+                                    </button>
+                                    <button class="btn-effect bg-red-500 text-white px-2 py-1 rounded-md text-sm flex items-center"
+                                        onclick="if(confirm('确定要删除此盘点单吗？删除后不可恢复。')) { document.getElementById('deleteInvForm-{{ inv.id }}').submit(); }" title="删除盘点单">
+                                        <i class="fa fa-trash mr-1"></i>删除
+                                    </button>
+                                    {% endif %}
+                                </div>
+                                <!-- 完成盘点表单 -->
+                                <form id="completeForm-{{ inv.id }}" action="{{ url_for('supply_inventory.complete_inventory', id=inv.id) }}" method="post" class="hidden"></form>
+                                <!-- 删除盘点表单 -->
+                                <form id="deleteInvForm-{{ inv.id }}" action="{{ url_for('supply_inventory.delete_inventory', id=inv.id) }}" method="post" class="hidden"></form>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="8" class="px-6 py-10 text-center text-gray-500">
+                                <i class="fa fa-list-alt text-4xl mb-2 block text-gray-300"></i>
+                                暂无盘点记录
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- 分页 -->
+            {% if total_pages > 1 %}
+            <div class="px-6 py-4 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div class="text-sm text-gray-500">
+                    共 {{ total_count }} 条记录，第 {{ current_page }}/{{ total_pages }} 页
+                </div>
+                <div class="flex items-center gap-1">
+                    {% if current_page > 1 %}
+                    <a href="{{ url_for('supply_inventory.list_inventories', page=1, status=current_status, keyword=keyword) }}" class="px-3 py-1 border rounded text-sm hover:bg-gray-50">首页</a>
+                    <a href="{{ url_for('supply_inventory.list_inventories', page=current_page-1, status=current_status, keyword=keyword) }}" class="px-3 py-1 border rounded text-sm hover:bg-gray-50">上一页</a>
+                    {% endif %}
+
+                    {% for p in page_range %}
+                        {% if p == '...' %}
+                        <span class="px-2 py-1 text-gray-400">...</span>
+                        {% elif p == current_page %}
+                        <span class="px-3 py-1 bg-primary text-white rounded text-sm">{{ p }}</span>
+                        {% else %}
+                        <a href="{{ url_for('supply_inventory.list_inventories', page=p, status=current_status, keyword=keyword) }}" class="px-3 py-1 border rounded text-sm hover:bg-gray-50">{{ p }}</a>
+                        {% endif %}
+                    {% endfor %}
+
+                    {% if current_page < total_pages %}
+                    <a href="{{ url_for('supply_inventory.list_inventories', page=current_page+1, status=current_status, keyword=keyword) }}" class="px-3 py-1 border rounded text-sm hover:bg-gray-50">下一页</a>
+                    <a href="{{ url_for('supply_inventory.list_inventories', page=total_pages, status=current_status, keyword=keyword) }}" class="px-3 py-1 border rounded text-sm hover:bg-gray-50">末页</a>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </main>
+    {% include 'footer.html' %}
+</body>
+</html>

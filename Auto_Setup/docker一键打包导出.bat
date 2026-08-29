@@ -102,9 +102,17 @@ if exist "%PROJECT_DIR%\blueprints\__pycache__" (
     rmdir /s /q "%PROJECT_DIR%\blueprints\__pycache__"
     echo [%date% %time:~0,8%] 已删除blueprints\__pycache__文件夹
 )
+if exist "%PROJECT_DIR%\supply\blueprints\__pycache__" (
+    rmdir /s /q "%PROJECT_DIR%\blueprints\supply\__pycache__"
+    echo [%date% %time:~0,8%] 已删除blueprints\supply\__pycache__文件夹
+)
 if exist "%PROJECT_DIR%\models\__pycache__" (
     rmdir /s /q "%PROJECT_DIR%\models\__pycache__"
     echo [%date% %time:~0,8%] 已删除models\__pycache__文件夹
+)
+if exist "%PROJECT_DIR%\models\supply\__pycache__" (
+    rmdir /s /q "%PROJECT_DIR%\models\supply\__pycache__"
+    echo [%date% %time:~0,8%] 已删除models\supply\__pycache__文件夹
 )
 if exist "%PROJECT_DIR%\utils\__pycache__" (
     rmdir /s /q "%PROJECT_DIR%\utils\__pycache__"

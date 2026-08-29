@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+{% include 'static.html' %}
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#165DFF',
+                        secondary: '#36CFC9',
+                        accent: '#722ED1',
+                        danger: '#F5222D',
+                        info: '#1890FF',
+                        warning: '#FAAD14'
+                    },
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .btn-effect {
+                transition: all 0.2s ease;
+            }
+            .btn-effect:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            }
+            .btn-hover {
+                transition: all 0.2s ease;
+            }
+            .btn-hover:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            }
+            .fade-in {
+                animation: fadeIn 0.5s ease-in;
+            }
+            @keyframes fadeIn {
+                from { opacity: 0; }
+                to { opacity: 1; }
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+{% include 'header.html' %}
+    <main class="container mx-auto px-4 py-6">
+        
+        <!-- 标题区 -->
+        <div class="mb-6 fade-in">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between">
+                <div class="flex items-center">
+                    <button type="button" onclick="history.back()" class="text-gray-600 hover:text-primary transition-colors mr-4">
+                        <i class="fa fa-arrow-left"></i>
+                    </button>
+                    <div>
+                        <h2 class="text-[clamp(1.5rem,3vw,2rem)] font-bold text-dark">{{ title }}</h2>
+                        <p class="text-gray-500 mt-1">{% if supplier %}编辑供应商信息{% else %}填写新供应商信息{% endif %}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 消息提示区域 -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            <div class="flash-messages mb-6">
+              {% for category, message in messages %}
+                <div class="p-4 rounded-md mb-2 {% if category == 'success' %}bg-green-100 text-green-800{% elif category == 'error' or category == 'danger' %}bg-red-100 text-red-800{% elif category == 'warning' %}bg-yellow-100 text-yellow-800{% else %}bg-blue-100 text-blue-800{% endif %}">
+                  <button type="button" class="float-right ml-2 text-gray-500 hover:text-gray-700" onclick="this.parentElement.remove()">×</button>
+                  {{ message | safe }}
+                </div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        {% endwith %}
+
+        <div class="bg-white rounded-lg shadow-sm p-6 mx-auto">
+            <form id="supplierForm" method="post" action="{% if supplier %}{{ url_for('supplier.edit_supplier', id=supplier.id) }}{% else %}{{ url_for('supplier.add_supplier') }}{% endif %}">
+                
+                <!-- 基本信息 -->
+                <div class="mb-8">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4 pb-2 border-b border-gray-200">
+                        <i class="fa fa-info-circle mr-2 text-primary"></i>基本信息
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <!-- 供应商名称 -->
+                        <div>
+                            <label for="name" class="block text-sm font-medium text-gray-700 mb-1">
+                                供应商名称 <span class="text-red-500">*</span>
+                            </label>
+                            <input type="text" id="name" name="name" 
+                                   value="{{ supplier.name or '' if supplier else '' }}"
+                                   required
+                                   class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                   placeholder="请输入供应商名称">
+                        </div>
+
+                        <!-- 联系人 -->
+                        <div>
+                            <label for="contact_person" class="block text-sm font-medium text-gray-700 mb-1">联系人</label>
+                            <input type="text" id="contact_person" name="contact_person" 
+                                   value="{{ supplier.contact_person or '' if supplier else '' }}"
+                                   class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                   placeholder="请输入联系人姓名">
+                        </div>
+
+                        <!-- 联系电话 -->
+                        <div>
+                            <label for="contact_phone" class="block text-sm font-medium text-gray-700 mb-1">联系电话</label>
+                            <input type="text" id="contact_phone" name="contact_phone" 
+                                   value="{{ supplier.contact_phone or '' if supplier else '' }}"
+                                   class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                   placeholder="请输入联系电话">
+                        </div>
+
+                        <!-- 邮箱 -->
+                        <div>
+                            <label for="email" class="block text-sm font-medium text-gray-700 mb-1">邮箱</label>
+                            <input type="email" id="email" name="email" 
+                                   value="{{ supplier.email or '' if supplier else '' }}"
+                                   class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                   placeholder="请输入邮箱地址">
+                        </div>
+
+                        <!-- 状态 -->
+                        <div>
+                            <label for="status" class="block text-sm font-medium text-gray-700 mb-1">状态</label>
+                            <select id="status" name="status"
+                                    class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                                <option value="启用" {% if supplier and supplier.status == '启用' %}selected{% elif not supplier %}selected{% endif %}>启用</option>
+                                <option value="停用" {% if supplier and supplier.status == '停用' %}selected{% endif %}>停用</option>
+                            </select>
+                        </div>
+
+                        <!-- 添加日期 -->
+                        <div>
+                            <label for="created_at" class="block text-sm font-medium text-gray-700 mb-1">添加日期</label>
+                            <input type="text" id="created_at" name="created_at" 
+                                   value="{% if supplier and supplier.created_at %}{{ supplier.created_at.strftime('%Y-%m-%d') }}{% else %}{{ today }}{% endif %}"
+                                   readonly
+                                   class="w-full px-3 py-2 text-sm border border-gray-200 rounded-md bg-gray-50 text-gray-500 cursor-not-allowed"
+                                   placeholder="添加日期">
+                        </div>
+
+                        <!-- 经手人 -->
+                        <div>
+                            <label for="handler_user_id" class="block text-sm font-medium text-gray-700 mb-1">经手人</label>
+                            <input type="text" id="handler_display" value="{{ current_user.name }}"
+                                   readonly
+                                   class="w-full px-3 py-2 text-sm border border-gray-200 rounded-md bg-gray-50 text-gray-500 cursor-not-allowed"
+                                   placeholder="经手人">
+                            <input type="hidden" id="handler_user_id" name="handler_user_id" value="{{ current_user.id }}">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 地址信息 -->
+                <div class="mb-8">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4 pb-2 border-b border-gray-200">
+                        <i class="fa fa-map-marker mr-2 text-secondary"></i>地址信息
+                    </h3>
+                    <div class="grid grid-cols-1 gap-4">
+                        <!-- 地址 -->
+                        <div>
+                            <label for="address" class="block text-sm font-medium text-gray-700 mb-1">地址</label>
+                            <input type="text" id="address" name="address" 
+                                   value="{{ supplier.address or '' if supplier else '' }}"
+                                   class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                   placeholder="请输入详细地址">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 备注 -->
+                <div class="mb-8">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4 pb-2 border-b border-gray-200">
+                        <i class="fa fa-sticky-note mr-2 text-warning"></i>备注
+                    </h3>
+                    <div>
+                        <label for="remark" class="block text-sm font-medium text-gray-700 mb-1">备注信息</label>
+                        <textarea id="remark" name="remark" rows="4"
+                                  class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                  placeholder="请输入备注信息">{{ supplier.remark or '' if supplier else '' }}</textarea>
+                    </div>
+                </div>
+
+                <!-- 提交按钮 -->
+                <div class="flex justify-end gap-3 pt-4 border-t border-gray-200">
+                    <button type="button" onclick="history.back()" class="px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 btn-hover">
+                        <i class="fa fa-times mr-2"></i>取消
+                    </button>
+                    {% if not supplier %}
+                    <button type="submit" name="save_and_continue" value="1" class="px-6 py-2 bg-secondary text-white rounded-md hover:bg-secondary/90 btn-hover">
+                        <i class="fa fa-plus-circle mr-2"></i>保存并继续新增
+                    </button>
+                    {% endif %}
+                    <button type="submit" name="save" value="1" class="px-6 py-2 bg-primary text-white rounded-md hover:bg-primary/90 btn-hover">
+                        <i class="fa fa-save mr-2"></i>{% if supplier %}保存修改{% else %}保存并返回{% endif %}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </main>
+
+    <!-- 页脚 -->
+    {% include 'footer.html' %}
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // 表单验证
+            const form = document.getElementById('supplierForm');
+            form.addEventListener('submit', function(e) {
+                const name = document.getElementById('name').value.trim();
+                if (!name) {
+                    e.preventDefault();
+                    alert('请输入供应商名称');
+                    document.getElementById('name').focus();
+                    return;
+                }
+            });
+
+            // 联系电话格式验证
+            const phoneInput = document.getElementById('contact_phone');
+            phoneInput.addEventListener('blur', function() {
+                const phone = this.value.trim();
+                if (phone && !/^[\d\-+\s()]{6,20}$/.test(phone)) {
+                    this.classList.add('border-red-500');
+                } else {
+                    this.classList.remove('border-red-500');
+                }
+            });
+
+            // 邮箱格式验证
+            const emailInput = document.getElementById('email');
+            emailInput.addEventListener('blur', function() {
+                const email = this.value.trim();
+                if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+                    this.classList.add('border-red-500');
+                } else {
+                    this.classList.remove('border-red-500');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

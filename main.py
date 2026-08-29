@@ -95,7 +95,16 @@ from blueprints import (
     utility_user_records_detail_bp,
     file_sharing_bp, ticket_user_bp, ticket_admin_bp, todo_bp, other_bp, chat_bp,
     fixed_asset_bp, fixed_asset_api_bp, fixed_asset_import_export_bp,
-    department_bp, department_api_bp, department_import_export_bp
+    department_bp, department_api_bp, department_import_export_bp,
+    supplier_bp, supplier_api_bp, supplier_import_export_bp,
+    supply_index_bp,
+    supply_item_bp, supply_item_api_bp, supply_item_import_export_bp,
+    storage_location_bp, storage_location_api_bp, storage_location_import_export_bp,
+    supply_stock_detail_bp, supply_stock_detail_api_bp,
+    stock_in_bp, stock_in_api_bp, stock_in_import_export_bp,
+    stock_out_bp, stock_out_api_bp, stock_out_import_export_bp,
+    supply_inventory_bp, supply_inventory_api_bp, supply_inventory_import_export_bp,
+    supply_stock_record_bp, supply_stock_record_api_bp
 )
 _stamp("导入33个蓝图")
 # 注册蓝图（保持不变）
@@ -132,6 +141,30 @@ app.register_blueprint(fixed_asset_import_export_bp)
 app.register_blueprint(department_bp)
 app.register_blueprint(department_api_bp)
 app.register_blueprint(department_import_export_bp)
+# 注册低值易耗品进销存管理蓝图
+app.register_blueprint(supply_index_bp)
+app.register_blueprint(supplier_bp)
+app.register_blueprint(supplier_api_bp)
+app.register_blueprint(supplier_import_export_bp)
+app.register_blueprint(supply_item_bp)
+app.register_blueprint(supply_item_api_bp)
+app.register_blueprint(supply_item_import_export_bp)
+app.register_blueprint(storage_location_bp)
+app.register_blueprint(storage_location_api_bp)
+app.register_blueprint(storage_location_import_export_bp)
+app.register_blueprint(supply_stock_detail_bp)
+app.register_blueprint(supply_stock_detail_api_bp)
+app.register_blueprint(stock_in_bp)
+app.register_blueprint(stock_in_api_bp)
+app.register_blueprint(stock_in_import_export_bp)
+app.register_blueprint(stock_out_bp)
+app.register_blueprint(stock_out_api_bp)
+app.register_blueprint(stock_out_import_export_bp)
+app.register_blueprint(supply_inventory_bp)
+app.register_blueprint(supply_inventory_api_bp)
+app.register_blueprint(supply_inventory_import_export_bp)
+app.register_blueprint(supply_stock_record_bp)
+app.register_blueprint(supply_stock_record_api_bp)
 _stamp("注册33个蓝图")
 
 

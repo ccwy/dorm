@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+{% include 'static.html' %}
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#165DFF',
+                        secondary: '#36CFC9',
+                        accent: '#722ED1',
+                        danger: '#F5222D',
+                        info: '#1890FF',
+                        warning: '#FAAD14'
+                    },
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .btn-effect {
+                transition: all 0.2s ease;
+            }
+            .btn-effect:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            }
+            .btn-hover {
+                transition: all 0.2s ease;
+            }
+            .btn-hover:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            }
+            .fade-in {
+                animation: fadeIn 0.5s ease-in;
+            }
+            @keyframes fadeIn {
+                from { opacity: 0; }
+                to { opacity: 1; }
+            }
+            .qty-positive {
+                color: #52c41a;
+                font-weight: 600;
+            }
+            .qty-negative {
+                color: #f5222d;
+                font-weight: 600;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+{% include 'header.html' %}
+    <main class="container mx-auto px-4 py-6">
+        
+        <!-- 标题和功能按钮区 -->
+        <div class="mb-6 fade-in">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between">
+                <div class="flex items-center">
+                    <button type="button" onclick="window.location.href='{{ url_for('supply_stock_record.list_records') }}'" class="text-gray-600 hover:text-primary transition-colors mr-4">
+                        <i class="fa fa-arrow-left"></i>
+                    </button>
+                    <div>
+                        <h2 class="text-[clamp(1.5rem,3vw,2rem)] font-bold text-dark">进出库记录详情</h2>
+                        <p class="text-gray-500 mt-1">查看记录详细信息</p>
+                    </div>
+                </div>
+                <div class="mt-4 md:mt-0 flex flex-wrap gap-3">
+                    <button onclick="window.print()" class="btn-hover bg-secondary text-white px-4 py-2 rounded-md flex items-center">
+                        <i class="fa fa-print mr-2"></i>打印
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 消息提示区域 -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            <div class="flash-messages mb-6">
+              {% for category, message in messages %}
+                <div class="p-4 rounded-md mb-2 {% if category == 'success' %}bg-green-100 text-green-800{% elif category == 'error' or category == 'danger' %}bg-red-100 text-red-800{% elif category == 'warning' %}bg-yellow-100 text-yellow-800{% else %}bg-blue-100 text-blue-800{% endif %}">
+                  <button type="button" class="float-right ml-2 text-gray-500 hover:text-gray-700" onclick="this.parentElement.remove()">×</button>
+                  {{ message | safe }}
+                </div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        {% endwith %}
+
+        <!-- 主要内容区域：左右布局 -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- 左侧：基本信息 -->
+            <div class="lg:col-span-2 space-y-6">
+                <!-- 记录基本信息 -->
+                <div class="bg-white rounded-lg shadow-sm p-6">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4">
+                        <i class="fa fa-file-text-o mr-2 text-primary"></i>记录信息
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="flex items-center">
+                            <span class="text-gray-500 text-sm w-24">记录类型：</span>
+                            {% if record.record_type == '入库' %}
+                            <span class="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs">入库</span>
+                            {% elif record.record_type == '出库' %}
+                            <span class="px-2 py-1 bg-red-100 text-red-800 rounded-full text-xs">出库</span>
+                            {% elif record.record_type == '盘盈' %}
+                            <span class="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs">盘盈</span>
+                            {% elif record.record_type == '盘亏' %}
+                            <span class="px-2 py-1 bg-orange-100 text-orange-800 rounded-full text-xs">盘亏</span>
+                            {% else %}
+                            <span class="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs">{{ record.record_type }}</span>
+                            {% endif %}
+                        </div>
+                        <div class="flex items-center">
+                            <span class="text-gray-500 text-sm w-24">物品名称：</span>
+                            <span class="text-gray-800 font-medium">{{ record.display_item_name }}</span>
+                        </div>
+                        <div class="flex items-center">
+                            <span class="text-gray-500 text-sm w-24">规格：</span>
+                            <span class="text-gray-800">{{ record.specification or '-' }}</span>
+                        </div>
+                        <div class="flex items-center">
+                            <span class="text-gray-500 text-sm w-24">单位：</span>
+                            <span class="text-gray-800">{{ record.unit or '-' }}</span>
+                        </div>
+                        <div class="flex items-center">
+                            <span class="text-gray-500 text-sm w-24">存放位置：</span>
+                            <span class="text-gray-800">{{ record.display_location_name }}</span>
+                        </div>
+                        <div class="flex items-center">
+                            <span class="text-gray-500 text-sm w-24">数量：</span>
+                            {% if record.record_type in ['入库', '盘盈'] %}
+                            <span class="qty-positive text-lg">+{{ record.quantity }}</span>
+                            {% elif record.record_type in ['出库', '盘亏'] %}
+                            <span class="qty-negative text-lg">-{{ record.quantity }}</span>
+                            {% else %}
+                            <span class="text-lg font-medium">{{ record.quantity }}</span>
+                            {% endif %}
+                        </div>
+                        <div class="flex items-center">
+                            <span class="text-gray-500 text-sm w-24">单价：</span>
+                            <span class="text-gray-800">{{ '¥%.2f'|format(record.unit_price) if record.unit_price else '-' }}</span>
+                        </div>
+                        <div class="flex items-center">
+                            <span class="text-gray-500 text-sm w-24">金额：</span>
+                            <span class="text-gray-800 font-medium">{{ '¥%.2f'|format(record.total_price) if record.total_price else '-' }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 来源信息 -->
+                <div class="bg-white rounded-lg shadow-sm p-6">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4">
+                        <i class="fa fa-link mr-2 text-primary"></i>来源信息
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="flex items-center">
+                            <span class="text-gray-500 text-sm w-24">来源单号：</span>
+                            {% if record.source_number %}
+                            <span class="text-primary font-medium">{{ record.source_number }}</span>
+                            {% else %}
+                            <span class="text-gray-400">-</span>
+                            {% endif %}
+                        </div>
+                        <div class="flex items-center">
+                            <span class="text-gray-500 text-sm w-24">来源类型：</span>
+                            <span class="text-gray-800">{{ record.source_type or '-' }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 备注 -->
+                {% if record.remark %}
+                <div class="bg-white rounded-lg shadow-sm p-6">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4">
+                        <i class="fa fa-sticky-note-o mr-2 text-primary"></i>备注
+                    </h3>
+                    <p class="text-gray-700 whitespace-pre-wrap">{{ record.remark }}</p>
+                </div>
+                {% endif %}
+
+
+            </div>
+
+            <!-- 右侧：操作信息 + 快捷操作 -->
+            <div class="space-y-6">
+                <!-- 操作信息 -->
+                <div class="bg-white rounded-lg shadow-sm p-6">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4">
+                        <i class="fa fa-user-circle-o mr-2 text-primary"></i>操作信息
+                    </h3>
+                    <div class="space-y-3">
+                        <div class="flex justify-between items-center py-2 border-b border-gray-100">
+                            <span class="text-gray-500 text-sm">操作人</span>
+                            <span class="text-gray-800 font-medium">{{ record.operator_name or '-' }}</span>
+                        </div>
+                        <div class="flex justify-between items-center py-2 border-b border-gray-100">
+                            <span class="text-gray-500 text-sm">领用人</span>
+                            <span class="text-gray-800">{{ record.recipient_name or '-' }}</span>
+                        </div>
+                        <div class="flex justify-between items-center py-2 border-b border-gray-100">
+                            <span class="text-gray-500 text-sm">所属部门</span>
+                            <span class="text-gray-800">{{ record.department_name or '-' }}</span>
+                        </div>
+                        <div class="flex justify-between items-center py-2">
+                            <span class="text-gray-500 text-sm">记录时间</span>
+                            <span class="text-gray-800">{{ record.created_at.strftime('%Y-%m-%d %H:%M') if record.created_at else '-' }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 记录类型图标卡片 -->
+                <div class="bg-white rounded-lg shadow-sm p-6">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4">
+                        <i class="fa fa-tag mr-2 text-primary"></i>记录类型
+                    </h3>
+                    <div class="text-center py-4">
+                        {% if record.record_type == '入库' %}
+                        <div class="inline-flex items-center justify-center w-20 h-20 rounded-full bg-green-100 mb-3">
+                            <i class="fa fa-arrow-down text-3xl text-green-600"></i>
+                        </div>
+                        <p class="text-xl font-bold text-green-600">入库</p>
+                        <p class="text-sm text-gray-500 mt-1">库存增加</p>
+                        {% elif record.record_type == '出库' %}
+                        <div class="inline-flex items-center justify-center w-20 h-20 rounded-full bg-red-100 mb-3">
+                            <i class="fa fa-arrow-up text-3xl text-red-600"></i>
+                        </div>
+                        <p class="text-xl font-bold text-red-600">出库</p>
+                        <p class="text-sm text-gray-500 mt-1">库存减少</p>
+                        {% elif record.record_type == '盘盈' %}
+                        <div class="inline-flex items-center justify-center w-20 h-20 rounded-full bg-blue-100 mb-3">
+                            <i class="fa fa-plus-circle text-3xl text-blue-600"></i>
+                        </div>
+                        <p class="text-xl font-bold text-blue-600">盘盈</p>
+                        <p class="text-sm text-gray-500 mt-1">实际库存大于系统库存</p>
+                        {% elif record.record_type == '盘亏' %}
+                        <div class="inline-flex items-center justify-center w-20 h-20 rounded-full bg-orange-100 mb-3">
+                            <i class="fa fa-minus-circle text-3xl text-orange-600"></i>
+                        </div>
+                        <p class="text-xl font-bold text-orange-600">盘亏</p>
+                        <p class="text-sm text-gray-500 mt-1">实际库存小于系统库存</p>
+                        {% else %}
+                        <div class="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gray-100 mb-3">
+                            <i class="fa fa-exchange text-3xl text-gray-500"></i>
+                        </div>
+                        <p class="text-xl font-bold text-gray-500">{{ record.record_type }}</p>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- 快捷操作 -->
+                <div class="bg-white rounded-lg shadow-sm p-6">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4">
+                        <i class="fa fa-bolt mr-2 text-primary"></i>快捷操作
+                    </h3>
+                    <div class="space-y-2">
+                        <button onclick="window.print()" 
+                                class="w-full text-left px-4 py-2 rounded-md hover:bg-gray-50 flex items-center text-sm text-gray-700">
+                            <i class="fa fa-print mr-3 text-secondary"></i>打印记录
+                        </button>
+                        <button onclick="window.location.href='{{ url_for('supply_stock_record.list_records') }}'" 
+                                class="w-full text-left px-4 py-2 rounded-md hover:bg-gray-50 flex items-center text-sm text-gray-700">
+                            <i class="fa fa-list mr-3 text-gray-500"></i>返回列表
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    {% include 'footer.html' %}
+
+
+</body>
+</html>

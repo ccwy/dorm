@@ -93,9 +93,8 @@
                             <label for="asset_category" class="block text-sm font-medium text-gray-700 mb-1">资产分类 <span class="text-red-500">*</span></label>
                             <select id="asset_category" name="asset_category" required
                                     class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
-                                <option value="">请选择分类</option>
                                 {% for c in categories %}
-                                    <option value="{{ c }}">{{ c }}</option>
+                                    <option value="{{ c }}" {% if loop.first %}selected{% endif %}>{{ c }}</option>
                                 {% endfor %}
                             </select>
                         </div>
@@ -121,7 +120,13 @@
                             <label for="supplier" class="block text-sm font-medium text-gray-700 mb-1">供应商</label>
                             <input type="text" id="supplier" name="supplier"
                                    class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
-                                   placeholder="请输入供应商">
+                                   placeholder="请输入或选择供应商" list="supplierList" autocomplete="off">
+                            <datalist id="supplierList">
+                                {% for s in suppliers %}
+                                <option value="{{ s }}">
+                                {% endfor %}
+                            </datalist>
+                            <p class="text-xs text-gray-500 mt-1">可从供应商列表选择或自定义输入</p>
                         </div>
 
                         <!-- 数量 -->
@@ -136,7 +141,13 @@
                             <label for="unit" class="block text-sm font-medium text-gray-700 mb-1">单位</label>
                             <input type="text" id="unit" name="unit" value="台"
                                    class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
-                                   placeholder="如：台、套、个">
+                                   placeholder="如：台、套、个" list="unitList" autocomplete="off">
+                            <datalist id="unitList">
+                                {% for u in units %}
+                                <option value="{{ u }}">
+                                {% endfor %}
+                            </datalist>
+                            <p class="text-xs text-gray-500 mt-1">可从单位列表选择或自定义输入</p>
                         </div>
 
                         <!-- 资产来源 -->
@@ -220,13 +231,13 @@
                             <label for="storage_location" class="block text-sm font-medium text-gray-700 mb-1">存放位置</label>
                             <input type="text" id="storage_location" name="storage_location"
                                    class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
-                                   placeholder="请输入存放位置" list="locations_list">
+                                   placeholder="请输入或选择存放位置" list="locations_list" autocomplete="off">
                             <datalist id="locations_list">
                                 {% for loc in locations %}
                                 <option value="{{ loc }}">
                                 {% endfor %}
                             </datalist>
-                            <p class="text-xs text-gray-500 mt-1">可自由输入或从建议列表选择</p>
+                            <p class="text-xs text-gray-500 mt-1">可从存放位置列表选择或自定义输入</p>
                         </div>
 
                         <!-- 所属公司 -->

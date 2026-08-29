@@ -227,6 +227,19 @@
                 </div>
                 {% endif %}
 
+                <!-- 低值易耗品管理 -->
+                {% if get_config_value('FEATURE_SUPPLY_MANAGE_ENABLED', True) %}
+                <div class="bg-white rounded-xl p-6 card-shadow btn-hover">
+                    <a href="{{ url_for('supply_index.supply_home') }}" class="flex flex-col items-center text-center">
+                        <div class="w-16 h-16 bg-green-500/10 rounded-full flex items-center justify-center mb-4">
+                            <i class="fa fa-cubes text-2xl text-green-500"></i>
+                        </div>
+                        <h3 class="text-lg font-medium text-dark mb-2">低值易耗品管理</h3>
+                        <p class="text-gray-500 text-sm">供应商、物品、入库、出库、盘点管理</p>
+                    </a>
+                </div>
+                {% endif %}
+
                 <!-- 系统设置 -->
                 <div class="bg-white rounded-xl p-6 card-shadow btn-hover">
                     <a href="{{ url_for('system_settings.settings') }}" class="flex flex-col items-center text-center">

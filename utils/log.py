@@ -20,6 +20,16 @@ MODULE_MAP = {
     'asset': '固定资产管理',
     'department': '部门管理',
     'other': '其他操作',
+    # 低值易耗品管理模块
+    'supply': '低值易耗品管理',
+    'stock_in': '入库管理',
+    'stock_out': '出库管理',
+    'storage_location': '存放位置管理',
+    'supplier': '供应商管理',
+    'supply_item': '物品管理',
+    'supply_inventory': '盘点管理',
+    'supply_stock_detail': '库存明细',
+    'supply_stock_record': '库存记录',
     'default': '其他模块'  # 默认值
 }
 
@@ -121,6 +131,83 @@ OPERATION_TYPE_MAP = {
 
     # 其他操作模块
     ('other', 'records'): '访问页面',
+
+    # 低值易耗品管理 - 总入口
+    ('supply', 'index'): '访问首页',
+    ('supply', 'records'): '访问页面',
+
+    # 入库管理模块
+    ('stock_in', 'records'): '访问页面',
+    ('stock_in', 'stock_in_add'): '新增入库单',
+    ('stock_in', 'stock_in_edit'): '编辑入库单',
+    ('stock_in', 'stock_in_delete'): '删除入库单',
+    ('stock_in', 'stock_in_batch_delete'): '批量删除入库单',
+    ('stock_in', 'stock_in_approve'): '审核入库单',
+    ('stock_in', 'stock_in_unapprove'): '反审核入库单',
+    ('stock_in', 'stock_in_cancel'): '作废入库单',
+    ('stock_in', 'api_query'): '调用接口',
+    ('stock_in', 'batch_import_export'): '导入导出',
+
+    # 出库管理模块
+    ('stock_out', 'records'): '访问页面',
+    ('stock_out', 'stock_out_add'): '新增出库单',
+    ('stock_out', 'stock_out_edit'): '编辑出库单',
+    ('stock_out', 'stock_out_delete'): '删除出库单',
+    ('stock_out', 'stock_out_batch_delete'): '批量删除出库单',
+    ('stock_out', 'stock_out_approve'): '审核出库单',
+    ('stock_out', 'stock_out_unapprove'): '反审核出库单',
+    ('stock_out', 'stock_out_cancel'): '作出库单',
+    ('stock_out', 'api_query'): '调用接口',
+    ('stock_out', 'batch_import_export'): '导入导出',
+
+    # 存放位置管理模块
+    ('storage_location', 'records'): '访问页面',
+    ('storage_location', 'storage_location_add'): '新增存放位置',
+    ('storage_location', 'storage_location_edit'): '编辑存放位置',
+    ('storage_location', 'storage_location_delete'): '删除存放位置',
+    ('storage_location', 'storage_location_batch_delete'): '批量删除存放位置',
+    ('storage_location', 'api_query'): '调用接口',
+    ('storage_location', 'batch_import_export'): '导入导出',
+
+    # 供应商管理模块
+    ('supplier', 'records'): '访问页面',
+    ('supplier', 'supplier_add'): '新增供应商',
+    ('supplier', 'supplier_edit'): '编辑供应商',
+    ('supplier', 'supplier_delete'): '删除供应商',
+    ('supplier', 'supplier_batch_delete'): '批量删除供应商',
+    ('supplier', 'supplier_toggle_status'): '切换供应商状态',
+    ('supplier', 'api_query'): '调用接口',
+    ('supplier', 'quick_create'): '快速创建供应商',
+    ('supplier', 'batch_import_export'): '导入导出',
+
+    # 物品管理模块
+    ('supply_item', 'records'): '访问页面',
+    ('supply_item', 'supply_item_add'): '新增物品',
+    ('supply_item', 'supply_item_edit'): '编辑物品',
+    ('supply_item', 'supply_item_delete'): '删除物品',
+    ('supply_item', 'supply_item_batch_delete'): '批量删除物品',
+    ('supply_item', 'supply_item_recalculate_stock'): '重新计算库存',
+    ('supply_item', 'api_query'): '调用接口',
+    ('supply_item', 'batch_import_export'): '导入导出',
+
+    # 盘点管理模块
+    ('supply_inventory', 'records'): '访问页面',
+    ('supply_inventory', 'inventory_create'): '创建盘点',
+    ('supply_inventory', 'inventory_check'): '执行盘点',
+    ('supply_inventory', 'inventory_complete'): '完成盘点',
+    ('supply_inventory', 'inventory_delete'): '删除盘点',
+    ('supply_inventory', 'api_query'): '调用接口',
+    ('supply_inventory', 'batch_import_export'): '导入导出',
+
+    # 库存明细模块
+    ('supply_stock_detail', 'records'): '访问页面',
+    ('supply_stock_detail', 'update'): '更新库存',
+    ('supply_stock_detail', 'api_query'): '调用接口',
+    ('supply_stock_detail', 'batch_import_export'): '导入导出',
+
+    # 库存记录模块
+    ('supply_stock_record', 'records'): '访问页面',
+    ('supply_stock_record', 'api_query'): '调用接口',
 
     # 默认值
     ('default', 'default'): '未知操作',

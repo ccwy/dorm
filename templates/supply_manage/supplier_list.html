@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+{% include 'static.html' %}
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#165DFF',
+                        secondary: '#36CFC9',
+                        accent: '#722ED1',
+                        danger: '#F5222D',
+                        info: '#1890FF',
+                        warning: '#FAAD14'
+                    },
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .btn-effect {
+                transition: all 0.2s ease;
+            }
+            .btn-effect:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            }
+            .btn-hover {
+                transition: all 0.2s ease;
+            }
+            .btn-hover:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            }
+            .fade-in {
+                animation: fadeIn 0.5s ease-in;
+            }
+            @keyframes fadeIn {
+                from { opacity: 0; }
+                to { opacity: 1; }
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+{% include 'header.html' %}
+    <main class="container mx-auto px-4 py-6">
+        
+        <!-- 标题和功能按钮区 -->
+        <div class="mb-6 fade-in">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between">
+                <div class="flex items-center">
+                    <button type="button" onclick="window.location.href='{{ url_for('supply_index.supply_home') }}'" class="text-gray-600 hover:text-primary transition-colors mr-4">
+                        <i class="fa fa-arrow-left"></i>
+                    </button>
+                    <div>
+                        <h2 class="text-[clamp(1.5rem,3vw,2rem)] font-bold text-dark">{{ title }}</h2>
+                        <p class="text-gray-500 mt-1">管理供应商信息，包括新增、编辑、状态切换和删除</p>
+                    </div>
+                </div>
+                <div class="mt-4 md:mt-0 flex flex-wrap gap-3">
+                    <button onclick="window.location.href='{{ url_for('supplier.add_page') }}'" class="btn-hover bg-primary text-white px-4 py-2 rounded-md flex items-center">
+                        <i class="fa fa-plus mr-2"></i>新增供应商
+                    </button>
+                    <button onclick="location.reload();" class="btn-hover bg-secondary text-white px-4 py-2 rounded-md flex items-center">
+                        <i class="fa fa-refresh mr-2"></i>刷新页面
+                    </button>
+                    <button id="batchDeleteBtn" class="btn-hover bg-danger text-white px-4 py-2 rounded-md flex items-center disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                        <i class="fa fa-trash mr-2"></i>批量删除
+                    </button>
+                    <button id="importBtn" class="btn-hover bg-info text-white px-4 py-2 rounded-md flex items-center cursor-pointer">
+                        <i class="fa fa-upload mr-2"></i>导入
+                    </button>
+                    <button type="button" id="exportBtn" class="btn-hover bg-warning text-white px-4 py-2 rounded-md flex items-center">
+                        <i class="fa fa-download mr-2"></i>
+                        <span id="exportBtnText">导出</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 消息提示区域 -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            <div class="flash-messages mb-6">
+              {% for category, message in messages %}
+                <div class="p-4 rounded-md mb-2 {% if category == 'success' %}bg-green-100 text-green-800{% elif category == 'error' or category == 'danger' %}bg-red-100 text-red-800{% elif category == 'warning' %}bg-yellow-100 text-yellow-800{% else %}bg-blue-100 text-blue-800{% endif %}">
+                  <button type="button" class="float-right ml-2 text-gray-500 hover:text-gray-700" onclick="this.parentElement.remove()">×</button>
+                  {{ message | safe }}
+                </div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        {% endwith %}
+
+        <div class="bg-white rounded-lg shadow-sm p-6 mx-auto">
+            <div class="mb-6">
+                <!-- 筛选表单 -->
+                <form method="get" action="{{ url_for('supplier.index') }}">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
+                        <!-- 状态筛选 -->
+                        <div>
+                            <label for="filterStatus" class="block text-sm font-medium text-gray-700 mb-1">状态</label>
+                            <select id="filterStatus" name="status"
+                                    class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                                <option value="">所有状态</option>
+                                {% for s in statuses %}
+                                    <option value="{{ s }}" {% if current_status == s %}selected{% endif %}>{{ s }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <!-- 关键词搜索 -->
+                        <div>
+                            <label for="filterKeyword" class="block text-sm font-medium text-gray-700 mb-1">搜索</label>
+                            <input type="text" id="filterKeyword" name="keyword" 
+                                   placeholder="名称/联系人/电话" 
+                                   value="{{ keyword }}"
+                                   class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                        </div>
+
+                        <!-- 搜索/重置按钮 -->
+                        <div class="flex items-end gap-2">
+                            <button type="submit" class="px-4 py-2 bg-primary text-white rounded-md text-sm hover:bg-primary/90">
+                                <i class="fa fa-search mr-1"></i>搜索
+                            </button>
+                            <a href="{{ url_for('supplier.index') }}" class="px-4 py-2 border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50">
+                                <i class="fa fa-undo mr-1"></i>重置
+                            </a>
+                        </div>
+                    </div>
+                </form>
+                
+                <!-- 供应商列表 -->
+                <div class="overflow-x-auto mt-4">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    <div class="flex items-center">
+                                        <input type="checkbox" id="selectAll" class="form-checkbox text-primary">
+                                    </div>
+                                </th>
+                                <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">序号</th>
+                                <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">供应商名称</th>
+                                <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">联系人</th>
+                                <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">联系电话</th>
+                                <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">状态</th>
+                                <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">经手人</th>
+                                <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            {% for supplier in suppliers %}
+                            <tr>
+                                <td class="px-4 py-4 whitespace-nowrap">
+                                    <input type="checkbox" class="form-checkbox text-primary supplier-checkbox" value="{{ supplier.id }}">
+                                </td>
+                                <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-600">{{ (current_page - 1) * per_page + loop.index }}</td>
+                                <td class="px-4 py-4 whitespace-nowrap">
+                                    <a href="{{ url_for('supplier.detail', id=supplier.id) }}" class="text-primary hover:underline">{{ supplier.name }}</a>
+                                </td>
+                                <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-600">{{ supplier.contact_person or '-' }}</td>
+                                <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-600">{{ supplier.contact_phone or '-' }}</td>
+                                <td class="px-4 py-4 whitespace-nowrap">
+                                    {% if supplier.status == '启用' %}
+                                    <span class="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs">启用</span>
+                                    {% else %}
+                                    <span class="px-2 py-1 bg-red-100 text-red-800 rounded-full text-xs">停用</span>
+                                    {% endif %}
+                                </td>
+                                <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-600">{{ supplier.handler_name }}</td>
+                                
+                                <td class="px-4 py-4 whitespace-nowrap text-sm font-medium">
+                                    <div class="flex gap-2">
+                                        <button onclick="window.location.href='{{ url_for('supplier.detail', id=supplier.id) }}'" class="btn-effect bg-blue-500 text-white px-2 py-1 rounded-md text-sm flex items-center">
+                                            <i class="fa fa-eye mr-1"></i>查看
+                                        </button>
+                                        <button onclick="window.location.href='{{ url_for('supplier.edit_page', id=supplier.id) }}'" class="btn-effect bg-amber-500 text-white px-2 py-1 rounded-md text-sm flex items-center">
+                                            <i class="fa fa-pencil mr-1"></i>编辑
+                                        </button>
+                                        <button class="btn-effect {% if supplier.status == '启用' %}bg-orange-500{% else %}bg-green-500{% endif %} text-white px-2 py-1 rounded-md text-sm flex items-center"
+                                            onclick="toggleStatus({{ supplier.id }}, '{{ supplier.status }}')">
+                                            <i class="fa {% if supplier.status == '启用' %}fa-ban{% else %}fa-check{% endif %} mr-1"></i>{% if supplier.status == '启用' %}停用{% else %}启用{% endif %}
+                                        </button>
+                                        <button class="btn-effect bg-red-500 text-white px-2 py-1 rounded-md text-sm flex items-center"
+                                            onclick="if(confirm('确定要删除供应商 {{ supplier.name }} 吗？')) { document.getElementById('deleteForm-{{ supplier.id }}').submit(); }">
+                                            <i class="fa fa-trash mr-1"></i>删除
+                                        </button>
+                                    </div>
+                                    <!-- 单个删除表单 -->
+                                    <form id="deleteForm-{{ supplier.id }}" action="{{ url_for('supplier.delete_supplier', id=supplier.id) }}" method="post" class="hidden"></form>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="8" class="px-6 py-4 text-center text-gray-500">没有找到匹配的供应商数据</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- 分页 -->
+                {% if total_pages > 0 %}
+                <div class="px-6 py-4 bg-gray-50 border-t border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between mt-4 gap-4">
+                    <div class="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                        <div class="text-sm text-gray-700">
+                            显示 <span class="font-medium">{{ (current_page - 1) * per_page + 1 }}</span> 到 <span class="font-medium">{{ (current_page - 1) * per_page + suppliers|length }}</span> 条，共 <span class="font-medium">{{ total_count }}</span> 条记录
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <span class="text-sm text-gray-700">每页显示：</span>
+                            <select id="pageSizeSelect" class="px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
+                                <option value="10" {% if per_page == 10 %}selected{% endif %}>10条/页</option>
+                                <option value="20" {% if per_page == 20 %}selected{% endif %}>20条/页</option>
+                                <option value="50" {% if per_page == 50 %}selected{% endif %}>50条/页</option>
+                                <option value="100" {% if per_page == 100 %}selected{% endif %}>100条/页</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="flex space-x-1">
+                        <button class="px-3 py-1 border border-gray-300 rounded bg-white text-gray-500 hover:bg-gray-50 {% if current_page == 1 %}opacity-50 cursor-not-allowed{% endif %}" 
+                                {% if current_page > 1 %}onclick="window.location.href='{{ url_for('supplier.index', page=current_page-1, per_page=per_page, status=current_status, keyword=keyword) }}'"{% endif %}>
+                            <i class="fa fa-chevron-left"></i>
+                        </button>
+                        {% for p in page_range %}
+                            {% if p == '...' %}
+                            <button class="px-3 py-1 border border-gray-300 rounded bg-white text-gray-700" disabled>...</button>
+                            {% else %}
+                            <button class="px-3 py-1 border {% if p == current_page %}border-primary bg-primary text-white{% else %}border-gray-300 bg-white text-gray-700 hover:bg-gray-50{% endif %} rounded"
+                                    onclick="window.location.href='{{ url_for('supplier.index', page=p, per_page=per_page, status=current_status, keyword=keyword) }}'">{{ p }}</button>
+                            {% endif %}
+                        {% endfor %}
+                        <button class="px-3 py-1 border border-gray-300 rounded bg-white text-gray-500 hover:bg-gray-50 {% if current_page == total_pages %}opacity-50 cursor-not-allowed{% endif %}"
+                                {% if current_page < total_pages %}onclick="window.location.href='{{ url_for('supplier.index', page=current_page+1, per_page=per_page, status=current_status, keyword=keyword) }}'"{% endif %}>
+                            <i class="fa fa-chevron-right"></i>
+                        </button>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </main>
+
+    <!-- 导入数据模态框 -->
+    <div id="importModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-lg shadow-lg max-w-md w-full mx-4">
+            <div class="p-6 border-b border-gray-200">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-lg font-semibold text-gray-800">导入供应商数据</h3>
+                    <button id="closeModal" class="text-gray-500 hover:text-gray-700">
+                        <i class="fa fa-times"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="p-6">
+                <div id="importInitialContent">
+                    <p class="text-gray-600 mb-4">请上传Excel格式的供应商数据文件，支持.xlsx和.xls格式（最大10MB）。</p>
+                    <div class="mb-4">
+                        <a href="{{ url_for('supplier_import_export.download_template') }}" class="text-primary hover:text-primary/80 flex items-center">
+                            <i class="fa fa-file-excel-o mr-2"></i>下载导入模板
+                        </a>
+                    </div>
+                    <form id="importForm" action="{{ url_for('supplier_import_export.import_suppliers') }}" method="post" enctype="multipart/form-data">
+                        <div class="mb-4">
+                            <label for="importFile" class="block text-sm font-medium text-gray-700 mb-1">选择文件</label>
+                            <input type="file" id="importFile" name="file" accept=".xlsx,.xls" 
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                        </div>
+                        <div class="mb-6">
+                            <label class="inline-flex items-center">
+                                <input type="checkbox" name="override" value="1" class="form-checkbox text-primary">
+                                <span class="ml-2 text-gray-700">覆盖已有数据</span>
+                            </label>
+                        </div>
+                        <div class="flex justify-end gap-3">
+                            <button type="button" id="cancelImport" class="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50">取消</button>
+                            <button type="submit" class="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90">确认导入</button>
+                        </div>
+                    </form>
+                </div>
+                <div id="importLoadingContent" class="hidden text-center py-8">
+                    <div class="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mb-4"></div>
+                    <p class="text-gray-700">正在导入数据，请稍候...</p>
+                    <p class="text-gray-500 text-sm mt-2">文件越大，导入时间可能越长</p>
+                </div>
+                <div id="importSuccessContent" class="hidden text-center py-8">
+                    <div class="inline-block text-green-500 mb-4">
+                        <i class="fa fa-check-circle text-4xl"></i>
+                    </div>
+                    <p class="text-gray-700 font-medium">导入完成！</p>
+                    <p class="text-gray-500 text-sm mt-2">正在返回供应商列表...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 批量删除表单 -->
+    <form id="batchDeleteForm" action="{{ url_for('supplier.batch_delete_suppliers') }}" method="post" class="hidden">
+        <div id="batchDeleteIdsContainer"></div>
+    </form>
+
+    <!-- 页脚 -->
+    {% include 'footer.html' %}
+    
+    <script>
+        // 切换供应商状态
+        function toggleStatus(id, currentStatus) {
+            const action = currentStatus === '启用' ? '停用' : '启用';
+            if (confirm(`确定要${action}该供应商吗？`)) {
+                fetch('{{ url_for("supplier.toggle_supplier_status", id=0) }}'.replace('0', id), {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    }
+                })
+                .then(response => {
+                    if (response.redirected) {
+                        window.location.href = response.url;
+                    } else {
+                        location.reload();
+                    }
+                })
+                .catch(error => {
+                    alert('操作失败：' + error.message);
+                });
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // 导入模态框相关逻辑
+            const importBtn = document.getElementById('importBtn');
+            const importModal = document.getElementById('importModal');
+            const closeModal = document.getElementById('closeModal');
+            const cancelImport = document.getElementById('cancelImport');
+            const importForm = document.getElementById('importForm');
+            const importInitialContent = document.getElementById('importInitialContent');
+            const importLoadingContent = document.getElementById('importLoadingContent');
+            const importSuccessContent = document.getElementById('importSuccessContent');
+            
+            importBtn.addEventListener('click', function() {
+                importModal.classList.remove('hidden');
+                importInitialContent.classList.remove('hidden');
+                importLoadingContent.classList.add('hidden');
+                importSuccessContent.classList.add('hidden');
+                document.body.style.overflow = 'hidden';
+            });
+            
+            function closeImportModal() {
+                importModal.classList.add('hidden');
+                document.body.style.overflow = '';
+            }
+            
+            closeModal.addEventListener('click', closeImportModal);
+            cancelImport.addEventListener('click', closeImportModal);
+            importModal.addEventListener('click', function(e) {
+                if (e.target === importModal) closeImportModal();
+            });
+            
+            importForm.addEventListener('submit', function(e) {
+                const fileInput = document.getElementById('importFile');
+                if (!fileInput.files || fileInput.files.length === 0) {
+                    alert('请选择要导入的文件');
+                    e.preventDefault();
+                    return;
+                }
+                importInitialContent.classList.add('hidden');
+                importLoadingContent.classList.remove('hidden');
+                const submitButton = this.querySelector('button[type="submit"]');
+                submitButton.disabled = true;
+                submitButton.textContent = '正在导入...';
+            });
+            
+            // 批量删除相关逻辑
+            const selectAllCheckbox = document.getElementById('selectAll');
+            const checkboxes = document.querySelectorAll('.supplier-checkbox');
+            const batchDeleteBtn = document.getElementById('batchDeleteBtn');
+            const batchDeleteForm = document.getElementById('batchDeleteForm');
+            const batchDeleteIdsContainer = document.getElementById('batchDeleteIdsContainer');
+
+            selectAllCheckbox.addEventListener('change', function() {
+                checkboxes.forEach(checkbox => checkbox.checked = this.checked);
+                updateBatchButtonState();
+            });
+
+            checkboxes.forEach(checkbox => {
+                checkbox.addEventListener('change', function() {
+                    selectAllCheckbox.checked = Array.from(checkboxes).every(cb => cb.checked);
+                    updateBatchButtonState();
+                });
+            });
+
+            function updateBatchButtonState() {
+                const anyChecked = Array.from(checkboxes).some(cb => cb.checked);
+                batchDeleteBtn.disabled = !anyChecked;
+            }
+
+            batchDeleteBtn.addEventListener('click', function() {
+                if (!this.disabled) {
+                    const selectedIds = Array.from(checkboxes)
+                        .filter(cb => cb.checked)
+                        .map(cb => cb.value);
+                    if (confirm('确定要批量删除选中的 ' + selectedIds.length + ' 个供应商吗？')) {
+                        batchDeleteIdsContainer.innerHTML = '';
+                        selectedIds.forEach(id => {
+                            const input = document.createElement('input');
+                            input.type = 'hidden';
+                            input.name = 'supplier_ids[]';
+                            input.value = id;
+                            batchDeleteIdsContainer.appendChild(input);
+                        });
+                        batchDeleteForm.submit();
+                    }
+                }
+            });
+
+            updateBatchButtonState();
+
+            // 导出按钮逻辑
+            const exportBtn = document.getElementById('exportBtn');
+            const exportBtnText = document.getElementById('exportBtnText');
+            exportBtn.addEventListener('click', function() {
+                exportBtnText.textContent = '导出中...';
+                exportBtn.disabled = true;
+                window.location.href = '{{ url_for("supplier_import_export.export") }}';
+                setTimeout(function() {
+                    exportBtnText.textContent = '导出';
+                    exportBtn.disabled = false;
+                }, 3000);
+            });
+
+            // 筛选区选择即生效
+            const filterStatus = document.getElementById('filterStatus');
+            const searchForm = document.querySelector('form[action="{{ url_for('supplier.index') }}"]');
+
+            filterStatus.addEventListener('change', function() { searchForm.submit(); });
+
+            // 搜索框延迟提交
+            let searchTimeout;
+            const filterKeyword = document.getElementById('filterKeyword');
+            filterKeyword.addEventListener('input', function() {
+                clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(function() { searchForm.submit(); }, 500);
+            });
+
+            // 页面大小选择器
+            const pageSizeSelect = document.getElementById('pageSizeSelect');
+            if (pageSizeSelect) {
+                pageSizeSelect.addEventListener('change', function() {
+                    const urlParams = new URLSearchParams(window.location.search);
+                    urlParams.set('page', '1');
+                    urlParams.set('per_page', this.value);
+                    window.location.search = urlParams.toString();
+                });
+            }
+        });
+    </script>
+</body>
+</html>

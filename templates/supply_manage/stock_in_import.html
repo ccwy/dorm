@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+{% include 'static.html' %}
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#165DFF',
+                        secondary: '#36CFC9',
+                        accent: '#722ED1',
+                        danger: '#F5222D',
+                        info: '#1890FF',
+                        warning: '#FAAD14'
+                    },
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .btn-effect {
+                transition: all 0.2s ease;
+            }
+            .btn-effect:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            }
+            .btn-hover {
+                transition: all 0.2s ease;
+            }
+            .btn-hover:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            }
+            .fade-in {
+                animation: fadeIn 0.5s ease-in;
+            }
+            @keyframes fadeIn {
+                from { opacity: 0; }
+                to { opacity: 1; }
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+{% include 'header.html' %}
+    <main class="container mx-auto px-4 py-6">
+        
+        <!-- 标题区 -->
+        <div class="mb-6 fade-in">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between">
+                <div class="flex items-center">
+                    <a href="{{ url_for('stock_in.list_stock_ins') }}" class="text-gray-600 hover:text-primary transition-colors mr-4">
+                        <i class="fa fa-arrow-left"></i>
+                    </a>
+                    <div>
+                        <h2 class="text-[clamp(1.5rem,3vw,2rem)] font-bold text-dark">导入入库单</h2>
+                        <p class="text-gray-500 mt-1">从Excel文件批量导入入库单数据</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 消息提示区域 -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            <div class="flash-messages mb-6">
+              {% for category, message in messages %}
+                <div class="p-4 rounded-md mb-2 {% if category == 'success' %}bg-green-100 text-green-800{% elif category == 'error' or category == 'danger' %}bg-red-100 text-red-800{% elif category == 'warning' %}bg-yellow-100 text-yellow-800{% else %}bg-blue-100 text-blue-800{% endif %}">
+                  <button type="button" class="float-right ml-2 text-gray-500 hover:text-gray-700" onclick="this.parentElement.remove()">×</button>
+                  {{ message | safe }}
+                </div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        {% endwith %}
+
+        <div class="max-w-2xl mx-auto">
+            <!-- 导入说明 -->
+            <div class="bg-white rounded-lg shadow-sm p-6 mb-6 fade-in">
+                <h3 class="text-lg font-semibold text-gray-800 mb-4 pb-2 border-b border-gray-200">
+                    <i class="fa fa-info-circle mr-2 text-primary"></i>导入说明
+                </h3>
+                <div class="space-y-3 text-sm text-gray-600">
+                    <div class="flex items-start">
+                        <i class="fa fa-check-circle text-green-500 mt-0.5 mr-2"></i>
+                        <span>请先下载模板文件，按照模板格式填写数据</span>
+                    </div>
+                    <div class="flex items-start">
+                        <i class="fa fa-check-circle text-green-500 mt-0.5 mr-2"></i>
+                        <span>支持 .xlsx 和 .xls 格式的Excel文件</span>
+                    </div>
+                    <div class="flex items-start">
+                        <i class="fa fa-check-circle text-green-500 mt-0.5 mr-2"></i>
+                        <span>单次导入数据不超过500条</span>
+                    </div>
+                    <div class="flex items-start">
+                        <i class="fa fa-exclamation-circle text-yellow-500 mt-0.5 mr-2"></i>
+                        <span>必填字段：入库类型、入库日期、物品名称、数量</span>
+                    </div>
+                </div>
+                <div class="mt-4">
+                    <a href="{{ url_for('stock_in_import_export.download_template') }}" class="inline-flex items-center px-4 py-2 bg-info text-white rounded-md hover:bg-blue-600 btn-hover text-sm">
+                        <i class="fa fa-download mr-2"></i>下载模板文件
+                    </a>
+                </div>
+            </div>
+
+            <!-- 文件上传区域 -->
+            <div class="bg-white rounded-lg shadow-sm p-6 mb-6 fade-in">
+                <h3 class="text-lg font-semibold text-gray-800 mb-4 pb-2 border-b border-gray-200">
+                    <i class="fa fa-upload mr-2 text-secondary"></i>上传文件
+                </h3>
+                <form method="post" action="{{ url_for('stock_in_import_export.import_stock_ins') }}" enctype="multipart/form-data" id="importForm">
+                    <div id="dropZone" class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-primary transition-colors cursor-pointer">
+                        <div class="space-y-3">
+                            <i class="fa fa-cloud-upload-alt text-4xl text-gray-400"></i>
+                            <p class="text-gray-600">将Excel文件拖拽到此处，或点击选择文件</p>
+                            <p class="text-xs text-gray-400">支持 .xlsx、.xls 格式，最大10MB</p>
+                        </div>
+                        <input type="file" name="file" id="fileInput" accept=".xlsx,.xls" class="hidden" required>
+                    </div>
+                    <div id="fileInfo" class="hidden mt-4 p-3 bg-gray-50 rounded-md">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center">
+                                <i class="fa fa-file-excel text-green-500 text-xl mr-3"></i>
+                                <div>
+                                    <p id="fileName" class="text-sm font-medium text-gray-800"></p>
+                                    <p id="fileSize" class="text-xs text-gray-500"></p>
+                                </div>
+                            </div>
+                            <button type="button" id="removeFile" class="text-gray-400 hover:text-red-500 transition-colors">
+                                <i class="fa fa-times-circle text-lg"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="mt-6 flex justify-end gap-3">
+                        <a href="{{ url_for('stock_in.list_stock_ins') }}" class="px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 btn-hover">
+                            <i class="fa fa-times mr-2"></i>取消
+                        </a>
+                        <button type="submit" id="importBtn" class="px-6 py-2 bg-primary text-white rounded-md hover:bg-primary/90 btn-hover disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                            <i class="fa fa-upload mr-2"></i>开始导入
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- 导入结果 -->
+            {% if import_result %}
+            <div class="bg-white rounded-lg shadow-sm p-6 fade-in">
+                <h3 class="text-lg font-semibold text-gray-800 mb-4 pb-2 border-b border-gray-200">
+                    <i class="fa fa-check-square-o mr-2 text-accent"></i>导入结果
+                </h3>
+                <div class="space-y-3">
+                    {% if import_result.success_count %}
+                    <div class="p-3 bg-green-50 rounded-md">
+                        <span class="text-green-700 font-medium">
+                            <i class="fa fa-check-circle mr-1"></i>成功导入 {{ import_result.success_count }} 条记录
+                        </span>
+                    </div>
+                    {% endif %}
+                    {% if import_result.error_count %}
+                    <div class="p-3 bg-red-50 rounded-md">
+                        <span class="text-red-700 font-medium">
+                            <i class="fa fa-exclamation-circle mr-1"></i>{{ import_result.error_count }} 条记录导入失败
+                        </span>
+                    </div>
+                    {% endif %}
+                    {% if import_result.errors %}
+                    <div class="mt-3">
+                        <h4 class="text-sm font-medium text-gray-700 mb-2">错误详情：</h4>
+                        <div class="max-h-60 overflow-y-auto">
+                            <ul class="space-y-1">
+                                {% for err in import_result.errors %}
+                                <li class="text-sm text-red-600"><i class="fa fa-times mr-1"></i>第{{ err.row }}行：{{ err.message }}</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </main>
+
+    <!-- 页脚 -->
+    {% include 'footer.html' %}
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const dropZone = document.getElementById('dropZone');
+            const fileInput = document.getElementById('fileInput');
+            const fileInfo = document.getElementById('fileInfo');
+            const fileName = document.getElementById('fileName');
+            const fileSize = document.getElementById('fileSize');
+            const removeFile = document.getElementById('removeFile');
+            const importBtn = document.getElementById('importBtn');
+
+            // 点击上传区域触发文件选择
+            dropZone.addEventListener('click', function() {
+                fileInput.click();
+            });
+
+            // 拖拽事件
+            dropZone.addEventListener('dragover', function(e) {
+                e.preventDefault();
+                this.classList.add('border-primary', 'bg-primary/5');
+            });
+
+            dropZone.addEventListener('dragleave', function(e) {
+                e.preventDefault();
+                this.classList.remove('border-primary', 'bg-primary/5');
+            });
+
+            dropZone.addEventListener('drop', function(e) {
+                e.preventDefault();
+                this.classList.remove('border-primary', 'bg-primary/5');
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                    handleFile(files[0]);
+                }
+            });
+
+            // 文件选择变化
+            fileInput.addEventListener('change', function() {
+                if (this.files.length > 0) {
+                    handleFile(this.files[0]);
+                }
+            });
+
+            // 移除文件
+            removeFile.addEventListener('click', function() {
+                fileInput.value = '';
+                fileInfo.classList.add('hidden');
+                importBtn.disabled = true;
+            });
+
+            function handleFile(file) {
+                const validTypes = [
+                    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                    'application/vnd.ms-excel'
+                ];
+                const validExtensions = ['.xlsx', '.xls'];
+                const ext = '.' + file.name.split('.').pop().toLowerCase();
+                
+                if (!validExtensions.includes(ext)) {
+                    alert('请选择Excel文件（.xlsx 或 .xls）');
+                    return;
+                }
+
+                if (file.size > 10 * 1024 * 1024) {
+                    alert('文件大小不能超过10MB');
+                    return;
+                }
+
+                fileName.textContent = file.name;
+                fileSize.textContent = formatFileSize(file.size);
+                fileInfo.classList.remove('hidden');
+                importBtn.disabled = false;
+            }
+
+            function formatFileSize(bytes) {
+                if (bytes === 0) return '0 B';
+                const k = 1024;
+                const sizes = ['B', 'KB', 'MB', 'GB'];
+                const i = Math.floor(Math.log(bytes) / Math.log(k));
+                return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+            }
+        });
+    </script>
+</body>
+</html>

@@ -219,6 +219,20 @@ def init_db(app: Flask, force_recreate=False):
             import models.asset_inventory_detail  # 盘点明细模型
             import models.asset_operation_record  # 资产操作记录模型
 
+            # 低值易耗品进销存管理模型
+            import models.supply.supplier
+            import models.supply.supplier_operation_record
+            import models.supply.supply_item
+            import models.supply.storage_location
+            import models.supply.supply_stock_detail
+            import models.supply.stock_in
+            import models.supply.stock_in_detail
+            import models.supply.stock_out
+            import models.supply.stock_out_detail
+            import models.supply.supply_inventory
+            import models.supply.supply_inventory_detail
+            import models.supply.supply_stock_record
+
             # 创建表结构
             if force_recreate or not _is_initialized:
                 logging.info("开始创建数据表结构...")

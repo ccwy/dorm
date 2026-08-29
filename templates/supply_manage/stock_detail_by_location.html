@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+{% include 'static.html' %}
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#165DFF',
+                        secondary: '#36CFC9',
+                        accent: '#722ED1',
+                        danger: '#F5222D',
+                        info: '#1890FF',
+                        warning: '#FAAD14'
+                    },
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .btn-hover {
+                transition: all 0.2s ease;
+            }
+            .btn-hover:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            }
+            .fade-in {
+                animation: fadeIn 0.5s ease-in;
+            }
+            @keyframes fadeIn {
+                from { opacity: 0; }
+                to { opacity: 1; }
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+{% include 'header.html' %}
+    <main class="container mx-auto px-4 py-6">
+        <!-- 标题区 -->
+        <div class="mb-6 fade-in">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between">
+                <div class="flex items-center">
+                    <button type="button" onclick="window.location.href='{{ url_for('supply_stock_detail.list_stock_details') }}'" class="text-gray-600 hover:text-primary transition-colors mr-4">
+                        <i class="fa fa-arrow-left"></i>
+                    </button>
+                    <div>
+                        <h2 class="text-[clamp(1.5rem,3vw,2rem)] font-bold text-dark">{{ title }}</h2>
+                        <p class="text-gray-500 mt-1">查看位置「{{ location.display_name if location.display_name else location.name }}」下各物品的库存明细</p>
+                    </div>
+                </div>
+                <div class="mt-4 md:mt-0 flex flex-wrap gap-3">
+                    <button onclick="location.reload();" class="btn-hover bg-secondary text-white px-4 py-2 rounded-md flex items-center">
+                        <i class="fa fa-refresh mr-2"></i>刷新
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 消息提示 -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            <div class="flash-messages mb-6">
+              {% for category, message in messages %}
+                <div class="p-4 rounded-md mb-2 {% if category == 'success' %}bg-green-100 text-green-800{% elif category == 'error' or category == 'danger' %}bg-red-100 text-red-800{% elif category == 'warning' %}bg-yellow-100 text-yellow-800{% else %}bg-blue-100 text-blue-800{% endif %}">
+                  <button type="button" class="float-right ml-2 text-gray-500 hover:text-gray-700" onclick="this.parentElement.remove()">×</button>
+                  {{ message | safe }}
+                </div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        {% endwith %}
+
+        <!-- 位置信息卡片 -->
+        <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div>
+                    <span class="text-sm text-gray-500">位置名称</span>
+                    <p class="font-medium text-gray-800">{{ location.name }}</p>
+                </div>
+                <div>
+                    <span class="text-sm text-gray-500">位置编号</span>
+                    <p class="font-medium text-gray-800">{{ location.code or '-' }}</p>
+                </div>
+                <div>
+                    <span class="text-sm text-gray-500">楼栋/房间</span>
+                    <p class="font-medium text-gray-800">{{ location.display_name }}</p>
+                </div>
+                <div>
+                    <span class="text-sm text-gray-500">状态</span>
+                    <p class="font-medium {% if location.status == '启用' %}text-green-600{% else %}text-red-600{% endif %}">{{ location.status or '启用' }}</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 库存明细列表 -->
+        <div class="bg-white rounded-lg shadow-sm p-6">
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">序号</th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">物品名称</th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">规格型号</th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">单位</th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">库存数量</th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">最低库存</th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">状态</th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">更新时间</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        {% for detail in stock_details %}
+                        <tr class="{% if detail.quantity <= 0 %}bg-red-50{% elif detail.item and detail.quantity < detail.item.min_stock %}bg-orange-50{% endif %}">
+                            <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-600">{{ (current_page - 1) * per_page + loop.index }}</td>
+                            <td class="px-4 py-4 whitespace-nowrap">
+                                <a href="{{ url_for('supply_stock_detail.by_item', item_id=detail.item_id) }}" class="text-primary hover:underline">{{ detail.item_name }}</a>
+                            </td>
+                            <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-600">{{ detail.item.specification if detail.item else '-' }}</td>
+                            <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-600">{{ detail.item.unit if detail.item else '-' }}</td>
+                            <td class="px-4 py-4 whitespace-nowrap text-sm font-medium {% if detail.quantity <= 0 %}text-red-600{% elif detail.item and detail.quantity < detail.item.min_stock %}text-orange-600{% else %}text-gray-800{% endif %}">{{ detail.quantity }}</td>
+                            <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-600">{{ detail.item.min_stock if detail.item else '-' }}</td>
+                            <td class="px-4 py-4 whitespace-nowrap">
+                                {% if detail.quantity <= 0 %}
+                                <span class="px-2 py-1 bg-red-100 text-red-800 rounded-full text-xs">缺货</span>
+                                {% elif detail.item and detail.quantity < detail.item.min_stock %}
+                                <span class="px-2 py-1 bg-orange-100 text-orange-800 rounded-full text-xs">低库存</span>
+                                {% else %}
+                                <span class="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs">正常</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-600">{{ detail.updated_at.strftime('%Y-%m-%d %H:%M') if detail.updated_at else '-' }}</td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="8" class="px-6 py-4 text-center text-gray-500">该位置暂无库存明细数据</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- 分页 -->
+            {% if total_pages > 0 %}
+            <div class="px-6 py-4 bg-gray-50 border-t border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between mt-4 gap-4">
+                <div class="text-sm text-gray-700">
+                    共 <span class="font-medium">{{ total_count }}</span> 条记录
+                </div>
+                <div class="flex space-x-1">
+                    <button class="px-3 py-1 border border-gray-300 rounded bg-white text-gray-500 hover:bg-gray-50 {% if current_page == 1 %}opacity-50 cursor-not-allowed{% endif %}" 
+                            {% if current_page > 1 %}onclick="window.location.href='{{ url_for('supply_stock_detail.by_location', location_id=location.id, page=current_page-1, per_page=per_page) }}'"{% endif %}>
+                        <i class="fa fa-chevron-left"></i>
+                    </button>
+                    {% for p in page_range %}
+                        {% if p == '...' %}
+                        <button class="px-3 py-1 border border-gray-300 rounded bg-white text-gray-700" disabled>...</button>
+                        {% else %}
+                        <button class="px-3 py-1 border {% if p == current_page %}border-primary bg-primary text-white{% else %}border-gray-300 bg-white text-gray-700 hover:bg-gray-50{% endif %} rounded"
+                                onclick="window.location.href='{{ url_for('supply_stock_detail.by_location', location_id=location.id, page=p, per_page=per_page) }}'">{{ p }}</button>
+                        {% endif %}
+                    {% endfor %}
+                    <button class="px-3 py-1 border border-gray-300 rounded bg-white text-gray-500 hover:bg-gray-50 {% if current_page == total_pages %}opacity-50 cursor-not-allowed{% endif %}"
+                            {% if current_page < total_pages %}onclick="window.location.href='{{ url_for('supply_stock_detail.by_location', location_id=location.id, page=current_page+1, per_page=per_page) }}'"{% endif %}>
+                        <i class="fa fa-chevron-right"></i>
+                    </button>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </main>
+    {% include 'footer.html' %}
+</body>
+</html>

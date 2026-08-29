@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+{% include 'static.html' %}
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#165DFF',
+                        secondary: '#36CFC9',
+                        accent: '#722ED1',
+                        danger: '#F5222D',
+                        info: '#1890FF',
+                        warning: '#FAAD14'
+                    },
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .btn-hover {
+                transition: all 0.2s ease;
+            }
+            .btn-hover:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            }
+            .fade-in {
+                animation: fadeIn 0.5s ease-in;
+            }
+            @keyframes fadeIn {
+                from { opacity: 0; }
+                to { opacity: 1; }
+            }
+            .timeline-line {
+                position: absolute;
+                left: 15px;
+                top: 32px;
+                bottom: 0;
+                width: 2px;
+                background-color: #e5e7eb;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+{% include 'header.html' %}
+    <main class="container mx-auto px-4 py-6">
+        <!-- Flash消息 -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            <div class="flash-messages mb-6">
+              {% for category, message in messages %}
+                <div class="p-4 rounded-md mb-2 {% if category == 'success' %}bg-green-100 text-green-800{% elif category == 'error' or category == 'danger' %}bg-red-100 text-red-800{% elif category == 'warning' %}bg-yellow-100 text-yellow-800{% else %}bg-blue-100 text-blue-800{% endif %}">
+                  <button type="button" class="float-right ml-2 text-gray-500 hover:text-gray-700" onclick="this.parentElement.remove()">×</button>
+                  {{ message | safe }}
+                </div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        {% endwith %}
+
+        <div class="flex items-center mb-6 fade-in">
+            <a href="{{ url_for('supply_item.index') }}" class="text-primary hover:text-primary/80 mr-2">
+                <i class="fa fa-arrow-left"></i>
+            </a>
+            <h2 class="text-2xl font-semibold text-dark">{{ title }}</h2>
+            {% if item.is_low_stock %}
+            <span class="ml-3 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                <i class="fa fa-exclamation-triangle mr-1"></i>低库存预警
+            </span>
+            {% endif %}
+        </div>
+
+        <!-- 操作按钮 -->
+        <div class="flex flex-wrap gap-3 mb-6">
+            <a href="{{ url_for('supply_item.edit_page', id=item.id) }}" class="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90 btn-hover inline-flex items-center">
+                <i class="fa fa-edit mr-1"></i>编辑
+            </a>
+            <button type="button" onclick="recalculateStock({{ item.id }})" class="px-4 py-2 bg-info text-white rounded-md hover:bg-info/90 btn-hover inline-flex items-center">
+                <i class="fa fa-calculator mr-1"></i>重算库存
+            </button>
+            <button type="button" onclick="confirmDelete({{ item.id }})" class="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 btn-hover inline-flex items-center">
+                <i class="fa fa-trash mr-1"></i>删除
+            </button>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- 左侧: 物品信息 -->
+            <div class="lg:col-span-2 space-y-6">
+                <!-- 基本信息 -->
+                <div class="bg-white rounded-lg shadow-sm p-6">
+                    <h3 class="text-lg font-medium text-gray-800 mb-4 pb-2 border-b border-gray-200">
+                        <i class="fa fa-info-circle text-primary mr-2"></i>基本信息
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div>
+                            <span class="text-sm text-gray-500">物品名称</span>
+                            <p class="font-medium text-gray-800">{{ item.name }}</p>
+                        </div>
+                        <div>
+                            <span class="text-sm text-gray-500">物品编号</span>
+                            <p class="font-medium text-gray-800">{{ item.item_number or '-' }}</p>
+                        </div>
+                        <div>
+                            <span class="text-sm text-gray-500">分类</span>
+                            <p class="font-medium text-gray-800">{{ item.category or '-' }}</p>
+                        </div>
+                        <div>
+                            <span class="text-sm text-gray-500">规格型号</span>
+                            <p class="font-medium text-gray-800">{{ item.specification or '-' }}</p>
+                        </div>
+                        <div>
+                            <span class="text-sm text-gray-500">单位</span>
+                            <p class="font-medium text-gray-800">{{ item.unit or '-' }}</p>
+                        </div>
+                        <div>
+                            <span class="text-sm text-gray-500">状态</span>
+                            <p>
+                                {% if item.status == '启用' %}
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">启用</span>
+                                {% else %}
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">停用</span>
+                                {% endif %}
+                            </p>
+                        </div>
+
+                        <div>
+                            <span class="text-sm text-gray-500">创建时间</span>
+                            <p class="font-medium text-gray-800">{{ item.created_at.strftime('%Y-%m-%d %H:%M') if item.created_at else '-' }}</p>
+                        </div>
+                        <div>
+                            <span class="text-sm text-gray-500">更新时间</span>
+                            <p class="font-medium text-gray-800">{{ item.updated_at.strftime('%Y-%m-%d %H:%M') if item.updated_at else '-' }}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 供应商与价格 -->
+                <div class="bg-white rounded-lg shadow-sm p-6">
+                    <h3 class="text-lg font-medium text-gray-800 mb-4 pb-2 border-b border-gray-200">
+                        <i class="fa fa-truck text-secondary mr-2"></i>供应商与价格
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div>
+                            <span class="text-sm text-gray-500">默认供应商</span>
+                            <p class="font-medium text-gray-800">
+                                {% if item.supplier_id %}
+                                <a href="{{ url_for('supplier.detail', id=item.supplier_id) }}" class="text-primary hover:underline">{{ item.supplier_name }}</a>
+                                {% else %}
+                                未指定
+                                {% endif %}
+                            </p>
+                        </div>
+                        <div>
+                            <span class="text-sm text-gray-500">单价</span>
+                            <p class="font-medium text-gray-800">
+                                {% if item.unit_price %}¥{{ "%.2f"|format(item.unit_price) }}{% else %}-{% endif %}
+                            </p>
+                        </div>
+                        <div>
+                            <span class="text-sm text-gray-500">参考价格</span>
+                            <p class="font-medium text-gray-800">
+                                {% if item.reference_price %}¥{{ "%.2f"|format(item.reference_price) }}{% else %}-{% endif %}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 库存信息 -->
+                <div class="bg-white rounded-lg shadow-sm p-6">
+                    <h3 class="text-lg font-medium text-gray-800 mb-4 pb-2 border-b border-gray-200">
+                        <i class="fa fa-cubes text-warning mr-2"></i>库存信息
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                        <div class="p-4 rounded-lg {% if item.is_low_stock %}bg-orange-50 border border-orange-200{% else %}bg-blue-50{% endif %}">
+                            <span class="text-sm text-gray-500 block mb-1">当前库存</span>
+                            <p class="text-2xl font-bold {% if item.is_low_stock %}text-orange-600{% else %}text-primary{% endif %}">{{ item.current_stock }} {{ item.unit or '' }}</p>
+                        </div>
+                        <div class="p-4 rounded-lg bg-gray-50">
+                            <span class="text-sm text-gray-500 block mb-1">最低库存</span>
+                            <p class="text-2xl font-bold text-gray-700">{{ item.min_stock }} {{ item.unit or '' }}</p>
+                        </div>
+                        <div class="p-4 rounded-lg bg-gray-50">
+                            <span class="text-sm text-gray-500 block mb-1">最高库存</span>
+                            <p class="text-2xl font-bold text-gray-700">{{ item.max_stock if item.max_stock else '-' }} {{ item.unit if item.max_stock else '' }}</p>
+                        </div>
+                    </div>
+                    {% if item.is_low_stock %}
+                    <div class="p-3 bg-orange-50 border border-orange-200 rounded-md">
+                        <p class="text-sm text-orange-700">
+                            <i class="fa fa-exclamation-triangle mr-1"></i>
+                            当前库存低于最低库存预警线（{{ item.min_stock }}{{ item.unit or '' }}），请及时补货！
+                        </p>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- 各位置库存明细 -->
+                <div class="bg-white rounded-lg shadow-sm p-6">
+                    <h3 class="text-lg font-medium text-gray-800 mb-4 pb-2 border-b border-gray-200">
+                        <i class="fa fa-map-marker text-accent mr-2"></i>各位置库存明细
+                    </h3>
+                    {% if stock_details %}
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">序号</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">存放位置</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">库存数量</th>
+
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">更新时间</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200">
+                                {% for detail in stock_details %}
+                                <tr class="hover:bg-gray-50">
+                                    <td class="px-4 py-3 text-sm text-gray-500">{{ loop.index }}</td>
+                                    <td class="px-4 py-3 text-sm font-medium text-gray-800">{{ detail.location_name }}</td>
+                                    <td class="px-4 py-3 text-sm text-gray-800">{{ detail.quantity }} {{ item.unit or '' }}</td>
+
+                                    <td class="px-4 py-3 text-sm text-gray-500">{{ detail.updated_at.strftime('%Y-%m-%d %H:%M') if detail.updated_at else '-' }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-gray-500 text-center py-4">暂无库存明细</p>
+                    {% endif %}
+                </div>
+
+                <!-- 最近进出库记录 -->
+                <div class="bg-white rounded-lg shadow-sm p-6">
+                    <h3 class="text-lg font-medium text-gray-800 mb-4 pb-2 border-b border-gray-200">
+                        <i class="fa fa-history text-accent mr-2"></i>最近进出库记录
+                    </h3>
+                    {% if recent_records %}
+                    <div class="space-y-4">
+                        {% for record in recent_records %}
+                        <div class="relative pl-10 pb-4">
+                            {% if not loop.last %}
+                            <div class="timeline-line"></div>
+                            {% endif %}
+                            <div class="absolute left-0 top-0 w-8 h-8 rounded-full flex items-center justify-center
+                                {% if record.record_type == '入库' %}bg-green-100 text-green-600
+                                {% elif record.record_type == '出库' %}bg-red-100 text-red-600
+                                {% elif record.record_type == '盘盈' %}bg-blue-100 text-blue-600
+                                {% elif record.record_type == '盘亏' %}bg-orange-100 text-orange-600
+                                {% else %}bg-gray-100 text-gray-600{% endif %}">
+                                <i class="fa 
+                                    {% if record.record_type == '入库' %}fa-arrow-down
+                                    {% elif record.record_type == '出库' %}fa-arrow-up
+                                    {% elif record.record_type == '盘盈' %}fa-plus
+                                    {% elif record.record_type == '盘亏' %}fa-minus
+                                    {% else %}fa-cog{% endif %} text-xs"></i>
+                            </div>
+                            <div>
+                                <div class="flex items-center gap-2">
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium
+                                        {% if record.record_type == '入库' %}bg-green-100 text-green-800
+                                        {% elif record.record_type == '出库' %}bg-red-100 text-red-800
+                                        {% elif record.record_type == '盘盈' %}bg-blue-100 text-blue-800
+                                        {% elif record.record_type == '盘亏' %}bg-orange-100 text-orange-800
+                                        {% else %}bg-gray-100 text-gray-800{% endif %}">
+                                        {{ record.record_type }}
+                                    </span>
+                                    <span class="font-medium text-gray-800">数量：{{ record.quantity }} {{ item.unit or '' }}</span>
+                                    <span class="text-sm text-gray-500">存放位置：{{ record.display_location_name }}</span>
+                                    <span class="text-xs text-gray-400">日期：{{ record.record_date.strftime('%Y-%m-%d %H:%M') if record.record_date else '' }}</span>
+                                </div>
+                                {% if record.source_number %}
+                                <p class="text-sm text-gray-600 mt-1">来源单号：{{ record.source_number }}（{{ record.source_type or '未知' }}）</p>
+                                {% endif %}
+                                {% if record.remark %}
+                                <p class="text-xs text-gray-400 mt-1">{{ record.remark }}</p>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="text-gray-500 text-center py-4">暂无进出库记录</p>
+                    {% endif %}
+                </div>
+
+                <!-- 备注 -->
+                {% if item.remark %}
+                <div class="bg-white rounded-lg shadow-sm p-6">
+                    <h3 class="text-lg font-medium text-gray-800 mb-4 pb-2 border-b border-gray-200">
+                        <i class="fa fa-sticky-note text-accent mr-2"></i>备注信息
+                    </h3>
+                    <p class="text-gray-700 whitespace-pre-wrap">{{ item.remark }}</p>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- 右侧: 概要信息与快捷操作 -->
+            <div class="space-y-6">
+                <!-- 物品概要 -->
+                <div class="bg-white rounded-lg shadow-sm p-6">
+                    <h3 class="text-lg font-medium text-gray-800 mb-4 pb-2 border-b border-gray-200">
+                        <i class="fa fa-bar-chart text-warning mr-2"></i>概要信息
+                    </h3>
+                    <div class="space-y-3">
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm text-gray-500">当前总库存</span>
+                            <span class="font-medium {% if item.is_low_stock %}text-orange-600{% else %}text-gray-800{% endif %}">{{ item.current_stock }} {{ item.unit or '' }}</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm text-gray-500">存放位置数</span>
+                            <span class="font-medium text-gray-800">{{ stock_details | length }}</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm text-gray-500">最近操作记录</span>
+                            <span class="font-medium text-gray-800">{{ recent_records | length }}</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm text-gray-500">库存状态</span>
+                            <span class="font-medium {% if item.is_low_stock %}text-orange-600{% else %}text-green-600{% endif %}">
+                                {% if item.is_low_stock %}低库存{% else %}正常{% endif %}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 快捷操作 -->
+                <div class="bg-white rounded-lg shadow-sm p-6">
+                    <h3 class="text-lg font-medium text-gray-800 mb-4 pb-2 border-b border-gray-200">
+                        <i class="fa fa-bolt text-info mr-2"></i>快捷操作
+                    </h3>
+                    <div class="space-y-2">
+                        <a href="{{ url_for('supply_item.edit_page', id=item.id) }}" class="block px-4 py-2 bg-primary/10 text-primary rounded-md hover:bg-primary/20 text-sm text-center">
+                            <i class="fa fa-edit mr-1"></i>编辑物品
+                        </a>
+                        <a href="{{ url_for('supply_item.index') }}" class="block px-4 py-2 bg-secondary/10 text-secondary rounded-md hover:bg-secondary/20 text-sm text-center">
+                            <i class="fa fa-list mr-1"></i>返回列表
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- 删除确认表单 -->
+    <form id="deleteForm" action="{{ url_for('supply_item.delete_supply_item', id=item.id) }}" method="post" class="hidden"></form>
+
+    <!-- 页脚 -->
+    {% include 'footer.html' %}
+    
+    <script>
+        function confirmDelete(id) {
+            if (confirm('确定要删除该物品吗？删除后无法恢复！')) {
+                fetch('/api/supply-items/check-usage/' + id)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.has_usage) {
+                            if (confirm('该物品存在关联数据（' + data.details + '），确定要删除吗？')) {
+                                document.getElementById('deleteForm').submit();
+                            }
+                        } else {
+                            document.getElementById('deleteForm').submit();
+                        }
+                    })
+                    .catch(() => {
+                        document.getElementById('deleteForm').submit();
+                    });
+            }
+        }
+
+        function recalculateStock(id) {
+            if (confirm('确定要重新计算该物品的库存吗？')) {
+                fetch('{{ url_for("supply_item.recalculate_item_stock", id=0) }}'.replace('0', id), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert('库存重算完成：当前库存为 ' + data.current_stock);
+                        location.reload();
+                    } else {
+                        alert('重算失败：' + (data.message || '未知错误'));
+                    }
+                })
+                .catch(() => {
+                    alert('请求失败，请稍后重试');
+                });
+            }
+        }
+    </script>
+</body>
+</html>

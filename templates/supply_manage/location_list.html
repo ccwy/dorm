@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+{% include 'static.html' %}
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#165DFF',
+                        secondary: '#36CFC9',
+                        accent: '#722ED1',
+                        danger: '#F5222D',
+                        info: '#1890FF',
+                        warning: '#FAAD14'
+                    },
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .btn-effect {
+                transition: all 0.2s ease;
+            }
+            .btn-effect:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            }
+            .btn-hover {
+                transition: all 0.2s ease;
+            }
+            .btn-hover:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            }
+            .fade-in {
+                animation: fadeIn 0.5s ease-in;
+            }
+            @keyframes fadeIn {
+                from { opacity: 0; }
+                to { opacity: 1; }
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+{% include 'header.html' %}
+    <main class="container mx-auto px-4 py-6">
+        <!-- Flash消息 -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            <div class="flash-messages mb-6">
+              {% for category, message in messages %}
+                <div class="p-4 rounded-md mb-2 {% if category == 'success' %}bg-green-100 text-green-800{% elif category == 'error' or category == 'danger' %}bg-red-100 text-red-800{% elif category == 'warning' %}bg-yellow-100 text-yellow-800{% else %}bg-blue-100 text-blue-800{% endif %}">
+                  <button type="button" class="float-right ml-2 text-gray-500 hover:text-gray-700" onclick="this.parentElement.remove()">×</button>
+                  {{ message | safe }}
+                </div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        {% endwith %}
+
+        
+
+        <!-- 标题和功能按钮区 -->
+        <div class="mb-6 fade-in">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between">
+                <div class="flex items-center">
+                    <button type="button" onclick="window.location.href='{{ url_for('supply_index.supply_home') }}'" class="text-gray-600 hover:text-primary transition-colors mr-4">
+                        <i class="fa fa-arrow-left"></i>
+                    </button>
+                    <div>
+                        <h2 class="text-[clamp(1.5rem,3vw,2rem)] font-bold text-dark">{{ title }}</h2>
+                        <p class="text-gray-500 mt-1">管理存放位置信息，包括新增、编辑和删除</p>
+                    </div>
+                </div>
+                <div class="mt-4 md:mt-0 flex flex-wrap gap-3">
+                    <a href="{{ url_for('storage_location.add_page') }}" class="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90 btn-hover inline-flex items-center">
+                        <i class="fa fa-plus mr-1"></i>新增存放位置
+                    </a>
+                    <button id="importBtn" class="btn-hover bg-info text-white px-4 py-2 rounded-md flex items-center cursor-pointer">
+                        <i class="fa fa-upload mr-2"></i>导入
+                    </button>
+                    <button type="button" id="exportBtn" class="btn-hover bg-warning text-white px-4 py-2 rounded-md flex items-center">
+                        <i class="fa fa-download mr-2"></i>
+                        <span id="exportBtnText">导出</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 筛选区域 -->
+        <div class="bg-white rounded-lg shadow-sm p-4 mb-6">
+            <form method="get" action="{{ url_for('storage_location.index') }}" class="flex flex-wrap gap-3 items-end">
+                <!-- 状态筛选 -->
+                <div class="w-full sm:w-auto">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">状态</label>
+                    <select name="status" class="w-full sm:w-32 px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                        <option value="">全部状态</option>
+                        {% for s in statuses %}
+                        <option value="{{ s }}" {% if current_status == s %}selected{% endif %}>{{ s }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- 关键词搜索 -->
+                <div class="w-full sm:w-auto">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">关键词</label>
+                    <input type="text" name="keyword" value="{{ keyword }}" placeholder="名称/编码/楼栋/房间" 
+                           class="w-full sm:w-48 px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                </div>
+                <!-- 筛选按钮 -->
+                <div class="flex gap-2">
+                    <button type="submit" class="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90 btn-hover text-sm">
+                        <i class="fa fa-search mr-1"></i>筛选
+                    </button>
+                    <a href="{{ url_for('storage_location.index') }}" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 btn-hover text-sm">
+                        <i class="fa fa-refresh mr-1"></i>重置
+                    </a>
+                </div>
+            </form>
+        </div>
+
+        <!-- 数据统计 -->
+        <div class="flex items-center justify-between mb-4">
+            <span class="text-sm text-gray-500">共 <strong class="text-gray-800">{{ total_count }}</strong> 条记录</span>
+            <div class="flex gap-2">
+                <button type="button" onclick="batchDelete()" id="batchDeleteBtn" class="px-3 py-1.5 bg-danger text-white rounded-md hover:bg-danger/90 btn-hover text-sm disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                    <i class="fa fa-trash mr-1"></i>批量删除
+                </button>
+            </div>
+        </div>
+
+        <!-- 数据表格 -->
+        <div class="bg-white rounded-lg shadow-sm overflow-hidden mb-6">
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                <input type="checkbox" id="selectAll" onchange="toggleSelectAll(this)" class="h-4 w-4 text-primary border-gray-300 rounded focus:ring-primary">
+                            </th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">序号</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">位置名称</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">位置编码</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">楼栋</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">楼层</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">房间号</th>
+                            
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">经手人</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">状态</th>
+
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        {% if locations %}
+                        {% for location in locations %}
+                        <tr class="hover:bg-gray-50" data-id="{{ location.id }}">
+                            <td class="px-4 py-3">
+                                <input type="checkbox" name="selected_ids" value="{{ location.id }}" class="location-checkbox h-4 w-4 text-primary border-gray-300 rounded focus:ring-primary" onchange="updateBatchButtons()">
+                            </td>
+                            <td class="px-4 py-3 text-sm text-gray-500">{{ (current_page - 1) * per_page + loop.index }}</td>
+                            <td class="px-4 py-3 text-sm font-medium text-gray-800">
+                                <a href="{{ url_for('storage_location.detail', id=location.id) }}" class="text-primary hover:underline">{{ location.name }}</a>
+                            </td>
+                            <td class="px-4 py-3 text-sm text-gray-600">{{ location.code or '-' }}</td>
+                            <td class="px-4 py-3 text-sm text-gray-600">{{ location.building or '-' }}</td>
+                            <td class="px-4 py-3 text-sm text-gray-600">{{ location.floor or '-' }}</td>
+                            <td class="px-4 py-3 text-sm text-gray-600">{{ location.room or '-' }}</td>
+                            
+                            <td class="px-4 py-3 text-sm text-gray-600">{{ location.handler_name }}</td>
+                            <td class="px-4 py-3 text-sm">
+                                {% if location.status == '启用' %}
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">启用</span>
+                                {% else %}
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">停用</span>
+                                {% endif %}
+                            </td>
+
+                            <td class="px-4 py-3 text-sm">
+                                <div class="flex gap-2">
+                                    <a href="{{ url_for('storage_location.detail', id=location.id) }}" class="btn-effect bg-blue-500 text-white px-2 py-1 rounded-md text-sm flex items-center">
+                                        <i class="fa fa-eye mr-1"></i>详情
+                                    </a>
+                                    <a href="{{ url_for('storage_location.edit_page', id=location.id) }}" class="btn-effect bg-amber-500 text-white px-2 py-1 rounded-md text-sm flex items-center">
+                                        <i class="fa fa-edit mr-1"></i>编辑
+                                    </a>
+                                    <button type="button" onclick="confirmDelete({{ location.id }}, '{{ location.name }}')" class="btn-effect bg-red-500 text-white px-2 py-1 rounded-md text-sm flex items-center">
+                                        <i class="fa fa-trash mr-1"></i>删除
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        {% else %}
+                        <tr>
+                            <td colspan="10" class="px-4 py-8 text-center text-gray-500">
+                                <i class="fa fa-inbox text-4xl mb-3 block text-gray-300"></i>
+                                暂无存放位置数据
+                            </td>
+                        </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 分页 -->
+        {% if total_pages > 1 %}
+        <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div class="text-sm text-gray-500">
+                第 {{ current_page }} 页，共 {{ total_pages }} 页
+            </div>
+            <div class="flex gap-1">
+                {% if current_page > 1 %}
+                <a href="{{ url_for('storage_location.index', page=current_page-1, status=current_status, keyword=keyword) }}" class="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-50">上一页</a>
+                {% endif %}
+                {% for p in page_range %}
+                    {% if p == '...' %}
+                    <span class="px-3 py-1 text-gray-400">...</span>
+                    {% elif p == current_page %}
+                    <span class="px-3 py-1 bg-primary text-white rounded text-sm">{{ p }}</span>
+                    {% else %}
+                    <a href="{{ url_for('storage_location.index', page=p, status=current_status, keyword=keyword) }}" class="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-50">{{ p }}</a>
+                    {% endif %}
+                {% endfor %}
+                {% if current_page < total_pages %}
+                <a href="{{ url_for('storage_location.index', page=current_page+1, status=current_status, keyword=keyword) }}" class="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-50">下一页</a>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </main>
+
+    <!-- 删除确认表单 -->
+    <form id="deleteForm" method="post" class="hidden"></form>
+
+    <!-- 批量删除表单 -->
+    <form id="batchDeleteForm" action="{{ url_for('storage_location.batch_delete_storage_locations') }}" method="post" class="hidden"></form>
+
+    <!-- 导入数据模态框 -->
+    <div id="importModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-lg shadow-lg max-w-md w-full mx-4">
+            <div class="p-6 border-b border-gray-200">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-lg font-semibold text-gray-800">导入存放位置数据</h3>
+                    <button id="closeModal" class="text-gray-500 hover:text-gray-700">
+                        <i class="fa fa-times"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="p-6">
+                <div id="importInitialContent">
+                    <p class="text-gray-600 mb-4">请上传Excel格式的存放位置数据文件，支持.xlsx和.xls格式（最大10MB）。</p>
+                    <div class="mb-4">
+                        <a href="{{ url_for('storage_location_import_export.download_template') }}" class="text-primary hover:text-primary/80 flex items-center">
+                            <i class="fa fa-file-excel-o mr-2"></i>下载导入模板
+                        </a>
+                    </div>
+                    <form id="importForm" action="{{ url_for('storage_location_import_export.import_locations') }}" method="post" enctype="multipart/form-data">
+                        <div class="mb-4">
+                            <label for="importFile" class="block text-sm font-medium text-gray-700 mb-1">选择文件</label>
+                            <input type="file" id="importFile" name="file" accept=".xlsx,.xls" 
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                        </div>
+                        <div class="mb-6">
+                            <label class="inline-flex items-center">
+                                <input type="checkbox" name="override" value="1" class="form-checkbox text-primary">
+                                <span class="ml-2 text-gray-700">覆盖已有数据</span>
+                            </label>
+                        </div>
+                        <div class="flex justify-end gap-3">
+                            <button type="button" id="cancelImport" class="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50">取消</button>
+                            <button type="submit" class="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90">确认导入</button>
+                        </div>
+                    </form>
+                </div>
+                <div id="importLoadingContent" class="hidden text-center py-8">
+                    <div class="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mb-4"></div>
+                    <p class="text-gray-700">正在导入数据，请稍候...</p>
+                    <p class="text-gray-500 text-sm mt-2">文件越大，导入时间可能越长</p>
+                </div>
+                <div id="importSuccessContent" class="hidden text-center py-8">
+                    <div class="inline-block text-green-500 mb-4">
+                        <i class="fa fa-check-circle text-4xl"></i>
+                    </div>
+                    <p class="text-gray-700 font-medium">导入完成！</p>
+                    <p class="text-gray-500 text-sm mt-2">正在返回存放位置列表...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 页脚 -->
+    {% include 'footer.html' %}
+    
+    <script>
+        // 全选/取消全选
+        function toggleSelectAll(checkbox) {
+            const checkboxes = document.querySelectorAll('.location-checkbox');
+            checkboxes.forEach(cb => cb.checked = checkbox.checked);
+            updateBatchButtons();
+        }
+
+        // 更新批量操作按钮状态
+        function updateBatchButtons() {
+            const checked = document.querySelectorAll('.location-checkbox:checked');
+            document.getElementById('batchDeleteBtn').disabled = checked.length === 0;
+        }
+
+        // 删除确认
+        function confirmDelete(id, name) {
+            if (confirm('确定要删除存放位置"' + name + '"吗？')) {
+                const form = document.getElementById('deleteForm');
+                form.action = '{{ url_for("storage_location.delete_storage_location", id=0) }}'.replace('0', id);
+                form.submit();
+            }
+        }
+
+        // 批量删除
+        function batchDelete() {
+            const checked = document.querySelectorAll('.location-checkbox:checked');
+            if (checked.length === 0) {
+                alert('请先选择要删除的存放位置');
+                return;
+            }
+            if (confirm('确定要删除选中的 ' + checked.length + ' 个存放位置吗？')) {
+                const form = document.getElementById('batchDeleteForm');
+                // 移除旧的隐藏输入
+                form.querySelectorAll('input[type="hidden"]').forEach(el => el.remove());
+                // 添加选中的ID
+                checked.forEach(cb => {
+                    const input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = 'ids';
+                    input.value = cb.value;
+                    form.appendChild(input);
+                });
+                form.submit();
+            }
+        }
+    </script>
+    <script>
+        // 导入导出相关逻辑
+        document.addEventListener('DOMContentLoaded', function() {
+            // 导入模态框
+            const importBtn = document.getElementById('importBtn');
+            const importModal = document.getElementById('importModal');
+            const closeModal = document.getElementById('closeModal');
+            const cancelImport = document.getElementById('cancelImport');
+            const importForm = document.getElementById('importForm');
+            const importInitialContent = document.getElementById('importInitialContent');
+            const importLoadingContent = document.getElementById('importLoadingContent');
+            const importSuccessContent = document.getElementById('importSuccessContent');
+            
+            importBtn.addEventListener('click', function() {
+                importModal.classList.remove('hidden');
+                importInitialContent.classList.remove('hidden');
+                importLoadingContent.classList.add('hidden');
+                importSuccessContent.classList.add('hidden');
+                document.body.style.overflow = 'hidden';
+            });
+            
+            function closeImportModal() {
+                importModal.classList.add('hidden');
+                document.body.style.overflow = '';
+            }
+            
+            closeModal.addEventListener('click', closeImportModal);
+            cancelImport.addEventListener('click', closeImportModal);
+            importModal.addEventListener('click', function(e) {
+                if (e.target === importModal) closeImportModal();
+            });
+            
+            importForm.addEventListener('submit', function(e) {
+                const fileInput = document.getElementById('importFile');
+                if (!fileInput.files || fileInput.files.length === 0) {
+                    alert('请选择要导入的文件');
+                    e.preventDefault();
+                    return;
+                }
+                importInitialContent.classList.add('hidden');
+                importLoadingContent.classList.remove('hidden');
+                const submitButton = this.querySelector('button[type="submit"]');
+                submitButton.disabled = true;
+                submitButton.textContent = '正在导入...';
+            });
+
+            // 导出按钮
+            const exportBtn = document.getElementById('exportBtn');
+            const exportBtnText = document.getElementById('exportBtnText');
+            exportBtn.addEventListener('click', function() {
+                exportBtnText.textContent = '导出中...';
+                exportBtn.disabled = true;
+                window.location.href = '{{ url_for("storage_location_import_export.export") }}';
+                setTimeout(function() {
+                    exportBtnText.textContent = '导出';
+                    exportBtn.disabled = false;
+                }, 3000);
+            });
+        });
+    </script>
+</body>
+</html>

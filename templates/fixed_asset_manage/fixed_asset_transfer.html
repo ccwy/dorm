@@ -156,12 +156,13 @@
                         <label for="storage_location" class="block text-sm font-medium text-gray-700 mb-1">新存放位置</label>
                         <input type="text" id="storage_location" name="storage_location"
                                class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
-                               placeholder="请输入新的存放位置" list="locations_list">
+                               placeholder="请输入或选择新的存放位置" list="locations_list" autocomplete="off">
                         <datalist id="locations_list">
                             {% for loc in locations %}
                             <option value="{{ loc }}">
                             {% endfor %}
                         </datalist>
+                        <p class="text-xs text-gray-500 mt-1">可从存放位置列表选择或自定义输入</p>
                     </div>
 
                     <!-- 新所属公司 -->

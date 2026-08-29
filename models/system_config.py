@@ -238,6 +238,16 @@ class SystemConfig(db.Model):
                 'is_editable': True,
                 'sort_order': 110
             },
+            {
+                'config_key': 'FEATURE_SUPPLY_MANAGE_ENABLED',
+                'config_value': 'true',
+                'config_type': 'bool',
+                'category': 'system.feature',
+                'description': '低值易耗品管理功能开关',
+                'is_editable': True,
+                'sort_order': 120
+            },
+            
             # 3. 用户管理配置 (category: user)
             {
                 'config_key': 'USER_DEFAULT_BANNED',
@@ -626,22 +636,123 @@ class SystemConfig(db.Model):
                 'sort_order': 20
             },
             {
-                'config_key': 'ASSET_LOCATIONS',
-                'config_value': 'A栋1楼仓库,B栋2楼仓库,C栋3楼办公室',
-                'config_type': 'list',
-                'category': 'asset',
-                'description': '资产存放位置建议列表（仅作输入建议，不限制输入）',
-                'is_editable': True,
-                'sort_order': 30
-            },
-            {
                 'config_key': 'ASSET_SOURCES',
                 'config_value': '采购,捐赠,调入,自建,其他',
                 'config_type': 'list',
                 'category': 'asset',
                 'description': '资产来源选项列表',
                 'is_editable': True,
+                'sort_order': 30
+            },
+
+            # 低值易耗品进销存管理配置 (category: supply)
+            {
+                'config_key': 'supply_auto_number',
+                'config_value': 'true',
+                'config_type': 'bool',
+                'category': 'supply',
+                'description': '启用自动编号（物品/入库/出库/盘点单号）',
+                'is_editable': True,
+                'is_system': False,
+                'sort_order': 20
+            },
+            {
+                'config_key': 'supply_low_stock_alert',
+                'config_value': 'true',
+                'config_type': 'bool',
+                'category': 'supply',
+                'description': '启用低库存预警',
+                'is_editable': True,
+                'is_system': False,
+                'sort_order': 30
+            },
+            {
+                'config_key': 'supply_stock_out_check',
+                'config_value': 'true',
+                'config_type': 'bool',
+                'category': 'supply',
+                'description': '出库审核时检查库存充足性',
+                'is_editable': True,
+                'is_system': False,
                 'sort_order': 40
+            },
+            {
+                'config_key': 'STOCK_IN_APPROVAL_ENABLED',
+                'config_value': 'true',
+                'config_type': 'bool',
+                'category': 'supply',
+                'description': '入库单审核功能开关（关闭后保存即自动审核）',
+                'is_editable': True,
+                'sort_order': 50
+            },
+            {
+                'config_key': 'STOCK_OUT_APPROVAL_ENABLED',
+                'config_value': 'true',
+                'config_type': 'bool',
+                'category': 'supply',
+                'description': '出库单审核功能开关（关闭后保存即自动审核）',
+                'is_editable': True,
+                'sort_order': 60
+            },
+            {
+                'config_key': 'supply_default_min_stock',
+                'config_value': '10',
+                'config_type': 'int',
+                'category': 'supply',
+                'description': '默认最低库存数量',
+                'is_editable': True,
+                'is_system': False,
+                'sort_order': 70
+            },
+            {
+                'config_key': 'supply_units',
+                'config_value': '个,件,箱,包,盒,瓶,支,本,张,套,台,把,条,块,卷,桶,袋,罐',
+                'config_type': 'list',
+                'category': 'supply',
+                'description': '预设单位选项（逗号分隔）',
+                'is_editable': True,
+                'is_system': False,
+                'sort_order': 80
+            },
+            {
+                'config_key': 'supply_categories',
+                'config_value': '文具,办公设备,耗材,清洁用品,其他',
+                'config_type': 'list',
+                'category': 'supply',
+                'description': '物品分类选项（逗号分隔，第一个为默认值）',
+                'is_editable': True,
+                'is_system': False,
+                'sort_order': 85
+            },
+            {
+                'config_key': 'supply_number_prefix',
+                'config_value': '{"item":"YP","stock_in":"RK","stock_out":"CK","inventory":"PD"}',
+                'config_type': 'json',
+                'category': 'supply',
+                'description': '各单据编号前缀配置',
+                'is_editable': True,
+                'is_system': False,
+                'sort_order': 90
+            },
+            {
+                'config_key': 'stock_in_types',
+                'config_value': '采购入库,其它入库',
+                'config_type': 'list',
+                'category': 'supply',
+                'description': '入库类型选项（逗号分隔，第一个为默认值）',
+                'is_editable': True,
+                'is_system': False,
+                'sort_order': 100
+            },
+            {
+                'config_key': 'stock_out_types',
+                'config_value': '正常领用,其他出库',
+                'config_type': 'list',
+                'category': 'supply',
+                'description': '出库类型选项（逗号分隔，第一个为默认值）',
+                'is_editable': True,
+                'is_system': False,
+                'sort_order': 110
             },
 
         ]

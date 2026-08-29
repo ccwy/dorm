@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+{% include 'static.html' %}
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#165DFF',
+                        secondary: '#36CFC9',
+                        accent: '#722ED1',
+                        danger: '#F5222D',
+                        info: '#1890FF',
+                        warning: '#FAAD14'
+                    },
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .btn-hover {
+                transition: all 0.2s ease;
+            }
+            .btn-hover:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            }
+            .fade-in {
+                animation: fadeIn 0.5s ease-in;
+            }
+            @keyframes fadeIn {
+                from { opacity: 0; }
+                to { opacity: 1; }
+            }
+            .timeline-line {
+                position: absolute;
+                left: 15px;
+                top: 32px;
+                bottom: 0;
+                width: 2px;
+                background-color: #e5e7eb;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+{% include 'header.html' %}
+    <main class="container mx-auto px-4 py-6">
+        <!-- Flash消息 -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            <div class="flash-messages mb-6">
+              {% for category, message in messages %}
+                <div class="p-4 rounded-md mb-2 {% if category == 'success' %}bg-green-100 text-green-800{% elif category == 'error' or category == 'danger' %}bg-red-100 text-red-800{% elif category == 'warning' %}bg-yellow-100 text-yellow-800{% else %}bg-blue-100 text-blue-800{% endif %}">
+                  <button type="button" class="float-right ml-2 text-gray-500 hover:text-gray-700" onclick="this.parentElement.remove()">×</button>
+                  {{ message | safe }}
+                </div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        {% endwith %}
+
+        <div class="flex items-center mb-6 fade-in">
+            <a href="{{ url_for('supplier.index') }}" class="text-primary hover:text-primary/80 mr-2">
+                <i class="fa fa-arrow-left"></i>
+            </a>
+            <h2 class="text-2xl font-semibold text-dark">{{ title }}</h2>
+        </div>
+
+        <!-- 操作按钮 -->
+        <div class="flex flex-wrap gap-3 mb-6">
+            <a href="{{ url_for('supplier.edit_page', id=supplier.id) }}" class="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90 btn-hover inline-flex items-center">
+                <i class="fa fa-edit mr-1"></i>编辑
+            </a>
+            <button type="button" onclick="toggleStatus({{ supplier.id }}, '{{ supplier.status }}')" 
+                    class="px-4 py-2 {% if supplier.status == '启用' %}bg-orange-500 hover:bg-orange-600{% else %}bg-green-500 hover:bg-green-600{% endif %} text-white rounded-md btn-hover inline-flex items-center">
+                <i class="fa {% if supplier.status == '启用' %}fa-ban{% else %}fa-check{% endif %} mr-1"></i>{% if supplier.status == '启用' %}停用{% else %}启用{% endif %}
+            </button>
+            <button type="button" onclick="confirmDelete({{ supplier.id }})" class="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 btn-hover inline-flex items-center">
+                <i class="fa fa-trash mr-1"></i>删除
+            </button>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- 左侧: 供应商信息 -->
+            <div class="lg:col-span-2 space-y-6">
+                <!-- 基本信息 -->
+                <div class="bg-white rounded-lg shadow-sm p-6">
+                    <h3 class="text-lg font-medium text-gray-800 mb-4 pb-2 border-b border-gray-200">
+                        <i class="fa fa-info-circle text-primary mr-2"></i>基本信息
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div>
+                            <span class="text-sm text-gray-500">供应商名称</span>
+                            <p class="font-medium text-gray-800">{{ supplier.name }}</p>
+                        </div>
+                        <div>
+                            <span class="text-sm text-gray-500">联系人</span>
+                            <p class="font-medium text-gray-800">{{ supplier.contact_person or '-' }}</p>
+                        </div>
+                        <div>
+                            <span class="text-sm text-gray-500">联系电话</span>
+                            <p class="font-medium text-gray-800">{{ supplier.contact_phone or '-' }}</p>
+                        </div>
+                        <div>
+                            <span class="text-sm text-gray-500">邮箱</span>
+                            <p class="font-medium text-gray-800">{{ supplier.email or '-' }}</p>
+                        </div>
+                        <div>
+                            <span class="text-sm text-gray-500">状态</span>
+                            <p>
+                                {% if supplier.status == '启用' %}
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">启用</span>
+                                {% else %}
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">停用</span>
+                                {% endif %}
+                            </p>
+                        </div>
+                        <div>
+                            <span class="text-sm text-gray-500">经手人</span>
+                            <p class="font-medium text-gray-800">{{ supplier.handler_name or '-' }}</p>
+                        </div>
+                        <div>
+                            <span class="text-sm text-gray-500">创建时间</span>
+                            <p class="font-medium text-gray-800">{{ supplier.created_at.strftime('%Y-%m-%d %H:%M') if supplier.created_at else '-' }}</p>
+                        </div>
+                        <div>
+                            <span class="text-sm text-gray-500">更新时间</span>
+                            <p class="font-medium text-gray-800">{{ supplier.updated_at.strftime('%Y-%m-%d %H:%M') if supplier.updated_at else '-' }}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 地址与备注 -->
+                <div class="bg-white rounded-lg shadow-sm p-6">
+                    <h3 class="text-lg font-medium text-gray-800 mb-4 pb-2 border-b border-gray-200">
+                        <i class="fa fa-map-marker text-secondary mr-2"></i>地址与备注
+                    </h3>
+                    <div class="grid grid-cols-1 gap-4">
+                        <div>
+                            <span class="text-sm text-gray-500">地址</span>
+                            <p class="font-medium text-gray-800">{{ supplier.address or '-' }}</p>
+                        </div>
+                        <div>
+                            <span class="text-sm text-gray-500">备注</span>
+                            <p class="font-medium text-gray-800 whitespace-pre-wrap">{{ supplier.remark or '-' }}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 操作记录 -->
+                <div class="bg-white rounded-lg shadow-sm p-6">
+                    <h3 class="text-lg font-medium text-gray-800 mb-4 pb-2 border-b border-gray-200">
+                        <i class="fa fa-history text-accent mr-2"></i>操作记录
+                    </h3>
+                    {% if operation_records %}
+                    <div class="space-y-4">
+                        {% for record in operation_records %}
+                        <div class="relative pl-10 pb-4">
+                            {% if not loop.last %}
+                            <div class="timeline-line"></div>
+                            {% endif %}
+                            <div class="absolute left-0 top-0 w-8 h-8 rounded-full flex items-center justify-center
+                                {% if record.operation_type == '新增' %}bg-green-100 text-green-600
+                                {% elif record.operation_type == '编辑' %}bg-blue-100 text-blue-600
+                                {% elif record.operation_type == '删除' %}bg-red-100 text-red-600
+                                {% elif record.operation_type == '状态变更' %}bg-orange-100 text-orange-600
+                                {% else %}bg-gray-100 text-gray-600{% endif %}">
+                                <i class="fa 
+                                    {% if record.operation_type == '新增' %}fa-plus
+                                    {% elif record.operation_type == '编辑' %}fa-pencil
+                                    {% elif record.operation_type == '删除' %}fa-trash
+                                    {% elif record.operation_type == '状态变更' %}fa-exchange
+                                    {% else %}fa-cog{% endif %} text-xs"></i>
+                            </div>
+                            <div>
+                                <div class="flex items-center gap-2">
+                                    <span class="font-medium text-gray-800">{{ record.operation_type }}</span>
+                                    <span class="text-sm text-gray-500">{{ record.operator_name or '系统' }}</span>
+                                    <span class="text-xs text-gray-400">{{ record.operation_time.strftime('%Y-%m-%d %H:%M') if record.operation_time else '' }}</span>
+                                </div>
+                                {% if record.summary %}
+                                <p class="text-sm text-gray-600 mt-1">{{ record.summary }}</p>
+                                {% endif %}
+                                {% if record.change_detail %}
+                                <p class="text-xs text-gray-400 mt-1">{{ record.change_detail }}</p>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="text-gray-500 text-center py-4">暂无操作记录</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- 右侧: 关联信息 -->
+            <div class="space-y-6">
+                <!-- 供应商概要 -->
+                <div class="bg-white rounded-lg shadow-sm p-6">
+                    <h3 class="text-lg font-medium text-gray-800 mb-4 pb-2 border-b border-gray-200">
+                        <i class="fa fa-bar-chart text-warning mr-2"></i>概要信息
+                    </h3>
+                    <div class="space-y-3">
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm text-gray-500">关联物品数</span>
+                            <span class="font-medium text-gray-800">{{ related_items_count | default(0) }}</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm text-gray-500">操作记录数</span>
+                            <span class="font-medium text-gray-800">{{ operation_records | length }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 快捷操作 -->
+                <div class="bg-white rounded-lg shadow-sm p-6">
+                    <h3 class="text-lg font-medium text-gray-800 mb-4 pb-2 border-b border-gray-200">
+                        <i class="fa fa-bolt text-info mr-2"></i>快捷操作
+                    </h3>
+                    <div class="space-y-2">
+                        <a href="{{ url_for('supplier.edit_page', id=supplier.id) }}" class="block px-4 py-2 bg-primary/10 text-primary rounded-md hover:bg-primary/20 text-sm text-center">
+                            <i class="fa fa-edit mr-1"></i>编辑供应商
+                        </a>
+                        <a href="{{ url_for('supply_item.index', supplier_id=supplier.id) }}" class="block px-4 py-2 bg-secondary/10 text-secondary rounded-md hover:bg-secondary/20 text-sm text-center">
+                            <i class="fa fa-cube mr-1"></i>查看关联物品
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- 删除确认表单 -->
+    <form id="deleteForm" action="{{ url_for('supplier.delete_supplier', id=supplier.id) }}" method="post" class="hidden"></form>
+
+    <!-- 状态切换表单 -->
+    <form id="toggleStatusForm" action="{{ url_for('supplier.toggle_supplier_status', id=supplier.id) }}" method="post" class="hidden"></form>
+
+    <!-- 页脚 -->
+    {% include 'footer.html' %}
+    
+    <script>
+        function confirmDelete(id) {
+            if (confirm('确定要删除该供应商吗？删除后无法恢复！')) {
+                // 先检查是否有关联数据
+                fetch('/api/suppliers/check-usage/' + id)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.has_usage) {
+                            if (confirm('该供应商存在关联数据（' + data.details + '），确定要删除吗？')) {
+                                document.getElementById('deleteForm').submit();
+                            }
+                        } else {
+                            document.getElementById('deleteForm').submit();
+                        }
+                    })
+                    .catch(() => {
+                        document.getElementById('deleteForm').submit();
+                    });
+            }
+        }
+
+        function toggleStatus(id, currentStatus) {
+            const action = currentStatus === '启用' ? '停用' : '启用';
+            if (confirm('确定要' + action + '该供应商吗？')) {
+                document.getElementById('toggleStatusForm').submit();
+            }
+        }
+    </script>
+</body>
+</html>

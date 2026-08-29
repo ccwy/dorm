@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+{% include 'static.html' %}
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#165DFF',
+                        secondary: '#36CFC9',
+                        accent: '#722ED1',
+                        danger: '#F5222D',
+                        info: '#1890FF',
+                        warning: '#FAAD14'
+                    },
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .btn-effect {
+                transition: all 0.2s ease;
+            }
+            .btn-effect:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            }
+            .btn-hover {
+                transition: all 0.2s ease;
+            }
+            .btn-hover:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            }
+            .fade-in {
+                animation: fadeIn 0.5s ease-in;
+            }
+            @keyframes fadeIn {
+                from { opacity: 0; }
+                to { opacity: 1; }
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+{% include 'header.html' %}
+    <main class="container mx-auto px-4 py-6">
+        
+        <!-- 标题和功能按钮区 -->
+        <div class="mb-6 fade-in">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between">
+                <div class="flex items-center">
+                    <button type="button" onclick="window.location.href='{{ url_for('supply_index.supply_home') }}'" class="text-gray-600 hover:text-primary transition-colors mr-4">
+                        <i class="fa fa-arrow-left"></i>
+                    </button>
+                    <div>
+                        <h2 class="text-[clamp(1.5rem,3vw,2rem)] font-bold text-dark">{{ title }}</h2>
+                        <p class="text-gray-500 mt-1">管理低值易耗品出库记录</p>
+                    </div>
+                </div>
+                <div class="mt-4 md:mt-0 flex flex-wrap gap-3">
+                    <button onclick="window.location.href='{{ url_for('stock_out.add_stock_out') }}'" class="btn-hover bg-primary text-white px-4 py-2 rounded-md flex items-center">
+                        <i class="fa fa-plus mr-2"></i>新增出库单
+                    </button>
+                    <button onclick="location.reload();" class="btn-hover bg-secondary text-white px-4 py-2 rounded-md flex items-center">
+                        <i class="fa fa-refresh mr-2"></i>刷新页面
+                    </button>
+                    <button id="batchDeleteBtn" onclick="batchDeleteStockOut()" class="btn-hover bg-danger text-white px-4 py-2 rounded-md flex items-center disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                        <i class="fa fa-trash mr-2"></i>批量删除
+                    </button>
+                    <button id="importBtn" class="btn-hover bg-info text-white px-4 py-2 rounded-md flex items-center cursor-pointer">
+                        <i class="fa fa-upload mr-2"></i>导入
+                    </button>
+                    <button type="button" id="exportBtn" class="btn-hover bg-warning text-white px-4 py-2 rounded-md flex items-center">
+                        <i class="fa fa-download mr-2"></i>
+                        <span id="exportBtnText">导出</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 消息提示区域 -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            <div class="flash-messages mb-6">
+              {% for category, message in messages %}
+                <div class="p-4 rounded-md mb-2 {% if category == 'success' %}bg-green-100 text-green-800{% elif category == 'error' or category == 'danger' %}bg-red-100 text-red-800{% elif category == 'warning' %}bg-yellow-100 text-yellow-800{% else %}bg-blue-100 text-blue-800{% endif %}">
+                  <button type="button" class="float-right ml-2 text-gray-500 hover:text-gray-700" onclick="this.parentElement.remove()">×</button>
+                  {{ message | safe }}
+                </div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        {% endwith %}
+
+        <!-- 筛选表单 -->
+        <div class="bg-white rounded-lg shadow-sm p-4 mb-6 fade-in">
+            <form method="get" action="{{ url_for('stock_out.list_stock_outs') }}" class="space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-3">
+                    <!-- 出库类型 -->
+                    <div>
+                        <label for="stock_out_type" class="block text-xs font-medium text-gray-500 mb-1">出库类型</label>
+                        <select id="stock_out_type" name="stock_out_type" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                            <option value="">全部类型</option>
+                            {% for t in stock_out_types %}
+                            <option value="{{ t }}" {% if request.args.get('stock_out_type') == t %}selected{% endif %}>{{ t }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- 状态 -->
+                    <div>
+                        <label for="status" class="block text-xs font-medium text-gray-500 mb-1">状态</label>
+                        <select id="status" name="status" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                            <option value="">全部状态</option>
+                            <option value="待审核" {% if request.args.get('status') == '待审核' %}selected{% endif %}>待审核</option>
+                            <option value="已审核" {% if request.args.get('status') == '已审核' %}selected{% endif %}>已审核</option>
+                            <option value="已取消" {% if request.args.get('status') == '已取消' %}selected{% endif %}>已取消</option>
+                        </select>
+                    </div>
+
+                    <!-- 日期范围 -->
+                    <div>
+                        <label for="start_date" class="block text-xs font-medium text-gray-500 mb-1">开始日期</label>
+                        <input type="date" id="start_date" name="start_date" value="{{ request.args.get('start_date', '') }}" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                    </div>
+
+                    <div>
+                        <label for="end_date" class="block text-xs font-medium text-gray-500 mb-1">结束日期</label>
+                        <input type="date" id="end_date" name="end_date" value="{{ request.args.get('end_date', '') }}" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                    </div>
+
+                    <!-- 关键词 -->
+                    <div>
+                        <label for="keyword" class="block text-xs font-medium text-gray-500 mb-1">关键词</label>
+                        <input type="text" id="keyword" name="keyword" value="{{ request.args.get('keyword', '') }}" placeholder="单号/领用人" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                    </div>
+
+
+                </div>
+
+                <div class="flex justify-between items-center">
+                    <div class="flex gap-2">
+                        <button type="submit" class="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90 btn-hover text-sm">
+                            <i class="fa fa-search mr-1"></i>筛选
+                        </button>
+                        <a href="{{ url_for('stock_out.list_stock_outs') }}" class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 btn-hover text-sm">
+                            <i class="fa fa-undo mr-1"></i>重置
+                        </a>
+                    </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <!-- 数据表格 -->
+        <div class="bg-white rounded-lg shadow-sm overflow-hidden fade-in">
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-4 py-3 text-left">
+                                <input type="checkbox" id="selectAll" onclick="toggleSelectAll(this)" class="rounded border-gray-300 text-primary focus:ring-primary">
+                            </th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">序号</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">出库单号</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">出库类型</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">出库日期</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">领用人</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">领用部门</th>
+                            <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">总金额</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">状态</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">明细数</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        {% for stock_out in stock_outs %}
+                        <tr class="hover:bg-gray-50" data-id="{{ stock_out.id }}">
+                            <td class="px-4 py-3">
+                                <input type="checkbox" name="selected_ids" value="{{ stock_out.id }}" class="stock-out-checkbox rounded border-gray-300 text-primary focus:ring-primary" onclick="updateBatchDeleteBtn()">
+                            </td>
+                            <td class="px-4 py-3 text-sm text-gray-600">{{ (current_page - 1) * per_page + loop.index }}</td>
+                            <td class="px-4 py-3">
+                                <a href="{{ url_for('stock_out.detail_stock_out', id=stock_out.id) }}" class="text-sm text-primary hover:text-primary/80 font-medium">
+                                    {{ stock_out.stock_out_number }}
+                                </a>
+                            </td>
+                            <td class="px-4 py-3 text-sm text-gray-800">{{ stock_out.stock_out_type }}</td>
+                            <td class="px-4 py-3 text-sm text-gray-600">{{ stock_out.stock_out_date.strftime('%Y-%m-%d') if stock_out.stock_out_date else '-' }}</td>
+                            <td class="px-4 py-3 text-sm text-gray-800">{{ stock_out.recipient_name or '-' }}</td>
+                            <td class="px-4 py-3 text-sm text-gray-600">{{ stock_out.department_name or '-' }}</td>
+                            <td class="px-4 py-3 text-sm text-gray-800 text-right">¥{{ "%.2f"|format(stock_out.total_amount or 0) }}</td>
+                            <td class="px-4 py-3">
+                                {% if stock_out.status == '待审核' %}
+                                <span class="px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800">{{ stock_out.status }}</span>
+                                {% elif stock_out.status == '已审核' %}
+                                <span class="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">{{ stock_out.status }}</span>
+                                {% elif stock_out.status == '已取消' %}
+                                <span class="px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-800">{{ stock_out.status }}</span>
+                                {% else %}
+                                <span class="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">{{ stock_out.status }}</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-4 py-3 text-sm text-gray-600">{{ stock_out.details|length if stock_out.details else 0 }}</td>
+                            <td class="px-4 py-4 whitespace-nowrap text-sm font-medium">
+                                <div class="flex gap-2">
+                                    <button onclick="window.location.href='{{ url_for('stock_out.detail_stock_out', id=stock_out.id) }}'" class="btn-effect bg-blue-500 text-white px-2 py-1 rounded-md text-sm flex items-center">
+                                        <i class="fa fa-eye mr-1"></i>查看
+                                    </button>
+                                    {% if stock_out.status == '待审核' %}
+                                    <button onclick="window.location.href='{{ url_for('stock_out.edit_stock_out', id=stock_out.id) }}'" class="btn-effect bg-amber-500 text-white px-2 py-1 rounded-md text-sm flex items-center">
+                                        <i class="fa fa-pencil mr-1"></i>编辑
+                                    </button>
+                                    {% if approval_enabled %}
+                                    <button type="button" class="btn-effect bg-green-500 text-white px-2 py-1 rounded-md text-sm flex items-center"
+                                        onclick="approveStockOut({{ stock_out.id }})">
+                                        <i class="fa fa-check mr-1"></i>审核
+                                    </button>
+                                    {% endif %}
+                                    <button type="button" class="btn-effect bg-gray-500 text-white px-2 py-1 rounded-md text-sm flex items-center"
+                                        onclick="cancelStockOut({{ stock_out.id }})">
+                                        <i class="fa fa-ban mr-1"></i>取消
+                                    </button>
+                                    <button type="button" class="btn-effect bg-red-500 text-white px-2 py-1 rounded-md text-sm flex items-center"
+                                        onclick="deleteStockOut({{ stock_out.id }})">
+                                        <i class="fa fa-trash mr-1"></i>删除
+                                    </button>
+                                    {% endif %}
+                                    {% if stock_out.status == '已审核' and approval_enabled %}
+                                    <button type="button" class="btn-effect bg-orange-500 text-white px-2 py-1 rounded-md text-sm flex items-center"
+                                        onclick="unapproveStockOut({{ stock_out.id }})">
+                                        <i class="fa fa-undo mr-1"></i>反审核
+                                    </button>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        {% if not stock_outs %}
+                        <tr>
+                            <td colspan="11" class="px-4 py-8 text-center text-gray-500">
+                                <i class="fa fa-inbox text-4xl mb-2 block text-gray-300"></i>
+                                暂无出库单数据
+                            </td>
+                        </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- 分页 -->
+            {% if total_pages > 1 %}
+            <div class="px-4 py-3 border-t border-gray-200 flex flex-col md:flex-row items-center justify-between gap-3">
+                <div class="text-sm text-gray-500">
+                    共 {{ total_count }} 条记录，第 {{ current_page }}/{{ total_pages }} 页
+                </div>
+                <div class="flex items-center gap-1">
+                    {% if current_page > 1 %}
+                    <a href="{{ url_for('stock_out.list_stock_outs', page=1, **request.args) }}" class="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-50">首页</a>
+                    <a href="{{ url_for('stock_out.list_stock_outs', page=current_page-1, **request.args) }}" class="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-50">上一页</a>
+                    {% endif %}
+                    {% for p in page_range %}
+                    {% if p == current_page %}
+                    <span class="px-3 py-1 bg-primary text-white rounded text-sm">{{ p }}</span>
+                    {% else %}
+                    <a href="{{ url_for('stock_out.list_stock_outs', page=p, **request.args) }}" class="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-50">{{ p }}</a>
+                    {% endif %}
+                    {% endfor %}
+                    {% if current_page < total_pages %}
+                    <a href="{{ url_for('stock_out.list_stock_outs', page=current_page+1, **request.args) }}" class="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-50">下一页</a>
+                    <a href="{{ url_for('stock_out.list_stock_outs', page=total_pages, **request.args) }}" class="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-50">末页</a>
+                    {% endif %}
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="text-sm text-gray-500">每页</span>
+                    <select id="perPage" onchange="changePerPage(this.value)" class="px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-primary/50">
+                        {% for size in [10, 20, 50, 100] %}
+                        <option value="{{ size }}" {% if per_page == size %}selected{% endif %}>{{ size }}</option>
+                        {% endfor %}
+                    </select>
+                    <span class="text-sm text-gray-500">条</span>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- 导入模态框 -->
+        <div id="importModal" class="fixed inset-0 bg-gray-600/50 hidden z-50 flex items-center justify-center">
+            <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md mx-4">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-semibold text-gray-800">导入出库单</h3>
+                    <button type="button" onclick="closeImportModal()" class="text-gray-400 hover:text-gray-600">
+                        <i class="fa fa-times"></i>
+                    </button>
+                </div>
+                <form method="post" action="{{ url_for('stock_out_import_export.import_stock_outs') }}" enctype="multipart/form-data" id="importForm">
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">选择Excel文件</label>
+                        <input type="file" name="file" accept=".xlsx,.xls" class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-medium file:bg-primary file:text-white hover:file:bg-primary/90" required>
+                    </div>
+                    <div class="mb-4">
+                        <a href="{{ url_for('stock_out_import_export.download_template') }}" class="text-primary hover:text-primary/80 text-sm">
+                            <i class="fa fa-download mr-1"></i>下载导入模板
+                        </a>
+                    </div>
+                    <div class="flex justify-end gap-3">
+                        <button type="button" onclick="closeImportModal()" class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 text-sm">取消</button>
+                        <button type="submit" class="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90 text-sm">开始导入</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- 批量删除隐藏表单 -->
+        <form id="batchDeleteForm" method="post" action="{{ url_for('stock_out.batch_delete_stock_outs') }}" style="display:none;">
+            <input type="hidden" name="selected_ids" id="batchDeleteIds">
+        </form>
+
+        <!-- 审核/取消隐藏表单 -->
+        <form id="approveForm" method="post" style="display:none;">
+        </form>
+        <form id="unapproveForm" method="post" style="display:none;">
+        </form>
+        <form id="cancelForm" method="post" style="display:none;">
+        </form>
+    </main>
+
+    <!-- 页脚 -->
+    {% include 'footer.html' %}
+    
+    <script>
+        // 全选/取消全选
+        function toggleSelectAll(el) {
+            document.querySelectorAll('.stock-out-checkbox').forEach(cb => cb.checked = el.checked);
+            updateBatchDeleteBtn();
+        }
+
+        // 更新批量删除按钮显示状态
+        function updateBatchDeleteBtn() {
+            const checked = document.querySelectorAll('.stock-out-checkbox:checked');
+            const btn = document.getElementById('batchDeleteBtn');
+            if (btn) {
+                btn.disabled = checked.length === 0;
+            }
+        }
+
+        // 批量删除
+        function batchDeleteStockOut() {
+            const checked = document.querySelectorAll('.stock-out-checkbox:checked');
+            if (checked.length === 0) return;
+            if (!confirm(`确认删除选中的 ${checked.length} 条出库单？此操作不可恢复！`)) return;
+            const ids = Array.from(checked).map(cb => cb.value).join(',');
+            document.getElementById('batchDeleteIds').value = ids;
+            document.getElementById('batchDeleteForm').submit();
+        }
+
+        // 审核出库单
+        function approveStockOut(id) {
+            if (!confirm('确认审核此出库单？')) return;
+            const form = document.getElementById('approveForm');
+            form.action = "{{ url_for('stock_out.approve_stock_out', id=0) }}".replace('0', id);
+            form.submit();
+        }
+
+        // 反审核出库单
+        function unapproveStockOut(id) {
+            if (!confirm('确定要反审核此出库单吗？反审核后库存将回滚，单据变为待审核状态，可重新编辑。')) return;
+            const form = document.getElementById('unapproveForm');
+            form.action = "{{ url_for('stock_out.unapprove_stock_out', id=0) }}".replace('0', id);
+            form.submit();
+        }
+
+        // 取消出库单
+        function cancelStockOut(id) {
+            if (!confirm('确认取消此出库单？')) return;
+            const form = document.getElementById('cancelForm');
+            form.action = "{{ url_for('stock_out.cancel_stock_out', id=0) }}".replace('0', id);
+            form.submit();
+        }
+
+        // 删除出库单
+        function deleteStockOut(id) {
+            if (!confirm('确认删除此出库单？此操作不可恢复！')) return;
+            const form = document.createElement('form');
+            form.method = 'post';
+            form.action = "{{ url_for('stock_out.delete_stock_out', id=0) }}".replace('0', id);
+            document.body.appendChild(form);
+            form.submit();
+        }
+
+        // 导出
+        function exportStockOut() {
+            const params = new URLSearchParams(window.location.search);
+            params.set('export', '1');
+            window.location.href = "{{ url_for('stock_out.list_stock_outs') }}?" + params.toString();
+        }
+
+        // 打开/关闭导入模态框
+        function openImportModal() {
+            document.getElementById('importModal').classList.remove('hidden');
+        }
+        function closeImportModal() {
+            document.getElementById('importModal').classList.add('hidden');
+        }
+
+        // 切换每页条数
+        function changePerPage(size) {
+            const params = new URLSearchParams(window.location.search);
+            params.set('per_page', size);
+            params.set('page', '1');
+            window.location.href = "{{ url_for('stock_out.list_stock_outs') }}?" + params.toString();
+        }
+
+        // 设置日期筛选默认值
+        (function() {
+            const startDateInput = document.querySelector('input[name="start_date"]');
+            const endDateInput = document.querySelector('input[name="end_date"]');
+            if (startDateInput && !startDateInput.value) {
+                const today = new Date();
+                const oneMonthAgo = new Date(today);
+                oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+                startDateInput.value = oneMonthAgo.toISOString().split('T')[0];
+            }
+            if (endDateInput && !endDateInput.value) {
+                const today = new Date();
+                endDateInput.value = today.toISOString().split('T')[0];
+            }
+        })();
+
+        // 导入按钮事件
+        const importBtn = document.getElementById('importBtn');
+        if (importBtn) {
+            importBtn.addEventListener('click', function() {
+                openImportModal();
+            });
+        }
+
+        // 导出按钮事件
+        const exportBtn = document.getElementById('exportBtn');
+        const exportBtnText = document.getElementById('exportBtnText');
+        if (exportBtn) {
+            exportBtn.addEventListener('click', function() {
+                if (exportBtnText) exportBtnText.textContent = '导出中...';
+                exportBtn.disabled = true;
+                exportStockOut();
+                setTimeout(function() {
+                    if (exportBtnText) exportBtnText.textContent = '导出';
+                    exportBtn.disabled = false;
+                }, 3000);
+            });
+        }
+
+        // 筛选联动：提交表单时保留分页参数
+        document.querySelector('form[method="get"]').addEventListener('submit', function() {
+            const perPage = document.getElementById('perPage');
+            if (perPage) {
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'per_page';
+                input.value = perPage.value;
+                this.appendChild(input);
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+{% include 'static.html' %}
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#165DFF',
+                        secondary: '#36CFC9',
+                        accent: '#722ED1',
+                        danger: '#F5222D',
+                        info: '#1890FF',
+                        warning: '#FAAD14'
+                    },
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .btn-effect {
+                transition: all 0.2s ease;
+            }
+            .btn-effect:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            }
+            .btn-hover {
+                transition: all 0.2s ease;
+            }
+            .btn-hover:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            }
+            .fade-in {
+                animation: fadeIn 0.5s ease-in;
+            }
+            @keyframes fadeIn {
+                from { opacity: 0; }
+                to { opacity: 1; }
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+{% include 'header.html' %}
+    <main class="container mx-auto px-4 py-6">
+        
+        <!-- 标题区 -->
+        <div class="mb-6 fade-in">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between">
+                <div class="flex items-center">
+                    <button type="button" onclick="window.location.href='{{ url_for('supplier.index') }}'" class="text-gray-600 hover:text-primary transition-colors mr-4">
+                        <i class="fa fa-arrow-left"></i>
+                    </button>
+                    <div>
+                        <h2 class="text-[clamp(1.5rem,3vw,2rem)] font-bold text-dark">{{ title }}</h2>
+                        <p class="text-gray-500 mt-1">批量导入供应商数据</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 消息提示区域 -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            <div class="flash-messages mb-6">
+              {% for category, message in messages %}
+                <div class="p-4 rounded-md mb-2 {% if category == 'success' %}bg-green-100 text-green-800{% elif category == 'error' or category == 'danger' %}bg-red-100 text-red-800{% elif category == 'warning' %}bg-yellow-100 text-yellow-800{% else %}bg-blue-100 text-blue-800{% endif %}">
+                  <button type="button" class="float-right ml-2 text-gray-500 hover:text-gray-700" onclick="this.parentElement.remove()">×</button>
+                  {{ message | safe }}
+                </div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        {% endwith %}
+
+        <div class="max-w-2xl mx-auto">
+            <!-- 导入说明 -->
+            <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+                <h3 class="text-lg font-semibold text-gray-800 mb-4">
+                    <i class="fa fa-info-circle text-info mr-2"></i>导入说明
+                </h3>
+                <div class="space-y-3 text-sm text-gray-600">
+                    <p>1. 请先下载导入模板，按照模板格式填写供应商数据</p>
+                    <p>2. 支持的文件格式：<span class="font-medium text-gray-800">.xlsx</span> 和 <span class="font-medium text-gray-800">.xls</span></p>
+                    <p>3. 文件大小限制：最大 <span class="font-medium text-gray-800">10MB</span></p>
+                    <p>4. 必填字段：<span class="font-medium text-gray-800">供应商名称</span></p>
+                    <p>5. 勾选"覆盖已有数据"将根据供应商名称匹配并更新已有记录</p>
+                </div>
+                <div class="mt-4">
+                    <a href="{{ url_for('supplier_import_export.download_template') }}" class="inline-flex items-center px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 btn-hover">
+                        <i class="fa fa-file-excel-o mr-2"></i>下载导入模板
+                    </a>
+                </div>
+            </div>
+
+            <!-- 导入表单 -->
+            <div class="bg-white rounded-lg shadow-sm p-6">
+                <h3 class="text-lg font-semibold text-gray-800 mb-4">
+                    <i class="fa fa-upload text-primary mr-2"></i>上传文件
+                </h3>
+                <form id="importForm" action="{{ url_for('supplier_import_export.import_suppliers') }}" method="post" enctype="multipart/form-data">
+                    <div class="mb-6">
+                        <label for="importFile" class="block text-sm font-medium text-gray-700 mb-2">选择文件</label>
+                        <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-primary transition-colors cursor-pointer" id="dropZone">
+                            <input type="file" id="importFile" name="file" accept=".xlsx,.xls" 
+                                   class="hidden"
+                                   onchange="handleFileSelect(this)">
+                            <div id="filePlaceholder">
+                                <i class="fa fa-cloud-upload text-4xl text-gray-400 mb-3"></i>
+                                <p class="text-gray-500 mb-2">点击或拖拽文件到此处上传</p>
+                                <p class="text-xs text-gray-400">支持 .xlsx、.xls 格式，最大 10MB</p>
+                            </div>
+                            <div id="fileInfo" class="hidden">
+                                <i class="fa fa-file-excel-o text-4xl text-green-500 mb-3"></i>
+                                <p id="fileName" class="text-gray-700 font-medium mb-1"></p>
+                                <p id="fileSize" class="text-xs text-gray-400"></p>
+                                <button type="button" onclick="clearFile()" class="mt-2 text-red-500 hover:text-red-700 text-sm">
+                                    <i class="fa fa-times mr-1"></i>移除文件
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-6">
+                        <label class="inline-flex items-center">
+                            <input type="checkbox" name="override" value="1" class="form-checkbox text-primary rounded">
+                            <span class="ml-2 text-gray-700">覆盖已有数据（根据供应商名称匹配）</span>
+                        </label>
+                    </div>
+
+                    <div class="flex justify-end gap-3">
+                        <button type="button" onclick="window.location.href='{{ url_for('supplier.index') }}'" class="px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 btn-hover">
+                            <i class="fa fa-times mr-2"></i>取消
+                        </button>
+                        <button type="submit" id="submitBtn" class="px-6 py-2 bg-primary text-white rounded-md hover:bg-primary/90 btn-hover disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                            <i class="fa fa-upload mr-2"></i>开始导入
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- 导入结果（如有） -->
+            {% if import_result %}
+            <div class="bg-white rounded-lg shadow-sm p-6 mt-6">
+                <h3 class="text-lg font-semibold text-gray-800 mb-4">
+                    <i class="fa fa-check-circle text-green-500 mr-2"></i>导入结果
+                </h3>
+                <div class="space-y-2 text-sm">
+                    {% if import_result.success_count is defined %}
+                    <div class="flex justify-between items-center py-2 border-b border-gray-100">
+                        <span class="text-gray-600">成功导入</span>
+                        <span class="font-medium text-green-600">{{ import_result.success_count }} 条</span>
+                    </div>
+                    {% endif %}
+                    {% if import_result.update_count is defined %}
+                    <div class="flex justify-between items-center py-2 border-b border-gray-100">
+                        <span class="text-gray-600">更新记录</span>
+                        <span class="font-medium text-blue-600">{{ import_result.update_count }} 条</span>
+                    </div>
+                    {% endif %}
+                    {% if import_result.fail_count is defined %}
+                    <div class="flex justify-between items-center py-2 border-b border-gray-100">
+                        <span class="text-gray-600">导入失败</span>
+                        <span class="font-medium text-red-600">{{ import_result.fail_count }} 条</span>
+                    </div>
+                    {% endif %}
+                    {% if import_result.errors %}
+                    <div class="mt-4">
+                        <p class="text-gray-600 font-medium mb-2">错误详情：</p>
+                        <div class="bg-red-50 rounded-md p-3 max-h-40 overflow-y-auto">
+                            {% for error in import_result.errors %}
+                            <p class="text-xs text-red-600">{{ error }}</p>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="mt-4">
+                    <a href="{{ url_for('supplier.index') }}" class="inline-flex items-center px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90 btn-hover">
+                        <i class="fa fa-list mr-2"></i>返回供应商列表
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </main>
+
+    <!-- 页脚 -->
+    {% include 'footer.html' %}
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const dropZone = document.getElementById('dropZone');
+            const fileInput = document.getElementById('importFile');
+            const submitBtn = document.getElementById('submitBtn');
+
+            // 点击上传区域触发文件选择
+            dropZone.addEventListener('click', function(e) {
+                if (e.target.closest('button')) return;
+                fileInput.click();
+            });
+
+            // 拖拽上传
+            dropZone.addEventListener('dragover', function(e) {
+                e.preventDefault();
+                this.classList.add('border-primary', 'bg-primary/5');
+            });
+
+            dropZone.addEventListener('dragleave', function(e) {
+                e.preventDefault();
+                this.classList.remove('border-primary', 'bg-primary/5');
+            });
+
+            dropZone.addEventListener('drop', function(e) {
+                e.preventDefault();
+                this.classList.remove('border-primary', 'bg-primary/5');
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                    fileInput.files = files;
+                    handleFileSelect(fileInput);
+                }
+            });
+
+            // 提交表单时显示加载状态
+            const importForm = document.getElementById('importForm');
+            importForm.addEventListener('submit', function(e) {
+                if (!fileInput.files || fileInput.files.length === 0) {
+                    e.preventDefault();
+                    alert('请选择要导入的文件');
+                    return;
+                }
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<i class="fa fa-spinner fa-spin mr-2"></i>正在导入...';
+            });
+        });
+
+        function handleFileSelect(input) {
+            const file = input.files[0];
+            const submitBtn = document.getElementById('submitBtn');
+            const filePlaceholder = document.getElementById('filePlaceholder');
+            const fileInfo = document.getElementById('fileInfo');
+            const fileName = document.getElementById('fileName');
+            const fileSize = document.getElementById('fileSize');
+
+            if (file) {
+                // 验证文件类型
+                const validTypes = ['.xlsx', '.xls'];
+                const ext = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
+                if (!validTypes.includes(ext)) {
+                    alert('请选择 .xlsx 或 .xls 格式的文件');
+                    input.value = '';
+                    return;
+                }
+                // 验证文件大小（10MB）
+                if (file.size > 10 * 1024 * 1024) {
+                    alert('文件大小不能超过10MB');
+                    input.value = '';
+                    return;
+                }
+                fileName.textContent = file.name;
+                fileSize.textContent = formatFileSize(file.size);
+                filePlaceholder.classList.add('hidden');
+                fileInfo.classList.remove('hidden');
+                submitBtn.disabled = false;
+            } else {
+                filePlaceholder.classList.remove('hidden');
+                fileInfo.classList.add('hidden');
+                submitBtn.disabled = true;
+            }
+        }
+
+        function clearFile() {
+            const fileInput = document.getElementById('importFile');
+            const submitBtn = document.getElementById('submitBtn');
+            const filePlaceholder = document.getElementById('filePlaceholder');
+            const fileInfo = document.getElementById('fileInfo');
+            fileInput.value = '';
+            filePlaceholder.classList.remove('hidden');
+            fileInfo.classList.add('hidden');
+            submitBtn.disabled = true;
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+    </script>
+</body>
+</html>

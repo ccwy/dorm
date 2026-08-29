@@ -61,3 +61,16 @@ from .department import department_bp
 # 注意：department_operations 的路由直接注册在 department_bp 上，无需单独导入蓝图
 from .department_api import department_api_bp
 from .department_import_export import department_import_export_bp
+
+# 低值易耗品进销存管理相关
+from .supply import (
+    supply_index_bp,
+    supplier_bp, supplier_api_bp, supplier_import_export_bp,
+    supply_item_bp, supply_item_api_bp, supply_item_import_export_bp,
+    storage_location_bp, storage_location_api_bp, storage_location_import_export_bp,
+    supply_stock_detail_bp, supply_stock_detail_api_bp,
+    stock_in_bp, stock_in_api_bp, stock_in_import_export_bp,
+    stock_out_bp, stock_out_api_bp, stock_out_import_export_bp,
+    supply_inventory_bp, supply_inventory_api_bp, supply_inventory_import_export_bp,
+    supply_stock_record_bp, supply_stock_record_api_bp
+)
