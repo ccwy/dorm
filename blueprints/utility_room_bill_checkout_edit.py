@@ -11,12 +11,12 @@ from utils.log import log_operation
 from datetime import datetime
 import logging
 from .utility_room_bill_checkout import utility_room_bill_checkout_bp  # 导入退宿费用子表主蓝图
-# 导入admin_required装饰器
-from utils.auth import admin_required
+# 导入权限装饰器
+from utils.auth import require_permission
 
 @utility_room_bill_checkout_bp.route('/edit/<int:checkout_id>', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('utility.view')
 def get_checkout_edit_data(checkout_id):
     """获取退宿费用修改页面所需的初始数据（住宿天数直接从子表读取）"""
     try:
@@ -310,7 +310,7 @@ def get_checkout_edit_data(checkout_id):
 
 @utility_room_bill_checkout_bp.route('/update/<int:checkout_id>', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('utility.edit')
 def update_checkout_data(checkout_id):
     """仅接收修改后的抄表记录，更新并重新计算费用"""
     try:

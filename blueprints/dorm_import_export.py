@@ -11,8 +11,8 @@ import re
 import logging
 from dateutil import parser
 
-# 导入admin_required装饰器
-from utils.auth import admin_required
+# 导入require_permission装饰器
+from utils.auth import require_permission
 # 导入数据模型
 from models.dorm import Dorm
 from models.user import User
@@ -52,7 +52,7 @@ def format_date(date_str):
     
 @dorm_import_export_bp.route('/residents', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('dorm.export')
 def export_residents():
     """导出在住人员数据及换宿舍历史记录"""
     try:
@@ -234,7 +234,7 @@ def export_residents():
 
 @dorm_import_export_bp.route('/import-residents', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('dorm.import')
 def import_residents():
     """批量导入在住人员并自动分配宿舍"""
     is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
@@ -398,7 +398,7 @@ def import_residents():
                         continue
 
                     # 验证用户角色（禁止为超级管理员分配宿舍）
-                    if user.is_super_admin():
+                    if user.user_role and user.user_role.code == 'super_admin':
                         fail_records.append({
                             'row': row_num,
                             'name': name,
@@ -583,7 +583,7 @@ def import_residents():
 
 @dorm_import_export_bp.route('/download-import-template', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('dorm.import')
 def download_import_template():
     """下载导入模板Excel文件"""
     try:

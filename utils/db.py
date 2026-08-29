@@ -13,8 +13,12 @@ _is_initialized = False
 
 def create_admin_user():
     """创建初始超级管理员"""
-    from models.user import User 
-    admin = User.query.filter_by(role='超级管理员').first()
+    from models.user import User
+    from models.role import Role
+    # 查找超级管理员角色
+    super_admin_role = Role.query.filter_by(code='super_admin').first()
+    # 查找是否已存在admin用户
+    admin = User.query.filter_by(username='admin').first()
     if not admin:
         admin = User(
             student_id='SUPERADMIN001',
@@ -22,7 +26,7 @@ def create_admin_user():
             gender='男',
             category='管理员',
             username='admin',
-            role='超级管理员',
+            role_id=super_admin_role.id if super_admin_role else None,
             status='在职',
             is_active=True,
             is_banned=True
@@ -36,12 +40,123 @@ def create_admin_user():
         except Exception as e:
             db.session.rollback()
             logging.error(f"创建超级管理员账号失败: {str(e)}")
+    elif admin.role_id is None and super_admin_role:
+        # 如果admin用户存在但没有角色，分配超级管理员角色
+        admin.role_id = super_admin_role.id
+        try:
+            db.session.commit()
+            logging.info("已为现有admin用户分配超级管理员角色")
+        except Exception as e:
+            db.session.rollback()
+            logging.error(f"分配超级管理员角色失败: {str(e)}")
 
 def init_system_configs():
     """初始化系统配置"""
     from models.system_config import SystemConfig
     SystemConfig.init_default_configs()
     logging.info("已初始化系统配置")
+
+def init_roles_and_permissions():
+    """初始化系统内置角色和权限数据（幂等操作）"""
+    from models.role import Role, RolePermission
+    from utils.auth import PERMISSIONS
+    
+    # 定义3个内置角色
+    builtin_roles = [
+        {'name': '超级管理员', 'code': 'super_admin', 'description': '拥有所有权限', 'is_system': True, 'sort_order': 1},
+        {'name': '管理员', 'code': 'admin', 'description': '除系统设置、日志、角色管理外的所有模块的全部操作权限', 'is_system': True, 'sort_order': 2},
+        {'name': '普通用户', 'code': 'user', 'description': '工单留言模块的全部操作权限', 'is_system': True, 'sort_order': 3},
+    ]
+    
+    # 管理员角色的权限模块（排除system_settings、log、role）
+    admin_excluded_modules = {'system_settings', 'log', 'role'}
+    # 普通用户的权限配置
+    user_permissions = {
+        'ticket': {'view', 'create', 'edit', 'delete'},
+    }
+    
+    for role_data in builtin_roles:
+        role = Role.query.filter_by(code=role_data['code']).first()
+        if not role:
+            # 角色不存在，创建
+            role = Role(**role_data)
+            db.session.add(role)
+            logging.info(f"创建内置角色: {role_data['name']}")
+        else:
+            # 角色已存在，更新基本信息（不更新权限）
+            role.name = role_data['name']
+            role.description = role_data['description']
+            role.sort_order = role_data['sort_order']
+            logging.info(f"内置角色已存在，更新基本信息: {role_data['name']}")
+    
+    try:
+        db.session.flush()  # 确保角色ID可用
+    except Exception as e:
+        db.session.rollback()
+        logging.error(f"创建内置角色失败: {str(e)}")
+        return
+    
+    # 初始化管理员角色权限
+    admin_role = Role.query.filter_by(code='admin').first()
+    if admin_role:
+        # 获取管理员已有的权限编码
+        existing_codes = {p.permission_code for p in admin_role.permissions.all()}
+        # 计算管理员应有的权限编码
+        expected_codes = set()
+        for module_code, module_info in PERMISSIONS.items():
+            if module_code not in admin_excluded_modules:
+                for action_code in module_info['actions']:
+                    expected_codes.add(f"{module_code}.{action_code}")
+        
+        # 添加缺失的权限
+        new_codes = expected_codes - existing_codes
+        for code in new_codes:
+            perm = RolePermission(role_id=admin_role.id, permission_code=code)
+            db.session.add(perm)
+        
+        # 删除不再需要的权限（模块被移除的情况）
+        removed_codes = existing_codes - expected_codes
+        if removed_codes:
+            RolePermission.query.filter(
+                RolePermission.role_id == admin_role.id,
+                RolePermission.permission_code.in_(removed_codes)
+            ).delete(synchronize_session=False)
+        
+        if new_codes or removed_codes:
+            logging.info(f"管理员角色权限已更新: 新增{len(new_codes)}个, 移除{len(removed_codes)}个")
+    
+    # 初始化普通用户角色权限
+    user_role = Role.query.filter_by(code='user').first()
+    if user_role:
+        existing_codes = {p.permission_code for p in user_role.permissions.all()}
+        expected_codes = set()
+        for module_code, actions in user_permissions.items():
+            for action_code in actions:
+                expected_codes.add(f"{module_code}.{action_code}")
+        
+        new_codes = expected_codes - existing_codes
+        for code in new_codes:
+            perm = RolePermission(role_id=user_role.id, permission_code=code)
+            db.session.add(perm)
+        
+        removed_codes = existing_codes - expected_codes
+        if removed_codes:
+            RolePermission.query.filter(
+                RolePermission.role_id ==user_role.id,
+                RolePermission.permission_code.in_(removed_codes)
+            ).delete(synchronize_session=False)
+        
+        if new_codes or removed_codes:
+            logging.info(f"普通用户角色权限已更新: 新增{len(new_codes)}个, 移除{len(removed_codes)}个")
+    
+    # super_admin角色不需要在role_permission表中配置权限（自动拥有所有权限）
+    
+    try:
+        db.session.commit()
+        logging.info("内置角色和权限初始化完成")
+    except Exception as e:
+        db.session.rollback()
+        logging.error(f"初始化角色权限失败: {str(e)}")
 
 def set_sqlite_pragma(dbapi_connection, connection_record):
     """SQLite启用外键约束"""
@@ -218,6 +333,11 @@ def init_db(app: Flask, force_recreate=False):
             import models.asset_inventory  # 盘点主表模型
             import models.asset_inventory_detail  # 盘点明细模型
             import models.asset_operation_record  # 资产操作记录模型
+            import models.user_operation_record  # 用户操作记录模型
+
+            # 角色管理模型
+            import models.role.role
+            import models.role.role_permission
 
             # 低值易耗品进销存管理模型
             import models.supply.supplier
@@ -239,7 +359,9 @@ def init_db(app: Flask, force_recreate=False):
                 db.create_all()
                 logging.info("数据表结构创建完成")
 
-                # 初始化管理员和配置，数据库监听器内已有初始化
+                # 初始化角色和权限数据（必须在create_admin_user之前）
+                init_roles_and_permissions()
+                # 初始化管理员和配置
                 create_admin_user()               
                 init_system_configs()
 

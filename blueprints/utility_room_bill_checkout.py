@@ -17,8 +17,8 @@ from sqlalchemy import func
 from models.system_config import SystemConfig
 from io import BytesIO
 from urllib.parse import quote
-# 导入admin_required装饰器
-from utils.auth import admin_required
+# 导入权限装饰器
+from utils.auth import require_permission
 
 utility_room_bill_checkout_bp = Blueprint('utility_room_bill_checkout', __name__, url_prefix='/utility_room_bill_checkout')
 
@@ -28,7 +28,7 @@ from . import utility_room_bill_checkout_export  # 导出蓝图
 
 @utility_room_bill_checkout_bp.route('/checkout_query', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('utility.view')
 def query_checkout_records():
     """
     退宿人员费用查询接口（POST方式）

@@ -9,7 +9,7 @@ from utils.lazy_imports import pd  # 延迟导入pandas，避免启动时加载�
 import io
 from datetime import datetime
 import traceback
-from utils.auth import admin_required
+from utils.auth import require_permission
 from io import BytesIO
 
 # 创建导入导出专用蓝图
@@ -26,7 +26,7 @@ department_import_export_bp = Blueprint(
 # 导出部门数据
 @department_import_export_bp.route('/export', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('department.export')
 def export():
     """导出部门数据为Excel"""
     try:
@@ -104,7 +104,7 @@ def export():
 # 导入部门数据
 @department_import_export_bp.route('/import', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('department.import')
 def import_departments():
     """批量导入部门数据"""
     try:
@@ -273,7 +273,7 @@ def import_departments():
 # 下载导入模板
 @department_import_export_bp.route('/template', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('department.import')
 def download_template():
     """生成并下载部门数据导入模板"""
     try:

@@ -7,7 +7,7 @@ from models.system_config import SystemConfig
 from flask_login import login_required, current_user
 from sqlalchemy import or_
 from datetime import datetime
-from utils.auth import admin_required
+from utils.auth import require_permission
 import logging
 import os
 from utils.ticket_photo import ticket_photo_manager
@@ -19,7 +19,7 @@ ticket_admin_bp = Blueprint('ticket_admin', __name__, url_prefix='/admin/ticket'
 # 管理端留言列表
 @ticket_admin_bp.route('/list')
 @login_required
-@admin_required
+@require_permission('ticket.manage')
 def admin_ticket_list():
     try:
         # 验证用户ID是否有效
@@ -112,7 +112,7 @@ def admin_ticket_list():
 # 查看留言详情
 @ticket_admin_bp.route('/detail/<int:ticket_id>')
 @login_required
-@admin_required
+@require_permission('ticket.manage')
 def ticket_detail(ticket_id):
     try:
         # 验证用户ID是否有效
@@ -161,7 +161,7 @@ def ticket_detail(ticket_id):
 # 编辑留言
 @ticket_admin_bp.route('/update/<int:ticket_id>', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('ticket.edit')
 def update_ticket(ticket_id):
     try:
         # 验证用户ID是否有效
@@ -219,7 +219,7 @@ def update_ticket(ticket_id):
 # 添加留言回复
 @ticket_admin_bp.route('/add_reply/<int:ticket_id>', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('ticket.edit')
 def add_ticket_reply(ticket_id):
     try:
         # 验证用户ID是否有效
@@ -289,7 +289,7 @@ def add_ticket_reply(ticket_id):
 # 关闭留言
 @ticket_admin_bp.route('/close/<int:ticket_id>', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('ticket.edit')
 def close_ticket(ticket_id):
     try:
         # 验证用户ID是否有效
@@ -335,7 +335,7 @@ def close_ticket(ticket_id):
 # 删除留言
 @ticket_admin_bp.route('/delete/<int:ticket_id>', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('ticket.delete')
 def delete_ticket(ticket_id):
     try:
         # 验证用户ID是否有效
@@ -385,7 +385,7 @@ def delete_ticket(ticket_id):
 # 批量删除留言
 @ticket_admin_bp.route('/batch_delete', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('ticket.delete')
 def batch_delete_tickets():
     try:
         # 验证用户ID是否有效
@@ -454,7 +454,7 @@ def batch_delete_tickets():
 # 删除所有留言
 @ticket_admin_bp.route('/delete_all', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('ticket.delete')
 def delete_all_tickets():
     try:
         # 验证用户ID是否有效
@@ -506,7 +506,7 @@ def delete_all_tickets():
 # 访问留言媒体文件
 @ticket_admin_bp.route('/media/<int:ticket_id>/<path:filename>')
 @login_required
-@admin_required
+@require_permission('ticket.manage')
 def serve_ticket_media(ticket_id, filename):
     try:
         # 验证用户ID是否有效
@@ -580,7 +580,7 @@ def serve_ticket_media(ticket_id, filename):
 # 处理留言媒体文件上传
 @ticket_admin_bp.route('/upload_media/<int:ticket_id>', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('ticket.edit')
 def upload_ticket_media(ticket_id):
     try:
         # 验证用户ID是否有效
@@ -638,7 +638,7 @@ def upload_ticket_media(ticket_id):
 # 批量关闭留言
 @ticket_admin_bp.route('/batch_close', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('ticket.edit')
 def batch_close_tickets():
     try:
         # 验证用户ID是否有效
@@ -705,7 +705,7 @@ def batch_close_tickets():
 # 关闭所有留言
 @ticket_admin_bp.route('/close_all', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('ticket.edit')
 def close_all_tickets():
     try:
         # 验证用户ID是否有效
@@ -751,7 +751,7 @@ def close_all_tickets():
 # 处理留言媒体文件删除
 @ticket_admin_bp.route('/delete_media/<int:ticket_id>/<path:filename>', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('ticket.edit')
 def delete_ticket_media(ticket_id, filename):
     try:
         # 验证用户ID是否有效

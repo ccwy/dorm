@@ -4,7 +4,7 @@ from utils.db import db
 from flask_login import login_required, current_user
 from utils.log import log_operation
 import traceback
-from utils.auth import admin_required
+from utils.auth import require_permission
 from models.supply.supply_item import SupplyItem
 
 supply_item_api_bp = Blueprint('supply_item_api', __name__, url_prefix='/api/supply-items')
@@ -13,7 +13,7 @@ supply_item_api_bp = Blueprint('supply_item_api', __name__, url_prefix='/api/sup
 # ========== 获取物品列表JSON（分页+筛选） ==========
 @supply_item_api_bp.route('/list', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('supply.view')
 def get_supply_item_list():
     """获取物品列表JSON，支持分页和多条件筛选"""
     try:
@@ -109,7 +109,7 @@ def get_supply_item_list():
 # ========== 获取物品详情JSON ==========
 @supply_item_api_bp.route('/<int:id>', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('supply.view')
 def get_supply_item_detail(id):
     """获取物品详情JSON"""
     try:
@@ -183,7 +183,7 @@ def get_active_supply_items():
 # ========== 获取低库存物品列表JSON ==========
 @supply_item_api_bp.route('/low-stock', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('supply.view')
 def get_low_stock_items():
     """获取低于最低库存的物品列表"""
     try:

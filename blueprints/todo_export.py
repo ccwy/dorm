@@ -3,6 +3,7 @@ from models.todo import Todo
 from models.todo_progress import TodoProgress
 from utils.log import log_operation
 from flask_login import login_required, current_user
+from utils.auth import require_permission
 import logging
 from datetime import datetime
 import io
@@ -10,6 +11,7 @@ from .todo import todo_bp  # 导入todo蓝图
 
 @todo_bp.route('/excel', methods=['GET'])
 @login_required
+@require_permission('todo.export')
 def export_excel():
     """导出待办事项为Excel文件"""
     import pandas as pd  # 延迟导入，避免启动时加载重型库
@@ -39,7 +41,7 @@ def export_excel():
                 return jsonify({'success': False, 'message': '结束日期格式不正确，应为YYYY-MM-DD'}), 400
         
         # 根据用户权限确定查询范围
-        if current_user.is_super_admin():
+        if current_user.user_role and current_user.user_role.code == 'super_admin':
             # 超级管理员可以查询所有待办事项
             todos = Todo.search(start_date=start_date, end_date=end_date)
         else:

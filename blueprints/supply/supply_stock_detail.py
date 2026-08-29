@@ -5,7 +5,7 @@ from models.supply.supply_item import SupplyItem
 from models.supply.storage_location import StorageLocation
 from flask_login import login_required, current_user
 from utils.log import log_operation
-from utils.auth import admin_required
+from utils.auth import require_permission
 import logging
 import io
 import traceback
@@ -47,7 +47,7 @@ def generate_page_range(current_page, total_pages, show_pages=5):
 # 库存明细列表页（支持按物品/位置/低库存筛选）
 @supply_stock_detail_bp.route('/', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('supply.view')
 def list_stock_details():
     """库存明细列表页，按物品分组汇总，支持筛选和展开查看位置明细"""
     try:
@@ -203,7 +203,7 @@ def list_stock_details():
 # 按物品查看各位置库存
 @supply_stock_detail_bp.route('/by-item/<int:item_id>', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('supply.view')
 def by_item(item_id):
     """按物品查看各位置库存明细"""
     try:
@@ -263,7 +263,7 @@ def by_item(item_id):
 # 按位置查看各物品库存
 @supply_stock_detail_bp.route('/by-location/<int:location_id>', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('supply.view')
 def by_location(location_id):
     """按位置查看各物品库存明细"""
     try:
@@ -323,7 +323,7 @@ def by_location(location_id):
 # 低库存预警列表
 @supply_stock_detail_bp.route('/low-stock', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('supply.view')
 def low_stock():
     """低库存预警列表页"""
     try:
@@ -393,7 +393,7 @@ def low_stock():
 # 重新计算物品总库存
 @supply_stock_detail_bp.route('/operations/recalculate/<int:item_id>', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('supply.edit')
 def recalculate_stock(item_id):
     """重新计算指定物品的总库存"""
     try:
@@ -428,7 +428,7 @@ def recalculate_stock(item_id):
 # ========== 导出库存明细数据 ==========
 @supply_stock_detail_bp.route('/export', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('supply.export')
 def export_stock_details():
     """导出库存明细数据为Excel"""
     try:

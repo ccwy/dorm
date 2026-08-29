@@ -13,12 +13,12 @@ from decimal import Decimal, InvalidOperation
 import logging
 from .utility_room_bill_checkout import utility_room_bill_checkout_bp  # 导入退宿费用子表主蓝图
 from models.fee_subsidy_usage import FeeSubsidyUsage  # 导入费用补贴使用记录模型
-# 导入admin_required装饰器
-from utils.auth import admin_required
+# 导入权限装饰器
+from utils.auth import require_permission
 
 @utility_room_bill_checkout_bp.route('/create', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('utility.create')
 def create_checkout_record():
     """创建退宿费用记录"""
     try:
@@ -206,7 +206,7 @@ def create_checkout_record():
 
 @utility_room_bill_checkout_bp.route('/delete', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('utility.delete')
 def delete_checkout_record():
     """删除单条退宿费用记录，同步删除关联的补贴使用记录并减少主表已结算费用"""
     try:
@@ -334,7 +334,7 @@ def delete_checkout_record():
 
 @utility_room_bill_checkout_bp.route('/batch_delete', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('utility.delete')
 def batch_delete_checkout_records():
     """批量删除退宿费用记录，同步删除关联记录并减少主表已结算费用"""
     try:
@@ -508,7 +508,7 @@ def batch_delete_checkout_records():
 
 @utility_room_bill_checkout_bp.route('/delete_period', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('utility.delete')
 def delete_period_records():
     """删除指定账期的所有退宿费用记录，同步更新主表已结算费用"""
     try:

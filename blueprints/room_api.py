@@ -11,8 +11,8 @@ import traceback
 from datetime import datetime  # 只保留datetime导入
 from werkzeug.utils import secure_filename
 import os
-# 导入admin_required装饰器
-from utils.auth import admin_required
+
+from utils.auth import require_permission
 from models.system_config import SystemConfig  # 新增：导入系统配置模型
 from utils.room_photo import RoomPhotoManager
 
@@ -39,7 +39,7 @@ def get_room_type_mapping():
 
 @room_api_bp.route('/<int:room_id>', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('room.view')
 def get_room_detail(room_id):
     try:
         logging.debug(f"=== 处理房间详情请求：room_id={room_id} ===")
@@ -182,7 +182,7 @@ def get_room_detail(room_id):
 
 @room_api_bp.route('', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('room.view')
 def get_rooms():
     try:
         logging.debug("\n=== 房间列表请求 ===")
@@ -408,7 +408,7 @@ def get_rooms():
 
 @room_api_bp.route('/user-rooms/batch', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('room.view')
 def get_batch_user_rooms():
     try:
         data = request.get_json()
@@ -552,7 +552,7 @@ def get_room_media_list():
 
 @room_api_bp.route('/buildings', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('room.view')
 def get_buildings():
     """获取所有楼栋信息"""
     try:

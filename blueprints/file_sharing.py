@@ -4,6 +4,7 @@ import time
 from datetime import datetime
 from flask import Blueprint, render_template, request, redirect, url_for, flash, send_from_directory, jsonify, send_file
 from flask_login import login_required, current_user
+from utils.auth import require_permission
 import logging
 import sys
 import shutil
@@ -62,7 +63,7 @@ def get_current_root(root_type=None):
     # 检查用户是否已登录并有权限访问非file_sharing目录
     if root_type != 'file_sharing':
         # 检查用户是否登录且是管理员
-        if not (current_user.is_authenticated and current_user.is_admin()):
+        if not (current_user.is_authenticated and current_user.has_permission('file_sharing.manage')):
             logging.warning(f'用户{current_user.id}尝试访问需要管理员权限的目录: {root_type}')
             # 非管理员只能访问file_sharing目录
             root_type = 'file_sharing'
@@ -172,6 +173,7 @@ def paginate_items(items, page, per_page):
 # 文件管理主页
 @file_sharing_bp.route('/', methods=['GET'])
 @login_required
+@require_permission('file_sharing.view')
 def file_sharing():
     # 获取当前选择的根目录
     root_type = request.args.get('root', 'file_sharing')
@@ -278,7 +280,7 @@ def file_sharing():
         root_type = 'file_sharing'
     
     # 根据用户权限过滤显示的根目录选项
-    if current_user.is_authenticated and current_user.is_admin():
+    if current_user.is_authenticated and current_user.has_permission('file_sharing.manage'):
         # 管理员可以看到所有根目录
         display_roots = supported_roots
     else:
@@ -303,6 +305,7 @@ def file_sharing():
 # 创建新文件夹
 @file_sharing_bp.route('/create_folder', methods=['POST'])
 @login_required
+@require_permission('file_sharing.manage')
 def create_folder():
     current_path = request.form.get('current_path', '')
     folder_name = request.form.get('folder_name', '').strip()
@@ -350,15 +353,16 @@ def create_folder():
 # 上传文件或文件夹
 @file_sharing_bp.route('/upload', methods=['POST'])
 @login_required
+@require_permission('file_sharing.manage')
 def upload_file():
     current_path = request.form.get('current_path', '')
     # 从表单或URL参数获取root_type，不设置默认值
     root_type = request.form.get('root_type') or request.args.get('root')
     
-    # 检查用户是否是管理员
-    if not current_user.is_admin():
-        flash('操作失败：需要管理员权限', 'error')
-        logging.warning(f'用户 {current_user.id} 尝试执行需要管理员权限的上传操作')
+    # 检查用户是否有上传权限
+    if not current_user.has_permission('file_sharing.upload'):
+        flash('操作失败：需要上传权限', 'error')
+        logging.warning(f'用户 {current_user.id} 尝试执行需要上传权限的操作')
         return redirect(url_for('file_sharing.file_sharing', path=current_path, root=root_type))
     
     # 确保root_type有效
@@ -442,6 +446,7 @@ def upload_file():
 # 下载文件
 @file_sharing_bp.route('/download/<path:file_path>')
 @login_required
+@require_permission('file_sharing.view')
 def download_file(file_path):
     # 从URL参数获取root_type，不设置默认值
     root_type = request.args.get('root')
@@ -472,6 +477,7 @@ def download_file(file_path):
 # 删除文件或文件夹
 @file_sharing_bp.route('/delete', methods=['POST'])
 @login_required
+@require_permission('file_sharing.delete')
 def delete_file():
     file_paths = request.form.getlist('file_paths[]')
     current_path = request.form.get('current_path', '')
@@ -479,10 +485,10 @@ def delete_file():
     # 从表单或URL参数获取root_type，不设置默认值
     root_type = request.form.get('root_type') or request.args.get('root')
     
-    # 检查用户是否是管理员
-    if not current_user.is_admin():
-        flash('操作失败：需要管理员权限', 'error')
-        logging.warning(f'用户 {current_user.id} 尝试执行需要管理员权限的删除操作')
+    # 检查用户是否有删除权限
+    if not current_user.has_permission('file_sharing.delete'):
+        flash('操作失败：需要删除权限', 'error')
+        logging.warning(f'用户 {current_user.id} 尝试执行需要删除权限的操作')
         return redirect(url_for('file_sharing.file_sharing', path=current_path, root=root_type))
     
     # 调试日志，记录接收到的参数
@@ -568,14 +574,15 @@ def delete_file():
 # 分块上传文件
 @file_sharing_bp.route('/upload_chunk', methods=['POST'])
 @login_required
+@require_permission('file_sharing.manage')
 def upload_chunk():
     # 从URL参数获取root_type
     root_type = request.args.get('root')
     
-    # 检查用户是否是管理员
-    if not current_user.is_admin():
-        logging.warning(f'用户 {current_user.id} 尝试执行需要管理员权限的分块上传操作')
-        return jsonify({'success': False, 'message': '操作失败：需要管理员权限'}), 403
+    # 检查用户是否有上传权限
+    if not current_user.has_permission('file_sharing.upload'):
+        logging.warning(f'用户 {current_user.id} 尝试执行需要上传权限的分块上传操作')
+        return jsonify({'success': False, 'message': '操作失败：需要上传权限'}), 403
     
     # 确保root_type有效
     if not root_type or root_type not in supported_roots:
@@ -614,14 +621,15 @@ def upload_chunk():
 # 合并文件块
 @file_sharing_bp.route('/merge_chunks', methods=['POST'])
 @login_required
+@require_permission('file_sharing.manage')
 def merge_chunks():
     # 从URL参数获取root_type
     root_type = request.args.get('root')
     
-    # 检查用户是否是管理员
-    if not current_user.is_admin():
-        logging.warning(f'用户 {current_user.id} 尝试执行需要管理员权限的合并文件块操作')
-        return jsonify({'success': False, 'message': '操作失败：需要管理员权限'}), 403
+    # 检查用户是否有上传权限
+    if not current_user.has_permission('file_sharing.upload'):
+        logging.warning(f'用户 {current_user.id} 尝试执行需要上传权限的合并文件块操作')
+        return jsonify({'success': False, 'message': '操作失败：需要上传权限'}), 403
     
     # 确保root_type有效
     if not root_type or root_type not in supported_roots:
@@ -691,6 +699,7 @@ def merge_chunks():
 # 重命名文件或文件夹
 @file_sharing_bp.route('/rename', methods=['POST'])
 @login_required
+@require_permission('file_sharing.manage')
 def rename_file():
     current_path = request.form.get('current_path', '')
     old_name = request.form.get('old_name', '')
@@ -698,10 +707,10 @@ def rename_file():
     # 从表单或URL参数获取root_type，不设置默认值
     root_type = request.form.get('root_type') or request.args.get('root')
     
-    # 检查用户是否是管理员
-    if not current_user.is_admin():
-        flash('操作失败：需要管理员权限', 'error')
-        logging.warning(f'用户 {current_user.id} 尝试执行需要管理员权限的重命名操作')
+    # 检查用户是否有管理权限
+    if not current_user.has_permission('file_sharing.manage'):
+        flash('操作失败：需要管理权限', 'error')
+        logging.warning(f'用户 {current_user.id} 尝试执行需要管理权限的重命名操作')
         return redirect(url_for('file_sharing.file_sharing', path=current_path, root=root_type))
     
     # 确保root_type有效

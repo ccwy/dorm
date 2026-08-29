@@ -54,8 +54,8 @@
                         <div>
                             <label for="name" class="block text-sm font-medium text-gray-700 mb-1">姓名 <span class="text-red-500">*</span></label>
                             <input type="text" id="name" name="name" value="{{ user.name }}" required
-                                   class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50" {{ 'disabled' if user.is_super_admin()  else '' }}>
-                                   {% if  user.is_super_admin() %}
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50" {{ 'disabled' if user.user_role and user.user_role.code == 'super_admin'  else '' }}>
+                                   {% if  user.user_role and user.user_role.code == 'super_admin' %}
                                    <p class="ml-2 text-xs text-amber-500">* 禁止修改超级管理员</p>
                                    {% endif %}
                         </div>
@@ -92,7 +92,7 @@
                         <div>
                             <label for="category" class="block text-sm font-medium text-gray-700 mb-1">用户类别 <span class="text-red-500">*</span></label>
                             <select id="category" name="category"
-                                    class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50" {{ 'disabled' if user.is_super_admin()  else '' }}>
+                                    class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50" {{ 'disabled' if user.user_role and user.user_role.code == 'super_admin'  else '' }}>
                                 <option value="">-- 请选择用户类别 --</option>
                                 {% if category_options and category_options|length > 0 %}
                                     {% for option in category_options %}
@@ -103,7 +103,7 @@
                                     {% endfor %}
                                 {% endif %}
                             </select>
-                            {% if  user.is_super_admin() %}
+                            {% if  user.user_role and user.user_role.code == 'super_admin' %}
                                    <p class="ml-2 text-xs text-amber-500">* 禁止修改超级管理员</p>
                                    {% endif %}
                         </div>
@@ -111,7 +111,7 @@
                          <div>
                             <label for="marital_status" class="block text-sm font-medium text-gray-700 mb-1">婚姻状态</label>
                             <select id="marital_status" name="marital_status"
-                                    class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50" {{ 'disabled' if user.is_super_admin()  else '' }}>
+                                    class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50" {{ 'disabled' if user.user_role and user.user_role.code == 'super_admin'  else '' }}>
                                 <option value="">-- 请选择婚姻状态 --</option>
                                 {% if marital_status_options and marital_status_options|length > 0 %}
                                     {% for option in marital_status_options %}
@@ -122,7 +122,7 @@
                                     {% endfor %}
                                 {% endif %}
                             </select>
-                            {% if  user.is_super_admin() %}
+                            {% if  user.user_role and user.user_role.code == 'super_admin' %}
                                    <p class="ml-2 text-xs text-amber-500">* 禁止修改超级管理员</p>
                                    {% endif %}
                         </div>
@@ -193,7 +193,7 @@
                             <label for="status" class="block text-sm font-medium text-gray-700 mb-1">状态 <span class="text-red-500">*</span></label>
                             <select id="status" name="status"
                                     class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
-                                    {{ 'disabled' if user.has_active_dorm or user.is_super_admin() else '' }}>
+                                    {{ 'disabled' if user.has_active_dorm or user.user_role and user.user_role.code == 'super_admin' else '' }}>
                                 <option value="">-- 请选择用户状态 --</option>
                                 {% if status_options and status_options|length > 0 %}
                                     {% for option in status_options %}
@@ -205,7 +205,7 @@
                                     {% endfor %}
                                 {% endif %}
                             </select>
-                            {% if  user.is_super_admin() %}
+                            {% if  user.user_role and user.user_role.code == 'super_admin' %}
                                    <p class="ml-2 text-xs text-amber-500">* 禁止修改超级管理员</p>
                                    {% endif %}
                             {% if user.has_active_dorm %}
@@ -270,19 +270,19 @@
                         
                         <div>
                             <label for="role" class="block text-sm font-medium text-gray-700 mb-1">角色  <span class="text-red-500">*</span></label>
-                            <select id="role" name="role"
-                                    class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50" {{ 'disabled' if user.is_super_admin()  else '' }}>
+                            <select id="role_id" name="role_id"
+                                    class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50" {{ 'disabled' if user.user_role and user.user_role.code == 'super_admin'  else '' }}>
                                <option value="">-- 请选择用户角色 --</option>
                                 {% if role_options and role_options|length > 0 %}
                                     {% for option in role_options %}
                                         <option value="{{ option.value }}" 
-                                            {{ 'selected' if user.role == option.value else '' }}>
+                                            {{ 'selected' if user.role_id and user.role_id|string == option.value else '' }}>
                                             {{ option.label }}
                                         </option>
                                     {% endfor %}
                                 {% endif %}
                             </select>
-                            {% if  user.is_super_admin() %}
+                            {% if  user.user_role and user.user_role.code == 'super_admin' %}
                                    <p class="ml-2 text-xs text-amber-500">* 禁止修改超级管理员</p>
                                    {% endif %}
                         </div>
@@ -292,11 +292,11 @@
                             <div class="flex items-center">
                                 <input type="checkbox" id="is_active" name="is_active"
                                        {{ 'checked' if user.is_active else '' }}
-                                       class="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded" {{ 'disabled' if user.is_super_admin()  else '' }}>
+                                       class="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded" {{ 'disabled' if user.user_role and user.user_role.code == 'super_admin'  else '' }}>
                                 <label for="is_active" class="ml-2 block text-sm text-gray-700"  >
                                     是否激活账号（勾选后账号可登录系统）
                                 </label>
-                                {% if  user.is_super_admin() %}
+                                {% if  user.user_role and user.user_role.code == 'super_admin' %}
                                    <p class="ml-2 text-xs text-amber-500">* 禁止修改超级管理员</p>
                                    {% endif %}
                             </div>
@@ -308,11 +308,11 @@
                                 <input type="checkbox" id="is_banned" name="is_banned"
                                        {{ 'checked' if user.is_banned else '' }}
                                        class="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
-                                       {{ 'disabled' if user.is_super_admin()  else '' }}>
+                                       {{ 'disabled' if user.user_role and user.user_role.code == 'super_admin'  else '' }}>
                                 <label for="is_banned" class="ml-2 block text-sm text-gray-700">
                                     是否允许登录（勾选后账号可登录系统）
                                 </label>
-                                {% if  user.is_super_admin()  %}
+                                {% if  user.user_role and user.user_role.code == 'super_admin'  %}
                                 <p class="ml-2 text-xs text-amber-500">* 禁止修改超级管理员</p>
                                 {% endif %}
                             </div>

@@ -14,8 +14,8 @@ from models.utility_room_bill_occupant import RoomUtilityOccupant  #导入子表
 from models.utility_room_bill_checkout import CheckoutUtilityRecord
 from decimal import Decimal  # 使用Decimal处理财务数据
 from models.fee_subsidy_usage import FeeSubsidyUsage  # 导入费用补贴子表
-# 导入admin_required装饰器
-from utils.auth import admin_required
+# 导入权限装饰器
+from utils.auth import require_permission
 
 # 主表蓝图
 utility_room_bill_records_bp = Blueprint('utility_room_bill_records_bp', __name__, url_prefix='/utility_room_bill_records_bp')
@@ -25,7 +25,7 @@ MODULE_NAME = 'utility_room_bill_records_bp'
 
 @utility_room_bill_records_bp.route('/periods', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('utility.view')
 def get_periods():
     """获取所有可用账期列表（供前端选择账期使用）"""
     try:
@@ -62,7 +62,7 @@ def get_periods():
 
 @utility_room_bill_records_bp.route('/period-info/<string:period>', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('utility.view')
 def get_period_info(period):
     """获取指定账期的详细信息"""
     try:
@@ -200,7 +200,7 @@ def get_room_history_readings(room_id, current_period):
 
 @utility_room_bill_records_bp.route('/by-period', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('utility.view')
 def get_records_by_period():
     """按账期批量查询接口"""
     try:
@@ -312,7 +312,7 @@ def get_records_by_period():
 # 一键一键核算接口（仅保留核算功能，保持改动原有标识）
 @utility_room_bill_records_bp.route('/fee_bill', methods=['POST'])  # 保持原有路由
 @login_required
-@admin_required
+@require_permission('utility.create')
 def create_record():  # 保持原有接口名称
     """一键核算费用接口，仅处理批量核算逻辑"""
     try:
@@ -403,7 +403,7 @@ def create_record():  # 保持原有接口名称
 
 @utility_room_bill_records_bp.route('/<int:record_id>', methods=['DELETE'])
 @login_required
-@admin_required
+@require_permission('utility.delete')
 def delete_single_record(record_id):
     """删除单条账单记录（单行删除功能）"""
     try:
@@ -480,7 +480,7 @@ def delete_single_record(record_id):
 
 @utility_room_bill_records_bp.route('/batch-delete', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('utility.delete')
 def batch_delete_records():
     """批量删除账单记录（支持删除当期账单），连带删除关联的费用补贴记录"""
     try:
@@ -586,7 +586,7 @@ def batch_delete_records():
 
 @utility_room_bill_records_bp.route('/clear-period', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('utility.delete')
 def clear_period_data():
     """清空指定账期的主表数据（保留记录，清除抄表和费用信息）"""
     try:
@@ -722,7 +722,7 @@ def clear_period_data():
 
 @utility_room_bill_records_bp.route('/search', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('utility.view')
 def search_records():
     """搜索接口，确保抄表记录正确加载"""
     try:
@@ -904,7 +904,7 @@ def search_records():
 
 @utility_room_bill_records_bp.route('/create_empty_period', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('utility.create')
 def create_empty_period_records():
     """
     为指定账期创建空的主表记录，为所有房间初始化该账期的记录

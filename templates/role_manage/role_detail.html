@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+   <!--本地化CDN-->
+{% include 'static.html' %}
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#165DFF',
+                        secondary: '#36CFC9',
+                        accent: '#722ED1',
+                    },
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .fade-in {
+                animation: fadeIn 0.3s ease-in-out;
+            }
+            @keyframes fadeIn {
+                from { opacity: 0; transform: translateY(10px); }
+                to { opacity: 1; transform: translateY(0); }
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+
+{% include 'header.html' %}
+    <main class="container mx-auto px-4 py-6">
+        <!-- 标题区 -->
+        <div class="mb-6 fade-in">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between">
+                <div class="flex items-center">
+                    <button onclick="window.location.href='{{ url_for('role.role_list') }}'" class="text-primary hover:text-primary/80 mr-2">
+                        <i class="fa fa-arrow-left"></i>
+                    </button>
+                    <div>
+                        <h2 class="text-2xl font-semibold text-dark">{{ title }}</h2>
+                        <p class="text-gray-500 mt-1">查看角色信息及关联用户</p>
+                    </div>
+                </div>
+                <div class="mt-4 md:mt-0 flex space-x-2">
+                    {% if current_user.has_permission('role.edit') %}
+                    <a href="{{ url_for('role.edit_page', id=role.id) }}" class="inline-flex items-center px-4 py-2 bg-secondary text-white rounded-md hover:bg-secondary/90 transition-colors">
+                        <i class="fa fa-edit mr-2"></i>编辑角色
+                    </a>
+                    <button type="button" onclick="showAddUserModal()" class="inline-flex items-center px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90 transition-colors">
+                        <i class="fa fa-user-plus mr-2"></i>添加用户
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Flash消息 -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="bg-{{ 'green' if category == 'success' else 'red' }}-50 border border-{{ 'green' if category == 'success' else 'red' }}-200 rounded-md p-4 mb-4 fade-in">
+                        <p class="text-{{ 'green' if category == 'success' else 'red' }}-700">
+                            <i class="fa fa-{{ 'check-circle' if category == 'success' else 'exclamation-circle' }} mr-1"></i>
+                            {{ message }}
+                        </p>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <!-- 角色基本信息 -->
+        <div class="bg-white rounded-lg shadow-sm p-6 mb-6 fade-in">
+            <h3 class="text-lg font-medium text-gray-800 mb-4 flex items-center">
+                <i class="fa fa-info-circle text-primary mr-2"></i>角色信息
+            </h3>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div>
+                    <p class="text-sm text-gray-500">角色名称</p>
+                    <p class="text-base font-medium text-gray-900">{{ role.name }}</p>
+                </div>
+                <div>
+                    <p class="text-sm text-gray-500">角色编码</p>
+                    <p class="text-base font-mono text-gray-700">{{ role.code }}</p>
+                </div>
+                <div>
+                    <p class="text-sm text-gray-500">描述</p>
+                    <p class="text-base text-gray-700">{{ role.description or '-' }}</p>
+                </div>
+                <div>
+                    <p class="text-sm text-gray-500">类型</p>
+                    {% if role.is_system %}
+                    <span class="px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded-full">系统内置</span>
+                    {% else %}
+                    <span class="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded-full">自定义</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- 权限信息 -->
+        <div class="bg-white rounded-lg shadow-sm p-6 mb-6 fade-in">
+            <h3 class="text-lg font-medium text-gray-800 mb-4 flex items-center">
+                <i class="fa fa-shield text-primary mr-2"></i>权限信息
+            </h3>
+            {% if role.code == 'super_admin' %}
+            <div class="flex items-center p-3 bg-blue-50 rounded-lg">
+                <i class="fa fa-check-circle text-blue-500 mr-2"></i>
+                <span class="text-blue-700">拥有所有权限</span>
+            </div>
+            {% elif permissions_info %}
+            <div class="space-y-3">
+                {% for module in permissions_info %}
+                <div>
+                    <p class="text-sm font-semibold text-gray-700 mb-1.5">{{ module.module_name }}</p>
+                    <div class="flex flex-wrap gap-1.5">
+                        {% for action in module.actions %}
+                        <span class="px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded-full">{{ action.name }}</span>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="flex items-center p-3 bg-gray-50 rounded-lg">
+                <i class="fa fa-info-circle text-gray-400 mr-2"></i>
+                <span class="text-gray-500">该角色暂无权限</span>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- 用户列表 -->
+        <div class="bg-white rounded-lg shadow-sm overflow-hidden fade-in">
+            <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+                <h3 class="text-lg font-medium text-gray-800 flex items-center">
+                    <i class="fa fa-users text-primary mr-2"></i>关联用户
+                    <span class="ml-2 text-sm text-gray-400">({{ pagination.total }}人)</span>
+                </h3>
+                {% if current_user.has_permission('role.edit') and users|length > 0 %}
+                <button type="button" onclick="showBatchRemoveBtn()" id="batchRemoveToggle" class="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200">
+                    批量移除
+                </button>
+                {% endif %}
+            </div>
+
+            {% if current_user.has_permission('role.edit') %}
+            <!-- 批量操作栏（默认隐藏） -->
+            <div id="batchBar" class="hidden px-6 py-3 bg-yellow-50 border-b border-yellow-200 flex items-center justify-between">
+                <div class="flex items-center">
+                    <input type="checkbox" id="selectAllUsers" class="mr-2 w-4 h-4" onchange="toggleAllUsers(this.checked)">
+                    <span class="text-sm text-gray-700">全选</span>
+                    <span id="selectedCount" class="ml-4 text-sm text-primary font-medium">已选 0 人</span>
+                </div>
+                <button type="button" onclick="batchRemoveUsers()" class="px-4 py-1.5 bg-red-500 text-white text-sm rounded hover:bg-red-600">
+                    <i class="fa fa-trash mr-1"></i>批量移除
+                </button>
+            </div>
+            {% endif %}
+
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            {% if current_user.has_permission('role.edit') %}
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 w-10 user-checkbox-col hidden"></th>
+                            {% endif %}
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">姓名</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">用户名</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">部门</th>
+                            <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        {% for user in users %}
+                        <tr class="hover:bg-gray-50 transition-colors" id="user-row-{{ user.id }}">
+                            {% if current_user.has_permission('role.edit') %}
+                            <td class="px-6 py-4 whitespace-nowrap user-checkbox-col hidden">
+                                <input type="checkbox" class="user-checkbox w-4 h-4" value="{{ user.id }}" onchange="updateSelectedCount()">
+                            </td>
+                            {% endif %}
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ user.id }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ user.name or '-' }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ user.username or '-' }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ user.department or '-' }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-center">
+                                {% if current_user.has_permission('role.edit') %}
+                                <button type="button" onclick="removeUser({{ user.id }}, '{{ user.name or user.username }}')" class="text-red-500 hover:text-red-700 text-sm" title="移除">
+                                    <i class="fa fa-user-minus mr-1"></i>移除
+                                </button>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        {% if not users %}
+                        <tr>
+                            <td colspan="6" class="px-6 py-12 text-center text-gray-400">
+                                <i class="fa fa-users text-4xl mb-3 block"></i>
+                                <p>该角色下暂无用户</p>
+                            </td>
+                        </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- 分页 -->
+            {% if pagination.pages > 1 %}
+            <div class="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
+                <p class="text-sm text-gray-500">共 {{ pagination.total }} 条记录</p>
+                <div class="flex space-x-1">
+                    {% if pagination.has_prev %}
+                    <a href="{{ url_for('role.role_detail', id=role.id, page=pagination.prev_num) }}" class="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200">上一页</a>
+                    {% endif %}
+                    {% for p in page_range %}
+                        {% if p == '...' %}
+                        <span class="px-2 py-1 text-sm text-gray-400">...</span>
+                        {% elif p == pagination.page %}
+                        <span class="px-3 py-1 text-sm bg-primary text-white rounded">{{ p }}</span>
+                        {% else %}
+                        <a href="{{ url_for('role.role_detail', id=role.id, page=p) }}" class="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200">{{ p }}</a>
+                        {% endif %}
+                    {% endfor %}
+                    {% if pagination.has_next %}
+                    <a href="{{ url_for('role.role_detail', id=role.id, page=pagination.next_num) }}" class="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200">下一页</a>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </main>
+
+    <!-- 添加用户弹窗 -->
+    <div id="addUserModal" class="fixed inset-0 bg-black/50 hidden z-50 flex items-center justify-center">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-2xl mx-4 max-h-[80vh] flex flex-col">
+            <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+                <h3 class="text-lg font-medium text-gray-900">添加用户到角色</h3>
+                <button type="button" onclick="closeAddUserModal()" class="text-gray-400 hover:text-gray-600">
+                    <i class="fa fa-times text-lg"></i>
+                </button>
+            </div>
+            <!-- 搜索栏 -->
+            <div class="px-6 py-3 border-b border-gray-100">
+                <div class="flex space-x-2">
+                    <input type="text" id="searchKeyword" placeholder="搜索姓名或用户名..." class="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                           oninput="searchUsers(1)">
+                    <button type="button" onclick="searchUsers(1)" class="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90">
+                        <i class="fa fa-search"></i>
+                    </button>
+                </div>
+            </div>
+            <!-- 搜索结果 -->
+            <div class="flex-1 overflow-y-auto px-6 py-3">
+                <div id="searchResults" class="space-y-2">
+                    <p class="text-gray-400 text-center py-8">请输入关键词搜索用户</p>
+                </div>
+            </div>
+            <!-- 搜索分页 -->
+            <div id="searchPagination" class="hidden px-6 py-3 border-t border-gray-100 flex items-center justify-between">
+                <p id="searchPageInfo" class="text-sm text-gray-500"></p>
+                <div id="searchPageButtons" class="flex space-x-1"></div>
+            </div>
+            <!-- 底部操作 -->
+            <div class="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
+                <span id="addSelectedCount" class="text-sm text-gray-500">已选 0 人</span>
+                <div class="flex space-x-3">
+                    <button type="button" onclick="closeAddUserModal()" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200">取消</button>
+                    <button type="button" onclick="addSelectedUsers()" class="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90">确认添加</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 移除确认弹窗 -->
+    <div id="removeModal" class="fixed inset-0 bg-black/50 hidden z-50 flex items-center justify-center">
+        <div class="bg-white rounded-lg shadow-xl p-6 max-w-md mx-4">
+            <h3 class="text-lg font-medium text-gray-900 mb-4">确认移除</h3>
+            <p class="text-gray-600 mb-6">确定要将用户 "<span id="removeUserName"></span>" 从该角色中移除吗？</p>
+            <div class="flex justify-end space-x-3">
+                <button type="button" onclick="closeRemoveModal()" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200">取消</button>
+                <button type="button" onclick="confirmRemoveUser()" class="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600">确认移除</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const roleId = {{ role.id }};
+        let removeUserId = null;
+        let addSelectedUserIds = new Set();
+
+        // ========== 添加用户弹窗 ==========
+        function showAddUserModal() {
+            document.getElementById('addUserModal').classList.remove('hidden');
+            document.getElementById('searchKeyword').value = '';
+            addSelectedUserIds.clear();
+            updateAddSelectedCount();
+            searchUsers(1);
+        }
+
+        function closeAddUserModal() {
+            document.getElementById('addUserModal').classList.add('hidden');
+        }
+
+        // 搜索用户
+        let searchCurrentPage = 1;
+
+        function searchUsers(page) {
+            if (page === undefined) page = 1;
+            searchCurrentPage = page;
+            const keyword = document.getElementById('searchKeyword').value.trim();
+            const resultsDiv = document.getElementById('searchResults');
+            const paginationDiv = document.getElementById('searchPagination');
+            const pageInfo = document.getElementById('searchPageInfo');
+            const pageButtons = document.getElementById('searchPageButtons');
+
+            fetch(`{{ url_for('role.api_search_users') }}?role_id=${roleId}&keyword=${encodeURIComponent(keyword)}&page=${page}&per_page=10`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.users.length > 0) {
+                        let html = '';
+                        data.users.forEach(user => {
+                            const checked = addSelectedUserIds.has(user.id) ? 'checked' : '';
+                            html += `
+                                <label class="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
+                                    <input type="checkbox" class="add-user-checkbox mr-3 w-4 h-4" value="${user.id}" ${checked}
+                                           onchange="toggleAddUser(${user.id}, this.checked)">
+                                    <div class="flex-1">
+                                        <span class="font-medium text-gray-900">${user.name || '-'}</span>
+                                        <span class="text-gray-400 ml-2">${user.username || ''}</span>
+                                        <span class="text-gray-400 ml-2">${user.department || ''}</span>
+                                    </div>
+                                    <span class="text-xs text-gray-400">${user.current_role}</span>
+                                </label>
+                            `;
+                        });
+                        resultsDiv.innerHTML = html;
+
+                        // 渲染分页
+                        if (data.pages > 1) {
+                            paginationDiv.classList.remove('hidden');
+                            pageInfo.textContent = `共 ${data.total} 条记录，第 ${data.current_page}/${data.pages} 页`;
+
+                            let btns = '';
+                            if (data.current_page > 1) {
+                                btns += `<button type="button" onclick="searchUsers(${data.current_page - 1})" class="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200">上一页</button>`;
+                            }
+                            // 页码按钮
+                            const showPages = 5;
+                            let start = Math.max(1, data.current_page - Math.floor(showPages / 2));
+                            let end = Math.min(data.pages, start + showPages - 1);
+                            if (end - start < showPages - 1) {
+                                start = Math.max(1, end - showPages + 1);
+                            }
+                            if (start > 1) {
+                                btns += `<button type="button" onclick="searchUsers(1)" class="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200">1</button>`;
+                                if (start > 2) btns += `<span class="px-2 py-1 text-sm text-gray-400">...</span>`;
+                            }
+                            for (let p = start; p <= end; p++) {
+                                if (p === data.current_page) {
+                                    btns += `<span class="px-3 py-1 text-sm bg-primary text-white rounded">${p}</span>`;
+                                } else {
+                                    btns += `<button type="button" onclick="searchUsers(${p})" class="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200">${p}</button>`;
+                                }
+                            }
+                            if (end < data.pages) {
+                                if (end < data.pages - 1) btns += `<span class="px-2 py-1 text-sm text-gray-400">...</span>`;
+                                btns += `<button type="button" onclick="searchUsers(${data.pages})" class="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200">${data.pages}</button>`;
+                            }
+                            if (data.current_page < data.pages) {
+                                btns += `<button type="button" onclick="searchUsers(${data.current_page + 1})" class="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200">下一页</button>`;
+                            }
+                            pageButtons.innerHTML = btns;
+                        } else {
+                            paginationDiv.classList.add('hidden');
+                        }
+                    } else if (data.success) {
+                        resultsDiv.innerHTML = '<p class="text-gray-400 text-center py-8">未找到匹配的用户</p>';
+                        paginationDiv.classList.add('hidden');
+                    } else {
+                        resultsDiv.innerHTML = `<p class="text-red-500 text-center py-8">${data.message}</p>`;
+                        paginationDiv.classList.add('hidden');
+                    }
+                })
+                .catch(err => {
+                    resultsDiv.innerHTML = '<p class="text-red-500 text-center py-8">搜索失败，请重试</p>';
+                    paginationDiv.classList.add('hidden');
+                });
+        }
+
+        function toggleAddUser(userId, checked) {
+            if (checked) {
+                addSelectedUserIds.add(userId);
+            } else {
+                addSelectedUserIds.delete(userId);
+            }
+            updateAddSelectedCount();
+        }
+
+        function updateAddSelectedCount() {
+            document.getElementById('addSelectedCount').textContent = `已选 ${addSelectedUserIds.size} 人`;
+        }
+
+        // 添加选中用户
+        function addSelectedUsers() {
+            if (addSelectedUserIds.size === 0) {
+                alert('请选择要添加的用户');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('role_id', roleId);
+            addSelectedUserIds.forEach(id => formData.append('user_ids', id));
+
+            fetch('{{ url_for("role.api_add_users") }}', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert(data.message);
+                    location.reload();
+                } else {
+                    alert(data.message);
+                }
+            })
+            .catch(err => alert('操作失败，请重试'));
+        }
+
+        // ========== 移除用户 ==========
+        function removeUser(userId, userName) {
+            removeUserId = userId;
+            document.getElementById('removeUserName').textContent = userName;
+            document.getElementById('removeModal').classList.remove('hidden');
+        }
+
+        function closeRemoveModal() {
+            document.getElementById('removeModal').classList.add('hidden');
+            removeUserId = null;
+        }
+
+        function confirmRemoveUser() {
+            if (!removeUserId) return;
+
+            const formData = new FormData();
+            formData.append('role_id', roleId);
+            formData.append('user_ids', removeUserId);
+
+            fetch('{{ url_for("role.api_remove_users") }}', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // 移除行
+                    const row = document.getElementById('user-row-' + removeUserId);
+                    if (row) row.remove();
+                    closeRemoveModal();
+                    // 刷新页面以更新分页
+                    setTimeout(() => location.reload(), 500);
+                } else {
+                    alert(data.message);
+                }
+            })
+            .catch(err => alert('操作失败，请重试'));
+        }
+
+        // ========== 批量移除 ==========
+        function showBatchRemoveBtn() {
+            const batchBar = document.getElementById('batchBar');
+            const checkboxes = document.querySelectorAll('.user-checkbox-col');
+            const toggleBtn = document.getElementById('batchRemoveToggle');
+
+            if (batchBar.classList.contains('hidden')) {
+                batchBar.classList.remove('hidden');
+                checkboxes.forEach(el => el.classList.remove('hidden'));
+                toggleBtn.textContent = '取消批量';
+            } else {
+                batchBar.classList.add('hidden');
+                checkboxes.forEach(el => el.classList.add('hidden'));
+                toggleBtn.textContent = '批量移除';
+                // 清空选择
+                document.querySelectorAll('.user-checkbox').forEach(cb => cb.checked = false);
+                updateSelectedCount();
+            }
+        }
+
+        function toggleAllUsers(checked) {
+            document.querySelectorAll('.user-checkbox').forEach(cb => cb.checked = checked);
+            updateSelectedCount();
+        }
+
+        function updateSelectedCount() {
+            const count = document.querySelectorAll('.user-checkbox:checked').length;
+            document.getElementById('selectedCount').textContent = `已选 ${count} 人`;
+        }
+
+        function batchRemoveUsers() {
+            const checkedBoxes = document.querySelectorAll('.user-checkbox:checked');
+            if (checkedBoxes.length === 0) {
+                alert('请选择要移除的用户');
+                return;
+            }
+
+            if (!confirm(`确定要移除选中的 ${checkedBoxes.length} 个用户吗？`)) return;
+
+            const formData = new FormData();
+            formData.append('role_id', roleId);
+            checkedBoxes.forEach(cb => formData.append('user_ids', cb.value));
+
+            fetch('{{ url_for("role.api_remove_users") }}', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert(data.message);
+                    location.reload();
+                } else {
+                    alert(data.message);
+                }
+            })
+            .catch(err => alert('操作失败，请重试'));
+        }
+
+        // 点击遮罩关闭弹窗
+        document.getElementById('addUserModal').addEventListener('click', function(e) {
+            if (e.target === this) closeAddUserModal();
+        });
+        document.getElementById('removeModal').addEventListener('click', function(e) {
+            if (e.target === this) closeRemoveModal();
+        });
+    </script>
+
+{% include 'footer.html' %}
+</body>
+</html>

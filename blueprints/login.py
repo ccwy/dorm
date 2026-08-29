@@ -55,6 +55,8 @@ def login():
     # 如果用户已登录，直接跳转到主页
     if current_user.is_authenticated:
         print('用户仍处于认证状态，重定向到主页')
+        if current_user.user_role and current_user.user_role.code == 'user':
+            return redirect(url_for('user.user_info'))
         return redirect(url_for('index'))
     
     # 开发模式自动登录：DEV_AUTO_LOGIN开关开启时，直接以admin账号登录
@@ -158,11 +160,9 @@ def login():
             logging.info(f"登录成功，欢迎使用")
             flash('登录成功，欢迎使用系统', 'success')
             # 根据用户角色决定重定向目标
-            if user.is_admin():
-                # 管理员用户重定向到首页
+            if current_user.role_id and current_user.user_role and current_user.user_role.code != 'user':
                 redirect_response = redirect(url_for('index'))
             else:
-                # 非管理员用户重定向到用户信息页面
                 redirect_response = redirect(url_for('user.user_info'))
             
             # 将原始响应中的Cookie复制到重定向响应中

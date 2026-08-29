@@ -84,7 +84,7 @@
         <div class="flex justify-center">
             <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 max-w-6xl w-full">
                 <!-- 用户管理 -->
-                {% if get_config_value('FEATURE_USER_MANAGE_ENABLED', True) %}
+                {% if get_config_value('FEATURE_USER_MANAGE_ENABLED', True) and current_user.has_permission('user.view') %}
                 <div class="bg-white rounded-xl p-6 card-shadow btn-hover">
                     <a href="{{ url_for('user.manage') }}" class="flex flex-col items-center text-center">
                         <div class="w-16 h-16 bg-secondary/10 rounded-full flex items-center justify-center mb-4">
@@ -97,7 +97,7 @@
                 {% endif %}
 
                 <!-- 房间管理 -->
-                {% if get_config_value('FEATURE_ROOM_MANAGE_ENABLED', True) %}
+                {% if get_config_value('FEATURE_ROOM_MANAGE_ENABLED', True) and current_user.has_permission('room.view') %}
                 <div class="bg-white rounded-xl p-6 card-shadow btn-hover">
                     <a href="{{ url_for('room.manage') }}" class="flex flex-col items-center text-center">
                         <div class="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mb-4">
@@ -110,7 +110,7 @@
                 {% endif %}
 
                 <!-- 宿舍分配管理 -->
-                {% if get_config_value('FEATURE_DORM_MANAGE_ENABLED', True) %}
+                {% if get_config_value('FEATURE_DORM_MANAGE_ENABLED', True) and current_user.has_permission('dorm.view') %}
                 <div class="bg-white rounded-xl p-6 card-shadow btn-hover">
                     <a href="{{ url_for('dorm.manage') }}" class="flex flex-col items-center text-center">
                         <div class="w-16 h-16 bg-accent/10 rounded-full flex items-center justify-center mb-4">
@@ -125,7 +125,7 @@
                 
 
                 <!-- 水电费管理（暂保留，需确认对应路由） -->
-                {% if get_config_value('FEATURE_UTILITY_BILL_ENABLED', True) %}
+                {% if get_config_value('FEATURE_UTILITY_BILL_ENABLED', True) and current_user.has_permission('utility.view') %}
                 <div class="bg-white rounded-xl p-6 card-shadow btn-hover">
                     <a href="{{ url_for('utility_index.utility_index') }}" class="flex flex-col items-center text-center">
                         <div class="w-16 h-16 bg-amber-500/10 rounded-full flex items-center justify-center mb-4">
@@ -138,7 +138,7 @@
                 {% endif %}
 
                 <!-- 补贴管理 -->
-                {% if get_config_value('FEATURE_FEE_SUBSIDY_ENABLED', True) %}
+                {% if get_config_value('FEATURE_FEE_SUBSIDY_ENABLED', True) and current_user.has_permission('fee_subsidy.view') %}
                 <div class="bg-white rounded-xl p-6 card-shadow btn-hover">
                     <a href="{{ url_for('fee_subsidy.fee_subsidy_index') }}" class="flex flex-col items-center text-center">
                         <div class="w-16 h-16 bg-purple-500/10 rounded-full flex items-center justify-center mb-4">
@@ -151,7 +151,7 @@
                 {% endif %}
                 
                 <!-- 文件共享 -->
-                {% if get_config_value('FEATURE_FILE_SHARING_ENABLED', True) %}
+                {% if get_config_value('FEATURE_FILE_SHARING_ENABLED', True) and current_user.has_permission('file_sharing.view') %}
                 <div class="bg-white rounded-xl p-6 card-shadow btn-hover">
                     <a href="{{ url_for('file_sharing.file_sharing') }}" class="flex flex-col items-center text-center">
                         <div class="w-16 h-16 bg-green-500/10 rounded-full flex items-center justify-center mb-4">
@@ -164,9 +164,9 @@
                 {% endif %}
 
                 <!-- 留言管理 -->
-                {% if get_config_value('FEATURE_TICKET_MANAGE_ENABLED', True) %}
+                {% if get_config_value('FEATURE_TICKET_MANAGE_ENABLED', True) and current_user.has_permission('ticket.view') %}
                 <div class="bg-white rounded-xl p-6 card-shadow btn-hover">
-                    <a href="{{ url_for('ticket_admin.admin_ticket_list') }}" class="flex flex-col items-center text-center">
+                    <a href="{{ url_for('ticket_admin.admin_ticket_list' if current_user.has_permission('ticket.manage') else 'ticket_user.user_ticket_list') }}" class="flex flex-col items-center text-center">
                         <div class="w-16 h-16 bg-purple-500/10 rounded-full flex items-center justify-center mb-4">
                             <i class="fa fa-ticket text-2xl text-purple-500"></i>
                         </div>
@@ -176,7 +176,7 @@
                 </div>
                 {% endif %}
                 <!-- 待办事项 -->
-                {% if get_config_value('FEATURE_TODO_MANAGE_ENABLED', True) %}
+                {% if get_config_value('FEATURE_TODO_MANAGE_ENABLED', True) and current_user.has_permission('todo.view') %}
                 <div class="bg-white rounded-xl p-6 card-shadow btn-hover">
                     <a href="/todo/" class="flex flex-col items-center text-center">
                         <div class="w-16 h-16 bg-green-500/10 rounded-full flex items-center justify-center mb-4">
@@ -189,7 +189,7 @@
                 {% endif %}
 
                 <!-- 聊天功能 -->
-                {% if get_config_value('FEATURE_CHAT_ENABLED', True) %}
+                {% if get_config_value('FEATURE_CHAT_ENABLED', True) and current_user.has_permission('chat.view') %}
                 <div class="bg-white rounded-xl p-6 card-shadow btn-hover">
                     <a href="{{ url_for('chat.chat_index') }}" class="flex flex-col items-center text-center">
                         <div class="w-16 h-16 bg-blue-500/10 rounded-full flex items-center justify-center mb-4">
@@ -202,7 +202,7 @@
                 {% endif %}
 
                 <!-- 部门管理 -->
-                {% if get_config_value('FEATURE_DEPARTMENT_ENABLED', True) %}
+                {% if get_config_value('FEATURE_DEPARTMENT_ENABLED', True) and current_user.has_permission('department.view') %}
                 <div class="bg-white rounded-xl p-6 card-shadow btn-hover">
                     <a href="{{ url_for('department.index') }}" class="flex flex-col items-center text-center">
                         <div class="w-16 h-16 bg-indigo-500/10 rounded-full flex items-center justify-center mb-4">
@@ -215,7 +215,7 @@
                 {% endif %}
 
                 <!-- 固定资产管理 -->
-                {% if get_config_value('FEATURE_FIXED_ASSET_MANAGE_ENABLED', True) %}
+                {% if get_config_value('FEATURE_FIXED_ASSET_MANAGE_ENABLED', True) and current_user.has_permission('fixed_asset.view') %}
                 <div class="bg-white rounded-xl p-6 card-shadow btn-hover">
                     <a href="{{ url_for('fixed_asset.index') }}" class="flex flex-col items-center text-center">
                         <div class="w-16 h-16 bg-cyan-500/10 rounded-full flex items-center justify-center mb-4">
@@ -228,7 +228,7 @@
                 {% endif %}
 
                 <!-- 低值易耗品管理 -->
-                {% if get_config_value('FEATURE_SUPPLY_MANAGE_ENABLED', True) %}
+                {% if get_config_value('FEATURE_SUPPLY_MANAGE_ENABLED', True) and current_user.has_permission('supply.view') %}
                 <div class="bg-white rounded-xl p-6 card-shadow btn-hover">
                     <a href="{{ url_for('supply_index.supply_home') }}" class="flex flex-col items-center text-center">
                         <div class="w-16 h-16 bg-green-500/10 rounded-full flex items-center justify-center mb-4">
@@ -240,7 +240,21 @@
                 </div>
                 {% endif %}
 
+                <!-- 角色管理 -->
+                {% if get_config_value('FEATURE_ROLE_MANAGE_ENABLED', True) and current_user.has_permission('role.view') %}
+                <div class="bg-white rounded-xl p-6 card-shadow btn-hover">
+                    <a href="{{ url_for('role.role_list') }}" class="flex flex-col items-center text-center">
+                        <div class="w-16 h-16 bg-teal-500/10 rounded-full flex items-center justify-center mb-4">
+                            <i class="fa fa-shield text-2xl text-teal-500"></i>
+                        </div>
+                        <h3 class="text-lg font-medium text-dark mb-2">角色管理</h3>
+                        <p class="text-gray-500 text-sm">管理角色权限与用户分配</p>
+                    </a>
+                </div>
+                {% endif %}
+
                 <!-- 系统设置 -->
+                {% if current_user.has_permission('role.view') %}
                 <div class="bg-white rounded-xl p-6 card-shadow btn-hover">
                     <a href="{{ url_for('system_settings.settings') }}" class="flex flex-col items-center text-center">
                         <div class="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mb-4">
@@ -250,10 +264,11 @@
                         <p class="text-gray-500 text-sm">系统参数及账户设置</p>
                     </a>
                 </div>
+                {% endif %}
 
 
                 <!-- 操作日志记录 -->
-                {% if get_config_value('FEATURE_SYSTEM_LOG_ENABLED', True) %}
+                {% if get_config_value('FEATURE_SYSTEM_LOG_ENABLED', True) and current_user.has_permission('log.view') %}
                 <div class="bg-white rounded-xl p-6 card-shadow btn-hover">
                     <a href="{{ url_for('log.log') }}" class="flex flex-col items-center text-center">
                         <div class="w-16 h-16 bg-indigo-500/10 rounded-full flex items-center justify-center mb-4">
@@ -264,6 +279,8 @@
                     </a>
                 </div>
                 {% endif %}
+
+                
 
             </div>
         </div>

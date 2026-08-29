@@ -20,44 +20,53 @@
            class="nav-item nav-home text-gray-700 hover:text-primary transition-colors py-1 border-b-2 {% if request.endpoint == 'index' %}border-primary text-primary{% else %}border-transparent{% endif %}">
            <i class="fa fa-home mr-2"></i>首页
         </a>
-        {% if current_user.is_admin() %}
-        {% if get_config_value('FEATURE_USER_MANAGE_ENABLED', True) %}
+        {% if current_user.role_id %}
+        {% if get_config_value('FEATURE_USER_MANAGE_ENABLED', True) and current_user.has_permission('user.view') %}
         <a href="{{ url_for('user.manage') }}" 
            class="nav-item nav-user text-gray-700 hover:text-primary transition-colors py-1 border-b-2 {% if request.endpoint == 'user.manage' %}border-primary text-primary{% else %}border-transparent{% endif %}">
            <i class="fa fa-users mr-2"></i>用户
         </a>
         {% endif %}
-        <!-- 隐藏房间管理菜单
+        <!-- 
+        {% if current_user.has_permission('room.view') %}
         <a href="{{ url_for('room.manage') }}" 
            class="nav-item nav-room text-gray-700 hover:text-primary transition-colors py-1 border-b-2 {% if request.endpoint == 'room.manage' %}border-primary text-primary{% else %}border-transparent{% endif %}">
            <i class="fa fa-bed mr-2"></i>房间
-        </a>-->
-        {% if get_config_value('FEATURE_DORM_MANAGE_ENABLED', True) %}
+        </a>
+        -->
+        {% endif %}
+        {% if get_config_value('FEATURE_DORM_MANAGE_ENABLED', True) and current_user.has_permission('dorm.view') %}
         <a href="{{ url_for('dorm.manage') }}" 
            class="nav-item nav-dorm text-gray-700 hover:text-primary transition-colors py-1 border-b-2 {% if request.endpoint == 'dorm.manage' %}border-primary text-primary{% else %}border-transparent{% endif %}">
            <i class="fa fa-building mr-2"></i>宿舍
         </a>
+        <!-- 
         {% endif %}
-        <!--水电费核算菜单
+        {% if current_user.has_permission('utility.view') %}
         <a href="{{ url_for('utility_index.utility_index') }}" 
            class="nav-item nav-utility text-gray-700 hover:text-primary transition-colors py-1 border-b-2 {% if request.endpoint == 'utility_index.utility_index' %}border-primary text-primary{% else %}border-transparent{% endif %}">
            <i class="fa fa-bolt mr-2"></i>水电
-        </a>-->
-        <!-- 新增：补贴管理导航项 
+        </a>
+        {% endif %}
+        {% if current_user.has_permission('fee_subsidy.view') %}
         <a href="{{ url_for('fee_subsidy.fee_subsidy_index') }}" 
            class="nav-item nav-subsidy text-gray-700 hover:text-primary transition-colors py-1 border-b-2 {% if request.endpoint == 'fee_subsidy.fee_subsidy_index' %}border-primary text-primary{% else %}border-transparent{% endif %}">
            <i class="fa fa-gift mr-2"></i>补贴
-        </a>-->
-        <!-- 留言菜单 
-        <a href="{{ url_for('ticket_admin.admin_ticket_list') }}" 
-           class="nav-item nav-ticket text-gray-700 hover:text-primary transition-colors py-1 border-b-2 {% if request.endpoint == 'ticket_admin.admin_ticket_list' or request.endpoint == 'ticket_admin.ticket_detail' %}border-primary text-primary{% else %}border-transparent{% endif %}">
+        </a>
+        {% endif %}
+        {% if current_user.has_permission('ticket.view') %}
+        <a href="{{ url_for('ticket_admin.admin_ticket_list' if current_user.has_permission('ticket.manage') else 'ticket_user.user_ticket_list') }}" 
+           class="nav-item nav-ticket text-gray-700 hover:text-primary transition-colors py-1 border-b-2 {% if request.endpoint in ['ticket_admin.admin_ticket_list', 'ticket_admin.ticket_detail', 'ticket_user.user_ticket_list', 'ticket_user.ticket_detail'] %}border-primary text-primary{% else %}border-transparent{% endif %}">
            <i class="fa fa-ticket mr-2"></i>留言
-        </a>-->
-        <!-- 文件共享导航项 
+        </a>
+        {% endif %}
+        {% if current_user.has_permission('file_sharing.view') %}
         <a href="{{ url_for('file_sharing.file_sharing') }}" 
            class="nav-item nav-file text-gray-700 hover:text-primary transition-colors py-1 border-b-2 {% if request.endpoint == 'file_sharing.file_sharing' %}border-primary text-primary{% else %}border-transparent{% endif %}">
            <i class="fa fa-folder-open mr-2"></i>文件
-        </a>-->
+        </a>
+        {% endif %}
+         -->
 
 
 
@@ -65,11 +74,13 @@
            class="nav-item nav-other text-gray-700 hover:text-primary transition-colors py-1 border-b-2 {% if request.endpoint == 'other.index' %}border-primary text-primary{% else %}border-transparent{% endif %}">
            <i class="fa fa-th-large mr-2"></i>其他
         </a>
+        {% if current_user.has_permission('system_settings.view') %}
         <a href="{{ url_for('system_settings.settings') }}" 
            class="nav-item nav-settings text-gray-700 hover:text-primary transition-colors py-1 border-b-2 {% if request.endpoint == 'system_settings.settings' %}border-primary text-primary{% else %}border-transparent{% endif %}">
            <i class="fa fa-cog mr-2"></i>设置
         </a>
-        {% if get_config_value('FEATURE_SYSTEM_LOG_ENABLED', True) %}
+        {% endif %}
+        {% if get_config_value('FEATURE_SYSTEM_LOG_ENABLED', True) and current_user.has_permission('log.view') %}
         <a href="{{ url_for('log.log') }}" 
            class="nav-item nav-log text-gray-700 hover:text-primary transition-colors py-1 border-b-2 {% if request.endpoint == 'log.log' %}border-primary text-primary{% else %}border-transparent{% endif %}">
            <i class="fa fa-file-text-o mr-2"></i>日志

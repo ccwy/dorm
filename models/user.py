@@ -31,7 +31,7 @@ class User(UserMixin, db.Model):
     # 用户认证相关字段
     username = db.Column(db.String(50), unique=True, nullable=False, comment='用户名')
     password_hash = db.Column(db.String(256), nullable=False, comment='密码哈希')
-    role = db.Column(db.String(20), nullable=True,default='普通用户', comment='用户角色：超级管理员/管理员/普通用户/访客')
+    role_id = db.Column(db.Integer, db.ForeignKey('roles.id'), nullable=True, comment='角色ID')
     last_login_at = db.Column(db.DateTime, nullable=True, comment='最后登录时间')
     is_active = db.Column(db.Boolean, default=True, nullable=True, comment='是否激活账号')
     is_banned = db.Column(db.Boolean, default=False, nullable=True, comment='是否允许登录')
@@ -57,6 +57,13 @@ class User(UserMixin, db.Model):
         if self.dept:
             return self.dept.name
         return None
+
+    @property
+    def role_name(self):
+        """返回角色名称（通过relationship获取）"""
+        if self.user_role:
+            return self.user_role.name
+        return '无角色'
 
     def __repr__(self):
         return f"<User {self.category or '未知'} {self.student_id}: {self.name}>"
@@ -193,14 +200,18 @@ class User(UserMixin, db.Model):
         """判断是否在职"""
         return self.status in ['在职']
 
-    # 管理员判断方法
-    def is_admin(self):
-        """判断是否为管理员"""
-        return self.role in ['超级管理员', '管理员']
-
-    def is_super_admin(self):
-        """判断是否为超级管理员"""
-        return self.role == '超级管理员'
+    # 管理员判断方法 - 基于角色权限
+    def has_permission(self, permission_code):
+        """判断用户是否拥有指定权限"""
+        if not self.is_authenticated:
+            return False
+        # 超级管理员自动拥有所有权限
+        if self.user_role and self.user_role.code == 'super_admin':
+            return True
+        # 查询角色权限表
+        if self.user_role:
+            return self.user_role.has_permission(permission_code)
+        return False
     
     # 删除用户的方法
     def delete(self):
@@ -219,11 +230,11 @@ class User(UserMixin, db.Model):
             from models.ticket import Ticket
             from utils.ticket_photo import ticket_photo_manager
             
-            # 检查当前操作人是否为超级管理员
-            is_super = current_user.is_authenticated and current_user.is_super_admin()
+            # 检查当前操作人是否为超级管理员（拥有级联删除权限）
+            is_super = current_user.is_authenticated and current_user.user_role and current_user.user_role.code == 'super_admin'
             
-            # 1. 禁止删除超级管理员（无论谁操作）
-            if self.is_super_admin():
+            # 1. 禁止删除超级管理员用户（无论谁操作）
+            if self.user_role and self.user_role.code == 'super_admin':
                 message = f"操作失败：禁止删除超级管理员「{self.name}」"
                 logging.warning(message)
                 return {'success': False, 'message': message}
@@ -501,7 +512,7 @@ class User(UserMixin, db.Model):
                     status=user_data.get('status', '在职'),
                     hire_date=user_data.get('hire_date'),
                     username=user_data['username'],
-                    role=user_data.get('role', '普通用户'),
+                    role_id=user_data.get('role_id'),
                     is_active=user_data.get('is_active', True),
                     is_banned=user_data.get('is_banned', True),
                     created_at=user_data.get('created_at', datetime.now()),
@@ -526,24 +537,6 @@ class User(UserMixin, db.Model):
         
         return result
 
-
-def _get_department_id(dept_name, company=None):
-    """根据部门名称和公司查找部门ID，不存在则自动创建"""
-    if not dept_name:
-        return None
-    # 按name+company查找
-    query = Department.query.filter_by(name=dept_name)
-    if company:
-        query = query.filter(db.or_(Department.company == company, Department.company.is_(None)))
-    else:
-        query = query.filter(Department.company.is_(None))
-    existing = query.first()
-    if existing:
-        return existing.id
-    # 不存在则创建
-    dept = Department.create(name=dept_name, company=company, status='正常')
-    return dept.id
-        
     @classmethod
     def batch_update_users(cls, user_data_list):
         """
@@ -622,7 +615,7 @@ def _get_department_id(dept_name, company=None):
                 fields_to_update = ['name', 'gender', 'category', 'id_card', 'id_address', 
                                    'lodging_address', 'phone', 'company', 
                                    'position', 'marital_status', 'ethnicity', 'emergency_contact', 
-                                   'emergency_phone', 'remarks', 'status', 'hire_date', 'role', 
+                                   'emergency_phone', 'remarks', 'status', 'hire_date', 'role_id', 
                                    'is_active', 'is_banned', 'username', 'student_id']
                 
                 for field in fields_to_update:

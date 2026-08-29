@@ -4,7 +4,7 @@ from utils.db import db
 from flask_login import login_required, current_user
 from utils.log import log_operation
 import traceback
-from utils.auth import admin_required
+from utils.auth import require_permission
 from models.supply.stock_out import StockOut
 from models.supply.stock_out_detail import StockOutDetail
 
@@ -14,7 +14,7 @@ stock_out_api_bp = Blueprint('stock_out_api', __name__, url_prefix='/api/stock-o
 # ========== 获取出库单列表JSON（分页+筛选） ==========
 @stock_out_api_bp.route('/', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('supply.view')
 def get_stock_out_list():
     """获取出库单列表JSON，支持分页和多条件筛选"""
     try:
@@ -117,7 +117,7 @@ def get_stock_out_list():
 # ========== 获取出库单详情JSON ==========
 @stock_out_api_bp.route('/<int:id>', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('supply.view')
 def get_stock_out_detail(id):
     """获取出库单详情JSON（含明细列表）"""
     try:
@@ -180,7 +180,7 @@ def get_stock_out_detail(id):
 # ========== 获取待审核出库单列表JSON ==========
 @stock_out_api_bp.route('/pending', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('supply.view')
 def get_pending_stock_outs():
     """获取待审核出库单列表JSON"""
     try:
@@ -217,7 +217,7 @@ def get_pending_stock_outs():
 # ========== 获取出库统计JSON ==========
 @stock_out_api_bp.route('/statistics', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('supply.view')
 def get_stock_out_statistics():
     """获取出库统计JSON（按类型/月份统计数量和金额）"""
     try:

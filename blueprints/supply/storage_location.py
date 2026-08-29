@@ -3,7 +3,7 @@ from utils.db import db
 from models.supply.storage_location import StorageLocation
 from flask_login import login_required, current_user
 from utils.log import log_operation
-from utils.auth import admin_required
+from utils.auth import require_permission
 import logging
 
 # 定义蓝图
@@ -44,7 +44,7 @@ from . import storage_location_operations
 # 存放位置列表页（含筛选+分页）
 @storage_location_bp.route('/', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('supply.view')
 def index():
     try:
         # 获取筛选参数
@@ -143,7 +143,7 @@ def index():
 # 新增存放位置页面
 @storage_location_bp.route('/add', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('supply.create')
 def add_page():
     try:
         return render_template(
@@ -160,7 +160,7 @@ def add_page():
 # 编辑存放位置页面
 @storage_location_bp.route('/edit/<int:id>', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('supply.edit')
 def edit_page(id):
     try:
         location = StorageLocation.query.get_or_404(id)
@@ -178,7 +178,7 @@ def edit_page(id):
 # 存放位置详情页（含库存明细）
 @storage_location_bp.route('/detail/<int:id>', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('supply.view')
 def detail(id):
     try:
         location = StorageLocation.query.get_or_404(id)

@@ -260,11 +260,11 @@
                 <!-- 回复列表 -->
                 <div class="space-y-4 mb-6">
                     {% for reply in ticket.replies %}
-                        <div class="border-l-4 {% if reply.user.is_admin() %}border-blue-500 bg-blue-50{% else %}border-orange-500 bg-orange-50{% endif %} pl-4 py-3 rounded-r-lg">
+                        <div class="border-l-4 {% if reply.user.role_id %}border-blue-500 bg-blue-50{% else %}border-orange-500 bg-orange-50{% endif %} pl-4 py-3 rounded-r-lg">
                             <div class="flex justify-between items-start mb-2">
                                 <div class="flex items-center">
-                                    <span class="font-medium {% if reply.user.is_admin() %}text-blue-700{% else %}text-orange-700{% endif %} mr-2">{{ reply.user.name }}</span>
-                                    {% if reply.user.is_admin() %}
+                                    <span class="font-medium {% if reply.user.role_id %}text-blue-700{% else %}text-orange-700{% endif %} mr-2">{{ reply.user.name }}</span>
+                                    {% if reply.user.role_id %}
                                         <span class="text-xs px-2 py-0.5 bg-blue-100 text-blue-800 rounded">管理员</span>
                                     {% else %}
                                         <span class="text-xs px-2 py-0.5 bg-orange-100 text-orange-800 rounded">用户</span>
@@ -272,7 +272,7 @@
                                 </div>
                                 <span class="text-xs text-gray-500">{{ reply.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</span>
                             </div>
-                            <div class="{% if reply.user.is_admin() %}text-blue-800{% else %}text-orange-800{% endif %} whitespace-pre-line">
+                            <div class="{% if reply.user.role_id %}text-blue-800{% else %}text-orange-800{% endif %} whitespace-pre-line">
                                 {{ reply.content }}
                             </div>
                         </div>

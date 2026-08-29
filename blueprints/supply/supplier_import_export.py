@@ -9,7 +9,7 @@ from utils.lazy_imports import pd  # 延迟导入pandas，避免启动时加载�
 import io
 from datetime import datetime
 import traceback
-from utils.auth import admin_required
+from utils.auth import require_permission
 from io import BytesIO
 
 # 创建导入导出专用蓝图
@@ -26,7 +26,7 @@ supplier_import_export_bp = Blueprint(
 # 导出供应商数据
 @supplier_import_export_bp.route('/export', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('supply.export')
 def export():
     """导出供应商数据为Excel"""
     try:
@@ -105,7 +105,7 @@ def export():
 # 导入供应商数据
 @supplier_import_export_bp.route('/import', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('supply.import')
 def import_suppliers():
     """批量导入供应商数据"""
     try:
@@ -295,7 +295,7 @@ def import_suppliers():
 # 下载导入模板
 @supplier_import_export_bp.route('/template', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('supply.import')
 def download_template():
     """生成并下载供应商数据导入模板"""
     try:

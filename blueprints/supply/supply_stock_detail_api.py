@@ -4,7 +4,7 @@ from utils.db import db
 from flask_login import login_required, current_user
 from utils.log import log_operation
 import traceback
-from utils.auth import admin_required
+from utils.auth import require_permission
 from models.supply.supply_stock_detail import SupplyStockDetail
 from models.supply.supply_item import SupplyItem
 from models.supply.storage_location import StorageLocation
@@ -19,7 +19,7 @@ supply_stock_detail_api_bp = Blueprint(
 # ========== 获取库存明细列表JSON（分页+筛选） ==========
 @supply_stock_detail_api_bp.route('/list', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('supply.view')
 def get_stock_detail_list():
     """获取库存明细列表JSON，支持分页和多条件筛选"""
     try:
@@ -104,7 +104,7 @@ def get_stock_detail_list():
 # ========== 按物品查询库存JSON ==========
 @supply_stock_detail_api_bp.route('/by-item/<int:item_id>', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('supply.view')
 def get_stock_by_item(item_id):
     """按物品查询各位置库存JSON"""
     try:
@@ -151,7 +151,7 @@ def get_stock_by_item(item_id):
 # ========== 按位置查询库存JSON ==========
 @supply_stock_detail_api_bp.route('/by-location/<int:location_id>', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('supply.view')
 def get_stock_by_location(location_id):
     """按位置查询各物品库存JSON"""
     try:
@@ -197,7 +197,7 @@ def get_stock_by_location(location_id):
 # ========== 获取低库存预警JSON ==========
 @supply_stock_detail_api_bp.route('/low-stock', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('supply.view')
 def get_low_stock():
     """获取低库存预警物品列表JSON"""
     try:
@@ -230,7 +230,7 @@ def get_low_stock():
 # ========== 获取库存汇总JSON ==========
 @supply_stock_detail_api_bp.route('/summary', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('supply.view')
 def get_stock_summary():
     """获取库存汇总统计JSON"""
     try:

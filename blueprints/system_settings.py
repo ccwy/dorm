@@ -14,7 +14,7 @@ from models.room import Room
 from models.utility_room_meter import UtilityMeterReading
 from models.system_config import SystemConfig  # 系统配置模型
 from utils.log import log_operation
-from utils.auth import admin_required  # 从独立模块导入权限装饰器
+from utils.auth import require_permission  # 从独立模块导入权限装饰器
 from config import Config
 from utils.db_config import DatabaseConfig  # 导入DatabaseConfig类用于读取本地JSON配置
 
@@ -117,13 +117,13 @@ def get_config_by_key(key):
 
 @system_config_bp.route('/settings')
 @login_required
-@admin_required
+@require_permission('system_settings.view')
 def settings():
     # 根据用户权限过滤模块列表
     filtered_modules = []
     for module in MODULES:
         # 对于system模块，只对超级管理员显示
-        if module['category'] == 'system' and not current_user.is_super_admin():
+        if module['category'] == 'system' and not (current_user.user_role and current_user.user_role.code == 'super_admin'):
             continue
         filtered_modules.append(module)
     
@@ -139,14 +139,14 @@ def settings():
 
 @system_config_bp.route('/api/modules', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('system_settings.view')
 def get_modules():
     try:
         # 根据用户权限过滤模块列表
         filtered_modules = []
         for module in MODULES:
             # 对于system模块，只对超级管理员显示
-            if module['category'] == 'system' and not current_user.is_super_admin():
+            if module['category'] == 'system' and not (current_user.user_role and current_user.user_role.code == 'super_admin'):
                 continue
             
             category = module['category']
@@ -168,7 +168,7 @@ def get_modules():
 
 @system_config_bp.route('/api/configs/<category>', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('system_settings.view')
 def get_module_configs(category):
     try:
         # 转换category格式，确保与模型匹配
@@ -231,7 +231,7 @@ def get_module_configs(category):
 
 @system_config_bp.route('/api/configs/update', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('system_settings.manage')
 def update_configs():
     try:
         data = request.get_json()
@@ -253,7 +253,7 @@ def update_configs():
             }), 404
         
         # 对于system模块，需要超级管理员权限
-        if category == 'system' and not current_user.is_super_admin():
+        if category == 'system' and not (current_user.user_role and current_user.user_role.code == 'super_admin'):
             logging.warning(f"非超级管理员用户{current_user.username}尝试修改系统核心配置失败")
             return jsonify({
                 "success": False,
@@ -469,7 +469,7 @@ def update_configs():
 # 在初始化模块配置路由中添加reset参数
 @system_config_bp.route('/api/configs/initialize/<category>', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('system_settings.initialize')
 def initialize_module_configs(category):
     try:
         data = request.get_json() or {}
@@ -484,7 +484,7 @@ def initialize_module_configs(category):
             }), 404
         
         # 对于system模块，需要超级管理员权限
-        if normalized_category == 'system' and not current_user.is_super_admin():
+        if normalized_category == 'system' and not (current_user.user_role and current_user.user_role.code == 'super_admin'):
             logging.warning(f"非超级管理员用户{current_user.username}尝试初始化系统核心配置失败")
             return jsonify({
                 "success": False,
@@ -536,14 +536,14 @@ def initialize_module_configs(category):
 # 在初始化所有配置路由中添加reset参数
 @system_config_bp.route('/api/configs/initialize-all', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('system_settings.initialize')
 def initialize_all_configs():
     try:
         data = request.get_json() or {}
         reset = data.get('reset', False)  # 获取是否重置的参数
         
         # 初始化所有配置需要超级管理员权限，因为包含system模块
-        if not current_user.is_super_admin():
+        if not (current_user.user_role and current_user.user_role.code == 'super_admin'):
             logging.warning(f"非超级管理员用户{current_user.username}尝试初始化所有模块配置失败")
             return jsonify({
                 "success": False,

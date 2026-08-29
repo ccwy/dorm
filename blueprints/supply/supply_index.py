@@ -2,7 +2,7 @@ from flask import Blueprint, render_template
 from flask_login import login_required, current_user
 import logging
 from utils.log import log_operation
-from utils.auth import admin_required
+from utils.auth import require_permission
 
 # 蓝图定义，前缀设为'/supply'作为低值易耗品模块总入口
 supply_index_bp = Blueprint('supply_index', __name__, url_prefix='/supply',
@@ -12,7 +12,7 @@ supply_index_bp = Blueprint('supply_index', __name__, url_prefix='/supply',
 
 @supply_index_bp.route('', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('supply.view')
 def supply_home():
     """低值易耗品管理系统首页（默认路由）"""
     try:
@@ -39,7 +39,7 @@ def supply_home():
 
 @supply_index_bp.route('/index', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('supply.view')
 def supply_index():
     """冗余路由，确保通过/index也能访问首页（兼容前端可能的跳转）"""
     try:

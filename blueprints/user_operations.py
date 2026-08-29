@@ -1,17 +1,19 @@
 from flask import Blueprint, render_template, redirect, url_for, request, flash
 from utils.db import db
 from models.user import User
+from models.user_operation_record import UserOperationRecord
 from models.dorm import Dorm
 from models.system_config import SystemConfig  # 导入系统配置模型
 from models.department import Department
+from models.role import Role  # 导入角色模型
 from flask_login import login_required, current_user
 from utils.log import log_operation
 from utils.user_utils import generate_student_id, generate_username  # 引用工具类
 from datetime import datetime
 import re
 from werkzeug.security import generate_password_hash
-# 导入admin_required装饰器
-from utils.auth import admin_required
+
+from utils.auth import require_permission
 import logging
 
 # 用户操作蓝图（仅保留增删改）
@@ -35,7 +37,7 @@ def _ensure_department_exists(name, company=None):
 
 @user_operations_bp.route('/add', methods=['GET', 'POST'])
 @login_required
-@admin_required
+@require_permission('user.create')
 def add():
     # 获取用户类别选项（供模板使用）
     category_options = [
@@ -43,8 +45,8 @@ def add():
         for item in SystemConfig.get_config_value('USER_TYPES', ['员工', '职员', '高管'])
     ]
     role_options = [
-        {'value': item, 'label': item} 
-        for item in SystemConfig.get_config_value('USER_ROLES', ['普通用户', '管理员', '超级管理员'])
+        {'value': str(role.id), 'label': role.name} 
+        for role in Role.query.order_by(Role.sort_order).all()
     ]
     status_options = [
         {'value': item, 'label': item} 
@@ -82,8 +84,15 @@ def add():
         # 从系统配置获取默认状态
         status = request.form.get('status', '').strip() or SystemConfig.get_config_value('USER_DEFAULT_STATUS', '在职')
         
-        # 从系统配置获取默认角色
-        role = request.form.get('role', '').strip() or SystemConfig.get_config_value('USER_DEFAULT_ROLE', '普通用户')
+        # 获取角色ID
+        role_id = request.form.get('role_id', '').strip()
+        # 验证角色是否存在
+        selected_role = Role.query.get(int(role_id)) if role_id else None
+        # 未选择角色时，默认分配普通用户角色
+        if not selected_role:
+            default_role = Role.query.filter_by(code='user').first()
+            if default_role:
+                selected_role = default_role
         
        # 从系统配置获取默认密码
         password = request.form.get('password', '').strip() or SystemConfig.get_config_value('USER_DEFAULT_PASSWORD', '123456')
@@ -204,7 +213,7 @@ def add():
                 )
         
         # 设置超级管理员角色时，验证账号状态和登录权限是否开启
-        if role == '超级管理员':
+        if selected_role and selected_role.code == 'super_admin':
             if not is_banned:
                 flash('设置超级管理员失败：超级管理员必须允许登录，请先勾选"允许登录"', 'danger')
                 logging.error(f"添加用户失败，设置超级管理员角色时未勾选允许登录")
@@ -254,7 +263,7 @@ def add():
                 remarks=remarks,
                 status=status,
                 username=username,
-                role=role,
+                role_id=selected_role.id if selected_role else None,
                 password_hash=generate_password_hash(password),  # 使用设置的密码
                 is_banned=is_banned,#账号默认不允许登录
                 is_active=is_active,  # 账号激活状态
@@ -266,6 +275,22 @@ def add():
             # 调用save()方法触发自动提取（籍贯、年龄等）
             new_user.save()
             logging.info(f"添加用户成功，用户ID: {new_user.id}, 用户名: {username}")
+            
+            # 记录用户操作
+            from models.user_operation_record import UserOperationRecord
+            UserOperationRecord.create_record(
+                target_user_id=new_user.id,
+                operation_type='add',
+                operator_id=current_user.id,
+                operator_name=current_user.name,
+                change_detail={
+                    'name': name,
+                    'student_id': student_id,
+                    'category': category,
+                    'role': selected_role.name if selected_role else '无角色'
+                },
+                summary=f'新增用户：{name}（{student_id}）'
+            )
             
             # 日志记录
             log_operation(
@@ -319,7 +344,7 @@ def add():
 
 @user_operations_bp.route('/edit/<int:id>', methods=['GET', 'POST'])
 @login_required
-@admin_required
+@require_permission('user.edit')
 def edit(id):
     user = User.query.get_or_404(id)
     
@@ -329,8 +354,8 @@ def edit(id):
         for item in SystemConfig.get_config_value('USER_TYPES', ['员工', '职员', '高管'])
     ]
     role_options = [
-        {'value': item, 'label': item} 
-        for item in SystemConfig.get_config_value('USER_ROLES', ['普通用户', '管理员', '超级管理员'])
+        {'value': str(role.id), 'label': role.name} 
+        for role in Role.query.order_by(Role.sort_order).all()
     ]
     status_options = [
         {'value': item, 'label': item} 
@@ -350,13 +375,27 @@ def edit(id):
     original_username = user.username
 
     # 超级管理员保护
-    if user.is_super_admin() and not current_user.is_super_admin():
+    if (user.user_role and user.user_role.code == 'super_admin') and not (current_user.user_role and current_user.user_role.code == 'super_admin'):
         flash('无权限编辑超级管理员', 'danger')
         logging.error(f"编辑用户失败，无权限编辑超级管理员: {user.id}")
         return redirect(url_for('user.manage'))
     
     if request.method == 'POST':
         old_info = f"姓名: {user.name}, 工号: {user.student_id}, 类别: {user.category}, 登录权限: {'禁止' if user.is_banned else '允许'}"
+        # 收集编辑前的旧值（用于变更记录）
+        old_values = {
+            'name': user.name,
+            'student_id': user.student_id,
+            'category': user.category,
+            'phone': user.phone,
+            'company': user.company,
+            'department': user.department,
+            'position': user.position,
+            'status': user.status,
+            'role': user.role_name,
+            'is_active': '已激活' if user.is_active else '未激活',
+            'is_banned': '禁止登录' if user.is_banned else '允许登录',
+        }
         student_id = request.form.get('student_id', '').strip()
         name = request.form.get('name', '').strip()
         username = request.form.get('username', '').strip()
@@ -373,7 +412,14 @@ def edit(id):
         emergency_phone = request.form.get('emergency_phone', '').strip()
         remarks = request.form.get('remarks', '').strip()
         status = request.form.get('status', user.status)
-        role = request.form.get('role', user.role).strip()
+        role_id = request.form.get('role_id', '').strip()
+        # 验证角色是否存在
+        selected_role = Role.query.get(int(role_id)) if role_id else None
+        # 未选择角色时，默认分配普通用户角色
+        if not selected_role:
+            default_role = Role.query.filter_by(code='user').first()
+            if default_role:
+                selected_role = default_role
         
         ethnicity = request.form.get('ethnicity', user.ethnicity or '').strip()
         marital_status = request.form.get('marital_status', user.marital_status or '').strip() #婚姻状态
@@ -392,7 +438,7 @@ def edit(id):
         
         # 修复：超级管理员的is_active/is_banned字段在前端是disabled状态，
         # disabled的表单元素不会被提交，因此需要保留数据库中的原值
-        if user.is_super_admin():
+        if user.user_role and user.user_role.code == 'super_admin':
             is_active = user.is_active
             is_banned = user.is_banned
 
@@ -439,7 +485,7 @@ def edit(id):
             gender = user.gender  # 使用数据库中已有的性别值，因为前端字段被禁用不会提交
         
         # 验证必填项
-        required_fields = [('name', '姓名'), ('gender', '性别'), ('category', '用户类别'), ('role', '角色'), ('status', '状态'), ('hire_date', '入职日期')]
+        required_fields = [('name', '姓名'), ('gender', '性别'), ('category', '用户类别'), ('status', '状态'), ('hire_date', '入职日期')]
         for field, label in required_fields:
             if not locals()[field]:
                 flash(f'编辑用户失败，{label}为必填项', 'danger')
@@ -472,7 +518,7 @@ def edit(id):
         
         
         # 角色权限控制
-        if user.is_super_admin() and not current_user.is_super_admin():
+        if (user.user_role and user.user_role.code == 'super_admin') and not (current_user.user_role and current_user.user_role.code == 'super_admin'):
             flash('无权限设置超级管理员角色', 'danger')
             logging.error(f"编辑用户失败，无权限设置超级管理员角色: {user.id}")
             return render_template(
@@ -487,7 +533,7 @@ def edit(id):
             )
         
         # 登录权限特殊控制：超级管理员不能被禁止登录
-        if user.is_super_admin() and not current_user.is_super_admin():
+        if (user.user_role and user.user_role.code == 'super_admin') and not (current_user.user_role and current_user.user_role.code == 'super_admin'):
             flash('无权限禁止超级管理员登录', 'danger')
             logging.error(f"编辑用户失败，无权限禁止超级管理员登录: {user.id}")
             return render_template(
@@ -503,7 +549,7 @@ def edit(id):
         
         # 角色变更为超级管理员时，验证账号状态和登录权限是否开启
         # 仅在角色发生变更时验证（已有的超级管理员编辑时其字段为disabled，不触发此验证）
-        if role == '超级管理员' and not user.is_super_admin():
+        if selected_role and selected_role.code == 'super_admin' and not (user.user_role and user.user_role.code == 'super_admin'):
             if not is_banned:
                 flash('设置超级管理员失败：超级管理员必须允许登录，请先勾选"允许登录"', 'danger')
                 logging.error(f"编辑用户失败，设置超级管理员角色时未勾选允许登录: {user.id}")
@@ -550,7 +596,7 @@ def edit(id):
             user.emergency_phone = emergency_phone
             user.remarks = remarks
             user.status = status
-            user.role = role
+            user.role_id = selected_role.id if selected_role else None
             user.is_active = is_active
             user.is_banned = is_banned  # 更新是否允许登录状态（True=禁止，False=允许）
             user.ethnicity = ethnicity  # 民族字段
@@ -563,6 +609,51 @@ def edit(id):
             
             user.save()
             logging.info(f"编辑用户成功，用户ID: {user.id}")
+            
+            # 记录用户操作 - 编辑
+            from models.user_operation_record import UserOperationRecord
+
+            # 收集变更详情
+            changes = []
+            new_values = {
+                'name': name,
+                'student_id': student_id,
+                'category': category,
+                'phone': phone,
+                'company': company,
+                'department': dept.name if dept else None,
+                'position': position,
+                'status': status,
+                'role': selected_role.name if selected_role else '无角色',
+                'is_active': '已激活' if is_active else '未激活',
+                'is_banned': '禁止登录' if is_banned else '允许登录',
+            }
+
+            field_labels = {
+                'name': '姓名', 'student_id': '工号', 'category': '人员类别',
+                'phone': '电话', 'company': '公司', 'department': '部门',
+                'position': '职位', 'status': '状态', 'role': '角色',
+                'is_active': '账号状态', 'is_banned': '登录权限'
+            }
+
+            for field, new_val in new_values.items():
+                old_val = old_values.get(field)
+                if old_val != new_val and field in field_labels:
+                    changes.append({
+                        'field': field_labels[field],
+                        'old': str(old_val) if old_val is not None else '',
+                        'new': str(new_val) if new_val is not None else ''
+                    })
+
+            if changes:
+                UserOperationRecord.create_record(
+                    target_user_id=user.id,
+                    operation_type='edit',
+                    operator_id=current_user.id,
+                    operator_name=current_user.name,
+                    change_detail=changes,
+                    summary=f'编辑用户：{user.name}，变更{len(changes)}项'
+                )
             
             log_operation(
                 user_id=current_user.id,
@@ -603,12 +694,14 @@ def edit(id):
     
 @user_operations_bp.route('/delete/<int:id>', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('user.delete')
 def delete(id):
     user = User.query.get_or_404(id)
     user_detail = f"ID: {user.id}, 姓名: {user.name}, 工号: {user.student_id}"
     
     try:
+        # 删除用户前，先删除关联的操作记录
+        UserOperationRecord.query.filter_by(target_user_id=user.id).delete()
         result = user.delete()
         
         if result['success']:
@@ -651,7 +744,7 @@ def delete(id):
 
 @user_operations_bp.route('/batch_delete', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('user.delete')
 def batch_delete():
     ids = request.form.get('ids', '').split(',')
     if not ids or ids == ['']:
@@ -674,6 +767,8 @@ def batch_delete():
         
         for user in users:
             user_detail = f"ID: {user.id}, 姓名: {user.name}, 工号: {user.student_id}"
+            # 删除用户前，先删除关联的操作记录
+            UserOperationRecord.query.filter_by(target_user_id=user.id).delete()
             result = user.delete()
             if result['success']:
                 deleted_count += 1
@@ -719,9 +814,9 @@ def batch_delete():
 
 @user_operations_bp.route('/delete_all', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('user.delete')
 def delete_all():
-    if not current_user.is_super_admin():
+    if not (current_user.user_role and current_user.user_role.code == 'super_admin'):
         flash('只有超级管理员可以执行删除全部操作', 'danger')
         logging.warning(f"非超级管理员[{current_user.id}:{current_user.name}]尝试执行删除全部操作，被拒绝")
         log_operation(
@@ -747,6 +842,8 @@ def delete_all():
         
         for user in all_users:
             user_detail = f"ID: {user.id}, 姓名: {user.name}, 工号: {user.student_id}"
+            # 删除用户前，先删除关联的操作记录
+            UserOperationRecord.query.filter_by(target_user_id=user.id).delete()
             result = user.delete()
             if result['success']:
                 deleted_count += 1

@@ -104,7 +104,8 @@ from blueprints import (
     stock_in_bp, stock_in_api_bp, stock_in_import_export_bp,
     stock_out_bp, stock_out_api_bp, stock_out_import_export_bp,
     supply_inventory_bp, supply_inventory_api_bp, supply_inventory_import_export_bp,
-    supply_stock_record_bp, supply_stock_record_api_bp
+    supply_stock_record_bp, supply_stock_record_api_bp,
+    role_bp
 )
 _stamp("导入33个蓝图")
 # 注册蓝图（保持不变）
@@ -165,7 +166,8 @@ app.register_blueprint(supply_inventory_api_bp)
 app.register_blueprint(supply_inventory_import_export_bp)
 app.register_blueprint(supply_stock_record_bp)
 app.register_blueprint(supply_stock_record_api_bp)
-_stamp("注册33个蓝图")
+app.register_blueprint(role_bp)
+_stamp("注册34个蓝图")
 
 
 
@@ -316,11 +318,11 @@ def root():
 @app.route('/index')
 @login_required
 def index():
-    # 判断用户是否为管理员
-    if not current_user.is_admin():
-        # 非管理员用户重定向到用户信息页面
+    # 判断用户是否有管理角色
+    if not current_user.role_id:
+        # 无角色用户重定向到用户信息页面
         return redirect(url_for('user.user_info'))
-    # 管理员用户继续访问首页
+    # 有角色用户继续访问首页
     return render_template('index.html',title=f"主页")
 
 #解决日志内"GET /.well-known/appspecific/com.chrome.devtools.json HTTP/1.1" 404 -错误

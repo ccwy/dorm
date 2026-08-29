@@ -5,7 +5,7 @@ from models.supply.supplier_operation_record import SupplierOperationRecord
 from models.user import User
 from flask_login import login_required, current_user
 from utils.log import log_operation
-from utils.auth import admin_required
+from utils.auth import require_permission
 import logging
 
 # 定义蓝图
@@ -46,7 +46,7 @@ from . import supplier_operations
 # 供应商列表页（含筛选+分页）
 @supplier_bp.route('/', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('supply.view')
 def index():
     try:
         # 获取筛选参数
@@ -143,7 +143,7 @@ def index():
 # 新增供应商页面
 @supplier_bp.route('/add', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('supply.create')
 def add_page():
     try:
         from datetime import date
@@ -163,7 +163,7 @@ def add_page():
 # 编辑供应商页面
 @supplier_bp.route('/edit/<int:id>', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('supply.edit')
 def edit_page(id):
     try:
         supplier = Supplier.query.get_or_404(id)
@@ -181,7 +181,7 @@ def edit_page(id):
 # 供应商详情页（含操作记录时间线）
 @supplier_bp.route('/detail/<int:id>', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('supply.view')
 def detail(id):
     try:
         supplier = Supplier.query.get_or_404(id)

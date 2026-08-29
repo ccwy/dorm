@@ -3,7 +3,7 @@ from utils.db import db
 from models.department import Department
 from flask_login import login_required, current_user
 from utils.log import log_operation
-from utils.auth import admin_required
+from utils.auth import require_permission
 import logging
 
 # 定义蓝图
@@ -44,7 +44,7 @@ from . import department_operations
 # 部门列表页（含筛选+分页）
 @department_bp.route('/', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('department.view')
 def index():
     try:
         # 获取筛选参数
@@ -151,7 +151,7 @@ def index():
 # 新增部门页面
 @department_bp.route('/add', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('department.create')
 def add_page():
     try:
         companies = Department.get_all_companies()
@@ -169,7 +169,7 @@ def add_page():
 # 编辑部门页面
 @department_bp.route('/edit/<int:id>', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('department.edit')
 def edit_page(id):
     try:
         department = Department.query.get_or_404(id)

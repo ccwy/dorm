@@ -9,8 +9,8 @@ from models.room import Room ,RoomStatus
 from utils.log import log_operation
 import logging
 from sqlalchemy import func  # 新增：导入聚合函数
-# 导入admin_required装饰器
-from utils.auth import admin_required
+# 导入require_permission装饰器
+from utils.auth import require_permission
 
 # 定义dorm蓝图
 dorm_bp = Blueprint(
@@ -27,7 +27,7 @@ from . import dorm_resident_api  # 包含新的在住人员查询API
     
 @dorm_bp.route('/manage')
 @login_required
-@admin_required
+@require_permission('dorm.view')
 def manage():
     """宿舍管理页面"""
     try:
@@ -57,7 +57,7 @@ def manage():
 
 @dorm_bp.route('/api/statistics')
 @login_required
-@admin_required
+@require_permission('dorm.view')
 def get_statistics():
     """获取数据统计信息 - 基于活跃用户数的总人数统计"""
     try:
@@ -279,7 +279,7 @@ def get_statistics():
 
 @dorm_bp.route('/api/recent_operations')
 @login_required
-@admin_required
+@require_permission('dorm.view')
 def get_recent_operations():
     """获取最近操作记录（调用换宿链并过滤换宿过程中的退宿）"""
     try:
@@ -380,7 +380,7 @@ def get_recent_operations():
 #增加在住人员查询页面 - 重构版
 @dorm_bp.route('/query')
 @login_required
-@admin_required
+@require_permission('dorm.view')
 def dorm_query():
     """在住人员查询页面（支持分页、搜索和筛选）"""
     
@@ -577,7 +577,7 @@ def dorm_query():
 
 @dorm_bp.route('/dorm_query_2')
 @login_required
-@admin_required
+@require_permission('dorm.view')
 def dorm_query_2():
     """显示宿舍分配表页面，默认显示所有房间"""
     # 获取查询参数（只保留搜索功能）
@@ -710,7 +710,7 @@ def dorm_query_2():
 # 宿舍操作记录查询页面
 @dorm_bp.route('/records')
 @login_required
-@admin_required
+@require_permission('dorm.view')
 def dorm_records():
     """宿舍操作记录查询页面"""
     try:

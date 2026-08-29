@@ -265,7 +265,7 @@
                                 </li>
                                 <li class="flex justify-between pb-4 border-b border-gray-100">
                                     <span class="text-gray-500">角色</span>
-                                    <span class="font-medium">{{ user.role }}</span>
+                                    <span class="font-medium">{{ user.role_name }}</span>
                                 </li>
                                 <li class="flex justify-between pb-4 border-b border-gray-100">
                                     <span class="text-gray-500">账号状态</span>
@@ -677,18 +677,57 @@
                         </h3>
                     </div>
                     <div class="p-6">
+                        {% if operation_records %}
                         <div class="space-y-4">
-                            <div class="flex pb-4 border-b border-gray-100">
-                                <div class="flex-shrink-0 w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center mr-4">
-                                    <i class="fa fa-eye text-blue-600"></i>
+                            {% for record in operation_records %}
+                            <div class="flex pb-4 border-b border-gray-100 last:border-0 last:pb-0">
+                                <div class="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center mr-4
+                                    {% if record.operation_type == 'add' %}bg-green-100
+                                    {% elif record.operation_type == 'edit' %}bg-blue-100
+                                    {% elif record.operation_type == 'role_change' %}bg-purple-100
+                                    {% elif record.operation_type == 'import' %}bg-yellow-100
+                                    {% else %}bg-gray-100{% endif %}">
+                                    {% if record.operation_type == 'add' %}
+                                        <i class="fa fa-plus text-green-600"></i>
+                                    {% elif record.operation_type == 'edit' %}
+                                        <i class="fa fa-edit text-blue-600"></i>
+                                    {% elif record.operation_type == 'role_change' %}
+                                        <i class="fa fa-user-shield text-purple-600"></i>
+                                    {% elif record.operation_type == 'import' %}
+                                        <i class="fa fa-file-import text-yellow-600"></i>
+                                    {% else %}
+                                        <i class="fa fa-cog text-gray-600"></i>
+                                    {% endif %}
                                 </div>
-                                <div>
-                                    <p class="font-medium">查看信息</p>
-                                    <p class="text-sm text-gray-500 mt-1">查看了该用户的详细信息</p>
-                                    <p class="text-xs text-gray-400 mt-2">{{ current_time_formatted }} <span class="ml-2">操作人：{{ current_user.name }}</span></p>
+                                <div class="flex-1 min-w-0">
+                                    <p class="font-medium">
+                                        {% if record.operation_type == 'add' %}新增用户
+                                        {% elif record.operation_type == 'edit' %}编辑用户
+                                        {% elif record.operation_type == 'role_change' %}角色权限变更
+                                        {% elif record.operation_type == 'import' %}批量导入
+                                        {% elif record.operation_type == 'batch_update' %}批量更新
+                                        {% else %}{{ record.operation_type }}{% endif %}
+                                    </p>
+                                    <p class="text-sm text-gray-500 mt-1">{{ record.summary or '无摘要' }}</p>
+                                    {% if record.change_detail %}
+                                    <div class="mt-2 text-xs text-gray-400">
+                                        <details class="cursor-pointer">
+                                            <summary>查看详情</summary>
+                                            <pre class="mt-1 p-2 bg-gray-50 rounded text-xs overflow-x-auto whitespace-pre-wrap">{{ record.change_detail }}</pre>
+                                        </details>
+                                    </div>
+                                    {% endif %}
+                                    <p class="text-xs text-gray-400 mt-2">
+                                        {{ record.operation_time.strftime('%Y-%m-%d %H:%M') if record.operation_time else '' }}
+                                        <span class="ml-2">操作人：{{ record.operator_name or '系统' }}</span>
+                                    </p>
                                 </div>
                             </div>
+                            {% endfor %}
                         </div>
+                        {% else %}
+                        <p class="text-gray-500 text-sm"><i class="fa fa-info-circle mr-1"></i> 暂无操作记录</p>
+                        {% endif %}
                     </div>
                 </div>
             </section>

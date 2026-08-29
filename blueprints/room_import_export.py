@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 import traceback
 from models.system_config import SystemConfig
 from io import BytesIO
-from utils.auth import admin_required
+from utils.auth import require_permission
 from utils.excel_date_utils import excel_date_utils
 
 # 创建导入导出专用蓝图
@@ -29,7 +29,7 @@ room_import_export_bp = Blueprint(
 # 导出房间数据
 @room_import_export_bp.route('/export', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('room.export')
 def export():
     try:
         logging.debug('开始执行房间数据导出')
@@ -148,7 +148,7 @@ def export():
 # 导入房间数据（使用模型的批量处理方法）
 @room_import_export_bp.route('/import', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('room.import')
 def import_rooms():
     """批量导入房间数据"""
     try:
@@ -497,7 +497,7 @@ def import_rooms():
 
 @room_import_export_bp.route('/download_template', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('room.import')
 def download_template():
     """生成并下载房间数据导入模板"""
     try:
@@ -608,7 +608,7 @@ def download_template():
 
 @room_import_export_bp.route('/export_facilities', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('room.export')
 def export_facilities():
     """
     导出设施列表数据（按room_id排序，每个设施单独一行）

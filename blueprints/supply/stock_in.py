@@ -9,7 +9,7 @@ from models.department import Department
 from models.user import User
 from flask_login import login_required, current_user
 from utils.log import log_operation
-from utils.auth import admin_required
+from utils.auth import require_permission
 import logging
 
 # 定义蓝图
@@ -50,7 +50,7 @@ from . import stock_in_operations
 # 入库单列表页（含筛选+分页）
 @stock_in_bp.route('/', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('supply.view')
 def list_stock_ins():
     try:
         # 获取筛选参数
@@ -193,7 +193,7 @@ def list_stock_ins():
 # 新增入库单页面
 @stock_in_bp.route('/add', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('supply.create')
 def add_stock_in():
     try:
         departments = Department.query.order_by(Department.id).all()
@@ -231,7 +231,7 @@ def add_stock_in():
 # 编辑入库单页面（仅待审核状态可编辑）
 @stock_in_bp.route('/edit/<int:id>', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('supply.edit')
 def edit_stock_in(id):
     try:
         stock_in = StockIn.query.get_or_404(id)
@@ -276,7 +276,7 @@ def edit_stock_in(id):
 # 入库单详情页面（含明细列表）
 @stock_in_bp.route('/detail/<int:id>', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('supply.view')
 def detail_stock_in(id):
     try:
         stock_in = StockIn.query.get_or_404(id)

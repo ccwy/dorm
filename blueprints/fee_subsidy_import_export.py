@@ -14,8 +14,8 @@ from models.room import Room
 from models.system_config import SystemConfig
 from models.dorm import Dorm  # 新增：导入住宿模型
 from utils.log import log_operation  # 导入日志工具
-# 导入admin_required装饰器
-from utils.auth import admin_required
+# 导入权限装饰器
+from utils.auth import require_permission
 from utils.lazy_imports import pd  # 延迟导入pandas
 from utils.excel_date_utils import excel_date_utils
 
@@ -64,7 +64,7 @@ def validate_accommodation_status(user_id, fee_type):
 # 1. 批量导出接口（Excel格式）
 @fee_subsidy_import_export_bp.route('/export', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('fee_subsidy.export')
 def export_records():
     # 获取筛选参数
     billing_period = request.args.get('billing_period')
@@ -280,7 +280,7 @@ def export_records():
 # 批量导入接口（修复*标记导致的字段识别问题）
 @fee_subsidy_import_export_bp.route('/import', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('fee_subsidy.import')
 def import_records():
     # 记录导入操作开始
     filename = request.files['file'].filename if 'file' in request.files else '未知文件'
@@ -518,7 +518,7 @@ def import_records():
 # 3. 生成导入模板接口（更新时间格式说明）
 @fee_subsidy_import_export_bp.route('/import-template', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('fee_subsidy.import')
 def generate_import_template():
     try:
         wb = openpyxl.Workbook()

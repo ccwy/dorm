@@ -13,8 +13,8 @@ from utils.log import log_operation
 from utils.room_meter_photo import room_meter_manager
 import traceback, calendar
 from datetime import datetime,timedelta
-# 导入admin_required装饰器
-from utils.auth import admin_required
+
+from utils.auth import require_permission
 
 utility_room_meter_bp = Blueprint('utility_room_meter', __name__, url_prefix='/utility-meter')
 
@@ -22,7 +22,7 @@ utility_room_meter_bp = Blueprint('utility_room_meter', __name__, url_prefix='/u
 # 页面路由 - 模板路径: templates/utility_bill
 @utility_room_meter_bp.route('/utility_reading', methods=['GET', 'POST'])
 @login_required
-@admin_required
+@require_permission('utility.edit')
 def utility_reading():
     """抄表登记页面 - 支持楼栋筛选、房间搜索、分页和获取最新抄表记录，以及单个和批量表单提交保存"""
     if request.method == 'POST':
@@ -524,7 +524,7 @@ def utility_reading():
 
 @utility_room_meter_bp.route('/utility_reading_manage', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('utility.view')
 def utility_reading_manage():
     """抄表记录管理页面"""
     # 从Room模型获取去重后的楼栋数据
@@ -570,7 +570,7 @@ def utility_reading_manage():
 # 修复：添加带ID参数的编辑页面路由
 @utility_room_meter_bp.route('/edit/<int:reading_id>', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('utility.edit')
 def utility_reading_edit(reading_id):
     """编辑抄表记录页面 - 带ID参数"""
     # 补充页面访问日志
@@ -586,7 +586,7 @@ def utility_reading_edit(reading_id):
 
 @utility_room_meter_bp.route('/<int:reading_id>', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('utility.view')
 def get_reading_detail(reading_id):
     """获取抄表记录详情"""
     try:
@@ -605,7 +605,7 @@ def get_reading_detail(reading_id):
     
 @utility_room_meter_bp.route('/<int:reading_id>', methods=['DELETE'])
 @login_required
-@admin_required
+@require_permission('utility.delete')
 def delete_reading(reading_id):
     """删除单个抄表记录"""
     try:
@@ -663,7 +663,7 @@ def delete_reading(reading_id):
 
 @utility_room_meter_bp.route('/batch-delete', methods=['DELETE'])
 @login_required
-@admin_required
+@require_permission('utility.delete')
 def batch_delete_readings():
     """批量删除抄表记录"""
     try:
@@ -779,7 +779,7 @@ def batch_delete_readings():
 
 @utility_room_meter_bp.route('/delete-billing-period/<string:year_month>', methods=['DELETE'])
 @login_required
-@admin_required
+@require_permission('utility.delete')
 def delete_readings_by_month(year_month):
     """
     按账期（YYYY-MM）删除抄表记录
@@ -888,7 +888,7 @@ def delete_readings_by_month(year_month):
 # 新增：按账期查询抄表记录
 @utility_room_meter_bp.route('/by-period', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('utility.view')
 def get_readings_by_period():
     """按账期查询抄表记录，通过billing_period查询utility_room_bill_records表获取record_id，再关联查询抄表记录"""
     try:
@@ -1094,7 +1094,7 @@ def get_majority_month(start_date, end_date):
     
 @utility_room_meter_bp.route('/edit/<int:reading_id>/save', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('utility.edit')
 def save_edited_reading(reading_id):
     """
     保存编辑后的抄表记录接口
@@ -1209,7 +1209,7 @@ def save_edited_reading(reading_id):
 
 @utility_room_meter_bp.route('/upload_media', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('utility.edit')
 def upload_meter_media():
     """上传抄表照片或视频"""
     try:
@@ -1320,7 +1320,7 @@ def serve_meter_media(billing_period, room_id, filename):
 
 @utility_room_meter_bp.route('/delete_media', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('utility.edit')
 def delete_meter_media():
     """删除抄表媒体文件"""
     try:
@@ -1418,7 +1418,7 @@ def get_meter_media_files():
 
 @utility_room_meter_bp.route('/upload_temp_media', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('utility.edit')
 def upload_temp_media():
     """上传抄表照片到临时目录（抄表登记页面，账期尚未确定）"""
     try:
@@ -1533,7 +1533,7 @@ def get_temp_media_files():
 
 @utility_room_meter_bp.route('/delete_temp_media', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('utility.edit')
 def delete_temp_media():
     """删除临时目录中的媒体文件"""
     try:
@@ -1566,7 +1566,7 @@ def delete_temp_media():
 
 @utility_room_meter_bp.route('/move_temp_to_billing', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('utility.edit')
 def move_temp_to_billing():
     """将临时目录中的文件移动到正式账期目录（保存抄表记录时调用）"""
     try:
@@ -1605,7 +1605,7 @@ def move_temp_to_billing():
 
 @utility_room_meter_bp.route('/clear_room_temp_media', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('utility.edit')
 def clear_room_temp_media():
     """清理指定房间临时目录中的所有媒体文件"""
     try:
@@ -1640,7 +1640,7 @@ def clear_room_temp_media():
 
 @utility_room_meter_bp.route('/clear_all_temp_media', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('utility.edit')
 def clear_all_temp_media():
     """清理所有房间临时目录中的媒体文件"""
     try:

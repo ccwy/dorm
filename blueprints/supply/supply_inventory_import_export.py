@@ -10,7 +10,7 @@ from utils.lazy_imports import pd  # 延迟导入pandas，避免启动时加载�
 import io
 from datetime import datetime
 import traceback
-from utils.auth import admin_required
+from utils.auth import require_permission
 from io import BytesIO
 
 # 创建导入导出专用蓝图
@@ -27,7 +27,7 @@ supply_inventory_import_export_bp = Blueprint(
 # 下载盘点单导入模板
 @supply_inventory_import_export_bp.route('/template', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('supply.import')
 def download_template():
     """生成并下载盘点单数据导入模板"""
     # 盘点单由系统自动生成明细，不支持手动导入创建
@@ -38,7 +38,7 @@ def download_template():
 # 导出盘点单列表
 @supply_inventory_import_export_bp.route('/export', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('supply.export')
 def export():
     """导出盘点单数据为Excel"""
     # 盘点单导出功能待实现
@@ -49,7 +49,7 @@ def export():
 # 导入盘点单数据
 @supply_inventory_import_export_bp.route('/import', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('supply.import')
 def import_inventories():
     """批量导入盘点单数据"""
     # 盘点单由系统自动生成明细，不支持手动导入创建

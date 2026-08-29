@@ -7,7 +7,7 @@ from models.asset_inventory import AssetInventory
 from models.asset_inventory_detail import AssetInventoryDetail
 from utils.log import log_operation
 from utils.asset_photo import AssetPhotoManager
-from utils.auth import admin_required
+from utils.auth import require_permission
 from models.system_config import SystemConfig
 from models.department import Department
 from datetime import datetime, date
@@ -105,7 +105,7 @@ def _generate_inventory_number():
 # ========== 路由：新增资产 ==========
 @fixed_asset_bp.route('/operations/add', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('fixed_asset.create')
 def add_asset():
     """新增资产"""
     try:
@@ -311,7 +311,7 @@ def add_asset():
 # ========== 路由：编辑资产 ==========
 @fixed_asset_bp.route('/operations/edit/<int:id>', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('fixed_asset.edit')
 def edit_asset(id):
     """编辑资产 - 逐字段对比，仅记录变更字段"""
     try:
@@ -588,7 +588,7 @@ def edit_asset(id):
 # ========== 路由：删除资产 ==========
 @fixed_asset_bp.route('/operations/delete/<int:id>', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('fixed_asset.delete')
 def delete_asset(id):
     """删除资产 - 仅写OperationLog，不写AssetOperationRecord（会被级联删除）"""
     try:
@@ -633,7 +633,7 @@ def delete_asset(id):
 # ========== 路由：批量删除 ==========
 @fixed_asset_bp.route('/operations/batch-delete', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('fixed_asset.delete')
 def batch_delete_assets():
     """批量删除资产"""
     try:
@@ -722,7 +722,7 @@ def batch_delete_assets():
 # ========== 路由：资产转移 ==========
 @fixed_asset_bp.route('/operations/transfer/<int:id>', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('fixed_asset.edit')
 def transfer_asset(id):
     """资产转移 - 更新位置/部门/责任人，记录转移前后信息"""
     try:
@@ -912,7 +912,7 @@ def transfer_asset(id):
 # ========== 路由：创建盘点单 ==========
 @fixed_asset_bp.route('/operations/inventory/create', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('fixed_asset.create')
 def create_inventory():
     """创建盘点单 - 生成盘点单号，获取所有在用/闲置状态资产创建盘点明细"""
     try:
@@ -997,7 +997,7 @@ def create_inventory():
 # ========== 路由：执行盘点 ==========
 @fixed_asset_bp.route('/operations/inventory/check', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('fixed_asset.edit')
 def check_inventory():
     """执行盘点 - 逐条确认，更新盘点明细和主表统计"""
     try:
@@ -1093,7 +1093,7 @@ def check_inventory():
 # ========== 路由：完成盘点 ==========
 @fixed_asset_bp.route('/operations/inventory/complete/<int:id>', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('fixed_asset.edit')
 def complete_inventory(id):
     """完成盘点 - 更新盘点状态为已完成"""
     try:
@@ -1202,7 +1202,7 @@ def complete_inventory(id):
 # ========== 路由：删除盘点单 ==========
 @fixed_asset_bp.route('/operations/inventory/delete/<int:id>', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('fixed_asset.delete')
 def delete_inventory(id):
     """删除盘点单 - 仅允许删除进行中状态的盘点单"""
     try:
@@ -1250,7 +1250,7 @@ def delete_inventory(id):
 # ========== 路由：执行报废 ==========
 @fixed_asset_bp.route('/operations/scrap/<int:id>', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('fixed_asset.edit')
 def scrap_asset(id):
     """执行报废 - 检查状态，更新为已报废，记录报废信息"""
     try:
@@ -1352,7 +1352,7 @@ def scrap_asset(id):
 # ========== 路由：执行出售 ==========
 @fixed_asset_bp.route('/operations/sell/<int:id>', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('fixed_asset.edit')
 def sell_asset(id):
     """执行出售 - 检查状态，更新为已出售，记录出售信息"""
     try:

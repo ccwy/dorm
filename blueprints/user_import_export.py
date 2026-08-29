@@ -18,15 +18,16 @@ import logging
 from utils.lazy_imports import pd  # 延迟导入pandas，避免启动时加载重型库
 from io import BytesIO
 from models.system_config import SystemConfig  # 导入系统配置模型
-# 导入admin_required装饰器
-from utils.auth import admin_required
+from models.role import Role  # 导入角色模型
+
+from utils.auth import require_permission
 
 # 创建导入导出蓝图
 user_import_export_bp = Blueprint('user_import_export', __name__, url_prefix='/user/import-export')
 
 @user_import_export_bp.route('/export', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('user.export')
 def export_users():
     """导出用户数据为Excel"""
     try:
@@ -120,7 +121,7 @@ def export_users():
 # ------------------------------
 @user_import_export_bp.route('/import', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('user.import')
 def import_users():
     """从Excel导入用户数据"""
     try:
@@ -188,7 +189,13 @@ def import_users():
         # 准备用户数据列表
         user_data_list = []
         now = datetime.datetime.now()
-        valid_roles = SystemConfig.get_config_value('USER_ROLES', ['普通用户', '管理员', '超级管理员'])
+        # 从Role表获取所有角色，构建名称到ID的映射
+        all_roles = Role.query.order_by(Role.sort_order).all()
+        role_name_to_id = {r.name: r.id for r in all_roles}
+        valid_role_names = [r.name for r in all_roles]
+        # 获取默认角色（普通用户）
+        default_role = Role.query.filter_by(code='user').first()
+        default_role_id = default_role.id if default_role else None
         
         # 提取所有入职时间值进行批量解析
         hire_date_values = df.get('入职日期', pd.Series([None] * len(df)))  # 获取入职日期列或创建空Series
@@ -295,13 +302,16 @@ def import_users():
             # 处理角色
             if '角色' in excel_columns and not pd.isna(row['角色']):
                 role_val = str(row['角色']).strip()
-                user_data['role'] = next(
-                    (r for r in valid_roles if r == role_val), 
-                    SystemConfig.get_config_value('USER_DEFAULT_ROLE', '普通用户')
-                )
+                # 通过角色名称查找角色ID
+                role_id = role_name_to_id.get(role_val)
+                if role_id is None:
+                    # 角色名称不匹配，使用默认角色
+                    role_id = default_role_id
+                    logging.info(f"导入用户数据操作，第{current_row}行：角色'{role_val}'不存在，已设置为默认角色")
+                user_data['role_id'] = role_id
             else:
-                user_data['role'] = SystemConfig.get_config_value('USER_DEFAULT_ROLE', '普通用户')
-                logging.info(f"导入用户数据操作，第{current_row}行：角色为空，已设置为默认角色：{user_data['role']}")
+                user_data['role_id'] = default_role_id
+                logging.info(f"导入用户数据操作，第{current_row}行：角色为空，已设置为默认角色")
             
             # 处理其他字段
             for display_name, field_name in display_to_field.items():
@@ -375,6 +385,24 @@ def import_users():
                 db.session.commit()
                 logging.info(f"导入用户数据操作，提交数据库成功")
                 success_count = len(import_result['success'])
+                
+                # 记录批量导入操作
+                from models.user_operation_record import UserOperationRecord
+                for new_user in import_result['success']:
+                    UserOperationRecord.create_record(
+                        target_user_id=new_user.id,
+                        operation_type='import',
+                        operator_id=current_user.id,
+                        operator_name=current_user.name,
+                        change_detail={
+                            'name': new_user.name,
+                            'student_id': new_user.student_id,
+                            'category': new_user.category
+                        },
+                        summary=f'批量导入新增用户：{new_user.name}'
+                    )
+                db.session.commit()
+                
                 log_operation(
                     user_id=current_user.id,
                     module='user',
@@ -429,7 +457,7 @@ def import_users():
 
 @user_import_export_bp.route('/import-template', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('user.import')
 def import_template():
     """生成并下载用户导入模板"""
     try:
@@ -553,7 +581,7 @@ def import_template():
 
 @user_import_export_bp.route('/update', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('user.edit')
 def update_users():
     """批量更新用户数据（基于用户ID）"""
     try:
@@ -744,6 +772,22 @@ def update_users():
             # 日志记录
             success_count = len(update_result['success'])
             failed_count = len(update_result['failed'])
+            
+            # 记录批量更新操作
+            from models.user_operation_record import UserOperationRecord
+            for updated_user in update_result['success']:
+                UserOperationRecord.create_record(
+                    target_user_id=updated_user.id,
+                    operation_type='batch_update',
+                    operator_id=current_user.id,
+                    operator_name=current_user.name,
+                    change_detail={
+                        'name': updated_user.name,
+                        'student_id': updated_user.student_id
+                    },
+                    summary=f'批量更新用户：{updated_user.name}'
+                )
+            db.session.commit()
             
             log_operation(
                 user_id=current_user.id,

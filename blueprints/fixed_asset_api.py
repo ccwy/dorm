@@ -5,7 +5,7 @@ from flask_login import login_required, current_user
 from utils.log import log_operation
 import traceback
 import os
-from utils.auth import admin_required
+from utils.auth import require_permission
 from models.system_config import SystemConfig
 from models.department import Department
 from models.fixed_asset import FixedAsset
@@ -21,7 +21,7 @@ fixed_asset_api_bp = Blueprint('fixed_asset_api', __name__, url_prefix='/api/fix
 # ========== 获取资产列表JSON（分页+筛选） ==========
 @fixed_asset_api_bp.route('/list', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('fixed_asset.view')
 def get_asset_list():
     """获取资产列表JSON，支持分页和多条件筛选"""
     try:
@@ -146,7 +146,7 @@ def get_asset_list():
 # ========== 获取资产详情JSON ==========
 @fixed_asset_api_bp.route('/<int:id>', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('fixed_asset.view')
 def get_asset_detail(id):
     """获取资产详情JSON，包含照片列表和操作记录"""
     try:
@@ -252,7 +252,7 @@ def get_asset_detail(id):
 # ========== 获取资产照片列表 ==========
 @fixed_asset_api_bp.route('/<int:asset_id>/photos', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('fixed_asset.view')
 def get_photos(asset_id):
     """获取资产照片列表"""
     try:
@@ -280,7 +280,7 @@ def get_photos(asset_id):
 # ========== 上传资产照片 ==========
 @fixed_asset_api_bp.route('/<int:asset_id>/photos/upload', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('fixed_asset.edit')
 def upload_photo(asset_id):
     """上传资产照片"""
     try:
@@ -316,7 +316,7 @@ def upload_photo(asset_id):
 # ========== 删除资产照片 ==========
 @fixed_asset_api_bp.route('/<int:asset_id>/photos/<path:filename>/delete', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('fixed_asset.edit')
 def delete_photo(asset_id, filename):
     """删除资产照片"""
     try:
@@ -345,7 +345,7 @@ def delete_photo(asset_id, filename):
 # ========== 获取资产操作记录JSON ==========
 @fixed_asset_api_bp.route('/<int:id>/operation-records', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('fixed_asset.view')
 def get_operation_records(id):
     """获取资产操作记录JSON，按时间倒序"""
     try:
@@ -378,7 +378,7 @@ def get_operation_records(id):
 # ========== 获取资产分类列表 ==========
 @fixed_asset_api_bp.route('/categories', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('fixed_asset.view')
 def get_categories():
     """获取资产分类列表（从SystemConfig读取）"""
     try:
@@ -396,7 +396,7 @@ def get_categories():
 # ========== 获取部门列表 ==========
 @fixed_asset_api_bp.route('/departments', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('fixed_asset.view')
 def get_departments():
     """获取部门名称列表（支持按公司筛选，用于datalist）"""
     try:
@@ -418,7 +418,7 @@ def get_departments():
 # ========== 获取资产统计概览数据 ==========
 @fixed_asset_api_bp.route('/stats', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('fixed_asset.view')
 def get_stats():
     """获取资产统计概览数据：总数、按分类统计、按状态统计、总原值、总净值"""
     try:
@@ -510,7 +510,7 @@ def get_asset_media(asset_id, filename):
 # ========== 搜索房间（模态框选择用） ==========
 @fixed_asset_api_bp.route('/rooms/search', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('fixed_asset.view')
 def search_rooms():
     """搜索房间（模态框选择用）"""
     try:
@@ -539,7 +539,7 @@ def search_rooms():
 # ========== 搜索用户（模态框选择责任人用） ==========
 @fixed_asset_api_bp.route('/users/search', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('fixed_asset.view')
 def search_users():
     """搜索用户（模态框选择责任人用）"""
     try:

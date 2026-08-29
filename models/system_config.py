@@ -247,6 +247,15 @@ class SystemConfig(db.Model):
                 'is_editable': True,
                 'sort_order': 120
             },
+            {
+                'config_key': 'FEATURE_ROLE_MANAGE_ENABLED',
+                'config_value': 'true',
+                'config_type': 'bool',
+                'category': 'system.feature',
+                'description': '角色管理功能开关',
+                'is_editable': True,
+                'sort_order': 130
+            },
             
             # 3. 用户管理配置 (category: user)
             {
@@ -274,14 +283,6 @@ class SystemConfig(db.Model):
                 'sort_order': 30
             },
             {
-                'config_key': 'USER_DEFAULT_ROLE',
-                'config_value': '普通用户',
-                'config_type': 'string',
-                'category': 'user',
-                'description': '新用户默认角色',
-                'sort_order': 40
-            },
-            {
                 'config_key': 'USER_DEFAULT_STATUS',
                 'config_value': '在职',
                 'config_type': 'string',
@@ -296,15 +297,6 @@ class SystemConfig(db.Model):
                 'category': 'user',
                 'description': '用户类型选项',
                 'sort_order': 60
-            },
-            
-            {
-                'config_key': 'USER_ROLES',
-                'config_value': '超级管理员,管理员,普通用户',
-                'config_type': 'list',
-                'category': 'user',
-                'description': '用户角色选项',
-                'sort_order': 70
             },
             
             {

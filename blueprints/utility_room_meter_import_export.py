@@ -17,8 +17,8 @@ from urllib.parse import quote
 from utils.lazy_imports import pd  # 延迟导入pandas
 from decimal import Decimal  # 确保导入Decimal
 from io import BytesIO
-# 导入admin_required装饰器
-from utils.auth import admin_required
+# 导入权限装饰器
+from utils.auth import require_permission
 from utils.excel_date_utils import excel_date_utils
 
 
@@ -29,7 +29,7 @@ utility_room_meter_import_export_bp = Blueprint('utility_room_meter_import_expor
 # 模板下载接口（不含抄表人字段）
 @utility_room_meter_import_export_bp.route('/template', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('utility.import')
 def download_template():
     """下载抄表记录导入模板（不含抄表人字段）"""
     try:
@@ -115,7 +115,7 @@ def download_template():
 # 导出抄表记录为Excel（包含记录ID，不含抄表人信息）
 @utility_room_meter_import_export_bp.route('/export', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('utility.export')
 def export_readings():
     """导出抄表记录为Excel文件（支持按账期筛选，包含记录ID，不含抄表人信息）"""
     try:
@@ -265,7 +265,7 @@ def export_readings():
 # 导入抄表记录从Excel（确保触发自动同步逻辑）
 @utility_room_meter_import_export_bp.route('/import', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('utility.import')
 def import_readings():
     """从Excel导入新的抄表记录（自动同步上次读数）"""
     log_data = {
@@ -545,7 +545,7 @@ def import_readings():
 # 批量更新抄表记录接口（确保触发自动同步逻辑）
 @utility_room_meter_import_export_bp.route('/batch_update', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('utility.edit')
 def batch_update():
     """批量更新抄表记录（自动同步上次读数）"""
     try:

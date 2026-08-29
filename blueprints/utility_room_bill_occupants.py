@@ -14,15 +14,15 @@ import logging  # 确保导入logging模块
 from sqlalchemy.exc import SQLAlchemyError
 from flask_login import login_required, current_user
 from models.fee_subsidy_usage import FeeSubsidyUsage  # 导入费用补贴子表
-# 导入admin_required装饰器
-from utils.auth import admin_required
+# 导入权限装饰器
+from utils.auth import require_permission
 # 创建蓝图
 utility_room_bill_occupants_bp = Blueprint('utility_room_bill_occupants', __name__, url_prefix='/utility_room_bill_occupants')
 
 # 获取费用明细数据
 @utility_room_bill_occupants_bp.route('/api/fee_records', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('utility.view')
 def get_fee_records():
     """获取费用明细数据，支持筛选和分页，新增住宿周期信息"""
     try:
@@ -202,7 +202,7 @@ def get_fee_records():
 # 加载账单数据
 @utility_room_bill_occupants_bp.route('/api/load_bill', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('utility.view')
 def load_bill():
     """加载指定账期的账单数据"""
     try:
@@ -360,7 +360,7 @@ def calculate_bill():
 # 删除当期子表账单
 @utility_room_bill_occupants_bp.route('/api/clear_current_bill', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('utility.edit')
 def clear_current_bill():
     """删除指定账期的子表分摊记录（保留主表数据）"""
     try:
@@ -449,7 +449,7 @@ def clear_current_bill():
 # 删除单条费用记录
 @utility_room_bill_occupants_bp.route('/api/delete_fee_record/<int:occupant_id>', methods=['DELETE'])
 @login_required
-@admin_required
+@require_permission('utility.delete')
 def delete_fee_record(occupant_id):
     """删除单条人员费用记录"""
     try:
@@ -666,7 +666,7 @@ def create_fee_export_data(billing_period):
 
 @utility_room_bill_occupants_bp.route('/api/export_fee_data', methods=['GET'])
 @login_required
-@admin_required  # 添加登录验证，与日志蓝图保持一致
+@require_permission('utility.export')  # 添加登录验证，与日志蓝图保持一致
 def export_fee_data():
     """导出人员费用数据为Excel，支持按房间号合并所有相同内容字段并添加完整边框"""
     import pandas as pd  # 延迟导入，避免启动时加载重型库

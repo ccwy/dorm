@@ -11,8 +11,8 @@ import traceback
 from models.system_config import SystemConfig  # 新增：导入系统配置模型
 from utils.room_photo import RoomPhotoManager
 from datetime import datetime
-# 导入admin_required装饰器
-from utils.auth import admin_required
+
+from utils.auth import require_permission
 from models.room_facility import RoomFacility  # 新增：导入房间设施模型
 
 # 获取所有有效的楼栋列表（供内部使用）
@@ -46,7 +46,7 @@ def get_buildings_from_config():
 # 添加房间
 @room_bp.route('/add', methods=['GET', 'POST'])
 @login_required
-@admin_required
+@require_permission('room.create')
 def add():
     
     # 从系统配置获取房间类型
@@ -189,7 +189,7 @@ def add():
     
 @room_bp.route('/edit/<int:id>', methods=['GET', 'POST'])
 @login_required
-@admin_required
+@require_permission('room.edit')
 def edit(id):
     room = Room.query.get_or_404(id)
     # 从系统配置获取楼栋列表（统一来源）
@@ -340,7 +340,7 @@ def edit(id):
 # 删除房间 - 详细日志版本
 @room_bp.route('/delete/<int:id>', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('room.delete')
 def delete(id):
     try:
         room = Room.query.get_or_404(id)
@@ -410,7 +410,7 @@ def delete(id):
 # 批量删除房间 - 详细日志版本
 @room_bp.route('/batch-delete', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('room.delete')
 def batch_delete():
     try:
         room_id_strings = request.form.getlist('room_ids[]')
@@ -519,7 +519,7 @@ def batch_delete():
 # 删除全部房间 - 详细日志版本
 @room_bp.route('/delete-all', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('room.delete')
 def delete_all():
     try:
         # 获取所有房间
@@ -604,7 +604,7 @@ def delete_all():
 
 @room_bp.route('/upload_media', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('room.edit')
 def upload_media():
     """上传房间照片或视频"""
     try:
@@ -668,7 +668,7 @@ def upload_media():
 
 @room_bp.route('/delete_media', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('room.edit')
 def delete_media():
     """删除房间照片或视频"""
     try:

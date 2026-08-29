@@ -13,12 +13,12 @@ import logging
 from .utility_room_bill_checkout import utility_room_bill_checkout_bp  # 导入退宿费用子表主蓝图
 from io import BytesIO
 from urllib.parse import quote
-# 导入admin_required装饰器
-from utils.auth import admin_required
+# 导入权限装饰器
+from utils.auth import require_permission
     
 @utility_room_bill_checkout_bp.route('/export', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('utility.export')
 def export_checkout_records():
     """
     导出退宿人员费用记录为Excel文件

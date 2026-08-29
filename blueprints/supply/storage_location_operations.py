@@ -3,7 +3,7 @@ from flask_login import login_required, current_user
 from utils.db import db
 from models.supply.storage_location import StorageLocation
 from utils.log import log_operation
-from utils.auth import admin_required
+from utils.auth import require_permission
 import logging
 import traceback
 from datetime import datetime
@@ -13,7 +13,7 @@ from .storage_location import storage_location_bp
 # ========== 路由：新增存放位置 ==========
 @storage_location_bp.route('/operations/add', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('supply.create')
 def add_storage_location():
     """新增存放位置"""
     try:
@@ -80,7 +80,7 @@ def add_storage_location():
 # ========== 路由：编辑存放位置 ==========
 @storage_location_bp.route('/operations/edit/<int:id>', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('supply.edit')
 def edit_storage_location(id):
     """编辑存放位置"""
     try:
@@ -174,7 +174,7 @@ def edit_storage_location(id):
 # ========== 路由：删除存放位置 ==========
 @storage_location_bp.route('/operations/delete/<int:id>', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('supply.delete')
 def delete_storage_location(id):
     """删除存放位置 - 检查使用情况，被引用时拒绝删除"""
     try:
@@ -228,7 +228,7 @@ def delete_storage_location(id):
 # ========== 路由：批量删除存放位置 ==========
 @storage_location_bp.route('/operations/batch-delete', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('supply.delete')
 def batch_delete_storage_locations():
     """批量删除存放位置 - 检查使用情况，被引用时跳过"""
     try:

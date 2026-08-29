@@ -4,7 +4,7 @@ from utils.db import db
 from models.department import Department
 from models.fixed_asset import FixedAsset
 from utils.log import log_operation
-from utils.auth import admin_required
+from utils.auth import require_permission
 import logging
 import traceback
 from datetime import datetime
@@ -14,7 +14,7 @@ from .department import department_bp
 # ========== 路由：新增部门 ==========
 @department_bp.route('/operations/add', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('department.create')
 def add_department():
     """新增部门"""
     try:
@@ -81,7 +81,7 @@ def add_department():
 # ========== 路由：编辑部门 ==========
 @department_bp.route('/operations/edit/<int:id>', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('department.edit')
 def edit_department(id):
     """编辑部门 - 支持名称变更时级联更新User和FixedAsset"""
     try:
@@ -176,7 +176,7 @@ def edit_department(id):
 # ========== 路由：删除部门 ==========
 @department_bp.route('/operations/delete/<int:id>', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('department.delete')
 def delete_department(id):
     """删除部门 - 检查使用情况，被引用时拒绝删除"""
     try:
@@ -232,7 +232,7 @@ def delete_department(id):
 # ========== 路由：批量删除 ==========
 @department_bp.route('/operations/batch-delete', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('department.delete')
 def batch_delete_departments():
     """批量删除部门"""
     try:
@@ -333,7 +333,7 @@ def batch_delete_departments():
 # ========== 路由：检查部门名称是否重复（API） ==========
 @department_bp.route('/operations/check-name', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('department.view')
 def check_name():
     """AJAX检查部门名称是否重复"""
     try:

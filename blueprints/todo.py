@@ -5,6 +5,7 @@ from models.system_config import SystemConfig
 from utils.db import db
 from utils.log import log_operation
 from flask_login import login_required, current_user
+from utils.auth import require_permission
 import logging
 from datetime import datetime
 
@@ -15,6 +16,7 @@ from . import todo_export  # 包含新的在住人员查询API
 
 @todo_bp.route('/')
 @login_required
+@require_permission('todo.view')
 def index():
     """待办事项列表页面"""
     # 获取查询参数
@@ -30,7 +32,7 @@ def index():
     query = Todo.query
     
     # 根据用户权限过滤待办事项
-    if not current_user.is_super_admin():
+    if not (current_user.user_role and current_user.user_role.code == 'super_admin'):
         # 非超级管理员只能查看自己创建的待办事项
         query = query.filter(Todo.created_by == current_user.id)
     
@@ -94,6 +96,7 @@ def index():
 
 @todo_bp.route('/add', methods=['GET', 'POST'])
 @login_required
+@require_permission('todo.create')
 def add():
     """添加待办事项"""
     if request.method == 'POST':
@@ -183,6 +186,7 @@ def add():
 
 @todo_bp.route('/edit/<int:todo_id>', methods=['GET', 'POST'])
 @login_required
+@require_permission('todo.edit')
 def edit(todo_id):
     """编辑待办事项"""
     todo = Todo.get_by_id(todo_id)
@@ -193,7 +197,7 @@ def edit(todo_id):
         return redirect(url_for('todo.index'))
     
     # 检查权限：非超级管理员只能编辑自己创建的待办事项
-    if not current_user.is_super_admin() and todo.created_by != current_user.id:
+    if not (current_user.user_role and current_user.user_role.code == 'super_admin') and todo.created_by != current_user.id:
         flash('您没有权限编辑此待办事项', 'danger')
         logging.error(f"编辑待办事项失败: 用户{current_user.id}没有权限编辑待办事项ID {todo_id}")
         log_operation(
@@ -313,6 +317,7 @@ def edit(todo_id):
 
 @todo_bp.route('/detail/<int:todo_id>')
 @login_required
+@require_permission('todo.view')
 def detail(todo_id):
     """查看待办事项详情"""
     todo = Todo.get_by_id(todo_id)
@@ -323,7 +328,7 @@ def detail(todo_id):
         return redirect(url_for('todo.index'))
     
     # 检查权限：非超级管理员只能查看自己创建的待办事项
-    if not current_user.is_super_admin() and todo.created_by != current_user.id:
+    if not (current_user.user_role and current_user.user_role.code == 'super_admin') and todo.created_by != current_user.id:
         flash('您没有权限查看此待办事项', 'danger')
         logging.error(f"查看待办事项详情失败: 用户{current_user.id}没有权限查看待办事项ID {todo_id}")
         log_operation(
@@ -363,6 +368,7 @@ def detail(todo_id):
 
 @todo_bp.route('/delete/<int:todo_id>', methods=['POST'])
 @login_required
+@require_permission('todo.delete')
 def delete(todo_id):
     """删除待办事项"""
     try:
@@ -374,7 +380,7 @@ def delete(todo_id):
             return redirect(url_for('todo.index'))
         
         # 检查权限：非超级管理员只能删除自己创建的待办事项
-        if not current_user.is_super_admin() and todo.created_by != current_user.id:
+        if not (current_user.user_role and current_user.user_role.code == 'super_admin') and todo.created_by != current_user.id:
             flash('您没有权限删除此待办事项', 'danger')
             logging.error(f"删除待办事项失败: 用户{current_user.id}没有权限删除待办事项ID {todo_id}")
             log_operation(
@@ -418,6 +424,7 @@ def delete(todo_id):
 
 @todo_bp.route('/batch_delete', methods=['POST'])
 @login_required
+@require_permission('todo.delete')
 def batch_delete():
     """批量删除待办事项"""
     try:
@@ -442,7 +449,7 @@ def batch_delete():
             return redirect(url_for('todo.index'))
         
         # 非超级管理员只能批量删除自己创建的待办事项
-        if not current_user.is_super_admin():
+        if not (current_user.user_role and current_user.user_role.code == 'super_admin'):
             # 获取所有选中的待办事项
             todos = Todo.query.filter(Todo.id.in_(valid_todo_ids)).all()
             
@@ -494,11 +501,12 @@ def batch_delete():
 
 @todo_bp.route('/delete_all', methods=['POST'])
 @login_required
+@require_permission('todo.delete')
 def delete_all():
     """删除所有待办事项"""
     try:
         # 只有超级管理员可以删除所有待办事项
-        if not current_user.is_super_admin():
+        if not (current_user.user_role and current_user.user_role.code == 'super_admin'):
             flash('只有超级管理员可以执行此操作', 'danger')
             logging.error(f"删除所有待办事项失败: 用户{current_user.id}没有权限")
             log_operation(
@@ -549,6 +557,7 @@ def delete_all():
 
 @todo_bp.route('/update_progress/<int:todo_id>', methods=['POST'])
 @login_required
+@require_permission('todo.edit')
 def update_progress(todo_id):
     """更新待办事项进度"""
     try:
@@ -560,7 +569,7 @@ def update_progress(todo_id):
             return redirect(url_for('todo.index'))
         
         # 检查权限：非超级管理员只能更新自己创建的待办事项进度
-        if not current_user.is_super_admin() and todo.created_by != current_user.id:
+        if not (current_user.user_role and current_user.user_role.code == 'super_admin') and todo.created_by != current_user.id:
             flash('您没有权限更新此待办事项进度', 'danger')
             logging.error(f"更新待办事项进度失败: 用户{current_user.id}没有权限更新待办事项ID {todo_id}的进度")
             log_operation(

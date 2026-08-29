@@ -4,7 +4,7 @@ from utils.db import db
 from flask_login import login_required, current_user
 from utils.log import log_operation
 import traceback
-from utils.auth import admin_required
+from utils.auth import require_permission
 from models.supply.storage_location import StorageLocation
 from models.supply.supply_stock_detail import SupplyStockDetail
 
@@ -14,7 +14,7 @@ storage_location_api_bp = Blueprint('storage_location_api', __name__, url_prefix
 # ========== 获取存放位置列表JSON（分页+筛选） ==========
 @storage_location_api_bp.route('/list', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('supply.view')
 def get_storage_location_list():
     """获取存放位置列表JSON，支持分页和多条件筛选"""
     try:
@@ -95,7 +95,7 @@ def get_storage_location_list():
 # ========== 获取存放位置详情JSON ==========
 @storage_location_api_bp.route('/<int:id>', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('supply.view')
 def get_storage_location_detail(id):
     """获取存放位置详情JSON"""
     try:
@@ -180,7 +180,7 @@ def get_storage_location_names():
 # ========== 检查存放位置是否被使用 ==========
 @storage_location_api_bp.route('/check-usage/<int:id>', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('supply.view')
 def check_storage_location_usage(id):
     """检查存放位置是否被库存明细使用"""
     try:

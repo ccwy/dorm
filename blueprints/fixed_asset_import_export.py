@@ -15,7 +15,7 @@ from models.department import Department
 from models.room import Room
 from models.user import User
 from io import BytesIO
-from utils.auth import admin_required
+from utils.auth import require_permission
 from utils.excel_date_utils import excel_date_utils
 from decimal import Decimal
 
@@ -48,7 +48,7 @@ def _ensure_department_exists(name, company=None):
 # 导出资产数据
 @fixed_asset_import_export_bp.route('/export', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('fixed_asset.export')
 def export():
     try:
         logging.debug('开始执行固定资产数据导出')
@@ -140,7 +140,7 @@ def export():
 # 导入资产数据
 @fixed_asset_import_export_bp.route('/import', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('fixed_asset.import')
 def import_assets():
     """批量导入固定资产数据"""
     try:
@@ -564,7 +564,7 @@ def import_assets():
 # 下载导入模板
 @fixed_asset_import_export_bp.route('/template', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('fixed_asset.import')
 def download_template():
     """生成并下载固定资产数据导入模板"""
     try:

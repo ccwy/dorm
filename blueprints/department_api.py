@@ -4,7 +4,7 @@ from utils.db import db
 from flask_login import login_required, current_user
 from utils.log import log_operation
 import traceback
-from utils.auth import admin_required
+from utils.auth import require_permission
 from models.department import Department
 
 department_api_bp = Blueprint('department_api', __name__, url_prefix='/api/departments')
@@ -13,7 +13,7 @@ department_api_bp = Blueprint('department_api', __name__, url_prefix='/api/depar
 # ========== 获取部门列表JSON（分页+筛选） ==========
 @department_api_bp.route('/list', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('department.view')
 def get_department_list():
     """获取部门列表JSON，支持分页和多条件筛选"""
     try:

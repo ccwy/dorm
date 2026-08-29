@@ -8,7 +8,7 @@ from models.supply.supply_item import SupplyItem
 from models.supply.storage_location import StorageLocation
 from models.system_config import SystemConfig
 from utils.log import log_operation
-from utils.auth import admin_required
+from utils.auth import require_permission
 import logging
 import traceback
 from datetime import datetime
@@ -18,7 +18,7 @@ from .stock_in import stock_in_bp
 # ========== 路由：新增入库单 ==========
 @stock_in_bp.route('/operations/add', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('supply.create')
 def create_stock_in():
     """新增入库单"""
     try:
@@ -216,7 +216,7 @@ def create_stock_in():
 # ========== 路由：编辑入库单 ==========
 @stock_in_bp.route('/operations/edit/<int:id>', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('supply.edit')
 def update_stock_in(id):
     """编辑入库单（仅待审核状态可编辑）"""
     try:
@@ -410,7 +410,7 @@ def update_stock_in(id):
 # ========== 路由：删除入库单 ==========
 @stock_in_bp.route('/operations/delete/<int:id>', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('supply.delete')
 def delete_stock_in(id):
     """删除入库单（仅待审核状态可删除）"""
     try:
@@ -456,7 +456,7 @@ def delete_stock_in(id):
 # ========== 路由：审核入库单 ==========
 @stock_in_bp.route('/operations/approve/<int:id>', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('supply.edit')
 def approve_stock_in(id):
     """审核入库单"""
     try:
@@ -500,7 +500,7 @@ def approve_stock_in(id):
 # ========== 路由：反审核入库单 ==========
 @stock_in_bp.route('/operations/unapprove/<int:id>', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('supply.edit')
 def unapprove_stock_in(id):
     """反审核入库单（仅已审核状态可反审核，反审核后状态变为待审核，库存回滚）"""
     try:
@@ -557,7 +557,7 @@ def unapprove_stock_in(id):
 # ========== 路由：取消入库单 ==========
 @stock_in_bp.route('/operations/cancel/<int:id>', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('supply.edit')
 def cancel_stock_in(id):
     """取消入库单（仅待审核状态可取消）"""
     try:
@@ -600,7 +600,7 @@ def cancel_stock_in(id):
 # ========== 路由：批量删除入库单 ==========
 @stock_in_bp.route('/operations/batch-delete', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('supply.delete')
 def batch_delete_stock_ins():
     """批量删除入库单（仅待审核状态可删除）"""
     try:

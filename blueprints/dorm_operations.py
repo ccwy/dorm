@@ -9,6 +9,7 @@ from models.user import User
 from models.department import Department
 from models.room import Room
 from models.room_bed import Bed  # 【新增】导入床位模型
+from models.role import Role  # 导入角色模型
 from utils.log import log_operation
 from .dorm import dorm_bp  # 导入dorm蓝图
 
@@ -18,8 +19,8 @@ from models.utility_room_bill_checkout import CheckoutUtilityRecord # 退宿费�
 from models.utility_room_bill_occupant import RoomUtilityOccupant # 住户费用子表
 from models.fee_subsidy import FeeSubsidy #费用补贴主表
 from models.fee_subsidy_usage import FeeSubsidyUsage
-# 导入admin_required装饰器
-from utils.auth import admin_required
+# 导入require_permission装饰器
+from utils.auth import require_permission
 
 
 # --------------------------
@@ -27,7 +28,7 @@ from utils.auth import admin_required
 # --------------------------
 @dorm_bp.route('/create_allocation', methods=['GET', 'POST'])
 @login_required
-@admin_required
+@require_permission('dorm.create')
 def create_allocation():
     """分配宿舍：
     - GET: 接收user_id参数，查询用户信息和可用房间列表
@@ -52,7 +53,7 @@ def create_allocation():
             return redirect(url_for('user.manage'))
         
         # 检查用户是否为超级管理员，超级管理员不能分配宿舍
-        if user.is_super_admin():
+        if user.user_role and user.user_role.code == 'super_admin':
             flash('超级管理员不能分配宿舍', 'danger')
             logging.error(f"创建分配宿舍失败：用户ID {user_id} 是超级管理员，不能分配宿舍（GET请求）")
             return redirect(url_for('user.manage'))
@@ -140,7 +141,7 @@ def create_allocation():
                 return redirect(url_for('user.manage'))
             
             # 检查用户是否为超级管理员，超级管理员不能分配宿舍
-            if user.is_super_admin():
+            if user.user_role and user.user_role.code == 'super_admin':
                 flash('超级管理员不能分配宿舍', 'danger')
                 logging.error(f"创建分配宿舍失败：用户ID {user_id} 是超级管理员，不能分配宿舍（POST请求）")
                 return redirect(url_for('dorm.create_allocation', user_id=user_id))
@@ -264,7 +265,7 @@ def create_allocation():
 # --------------------------
 @dorm_bp.route('/add', methods=['GET', 'POST'])
 @login_required
-@admin_required
+@require_permission('dorm.create')
 def add():
     """添加宿舍分配：处理表单提交和页面渲染"""
     is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
@@ -288,7 +289,7 @@ def add():
             
             # 验证用户角色（禁止为超级管理员分配宿舍）
             user = User.query.get(user_id)
-            if user.is_super_admin() and not current_user.is_super_admin():
+            if (user.user_role and user.user_role.code == 'super_admin') and not (current_user.user_role and current_user.user_role.code == 'super_admin'):
                 error_msg = '禁止为超级管理员分配宿舍'
                 if is_ajax:
                     return jsonify({"success": False, "message": error_msg}), 400
@@ -447,14 +448,17 @@ def add():
             flash(f'添加失败：{str(e)}', 'danger')
     
     # GET请求：渲染添加页面
-    # 获取未分配宿舍的用户（无活跃住宿记录）
-    users = User.query.filter(
+    # 获取未分配宿舍的用户（无活跃住宿记录，排除超级管理员）
+    super_admin_role = Role.query.filter_by(code='super_admin').first()
+    users_query = User.query.filter(
         User.status == '在职',
-        User.role != '超级管理员',
         ~User.id.in_(
             db.session.query(Dorm.user_id).filter(Dorm.status == 'active')
         )
-    ).all()
+    )
+    if super_admin_role:
+        users_query = users_query.filter(User.role_id != super_admin_role.id)
+    users = users_query.all()
     available_rooms = Room.query.filter_by(status='available').all()
     # 记录访问日志
     log_operation(
@@ -476,7 +480,7 @@ def add():
 # --------------------------   
 @dorm_bp.route('/checkout', methods=['GET', 'POST'])
 @login_required
-@admin_required
+@require_permission('dorm.delete')
 def checkout():
     """退宿办理：
     - GET: 接收user_id参数，查询用户信息、房间信息和室友信息，返回相关数据
@@ -980,7 +984,7 @@ def checkout():
 # 退宿办理
 @dorm_bp.route('dorm_gameout', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('dorm.delete')
 def dorm_gameout():
     """退宿办理页面 - 返回过滤后的活跃用户数据，支持搜索和筛选"""
     # 记录访问日志
@@ -1105,7 +1109,7 @@ def dorm_gameout():
 # --------------------------
 @dorm_bp.route('/swap', methods=['GET', 'POST'])
 @login_required
-@admin_required
+@require_permission('dorm.edit')
 def swap():
     """单人换宿：
     - GET: 接收user_id参数，查询用户信息、房间信息和室友信息，返回可用房间列表
@@ -1428,7 +1432,7 @@ def swap():
 # 单人更换宿舍页面（GET）
 @dorm_bp.route('/change', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('dorm.edit')
 def change_page():
     """加载更换宿舍页面，传递必要数据给前端"""
     try:
@@ -1466,7 +1470,7 @@ def change_page():
 # 处理单人更换宿舍提交（POST）
 @dorm_bp.route('/change', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('dorm.edit')
 def change():
     """处理单人更换宿舍的表单提交"""
     try:
@@ -1588,7 +1592,7 @@ def change():
 # 处理两人互换宿舍提交（POST）
 @dorm_bp.route('/exchange', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('dorm.edit')
 def exchange():
     """处理两人互换宿舍的表单提交"""
     try:
@@ -1723,7 +1727,7 @@ def exchange():
 # 获取指定日期的减免额度
 @dorm_bp.route('/get_subsidy_by_date', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('dorm.delete')
 def get_subsidy_by_date():
     """根据指定日期获取用户和房间的减免额度"""
     # 获取请求参数

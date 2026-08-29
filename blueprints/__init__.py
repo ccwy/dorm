@@ -74,3 +74,6 @@ from .supply import (
     supply_inventory_bp, supply_inventory_api_bp, supply_inventory_import_export_bp,
     supply_stock_record_bp, supply_stock_record_api_bp
 )
+
+# 角色管理相关
+from .role import role_bp

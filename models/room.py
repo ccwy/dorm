@@ -455,11 +455,11 @@ class Room(db.Model):
                 logging.warning(message)
                 return {'success': False, 'message': message}
                 
-            is_super_admin = current_user.is_super_admin() if hasattr(current_user, 'is_super_admin') else False
+            is_super_admin = (current_user.user_role and current_user.user_role.code == 'super_admin') if hasattr(current_user, 'user_role') else False
             
             if not is_super_admin:
-                if not (hasattr(current_user, 'is_admin') and current_user.is_admin()):
-                    message = "权限不足，只有管理员可以删除房间"
+                if not current_user.has_permission('room.delete'):
+                    message = "权限不足，只有拥有删除权限的用户可以删除房间"
                     return {'success': False, 'message': message}
                 
                 if self.current_occupancy > 0:

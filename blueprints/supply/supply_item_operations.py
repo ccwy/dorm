@@ -5,7 +5,7 @@ from models.supply.supply_item import SupplyItem
 from models.supply.supplier import Supplier
 from models.supply.storage_location import StorageLocation
 from utils.log import log_operation
-from utils.auth import admin_required
+from utils.auth import require_permission
 import logging
 import traceback
 from datetime import datetime
@@ -15,7 +15,7 @@ from .supply_item import supply_item_bp
 # ========== 路由：新增物品 ==========
 @supply_item_bp.route('/operations/add', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('supply.create')
 def add_supply_item():
     """新增物品"""
     try:
@@ -101,7 +101,7 @@ def add_supply_item():
 # ========== 路由：编辑物品 ==========
 @supply_item_bp.route('/operations/edit/<int:id>', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('supply.edit')
 def edit_supply_item(id):
     """编辑物品"""
     try:
@@ -204,7 +204,7 @@ def edit_supply_item(id):
 # ========== 路由：删除物品 ==========
 @supply_item_bp.route('/operations/delete/<int:id>', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('supply.delete')
 def delete_supply_item(id):
     """删除物品 - 检查使用情况，被引用时拒绝删除"""
     try:
@@ -261,7 +261,7 @@ def delete_supply_item(id):
 # ========== 路由：重新计算物品总库存 ==========
 @supply_item_bp.route('/operations/recalculate-stock/<int:id>', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('supply.edit')
 def recalculate_item_stock(id):
     """重新计算物品总库存"""
     try:
@@ -299,7 +299,7 @@ def recalculate_item_stock(id):
 # ========== 路由：批量删除物品 ==========
 @supply_item_bp.route('/operations/batch-delete', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('supply.delete')
 def batch_delete_supply_items():
     """批量删除物品"""
     try:

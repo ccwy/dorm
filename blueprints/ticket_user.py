@@ -5,6 +5,7 @@ from models.ticket_reply import TicketReply
 from models.user import User
 from models.system_config import SystemConfig
 from flask_login import login_required, current_user
+from utils.auth import require_permission
 from datetime import datetime
 import logging
 import os
@@ -17,6 +18,7 @@ ticket_user_bp = Blueprint('ticket_user', __name__, url_prefix='/user/ticket')
 # 用户端留言列表
 @ticket_user_bp.route('/list')
 @login_required
+@require_permission('ticket.view')
 def user_ticket_list():
     try:
         # 验证用户ID是否有效
@@ -61,6 +63,7 @@ def user_ticket_list():
 # 创建留言
 @ticket_user_bp.route('/create', methods=['POST'])
 @login_required
+@require_permission('ticket.create')
 def create_ticket():
     try:
         # 验证用户ID是否有效
@@ -111,6 +114,7 @@ def create_ticket():
 # 查看留言详情
 @ticket_user_bp.route('/detail/<int:ticket_id>')
 @login_required
+@require_permission('ticket.view')
 def ticket_detail(ticket_id):
     try:
         # 验证用户ID是否有效
@@ -159,6 +163,7 @@ def ticket_detail(ticket_id):
 # 添加留言回复
 @ticket_user_bp.route('/add_reply/<int:ticket_id>', methods=['POST'])
 @login_required
+@require_permission('ticket.create')
 def add_ticket_reply(ticket_id):
     try:
         # 验证用户ID是否有效
@@ -226,6 +231,7 @@ def add_ticket_reply(ticket_id):
 # 关闭留言
 @ticket_user_bp.route('/close/<int:ticket_id>', methods=['POST'])
 @login_required
+@require_permission('ticket.edit')
 def close_ticket(ticket_id):
     try:
         # 验证用户ID是否有效
@@ -286,6 +292,7 @@ def close_ticket(ticket_id):
 # 提供留言媒体文件访问
 @ticket_user_bp.route('/media/<int:ticket_id>/<path:filename>')
 @login_required
+@require_permission('ticket.view')
 def serve_ticket_media(ticket_id, filename):
     try:
         # 验证用户ID是否有效
@@ -367,6 +374,7 @@ def serve_ticket_media(ticket_id, filename):
 # 上传留言媒体文件
 @ticket_user_bp.route('/upload_media/<int:ticket_id>', methods=['POST'])
 @login_required
+@require_permission('ticket.create')
 def upload_ticket_media(ticket_id):
     try:
         # 验证用户ID是否有效
@@ -434,6 +442,7 @@ def upload_ticket_media(ticket_id):
 # 删除留言媒体文件
 @ticket_user_bp.route('/delete_media/<int:ticket_id>/<path:filename>', methods=['POST'])
 @login_required
+@require_permission('ticket.delete')
 def delete_ticket_media(ticket_id, filename):
     try:
         # 验证用户ID是否有效

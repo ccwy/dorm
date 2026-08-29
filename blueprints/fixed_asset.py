@@ -9,7 +9,7 @@ from models.department import Department
 from utils.asset_photo import AssetPhotoManager
 from flask_login import login_required, current_user
 from utils.log import log_operation
-from utils.auth import admin_required
+from utils.auth import require_permission
 import logging
 from models.room import Room
 from models.user import User
@@ -54,7 +54,7 @@ from . import fixed_asset_operations
 # 固定资产列表页（含筛选+分页）
 @fixed_asset_bp.route('/', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('fixed_asset.view')
 def index():
     try:
         # 获取筛选参数
@@ -199,7 +199,7 @@ def index():
 # 资产详情页（含操作记录时间线）
 @fixed_asset_bp.route('/detail/<int:id>', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('fixed_asset.view')
 def detail(id):
     try:
         asset = FixedAsset.query.get_or_404(id)
@@ -245,7 +245,7 @@ def detail(id):
 # 盘点管理列表页
 @fixed_asset_bp.route('/inventory', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('fixed_asset.view')
 def inventory():
     try:
         # 获取筛选参数
@@ -333,7 +333,7 @@ def inventory():
 # 盘点详情页
 @fixed_asset_bp.route('/inventory/detail/<int:id>', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('fixed_asset.view')
 def inventory_detail(id):
     try:
         inventory_record = AssetInventory.query.get_or_404(id)
@@ -443,7 +443,7 @@ def inventory_detail(id):
 # 报废表单页
 @fixed_asset_bp.route('/scrap/<int:id>', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('fixed_asset.edit')
 def scrap(id):
     try:
         asset = FixedAsset.query.get_or_404(id)
@@ -483,7 +483,7 @@ def scrap(id):
 # 出售表单页
 @fixed_asset_bp.route('/sell/<int:id>', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('fixed_asset.edit')
 def sell(id):
     try:
         asset = FixedAsset.query.get_or_404(id)
@@ -523,7 +523,7 @@ def sell(id):
 # 新增资产表单页
 @fixed_asset_bp.route('/add', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('fixed_asset.create')
 def add_page():
     # 从系统配置读取下拉选项（各项独立异常处理，避免单项失败导致整个页面无法加载）
     try:
@@ -611,7 +611,7 @@ def add_page():
 # 编辑资产表单页
 @fixed_asset_bp.route('/edit/<int:id>', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('fixed_asset.edit')
 def edit_page(id):
     asset = FixedAsset.query.get_or_404(id)
 
@@ -712,7 +712,7 @@ def edit_page(id):
 # 资产转移表单页
 @fixed_asset_bp.route('/transfer/<int:id>', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('fixed_asset.edit')
 def transfer_page(id):
     asset = FixedAsset.query.get_or_404(id)
 
@@ -775,7 +775,7 @@ def transfer_page(id):
 # AJAX: 根据公司获取部门列表
 @fixed_asset_bp.route('/api/departments-by-company', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('fixed_asset.view')
 def api_departments_by_company():
     """根据公司名称获取状态为正常的部门列表（AJAX级联查询）"""
     try:
@@ -792,7 +792,7 @@ def api_departments_by_company():
 # 创建盘点单表单页
 @fixed_asset_bp.route('/inventory/create', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('fixed_asset.create')
 def inventory_create_page():
     try:
         log_operation(

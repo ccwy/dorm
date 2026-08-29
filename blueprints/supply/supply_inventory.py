@@ -9,7 +9,7 @@ from models.supply.supply_stock_detail import SupplyStockDetail
 from models.user import User
 from flask_login import login_required, current_user
 from utils.log import log_operation
-from utils.auth import admin_required
+from utils.auth import require_permission
 import logging
 
 # 定义蓝图
@@ -50,7 +50,7 @@ from . import supply_inventory_operations
 # 盘点单列表页（含筛选+分页）
 @supply_inventory_bp.route('/', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('supply.view')
 def list_inventories():
     try:
         # 获取筛选参数
@@ -137,7 +137,7 @@ def list_inventories():
 # 创建盘点单页面
 @supply_inventory_bp.route('/create', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('supply.create')
 def create_inventory_page():
     try:
         log_operation(
@@ -169,7 +169,7 @@ def create_inventory_page():
 # 盘点单详情页面（含逐条盘点功能）
 @supply_inventory_bp.route('/detail/<int:id>', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('supply.view')
 def detail_inventory(id):
     try:
         inventory = SupplyInventory.query.get_or_404(id)

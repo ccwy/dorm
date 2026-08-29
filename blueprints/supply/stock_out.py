@@ -9,7 +9,7 @@ from models.department import Department
 from models.user import User
 from flask_login import login_required, current_user
 from utils.log import log_operation
-from utils.auth import admin_required
+from utils.auth import require_permission
 import logging
 
 # 定义蓝图
@@ -50,7 +50,7 @@ from . import stock_out_operations
 # 出库单列表页（含筛选+分页）
 @stock_out_bp.route('/', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('supply.view')
 def list_stock_outs():
     try:
         # 获取筛选参数
@@ -185,7 +185,7 @@ def list_stock_outs():
 # 新增出库单页面
 @stock_out_bp.route('/add', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('supply.create')
 def add_stock_out():
     try:
         departments = Department.query.order_by(Department.id).all()
@@ -221,7 +221,7 @@ def add_stock_out():
 # API：获取物品实际库存位置（用于出库明细选择物品后筛选位置）
 @stock_out_bp.route('/api/item-locations/<int:item_id>', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('supply.view')
 def get_item_locations(item_id):
     """获取指定物品有库存的存放位置列表"""
     try:
@@ -244,7 +244,7 @@ def get_item_locations(item_id):
 # 编辑出库单页面（仅待审核状态可编辑）
 @stock_out_bp.route('/edit/<int:id>', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('supply.edit')
 def edit_stock_out(id):
     try:
         stock_out = StockOut.query.get_or_404(id)
@@ -284,7 +284,7 @@ def edit_stock_out(id):
 # 出库单详情页面（含明细列表）
 @stock_out_bp.route('/detail/<int:id>', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('supply.view')
 def detail_stock_out(id):
     try:
         stock_out = StockOut.query.get_or_404(id)

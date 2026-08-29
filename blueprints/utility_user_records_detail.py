@@ -13,15 +13,15 @@ from io import BytesIO
 from datetime import datetime
 from urllib.parse import quote
 from utils.log import log_operation
-# 导入admin_required装饰器
-from utils.auth import admin_required
+# 导入权限装饰器
+from utils.auth import require_permission
 
 # 创建蓝图
 utility_user_records_detail_bp = Blueprint('utility_user_records_detail', __name__, url_prefix='/utility')
 
 @utility_user_records_detail_bp.route('/user_records_detail')
 @login_required
-@admin_required
+@require_permission('utility.view')
 def user_records_detail():
     """
     用户水电费详情页面
@@ -326,7 +326,7 @@ def user_records_detail():
 
 @utility_user_records_detail_bp.route('/export_user_records_excel', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('utility.export')
 def export_user_records_excel():
     """
     导出用户水电费详情为Excel文件

@@ -4,7 +4,7 @@ from utils.db import db
 from flask_login import login_required, current_user
 from utils.log import log_operation
 import traceback
-from utils.auth import admin_required
+from utils.auth import require_permission
 from models.supply.supply_stock_record import SupplyStockRecord
 
 supply_stock_record_api_bp = Blueprint('supply_stock_record_api', __name__, url_prefix='/api/supply-stock-records')
@@ -13,7 +13,7 @@ supply_stock_record_api_bp = Blueprint('supply_stock_record_api', __name__, url_
 # ========== 获取进出库记录列表JSON（分页+筛选） ==========
 @supply_stock_record_api_bp.route('/', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('supply.view')
 def get_supply_stock_record_list():
     """获取进出库记录列表JSON，支持分页和多条件筛选"""
     try:
@@ -128,7 +128,7 @@ def get_supply_stock_record_list():
 # ========== 获取进出库记录详情JSON ==========
 @supply_stock_record_api_bp.route('/<int:id>', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('supply.view')
 def get_supply_stock_record_detail(id):
     """获取进出库记录详情JSON"""
     try:
@@ -172,7 +172,7 @@ def get_supply_stock_record_detail(id):
 # ========== 按物品查询记录JSON ==========
 @supply_stock_record_api_bp.route('/by-item/<int:item_id>', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('supply.view')
 def get_records_by_item(item_id):
     """按物品查询进出库记录JSON"""
     try:
@@ -232,7 +232,7 @@ def get_records_by_item(item_id):
 # ========== 按位置查询记录JSON ==========
 @supply_stock_record_api_bp.route('/by-location/<int:location_id>', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('supply.view')
 def get_records_by_location(location_id):
     """按位置查询进出库记录JSON"""
     try:
@@ -290,7 +290,7 @@ def get_records_by_location(location_id):
 # ========== 按部门查询记录JSON ==========
 @supply_stock_record_api_bp.route('/by-department/<int:department_id>', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('supply.view')
 def get_records_by_department(department_id):
     """按部门查询领用记录JSON"""
     try:
@@ -350,7 +350,7 @@ def get_records_by_department(department_id):
 # ========== 获取进出库统计JSON ==========
 @supply_stock_record_api_bp.route('/statistics', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('supply.view')
 def get_supply_stock_record_statistics():
     """获取进出库统计JSON（调用 SupplyStockRecord.get_statistics()）"""
     try:
@@ -400,7 +400,7 @@ def get_supply_stock_record_statistics():
 # ========== 导出进出库记录为Excel ==========
 @supply_stock_record_api_bp.route('/export', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('supply.export')
 def export():
     """导出进出库记录数据为Excel"""
     # 参照其他模块的 import_export 实现导出逻辑

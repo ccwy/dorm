@@ -9,7 +9,7 @@ from utils.lazy_imports import pd  # 延迟导入pandas，避免启动时加载�
 import io
 from datetime import datetime
 import traceback
-from utils.auth import admin_required
+from utils.auth import require_permission
 from io import BytesIO
 
 # 创建导入导出专用蓝图
@@ -26,7 +26,7 @@ storage_location_import_export_bp = Blueprint(
 # 导出存放位置数据
 @storage_location_import_export_bp.route('/export', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('supply.export')
 def export():
     """导出存放位置数据为Excel"""
     try:
@@ -105,7 +105,7 @@ def export():
 # 导入存放位置数据
 @storage_location_import_export_bp.route('/import', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('supply.import')
 def import_locations():
     """批量导入存放位置数据"""
     try:
@@ -295,7 +295,7 @@ def import_locations():
 # 下载导入模板
 @storage_location_import_export_bp.route('/template', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('supply.import')
 def download_template():
     """下载存放位置导入模板"""
     try:

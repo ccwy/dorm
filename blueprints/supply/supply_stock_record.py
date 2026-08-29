@@ -7,7 +7,7 @@ from models.department import Department
 from models.user import User
 from flask_login import login_required, current_user
 from utils.log import log_operation
-from utils.auth import admin_required
+from utils.auth import require_permission
 import logging
 
 # 定义蓝图
@@ -45,7 +45,7 @@ def generate_page_range(current_page, total_pages, show_pages=5):
 # 进出库记录列表页（支持筛选+分页）
 @supply_stock_record_bp.route('/', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('supply.view')
 def list_records():
     try:
         # 获取筛选参数
@@ -190,7 +190,7 @@ def list_records():
 # 记录详情页面
 @supply_stock_record_bp.route('/detail/<int:id>', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('supply.view')
 def detail_record(id):
     try:
         record = SupplyStockRecord.query.get_or_404(id)

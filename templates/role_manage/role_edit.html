@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+   <!--本地化CDN-->
+{% include 'static.html' %}
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#165DFF',
+                        secondary: '#36CFC9',
+                        accent: '#722ED1',
+                    },
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .fade-in {
+                animation: fadeIn 0.3s ease-in-out;
+            }
+            @keyframes fadeIn {
+                from { opacity: 0; transform: translateY(10px); }
+                to { opacity: 1; transform: translateY(0); }
+            }
+            .permission-module {
+                @apply border border-gray-200 rounded-lg p-4 mb-4 transition-all duration-200;
+            }
+            .permission-module:hover {
+                @apply border-primary/30 shadow-sm;
+            }
+            .permission-module.module-checked {
+                @apply border-primary/50 bg-primary/5;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+
+{% include 'header.html' %}
+    <main class="container mx-auto px-4 py-6">
+        <!-- 标题区 -->
+        <div class="mb-6 fade-in">
+            <div class="flex items-center">
+                <button onclick="window.location.href='{{ url_for('role.role_list') }}'" class="text-primary hover:text-primary/80 mr-2">
+                    <i class="fa fa-arrow-left"></i>
+                </button>
+                <h2 class="text-2xl font-semibold text-dark">{{ title }}</h2>
+            </div>
+        </div>
+
+        <!-- Flash消息 -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="bg-{{ 'green' if category == 'success' else 'red' }}-50 border border-{{ 'green' if category == 'success' else 'red' }}-200 rounded-md p-4 mb-4 fade-in">
+                        <p class="text-{{ 'green' if category == 'success' else 'red' }}-700">
+                            <i class="fa fa-{{ 'check-circle' if category == 'success' else 'exclamation-circle' }} mr-1"></i>
+                            {{ message }}
+                        </p>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <form method="POST" action="{{ url_for('role.add_role') if not role else url_for('role.edit_role', id=role.id) }}">
+            <!-- 基本信息区域 -->
+            <div class="bg-white rounded-lg shadow-sm p-6 mb-6 fade-in">
+                <h3 class="text-lg font-medium text-gray-800 mb-4 flex items-center">
+                    <i class="fa fa-info-circle text-primary mr-2"></i>基本信息
+                </h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label for="name" class="block text-sm font-medium text-gray-700 mb-1">角色名称 <span class="text-red-500">*</span></label>
+                        <input type="text" id="name" name="name" value="{{ role.name if role else '' }}" required
+                               class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary">
+                    </div>
+                    <div>
+                        <label for="code" class="block text-sm font-medium text-gray-700 mb-1">角色编码</label>
+                        {% if role %}
+                        <input type="text" id="code" name="code" value="{{ role.code }}" disabled
+                               class="w-full px-4 py-2 border border-gray-200 rounded-md bg-gray-100 text-gray-500 cursor-not-allowed">
+                        <input type="hidden" name="code" value="{{ role.code }}">
+                        <p class="mt-1 text-xs text-gray-400">角色编码创建后不可修改</p>
+                        {% else %}
+                        <input type="text" id="code" name="code" value="" placeholder="系统自动生成"
+                               class="w-full px-4 py-2 border border-gray-200 rounded-md bg-gray-50 text-gray-400 cursor-not-allowed" disabled>
+                        <input type="hidden" name="code" value="">
+                        <p class="mt-1 text-xs text-gray-400">新增角色时编码由系统自动生成</p>
+                        {% endif %}
+                    </div>
+                    <div>
+                        <label for="description" class="block text-sm font-medium text-gray-700 mb-1">角色描述</label>
+                        <input type="text" id="description" name="description" value="{{ role.description if role and role.description else '' }}"
+                               class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
+                               placeholder="角色的功能描述">
+                    </div>
+                    <div>
+                        <label for="sort_order" class="block text-sm font-medium text-gray-700 mb-1">排序权重</label>
+                        <input type="number" id="sort_order" name="sort_order" value="{{ role.sort_order if role else 0 }}" min="0"
+                               class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary">
+                        <p class="mt-1 text-xs text-gray-400">数值越小排序越靠前</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 权限分配区域 -->
+            <div class="bg-white rounded-lg shadow-sm p-6 mb-6 fade-in">
+                <h3 class="text-lg font-medium text-gray-800 mb-4 flex items-center">
+                    <i class="fa fa-shield text-primary mr-2"></i>权限分配
+                </h3>
+
+                {% if is_super_admin %}
+                <div class="bg-blue-50 border border-blue-200 rounded-md p-4 mb-4">
+                    <p class="text-blue-700"><i class="fa fa-info-circle mr-1"></i>超级管理员角色自动拥有所有权限，无需手动配置</p>
+                </div>
+                {% else %}
+                <div class="flex items-center justify-between mb-4">
+                    <p class="text-sm text-gray-500">按模块分配操作权限，勾选模块名称可全选该模块所有权限</p>
+                    <div class="flex space-x-2">
+                        <button type="button" onclick="selectAll()" class="px-3 py-1 text-xs bg-primary text-white rounded hover:bg-primary/90">全选</button>
+                        <button type="button" onclick="deselectAll()" class="px-3 py-1 text-xs bg-gray-200 text-gray-700 rounded hover:bg-gray-300">取消全选</button>
+                    </div>
+                </div>
+
+                <div class="space-y-4">
+                    {% for module_code, module_info in permissions.items() %}
+                    <div class="permission-module" id="module-{{ module_code }}">
+                        <!-- 模块头部：模块名称 + 全选复选框 -->
+                        <div class="flex items-center mb-3">
+                            <input type="checkbox" id="module-check-{{ module_code }}" class="mr-3 w-4 h-4 text-primary rounded border-gray-300 focus:ring-primary"
+                                   onchange="toggleModule('{{ module_code }}', this.checked)">
+                            <label for="module-check-{{ module_code }}" class="font-medium text-gray-800 cursor-pointer select-none">
+                                {{ module_info.name }}
+                            </label>
+                            <span class="ml-2 text-xs text-gray-400">({{ module_code }})</span>
+                        </div>
+                        <!-- 模块下的操作权限 -->
+                        <div class="flex flex-wrap gap-4 ml-7">
+                            {% for action_code, action_name in module_info.actions.items() %}
+                            <label class="inline-flex items-center cursor-pointer">
+                                <input type="checkbox" name="permissions" value="{{ module_code }}.{{ action_code }}"
+                                       class="mr-1.5 w-4 h-4 text-primary rounded border-gray-300 focus:ring-primary module-action-{{ module_code }}"
+                                       {% if module_code ~ '.' ~ action_code in selected_permissions %}checked{% endif %}
+                                       onchange="updateModuleCheck('{{ module_code }}')">
+                                <span class="text-sm text-gray-600">{{ action_name }}</span>
+                            </label>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- 提交按钮 -->
+            <div class="flex justify-end space-x-3 fade-in">
+                <a href="{{ url_for('role.role_list') }}" class="px-6 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors">取消</a>
+                <button type="submit" class="px-6 py-2 bg-primary text-white rounded-md hover:bg-primary/90 transition-colors">
+                    {{ '创建角色' if not role else '保存修改' }}
+                </button>
+            </div>
+        </form>
+    </main>
+
+    <script>
+        // 初始化模块选中状态
+        document.addEventListener('DOMContentLoaded', function() {
+            {% for module_code, module_info in permissions.items() %}
+            updateModuleCheck('{{ module_code }}');
+            {% endfor %}
+        });
+
+        // 切换模块全选/取消
+        function toggleModule(moduleCode, checked) {
+            const checkboxes = document.querySelectorAll('.module-action-' + moduleCode);
+            checkboxes.forEach(cb => cb.checked = checked);
+            updateModuleStyle(moduleCode);
+        }
+
+        // 更新模块头部复选框状态
+        function updateModuleCheck(moduleCode) {
+            const checkboxes = document.querySelectorAll('.module-action-' + moduleCode);
+            const moduleCheck = document.getElementById('module-check-' + moduleCode);
+            const checkedCount = Array.from(checkboxes).filter(cb => cb.checked).length;
+
+            if (checkedCount === 0) {
+                moduleCheck.checked = false;
+                moduleCheck.indeterminate = false;
+            } else if (checkedCount === checkboxes.length) {
+                moduleCheck.checked = true;
+                moduleCheck.indeterminate = false;
+            } else {
+                moduleCheck.checked = false;
+                moduleCheck.indeterminate = true;
+            }
+            updateModuleStyle(moduleCode);
+        }
+
+        // 更新模块样式
+        function updateModuleStyle(moduleCode) {
+            const module = document.getElementById('module-' + moduleCode);
+            const checkboxes = document.querySelectorAll('.module-action-' + moduleCode);
+            const checkedCount = Array.from(checkboxes).filter(cb => cb.checked).length;
+
+            if (checkedCount > 0) {
+                module.classList.add('module-checked');
+            } else {
+                module.classList.remove('module-checked');
+            }
+        }
+
+        // 全选
+        function selectAll() {
+            document.querySelectorAll('input[name="permissions"]').forEach(cb => cb.checked = true);
+            {% for module_code, module_info in permissions.items() %}
+            updateModuleCheck('{{ module_code }}');
+            {% endfor %}
+        }
+
+        // 取消全选
+        function deselectAll() {
+            document.querySelectorAll('input[name="permissions"]').forEach(cb => cb.checked = false);
+            {% for module_code, module_info in permissions.items() %}
+            updateModuleCheck('{{ module_code }}');
+            {% endfor %}
+        }
+    </script>
+
+{% include 'footer.html' %}
+</body>
+</html>

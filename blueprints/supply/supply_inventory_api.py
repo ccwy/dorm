@@ -4,7 +4,7 @@ from utils.db import db
 from flask_login import login_required, current_user
 from utils.log import log_operation
 import traceback
-from utils.auth import admin_required
+from utils.auth import require_permission
 from models.supply.supply_inventory import SupplyInventory
 from models.supply.supply_inventory_detail import SupplyInventoryDetail
 
@@ -14,7 +14,7 @@ supply_inventory_api_bp = Blueprint('supply_inventory_api', __name__, url_prefix
 # ========== 获取盘点单列表JSON（分页+筛选） ==========
 @supply_inventory_api_bp.route('/', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('supply.view')
 def get_supply_inventory_list():
     """获取盘点单列表JSON，支持分页和多条件筛选"""
     try:
@@ -111,7 +111,7 @@ def get_supply_inventory_list():
 # ========== 获取盘点单详情JSON ==========
 @supply_inventory_api_bp.route('/<int:id>', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('supply.view')
 def get_supply_inventory_detail(id):
     """获取盘点单详情JSON（含明细列表）"""
     try:
@@ -172,7 +172,7 @@ def get_supply_inventory_detail(id):
 # ========== 获取进行中盘点单列表JSON ==========
 @supply_inventory_api_bp.route('/active', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('supply.view')
 def get_active_supply_inventories():
     """获取进行中的盘点单列表JSON"""
     try:
@@ -208,7 +208,7 @@ def get_active_supply_inventories():
 # ========== 获取盘点统计JSON ==========
 @supply_inventory_api_bp.route('/statistics', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('supply.view')
 def get_supply_inventory_statistics():
     """获取盘点统计JSON（按状态统计盘点次数、异常率等）"""
     try:

@@ -9,8 +9,8 @@ from models.room import Room
 from models.system_config import SystemConfig
 from sqlalchemy import or_, and_
 from utils.log import log_operation  # 导入日志工具
-# 导入admin_required装饰器
-from utils.auth import admin_required
+# 导入权限装饰器
+from utils.auth import require_permission
 
 # 创建蓝图
 fee_subsidy_bp = Blueprint('fee_subsidy', __name__, url_prefix='/fee_subsidy')
@@ -18,7 +18,7 @@ fee_subsidy_bp = Blueprint('fee_subsidy', __name__, url_prefix='/fee_subsidy')
 # 添加补贴页面
 @fee_subsidy_bp.route('/fee_subsidy_add')
 @login_required
-@admin_required
+@require_permission('fee_subsidy.create')
 def fee_subsidy_add():
     """加载添加补贴页面"""
     # 记录访问日志
@@ -34,7 +34,7 @@ def fee_subsidy_add():
 # 补贴管理页面
 @fee_subsidy_bp.route('/fee_subsidy_index')
 @login_required
-@admin_required
+@require_permission('fee_subsidy.view')
 def fee_subsidy_index():
     """加载补贴管理页面"""
     try:
@@ -61,7 +61,7 @@ def fee_subsidy_index():
 # 补贴历史记录页面
 @fee_subsidy_bp.route('/fee_subsidy_history')
 @login_required
-@admin_required
+@require_permission('fee_subsidy.view')
 def fee_subsidy_history():
     """加载补贴历史记录页面"""
     try:
@@ -88,7 +88,7 @@ def fee_subsidy_history():
 # 增加记录接口
 @fee_subsidy_bp.route('/add', methods=['POST', 'OPTIONS'])
 @login_required
-@admin_required
+@require_permission('fee_subsidy.create')
 def add_record():
     # 优先处理OPTIONS请求
     if request.method == 'OPTIONS':
@@ -267,7 +267,7 @@ def add_record():
 # 前端页面展示接口（支持筛选和搜索）
 @fee_subsidy_bp.route('/list', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('fee_subsidy.view')
 def get_list():
     try:
         # 获取查询参数
@@ -445,7 +445,7 @@ def get_list():
 # 获取账期接口
 @fee_subsidy_bp.route('/periods', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('fee_subsidy.view')
 def get_periods():
     try:
         # 查询所有不重复的账期并按时间排序
@@ -488,7 +488,7 @@ def get_periods():
 
 @fee_subsidy_bp.route('/history', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('fee_subsidy.view')
 def get_history():
     try:
         # 获取分页参数
@@ -650,7 +650,7 @@ def get_history():
 # 禁用接口
 @fee_subsidy_bp.route('/delete/<int:subsidy_id>', methods=['DELETE'])
 @login_required
-@admin_required
+@require_permission('fee_subsidy.delete')
 def delete_record(subsidy_id):
     try:
         operator_id = current_user.id
@@ -726,7 +726,7 @@ def delete_record(subsidy_id):
 # 批量禁用接口
 @fee_subsidy_bp.route('/batch-delete', methods=['DELETE'])
 @login_required
-@admin_required
+@require_permission('fee_subsidy.delete')
 def batch_delete():
     try:
         data = request.json
@@ -797,7 +797,7 @@ def batch_delete():
 # 清空当期接口
 @fee_subsidy_bp.route('/clear-current-period', methods=['DELETE'])
 @login_required
-@admin_required
+@require_permission('fee_subsidy.delete')
 def clear_current_period():
     try:
         data = request.json
@@ -875,7 +875,7 @@ def clear_current_period():
 # 获取所有部门接口
 @fee_subsidy_bp.route('/departments', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('fee_subsidy.view')
 def get_departments():
     """获取所有不重复的部门列表"""
     try:
@@ -912,7 +912,7 @@ def get_departments():
 # 获取房间列表接口
 @fee_subsidy_bp.route('/rooms', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('fee_subsidy.view')
 def get_rooms():
     """获取所有房间列表，包含完整房间号"""
     try:

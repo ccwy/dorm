@@ -7,7 +7,7 @@ from models.supply.supply_item import SupplyItem
 from models.supply.supply_stock_detail import SupplyStockDetail
 from models.supply.storage_location import StorageLocation
 from utils.log import log_operation
-from utils.auth import admin_required
+from utils.auth import require_permission
 import logging
 import traceback
 from datetime import datetime, date
@@ -17,7 +17,7 @@ from .supply_inventory import supply_inventory_bp
 # ========== 路由：创建盘点单 ==========
 @supply_inventory_bp.route('/operations/create', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('supply.create')
 def create_inventory():
     """创建盘点单 - 生成盘点单号，获取所有有库存的物品创建盘点明细"""
     try:
@@ -115,7 +115,7 @@ def create_inventory():
 # ========== 路由：执行盘点 ==========
 @supply_inventory_bp.route('/operations/check', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('supply.edit')
 def check_inventory():
     """执行盘点 - 逐条确认，更新盘点明细和主表统计"""
     try:
@@ -211,7 +211,7 @@ def check_inventory():
 # ========== 路由：完成盘点 ==========
 @supply_inventory_bp.route('/operations/complete/<int:id>', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('supply.edit')
 def complete_inventory(id):
     """完成盘点 - 更新盘点状态为已完成，调整库存"""
     try:
@@ -269,7 +269,7 @@ def complete_inventory(id):
 # ========== 路由：删除盘点单 ==========
 @supply_inventory_bp.route('/operations/delete/<int:id>', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('supply.delete')
 def delete_inventory(id):
     """删除盘点单 - 仅允许删除进行中状态的盘点单"""
     try:

@@ -5,11 +5,12 @@ import logging
 from utils.todo_photo import TodoMediaManager
 import os
 from models.todo import Todo
-from utils.auth import admin_required
+from utils.auth import require_permission
 from .todo import todo_bp  # 导入todo蓝图
 
 @todo_bp.route('/upload', methods=['POST'])
 @login_required
+@require_permission('todo.edit')
 def upload_media():
     """上传待办事项照片或视频"""
     try:
@@ -40,7 +41,7 @@ def upload_media():
             return jsonify({'success': False, 'message': '待办事项不存在'})
         
         # 检查用户权限：超级管理员或待办事项创建者或负责人
-        if not (current_user.is_super_admin() or todo.created_by == current_user.id or todo.assignee == current_user.id):
+        if not ((current_user.user_role and current_user.user_role.code == 'super_admin') or todo.created_by == current_user.id or todo.assignee == current_user.id):
             logging.warning(f"用户 {current_user.id} 尝试上传媒体文件到无权限的待办事项，ID: {todo_id}")
             return jsonify({'success': False, 'message': '您没有权限上传此待办事项的媒体文件'})
         
@@ -83,6 +84,7 @@ def upload_media():
 
 @todo_bp.route('/delete_file', methods=['POST'])
 @login_required
+@require_permission('todo.delete')
 def delete_file():
     """删除待办事项照片或视频"""
     try:
@@ -110,7 +112,7 @@ def delete_file():
             return jsonify({'success': False, 'message': '待办事项不存在'})
         
         # 检查用户权限：超级管理员或待办事项创建者或负责人
-        if not (current_user.is_super_admin() or todo.created_by == current_user.id or todo.assignee == current_user.id):
+        if not ((current_user.user_role and current_user.user_role.code == 'super_admin') or todo.created_by == current_user.id or todo.assignee == current_user.id):
             logging.warning(f"用户 {current_user.id} 尝试删除媒体文件到无权限的待办事项，ID: {todo_id}")
             return jsonify({'success': False, 'message': '您没有权限删除此待办事项的媒体文件'})
         
@@ -145,6 +147,7 @@ def delete_file():
 
 @todo_bp.route('/<int:todo_id>/<path:filename>')
 @login_required
+@require_permission('todo.view')
 def serve_media_file(todo_id, filename):
     """提供待办事项媒体文件的访问"""
     try:
@@ -155,7 +158,7 @@ def serve_media_file(todo_id, filename):
             return jsonify({'success': False, 'message': '待办事项不存在'}), 404
         
         # 检查用户权限：超级管理员或待办事项创建者或负责人
-        if not (current_user.is_super_admin() or todo.created_by == current_user.id or todo.assignee == current_user.id):
+        if not ((current_user.user_role and current_user.user_role.code == 'super_admin') or todo.created_by == current_user.id or todo.assignee == current_user.id):
             logging.warning(f"用户 {current_user.id} 尝试访问无权限的待办事项媒体文件，待办事项ID: {todo_id}")
             return jsonify({'success': False, 'message': '您没有权限访问此待办事项的媒体文件'}), 403
         

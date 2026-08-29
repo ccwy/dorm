@@ -6,7 +6,7 @@ from models.supply.stock_out_detail import StockOutDetail
 from models.supply.supply_item import SupplyItem
 from models.supply.storage_location import StorageLocation
 from utils.log import log_operation
-from utils.auth import admin_required
+from utils.auth import require_permission
 import logging
 import traceback
 from datetime import datetime
@@ -16,7 +16,7 @@ from .stock_out import stock_out_bp
 # ========== 路由：新增出库单 ==========
 @stock_out_bp.route('/operations/add', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('supply.create')
 def create_stock_out():
     """新增出库单"""
     try:
@@ -182,7 +182,7 @@ def create_stock_out():
 # ========== 路由：编辑出库单 ==========
 @stock_out_bp.route('/operations/edit/<int:id>', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('supply.edit')
 def update_stock_out(id):
     """编辑出库单（仅待审核状态可编辑）"""
     try:
@@ -341,7 +341,7 @@ def update_stock_out(id):
 # ========== 路由：删除出库单 ==========
 @stock_out_bp.route('/operations/delete/<int:id>', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('supply.delete')
 def delete_stock_out(id):
     """删除出库单（仅待审核状态可删除）"""
     try:
@@ -387,7 +387,7 @@ def delete_stock_out(id):
 # ========== 路由：审核出库单 ==========
 @stock_out_bp.route('/operations/approve/<int:id>', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('supply.edit')
 def approve_stock_out(id):
     """审核出库单"""
     try:
@@ -445,7 +445,7 @@ def approve_stock_out(id):
 # ========== 路由：反审核出库单 ==========
 @stock_out_bp.route('/operations/unapprove/<int:id>', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('supply.edit')
 def unapprove_stock_out(id):
     """反审核出库单（仅已审核状态可反审核，反审核后状态变为待审核，库存回滚）"""
     try:
@@ -488,7 +488,7 @@ def unapprove_stock_out(id):
 # ========== 路由：取消出库单 ==========
 @stock_out_bp.route('/operations/cancel/<int:id>', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('supply.edit')
 def cancel_stock_out(id):
     """取消出库单（仅待审核状态可取消）"""
     try:
@@ -531,7 +531,7 @@ def cancel_stock_out(id):
 # ========== 路由：批量删除出库单 ==========
 @stock_out_bp.route('/operations/batch-delete', methods=['POST'])
 @login_required
-@admin_required
+@require_permission('supply.delete')
 def batch_delete_stock_outs():
     """批量删除出库单（仅待审核状态可删除）"""
     try:

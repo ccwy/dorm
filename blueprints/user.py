@@ -10,8 +10,8 @@ from flask_login import login_required, current_user
 from utils.log import log_operation
 from sqlalchemy import or_
 from datetime import datetime, date
-# 导入admin_required装饰器
-from utils.auth import admin_required
+
+from utils.auth import require_permission
 import logging
 
 # 创建蓝图
@@ -20,7 +20,7 @@ from . import user_info  # 导入用户信息查看页面蓝图
 # 用户管理列表（带搜索功能）
 @user_bp.route('/manage')
 @login_required
-@admin_required
+@require_permission('user.view')
 def manage():
     try:
         search_query = request.args.get('search', '').strip()
@@ -152,7 +152,7 @@ def manage():
 # 查看用户详情
 @user_bp.route('/view/<int:id>')
 @login_required
-@admin_required
+@require_permission('user.view')
 def view(id):
     user = User.query.get_or_404(id)
     
@@ -263,6 +263,13 @@ def view(id):
     from models.ticket import Ticket
     user_tickets = Ticket.get_by_user_id(id)
     
+    # 获取用户操作记录
+    from models.user_operation_record import UserOperationRecord
+    operation_records = UserOperationRecord.query.filter_by(target_user_id=id)\
+        .order_by(UserOperationRecord.operation_time.desc())\
+        .limit(50)\
+        .all()
+    
     # 准备留言数据传递给前端
     ticket_records = []
     for ticket in user_tickets:
@@ -284,7 +291,7 @@ def view(id):
     # 记录操作日志
     log_operation(
         user_id=current_user.id,
-        action=f"查看用户信息，用户ID: {id}, [姓名: {user.name}, 工号: {user.student_id}, 类别: {user.category}, 角色: {user.role}]",
+        action=f"查看用户信息，用户ID: {id}, [姓名: {user.name}, 工号: {user.student_id}, 类别: {user.category}, 角色: {user.role_name}]",
         module='user',
         operation_type='user_view',
         result='成功'
@@ -314,6 +321,7 @@ def view(id):
         current_time_formatted=current_time_formatted,
         utility_records=utility_records,  # 新增：传递水电费记录
         roommates=roommates,  # 新增：传递室友信息
-        ticket_records=ticket_records  # 新增：传递留言记录
+        ticket_records=ticket_records,  # 新增：传递留言记录
+        operation_records=operation_records  # 新增：传递操作记录
     )
 

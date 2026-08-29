@@ -80,7 +80,7 @@
             {% endwith %}
  
             <!-- 文件共享 -->
-             {% if get_config_value('FEATURE_FILE_SHARING_ENABLED', True) %}
+             {% if get_config_value('FEATURE_FILE_SHARING_ENABLED', True) and current_user.has_permission('file_sharing.view') %}
             <div class="bg-white rounded-xl p-6 shadow-sm card-hover text-center">
                 <div class="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4 mx-auto">
                     <i class="fa fa-folder-open text-2xl text-blue-600"></i>
@@ -95,14 +95,14 @@
             {% endif %}
             
             <!-- 留言管理 -->
-             {% if get_config_value('FEATURE_TICKET_MANAGE_ENABLED', True) %}
+             {% if get_config_value('FEATURE_TICKET_MANAGE_ENABLED', True) and current_user.has_permission('ticket.view') %}
             <div class="bg-white rounded-xl p-6 shadow-sm card-hover text-center">
                 <div class="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mb-4 mx-auto">
                     <i class="fa fa-ticket text-2xl text-purple-600"></i>
                 </div>
                 <h3 class="text-lg font-medium text-dark mb-2">留言管理</h3>
                 <p class="text-gray-500 text-sm mb-4">查看和回复用户留言</p>
-                <button onclick="window.location.href='{% if current_user.is_admin() %}{{ url_for('ticket_admin.admin_ticket_list') }}{% else %}{{ url_for('ticket_user.user_ticket_list') }}{% endif %}'" 
+                <button onclick="window.location.href='{% if current_user.has_permission('ticket.manage') %}{{ url_for('ticket_admin.admin_ticket_list') }}{% else %}{{ url_for('ticket_user.user_ticket_list') }}{% endif %}'" 
                         class="px-4 py-2 bg-purple-500 text-white rounded-md hover:bg-purple-600">
                     进入留言管理
                 </button>
@@ -110,7 +110,7 @@
             {% endif %}
             
             <!-- 待办事项 -->
-             {% if get_config_value('FEATURE_TODO_MANAGE_ENABLED', True) %}
+             {% if get_config_value('FEATURE_TODO_MANAGE_ENABLED', True) and current_user.has_permission('todo.view') %}
             <div class="bg-white rounded-xl p-6 shadow-sm card-hover text-center">
                 <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4 mx-auto">
                     <i class="fa fa-list-alt text-2xl text-green-600"></i>
@@ -125,8 +125,7 @@
             {% endif %}
             
             <!-- 补贴管理 -->
-             {% if current_user.is_admin() %}
-             {% if get_config_value('FEATURE_FEE_SUBSIDY_ENABLED', True) %}
+             {% if current_user.has_permission('fee_subsidy.view') %}
             <div class="bg-white rounded-xl p-6 shadow-sm card-hover text-center">
                 <div class="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4 mx-auto">
                     <i class="fa fa-credit-card text-2xl text-blue-600"></i>
@@ -139,10 +138,9 @@
                 </button>
             </div>
             {% endif %}
-            {% endif %}
             
             <!-- OA聊天 -->
-             {% if get_config_value('FEATURE_CHAT_ENABLED', True) %}
+             {% if get_config_value('FEATURE_CHAT_ENABLED', True) and current_user.has_permission('chat.view') %}
             <div class="bg-white rounded-xl p-6 shadow-sm card-hover text-center">
                 <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4 mx-auto">
                     <i class="fa fa-comments text-2xl text-green-600"></i>
@@ -156,9 +154,40 @@
             </div>
             {% endif %}
 
+            {% if get_config_value('FEATURE_ROLE_MANAGE_ENABLED', True) and current_user.has_permission('role.view') %}
+           <div class="bg-white rounded-xl p-6 shadow-sm card-hover text-center">
+               <div class="w-16 h-16 bg-teal-100 rounded-full flex items-center justify-center mb-4 mx-auto">
+                   <i class="fa fa-shield text-2xl text-teal-600"></i>
+               </div>
+               <h3 class="text-lg font-medium text-dark mb-2">角色管理</h3>
+               <p class="text-gray-500 text-sm mb-4">管理角色和权限分配</p>
+               <button onclick="window.location.href='{{ url_for('role.role_list') }}'"
+                       class="px-4 py-2 bg-teal-500 text-white rounded-md hover:bg-teal-600">
+                   进入角色管理
+               </button>
+           </div>
+           {% endif %}
+           
+           <!-- 部门管理 -->
+           {% if current_user.has_permission('department.view') %}
+           {% if get_config_value('FEATURE_DEPARTMENT_ENABLED', True) %}
+          <div class="bg-white rounded-xl p-6 shadow-sm card-hover text-center">
+              <div class="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mb-4 mx-auto">
+                  <i class="fa fa-sitemap text-2xl text-orange-600"></i>
+              </div>
+              <h3 class="text-lg font-medium text-dark mb-2">部门管理</h3>
+              <p class="text-gray-500 text-sm mb-4">管理公司部门的新增、编辑和组织架构</p>
+              <button onclick="window.location.href='{{ url_for('department.index') }}'" 
+                      class="px-4 py-2 bg-orange-500 text-white rounded-md hover:bg-orange-600">
+                  进入部门管理
+              </button>
+          </div>
+          {% endif %}
+          {% endif %}
+
            
             <!-- 固定资产管理 -->
-            {% if current_user.is_admin() %}
+            {% if current_user.has_permission('fixed_asset.view') %}
             {% if get_config_value('FEATURE_FIXED_ASSET_MANAGE_ENABLED', True) %}
            <div class="bg-white rounded-xl p-6 shadow-sm card-hover text-center">
                <div class="w-16 h-16 bg-teal-100 rounded-full flex items-center justify-center mb-4 mx-auto">
@@ -174,25 +203,10 @@
            {% endif %}
            {% endif %}
            
-           <!-- 部门管理 -->
-            {% if current_user.is_admin() %}
-            {% if get_config_value('FEATURE_DEPARTMENT_ENABLED', True) %}
-           <div class="bg-white rounded-xl p-6 shadow-sm card-hover text-center">
-               <div class="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mb-4 mx-auto">
-                   <i class="fa fa-sitemap text-2xl text-orange-600"></i>
-               </div>
-               <h3 class="text-lg font-medium text-dark mb-2">部门管理</h3>
-               <p class="text-gray-500 text-sm mb-4">管理公司部门的新增、编辑和组织架构</p>
-               <button onclick="window.location.href='{{ url_for('department.index') }}'" 
-                       class="px-4 py-2 bg-orange-500 text-white rounded-md hover:bg-orange-600">
-                   进入部门管理
-               </button>
-           </div>
-           {% endif %}
-           {% endif %}
+           
            
            <!-- 低值易耗品管理 -->
-           {% if current_user.is_admin() %}
+           {% if current_user.has_permission('supply.view') %}
            {% if get_config_value('FEATURE_SUPPLY_MANAGE_ENABLED', True) %}
            <div class="bg-white rounded-xl p-6 shadow-sm card-hover text-center">
                <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4 mx-auto">

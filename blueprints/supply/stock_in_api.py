@@ -4,7 +4,7 @@ from utils.db import db
 from flask_login import login_required, current_user
 from utils.log import log_operation
 import traceback
-from utils.auth import admin_required
+from utils.auth import require_permission
 from models.supply.stock_in import StockIn
 from models.supply.stock_in_detail import StockInDetail
 
@@ -14,7 +14,7 @@ stock_in_api_bp = Blueprint('stock_in_api', __name__, url_prefix='/api/stock-ins
 # ========== 获取入库单列表JSON（分页+筛选） ==========
 @stock_in_api_bp.route('/', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('supply.view')
 def get_stock_in_list():
     """获取入库单列表JSON，支持分页和多条件筛选"""
     try:
@@ -118,7 +118,7 @@ def get_stock_in_list():
 # ========== 获取入库单详情JSON ==========
 @stock_in_api_bp.route('/<int:id>', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('supply.view')
 def get_stock_in_detail(id):
     """获取入库单详情JSON（含明细列表）"""
     try:
@@ -179,7 +179,7 @@ def get_stock_in_detail(id):
 # ========== 获取待审核入库单列表JSON ==========
 @stock_in_api_bp.route('/pending', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('supply.view')
 def get_pending_stock_ins():
     """获取待审核入库单列表JSON"""
     try:
@@ -215,7 +215,7 @@ def get_pending_stock_ins():
 # ========== 获取入库统计JSON ==========
 @stock_in_api_bp.route('/statistics', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('supply.view')
 def get_stock_in_statistics():
     """获取入库统计JSON（按类型/月份统计数量和金额）"""
     try:

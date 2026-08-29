@@ -163,7 +163,7 @@ if exist "%PROJECT_DIR%\blueprints\__pycache__" (
     rmdir /s /q "%PROJECT_DIR%\blueprints\__pycache__"
     echo [%date% %time:~0,8%] 已删除blueprints\__pycache__文件夹
 )
-if exist "%PROJECT_DIR%\supply\blueprints\__pycache__" (
+if exist "%PROJECT_DIR%\blueprints\supply\__pycache__" (
     rmdir /s /q "%PROJECT_DIR%\blueprints\supply\__pycache__"
     echo [%date% %time:~0,8%] 已删除blueprints\supply\__pycache__文件夹
 )

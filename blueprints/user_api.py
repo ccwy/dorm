@@ -8,8 +8,8 @@ from flask_login import login_required, current_user
 from utils.log import log_operation
 import datetime
 from sqlalchemy import or_
-# 导入admin_required装饰器
-from utils.auth import admin_required
+
+from utils.auth import require_permission
 # 移除从蓝图导入的函数（已迁移到g工具）
 from utils.user_utils import process_field_value
 import logging
@@ -20,7 +20,7 @@ user_api_bp = Blueprint('user_api', __name__, url_prefix='/api/users')
 
 @user_api_bp.route('/<int:user_id>', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('user.view')
 def get_user(user_id):
     """获取指定ID的用户详细信息（JSON接口）"""
     try:
@@ -108,7 +108,7 @@ def get_user(user_id):
 
 @user_api_bp.route('/search', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('user.view')
 def search_users():
     """搜索用户信息的API接口（支持分页）"""
     try:

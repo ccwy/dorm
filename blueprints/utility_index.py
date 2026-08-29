@@ -7,8 +7,8 @@ from models.department import Department  # 导入部门模型
 from models.room import Room  # 导入房间模型获取楼栋信息
 from utils.db import db
 from utils.log import log_operation
-# 导入admin_required装饰器
-from utils.auth import admin_required
+
+from utils.auth import require_permission
 from models.utility_room_bill_checkout import CheckoutUtilityRecord # 退宿费用子表
 
 # 蓝图定义，前缀设为'/utility'便于区分系统其他模块
@@ -16,7 +16,7 @@ utility_index_bp = Blueprint('utility_index', __name__, url_prefix='/utility')
 
 @utility_index_bp.route('', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('utility.view')
 def utility_home():
     """水电费管理系统首页（默认路由）"""
     try:
@@ -42,7 +42,7 @@ def utility_home():
 
 @utility_index_bp.route('/index', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('utility.view')
 def utility_index():
     """冗余路由，确保通过/index也能访问首页（兼容前端可能的跳转）"""
     try:
@@ -69,7 +69,7 @@ def utility_index():
 # 水电费核算页面
 @utility_index_bp.route('/utility_calculate_fees', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('utility.edit')
 def utility_calculate_fees():
     """核算水电费页面（已修正模板文件名）"""
     try:
@@ -123,7 +123,7 @@ def utility_room_records_detail():
 
 @utility_index_bp.route('/utility_room_checkout')
 @login_required
-@admin_required
+@require_permission('utility.view')
 def utility_room_checkout():
     """退宿人员费用查询页面"""
     try:
@@ -169,7 +169,7 @@ def utility_room_checkout():
 
 @utility_index_bp.route('/utility_room_checkout_edit')
 @login_required
-@admin_required
+@require_permission('utility.edit')
 def utility_room_checkout_edit():
     """编辑退宿人员费用页面"""
     try:
@@ -199,7 +199,7 @@ def utility_room_checkout_edit():
 # 退宿费用计算结果页面
 @utility_index_bp.route('/utility_user_checkout_detail')
 @login_required
-@admin_required
+@require_permission('utility.view')
 def utility_user_checkout_detail():
 
     # 获取URL参数，只需要checkout_id
@@ -226,7 +226,7 @@ def utility_user_checkout_detail():
 # 房间人员费用明细页面
 @utility_index_bp.route('/utility_occupant_manage')
 @login_required
-@admin_required
+@require_permission('utility.view')
 def utility_occupant_manage():
     """加载房间人员费用明细页面"""
     try:

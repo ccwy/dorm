@@ -6,8 +6,8 @@ from models.user import User  # 添加User模型导入
 from flask_login import login_required, current_user
 from utils.log import log_operation
 import logging
-# 导入admin_required装饰器
-from utils.auth import admin_required
+
+from utils.auth import require_permission
 from models.utility_room_bill_record import RoomUtilityRecord
 from models.room_facility import RoomFacility  # 新增：导入房间设施模型
 from utils.room_photo import RoomPhotoManager
@@ -71,7 +71,7 @@ from . import room_operations
 # 房间管理页面
 @room_bp.route('/manage', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('room.view')
 def manage():
     try:
         # 获取请求参数
@@ -226,7 +226,7 @@ def manage():
 # 查看房间详情
 @room_bp.route('/view/<int:id>', methods=['GET'])
 @login_required
-@admin_required
+@require_permission('room.view')
 def view(id):
     try:
         room = Room.query.get_or_404(id)
