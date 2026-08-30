@@ -106,6 +106,8 @@ def start_scheduler(app):
             
             # 固定时间为01:00
             FIXED_GENERATION_TIME = '01:00'
+            # 维修临时文件清理时间：每天02:00
+            MAINTENANCE_CLEANUP_TIME = '02:00'
             
             # 循环执行任务
             while True:
@@ -123,6 +125,12 @@ def start_scheduler(app):
                     current_job = schedule.every().day.at(FIXED_GENERATION_TIME).do(lambda: execute_with_context(app, check_and_generate_records))
                     current_generation_day = new_generation_day
                     logging.info(f"费用主表记录自动生成调度器已更新，将在每月{new_generation_day}日的{FIXED_GENERATION_TIME}执行任务，每60秒检查一次")
+                
+                # 维修临时文件清理任务（每天02:00执行一次）
+                if not hasattr(start_scheduler, '_maintenance_cleanup_scheduled'):
+                    schedule.every().day.at(MAINTENANCE_CLEANUP_TIME).do(lambda: execute_with_context(app, cleanup_maintenance_temp_files))
+                    start_scheduler._maintenance_cleanup_scheduled = True
+                    logging.info(f"维修临时文件定时清理任务已注册，将在每天{MAINTENANCE_CLEANUP_TIME}执行")
                 #else:
                 #    logging.info(f"未满足生成条件，当前日期={datetime.now().day}，任务日期：每月{current_generation_day}日的{FIXED_GENERATION_TIME}执行任务，每60秒检查一次")
                 
@@ -138,6 +146,20 @@ def execute_with_context(app, func):
     """在应用上下文中执行指定函数"""
     with app.app_context():
         return func()
+
+# 清理维修临时文件
+def cleanup_maintenance_temp_files():
+    """清理超过24小时的维修临时文件"""
+    try:
+        from utils.maintenance_photo import MaintenancePhotoManager
+        result = MaintenancePhotoManager.cleanup_old_temp_files(max_age_hours=24)
+        if result['deleted_files'] > 0 or result['deleted_dirs'] > 0:
+            logging.info(f"维修临时文件定时清理: 删除 {result['deleted_files']} 个文件, "
+                        f"{result['deleted_dirs']} 个空目录, {result['errors']} 个错误")
+        return True
+    except Exception as e:
+        logging.error(f"清理维修临时文件时发生错误: {str(e)}", exc_info=True)
+        return False
 
 # 初始化调度器
 def init_scheduler(app):

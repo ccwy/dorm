@@ -75,14 +75,38 @@
         {% endif %}
         -->
 
+        {% if get_config_value('FEATURE_MAINTENANCE_MANAGE_ENABLED', True) and current_user.has_permission('maintenance.view') %}
+        {% if current_user.has_permission('maintenance.manage') %}
+        <a href="{{ url_for('maintenance_admin.admin_order_list') }}" 
+           class="nav-item nav-maintenance text-gray-700 hover:text-primary transition-colors py-1 border-b-2 
+           {% if request.endpoint and 'maintenance' in request.endpoint %}border-primary text-primary{% else %}border-transparent{% endif %}">
+            <i class="fa fa-wrench mr-1"></i>维修
+        </a>
+        {% elif current_user.has_permission('maintenance.handle') %}
+        <a href="{{ url_for('maintenance_staff.staff_order_list') }}" 
+           class="nav-item nav-maintenance text-gray-700 hover:text-primary transition-colors py-1 border-b-2 
+           {% if request.endpoint and 'maintenance' in request.endpoint %}border-primary text-primary{% else %}border-transparent{% endif %}">
+            <i class="fa fa-wrench mr-1"></i>维修
+        </a>
+        {% elif current_user.has_permission('maintenance.create') %}
+        <a href="{{ url_for('maintenance_user.user_order_list') }}" 
+           class="nav-item nav-maintenance text-gray-700 hover:text-primary transition-colors py-1 border-b-2 
+           {% if request.endpoint and 'maintenance' in request.endpoint %}border-primary text-primary{% else %}border-transparent{% endif %}">
+            <i class="fa fa-wrench mr-1"></i>维修
+        </a>
+        {% endif %}
+        {% endif %}
+
         <a href="{{ url_for('other.index') }}" 
            class="nav-item nav-other text-gray-700 hover:text-primary transition-colors py-1 border-b-2 {% if request.endpoint == 'other.index' %}border-primary text-primary{% else %}border-transparent{% endif %}">
            <i class="fa fa-th-large mr-2"></i>其他
         </a>
+        {% if current_user.has_permission('system_settings.view') %}
         <a href="{{ url_for('system_settings.settings') }}" 
            class="nav-item nav-settings text-gray-700 hover:text-primary transition-colors py-1 border-b-2 {% if request.endpoint == 'system_settings.settings' %}border-primary text-primary{% else %}border-transparent{% endif %}">
            <i class="fa fa-cog mr-2"></i>设置
         </a>
+        {% endif %}
         {% if get_config_value('FEATURE_SYSTEM_LOG_ENABLED', True) and current_user.has_permission('log.view') %}
         <a href="{{ url_for('log.log') }}" 
            class="nav-item nav-log text-gray-700 hover:text-primary transition-colors py-1 border-b-2 {% if request.endpoint == 'log.log' %}border-primary text-primary{% else %}border-transparent{% endif %}">
@@ -201,6 +225,11 @@ nav a i {
   /* 合同图标 - 深蓝色 */
   .nav-item.nav-contract i {
     color: #1e40af;
+  }
+
+  /* 维修图标 - 橙色 */
+  .nav-item.nav-maintenance i {
+    color: #f97316;
   }
 
 /* 移动端菜单样式 */

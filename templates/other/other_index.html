@@ -221,8 +221,35 @@
            
            
            
-           <!-- 低值易耗品管理 -->
-           {% if current_user.has_permission('supply.view') %}
+           <!-- 后勤维修 -->
+           {% if get_config_value('FEATURE_MAINTENANCE_MANAGE_ENABLED', True) and current_user.has_permission('maintenance.view') %}
+           <div class="bg-white rounded-xl p-6 shadow-sm card-hover text-center">
+               <div class="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mb-4 mx-auto">
+                   <i class="fa fa-wrench text-2xl text-orange-600"></i>
+               </div>
+               <h3 class="text-lg font-medium text-dark mb-2">后勤维修</h3>
+               <p class="text-gray-500 text-sm mb-4">提交报修申请，跟踪维修工单进度</p>
+               {% if current_user.has_permission('maintenance.manage') %}
+               <button onclick="window.location.href='{{ url_for('maintenance_admin.admin_order_list') }}'"
+                       class="px-4 py-2 bg-orange-500 text-white rounded-md hover:bg-orange-600">
+                   进入后勤维修
+               </button>
+               {% elif current_user.has_permission('maintenance.handle') %}
+               <button onclick="window.location.href='{{ url_for('maintenance_staff.staff_order_list') }}'"
+                       class="px-4 py-2 bg-orange-500 text-white rounded-md hover:bg-orange-600">
+                   进入后勤维修
+               </button>
+               {% else %}
+               <button onclick="window.location.href='{{ url_for('maintenance_user.user_order_list') }}'"
+                       class="px-4 py-2 bg-orange-500 text-white rounded-md hover:bg-orange-600">
+                   进入后勤维修
+               </button>
+               {% endif %}
+           </div>
+           {% endif %}
+
+            <!-- 低值易耗品管理 -->
+            {% if current_user.has_permission('supply.view') %}
            {% if get_config_value('FEATURE_SUPPLY_MANAGE_ENABLED', True) %}
            <div class="bg-white rounded-xl p-6 shadow-sm card-hover text-center">
                <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4 mx-auto">

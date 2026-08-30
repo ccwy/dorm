@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    {% include 'static.html' %}
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#165DFF',
+                        secondary: '#36CFC9',
+                        accent: '#722ED1',
+                        danger: '#F5222D',
+                        info: '#1890FF',
+                        warning: '#FAAD14'
+                    },
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .btn-effect {
+                transition: all 0.2s ease;
+            }
+            .btn-effect:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            }
+        }
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        .table-auto-wrap {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        .modal-container {
+            animation: fadeIn 0.2s ease-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    {% include 'header.html' %}
+
+    <main class="container mx-auto px-4 py-6">
+        <!-- 标题区 -->
+        <div class="mb-6 fade-in">
+            <div class="flex items-center">
+                <button onclick="window.location.href = '{{ url_for('index') }}'" class="text-gray-600 hover:text-primary transition-colors mr-4">
+                    <i class="fa fa-arrow-left"></i>
+                </button>
+                <div>
+                    <h2 class="text-[clamp(1.5rem,3vw,2rem)] font-bold text-dark">维修工单管理</h2>
+                    <p class="text-gray-500 mt-1">管理所有维修工单，分配维修人员，跟踪处理进度</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 消息提示区域 -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            <div class="flash-messages mb-6">
+              {% for category, message in messages %}
+                <div class="p-4 rounded-md mb-2 {% if category == 'success' %}bg-green-100 text-green-800{% elif category == 'error' or category == 'danger' %}bg-red-100 text-red-800{% elif category == 'warning' %}bg-yellow-100 text-yellow-800{% else %}bg-blue-100 text-blue-800{% endif %}">
+                  <button type="button" class="float-right ml-2 text-gray-500 hover:text-gray-700" onclick="this.parentElement.remove()">×</button>
+                  {{ message }}
+                </div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        {% endwith %}
+
+        <!-- 统计卡片 -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <div class="bg-white rounded-lg shadow-sm p-4 border-l-4 border-yellow-400">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-gray-500">待处理</p>
+                        <p class="text-2xl font-bold text-gray-800">{{ stats.pending or 0 }}</p>
+                    </div>
+                    <i class="fa fa-clock-o text-3xl text-yellow-400"></i>
+                </div>
+            </div>
+            <div class="bg-white rounded-lg shadow-sm p-4 border-l-4 border-blue-400">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-gray-500">处理中</p>
+                        <p class="text-2xl font-bold text-gray-800">{{ stats.in_progress or 0 }}</p>
+                    </div>
+                    <i class="fa fa-spinner text-3xl text-blue-400"></i>
+                </div>
+            </div>
+            <div class="bg-white rounded-lg shadow-sm p-4 border-l-4 border-green-400">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-gray-500">已解决</p>
+                        <p class="text-2xl font-bold text-gray-800">{{ stats.resolved or 0 }}</p>
+                    </div>
+                    <i class="fa fa-check-circle text-3xl text-green-400"></i>
+                </div>
+            </div>
+            <div class="bg-white rounded-lg shadow-sm p-4 border-l-4 border-gray-400">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-gray-500">已关闭</p>
+                        <p class="text-2xl font-bold text-gray-800">{{ stats.closed or 0 }}</p>
+                    </div>
+                    <i class="fa fa-lock text-3xl text-gray-400"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- 筛选区域 -->
+        <div class="bg-white rounded-lg shadow-sm p-4 mb-6">
+            <form method="get" action="{{ url_for('maintenance_admin.admin_order_list') }}" class="space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                    <div>
+                        <label class="block text-xs text-gray-500 mb-1">状态</label>
+                        <select name="status" class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
+                            <option value="">全部状态</option>
+                            <option value="待处理" {{ 'selected' if request.args.get('status') == '待处理' }}>待处理</option>
+                            <option value="处理中" {{ 'selected' if request.args.get('status') == '处理中' }}>处理中</option>
+                            <option value="已解决" {{ 'selected' if request.args.get('status') == '已解决' }}>已解决</option>
+                            <option value="已关闭" {{ 'selected' if request.args.get('status') == '已关闭' }}>已关闭</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-500 mb-1">维修类型</label>
+                        <select name="maintenance_type" class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
+                            <option value="">全部类型</option>
+                            {% for mtype in maintenance_types %}
+                            <option value="{{ mtype }}" {{ 'selected' if request.args.get('maintenance_type') == mtype }}>{{ mtype }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-500 mb-1">优先级</label>
+                        <select name="priority" class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
+                            <option value="">全部优先级</option>
+                            <option value="低" {{ 'selected' if request.args.get('priority') == '低' }}>低</option>
+                            <option value="一般" {{ 'selected' if request.args.get('priority') == '一般' }}>一般</option>
+                            <option value="高" {{ 'selected' if request.args.get('priority') == '高' }}>高</option>
+                            <option value="紧急" {{ 'selected' if request.args.get('priority') == '紧急' }}>紧急</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-500 mb-1">维修人员</label>
+                        <select name="assigned_to" class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
+                            <option value="">全部人员</option>
+                            <option value="unassigned" {{ 'selected' if request.args.get('assigned_to') == 'unassigned' }}>未分配</option>
+                            {% for staff in staff_list %}
+                            <option value="{{ staff.id }}" {{ 'selected' if request.args.get('assigned_to')|string == staff.id|string }}>{{ staff.realname or staff.username }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-500 mb-1">关键词</label>
+                        <input type="text" name="keyword" value="{{ request.args.get('keyword', '') }}" 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" 
+                               placeholder="工单号/标题/房间">
+                    </div>
+                    <div class="flex items-end space-x-2">
+                        <button type="submit" class="btn-effect px-4 py-2 bg-primary text-white rounded-md text-sm hover:bg-primary/90 transition-colors">
+                            <i class="fa fa-search mr-1"></i>搜索
+                        </button>
+                        <a href="{{ url_for('maintenance_admin.admin_order_list') }}" class="px-4 py-2 border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                            重置
+                        </a>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <!-- 批量操作栏 -->
+        <div id="batchBar" class="hidden bg-primary/10 border border-primary/20 rounded-lg p-3 mb-4 flex items-center justify-between">
+            <div class="flex items-center">
+                <input type="checkbox" id="selectAll" class="mr-2" onchange="toggleSelectAll(this)">
+                <span class="text-sm text-primary font-medium">已选择 <span id="selectedCount">0</span> 项</span>
+            </div>
+            <div class="flex space-x-2">
+                <button onclick="openBatchAssignModal()" class="btn-effect px-3 py-1.5 bg-primary text-white rounded text-sm hover:bg-primary/90 transition-colors">
+                    <i class="fa fa-user-plus mr-1"></i>批量分配
+                </button>
+                <button onclick="openBatchDeleteModal()" class="btn-effect px-3 py-1.5 bg-danger text-white rounded text-sm hover:bg-red-600 transition-colors">
+                    <i class="fa fa-trash mr-1"></i>批量删除
+                </button>
+            </div>
+        </div>
+
+        <!-- 工单表格 -->
+        <div class="bg-white rounded-lg shadow-sm overflow-hidden">
+            <div class="table-auto-wrap">
+                <table class="w-full text-sm">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-4 py-3 text-left"><input type="checkbox" id="headerCheckbox" onchange="toggleSelectAll(this)"></th>
+                            <th class="px-4 py-3 text-left text-gray-600 font-medium">工单号</th>
+                            <th class="px-4 py-3 text-left text-gray-600 font-medium">标题</th>
+                            <th class="px-4 py-3 text-left text-gray-600 font-medium">维修类型</th>
+                            <th class="px-4 py-3 text-left text-gray-600 font-medium">房间</th>
+                            <th class="px-4 py-3 text-left text-gray-600 font-medium">优先级</th>
+                            <th class="px-4 py-3 text-left text-gray-600 font-medium">状态</th>
+                            <th class="px-4 py-3 text-left text-gray-600 font-medium">维修人员</th>
+                            <th class="px-4 py-3 text-left text-gray-600 font-medium">创建时间</th>
+                            <th class="px-4 py-3 text-left text-gray-600 font-medium">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100">
+                        {% if orders %}
+                        {% for order in orders %}
+                        <tr class="hover:bg-gray-50 transition-colors">
+                            <td class="px-4 py-3"><input type="checkbox" class="order-checkbox" value="{{ order.id }}" onchange="updateBatchBar()"></td>
+                            <td class="px-4 py-3">
+                                <a href="{{ url_for('maintenance_admin.admin_order_detail', order_id=order.id) }}" class="text-primary hover:underline">{{ order.order_no }}</a>
+                            </td>
+                            <td class="px-4 py-3 text-gray-800 max-w-[200px] truncate">{{ order.title }}</td>
+                            <td class="px-4 py-3 text-gray-600">{{ order.maintenance_type }}</td>
+                            <td class="px-4 py-3 text-gray-600">{{ order.room_number }}</td>
+                            <td class="px-4 py-3">
+                                {% set priority_colors = {'低': 'bg-gray-100 text-gray-800', '一般': 'bg-blue-100 text-blue-800', '高': 'bg-orange-100 text-orange-800', '紧急': 'bg-red-100 text-red-800'} %}
+                                <span class="status-badge {{ priority_colors.get(order.priority, 'bg-gray-100 text-gray-800') }}">{{ order.priority }}</span>
+                            </td>
+                            <td class="px-4 py-3">
+                                {% set status_colors = {'待处理': 'bg-yellow-100 text-yellow-800', '处理中': 'bg-blue-100 text-blue-800', '已解决': 'bg-green-100 text-green-800', '已关闭': 'bg-gray-100 text-gray-800'} %}
+                                <span class="status-badge {{ status_colors.get(order.status, 'bg-gray-100 text-gray-800') }}">{{ order.status }}</span>
+                            </td>
+                            <td class="px-4 py-3 text-gray-600">{% if order.assigned_user %}{{ order.assigned_user.name }}{% else %}<span class="text-gray-400">未分配</span>{% endif %}</td>
+                            <td class="px-4 py-3 text-gray-500 text-xs">{{ order.created_at.strftime('%Y-%m-%d %H:%M') if order.created_at else '' }}</td>
+                            <td class="px-4 py-3">
+                                <div class="flex space-x-2">
+                                    <a href="{{ url_for('maintenance_admin.admin_order_detail', order_id=order.id) }}" class="btn-effect bg-blue-500 text-white px-2 py-1 rounded-md text-sm inline-flex items-center">
+                                        <i class="fa fa-eye mr-1"></i>查看
+                                    </a>
+                                    {% if order.status == '待处理' %}
+                                    <a href="javascript:void(0)" onclick="openAssignModal({{ order.id }})" class="btn-effect bg-primary text-white px-2 py-1 rounded-md text-sm inline-flex items-center">
+                                        <i class="fa fa-user-plus mr-1"></i>分配
+                                    </a>
+                                    {% endif %}
+                                    <a href="javascript:void(0)" onclick="openDeleteModal({{ order.id }}, '{{ order.order_no }}')" class="btn-effect bg-red-500 text-white px-2 py-1 rounded-md text-sm inline-flex items-center">
+                                        <i class="fa fa-trash mr-1"></i>删除
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        {% else %}
+                        <tr>
+                            <td colspan="10" class="px-4 py-12 text-center text-gray-500">
+                                <i class="fa fa-inbox text-4xl mb-2 block text-gray-300"></i>
+                                暂无维修工单数据
+                            </td>
+                        </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- 分页 -->
+            {% if pagination and pagination.pages > 1 %}
+            <div class="px-4 py-3 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-3">
+                <div class="text-sm text-gray-500">
+                    共 {{ pagination.total }} 条记录，第 {{ pagination.page }}/{{ pagination.pages }} 页
+                    <select id="perPageSelect" class="ml-2 px-2 py-1 border border-gray-300 rounded text-sm" onchange="changePerPage(this.value)">
+                        <option value="10" {{ 'selected' if pagination.per_page == 10 }}>10条/页</option>
+                        <option value="20" {{ 'selected' if pagination.per_page == 20 }}>20条/页</option>
+                        <option value="50" {{ 'selected' if pagination.per_page == 50 }}>50条/页</option>
+                    </select>
+                </div>
+                <div class="flex space-x-1">
+                    {% if pagination.has_prev %}
+                    <a href="{{ url_for('maintenance_admin.admin_order_list', page=pagination.prev_num, **request.args) }}" class="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-50">上一页</a>
+                    {% endif %}
+                    {% for p in generate_page_range(pagination.page, pagination.pages) %}
+                    {% if p == '...' %}
+                    <span class="px-3 py-1 text-gray-400">...</span>
+                    {% else %}
+                    <a href="{{ url_for('maintenance_admin.admin_order_list', page=p, **request.args) }}" class="px-3 py-1 border {{ 'border-primary bg-primary text-white' if p == pagination.page else 'border-gray-300 hover:bg-gray-50' }} rounded text-sm">{{ p }}</a>
+                    {% endif %}
+                    {% endfor %}
+                    {% if pagination.has_next %}
+                    <a href="{{ url_for('maintenance_admin.admin_order_list', page=pagination.next_num, **request.args) }}" class="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-50">下一页</a>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </main>
+
+    <!-- 分配维修人员模态框 -->
+    <div id="assignModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
+        <div class="modal-container bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-semibold text-gray-800">分配维修人员</h3>
+                <button onclick="closeAssignModal()" class="text-gray-400 hover:text-gray-600">
+                    <i class="fa fa-times"></i>
+                </button>
+            </div>
+            <form id="assignForm" method="post">
+                <input type="hidden" name="order_id" id="assignOrderId">
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">选择维修人员</label>
+                    <select name="assigned_to" id="assignStaffSelect" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50" required>
+                        <option value="">请选择维修人员</option>
+                        {% for staff in staff_list %}
+                        <option value="{{ staff.id }}" data-active-orders="{{ staff.active_orders or 0 }}">{{ staff.realname or staff.username }}（当前工单：{{ staff.active_orders or 0 }}）</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">分配方式</label>
+                    <div class="flex space-x-4">
+                        <label class="flex items-center">
+                            <input type="radio" name="assignment_type" value="manual" checked class="mr-2">
+                            <span class="text-sm">手动分配</span>
+                        </label>
+                        <label class="flex items-center">
+                            <input type="radio" name="assignment_type" value="auto" class="mr-2">
+                            <span class="text-sm">标记为自动分配</span>
+                        </label>
+                    </div>
+                </div>
+                <div class="flex justify-end space-x-3">
+                    <button type="button" onclick="closeAssignModal()" class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50">取消</button>
+                    <button type="submit" class="btn-effect px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90">确认分配</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 批量分配模态框 -->
+    <div id="batchAssignModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
+        <div class="modal-container bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-semibold text-gray-800">批量分配维修人员</h3>
+                <button onclick="closeBatchAssignModal()" class="text-gray-400 hover:text-gray-600">
+                    <i class="fa fa-times"></i>
+                </button>
+            </div>
+            <form id="batchAssignForm" method="post" action="{{ url_for('maintenance_admin.batch_assign') }}">
+                <input type="hidden" name="order_ids" id="batchAssignOrderIds">
+                <p class="text-sm text-gray-600 mb-3">将为选中的 <span id="batchAssignCount" class="font-medium text-primary">0</span> 个工单分配维修人员</p>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">选择维修人员</label>
+                    <select name="assigned_to" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50" required>
+                        <option value="">请选择维修人员</option>
+                        {% for staff in staff_list %}
+                        <option value="{{ staff.id }}">{{ staff.realname or staff.username }}（当前工单：{{ staff.active_orders or 0 }}）</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="flex justify-end space-x-3">
+                    <button type="button" onclick="closeBatchAssignModal()" class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50">取消</button>
+                    <button type="submit" class="btn-effect px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90">确认分配</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 删除确认模态框 -->
+    <div id="deleteModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
+        <div class="modal-container bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <div class="text-center">
+                <i class="fa fa-exclamation-triangle text-4xl text-danger mb-4"></i>
+                <h3 class="text-lg font-semibold text-gray-800 mb-2">确认删除</h3>
+                <p class="text-gray-600 mb-4">确定要删除工单 <span id="deleteOrderNumber" class="font-medium text-danger"></span> 吗？此操作不可撤销。</p>
+                <form id="deleteForm" method="post">
+                        <input type="hidden" name="order_id" id="deleteOrderId">
+                    <div class="flex justify-center space-x-3">
+                        <button type="button" onclick="closeDeleteModal()" class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50">取消</button>
+                        <button type="submit" class="px-4 py-2 bg-danger text-white rounded-md hover:bg-red-600">确认删除</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- 批量删除确认模态框 -->
+    <div id="batchDeleteModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
+        <div class="modal-container bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <div class="text-center">
+                <i class="fa fa-exclamation-triangle text-4xl text-danger mb-4"></i>
+                <h3 class="text-lg font-semibold text-gray-800 mb-2">批量删除确认</h3>
+                <p class="text-gray-600 mb-4">确定要删除选中的 <span id="batchDeleteCount" class="font-medium text-danger">0</span> 个工单吗？此操作不可撤销。</p>
+                <form id="batchDeleteForm" method="post" action="{{ url_for('maintenance_admin.batch_delete') }}">
+                        <input type="hidden" name="order_ids" id="batchDeleteOrderIds">
+                    <div class="flex justify-center space-x-3">
+                        <button type="button" onclick="closeBatchDeleteModal()" class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50">取消</button>
+                        <button type="submit" class="px-4 py-2 bg-danger text-white rounded-md hover:bg-red-600">确认删除</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    {% include 'footer.html' %}
+
+    <script>
+        // 全选/取消全选
+        function toggleSelectAll(source) {
+            const checkboxes = document.querySelectorAll('.order-checkbox');
+            checkboxes.forEach(cb => cb.checked = source.checked);
+            updateBatchBar();
+        }
+
+        // 更新批量操作栏
+        function updateBatchBar() {
+            const checked = document.querySelectorAll('.order-checkbox:checked');
+            const bar = document.getElementById('batchBar');
+            const count = document.getElementById('selectedCount');
+            if (checked.length > 0) {
+                bar.classList.remove('hidden');
+                bar.classList.add('flex');
+                count.textContent = checked.length;
+            } else {
+                bar.classList.add('hidden');
+                bar.classList.remove('flex');
+            }
+            // 更新表头复选框状态
+            const all = document.querySelectorAll('.order-checkbox');
+            document.getElementById('headerCheckbox').checked = all.length > 0 && checked.length === all.length;
+            document.getElementById('selectAll').checked = all.length > 0 && checked.length === all.length;
+        }
+
+        // 获取选中的工单ID
+        function getSelectedIds() {
+            return Array.from(document.querySelectorAll('.order-checkbox:checked')).map(cb => cb.value);
+        }
+
+        // 分配模态框
+        function openAssignModal(orderId) {
+            document.getElementById('assignOrderId').value = orderId;
+            document.getElementById('assignForm').action = '{{ url_for("maintenance_admin.assign_order", order_id=0) }}'.replace('0', orderId);
+            document.getElementById('assignModal').classList.remove('hidden');
+        }
+
+        function closeAssignModal() {
+            document.getElementById('assignModal').classList.add('hidden');
+        }
+
+        // 批量分配模态框
+        function openBatchAssignModal() {
+            const ids = getSelectedIds();
+            if (ids.length === 0) { alert('请先选择工单'); return; }
+            document.getElementById('batchAssignOrderIds').value = ids.join(',');
+            document.getElementById('batchAssignCount').textContent = ids.length;
+            document.getElementById('batchAssignModal').classList.remove('hidden');
+        }
+
+        function closeBatchAssignModal() {
+            document.getElementById('batchAssignModal').classList.add('hidden');
+        }
+
+        // 删除模态框
+        function openDeleteModal(orderId, orderNumber) {
+            document.getElementById('deleteOrderId').value = orderId;
+            document.getElementById('deleteOrderNumber').textContent = orderNumber;
+            document.getElementById('deleteForm').action = '{{ url_for("maintenance_admin.delete_order", order_id=0) }}'.replace('0', orderId);
+            document.getElementById('deleteModal').classList.remove('hidden');
+        }
+
+        function closeDeleteModal() {
+            document.getElementById('deleteModal').classList.add('hidden');
+        }
+
+        // 批量删除模态框
+        function openBatchDeleteModal() {
+            const ids = getSelectedIds();
+            if (ids.length === 0) { alert('请先选择工单'); return; }
+            document.getElementById('batchDeleteOrderIds').value = ids.join(',');
+            document.getElementById('batchDeleteCount').textContent = ids.length;
+            document.getElementById('batchDeleteModal').classList.remove('hidden');
+        }
+
+        function closeBatchDeleteModal() {
+            document.getElementById('batchDeleteModal').classList.add('hidden');
+        }
+
+        // 每页显示数切换
+        function changePerPage(value) {
+            const url = new URL(window.location.href);
+            url.searchParams.set('per_page', value);
+            url.searchParams.set('page', '1');
+            window.location.href = url.toString();
+        }
+
+        // 点击模态框背景关闭
+        document.querySelectorAll('[id$="Modal"]').forEach(modal => {
+            modal.addEventListener('click', function(e) {
+                if (e.target === this) this.classList.add('hidden');
+            });
+        });
+    </script>
+</body>
+</html>

@@ -56,11 +56,18 @@
                         </div>
                     </div>
                     <!-- 反馈按钮 -->
-                     {% if get_config_value('FEATURE_TICKET_MANAGE_ENABLED', True) %}
+                    <div class="flex items-center gap-2">
+                    {% if get_config_value('FEATURE_TICKET_MANAGE_ENABLED', True) %}
                     <a href="{{ url_for('ticket_user.user_ticket_list') }}" class="btn-effect bg-primary text-white px-4 py-2 rounded-md hover:bg-primary/90 transition-colors flex items-center justify-center">
-                        <i class="fa fa-comment-o mr-2"></i>问题反馈
+                        <i class="fa fa-comment-o mr-2"></i>留言
                     </a>
                     {% endif %}
+                    {% if get_config_value('FEATURE_MAINTENANCE_MANAGE_ENABLED', True) %}
+                    <a href="{{ url_for('maintenance_user.user_order_list') }}" class="btn-effect bg-orange-500 text-white px-4 py-2 rounded-md hover:bg-orange-500/90 transition-colors flex items-center justify-center">
+                        <i class="fa fa-wrench mr-2"></i>报修
+                    </a>
+                    {% endif %}
+                    </div>
                 </div>
                 {% with messages = get_flashed_messages(with_categories=true) %}
                     {% if messages %}

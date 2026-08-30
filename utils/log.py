@@ -19,6 +19,7 @@ MODULE_MAP = {
     'todo': '待办事项管理',
     'asset': '固定资产管理',
     'department': '部门管理',
+    'role': '角色管理',
     'other': '其他操作',
     # 低值易耗品管理模块
     'supply': '低值易耗品管理',
@@ -31,6 +32,7 @@ MODULE_MAP = {
     'supply_stock_detail': '库存明细',
     'supply_stock_record': '库存记录',
     'contract': '合同管理',
+    'maintenance': '后勤维修管理',
     'default': '其他模块'  # 默认值
 }
 
@@ -54,12 +56,15 @@ OPERATION_TYPE_MAP = {
     ('dorm', 'checkout'): '退宿处理',
     ('dorm', 'change'): '更换宿舍',
     ('dorm', 'batch_import_export'): '导入导出',
+    ('dorm', 'batch_import'): '导入',
     # 系统模块（示例扩展）
     ('system', 'config_update'): '更新配置',
     ('system', 'restore_backup'): '恢复备份',
     ('system', 'delete_backup'): '删除备份',
     ('system', 'list_backups'): '备份列表',
     ('system', 'create_backup'): '新建备份',
+    ('system', 'create_and_download_backup'): '新建并下载备份',
+    ('system', 'download_backup'): '下载备份',
     ('system', 'initialize'): '初始化',
     ('system', 'normalized_category'): '获取配置',
     ('system', 'module'): '获取模块',
@@ -80,6 +85,8 @@ OPERATION_TYPE_MAP = {
     ('utility', 'utility_api'): '调用接口',
     ('utility', 'bill_update'): '费用核算',
     ('utility', 'checkout_fee'): '退宿费用',
+    ('utility', 'checkout'): '退宿费用',
+    ('utility', 'checkout_edit'): '编辑退宿费用',
     ('utility', 'occupant_fee'): '在住费用',
     ('utility', 'records'): '访问页面',
     #补贴管理
@@ -107,6 +114,8 @@ OPERATION_TYPE_MAP = {
     ('todo', 'update'): '更新待办事项',
     ('todo', 'delete'): '删除待办事项',
     ('todo', 'batch_import_export'): '导入导出',
+    ('todo', 'upload_media'): '上传媒体',
+    ('todo', 'delete_media'): '删除媒体',
     # 固定资产管理模块
     ('asset', 'asset_add'): '新增资产',
     ('asset', 'asset_edit'): '编辑资产',
@@ -124,17 +133,39 @@ OPERATION_TYPE_MAP = {
     ('asset', 'upload_photo'): '上传照片',
     ('asset', 'delete_photo'): '删除照片',
     ('asset', 'records'): '访问页面',
+    ('asset', 'add'): '新增资产',
+    ('asset', 'edit'): '编辑资产',
+    ('asset', 'delete'): '删除资产',
+    ('asset', 'transfer'): '资产转移',
+    ('asset', 'scrap'): '资产报废',
+    ('asset', 'sell'): '资产出售',
+    ('asset', 'inventory_create'): '创建盘点',
+    ('asset', 'inventory'): '执行盘点',
+    ('asset', 'inventory_complete'): '完成盘点',
+    ('asset', 'inventory_delete'): '删除盘点',
     # 部门管理模块
     ('department', 'department_add'): '新增部门',
     ('department', 'department_edit'): '编辑部门',
     ('department', 'department_delete'): '删除部门',
     ('department', 'batch_import_export'): '导入导出',
+    ('department', 'records'): '访问页面',
+    ('department', 'api_query'): '调用接口',
+
+    # 角色管理模块
+    ('role', 'view'): '访问页面',
+    ('role', 'create'): '创建角色',
+    ('role', 'edit'): '编辑角色',
+    ('role', 'delete'): '删除角色',
+    ('role', 'role_change'): '角色变更',
     # 合同管理模块
     ('contract', 'records'): '访问页面',
     ('contract', 'contract_add'): '新增合同',
     ('contract', 'contract_edit'): '编辑合同',
     ('contract', 'contract_delete'): '删除合同',
     ('contract', 'contract_batch_delete'): '批量删除合同',
+    ('contract', 'contract_status_change'): '状态变更',
+    ('contract', 'contract_upload_attachment'): '上传附件',
+    ('contract', 'contract_delete_attachment'): '删除附件',
     ('contract', 'status_change'): '状态变更',
     ('contract', 'upload_attachment'): '上传附件',
     ('contract', 'delete_attachment'): '删除附件',
@@ -142,6 +173,21 @@ OPERATION_TYPE_MAP = {
     ('contract', 'contract_renew'): '续签合同',
     ('contract', 'api_query'): '调用接口',
     ('contract', 'batch_import_export'): '导入导出',
+
+    # 后勤维修管理模块
+    ('maintenance', 'records'): '访问页面',
+    ('maintenance', 'create'): '创建报修',
+    ('maintenance', 'reply'): '回复工单',
+    ('maintenance', 'update_status'): '更新状态',
+    ('maintenance', 'assign'): '分配工单',
+    ('maintenance', 'batch_assign'): '批量分配',
+    ('maintenance', 'delete'): '删除工单',
+    ('maintenance', 'batch_delete'): '批量删除',
+    ('maintenance', 'edit'): '编辑工单',
+    ('maintenance', 'start_work'): '开始处理',
+    ('maintenance', 'complete'): '完成维修',
+    ('maintenance', 'upload'): '上传文件',
+    ('maintenance', 'confirm_resolved'): '确认解决',
 
     # 其他操作模块
     ('other', 'records'): '访问页面',

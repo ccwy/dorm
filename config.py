@@ -74,7 +74,7 @@ class Config:
     # 开发模式自动登录开关
     # 设置为True时，程序运行免登录，自动以admin账号登录
     # 仅建议在开发环境中开启，生产环境必须为False
-    DEV_AUTO_LOGIN = True
+    DEV_AUTO_LOGIN = False
 
     # API配置
     API_BASE_URL = ""  # 基础API地址

@@ -119,6 +119,17 @@ PERMISSIONS = {
             'manage': '管理',
         }
     },
+    'maintenance': {
+        'name': '后勤维修',
+        'actions': {
+            'view': '查看',
+            'create': '新增',
+            'edit': '编辑',
+            'delete': '删除',
+            'manage': '管理',
+            'handle': '处理',
+        }
+    },
     'todo': {
         'name': '待办事项',
         'actions': {

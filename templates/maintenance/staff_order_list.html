@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    {% include 'static.html' %}
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#165DFF',
+                        secondary: '#36CFC9',
+                        accent: '#722ED1',
+                        danger: '#F5222D',
+                        info: '#1890FF',
+                        warning: '#FAAD14'
+                    },
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .btn-effect {
+                transition: all 0.2s ease;
+            }
+            .btn-effect:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            }
+        }
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        .table-auto-wrap {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    {% include 'header.html' %}
+
+    <main class="container mx-auto px-4 py-6">
+        <!-- 标题区 -->
+        <div class="mb-6 fade-in">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <button onclick="window.location.href = '{{ url_for('index') }}'" class="text-gray-600 hover:text-primary transition-colors mr-4">
+                        <i class="fa fa-arrow-left"></i>
+                    </button>
+                    <div>
+                        <h2 class="text-[clamp(1.5rem,3vw,2rem)] font-bold text-dark">我的维修工单</h2>
+                        <p class="text-gray-500 mt-1">查看和处理分配给我的维修工单</p>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-3">
+                    <span class="text-sm text-gray-500">当前处理中：<span class="font-medium text-primary">{{ stats.in_progress or 0 }}</span> 个</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 消息提示区域 -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            <div class="flash-messages mb-6">
+              {% for category, message in messages %}
+                <div class="p-4 rounded-md mb-2 {% if category == 'success' %}bg-green-100 text-green-800{% elif category == 'error' or category == 'danger' %}bg-red-100 text-red-800{% elif category == 'warning' %}bg-yellow-100 text-yellow-800{% else %}bg-blue-100 text-blue-800{% endif %}">
+                  <button type="button" class="float-right ml-2 text-gray-500 hover:text-gray-700" onclick="this.parentElement.remove()">×</button>
+                  {{ message }}
+                </div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        {% endwith %}
+
+        <!-- 统计卡片 -->
+        <div class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
+            <div class="bg-white rounded-lg shadow-sm p-4 border-l-4 border-blue-400">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-gray-500">处理中</p>
+                        <p class="text-2xl font-bold text-gray-800">{{ stats.in_progress or 0 }}</p>
+                    </div>
+                    <i class="fa fa-wrench text-3xl text-blue-400"></i>
+                </div>
+            </div>
+            <div class="bg-white rounded-lg shadow-sm p-4 border-l-4 border-green-400">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-gray-500">已解决</p>
+                        <p class="text-2xl font-bold text-gray-800">{{ stats.resolved or 0 }}</p>
+                    </div>
+                    <i class="fa fa-check-circle text-3xl text-green-400"></i>
+                </div>
+            </div>
+            <div class="bg-white rounded-lg shadow-sm p-4 border-l-4 border-orange-400">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-gray-500">紧急工单</p>
+                        <p class="text-2xl font-bold text-gray-800">{{ stats.urgent or 0 }}</p>
+                    </div>
+                    <i class="fa fa-exclamation-triangle text-3xl text-orange-400"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- 状态筛选标签 -->
+        <div class="bg-white rounded-lg shadow-sm p-4 mb-6">
+            <div class="flex flex-wrap gap-2">
+                <a href="{{ url_for('maintenance_staff.staff_order_list', status='') }}" 
+                   class="px-4 py-2 rounded-full text-sm font-medium transition-colors {{ 'bg-primary text-white' if not current_status else 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
+                    全部
+                </a>
+                <a href="{{ url_for('maintenance_staff.staff_order_list', status='处理中') }}" 
+                   class="px-4 py-2 rounded-full text-sm font-medium transition-colors {{ 'bg-blue-500 text-white' if current_status == '处理中' else 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
+                    处理中
+                </a>
+                <a href="{{ url_for('maintenance_staff.staff_order_list', status='已解决') }}" 
+                   class="px-4 py-2 rounded-full text-sm font-medium transition-colors {{ 'bg-green-500 text-white' if current_status == '已解决' else 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
+                    已解决
+                </a>
+                <a href="{{ url_for('maintenance_staff.staff_order_list', status='已关闭') }}" 
+                   class="px-4 py-2 rounded-full text-sm font-medium transition-colors {{ 'bg-gray-500 text-white' if current_status == '已关闭' else 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
+                    已关闭
+                </a>
+            </div>
+        </div>
+
+        <!-- 工单表格 -->
+        <div class="bg-white rounded-lg shadow-sm overflow-hidden">
+            <div class="table-auto-wrap">
+                <table class="w-full text-sm">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-4 py-3 text-left text-gray-600 font-medium">工单号</th>
+                            <th class="px-4 py-3 text-left text-gray-600 font-medium">标题</th>
+                            <th class="px-4 py-3 text-left text-gray-600 font-medium">维修类型</th>
+                            <th class="px-4 py-3 text-left text-gray-600 font-medium">房间</th>
+                            <th class="px-4 py-3 text-left text-gray-600 font-medium">优先级</th>
+                            <th class="px-4 py-3 text-left text-gray-600 font-medium">状态</th>
+                            <th class="px-4 py-3 text-left text-gray-600 font-medium">创建时间</th>
+                            <th class="px-4 py-3 text-left text-gray-600 font-medium">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100">
+                        {% if orders %}
+                        {% for order in orders %}
+                        <tr class="hover:bg-gray-50 transition-colors">
+                            <td class="px-4 py-3">
+                                <a href="{{ url_for('maintenance_staff.staff_order_detail', order_id=order.id) }}" class="text-primary hover:underline">{{ order.order_no }}</a>
+                            </td>
+                            <td class="px-4 py-3 text-gray-800 max-w-[200px] truncate">{{ order.title }}</td>
+                            <td class="px-4 py-3 text-gray-600">{{ order.maintenance_type }}</td>
+                            <td class="px-4 py-3 text-gray-600">{{ order.room_number }}</td>
+                            <td class="px-4 py-3">
+                                {% set priority_colors = {'低': 'bg-gray-100 text-gray-800', '一般': 'bg-blue-100 text-blue-800', '高': 'bg-orange-100 text-orange-800', '紧急': 'bg-red-100 text-red-800'} %}
+                                <span class="status-badge {{ priority_colors.get(order.priority, 'bg-gray-100 text-gray-800') }}">{{ order.priority }}</span>
+                            </td>
+                            <td class="px-4 py-3">
+                                {% set status_colors = {'处理中': 'bg-blue-100 text-blue-800', '已解决': 'bg-green-100 text-green-800', '已关闭': 'bg-gray-100 text-gray-800'} %}
+                                <span class="status-badge {{ status_colors.get(order.status, 'bg-gray-100 text-gray-800') }}">{{ order.status }}</span>
+                            </td>
+                            <td class="px-4 py-3 text-gray-500 text-xs">{{ order.created_at.strftime('%Y-%m-%d %H:%M') if order.created_at else '' }}</td>
+                            <td class="px-4 py-3">
+                                <a href="{{ url_for('maintenance_staff.staff_order_detail', order_id=order.id) }}" class="btn-effect inline-flex items-center px-3 py-1.5 bg-primary text-white rounded text-xs hover:bg-primary/90 transition-colors">
+                                    <i class="fa fa-eye mr-1"></i>查看
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        {% else %}
+                        <tr>
+                            <td colspan="8" class="px-4 py-12 text-center text-gray-500">
+                                <i class="fa fa-inbox text-4xl mb-2 block text-gray-300"></i>
+                                {% if current_status %}
+                                暂无{{ current_status }}状态的工单
+                                {% else %}
+                                暂无分配给我的工单
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- 分页 -->
+            {% if pagination and pagination.pages > 1 %}
+            <div class="px-4 py-3 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-3">
+                <div class="text-sm text-gray-500">
+                    共 {{ pagination.total }} 条记录，第 {{ pagination.page }}/{{ pagination.pages }} 页
+                    <select id="perPageSelect" class="ml-2 px-2 py-1 border border-gray-300 rounded text-sm" onchange="changePerPage(this.value)">
+                        <option value="10" {{ 'selected' if pagination.per_page == 10 }}>10条/页</option>
+                        <option value="20" {{ 'selected' if pagination.per_page == 20 }}>20条/页</option>
+                        <option value="50" {{ 'selected' if pagination.per_page == 50 }}>50条/页</option>
+                    </select>
+                </div>
+                <div class="flex space-x-1">
+                    {% if pagination.has_prev %}
+                    <a href="{{ url_for('maintenance_staff.staff_order_list', page=pagination.prev_num, status=current_status) }}" class="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-50">上一页</a>
+                    {% endif %}
+                    {% for p in generate_page_range(pagination.page, pagination.pages) %}
+                    {% if p == '...' %}
+                    <span class="px-3 py-1 text-gray-400">...</span>
+                    {% else %}
+                    <a href="{{ url_for('maintenance_staff.staff_order_list', page=p, status=current_status) }}" class="px-3 py-1 border {{ 'border-primary bg-primary text-white' if p == pagination.page else 'border-gray-300 hover:bg-gray-50' }} rounded text-sm">{{ p }}</a>
+                    {% endif %}
+                    {% endfor %}
+                    {% if pagination.has_next %}
+                    <a href="{{ url_for('maintenance_staff.staff_order_list', page=pagination.next_num, status=current_status) }}" class="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-50">下一页</a>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </main>
+
+    {% include 'footer.html' %}
+
+    <script>
+        function changePerPage(value) {
+            const url = new URL(window.location.href);
+            url.searchParams.set('per_page', value);
+            url.searchParams.set('page', '1');
+            window.location.href = url.toString();
+        }
+    </script>
+</body>
+</html>

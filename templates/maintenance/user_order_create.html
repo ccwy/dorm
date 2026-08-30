@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    {% include 'static.html' %}
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#165DFF',
+                        secondary: '#36CFC9',
+                        accent: '#722ED1',
+                        danger: '#F5222D',
+                        info: '#1890FF',
+                        warning: '#FAAD14'
+                    },
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .btn-effect {
+                transition: all 0.2s ease;
+            }
+            .btn-effect:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            }
+        }
+        .drop-zone {
+            border: 2px dashed #d1d5db;
+            transition: all 0.3s ease;
+        }
+        .drop-zone.drag-over {
+            border-color: #165DFF;
+            background-color: #fff7ed;
+        }
+        .file-preview-item {
+            position: relative;
+        }
+        .file-preview-item .delete-btn {
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        .file-preview-item:hover .delete-btn {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    {% include 'header.html' %}
+
+    <main class="container mx-auto px-4 py-6">
+        <!-- 标题和返回按钮区 -->
+        <div class="mb-6 fade-in">
+            <div class="flex items-center">
+                <a href="{{ url_for('maintenance_user.user_order_list') }}" class="text-gray-600 hover:text-primary transition-colors mr-4">
+                    <i class="fa fa-arrow-left"></i>
+                </a>
+                <div>
+                    <h2 class="text-[clamp(1.5rem,3vw,2rem)] font-bold text-dark">提交报修申请</h2>
+                    <p class="text-gray-500 mt-1">填写维修工单信息，提交后系统将自动分配维修人员</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 消息提示区域 -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            <div class="flash-messages mb-6">
+              {% for category, message in messages %}
+                <div class="p-4 rounded-md mb-2 {% if category == 'success' %}bg-green-100 text-green-800{% elif category == 'error' or category == 'danger' %}bg-red-100 text-red-800{% elif category == 'warning' %}bg-yellow-100 text-yellow-800{% else %}bg-blue-100 text-blue-800{% endif %}">
+                  <button type="button" class="float-right ml-2 text-gray-500 hover:text-gray-700" onclick="this.parentElement.remove()">×</button>
+                  {{ message }}
+                </div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        {% endwith %}
+
+        <!-- 创建工单表单 -->
+        <div class="bg-white rounded-lg shadow-sm p-6">
+            <form id="createOrderForm" action="{{ url_for('maintenance_user.user_order_create') }}" method="post" enctype="multipart/form-data">
+                
+                <!-- 房间信息 -->
+                <div class="mb-6">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4 pb-2 border-b border-gray-200">
+                        <i class="fa fa-home mr-2 text-primary"></i>房间信息
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="relative">
+                            <label for="room_info" class="block text-sm font-medium text-gray-700 mb-1">房间信息</label>
+                            <input type="text" id="room_info" name="room_info" value="{{ room_info or '' }}" 
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50" 
+                                   placeholder="输入关键词搜索房间，例如：A栋、102"
+                                   autocomplete="off">
+                            <input type="hidden" id="room_id" name="room_id" value="{{ room_id or '' }}">
+                            <!-- 搜索下拉列表 -->
+                            <div id="room_dropdown" class="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto hidden">
+                            </div>
+                            <p class="mt-1 text-xs text-gray-500">系统已自动填充您的住宿房间，如需修改请输入关键词搜索</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 维修信息 -->
+                <div class="mb-6">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4 pb-2 border-b border-gray-200">
+                        <i class="fa fa-wrench mr-2 text-primary"></i>维修信息
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label for="maintenance_type" class="block text-sm font-medium text-gray-700 mb-1">维修类型 <span class="text-danger">*</span></label>
+                            <select id="maintenance_type" name="maintenance_type" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50" required>
+                                <option value="">请选择维修类型</option>
+                                {% for mtype in maintenance_types %}
+                                <option value="{{ mtype }}" {% if loop.first %}selected{% endif %}>{{ mtype }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div>
+                            <label for="priority" class="block text-sm font-medium text-gray-700 mb-1">优先级</label>
+                            <select id="priority" name="priority" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                                <option value="低">低</option>
+                                <option value="一般" selected>一般</option>
+                                <option value="高">高</option>
+                                <option value="紧急">紧急</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mt-4">
+                        <label for="description" class="block text-sm font-medium text-gray-700 mb-1">问题描述 <span class="text-danger">*</span></label>
+                        <textarea id="description" name="description" rows="5" 
+                                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50" 
+                                  placeholder="请详细描述维修问题，例如：卫生间水龙头持续漏水..." required></textarea>
+                        <p id="titlePreview" class="mt-2 text-sm text-gray-500 hidden">
+                            <i class="fa fa-eye mr-1"></i>标题预览：<span id="previewText" class="font-medium text-gray-700"></span>
+                        </p>
+                    </div>
+                </div>
+
+                <!-- 照片/视频上传 -->
+                <div class="mb-6">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4 pb-2 border-b border-gray-200">
+                        <i class="fa fa-camera mr-2 text-primary"></i>照片/视频上传
+                    </h3>
+                    <div id="dropZone" class="drop-zone rounded-lg p-8 text-center cursor-pointer">
+                        <i class="fa fa-cloud-upload text-4xl text-gray-400 mb-2"></i>
+                        <p class="text-gray-600 mb-1">拖拽文件到此处或点击上传</p>
+                        <p class="text-xs text-gray-400">支持图片和视频格式，不限制文件大小和数量</p>
+                        <input type="file" id="fileInput" accept="image/*,video/*" multiple class="hidden">
+                    </div>
+                    
+                    <!-- 上传进度 -->
+                    <div id="uploadProgress" class="hidden mt-4">
+                        <div class="flex items-center justify-between mb-1">
+                            <span id="uploadStatusText" class="text-sm text-gray-600">上传中...</span>
+                            <span id="uploadPercent" class="text-sm text-gray-500">0%</span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-2">
+                            <div id="uploadBar" class="bg-primary h-2 rounded-full transition-all" style="width: 0%"></div>
+                        </div>
+                    </div>
+                    
+                    <!-- 上传反馈 -->
+                    <div id="uploadFeedback" class="hidden mt-2 px-4 py-3 rounded-md"></div>
+                    
+                    <!-- 文件预览区域 -->
+                    <div id="filePreviewArea" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 mt-4"></div>
+                    
+                    <!-- 隐藏字段存储已上传文件 -->
+                    <input type="hidden" name="uploaded_files" id="uploadedFilesInput" value="">
+                </div>
+
+                <!-- 提交按钮 -->
+                <div class="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+                    <a href="{{ url_for('maintenance_user.user_order_list') }}" class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors">
+                        取消
+                    </a>
+                    <button type="submit" class="btn-effect px-6 py-2 bg-primary text-white rounded-md hover:bg-primary/90 transition-colors flex items-center">
+                        <i class="fa fa-paper-plane mr-2"></i>提交报修
+                    </button>
+                </div>
+            </form>
+        </div>
+    </main>
+
+    {% include 'footer.html' %}
+
+    <script>
+        // 已上传文件列表
+        let uploadedFiles = [];
+
+        // 页面加载时恢复已有临时文件预览
+        document.addEventListener('DOMContentLoaded', function() {
+            fetch('{{ url_for("maintenance_api.get_temp_files") }}')
+                .then(resp => resp.json())
+                .then(data => {
+                    if (data.success && data.files && data.files.length > 0) {
+                        data.files.forEach(f => {
+                            uploadedFiles.push(f.filename);
+                            const mimeType = f.type === 'image' ? 'image/jpeg' : 'video/mp4';
+                            addFilePreview(f.filename, f.url, mimeType);
+                        });
+                        updateUploadedFilesInput();
+                    }
+                })
+                .catch(() => {});
+        });
+
+        // ========== 房间搜索功能 ==========
+        (function() {
+            const roomInput = document.getElementById('room_info');
+            const roomIdInput = document.getElementById('room_id');
+            const dropdown = document.getElementById('room_dropdown');
+            let searchTimer = null;
+
+            // 搜索房间
+            function searchRooms(query) {
+                if (!query || query.trim().length === 0) {
+                    dropdown.classList.add('hidden');
+                    return;
+                }
+                fetch('{{ url_for("maintenance_api.search_rooms") }}?query=' + encodeURIComponent(query.trim()))
+                    .then(resp => resp.json())
+                    .then(data => {
+                        dropdown.innerHTML = '';
+                        if (data && data.length > 0) {
+                            data.forEach(room => {
+                                const item = document.createElement('div');
+                                item.className = 'px-3 py-2 cursor-pointer hover:bg-primary/10 text-sm border-b border-gray-100 last:border-b-0';
+                                item.innerHTML = '<i class="fa fa-home mr-2 text-gray-400"></i>' + 
+                                    '<span class="font-medium">' + escapeHtml(room.display) + '</span>' +
+                                    (room.status ? ' <span class="text-xs text-gray-400 ml-1">(' + escapeHtml(room.status) + ')</span>' : '');
+                                item.addEventListener('click', function() {
+                                    roomInput.value = room.display;
+                                    roomIdInput.value = room.id;
+                                    dropdown.classList.add('hidden');
+                                });
+                                dropdown.appendChild(item);
+                            });
+                            dropdown.classList.remove('hidden');
+                        } else {
+                            dropdown.innerHTML = '<div class="px-3 py-2 text-sm text-gray-400 text-center">未找到匹配的房间</div>';
+                            dropdown.classList.remove('hidden');
+                        }
+                    })
+                    .catch(() => {
+                        dropdown.classList.add('hidden');
+                    });
+            }
+
+            // HTML转义
+            function escapeHtml(text) {
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            }
+
+            // 输入事件（防抖）
+            roomInput.addEventListener('input', function() {
+                roomIdInput.value = ''; // 清空room_id，因为用户修改了文本
+                clearTimeout(searchTimer);
+                searchTimer = setTimeout(function() {
+                    searchRooms(roomInput.value);
+                }, 300);
+            });
+
+            // 聚焦时如果有内容则显示搜索结果
+            roomInput.addEventListener('focus', function() {
+                if (roomInput.value.trim().length > 0) {
+                    searchRooms(roomInput.value);
+                }
+            });
+
+            // 点击外部关闭下拉
+            document.addEventListener('click', function(e) {
+                if (!roomInput.contains(e.target) && !dropdown.contains(e.target)) {
+                    dropdown.classList.add('hidden');
+                }
+            });
+        })();
+
+        // 实时标题预览
+        const descriptionInput = document.getElementById('description');
+        const titlePreview = document.getElementById('titlePreview');
+        const previewText = document.getElementById('previewText');
+
+        descriptionInput.addEventListener('input', function() {
+            const text = this.value.trim();
+            if (text.length > 0) {
+                const preview = text.substring(0, 20) + (text.length > 20 ? '...' : '');
+                previewText.textContent = preview;
+                titlePreview.classList.remove('hidden');
+            } else {
+                titlePreview.classList.add('hidden');
+            }
+        });
+
+        // 拖拽上传
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+
+        dropZone.addEventListener('click', () => fileInput.click());
+
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('drag-over');
+        });
+
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('drag-over');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('drag-over');
+            if (e.dataTransfer.files.length > 0) {
+                handleFiles(e.dataTransfer.files);
+            }
+        });
+
+        fileInput.addEventListener('change', function() {
+            if (this.files.length > 0) {
+                handleFiles(this.files);
+                this.value = '';
+            }
+        });
+
+        // 处理文件上传
+        function handleFiles(files) {
+            const progressDiv = document.getElementById('uploadProgress');
+            const feedbackDiv = document.getElementById('uploadFeedback');
+            progressDiv.classList.remove('hidden');
+            feedbackDiv.classList.add('hidden');
+
+            let totalFiles = files.length;
+            let uploaded = 0;
+            let successCount = 0;
+
+            Array.from(files).forEach((file, index) => {
+                document.getElementById('uploadStatusText').textContent = `正在上传 ${index + 1}/${totalFiles}: ${file.name}`;
+                uploadSingleFile(file).then(result => {
+                    successCount++;
+                    uploaded++;
+                    uploadedFiles.push(result.filename);
+                    updateUploadedFilesInput();
+                    addFilePreview(result.filename, result.url, file.type);
+                    updateProgress(uploaded, successCount, totalFiles);
+                    if (uploaded === totalFiles) finishUpload(successCount, totalFiles);
+                }).catch(err => {
+                    uploaded++;
+                    updateProgress(uploaded, successCount, totalFiles);
+                    showFeedback(`文件 ${file.name} 上传失败: ${err.message}`, 'error');
+                    if (uploaded === totalFiles) finishUpload(successCount, totalFiles);
+                });
+            });
+        }
+
+        function uploadSingleFile(file) {
+            return new Promise((resolve, reject) => {
+                const formData = new FormData();
+                formData.append('file', file);
+                const xhr = new XMLHttpRequest();
+                xhr.open('POST', '{{ url_for("maintenance_api.temp_upload") }}', true);
+                xhr.timeout = 600000;
+                xhr.onload = function() {
+                    if (xhr.status >= 200 && xhr.status < 300) {
+                        try {
+                            const resp = JSON.parse(xhr.responseText);
+                            if (resp.success) resolve(resp);
+                            else reject(new Error(resp.message || '上传失败'));
+                        } catch(e) { reject(new Error('响应格式错误')); }
+                    } else { reject(new Error('HTTP错误 ' + xhr.status)); }
+                };
+                xhr.onerror = () => reject(new Error('网络错误'));
+                xhr.ontimeout = () => reject(new Error('上传超时'));
+                xhr.send(formData);
+            });
+        }
+
+        function updateProgress(uploaded, success, total) {
+            const pct = Math.round((uploaded / total) * 100);
+            document.getElementById('uploadBar').style.width = pct + '%';
+            document.getElementById('uploadPercent').textContent = pct + '%';
+            document.getElementById('uploadStatusText').textContent = `已上传 ${uploaded}/${total}，成功 ${success} 个`;
+        }
+
+        function finishUpload(success, total) {
+            setTimeout(() => {
+                const feedbackDiv = document.getElementById('uploadFeedback');
+                if (success === total) {
+                    showFeedback(`上传完成：成功 ${success}/${total} 个文件`, 'success');
+                } else {
+                    showFeedback(`上传完成：成功 ${success}/${total}，失败 ${total - success} 个`, 'warning');
+                }
+                document.getElementById('uploadProgress').classList.add('hidden');
+            }, 500);
+        }
+
+        function showFeedback(msg, type) {
+            const div = document.getElementById('uploadFeedback');
+            div.textContent = msg;
+            div.className = 'mt-2 px-4 py-3 rounded-md ' + (type === 'success' ? 'bg-green-100 text-green-800' : type === 'error' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800');
+            div.classList.remove('hidden');
+            if (type === 'error') setTimeout(() => div.classList.add('hidden'), 3000);
+        }
+
+        function updateUploadedFilesInput() {
+            document.getElementById('uploadedFilesInput').value = uploadedFiles.join(',');
+        }
+
+        // 文件预览
+        function addFilePreview(filename, url, mimeType) {
+            const area = document.getElementById('filePreviewArea');
+            const div = document.createElement('div');
+            div.className = 'file-preview-item relative bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm';
+            div.id = 'file-' + filename.replace(/[^a-zA-Z0-9]/g, '_');
+
+            if (mimeType.startsWith('image/')) {
+                div.innerHTML = `
+                    <div class="h-32 overflow-hidden cursor-pointer" onclick="previewMedia('${url}', 'image')">
+                        <img src="${url}" class="w-full h-full object-cover" alt="预览">
+                    </div>
+                    <div class="p-2">
+                        <p class="text-xs text-gray-600 truncate">${filename}</p>
+                    </div>
+                    <button type="button" class="delete-btn absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-600" onclick="event.stopPropagation(); deleteFile('${filename}')">
+                        <i class="fa fa-times"></i>
+                    </button>`;
+            } else if (mimeType.startsWith('video/')) {
+                div.innerHTML = `
+                    <div class="h-32 overflow-hidden cursor-pointer" onclick="previewMedia('${url}', 'video')">
+                        <video src="${url}" class="w-full h-full object-cover" muted preload="metadata"></video>
+                    </div>
+                    <div class="p-2 flex items-center justify-between">
+                        <p class="text-xs text-gray-600 truncate flex-1">${filename}</p>
+                        <i class="fa fa-play-circle text-primary ml-1"></i>
+                    </div>
+                    <button type="button" class="delete-btn absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-600" onclick="event.stopPropagation(); deleteFile('${filename}')">
+                        <i class="fa fa-times"></i>
+                    </button>`;
+            } else {
+                div.innerHTML = `
+                    <div class="h-32 flex items-center justify-center bg-gray-100">
+                        <i class="fa fa-file-o text-4xl text-gray-400"></i>
+                    </div>
+                    <div class="p-2">
+                        <p class="text-xs text-gray-600 truncate">${filename}</p>
+                    </div>
+                    <button type="button" class="delete-btn absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-600" onclick="event.stopPropagation(); deleteFile('${filename}')">
+                        <i class="fa fa-times"></i>
+                    </button>`;
+            }
+            area.appendChild(div);
+        }
+
+        // 媒体预览弹窗
+        function previewMedia(url, type) {
+            // 创建遮罩层
+            const overlay = document.createElement('div');
+            overlay.id = 'mediaPreviewOverlay';
+            overlay.className = 'fixed inset-0 bg-black/70 z-50 flex items-center justify-center';
+            overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
+
+            const container = document.createElement('div');
+            container.className = 'relative max-w-4xl max-h-[90vh] mx-4';
+
+            if (type === 'image') {
+                container.innerHTML = `<img src="${url}" class="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl" alt="预览">`;
+            } else if (type === 'video') {
+                container.innerHTML = `<video src="${url}" class="max-w-full max-h-[85vh] rounded-lg shadow-2xl" controls autoplay></video>`;
+            }
+
+            // 关闭按钮
+            const closeBtn = document.createElement('button');
+            closeBtn.className = 'absolute -top-3 -right-3 bg-white text-gray-700 rounded-full w-8 h-8 flex items-center justify-center shadow-lg hover:bg-gray-100 text-lg';
+            closeBtn.innerHTML = '&times;';
+            closeBtn.onclick = function() { overlay.remove(); };
+            container.appendChild(closeBtn);
+
+            overlay.appendChild(container);
+            document.body.appendChild(overlay);
+        }
+
+        // 删除临时文件
+        function deleteFile(filename) {
+            if (!confirm('确定要删除此文件吗？')) return;
+            fetch('{{ url_for("maintenance_api.delete_temp_file", filename="placeholder") }}'.replace('placeholder', encodeURIComponent(filename)), {
+                method: 'POST',
+                headers: {'X-Requested-With': 'XMLHttpRequest'}
+            }).then(resp => resp.json()).then(data => {
+                if (data.success) {
+                    uploadedFiles = uploadedFiles.filter(f => f !== filename);
+                    updateUploadedFilesInput();
+                    const el = document.getElementById('file-' + filename.replace(/[^a-zA-Z0-9]/g, '_'));
+                    if (el) el.remove();
+                } else {
+                    alert('删除失败: ' + (data.message || '未知错误'));
+                }
+            }).catch(() => alert('删除请求失败'));
+        }
+    </script>
+</body>
+</html>

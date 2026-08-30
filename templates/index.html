@@ -253,6 +253,27 @@
                 </div>
                 {% endif %}
 
+                <!-- 后勤维修 -->
+                {% if get_config_value('FEATURE_MAINTENANCE_MANAGE_ENABLED', True) and current_user.has_permission('maintenance.view') %}
+                <div class="bg-white rounded-xl p-6 card-shadow btn-hover">
+                    {% if current_user.has_permission('maintenance.manage') %}
+                    <a href="{{ url_for('maintenance_admin.admin_order_list') }}" class="flex flex-col items-center text-center">
+                    {% elif current_user.has_permission('maintenance.handle') %}
+                    <a href="{{ url_for('maintenance_staff.staff_order_list') }}" class="flex flex-col items-center text-center">
+                    {% elif current_user.has_permission('maintenance.create') %}
+                    <a href="{{ url_for('maintenance_user.user_order_list') }}" class="flex flex-col items-center text-center">
+                    {% else %}
+                    <a href="{{ url_for('maintenance_user.user_order_list') }}" class="flex flex-col items-center text-center">
+                    {% endif %}
+                        <div class="w-16 h-16 bg-orange-500/10 rounded-full flex items-center justify-center mb-4">
+                            <i class="fa fa-wrench text-2xl text-orange-500"></i>
+                        </div>
+                        <h3 class="text-lg font-medium text-dark mb-2">后勤维修</h3>
+                        <p class="text-gray-500 text-sm">维修工单管理</p>
+                    </a>
+                </div>
+                {% endif %}
+
                 <!-- 角色管理 -->
                 {% if get_config_value('FEATURE_ROLE_MANAGE_ENABLED', True) and current_user.has_permission('role.view') %}
                 <div class="bg-white rounded-xl p-6 card-shadow btn-hover">

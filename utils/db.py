@@ -61,18 +61,25 @@ def init_roles_and_permissions():
     from models.role import Role, RolePermission
     from utils.auth import PERMISSIONS
     
-    # 定义3个内置角色
+    # 定义4个内置角色
     builtin_roles = [
         {'name': '超级管理员', 'code': 'super_admin', 'description': '拥有所有权限', 'is_system': True, 'sort_order': 1},
         {'name': '管理员', 'code': 'admin', 'description': '除系统设置、日志、角色管理外的所有模块的全部操作权限', 'is_system': True, 'sort_order': 2},
         {'name': '普通用户', 'code': 'user', 'description': '工单留言模块的全部操作权限', 'is_system': True, 'sort_order': 3},
+        {'name': '维修员', 'code': 'maintenance_staff', 'description': '后勤维修人员，可查看和处理分配的维修工单', 'is_system': True, 'sort_order': 30},
     ]
     
     # 管理员角色的权限模块（排除system_settings、log、role）
-    admin_excluded_modules = {'system_settings', 'log', 'role'}
+    admin_excluded_modules = {'log', 'role'}
     # 普通用户的权限配置
     user_permissions = {
-        'ticket': {'view', 'create', 'edit', 'delete'},
+        'ticket': {'view', 'create'},
+        'maintenance': {'view', 'create'},
+    }
+    # 维修员的权限配置
+    maintenance_permissions = {
+        'maintenance': {'view', 'create', 'handle'},
+        'ticket': {'view', 'create'},
     }
     
     for role_data in builtin_roles:
@@ -150,6 +157,30 @@ def init_roles_and_permissions():
             logging.info(f"普通用户角色权限已更新: 新增{len(new_codes)}个, 移除{len(removed_codes)}个")
     
     # super_admin角色不需要在role_permission表中配置权限（自动拥有所有权限）
+    
+    # 初始化维修员角色权限
+    maintenance_role = Role.query.filter_by(code='maintenance_staff').first()
+    if maintenance_role:
+        existing_codes = {p.permission_code for p in maintenance_role.permissions.all()}
+        expected_codes = set()
+        for module_code, actions in maintenance_permissions.items():
+            for action_code in actions:
+                expected_codes.add(f"{module_code}.{action_code}")
+        
+        new_codes = expected_codes - existing_codes
+        for code in new_codes:
+            perm = RolePermission(role_id=maintenance_role.id, permission_code=code)
+            db.session.add(perm)
+        
+        removed_codes = existing_codes - expected_codes
+        if removed_codes:
+            RolePermission.query.filter(
+                RolePermission.role_id == maintenance_role.id,
+                RolePermission.permission_code.in_(removed_codes)
+            ).delete(synchronize_session=False)
+        
+        if new_codes or removed_codes:
+            logging.info(f"维修员角色权限已更新: 新增{len(new_codes)}个, 移除{len(removed_codes)}个")
     
     try:
         db.session.commit()
@@ -352,6 +383,14 @@ def init_db(app: Flask, force_recreate=False):
             import models.supply.supply_inventory
             import models.supply.supply_inventory_detail
             import models.supply.supply_stock_record
+
+            # 合同管理模型
+            import models.contract.contract  # 合同模型
+            import models.contract.contract_operation_record  # 合同操作记录模型
+
+            # 维修管理模型
+            import models.maintenance.maintenance_order  # 维修工单模型
+            import models.maintenance.maintenance_reply  # 维修回复模型
 
             # 创建表结构
             if force_recreate or not _is_initialized:

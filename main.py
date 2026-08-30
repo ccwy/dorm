@@ -106,9 +106,10 @@ from blueprints import (
     supply_inventory_bp, supply_inventory_api_bp, supply_inventory_import_export_bp,
     supply_stock_record_bp, supply_stock_record_api_bp,
     role_bp,
-    contract_bp, contract_api_bp, contract_import_export_bp
+    contract_bp, contract_api_bp, contract_import_export_bp,
+    maintenance_user_bp, maintenance_admin_bp, maintenance_staff_bp, maintenance_api_bp
 )
-_stamp("导入33个蓝图")
+_stamp("导入37个蓝图")
 # 注册蓝图（保持不变）
 app.register_blueprint(login_bp)
 app.register_blueprint(user_bp)
@@ -172,7 +173,12 @@ app.register_blueprint(role_bp)
 app.register_blueprint(contract_bp)
 app.register_blueprint(contract_api_bp)
 app.register_blueprint(contract_import_export_bp)
-_stamp("注册34个蓝图")
+# 后勤维修管理相关
+app.register_blueprint(maintenance_user_bp)
+app.register_blueprint(maintenance_admin_bp)
+app.register_blueprint(maintenance_staff_bp)
+app.register_blueprint(maintenance_api_bp)
+_stamp("注册38个蓝图")
 
 
 

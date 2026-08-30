@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    {% include 'static.html' %}
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#165DFF',
+                        secondary: '#36CFC9',
+                        accent: '#722ED1',
+                        danger: '#F5222D',
+                        info: '#1890FF',
+                        warning: '#FAAD14'
+                    },
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .btn-effect {
+                transition: all 0.2s ease;
+            }
+            .btn-effect:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            }
+        }
+        .timeline-item {
+            position: relative;
+            padding-left: 2rem;
+            padding-bottom: 1.5rem;
+        }
+        .timeline-item:not(:last-child)::before {
+            content: '';
+            position: absolute;
+            left: 0.55rem;
+            top: 1.5rem;
+            bottom: 0;
+            width: 2px;
+            background-color: #e5e7eb;
+        }
+        .timeline-dot {
+            position: absolute;
+            left: 0;
+            top: 0.25rem;
+            width: 1.25rem;
+            height: 1.25rem;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .reply-item {
+            position: relative;
+        }
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        .drop-zone {
+            border: 2px dashed #d1d5db;
+            transition: all 0.3s ease;
+        }
+        .drop-zone.drag-over {
+            border-color: #165DFF;
+            background-color: #fff7ed;
+        }
+        .file-preview-item {
+            position: relative;
+        }
+        .file-preview-item .delete-btn {
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        .file-preview-item:hover .delete-btn {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    {% include 'header.html' %}
+
+    <main class="container mx-auto px-4 py-6">
+        <!-- 标题和返回按钮区 -->
+        <div class="mb-6 fade-in">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <a href="{{ url_for('maintenance_staff.staff_order_list') }}" class="text-gray-600 hover:text-primary transition-colors mr-4">
+                        <i class="fa fa-arrow-left"></i>
+                    </a>
+                    <div>
+                        <h2 class="text-[clamp(1.5rem,3vw,2rem)] font-bold text-dark">工单详情</h2>
+                        <p class="text-gray-500 mt-1">工单号：{{ order.order_no }}</p>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-3">
+                    {% set status_colors = {'待处理': 'bg-yellow-100 text-yellow-800', '处理中': 'bg-blue-100 text-blue-800', '已解决': 'bg-green-100 text-green-800', '已关闭': 'bg-gray-100 text-gray-800'} %}
+                    <span class="status-badge {{ status_colors.get(order.status, 'bg-gray-100 text-gray-800') }}">
+                        {{ order.status }}
+                    </span>
+                    {% if order.status == '处理中' %}
+                    <button onclick="openCompleteModal()" class="btn-effect px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors text-sm">
+                        <i class="fa fa-check-circle mr-1"></i>完成维修
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- 消息提示区域 -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            <div class="flash-messages mb-6">
+              {% for category, message in messages %}
+                <div class="p-4 rounded-md mb-2 {% if category == 'success' %}bg-green-100 text-green-800{% elif category == 'error' or category == 'danger' %}bg-red-100 text-red-800{% elif category == 'warning' %}bg-yellow-100 text-yellow-800{% else %}bg-blue-100 text-blue-800{% endif %}">
+                  <button type="button" class="float-right ml-2 text-gray-500 hover:text-gray-700" onclick="this.parentElement.remove()">×</button>
+                  {{ message }}
+                </div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        {% endwith %}
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- 左侧：工单信息 + 回复列表 -->
+            <div class="lg:col-span-2 space-y-6">
+                <!-- 基本信息 -->
+                <div class="bg-white rounded-lg shadow-sm p-6">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4 pb-2 border-b border-gray-200">
+                        <i class="fa fa-info-circle mr-2 text-primary"></i>基本信息
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="text-sm text-gray-500">工单号</label>
+                            <p class="font-medium text-gray-800">{{ order.order_no }}</p>
+                        </div>
+                        <div>
+                            <label class="text-sm text-gray-500">标题</label>
+                            <p class="font-medium text-gray-800">{{ order.title }}</p>
+                        </div>
+                        <div>
+                            <label class="text-sm text-gray-500">维修类型</label>
+                            <p class="font-medium text-gray-800">{{ order.maintenance_type }}</p>
+                        </div>
+                        <div>
+                            <label class="text-sm text-gray-500">房间信息</label>
+                            <p class="font-medium text-gray-800">{{ order.room_number }}</p>
+                        </div>
+                        <div>
+                            <label class="text-sm text-gray-500">优先级</label>
+                            {% set priority_colors = {'低': 'bg-gray-100 text-gray-800', '一般': 'bg-blue-100 text-blue-800', '高': 'bg-orange-100 text-orange-800', '紧急': 'bg-red-100 text-red-800'} %}
+                            <span class="status-badge {{ priority_colors.get(order.priority, 'bg-gray-100 text-gray-800') }}">{{ order.priority }}</span>
+                        </div>
+                        <div>
+                            <label class="text-sm text-gray-500">创建时间</label>
+                            <p class="font-medium text-gray-800">{{ order.created_at.strftime('%Y-%m-%d %H:%M') if order.created_at else '' }}</p>
+                        </div>
+                        <div>
+                            <label class="text-sm text-gray-500">提交人</label>
+                            <p class="font-medium text-gray-800">{{ order.user.name if order.user else '未知' }}</p>
+                        </div>
+                        <div>
+                            <label class="text-sm text-gray-500">分配方式</label>
+                            <p class="font-medium text-gray-800">{{ '自动分配' if order.assignment_type == 'auto' else '手动分配' }}</p>
+                        </div>
+                    </div>
+                    <div class="mt-4">
+                        <label class="text-sm text-gray-500">问题描述</label>
+                        <p class="mt-1 text-gray-800 whitespace-pre-wrap">{{ order.description }}</p>
+                    </div>
+                </div>
+
+                <!-- 照片/视频 -->
+                <div class="bg-white rounded-lg shadow-sm p-6" id="mediaSection">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4 pb-2 border-b border-gray-200">
+                        <i class="fa fa-picture-o mr-2 text-primary"></i>报修照片/视频
+                    </h3>
+                    {% if order.status != '已关闭' %}
+                    <!-- 上传区域 -->
+                    <div class="mb-4">
+                        <div id="dropZone" class="drop-zone rounded-lg p-4 text-center cursor-pointer">
+                            <i class="fa fa-cloud-upload text-2xl text-gray-400 mb-1"></i>
+                            <p class="text-sm text-gray-600">拖拽文件到此处或点击上传</p>
+                            <p class="text-xs text-gray-400">支持图片和视频格式</p>
+                            <input type="file" id="fileInput" accept="image/*,video/*" multiple class="hidden">
+                        </div>
+                    </div>
+                    {% endif %}
+                    <!-- 照片/视频网格 -->
+                    <div id="mediaGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                        {% for media in media_files %}
+                        <div class="relative group">
+                            <div class="cursor-pointer" onclick="openMediaModal('{{ media.url }}', '{{ media.type }}')">
+                                {% if media.type == 'image' %}
+                                <div class="h-32 overflow-hidden rounded-lg border border-gray-200">
+                                    <img src="{{ media.url }}" class="w-full h-full object-cover group-hover:scale-105 transition-transform" alt="照片">
+                                </div>
+                                {% else %}
+                                <div class="h-32 flex items-center justify-center bg-gray-100 rounded-lg border border-gray-200">
+                                    <i class="fa fa-file-video-o text-4xl text-gray-400"></i>
+                                </div>
+                                {% endif %}
+                            </div>
+                            {% if order.status != '已关闭' %}
+                            <button type="button" class="absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600 z-10" onclick="deleteMediaFile('{{ media.filename }}')">
+                                <i class="fa fa-times"></i>
+                            </button>
+                            {% endif %}
+                            <div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all rounded-lg flex items-center justify-center pointer-events-none">
+                                <i class="fa fa-search-plus text-white opacity-0 group-hover:opacity-100 transition-opacity text-2xl"></i>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <p id="noMediaTip" class="text-gray-400 text-center py-4 text-sm" {% if media_files %}style="display:none"{% endif %}>暂无照片/视频</p>
+                </div>
+
+                <!-- 回复列表 -->
+                <div class="bg-white rounded-lg shadow-sm p-6">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4 pb-2 border-b border-gray-200">
+                        <i class="fa fa-comments mr-2 text-primary"></i>沟通记录
+                    </h3>
+                    {% if replies %}
+                    <div class="space-y-4">
+                        {% for reply in replies %}
+                        <div class="reply-item bg-gray-50 rounded-lg p-4">
+                            <div class="flex items-center justify-between mb-2">
+                                <div class="flex items-center">
+                                    <span class="font-medium text-gray-800">{{ reply.author_name }}</span>
+                                    {% if reply.reply_type == 'status_change' %}
+                                    <span class="ml-2 text-xs bg-purple-100 text-purple-800 px-2 py-0.5 rounded-full">状态变更</span>
+                                    {% elif reply.reply_type == 'assignment' %}
+                                    <span class="ml-2 text-xs bg-cyan-100 text-cyan-800 px-2 py-0.5 rounded-full">分配通知</span>
+                                    {% endif %}
+                                </div>
+                                <span class="text-xs text-gray-500">{{ reply.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
+                            </div>
+                            {% if reply.reply_type == 'status_change' %}
+                            <div class="flex items-center text-sm text-gray-600">
+                                <span class="px-2 py-0.5 rounded bg-gray-100">{{ reply.old_status or '' }}</span>
+                                <i class="fa fa-arrow-right mx-2 text-gray-400"></i>
+                                <span class="px-2 py-0.5 rounded bg-green-100 text-green-800">{{ reply.new_status or '' }}</span>
+                            </div>
+                            {% elif reply.reply_type == 'assignment' %}
+                            <div class="text-sm text-gray-600">
+                                <i class="fa fa-user-plus mr-1 text-cyan-500"></i>
+                                {% if (reply.assignment_type or 'manual') == 'auto' %}系统自动分配{% else %}管理员手动分配{% endif %}给
+                                <span class="font-medium">{{ reply.assigned_name or '' }}</span>
+                            </div>
+                            {% else %}
+                            <div class="text-gray-700 whitespace-pre-wrap">{{ reply.content }}</div>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="text-gray-500 text-center py-4">暂无沟通记录</p>
+                    {% endif %}
+                </div>
+
+                <!-- 维修人员回复表单 -->
+                {% if order.status in ['待处理', '处理中'] %}
+                <div class="bg-white rounded-lg shadow-sm p-6">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4 pb-2 border-b border-gray-200">
+                        <i class="fa fa-reply mr-2 text-primary"></i>添加回复
+                    </h3>
+                    <form id="replyForm" action="{{ url_for('maintenance_staff.staff_add_reply', order_id=order.id) }}" method="post" enctype="multipart/form-data">
+                        <div class="mb-4">
+                            <textarea name="content" rows="4" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="请输入维修进展或回复内容..." required></textarea>
+                        </div>
+                        <div class="flex justify-end">
+                            <button type="submit" class="btn-effect px-6 py-2 bg-primary text-white rounded-md hover:bg-primary/90 transition-colors">
+                                <i class="fa fa-paper-plane mr-2"></i>发送回复
+                            </button>
+                        </div>
+                    </form>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- 右侧：状态时间线 + 操作 -->
+            <div class="space-y-6">
+                <!-- 状态时间线 -->
+                <div class="bg-white rounded-lg shadow-sm p-6">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4 pb-2 border-b border-gray-200">
+                        <i class="fa fa-clock-o mr-2 text-primary"></i>状态时间线
+                    </h3>
+                    <div class="mt-4">
+                        {% for event in timeline %}
+                        <div class="timeline-item">
+                            <div class="timeline-dot {% if event.is_current %}bg-primary text-white{% elif event.is_completed %}bg-green-500 text-white{% else %}bg-gray-300 text-gray-500{% endif %}">
+                                {% if event.is_completed %}
+                                <i class="fa fa-check text-xs"></i>
+                                {% elif event.is_current %}
+                                <i class="fa fa-circle text-xs" style="font-size:6px"></i>
+                                {% else %}
+                                <i class="fa fa-circle text-xs" style="font-size:6px"></i>
+                                {% endif %}
+                            </div>
+                            <div>
+                                <p class="font-medium text-gray-800 {{ 'text-primary' if event.is_current else '' }}">{{ event.status }}</p>
+                                <p class="text-xs text-gray-500">{{ event.time }}</p>
+                                {% if event.description %}
+                                <p class="text-sm text-gray-600 mt-1">{{ event.description }}</p>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- 工单操作 -->
+                <div class="bg-white rounded-lg shadow-sm p-6">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4 pb-2 border-b border-gray-200">
+                        <i class="fa fa-cog mr-2 text-primary"></i>操作
+                    </h3>
+                    <div class="space-y-3">
+                        {% if order.status == '处理中' %}
+                        <button onclick="openCompleteModal()" class="w-full btn-effect px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors flex items-center justify-center">
+                            <i class="fa fa-check-circle mr-2"></i>完成维修
+                        </button>
+                        <p class="text-xs text-gray-500 text-center">完成维修后将自动关闭工单</p>
+                        {% elif order.status == '待处理' %}
+                        <form action="{{ url_for('maintenance_staff.staff_start_work', order_id=order.id) }}" method="post">
+                                <button type="submit" class="w-full btn-effect px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors flex items-center justify-center">
+                                <i class="fa fa-play mr-2"></i>开始处理
+                            </button>
+                        </form>
+                        <p class="text-xs text-gray-500 text-center">将工单状态变更为处理中</p>
+                        {% elif order.status == '已关闭' %}
+                        <p class="text-sm text-gray-500 text-center"><i class="fa fa-lock mr-1"></i>工单已关闭</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- 完成维修模态框 -->
+    <div id="completeModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-semibold text-gray-800">完成维修</h3>
+                <button onclick="closeCompleteModal()" class="text-gray-400 hover:text-gray-600">
+                    <i class="fa fa-times"></i>
+                </button>
+            </div>
+            <form action="{{ url_for('maintenance_staff.staff_complete_order', order_id=order.id) }}" method="post" enctype="multipart/form-data">
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">维修说明</label>
+                    <textarea name="completion_note" rows="4" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="请描述维修完成情况..."></textarea>
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">维修后照片</label>
+                    <input type="file" name="completion_photos" accept="image/*,video/*" multiple class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-green-50 file:text-green-700 hover:file:bg-green-100">
+                    <p class="mt-1 text-xs text-gray-500">上传维修完成后的照片作为凭证</p>
+                </div>
+                <div class="flex justify-end space-x-3">
+                    <button type="button" onclick="closeCompleteModal()" class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50">取消</button>
+                    <button type="submit" class="btn-effect px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600">
+                        <i class="fa fa-check-circle mr-2"></i>确认完成
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 图片/视频查看模态框 -->
+    <div id="mediaModal" class="fixed inset-0 bg-black bg-opacity-75 z-50 hidden flex items-center justify-center p-4" onclick="closeMediaModal(event)">
+        <div class="max-w-4xl max-h-[90vh] relative">
+            <button class="absolute -top-3 -right-3 bg-white text-gray-800 rounded-full w-8 h-8 flex items-center justify-center shadow-lg hover:bg-gray-100 z-10" onclick="closeMediaModal(event)">
+                <i class="fa fa-times"></i>
+            </button>
+            <img id="modalImage" src="" class="max-w-full max-h-[85vh] object-contain rounded-lg hidden" alt="图片预览">
+            <video id="modalVideo" src="" class="max-w-full max-h-[85vh] rounded-lg hidden" controls></video>
+        </div>
+    </div>
+
+    {% include 'footer.html' %}
+
+    <script>
+        // 完成维修模态框
+        function openCompleteModal() {
+            document.getElementById('completeModal').classList.remove('hidden');
+        }
+        function closeCompleteModal() {
+            document.getElementById('completeModal').classList.add('hidden');
+        }
+
+        // 媒体查看模态框
+        function openMediaModal(url, fileType) {
+            const modal = document.getElementById('mediaModal');
+            const img = document.getElementById('modalImage');
+            const video = document.getElementById('modalVideo');
+            
+            if (fileType === 'image') {
+                img.src = url;
+                img.classList.remove('hidden');
+                video.classList.add('hidden');
+            } else {
+                video.src = url;
+                video.classList.remove('hidden');
+                img.classList.add('hidden');
+            }
+            modal.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeMediaModal(event) {
+            if (event.target === document.getElementById('mediaModal') || event.target.closest('button')) {
+                const modal = document.getElementById('mediaModal');
+                const video = document.getElementById('modalVideo');
+                modal.classList.add('hidden');
+                video.pause();
+                document.body.style.overflow = '';
+            }
+        }
+
+        // 直接上传照片/视频到工单
+        const orderId = {{ order.id }};
+
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+
+        if (dropZone) {
+            dropZone.addEventListener('click', () => fileInput.click());
+            dropZone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dropZone.classList.add('drag-over');
+            });
+            dropZone.addEventListener('dragleave', () => {
+                dropZone.classList.remove('drag-over');
+            });
+            dropZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropZone.classList.remove('drag-over');
+                if (e.dataTransfer.files.length > 0) {
+                    Array.from(e.dataTransfer.files).forEach(file => uploadFileToOrder(file));
+                }
+            });
+            fileInput.addEventListener('change', function() {
+                if (this.files.length > 0) {
+                    Array.from(this.files).forEach(file => uploadFileToOrder(file));
+                    this.value = '';
+                }
+            });
+        }
+
+        function uploadFileToOrder(file) {
+            const formData = new FormData();
+            formData.append('file', file);
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', '{{ url_for("maintenance_api.upload_order_photo", order_id=order.id) }}', true);
+            xhr.timeout = 600000;
+            xhr.onload = function() {
+                if (xhr.status >= 200 && xhr.status < 300) {
+                    try {
+                        const resp = JSON.parse(xhr.responseText);
+                        if (resp.success) {
+                            refreshMediaGrid();
+                        } else {
+                            alert(resp.message || '上传失败');
+                        }
+                    } catch(e) {
+                        alert('上传失败');
+                    }
+                } else {
+                    alert('上传失败');
+                }
+            };
+            xhr.send(formData);
+        }
+
+        function deleteMediaFile(filename) {
+            if (!confirm('确定要删除此文件吗？')) return;
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', '{{ url_for("maintenance_api.delete_order_photo", order_id=order.id, filename="__FILENAME__") }}'.replace('__FILENAME__', filename), true);
+            xhr.onload = function() {
+                if (xhr.status >= 200 && xhr.status < 300) {
+                    try {
+                        const resp = JSON.parse(xhr.responseText);
+                        if (resp.success) {
+                            refreshMediaGrid();
+                        } else {
+                            alert(resp.message || '删除失败');
+                        }
+                    } catch(e) {
+                        alert('删除失败');
+                    }
+                } else {
+                    alert('删除失败');
+                }
+            };
+            xhr.send();
+        }
+
+        function refreshMediaGrid() {
+            const xhr = new XMLHttpRequest();
+            xhr.open('GET', '{{ url_for("maintenance_api.get_order_photos", order_id=order.id) }}', true);
+            xhr.onload = function() {
+                if (xhr.status >= 200 && xhr.status < 300) {
+                    try {
+                        const resp = JSON.parse(xhr.responseText);
+                        if (resp.success) {
+                            renderMediaGrid(resp.files);
+                        }
+                    } catch(e) {}
+                }
+            };
+            xhr.send();
+        }
+
+        function renderMediaGrid(files) {
+            const grid = document.getElementById('mediaGrid');
+            const noMediaTip = document.getElementById('noMediaTip');
+            grid.innerHTML = '';
+
+            if (!files || files.length === 0) {
+                if (noMediaTip) noMediaTip.style.display = '';
+                return;
+            }
+
+            if (noMediaTip) noMediaTip.style.display = 'none';
+
+            files.forEach(media => {
+                const div = document.createElement('div');
+                div.className = 'relative group';
+
+                let mediaContent = '';
+                if (media.type === 'image') {
+                    mediaContent = `<div class="cursor-pointer" onclick="openMediaModal('${media.url}', '${media.type}')">
+                        <div class="h-32 overflow-hidden rounded-lg border border-gray-200">
+                            <img src="${media.url}" class="w-full h-full object-cover group-hover:scale-105 transition-transform" alt="照片">
+                        </div>
+                    </div>`;
+                } else {
+                    mediaContent = `<div class="cursor-pointer" onclick="openMediaModal('${media.url}', '${media.type}')">
+                        <div class="h-32 flex items-center justify-center bg-gray-100 rounded-lg border border-gray-200">
+                            <i class="fa fa-file-video-o text-4xl text-gray-400"></i>
+                        </div>
+                    </div>`;
+                }
+
+                const deleteBtn = `{% if order.status != '已关闭' %}<button type="button" class="absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600 z-10" onclick="deleteMediaFile('${media.filename}')"><i class="fa fa-times"></i></button>{% endif %}`;
+
+                div.innerHTML = mediaContent + deleteBtn + `
+                    <div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all rounded-lg flex items-center justify-center pointer-events-none">
+                        <i class="fa fa-search-plus text-white opacity-0 group-hover:opacity-100 transition-opacity text-2xl"></i>
+                    </div>`;
+
+                grid.appendChild(div);
+            });
+        }
+
+        // 点击模态框背景关闭
+        document.querySelectorAll('[id$="Modal"]').forEach(modal => {
+            modal.addEventListener('click', function(e) {
+                if (e.target === this) this.classList.add('hidden');
+            });
+        });
+
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                document.querySelectorAll('[id$="Modal"]:not(.hidden)').forEach(m => m.classList.add('hidden'));
+            }
+        });
+    </script>
+</body>
+</html>

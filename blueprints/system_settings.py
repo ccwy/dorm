@@ -35,6 +35,7 @@ MODULES = [
 
     #{"name": "考勤管理配置", "category": "attendance", "icon": "calendar-check-o"},
     {"name": "合同管理配置", "category": "contract", "icon": "file-text-o"},
+    {"name": "后勤维修配置", "category": "maintenance", "icon": "wrench"},
     #{"name": "日志管理配置", "category": "log", "icon": "history"},
     {"name": "备份配置", "category": "system.backup", "icon": "history"}
 ]

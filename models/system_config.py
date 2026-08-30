@@ -771,6 +771,50 @@ class SystemConfig(db.Model):
                 'description': '合同分类选项（逗号分隔）',
                 'is_editable': True,
                 'sort_order': 30
+            },
+
+            # 后勤维修功能开关
+            {
+                'config_key': 'FEATURE_MAINTENANCE_MANAGE_ENABLED',
+                'config_value': 'true',
+                'config_type': 'bool',
+                'category': 'system.feature',
+                'description': '后勤维修功能开关',
+                'is_editable': True,
+                'sort_order': 150
+            },
+
+            # 维修类型列表
+            {
+                'config_key': 'MAINTENANCE_TYPES',
+                'config_value': '水电维修,门窗维修,家具维修,空调维修,网络维修,其他',
+                'config_type': 'list',
+                'category': 'maintenance',
+                'description': '维修类型列表（逗号分隔）',
+                'is_editable': True,
+                'sort_order': 10
+            },
+
+            # 自动分配开关
+            {
+                'config_key': 'MAINTENANCE_AUTO_ASSIGN_ENABLED',
+                'config_value': 'true',
+                'config_type': 'bool',
+                'category': 'maintenance',
+                'description': '维修工单自动分配开关（开启后新工单自动分配给空闲维修员）',
+                'is_editable': True,
+                'sort_order': 20
+            },
+
+            # 默认优先级
+            {
+                'config_key': 'MAINTENANCE_DEFAULT_PRIORITY',
+                'config_value': '一般',
+                'config_type': 'string',
+                'category': 'maintenance',
+                'description': '维修工单默认优先级',
+                'is_editable': True,
+                'sort_order': 30
             }
 
         ]
