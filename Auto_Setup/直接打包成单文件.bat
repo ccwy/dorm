@@ -23,6 +23,31 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
+:: 安装前清理临时文件夹
+echo.
+echo [%date% %time:~0,8%] 开始清理临时文件...
+if exist "%PROJECT_DIR%\build" (
+    rmdir /s /q "%PROJECT_DIR%\build"
+    echo [%date% %time:~0,8%] 已删除build文件夹
+)
+if exist "%PROJECT_DIR%\__pycache__" (
+    rmdir /s /q "%PROJECT_DIR%\__pycache__"
+    echo [%date% %time:~0,8%] 已删除__pycache__文件夹
+)
+if exist "%PROJECT_DIR%\dist" (
+    rmdir /s /q "%PROJECT_DIR%\dist"
+    echo [%date% %time:~0,8%] 已删除dist文件夹
+)
+for /d /r "%PROJECT_DIR%" %%d in (__pycache__) do (
+    if exist "%%d" (
+        rmdir /s /q "%%d"
+        echo [%date% %time:~0,8%] 已删除%%d
+    )
+)
+if exist "%PROJECT_DIR%\data" (
+    rmdir /s /q "%PROJECT_DIR%\data"
+    echo [%date% %time:~0,8%] 已删除data文件夹
+)
 :: 检查Python是否安装
 echo [%date% %time:~0,8%] 检查Python是否安装...
 python --version >nul 2>&1
@@ -144,48 +169,27 @@ if %errorlevel% gtr 1 (
 :: 清理临时文件夹
 echo.
 echo [%date% %time:~0,8%] 开始清理临时文件...
-
 if exist "%PROJECT_DIR%\build" (
     rmdir /s /q "%PROJECT_DIR%\build"
     echo [%date% %time:~0,8%] 已删除build文件夹
 )
-
 if exist "%PROJECT_DIR%\__pycache__" (
     rmdir /s /q "%PROJECT_DIR%\__pycache__"
     echo [%date% %time:~0,8%] 已删除__pycache__文件夹
 )
-
 if exist "%PROJECT_DIR%\dist" (
     rmdir /s /q "%PROJECT_DIR%\dist"
     echo [%date% %time:~0,8%] 已删除dist文件夹
 )
-if exist "%PROJECT_DIR%\blueprints\__pycache__" (
-    rmdir /s /q "%PROJECT_DIR%\blueprints\__pycache__"
-    echo [%date% %time:~0,8%] 已删除blueprints\__pycache__文件夹
+for /d /r "%PROJECT_DIR%" %%d in (__pycache__) do (
+    if exist "%%d" (
+        rmdir /s /q "%%d"
+        echo [%date% %time:~0,8%] 已删除%%d
+    )
 )
-if exist "%PROJECT_DIR%\blueprints\supply\__pycache__" (
-    rmdir /s /q "%PROJECT_DIR%\blueprints\supply\__pycache__"
-    echo [%date% %time:~0,8%] 已删除blueprints\supply\__pycache__文件夹
-)
-if exist "%PROJECT_DIR%\blueprints\role\__pycache__" (
-    rmdir /s /q "%PROJECT_DIR%\blueprints\role\__pycache__"
-    echo [%date% %time:~0,8%] 已删除blueprints\role\__pycache__文件夹
-)
-if exist "%PROJECT_DIR%\models\__pycache__" (
-    rmdir /s /q "%PROJECT_DIR%\models\__pycache__"
-    echo [%date% %time:~0,8%] 已删除models\__pycache__文件夹
-)
-if exist "%PROJECT_DIR%\models\supply\__pycache__" (
-    rmdir /s /q "%PROJECT_DIR%\models\supply\__pycache__"
-    echo [%date% %time:~0,8%] 已删除models\supply\__pycache__文件夹
-)
-if exist "%PROJECT_DIR%\models\role\__pycache__" (
-    rmdir /s /q "%PROJECT_DIR%\models\role\__pycache__"
-    echo [%date% %time:~0,8%] 已删除models\role\__pycache__文件夹
-)
-if exist "%PROJECT_DIR%\utils\__pycache__" (
-    rmdir /s /q "%PROJECT_DIR%\utils\__pycache__"
-    echo [%date% %time:~0,8%] 已删除utils\__pycache__文件夹
+if exist "%PROJECT_DIR%\data" (
+    rmdir /s /q "%PROJECT_DIR%\data"
+    echo [%date% %time:~0,8%] 已删除data文件夹
 )
 
 :: 完成提示

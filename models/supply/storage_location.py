@@ -17,6 +17,8 @@ class StorageLocation(db.Model):
 
     # 状态与关联
     status = db.Column(db.String(20), default='启用', nullable=False, comment='状态：启用/停用')
+    # 使用类型
+    usage_type = db.Column(db.String(20), default='supply', nullable=False, comment='使用类型：supply-低值易耗品/fixed_asset-固定资产/contract-合同管理')
     handler_user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True, comment='经手人用户ID')
 
     # 备注
@@ -35,15 +37,20 @@ class StorageLocation(db.Model):
 
     # 约束与索引
     __table_args__ = (
-        db.UniqueConstraint('name', name='uq_storage_location_name', comment='位置名称唯一'),
+        db.UniqueConstraint('name', 'usage_type', name='uq_storage_location_name_type', comment='位置名称+使用类型联合唯一'),
         db.CheckConstraint(
             "status IN ('启用', '停用')",
             name='check_storage_location_status_valid'
+        ),
+        db.CheckConstraint(
+            "usage_type IN ('supply', 'fixed_asset', 'contract')",
+            name='check_storage_location_usage_type_valid'
         ),
         db.Index('idx_sl_name', 'name'),
         db.Index('idx_sl_code', 'code'),
         db.Index('idx_sl_status', 'status'),
         db.Index('idx_sl_handler', 'handler_user_id'),
+        db.Index('idx_sl_usage_type', 'usage_type'),
     )
 
     def __repr__(self):
@@ -68,6 +75,16 @@ class StorageLocation(db.Model):
         return self.status
 
     @property
+    def display_usage_type(self):
+        """返回使用类型显示文本"""
+        type_map = {
+            'supply': '低值易耗品',
+            'fixed_asset': '固定资产',
+            'contract': '合同管理'
+        }
+        return type_map.get(self.usage_type, self.usage_type)
+
+    @property
     def handler_name(self):
         """返回经手人姓名"""
         if self.handler_user_id:
@@ -78,7 +95,7 @@ class StorageLocation(db.Model):
 
     @classmethod
     def create(cls, name, code=None, building=None, floor=None, room=None, address=None,
-               status='启用', handler_user_id=None, remark=None, operator_user_id=None):
+               status='启用', usage_type='supply', handler_user_id=None, remark=None, operator_user_id=None):
         """创建存放位置"""
         location = cls(
             name=name,
@@ -88,6 +105,7 @@ class StorageLocation(db.Model):
             room=room,
             address=address,
             status=status,
+            usage_type=usage_type,
             handler_user_id=handler_user_id,
             remark=remark,
             operator_user_id=operator_user_id
@@ -97,9 +115,9 @@ class StorageLocation(db.Model):
         return location
 
     @classmethod
-    def is_name_exists(cls, name, exclude_id=None):
-        """检查位置名称是否已存在"""
-        query = cls.query.filter_by(name=name)
+    def is_name_exists(cls, name, usage_type='supply', exclude_id=None):
+        """检查位置名称在指定使用类型下是否已存在"""
+        query = cls.query.filter_by(name=name, usage_type=usage_type)
         if exclude_id:
             query = query.filter(cls.id != exclude_id)
         return query.first() is not None
@@ -128,12 +146,23 @@ class StorageLocation(db.Model):
         }
 
     @classmethod
-    def get_active_locations(cls):
-        """获取所有启用的存放位置列表"""
-        return cls.query.filter_by(status='启用').order_by(cls.name).all()
+    def get_active_locations(cls, usage_type=None):
+        """获取启用中的存放位置列表，可按使用类型筛选"""
+        query = cls.query.filter_by(status='启用')
+        if usage_type:
+            query = query.filter_by(usage_type=usage_type)
+        return query.order_by(cls.name).all()
 
     @classmethod
-    def get_all_names(cls):
-        """获取所有位置名称列表"""
-        locations = cls.query.order_by(cls.name).all()
+    def get_locations_by_type(cls, usage_type):
+        """按使用类型获取存放位置列表"""
+        return cls.query.filter_by(usage_type=usage_type).order_by(cls.name).all()
+
+    @classmethod
+    def get_all_names(cls, usage_type=None):
+        """获取位置名称列表，可按使用类型筛选"""
+        query = cls.query
+        if usage_type:
+            query = query.filter_by(usage_type=usage_type)
+        locations = query.order_by(cls.name).all()
         return [loc.name for loc in locations]

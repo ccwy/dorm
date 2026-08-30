@@ -34,7 +34,7 @@ MODULES = [
     {"name": "低值易耗品管理配置", "category": "supply", "icon": "cubes"},
 
     #{"name": "考勤管理配置", "category": "attendance", "icon": "calendar-check-o"},
-    #{"name": "合同管理配置", "category": "contract", "icon": "file-text-o"},
+    {"name": "合同管理配置", "category": "contract", "icon": "file-text-o"},
     #{"name": "日志管理配置", "category": "log", "icon": "history"},
     {"name": "备份配置", "category": "system.backup", "icon": "history"}
 ]
@@ -316,7 +316,7 @@ def update_configs():
                         try:
                             db_config_updates[key] = str(value) # 设置系统标题值
                         except ValueError:
-                            db_config_updates[key] = '宿舍管理系统'  # 默认系统标题值
+                            db_config_updates[key] = '行政后勤管理系统'  # 默认系统标题值
                     else:
                         db_config_updates[key] = value
                         

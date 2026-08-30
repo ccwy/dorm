@@ -9,6 +9,8 @@ class Supplier(db.Model):
     # 核心字段
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(200), nullable=False, comment='供应商名称')
+    unified_social_credit_code = db.Column(db.String(18), nullable=True, comment='统一社会信用代码')
+    legal_representative = db.Column(db.String(100), nullable=True, comment='法定代表人')
     contact_person = db.Column(db.String(100), nullable=True, comment='联系人')
     contact_phone = db.Column(db.String(50), nullable=True, comment='联系电话')
     email = db.Column(db.String(200), nullable=True, comment='邮箱')
@@ -20,6 +22,9 @@ class Supplier(db.Model):
 
     # 备注
     remark = db.Column(db.Text, nullable=True, comment='备注信息')
+
+    # 税率信息（合同管理模块新增）
+    tax_rate = db.Column(db.Numeric(5, 2), nullable=True, comment='税率（%，从供应商获取，如13.00表示13%）')
 
     # 操作用户
     operator_user_id = db.Column(db.Integer, nullable=True, comment='操作用户ID')
@@ -65,10 +70,14 @@ class Supplier(db.Model):
     @classmethod
     def create(cls, name, contact_person=None, contact_phone=None,
                email=None, address=None, status='启用', handler_user_id=None,
-               remark=None, operator_user_id=None):
+               remark=None, operator_user_id=None,
+               unified_social_credit_code=None, legal_representative=None,
+               tax_rate=None):
         """创建供应商"""
         supplier = cls(
             name=name,
+            unified_social_credit_code=unified_social_credit_code,
+            legal_representative=legal_representative,
             contact_person=contact_person,
             contact_phone=contact_phone,
             email=email,
@@ -76,6 +85,7 @@ class Supplier(db.Model):
             status=status,
             handler_user_id=handler_user_id,
             remark=remark,
+            tax_rate=tax_rate,
             operator_user_id=operator_user_id
         )
         db.session.add(supplier)

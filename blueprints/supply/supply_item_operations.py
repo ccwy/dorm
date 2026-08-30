@@ -80,7 +80,7 @@ def add_supply_item():
         flash(f'新增物品成功: {name}（{item.item_number}）', 'success')
         logging.info(f"新增物品成功，物品ID: {item.id}, 名称: {name}, 编号: {item.item_number}")
 
-        if request.form.get('action') == 'continue':
+        if request.form.get('save_and_continue'):
             return redirect(url_for('supply_item.add_page'))
         return redirect(url_for('supply_item.index'))
 

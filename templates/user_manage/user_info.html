@@ -47,7 +47,7 @@
                 <!-- 页面标题和操作按钮 -->
                 <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-6 gap-4">
                     <div class="flex items-center">
-                        <button onclick="history.back()" class="text-primary hover:text-primary/80 mr-2">
+                        <button onclick="window.location.href='{{ url_for('index') }}'" class="text-primary hover:text-primary/80 mr-2">
                             <i class="fa fa-arrow-left"></i>
                         </button>
                         <div>

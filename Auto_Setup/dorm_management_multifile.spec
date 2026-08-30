@@ -115,7 +115,7 @@ exe = EXE(
     pyz,
     a.scripts,
     exclude_binaries=True,  # 多文件模式关键参数：排除二进制文件
-    name='宿舍管理系统',  # 可执行文件名
+    name='行政后勤管理系统',  # 可执行文件名
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -141,11 +141,11 @@ coll = COLLECT(
     strip=False,
     upx=False,  # 禁用UPX压缩——UPX解压开销会拖慢启动速度
     upx_exclude=[],
-    name='宿舍管理系统',  # 输出文件夹名称
+    name='行政后勤管理系统',  # 输出文件夹名称
 )
 
 # 如果是Windows平台，输出打包完成信息
 if sys.platform == 'win32':
     print("\nPyInstaller多文件模式打包完成！")
-    print(f"输出目录：{os.path.join(os.path.dirname(current_dir), 'dist', '宿舍管理系统')}")
+    print(f"输出目录：{os.path.join(os.path.dirname(current_dir), 'dist', '行政后勤管理系统')}")
     print("说明：这是多文件版本，包含主程序和多个支持文件")

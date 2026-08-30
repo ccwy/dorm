@@ -240,6 +240,19 @@
                 </div>
                 {% endif %}
 
+                <!-- 合同管理 -->
+                {% if get_config_value('FEATURE_CONTRACT_MANAGE_ENABLED', True) and current_user.has_permission('contract.view') %}
+                <div class="bg-white rounded-xl p-6 card-shadow btn-hover">
+                    <a href="{{ url_for('contract.index') }}" class="flex flex-col items-center text-center">
+                        <div class="w-16 h-16 bg-blue-800/10 rounded-full flex items-center justify-center mb-4">
+                            <i class="fa fa-file-text text-2xl text-blue-800"></i>
+                        </div>
+                        <h3 class="text-lg font-medium text-dark mb-2">合同管理</h3>
+                        <p class="text-gray-500 text-sm">合同创建、审批、履约跟踪、到期提醒</p>
+                    </a>
+                </div>
+                {% endif %}
+
                 <!-- 角色管理 -->
                 {% if get_config_value('FEATURE_ROLE_MANAGE_ENABLED', True) and current_user.has_permission('role.view') %}
                 <div class="bg-white rounded-xl p-6 card-shadow btn-hover">

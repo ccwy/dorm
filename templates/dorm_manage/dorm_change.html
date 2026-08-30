@@ -23,7 +23,7 @@
     {% include 'header.html' %}
     <main class="container mx-auto px-4 py-6">
         <div class="flex items-center mb-6">
-            <button onclick="history.back()" class="text-primary hover:text-primary/80 mr-2">
+            <button onclick="window.location.href='{{ url_for('dorm.manage') }}'" class="text-primary hover:text-primary/80 mr-2">
                 <i class="fa fa-arrow-left"></i>
             </button>
             <h2 class="text-2xl font-semibold text-dark">{{ title }}</h2>
@@ -399,7 +399,7 @@
                         </div>
                         
                         <div class="flex justify-end gap-3">
-                            <button type="button" onclick="history.back()" class="px-6 py-2 border border-gray-300 rounded-md hover:bg-gray-50">取消</button>
+                            <button type="button" onclick="window.location.href='{{ url_for('dorm.manage') }}'" class="px-6 py-2 border border-gray-300 rounded-md hover:bg-gray-50">取消</button>
                             <button type="button" id="confirmChangeBtn" 
                                     class="px-6 py-2 bg-green-500 text-white rounded-md hover:bg-green-600">
                                 确认更换

@@ -154,6 +154,17 @@ PERMISSIONS = {
             'view': '查看',
         }
     },
+    'contract': {
+        'name': '合同管理',
+        'actions': {
+            'view': '查看',
+            'create': '新增',
+            'edit': '编辑',
+            'delete': '删除',
+            'export': '导出',
+            'import': '导入',
+        }
+    },
     'role': {
         'name': '角色管理',
         'actions': {

@@ -142,13 +142,14 @@ def create_stock_in():
 
             # 延迟创建：如果location_id为空但location_name有值，查找或创建位置
             if not location_id and location_name:
-                existing_location = StorageLocation.query.filter_by(name=location_name).first()
+                existing_location = StorageLocation.query.filter_by(name=location_name, usage_type='supply').first()
                 if existing_location:
                     location_id = existing_location.id
                 else:
                     new_location = StorageLocation.create(
                         name=location_name,
                         status='启用',
+                        usage_type='supply',
                         handler_user_id=current_user.id,
                         operator_user_id=current_user.id
                     )
@@ -195,7 +196,7 @@ def create_stock_in():
 
         logging.info(f"新增入库单成功，入库单ID: {stock_in.id}, 单号: {stock_in.stock_in_number}")
 
-        if request.form.get('action') == 'continue':
+        if request.form.get('save_and_continue'):
             return redirect(url_for('stock_in.add_stock_in'))
         return redirect(url_for('stock_in.list_stock_ins'))
 
@@ -339,13 +340,14 @@ def update_stock_in(id):
 
             # 延迟创建：如果location_id为空但location_name有值，查找或创建位置
             if not location_id and location_name:
-                existing_location = StorageLocation.query.filter_by(name=location_name).first()
+                existing_location = StorageLocation.query.filter_by(name=location_name, usage_type='supply').first()
                 if existing_location:
                     location_id = existing_location.id
                 else:
                     new_location = StorageLocation.create(
                         name=location_name,
                         status='启用',
+                        usage_type='supply',
                         handler_user_id=current_user.id,
                         operator_user_id=current_user.id
                     )

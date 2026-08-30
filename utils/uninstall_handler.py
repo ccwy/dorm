@@ -78,7 +78,7 @@ def handle_uninstall():
             ]
             
             # 应用程序可执行文件名（用于匹配注册表值）
-            app_exe_names = ["宿舍管理系统.exe", "dorm_management.exe"]
+            app_exe_names = ["行政后勤管理系统.exe", "dorm_management.exe"]
             
             # 清理用户注册表项
             for reg_path in reg_paths:

@@ -51,8 +51,8 @@ jobs:
         run: |
           $testDir = "dist/windows-single-test"
           if (-not (Test-Path $testDir)) { New-Item -ItemType Directory -Path $testDir -Force }
-          if (Test-Path "dist/宿舍管理系统.exe") {
-            Move-Item -Path "dist/宿舍管理系统.exe" -Destination "$testDir/DormManagement_Test_SingleFile.exe" -Force
+          if (Test-Path "dist/行政后勤管理系统.exe") {
+            Move-Item -Path "dist/行政后勤管理系统.exe" -Destination "$testDir/DormManagement_Test_SingleFile.exe" -Force
             Write-Host "✅ 单文件测试打包成功"
           } else {
             Write-Host "❌ 未找到打包输出文件"

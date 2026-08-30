@@ -51,6 +51,7 @@ def export():
                     '楼栋': loc.building or '',
                     '楼层': loc.floor or '',
                     '房间号': loc.room or '',
+                    '使用类型': loc.display_usage_type,
                     '状态': loc.status or '启用',
                     '备注': loc.remark or '',
                     '创建时间': loc.created_at.strftime('%Y-%m-%d %H:%M') if loc.created_at else '',
@@ -204,8 +205,16 @@ def import_locations():
                 remark_val = row.get('备注')
                 remark = str(remark_val).strip() if pd.notna(remark_val) and str(remark_val).strip() else None
 
-                # 检查名称是否重复
-                existing = StorageLocation.query.filter_by(name=name).first()
+                # 使用类型（可选，默认"supply"）
+                usage_type_display_map = {'低值易耗品': 'supply', '固定资产': 'fixed_asset', '合同管理': 'contract'}
+                usage_type_val = row.get('使用类型')
+                if pd.notna(usage_type_val) and str(usage_type_val).strip():
+                    usage_type = usage_type_display_map.get(str(usage_type_val).strip(), 'supply')
+                else:
+                    usage_type = 'supply'
+
+                # 检查名称是否重复（联合usage_type校验）
+                existing = StorageLocation.query.filter_by(name=name, usage_type=usage_type).first()
                 if existing:
                     if override:
                         # 覆盖更新
@@ -214,12 +223,13 @@ def import_locations():
                         existing.floor = floor or existing.floor
                         existing.room = room or existing.room
                         existing.status = status
+                        existing.usage_type = usage_type
                         existing.remark = remark or existing.remark
                         existing.handler_user_id = current_user.id
                         success_count += 1
                         continue
                     else:
-                        error_records.append(f'第{row_num}行：位置名称"{name}"已存在')
+                        error_records.append(f'第{row_num}行：位置名称"{name}"（使用类型：{usage_type_val or "低值易耗品"}）已存在')
                         fail_count += 1
                         continue
 
@@ -231,6 +241,7 @@ def import_locations():
                     floor=floor,
                     room=room,
                     status=status,
+                    usage_type=usage_type,
                     handler_user_id=current_user.id,
                     remark=remark,
                     operator_user_id=current_user.id
@@ -308,6 +319,7 @@ def download_template():
             "楼栋": ["1号楼", "2号楼", "行政楼"],
             "楼层": ["1", "1", "3"],
             "房间号": ["101", "102", "301"],
+            "使用类型": ["低值易耗品", "低值易耗品", "固定资产"],
             "状态": ["启用", "启用", "停用"],
             "备注": ["主仓库", "副仓库", ""],
         }

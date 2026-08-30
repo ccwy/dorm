@@ -24,6 +24,7 @@ def add_storage_location():
         room = request.form.get('room', '').strip() or None
         address = request.form.get('address', '').strip() or None
         status = request.form.get('status', '启用').strip() or '启用'
+        usage_type = request.form.get('usage_type', 'supply').strip() or 'supply'
         remark = request.form.get('remark', '').strip() or None
 
         # 必填字段校验
@@ -35,15 +36,20 @@ def add_storage_location():
         if status not in ['启用', '停用']:
             status = '启用'
 
-        # 检查名称是否重复
-        if StorageLocation.is_name_exists(name):
-            flash(f'已存在存放位置"{name}"', 'danger')
+        # 使用类型校验
+        valid_usage_types = ['supply', 'fixed_asset', 'contract']
+        if usage_type not in valid_usage_types:
+            usage_type = 'supply'
+
+        # 检查名称是否重复（联合usage_type校验）
+        if StorageLocation.is_name_exists(name, usage_type=usage_type):
+            flash(f'已存在存放位置"{name}"（相同使用类型下）', 'danger')
             return redirect(url_for('storage_location.add_page'))
 
         location = StorageLocation.create(
             name=name, code=code, building=building, floor=floor,
-            room=room, address=address, status=status, remark=remark,
-            handler_user_id=current_user.id,
+            room=room, address=address, status=status, usage_type=usage_type,
+            remark=remark, handler_user_id=current_user.id,
             operator_user_id=current_user.id
         )
 
@@ -59,7 +65,7 @@ def add_storage_location():
         flash(f'新增存放位置成功: {name}', 'success')
         logging.info(f"新增存放位置成功，位置ID: {location.id}, 名称: {name}")
 
-        if request.form.get('action') == 'continue':
+        if request.form.get('save_and_continue'):
             return redirect(url_for('storage_location.add_page'))
         return redirect(url_for('storage_location.index'))
 
@@ -86,6 +92,7 @@ def edit_storage_location(id):
     try:
         location = StorageLocation.query.get_or_404(id)
         old_name = location.name
+        old_usage_type = location.usage_type
 
         # 获取表单数据
         new_name = request.form.get('name', '').strip()
@@ -95,21 +102,30 @@ def edit_storage_location(id):
         new_room = request.form.get('room', '').strip() or None
         new_address = request.form.get('address', '').strip() or None
         new_status = request.form.get('status', '启用').strip() or '启用'
+        new_usage_type = request.form.get('usage_type', location.usage_type).strip() or location.usage_type
         new_remark = request.form.get('remark', '').strip() or None
 
         # 状态值校验
         if new_status not in ['启用', '停用']:
             new_status = '启用'
 
+        # 使用类型校验
+        valid_usage_types = ['supply', 'fixed_asset', 'contract']
+        if new_usage_type not in valid_usage_types:
+            new_usage_type = location.usage_type
+
         # 必填字段校验
         if not new_name:
             flash('位置名称不能为空', 'danger')
             return redirect(url_for('storage_location.edit_page', id=id))
 
-        # 检查名称是否重复（排除自身）
-        if StorageLocation.is_name_exists(new_name, exclude_id=id):
-            flash(f'已存在存放位置"{new_name}"', 'danger')
+        # 检查名称是否重复（联合usage_type校验，排除自身）
+        if StorageLocation.is_name_exists(new_name, usage_type=new_usage_type, exclude_id=id):
+            flash(f'已存在存放位置"{new_name}"（相同使用类型下）', 'danger')
             return redirect(url_for('storage_location.edit_page', id=id))
+
+        # 使用类型中文映射
+        usage_type_display = {'supply': '低值易耗品', 'fixed_asset': '固定资产', 'contract': '合同管理'}
 
         # 记录变更
         changes = []
@@ -127,6 +143,8 @@ def edit_storage_location(id):
             changes.append(f"地址: {location.address or '无'} → {new_address or '无'}")
         if location.status != new_status:
             changes.append(f"状态: {location.status} → {new_status}")
+        if old_usage_type != new_usage_type:
+            changes.append(f"使用类型: {usage_type_display.get(old_usage_type, old_usage_type)} → {usage_type_display.get(new_usage_type, new_usage_type)}")
         if location.remark != new_remark:
             changes.append("备注已更新")
 
@@ -138,6 +156,7 @@ def edit_storage_location(id):
         location.room = new_room
         location.address = new_address
         location.status = new_status
+        location.usage_type = new_usage_type
         location.handler_user_id = current_user.id
         location.remark = new_remark
         location.operator_user_id = current_user.id

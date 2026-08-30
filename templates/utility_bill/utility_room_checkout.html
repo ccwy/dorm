@@ -78,7 +78,7 @@
         <!-- 第一行：h2标题 + 按钮（左右分布） -->
         <div class="flex items-center justify-between mb-4">
           <div class="flex items-center">
-            <button onclick="history.back()" class="text-gray-600 hover:text-primary transition-all-300 mr-4">
+            <button onclick="window.location.href='{{ url_for('utility_index.utility_home') }}'" class="text-gray-600 hover:text-primary transition-all-300 mr-4">
               <i class="fa fa-arrow-left"></i>
             </button>
             <h2 class="text-[clamp(1.5rem,3vw,2rem)] font-bold">{{ title }}</h2>

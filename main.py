@@ -105,7 +105,8 @@ from blueprints import (
     stock_out_bp, stock_out_api_bp, stock_out_import_export_bp,
     supply_inventory_bp, supply_inventory_api_bp, supply_inventory_import_export_bp,
     supply_stock_record_bp, supply_stock_record_api_bp,
-    role_bp
+    role_bp,
+    contract_bp, contract_api_bp, contract_import_export_bp
 )
 _stamp("导入33个蓝图")
 # 注册蓝图（保持不变）
@@ -167,6 +168,10 @@ app.register_blueprint(supply_inventory_import_export_bp)
 app.register_blueprint(supply_stock_record_bp)
 app.register_blueprint(supply_stock_record_api_bp)
 app.register_blueprint(role_bp)
+# 合同管理相关
+app.register_blueprint(contract_bp)
+app.register_blueprint(contract_api_bp)
+app.register_blueprint(contract_import_export_bp)
 _stamp("注册34个蓝图")
 
 
@@ -216,7 +221,7 @@ def inject_common_common_variables():
     # 从数据库获取系统标题
     from models.system_config import SystemConfig  # 延迟导入，init_db已加载模型模块
     config = DatabaseConfig.load_config()
-    system_title = config.get('SYSTEM_TITLE', '宿舍管理系统')
+    system_title = config.get('SYSTEM_TITLE', '行政后勤管理系统')
     return {
         'current_year': datetime.now().year,
         'Config': current_config,
@@ -343,7 +348,7 @@ def run_server():
 if __name__ == '__main__':
     # 处理命令行参数
     import argparse
-    parser = argparse.ArgumentParser(description='宿舍管理系统')
+    parser = argparse.ArgumentParser(description='行政后勤管理系统')
     parser.add_argument('--uninstall', action='store_true', help='执行卸载清理操作')
     parser.add_argument('--no-reload', action='store_true', help='禁用自动重载')
     parser.add_argument('--config', type=str, help='指定配置环境')
@@ -411,10 +416,10 @@ if __name__ == '__main__':
         try:
             with app.app_context():
                 config = DatabaseConfig.load_config()
-                system_title = config.get('SYSTEM_TITLE', '宿舍管理系统')
+                system_title = config.get('SYSTEM_TITLE', '行政后勤管理系统')
         except Exception as e:
             logging.error(f"获取系统标题时出错: {str(e)}")
-            system_title = '宿舍管理系统'
+            system_title = '行政后勤管理系统'
         
         # 创建窗口并保存实例引用
         window = webview.create_window(

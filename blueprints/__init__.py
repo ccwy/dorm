@@ -77,3 +77,6 @@ from .supply import (
 
 # 角色管理相关
 from .role import role_bp
+
+# 合同管理相关
+from .contract import contract_bp, contract_api_bp, contract_import_export_bp

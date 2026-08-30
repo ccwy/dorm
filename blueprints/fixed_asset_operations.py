@@ -21,7 +21,7 @@ from .fixed_asset import fixed_asset_bp
 # ========== 工具函数 ==========
 
 
-def _ensure_supplier_exists(name, operator_user_id=None):
+def _ensure_supplier_exists(name, operator_user_id=None, handler_user_id=None):
     """确保供应商存在，不存在则自动创建（固定资产自定义输入时同步保存）"""
     if not name:
         return
@@ -31,21 +31,24 @@ def _ensure_supplier_exists(name, operator_user_id=None):
         Supplier.create(
             name=name,
             status='启用',
-            operator_user_id=operator_user_id
+            operator_user_id=operator_user_id,
+            handler_user_id=handler_user_id
         )
 
 
-def _ensure_storage_location_exists(name, operator_user_id=None):
+def _ensure_storage_location_exists(name, operator_user_id=None, usage_type='fixed_asset', handler_user_id=None):
     """确保存放位置存在，不存在则自动创建（固定资产自定义输入时同步保存）"""
     if not name:
         return
     from models.supply.storage_location import StorageLocation
-    existing = StorageLocation.query.filter_by(name=name).first()
+    existing = StorageLocation.query.filter_by(name=name, usage_type=usage_type).first()
     if not existing:
         StorageLocation.create(
             name=name,
             status='启用',
-            operator_user_id=operator_user_id
+            usage_type=usage_type,
+            operator_user_id=operator_user_id,
+            handler_user_id=handler_user_id
         )
 
 
@@ -129,11 +132,11 @@ def add_asset():
 
         # 同步保存自定义供应商到供应商模块
         if supplier:
-            _ensure_supplier_exists(supplier, current_user.id)
+            _ensure_supplier_exists(supplier, current_user.id, handler_user_id=current_user.id)
 
         # 同步保存自定义存放位置到存放位置模块
         if storage_location:
-            _ensure_storage_location_exists(storage_location, current_user.id)
+            _ensure_storage_location_exists(storage_location, current_user.id, handler_user_id=current_user.id)
 
         # 通过部门名称+公司查找部门ID，不存在则自动创建
         dept_using_id = None
@@ -424,12 +427,12 @@ def edit_asset(id):
         # 同步保存自定义供应商到供应商模块
         new_supplier = request.form.get('supplier', '').strip()
         if new_supplier:
-            _ensure_supplier_exists(new_supplier, current_user.id)
+            _ensure_supplier_exists(new_supplier, current_user.id, handler_user_id=current_user.id)
 
         # 同步保存自定义存放位置到存放位置模块
         new_storage_location = request.form.get('storage_location', '').strip()
         if new_storage_location:
-            _ensure_storage_location_exists(new_storage_location, current_user.id)
+            _ensure_storage_location_exists(new_storage_location, current_user.id, handler_user_id=current_user.id)
 
         # FK字段：room_id
         room_id_str = request.form.get('room_id', '').strip()
@@ -816,7 +819,7 @@ def transfer_asset(id):
 
         # 同步保存自定义存放位置到存放位置模块
         if to_location:
-            _ensure_storage_location_exists(to_location, current_user.id)
+            _ensure_storage_location_exists(to_location, current_user.id, handler_user_id=current_user.id)
 
         # 更新资产字段
         asset.storage_location = to_location

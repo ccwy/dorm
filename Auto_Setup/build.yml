@@ -19,7 +19,7 @@ on:
 
 env:
   PYTHON_VERSION: '3.10'
-  APP_NAME: '宿舍管理程序'
+  APP_NAME: '行政后勤管理系统'
   DOCKER_IMAGE_NAME: 'dorm-management-system'
   PYTHONIOENCODING: 'utf-8'
 
@@ -112,7 +112,7 @@ jobs:
           New-Item -ItemType Directory -Path "Auto_Setup\Output" -Force
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "Auto_Setup\installer_script.iss" /O"Auto_Setup\Output"
           $version = "${{ steps.version.outputs.version }}"
-          $srcFile = "Auto_Setup\Output\宿舍管理系统_Setup_v1.0.exe"
+          $srcFile = "Auto_Setup\Output\行政后勤管理系统_Setup_v1.0.exe"
           if (Test-Path $srcFile) {
             if ($version -ne "") {
               Move-Item -Path $srcFile -Destination "Auto_Setup\Output\DormManagement_Setup_SingleFile_v${version}.exe" -Force
@@ -125,7 +125,7 @@ jobs:
         run: |
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "Auto_Setup\installer_script_multifile.iss" /O"Auto_Setup\Output"
           $version = "${{ steps.version.outputs.version }}"
-          $srcFile = "Auto_Setup\Output\宿舍管理系统_Setup_v1.0.exe"
+          $srcFile = "Auto_Setup\Output\行政后勤管理系统_Setup_v1.0.exe"
           if (Test-Path $srcFile) {
             if ($version -ne "") {
               Rename-Item -Path $srcFile -NewName "DormManagement_Setup_MultiFile_v${version}.exe"
@@ -140,19 +140,19 @@ jobs:
           # 绿色版·单文件
           $singleDir = "dist/windows-single"
           if (-not (Test-Path $singleDir)) { New-Item -ItemType Directory -Path $singleDir -Force }
-          if (Test-Path "dist/宿舍管理系统.exe") {
+          if (Test-Path "dist/行政后勤管理系统.exe") {
             if ($version -ne "") {
-              Move-Item -Path "dist/宿舍管理系统.exe" -Destination "dist/windows-single/DormManagement_Portable_SingleFile_v${version}.exe" -Force
+              Move-Item -Path "dist/行政后勤管理系统.exe" -Destination "dist/windows-single/DormManagement_Portable_SingleFile_v${version}.exe" -Force
             } else {
-              Move-Item -Path "dist/宿舍管理系统.exe" -Destination "dist/windows-single/DormManagement_Portable_SingleFile.exe" -Force
+              Move-Item -Path "dist/行政后勤管理系统.exe" -Destination "dist/windows-single/DormManagement_Portable_SingleFile.exe" -Force
             }
           }
 
           # 绿色版·多文件
           $multiDir = "dist/windows-multi"
           if (-not (Test-Path $multiDir)) { New-Item -ItemType Directory -Path $multiDir -Force }
-          if (Test-Path "dist/宿舍管理系统") {
-            Copy-Item -Path "dist/宿舍管理系统" -Destination $multiDir -Recurse -Force
+          if (Test-Path "dist/行政后勤管理系统") {
+            Copy-Item -Path "dist/行政后勤管理系统" -Destination $multiDir -Recurse -Force
           }
 
           # 安装版
@@ -195,9 +195,9 @@ jobs:
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ steps.version.outputs.tag }}
-          name: 宿舍管理程序 ${{ steps.version.outputs.tag }}
+          name: 行政后勤管理系统 ${{ steps.version.outputs.tag }}
           body: |
-            ## 📦 宿舍管理程序 ${{ steps.version.outputs.tag }}
+            ## 📦 行政后勤管理系统 ${{ steps.version.outputs.tag }}
 
             ### 下载说明
             | 文件 | 说明 |
@@ -295,7 +295,7 @@ jobs:
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ steps.version.outputs.tag }}
-          name: 宿舍管理程序 ${{ steps.version.outputs.tag }}
+          name: 行政后勤管理系统 ${{ steps.version.outputs.tag }}
           files: DormManagement_Docker_*.tar
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -313,7 +313,7 @@ jobs:
       - name: 📋 输出构建结果
         run: |
           echo "========================================"
-          echo "  宿舍管理程序 - Build Summary"
+          echo "  行政后勤管理系统 - Build Summary"
           echo "========================================"
           echo ""
           echo "Windows 构建: ${{ needs.build-windows.result }}"

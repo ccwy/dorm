@@ -21,6 +21,7 @@ def get_storage_location_list():
         # 获取筛选参数
         keyword = request.args.get('keyword', '').strip()
         status = request.args.get('status', '').strip()
+        usage_type = request.args.get('usage_type', '').strip()
 
         # 分页参数
         page = max(request.args.get('page', 1, type=int), 1)
@@ -41,6 +42,8 @@ def get_storage_location_list():
             )
         if status:
             query = query.filter(StorageLocation.status == status)
+        if usage_type:
+            query = query.filter(StorageLocation.usage_type == usage_type)
 
         # 分页查询
         pagination = query.paginate(page=page, per_page=per_page, error_out=False)
@@ -57,6 +60,8 @@ def get_storage_location_list():
                 "room": loc.room or '',
                 "display_name": loc.display_name,
                 "status": loc.status or '启用',
+                "usage_type": loc.usage_type or 'supply',
+                "display_usage_type": loc.display_usage_type,
                 "remark": loc.remark or '',
                 "created_at": loc.created_at.strftime('%Y-%m-%d %H:%M') if loc.created_at else None,
                 "updated_at": loc.updated_at.strftime('%Y-%m-%d %H:%M') if loc.updated_at else None
@@ -110,6 +115,8 @@ def get_storage_location_detail(id):
             "room": location.room or '',
             "display_name": location.display_name,
             "status": location.status or '启用',
+            "usage_type": location.usage_type or 'supply',
+            "display_usage_type": location.display_usage_type,
             "remark": location.remark or '',
             "operator_user_id": location.operator_user_id,
             "created_at": location.created_at.strftime('%Y-%m-%d %H:%M') if location.created_at else None,
@@ -133,9 +140,10 @@ def get_storage_location_detail(id):
 @storage_location_api_bp.route('/active', methods=['GET'])
 @login_required
 def get_active_storage_locations():
-    """获取启用中的存放位置列表，用于下拉选择"""
+    """获取启用中的存放位置列表，用于下拉选择，支持按usage_type筛选"""
     try:
-        locations = StorageLocation.get_active_locations()
+        usage_type = request.args.get('usage_type', '').strip()
+        locations = StorageLocation.get_active_locations(usage_type=usage_type if usage_type else None)
 
         location_list = [{
             "id": loc.id,
@@ -143,7 +151,9 @@ def get_active_storage_locations():
             "code": loc.code or '',
             "display_name": loc.display_name,
             "building": loc.building or '',
-            "room": loc.room or ''
+            "room": loc.room or '',
+            "usage_type": loc.usage_type or 'supply',
+            "display_usage_type": loc.display_usage_type
         } for loc in locations]
 
         return jsonify({
@@ -162,9 +172,10 @@ def get_active_storage_locations():
 @storage_location_api_bp.route('/names', methods=['GET'])
 @login_required
 def get_storage_location_names():
-    """获取所有存放位置名称列表，供下拉选择使用"""
+    """获取所有存放位置名称列表，供下拉选择使用，支持按usage_type筛选"""
     try:
-        names = StorageLocation.get_all_names()
+        usage_type = request.args.get('usage_type', '').strip()
+        names = StorageLocation.get_all_names(usage_type=usage_type if usage_type else None)
         return jsonify({
             "success": True,
             "data": names
@@ -200,6 +211,8 @@ def check_storage_location_usage(id):
                 "id": location.id,
                 "name": location.name,
                 "display_name": location.display_name,
+                "usage_type": location.usage_type or 'supply',
+                "display_usage_type": location.display_usage_type,
                 "is_used": stock_count > 0,
                 "stock_detail_count": stock_count,
                 "non_zero_stock_count": non_zero_count,
@@ -223,17 +236,23 @@ def quick_create_storage_location():
     try:
         data = request.get_json()
         name = data.get('name', '').strip() if data else ''
+        usage_type = data.get('usage_type', 'supply').strip() if data else 'supply'
 
         if not name:
             return jsonify({'success': False, 'message': '位置名称不能为空'}), 400
 
-        # 检查是否已存在（不区分公司，因为正在移除所属公司）
-        existing = StorageLocation.query.filter_by(name=name).first()
+        # 使用类型校验
+        valid_usage_types = ['supply', 'fixed_asset', 'contract']
+        if usage_type not in valid_usage_types:
+            usage_type = 'supply'
+
+        # 检查是否已存在（联合usage_type校验）
+        existing = StorageLocation.query.filter_by(name=name, usage_type=usage_type).first()
         if existing:
             return jsonify({'success': True, 'id': existing.id, 'name': existing.name, 'message': '位置已存在'})
 
         # 创建新位置
-        location = StorageLocation.create(name=name, status='启用', handler_user_id=current_user.id, operator_user_id=current_user.id)
+        location = StorageLocation.create(name=name, usage_type=usage_type, status='启用', handler_user_id=current_user.id, operator_user_id=current_user.id)
         logging.info(f"快速创建存放位置成功，位置ID: {location.id}, 名称: {name}")
 
         log_operation(

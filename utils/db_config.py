@@ -77,7 +77,7 @@ class DatabaseConfig:
                 'ENABLE_CUSTOM_METER_READING_DAY': False,   # 水自定义抄表日期配置（新增默认值）
                 'CUSTOM_METER_READING_DAY': 1,              # 自定义抄表日期
                 "SERVER_MODE": "客户端",                     # 启动模式（默认为客户端，服务端不启动WebView2）
-                "SYSTEM_TITLE": "宿舍管理系统"                # 系统标题   
+                "SYSTEM_TITLE": "行政后勤管理系统"                # 系统标题   
             }
             
             # SQLite目录初始化 - 先检查再创建

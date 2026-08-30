@@ -73,6 +73,8 @@ def index():
             query = query.filter(
                 db.or_(
                     Supplier.name.ilike(search_filter),
+                    Supplier.unified_social_credit_code.ilike(search_filter),
+                    Supplier.legal_representative.ilike(search_filter),
                     Supplier.contact_person.ilike(search_filter),
                     Supplier.contact_phone.ilike(search_filter)
                 )

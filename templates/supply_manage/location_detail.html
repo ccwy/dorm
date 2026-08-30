@@ -101,6 +101,12 @@
                             </span>
                         </div>
                         <div class="flex items-center py-2">
+                            <span class="text-gray-500 w-24 text-sm">使用类型</span>
+                            <span class="px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                                {{ location.display_usage_type if location.display_usage_type else '-' }}
+                            </span>
+                        </div>
+                        <div class="flex items-center py-2">
                             <span class="text-gray-500 w-24 text-sm">经手人</span>
                             <span class="text-gray-900 font-medium">{{ location.handler_name }}</span>
                         </div>
@@ -136,9 +142,20 @@
                 <!-- 库存明细 -->
                 <div class="bg-white rounded-lg shadow-sm p-6 fade-in">
                     <h3 class="text-lg font-semibold text-gray-800 mb-4 pb-2 border-b border-gray-200">
+                        {% if location.usage_type == 'fixed_asset' %}
+                        <i class="fa fa-building mr-2 text-accent"></i>资产明细
+                        <span class="text-sm font-normal text-gray-500 ml-2">（该位置存放的固定资产）</span>
+                        {% elif location.usage_type == 'contract' %}
+                        <i class="fa fa-file-text mr-2 text-accent"></i>合同明细
+                        <span class="text-sm font-normal text-gray-500 ml-2">（该位置存放的合同）</span>
+                        {% else %}
                         <i class="fa fa-cubes mr-2 text-accent"></i>库存明细
                         <span class="text-sm font-normal text-gray-500 ml-2">（该位置存放的物品）</span>
+                        {% endif %}
                     </h3>
+
+                    {% if location.usage_type == 'supply' %}
+                    {# 低值易耗品库存明细 #}
                     {% if stock_details %}
                     <div class="overflow-x-auto">
                         <table class="w-full text-sm">
@@ -147,7 +164,6 @@
                                     <th class="px-4 py-3 text-left font-medium text-gray-600">序号</th>
                                     <th class="px-4 py-3 text-left font-medium text-gray-600">物品名称</th>
                                     <th class="px-4 py-3 text-left font-medium text-gray-600">库存数量</th>
-
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-gray-100">
@@ -160,7 +176,6 @@
                                         </a>
                                     </td>
                                     <td class="px-4 py-3 font-medium text-gray-900">{{ detail.quantity }}</td>
-
                                 </tr>
                                 {% endfor %}
                             </tbody>
@@ -171,6 +186,116 @@
                         <i class="fa fa-inbox text-4xl mb-3"></i>
                         <p>暂无库存数据</p>
                     </div>
+                    {% endif %}
+
+                    {% elif location.usage_type == 'fixed_asset' %}
+                    {# 固定资产明细 #}
+                    {% if fixed_assets %}
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead>
+                                <tr class="bg-gray-50">
+                                    <th class="px-4 py-3 text-left font-medium text-gray-600">序号</th>
+                                    <th class="px-4 py-3 text-left font-medium text-gray-600">资产名称</th>
+                                    <th class="px-4 py-3 text-left font-medium text-gray-600">资产编号</th>
+                                    <th class="px-4 py-3 text-left font-medium text-gray-600">资产分类</th>
+                                    <th class="px-4 py-3 text-left font-medium text-gray-600">购入日期</th>
+                                    <th class="px-4 py-3 text-left font-medium text-gray-600">原值（元）</th>
+                                    <th class="px-4 py-3 text-left font-medium text-gray-600">状态</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-100">
+                                {% for asset in fixed_assets %}
+                                <tr class="hover:bg-gray-50 transition-colors">
+                                    <td class="px-4 py-3 text-gray-500">{{ loop.index }}</td>
+                                    <td class="px-4 py-3">
+                                        <a href="{{ url_for('fixed_asset.detail', id=asset.id) }}" class="text-primary hover:underline">
+                                            {{ asset.asset_name }}
+                                        </a>
+                                    </td>
+                                    <td class="px-4 py-3 text-gray-700">{{ asset.display_number }}</td>
+                                    <td class="px-4 py-3 text-gray-700">{{ asset.asset_category }}</td>
+                                    <td class="px-4 py-3 text-gray-700">{{ asset.purchase_date.strftime('%Y-%m-%d') if asset.purchase_date else '-' }}</td>
+                                    <td class="px-4 py-3 font-medium text-gray-900">{{ '%.2f'|format(asset.original_value|float) if asset.original_value else '0.00' }}</td>
+                                    <td class="px-4 py-3">
+                                        <span class="px-2 py-0.5 rounded-full text-xs font-medium
+                                            {% if asset.status == '在用' %}bg-green-100 text-green-800
+                                            {% elif asset.status == '闲置' %}bg-gray-100 text-gray-800
+                                            {% elif asset.status == '维修中' %}bg-yellow-100 text-yellow-800
+                                            {% elif asset.status == '已报废' %}bg-red-100 text-red-800
+                                            {% elif asset.status == '已转移' %}bg-blue-100 text-blue-800
+                                            {% elif asset.status == '已出售' %}bg-purple-100 text-purple-800
+                                            {% else %}bg-gray-100 text-gray-800{% endif %}">
+                                            {{ asset.status }}
+                                        </span>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-8 text-gray-400">
+                        <i class="fa fa-inbox text-4xl mb-3"></i>
+                        <p>暂无固定资产数据</p>
+                    </div>
+                    {% endif %}
+
+                    {% elif location.usage_type == 'contract' %}
+                    {# 合同明细 #}
+                    {% if contracts %}
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead>
+                                <tr class="bg-gray-50">
+                                    <th class="px-4 py-3 text-left font-medium text-gray-600">序号</th>
+                                    <th class="px-4 py-3 text-left font-medium text-gray-600">合同名称</th>
+                                    <th class="px-4 py-3 text-left font-medium text-gray-600">合同编号</th>
+                                    <th class="px-4 py-3 text-left font-medium text-gray-600">合同类型</th>
+                                    <th class="px-4 py-3 text-left font-medium text-gray-600">合同金额（元）</th>
+                                    <th class="px-4 py-3 text-left font-medium text-gray-600">签约日期</th>
+                                    <th class="px-4 py-3 text-left font-medium text-gray-600">到期日期</th>
+                                    <th class="px-4 py-3 text-left font-medium text-gray-600">状态</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-100">
+                                {% for contract in contracts %}
+                                <tr class="hover:bg-gray-50 transition-colors">
+                                    <td class="px-4 py-3 text-gray-500">{{ loop.index }}</td>
+                                    <td class="px-4 py-3">
+                                        <a href="{{ url_for('contract.detail', id=contract.id) }}" class="text-primary hover:underline">
+                                            {{ contract.contract_name }}
+                                        </a>
+                                    </td>
+                                    <td class="px-4 py-3 text-gray-700">{{ contract.contract_number or '-' }}</td>
+                                    <td class="px-4 py-3 text-gray-700">{{ contract.contract_type or '-' }}</td>
+                                    <td class="px-4 py-3 font-medium text-gray-900">{{ '%.2f'|format(contract.contract_amount|float) if contract.contract_amount else '0.00' }}</td>
+                                    <td class="px-4 py-3 text-gray-700">{{ contract.signing_date.strftime('%Y-%m-%d') if contract.signing_date else '-' }}</td>
+                                    <td class="px-4 py-3 text-gray-700">{{ contract.end_date.strftime('%Y-%m-%d') if contract.end_date else '-' }}</td>
+                                    <td class="px-4 py-3">
+                                        <span class="px-2 py-0.5 rounded-full text-xs font-medium
+                                            {% if contract.status == '草稿' %}bg-gray-100 text-gray-800
+                                            {% elif contract.status == '生效中' %}bg-green-100 text-green-800
+                                            {% elif contract.status == '即将到期' %}bg-yellow-100 text-yellow-800
+                                            {% elif contract.status == '已到期' %}bg-red-100 text-red-800
+                                            {% elif contract.status == '已终止' %}bg-red-100 text-red-800
+                                            {% elif contract.status == '已归档' %}bg-blue-100 text-blue-800
+                                            {% else %}bg-gray-100 text-gray-800{% endif %}">
+                                            {{ contract.display_status }}
+                                        </span>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-8 text-gray-400">
+                        <i class="fa fa-inbox text-4xl mb-3"></i>
+                        <p>暂无合同数据</p>
+                    </div>
+                    {% endif %}
+
                     {% endif %}
                 </div>
 
@@ -215,6 +340,7 @@
                         <i class="fa fa-bar-chart mr-2 text-info"></i>位置概要
                     </h3>
                     <div class="space-y-4">
+                        {% if location.usage_type == 'supply' %}
                         <div class="flex justify-between items-center">
                             <span class="text-gray-500 text-sm">存放物品种类</span>
                             <span class="text-2xl font-bold text-primary">{{ stock_details|length }}</span>
@@ -223,6 +349,25 @@
                             <span class="text-gray-500 text-sm">总库存数量</span>
                             <span class="text-2xl font-bold text-secondary">{{ stock_details|map(attribute='quantity')|sum }}</span>
                         </div>
+                        {% elif location.usage_type == 'fixed_asset' %}
+                        <div class="flex justify-between items-center">
+                            <span class="text-gray-500 text-sm">资产数量</span>
+                            <span class="text-2xl font-bold text-primary">{{ fixed_assets|length }}</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-gray-500 text-sm">资产总原值</span>
+                            <span class="text-2xl font-bold text-secondary">{{ '%.2f'|format(fixed_assets|map(attribute='original_value')|map('float')|sum) }}</span>
+                        </div>
+                        {% elif location.usage_type == 'contract' %}
+                        <div class="flex justify-between items-center">
+                            <span class="text-gray-500 text-sm">合同数量</span>
+                            <span class="text-2xl font-bold text-primary">{{ contracts|length }}</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-gray-500 text-sm">合同总金额</span>
+                            <span class="text-2xl font-bold text-secondary">{{ '%.2f'|format(contracts|map(attribute='contract_amount')|map('float')|sum) }}</span>
+                        </div>
+                        {% endif %}
                         <div class="flex justify-between items-center">
                             <span class="text-gray-500 text-sm">创建时间</span>
                             <span class="text-sm text-gray-700">{{ location.created_at.strftime('%Y-%m-%d') if location.created_at else '-' }}</span>

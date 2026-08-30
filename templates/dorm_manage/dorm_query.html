@@ -227,7 +227,7 @@
     <main class="container mx-auto px-4 py-6">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-4">
             <div class="flex items-center">
-                <button onclick="history.back()" class="text-primary hover:text-primary/80 mr-2">
+                <button onclick="window.location.href='{{ url_for('dorm.manage') }}'" class="text-primary hover:text-primary/80 mr-2">
                     <i class="fa fa-arrow-left"></i>
                 </button>
                 <h2 class="text-2xl font-semibold text-gray-700">{{ title }}</h2>

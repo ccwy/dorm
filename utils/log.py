@@ -30,6 +30,7 @@ MODULE_MAP = {
     'supply_inventory': '盘点管理',
     'supply_stock_detail': '库存明细',
     'supply_stock_record': '库存记录',
+    'contract': '合同管理',
     'default': '其他模块'  # 默认值
 }
 
@@ -128,6 +129,19 @@ OPERATION_TYPE_MAP = {
     ('department', 'department_edit'): '编辑部门',
     ('department', 'department_delete'): '删除部门',
     ('department', 'batch_import_export'): '导入导出',
+    # 合同管理模块
+    ('contract', 'records'): '访问页面',
+    ('contract', 'contract_add'): '新增合同',
+    ('contract', 'contract_edit'): '编辑合同',
+    ('contract', 'contract_delete'): '删除合同',
+    ('contract', 'contract_batch_delete'): '批量删除合同',
+    ('contract', 'status_change'): '状态变更',
+    ('contract', 'upload_attachment'): '上传附件',
+    ('contract', 'delete_attachment'): '删除附件',
+    ('contract', 'download_attachment'): '下载附件',
+    ('contract', 'contract_renew'): '续签合同',
+    ('contract', 'api_query'): '调用接口',
+    ('contract', 'batch_import_export'): '导入导出',
 
     # 其他操作模块
     ('other', 'records'): '访问页面',

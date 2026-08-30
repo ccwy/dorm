@@ -56,7 +56,7 @@
         <div class="mb-6 fade-in">
             <div class="flex flex-col md:flex-row md:items-center md:justify-between">
                 <div class="flex items-center">
-                    <button type="button" onclick="history.back()" class="text-gray-600 hover:text-primary transition-colors mr-4">
+                    <button type="button" onclick="window.location.href='{{ url_for('supplier.index') }}'" class="text-gray-600 hover:text-primary transition-colors mr-4">
                         <i class="fa fa-arrow-left"></i>
                     </button>
                     <div>
@@ -102,6 +102,25 @@
                                    placeholder="请输入供应商名称">
                         </div>
 
+                        <!-- 统一社会信用代码 -->
+                        <div>
+                            <label for="unified_social_credit_code" class="block text-sm font-medium text-gray-700 mb-1">统一社会信用代码</label>
+                            <input type="text" id="unified_social_credit_code" name="unified_social_credit_code" 
+                                   value="{{ supplier.unified_social_credit_code or '' if supplier else '' }}"
+                                   maxlength="18"
+                                   class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                   placeholder="请输入18位统一社会信用代码">
+                        </div>
+
+                        <!-- 法定代表人 -->
+                        <div>
+                            <label for="legal_representative" class="block text-sm font-medium text-gray-700 mb-1">法定代表人</label>
+                            <input type="text" id="legal_representative" name="legal_representative" 
+                                   value="{{ supplier.legal_representative or '' if supplier else '' }}"
+                                   class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                   placeholder="请输入法定代表人姓名">
+                        </div>
+
                         <!-- 联系人 -->
                         <div>
                             <label for="contact_person" class="block text-sm font-medium text-gray-700 mb-1">联系人</label>
@@ -127,6 +146,15 @@
                                    value="{{ supplier.email or '' if supplier else '' }}"
                                    class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
                                    placeholder="请输入邮箱地址">
+                        </div>
+
+                        <!-- 税率 -->
+                        <div>
+                            <label for="tax_rate" class="block text-sm font-medium text-gray-700 mb-1">税率（%）</label>
+                            <input type="number" id="tax_rate" name="tax_rate" step="0.01" min="0" max="100"
+                                   value="{{ supplier.tax_rate if supplier and supplier.tax_rate is not none else '' }}"
+                                   class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                   placeholder="请输入税率，如13">
                         </div>
 
                         <!-- 状态 -->
@@ -193,7 +221,7 @@
 
                 <!-- 提交按钮 -->
                 <div class="flex justify-end gap-3 pt-4 border-t border-gray-200">
-                    <button type="button" onclick="history.back()" class="px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 btn-hover">
+                    <button type="button" onclick="window.location.href='{{ url_for('supplier.index') }}'" class="px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 btn-hover">
                         <i class="fa fa-times mr-2"></i>取消
                     </button>
                     {% if not supplier %}
@@ -242,6 +270,17 @@
             emailInput.addEventListener('blur', function() {
                 const email = this.value.trim();
                 if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+                    this.classList.add('border-red-500');
+                } else {
+                    this.classList.remove('border-red-500');
+                }
+            });
+
+            // 统一社会信用代码格式验证
+            const creditCodeInput = document.getElementById('unified_social_credit_code');
+            creditCodeInput.addEventListener('blur', function() {
+                const code = this.value.trim();
+                if (code && !/^[0-9A-Z]{18}$/.test(code)) {
                     this.classList.add('border-red-500');
                 } else {
                     this.classList.remove('border-red-500');

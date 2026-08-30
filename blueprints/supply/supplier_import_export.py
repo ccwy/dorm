@@ -47,6 +47,8 @@ def export():
             try:
                 data.append({
                     '供应商名称': s.name or '',
+                    '统一社会信用代码': s.unified_social_credit_code or '',
+                    '法定代表人': s.legal_representative or '',
                     '联系人': s.contact_person or '',
                     '联系电话': s.contact_phone or '',
                     '邮箱': s.email or '',
@@ -178,6 +180,14 @@ def import_suppliers():
                     continue
                 name = str(name_val).strip()
 
+                # 统一社会信用代码（可选）
+                unified_social_credit_code_val = row.get('统一社会信用代码')
+                unified_social_credit_code = str(unified_social_credit_code_val).strip() if pd.notna(unified_social_credit_code_val) and str(unified_social_credit_code_val).strip() else None
+
+                # 法定代表人（可选）
+                legal_representative_val = row.get('法定代表人')
+                legal_representative = str(legal_representative_val).strip() if pd.notna(legal_representative_val) and str(legal_representative_val).strip() else None
+
                 # 联系人（可选）
                 contact_person_val = row.get('联系人')
                 contact_person = str(contact_person_val).strip() if pd.notna(contact_person_val) and str(contact_person_val).strip() else None
@@ -209,6 +219,8 @@ def import_suppliers():
                 if existing:
                     if override:
                         # 覆盖更新
+                        existing.unified_social_credit_code = unified_social_credit_code or existing.unified_social_credit_code
+                        existing.legal_representative = legal_representative or existing.legal_representative
                         existing.contact_person = contact_person or existing.contact_person
                         existing.contact_phone = contact_phone or existing.contact_phone
                         existing.email = email or existing.email
@@ -226,6 +238,8 @@ def import_suppliers():
                 # 创建供应商
                 Supplier.create(
                     name=name,
+                    unified_social_credit_code=unified_social_credit_code,
+                    legal_representative=legal_representative,
                     contact_person=contact_person,
                     contact_phone=contact_phone,
                     email=email,
@@ -304,6 +318,8 @@ def download_template():
         # 模板数据生成
         template_data = {
             "供应商名称": ["示例供应商A", "示例供应商B", "示例供应商C"],
+            "统一社会信用代码": ["91110000MA01ABCD1X", "91310000MA02EFGH2Y", "91440000MA03IJKL3Z"],
+            "法定代表人": ["张三", "李四", "王五"],
             "联系人": ["张三", "李四", "王五"],
             "联系电话": ["13800138001", "13800138002", "13800138003"],
             "邮箱": ["zhangsan@example.com", "lisi@example.com", "wangwu@example.com"],

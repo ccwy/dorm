@@ -74,7 +74,7 @@ class Config:
     # 开发模式自动登录开关
     # 设置为True时，程序运行免登录，自动以admin账号登录
     # 仅建议在开发环境中开启，生产环境必须为False
-    DEV_AUTO_LOGIN = False
+    DEV_AUTO_LOGIN = True
 
     # API配置
     API_BASE_URL = ""  # 基础API地址
@@ -85,7 +85,7 @@ class ProductionConfig(Config):
     db_config = _shared_db_config  # 使用共享配置，避免重复load_config调用
     SECRET_KEY = 'WUQIOkxuidS3zcadSwdsdSQzcsWa8dsa'
     DEBUG = True
-    SYSTEM_TITLE = db_config.get('SERVER_PORT', "宿舍管理系统")
+    SYSTEM_TITLE = db_config.get('SERVER_PORT', "行政后勤管理系统")
     # 根据SERVER_MODE配置决定SERVER_HOST
     # 服务端模式：使用0.0.0.0
     # 客户端模式：使用127.0.0.1
@@ -111,7 +111,7 @@ class DevelopmentConfig(Config):
         SERVER_HOST = '0.0.0.0' if server_mode == '服务端' else '127.0.0.1'
     SERVER_PORT = int(db_config.get('SERVER_PORT', 35168))
     DEBUG = True
-    SYSTEM_TITLE = "宿舍管理系统（开发模式）"
+    SYSTEM_TITLE = "行政后勤管理系统（开发模式）"
     DEV_AUTO_LOGIN = True  # 开发模式自动登录为admin账号
 
 #模式选择

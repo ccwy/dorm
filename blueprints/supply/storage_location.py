@@ -50,6 +50,7 @@ def index():
         # 获取筛选参数
         keyword = request.args.get('keyword', '').strip()
         status = request.args.get('status', '').strip()
+        usage_type = request.args.get('usage_type', '').strip()
 
         # 分页参数
         page = request.args.get('page', 1, type=int)
@@ -62,6 +63,7 @@ def index():
 
         # 获取筛选选项
         statuses = ['启用', '停用']
+        usage_types = [('supply', '低值易耗品'), ('fixed_asset', '固定资产'), ('contract', '合同管理')]
 
         # 构建查询
         query = StorageLocation.query.order_by(StorageLocation.id.desc())
@@ -78,6 +80,8 @@ def index():
             )
         if status:
             query = query.filter(StorageLocation.status == status)
+        if usage_type:
+            query = query.filter(StorageLocation.usage_type == usage_type)
 
         # 分页查询
         pagination = query.paginate(page=page, per_page=per_page, error_out=False)
@@ -110,8 +114,10 @@ def index():
             page_range=page_range,
             # 筛选配置
             statuses=statuses,
+            usage_types=usage_types,
             # 当前筛选条件（回显）
             current_status=status,
+            current_usage_type=usage_type,
             keyword=keyword
         )
     except Exception as e:
@@ -135,7 +141,9 @@ def index():
             page_range=[],
             companies=[],
             statuses=['启用', '停用'],
+            usage_types=[('supply', '低值易耗品'), ('fixed_asset', '固定资产'), ('contract', '合同管理')],
             current_status='',
+            current_usage_type='',
             keyword=''
         )
 
@@ -146,10 +154,12 @@ def index():
 @require_permission('supply.create')
 def add_page():
     try:
+        usage_types = [('supply', '低值易耗品'), ('fixed_asset', '固定资产'), ('contract', '合同管理')]
         return render_template(
             'supply_manage/location_form.html',
             title="新增存放位置",
-            location=None
+            location=None,
+            usage_types=usage_types
         )
     except Exception as e:
         logging.error(f"加载新增存放位置页面失败: {str(e)}")
@@ -164,10 +174,12 @@ def add_page():
 def edit_page(id):
     try:
         location = StorageLocation.query.get_or_404(id)
+        usage_types = [('supply', '低值易耗品'), ('fixed_asset', '固定资产'), ('contract', '合同管理')]
         return render_template(
             'supply_manage/location_form.html',
             title=f"编辑存放位置 - {location.name}",
-            location=location
+            location=location,
+            usage_types=usage_types
         )
     except Exception as e:
         logging.error(f"加载编辑存放位置页面失败: {str(e)}")
@@ -183,9 +195,27 @@ def detail(id):
     try:
         location = StorageLocation.query.get_or_404(id)
 
-        # 获取该位置下各物品库存明细
-        from models.supply.supply_stock_detail import SupplyStockDetail
-        stock_details = SupplyStockDetail.get_stock_by_location(id)
+        # 根据usage_type查询不同的库存明细
+        stock_details = []
+        fixed_assets = []
+        contracts = []
+
+        if location.usage_type == 'supply':
+            # 低值易耗品：查询SupplyStockDetail
+            from models.supply.supply_stock_detail import SupplyStockDetail
+            stock_details = SupplyStockDetail.get_stock_by_location(id)
+        elif location.usage_type == 'fixed_asset':
+            # 固定资产：通过storage_location(String)与location.name匹配
+            from models.fixed_asset import FixedAsset
+            fixed_assets = FixedAsset.query.filter(
+                FixedAsset.storage_location == location.name
+            ).order_by(FixedAsset.id).all()
+        elif location.usage_type == 'contract':
+            # 合同管理：通过storage_location_id(FK)与location.id匹配
+            from models.contract.contract import Contract
+            contracts = Contract.query.filter(
+                Contract.storage_location_id == location.id
+            ).order_by(Contract.id).all()
 
         log_operation(
             user_id=current_user.id,
@@ -196,11 +226,15 @@ def detail(id):
         )
         logging.info(f"查看存放位置详情，位置ID: {id}")
 
+        usage_types = [('supply', '低值易耗品'), ('fixed_asset', '固定资产'), ('contract', '合同管理')]
         return render_template(
             'supply_manage/location_detail.html',
             title=f"存放位置详情 - {location.name}",
             location=location,
-            stock_details=stock_details
+            stock_details=stock_details,
+            fixed_assets=fixed_assets,
+            contracts=contracts,
+            usage_types=usage_types
         )
     except Exception as e:
         log_operation(

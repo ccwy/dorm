@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+{% include 'static.html' %}
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#165DFF',
+                        secondary: '#36CFC9',
+                        accent: '#722ED1',
+                        danger: '#F5222D',
+                        info: '#1890FF',
+                        warning: '#FAAD14'
+                    },
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .btn-effect {
+                transition: all 0.2s ease;
+            }
+            .btn-effect:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            }
+            .btn-hover {
+                transition: all 0.2s ease;
+            }
+            .btn-hover:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            }
+            .fade-in {
+                animation: fadeIn 0.5s ease-in;
+            }
+            @keyframes fadeIn {
+                from { opacity: 0; }
+                to { opacity: 1; }
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+{% include 'header.html' %}
+    <main class="container mx-auto px-4 py-6">
+        
+        <!-- 标题区 -->
+        <div class="mb-6 fade-in">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between">
+                <div class="flex items-center">
+                    <button type="button" onclick="window.location.href='{{ url_for('contract.index') }}'" class="text-gray-600 hover:text-primary transition-colors mr-4">
+                        <i class="fa fa-arrow-left"></i>
+                    </button>
+                    <div>
+                        <h2 class="text-[clamp(1.5rem,3vw,2rem)] font-bold text-dark">{{ title }}</h2>
+                        <p class="text-gray-500 mt-1">{% if contract %}编辑合同信息{% else %}填写新合同信息{% endif %}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 续签预填充变量 -->
+        {% set p = previous_contract if previous_contract and not contract else None %}
+
+        <!-- 续签提示 -->
+        {% if previous_contract %}
+        <div class="mb-6 fade-in">
+            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div class="flex items-center">
+                    <i class="fa fa-refresh text-blue-500 mr-2"></i>
+                    <span class="text-blue-700 font-medium">续签自合同：</span>
+                    <span class="text-blue-800 ml-2">{{ previous_contract.contract_number }} - {{ previous_contract.contract_name }}</span>
+                    <span class="text-blue-600 ml-4">（{{ previous_contract.start_date.strftime('%Y-%m-%d') if previous_contract.start_date else '' }} 至 {{ previous_contract.end_date.strftime('%Y-%m-%d') if previous_contract.end_date else '' }}）</span>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- 消息提示区域 -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            <div class="flash-messages mb-6">
+              {% for category, message in messages %}
+                <div class="p-4 rounded-md mb-2 {% if category == 'success' %}bg-green-100 text-green-800{% elif category == 'error' or category == 'danger' %}bg-red-100 text-red-800{% elif category == 'warning' %}bg-yellow-100 text-yellow-800{% else %}bg-blue-100 text-blue-800{% endif %}">
+                  <button type="button" class="float-right ml-2 text-gray-500 hover:text-gray-700" onclick="this.parentElement.remove()">×</button>
+                  {{ message | safe }}
+                </div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        {% endwith %}
+
+        <div class="bg-white rounded-lg shadow-sm p-6 mx-auto">
+            <form id="contractForm" method="post" action="{% if contract %}{{ url_for('contract.edit_contract', id=contract.id) }}{% else %}{{ url_for('contract.add_contract') }}{% endif %}">
+                
+                <!-- 基本信息 -->
+                <div class="mb-8">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4 pb-2 border-b border-gray-200">
+                        <i class="fa fa-info-circle mr-2 text-primary"></i>基本信息
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <!-- 合同编号 -->
+                        <div>
+                            <label for="contract_number" class="block text-sm font-medium text-gray-700 mb-1">合同编号</label>
+                            <input type="text" id="contract_number" name="contract_number" 
+                                   value="{{ contract.contract_number or '' if contract else '' }}"
+                                   class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                   placeholder="留空则自动生成">
+                            <p class="text-xs text-gray-400 mt-1">留空将自动生成编号</p>
+                        </div>
+
+                        <!-- 合同名称 -->
+                        <div>
+                            <label for="contract_name" class="block text-sm font-medium text-gray-700 mb-1">
+                                合同名称 <span class="text-red-500">*</span>
+                            </label>
+                            <input type="text" id="contract_name" name="contract_name" 
+                                   value="{{ contract.contract_name or '' if contract else renewal_contract_name }}"
+                                   required
+                                   class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                   placeholder="请输入合同名称">
+                        </div>
+
+                        <!-- 合同类型 -->
+                        <div>
+                            <label for="contract_type" class="block text-sm font-medium text-gray-700 mb-1">合同类型</label>
+                            <select id="contract_type" name="contract_type"
+                                    class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                                {% for t in contract_types %}
+                                <option value="{{ t }}" {% if (contract and contract.contract_type == t) or (not contract and p and p.contract_type == t) or (not contract and (not p or not p.contract_type) and loop.first) %}selected{% endif %}>{{ t }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <!-- 合同分类 -->
+                        <div>
+                            <label for="contract_category" class="block text-sm font-medium text-gray-700 mb-1">合同分类</label>
+                            <select id="contract_category" name="contract_category"
+                                    class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                                {% for c in contract_categories %}
+                                <option value="{{ c }}" {% if (contract and contract.contract_category == c) or (not contract and p and p.contract_category == c) or (not contract and (not p or not p.contract_category) and loop.first) %}selected{% endif %}>{{ c }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <!-- 归属部门 -->
+                        <div>
+                            <label for="department_id" class="block text-sm font-medium text-gray-700 mb-1">归属部门</label>
+                            <select id="department_id" name="department_id"
+                                    class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                                <option value="">请选择部门</option>
+                                {% for dept in departments %}
+                                <option value="{{ dept.id }}" {% if (contract and contract.department_id == dept.id) or (not contract and p and p.department_id == dept.id) %}selected{% endif %}>{{ dept.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <!-- 存放位置 -->
+                        <div>
+                            <label for="storage_location_name" class="block text-sm font-medium text-gray-700 mb-1">存放位置</label>
+                            <input type="text" id="storage_location_name" name="storage_location_name" list="location-datalist"
+                                   class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                   placeholder="搜索或输入存放位置名称"
+                                   value="{% if contract and contract.storage_location %}{{ contract.storage_location.name }}{% elif p and p.storage_location %}{{ p.storage_location.name }}{% endif %}">
+                            <input type="hidden" id="storage_location_id" name="storage_location_id" 
+                                   value="{% if contract and contract.storage_location_id %}{{ contract.storage_location_id }}{% elif p and p.storage_location_id %}{{ p.storage_location_id }}{% endif %}">
+                            <datalist id="location-datalist">
+                                {% for loc in storage_locations %}
+                                <option value="{{ loc.name }}" data-id="{{ loc.id }}">
+                                {% endfor %}
+                            </datalist>
+                        </div>
+
+                        <!-- 状态 -->
+                        <div>
+                            <label for="status" class="block text-sm font-medium text-gray-700 mb-1">状态</label>
+                            <select id="status" name="status"
+                                    class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                                <option value="草稿" {% if contract and contract.status == '草稿' %}selected{% elif not contract %}selected{% endif %}>草稿</option>
+                                <option value="生效中" {% if contract and contract.status == '生效中' %}selected{% endif %}>生效中</option>
+                                <option value="即将到期" {% if contract and contract.status == '即将到期' %}selected{% endif %}>即将到期</option>
+                                <option value="已到期" {% if contract and contract.status == '已到期' %}selected{% endif %}>已到期</option>
+                                <option value="已终止" {% if contract and contract.status == '已终止' %}selected{% endif %}>已终止</option>
+                                <option value="已归档" {% if contract and contract.status == '已归档' %}selected{% endif %}>已归档</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 甲乙双方 -->
+                <div class="mb-8">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4 pb-2 border-b border-gray-200">
+                        <i class="fa fa-users mr-2 text-secondary"></i>甲乙双方
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <!-- 甲方 -->
+                        <div>
+                            <label for="party_a_name" class="block text-sm font-medium text-gray-700 mb-1">甲方（我方）</label>
+                            <input type="text" id="party_a_name" name="party_a_name" list="party-a-datalist"
+                                   class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                   placeholder="输入或选择甲方"
+                                   value="{% if contract and contract.party_a %}{{ contract.party_a.name }}{% elif p and p.party_a %}{{ p.party_a.name }}{% endif %}">
+                            <input type="hidden" id="party_a_id" name="party_a_id"
+                                   value="{% if contract and contract.party_a_id %}{{ contract.party_a_id }}{% elif p and p.party_a_id %}{{ p.party_a_id }}{% endif %}">
+                            <datalist id="party-a-datalist">
+                                {% for s in suppliers %}
+                                <option value="{{ s.name }}" data-id="{{ s.id }}" data-tax-rate="{{ s.tax_rate if s.tax_rate is not none else '' }}">
+                                {% endfor %}
+                            </datalist>
+                            <div id="party_a_detail" class="supplier-detail" style="display:none; margin-top:8px; padding:10px; background:#f8f9fa; border-radius:4px; font-size:13px;">
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                    <div>
+                                        <label class="text-xs text-gray-500">联系人</label>
+                                        <input type="text" id="party_a_contact_person" name="party_a_contact_person" 
+                                               class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary/50"
+                                               placeholder="请输入联系人">
+                                    </div>
+                                    <div>
+                                        <label class="text-xs text-gray-500">联系电话</label>
+                                        <input type="text" id="party_a_contact_phone" name="party_a_contact_phone"
+                                               class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary/50"
+                                               placeholder="请输入联系电话">
+                                    </div>
+                                    <div class="md:col-span-2">
+                                        <label class="text-xs text-gray-500">地址</label>
+                                        <input type="text" id="party_a_address" name="party_a_address"
+                                               class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary/50"
+                                               placeholder="请输入地址">
+                                    </div>
+                                    <div>
+                                        <label class="text-xs text-gray-500">统一社会信用代码</label>
+                                        <input type="text" id="party_a_credit_code" name="party_a_credit_code" maxlength="18"
+                                               class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary/50"
+                                               placeholder="请输入信用代码">
+                                    </div>
+                                    <div>
+                                        <label class="text-xs text-gray-500">法定代表人</label>
+                                        <input type="text" id="party_a_legal_representative" name="party_a_legal_representative"
+                                               class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary/50"
+                                               placeholder="请输入法定代表人">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 乙方 -->
+                        <div>
+                            <label for="party_b_name" class="block text-sm font-medium text-gray-700 mb-1">乙方（对方）</label>
+                            <input type="text" id="party_b_name" name="party_b_name" list="party-b-datalist"
+                                   class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                   placeholder="输入或选择乙方"
+                                   value="{% if contract and contract.party_b %}{{ contract.party_b.name }}{% elif p and p.party_b %}{{ p.party_b.name }}{% endif %}">
+                            <input type="hidden" id="party_b_id" name="party_b_id"
+                                   value="{% if contract and contract.party_b_id %}{{ contract.party_b_id }}{% elif p and p.party_b_id %}{{ p.party_b_id }}{% endif %}">
+                            <datalist id="party-b-datalist">
+                                {% for s in suppliers %}
+                                <option value="{{ s.name }}" data-id="{{ s.id }}" data-tax-rate="{{ s.tax_rate if s.tax_rate is not none else '' }}">
+                                {% endfor %}
+                            </datalist>
+                            <div id="party_b_detail" class="supplier-detail" style="display:none; margin-top:8px; padding:10px; background:#f8f9fa; border-radius:4px; font-size:13px;">
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                    <div>
+                                        <label class="text-xs text-gray-500">联系人</label>
+                                        <input type="text" id="party_b_contact_person" name="party_b_contact_person" 
+                                               class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary/50"
+                                               placeholder="请输入联系人">
+                                    </div>
+                                    <div>
+                                        <label class="text-xs text-gray-500">联系电话</label>
+                                        <input type="text" id="party_b_contact_phone" name="party_b_contact_phone"
+                                               class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary/50"
+                                               placeholder="请输入联系电话">
+                                    </div>
+                                    <div class="md:col-span-2">
+                                        <label class="text-xs text-gray-500">地址</label>
+                                        <input type="text" id="party_b_address" name="party_b_address"
+                                               class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary/50"
+                                               placeholder="请输入地址">
+                                    </div>
+                                    <div>
+                                        <label class="text-xs text-gray-500">统一社会信用代码</label>
+                                        <input type="text" id="party_b_credit_code" name="party_b_credit_code" maxlength="18"
+                                               class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary/50"
+                                               placeholder="请输入信用代码">
+                                    </div>
+                                    <div>
+                                        <label class="text-xs text-gray-500">法定代表人</label>
+                                        <input type="text" id="party_b_legal_representative" name="party_b_legal_representative"
+                                               class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary/50"
+                                               placeholder="请输入法定代表人">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 金额与税率 -->
+                <div class="mb-8">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4 pb-2 border-b border-gray-200">
+                        <i class="fa fa-money mr-2 text-warning"></i>金额与税率
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <!-- 合同金额 -->
+                        <div>
+                            <label for="contract_amount" class="block text-sm font-medium text-gray-700 mb-1">合同金额（元）</label>
+                            <input type="number" id="contract_amount" name="contract_amount" 
+                                   value="{{ contract.contract_amount if contract and contract.contract_amount else (p.contract_amount if p and p.contract_amount else '') }}"
+                                   step="0.01" min="0"
+                                   class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                   placeholder="请输入合同金额">
+                        </div>
+
+                        <!-- 币种 -->
+                        <div>
+                            <label for="currency" class="block text-sm font-medium text-gray-700 mb-1">币种</label>
+                            <select id="currency" name="currency"
+                                    class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                                <option value="CNY" {% if (contract and contract.currency == 'CNY') or (not contract and not p) %}selected{% endif %}>人民币（CNY）</option>
+                                <option value="USD" {% if (contract and contract.currency == 'USD') or (not contract and p and p.currency == 'USD') %}selected{% endif %}>美元（USD）</option>
+                                <option value="EUR" {% if (contract and contract.currency == 'EUR') or (not contract and p and p.currency == 'EUR') %}selected{% endif %}>欧元（EUR）</option>
+                                <option value="HKD" {% if (contract and contract.currency == 'HKD') or (not contract and p and p.currency == 'HKD') %}selected{% endif %}>港币（HKD）</option>
+                            </select>
+                        </div>
+
+                        <!-- 税率 -->
+                        <div>
+                            <label for="tax_rate" class="block text-sm font-medium text-gray-700 mb-1">
+                                税率（%）
+                            </label>
+                            <div class="relative">
+                                <input type="number" id="tax_rate" name="tax_rate" 
+                                       value="{{ contract.tax_rate if contract and contract.tax_rate is not none else (p.tax_rate if p and p.tax_rate is not none else '') }}"
+                                       step="0.01" min="0" max="100"
+                                       class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                       placeholder="选择供应商后自动填充">
+                                <div id="taxRateHint" class="hidden absolute right-2 top-1/2 -translate-y-1/2">
+                                    <span class="text-xs text-green-600 bg-green-50 px-2 py-0.5 rounded"><i class="fa fa-check-circle mr-1"></i>已从供应商获取</span>
+                                </div>
+                            </div>
+                            <p class="text-xs text-gray-400 mt-1">选择甲方/乙方后自动填充，可手动覆盖</p>
+                        </div>
+
+                        <!-- 税额 -->
+                        <div>
+                            <label for="tax_amount_display" class="block text-sm font-medium text-gray-700 mb-1">税额（元）</label>
+                            <input type="text" id="tax_amount_display" 
+                                   value="{{ '%.2f'|format(contract.tax_amount) if contract and contract.tax_amount is not none else ('%.2f'|format(p.tax_amount) if p and p.tax_amount is not none else '') }}"
+                                   readonly
+                                   class="w-full px-3 py-2 text-sm border border-gray-200 rounded-md bg-gray-50 text-gray-600 cursor-not-allowed"
+                                   placeholder="自动计算">
+                            <input type="hidden" id="tax_amount" name="tax_amount" 
+                                   value="{{ '%.2f'|format(contract.tax_amount) if contract and contract.tax_amount is not none else ('%.2f'|format(p.tax_amount) if p and p.tax_amount is not none else '') }}">
+                            <p class="text-xs text-gray-400 mt-1">税额 = 合同金额 × 税率 / 100</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 日期信息 -->
+                <div class="mb-8">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4 pb-2 border-b border-gray-200">
+                        <i class="fa fa-calendar mr-2 text-info"></i>日期信息
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <!-- 签订日期 -->
+                        <div>
+                            <label for="signing_date" class="block text-sm font-medium text-gray-700 mb-1">签订日期</label>
+                            <input type="date" id="signing_date" name="signing_date" 
+                                   value="{% if contract and contract.signing_date %}{{ contract.signing_date.strftime('%Y-%m-%d') }}{% else %}{{ today }}{% endif %}"
+                                   class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                        </div>
+
+                        <!-- 合同开始日期 -->
+                        <div>
+                            <label for="start_date" class="block text-sm font-medium text-gray-700 mb-1">合同开始日期</label>
+                            <input type="date" id="start_date" name="start_date" 
+                                   value="{% if contract and contract.start_date %}{{ contract.start_date.strftime('%Y-%m-%d') }}{% else %}{{ today }}{% endif %}"
+                                   class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                        </div>
+
+                        <!-- 合同结束日期 -->
+                        <div>
+                            <label for="end_date" class="block text-sm font-medium text-gray-700 mb-1">合同结束日期</label>
+                            <input type="date" id="end_date" name="end_date" 
+                                   value="{% if contract and contract.end_date %}{{ contract.end_date.strftime('%Y-%m-%d') }}{% else %}{{ one_year_later }}{% endif %}"
+                                   class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 经手人 -->
+                <div class="mb-8">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4 pb-2 border-b border-gray-200">
+                        <i class="fa fa-user mr-2 text-accent"></i>经手人
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div>
+                            <label for="handler_display" class="block text-sm font-medium text-gray-700 mb-1">经手人</label>
+                            <input type="text" id="handler_display" value="{% if contract and contract.handler %}{{ contract.handler.name }}{% elif p and p.handler %}{{ p.handler.name }}{% else %}{{ current_user.name }}{% endif %}"
+                                   readonly
+                                   class="w-full px-3 py-2 text-sm border border-gray-200 rounded-md bg-gray-50 text-gray-500 cursor-not-allowed"
+                                   placeholder="经手人">
+                            <input type="hidden" id="handler_user_id" name="handler_user_id" value="{% if contract and contract.handler_user_id %}{{ contract.handler_user_id }}{% elif p and p.handler_user_id %}{{ p.handler_user_id }}{% else %}{{ current_user.id }}{% endif %}">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 备注 -->
+                <div class="mb-8">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4 pb-2 border-b border-gray-200">
+                        <i class="fa fa-sticky-note mr-2 text-warning"></i>备注
+                    </h3>
+                    <div>
+                        <label for="remark" class="block text-sm font-medium text-gray-700 mb-1">备注信息</label>
+                        <textarea id="remark" name="remark" rows="4"
+                                  class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                  placeholder="请输入备注信息">{{ contract.remark or '' if contract else (p.remark or '' if p else '') }}</textarea>
+                    </div>
+                </div>
+
+                <!-- 续签关系（编辑模式显示） -->
+                {% if contract and contract.is_renewal and contract.previous_contract %}
+                <div class="mb-8">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4 pb-2 border-b border-gray-200">
+                        <i class="fa fa-link mr-2 text-blue-500"></i>续签关系
+                    </h3>
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                        <div class="flex items-center">
+                            <i class="fa fa-refresh text-blue-500 mr-2"></i>
+                            <span class="text-blue-700 font-medium">续签自合同：</span>
+                            <a href="{{ url_for('contract.detail', id=contract.previous_contract.id) }}" class="text-primary hover:underline ml-2">
+                                {{ contract.previous_contract.contract_number }} - {{ contract.previous_contract.contract_name }}
+                            </a>
+                        </div>
+                    </div>
+                    <input type="hidden" name="previous_contract_id" value="{{ contract.previous_contract_id }}">
+                </div>
+                {% endif %}
+                {% if previous_contract and not contract %}
+                <input type="hidden" name="previous_contract_id" value="{{ previous_contract.id }}">
+                {% endif %}
+
+                <!-- 提交按钮 -->
+                <div class="flex justify-end gap-3 pt-4 border-t border-gray-200">
+                    <button type="button" onclick="window.location.href='{{ url_for('contract.index') }}'" class="px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 btn-hover">
+                        <i class="fa fa-times mr-2"></i>取消
+                    </button>
+                    {% if not contract and not p %}
+                    <button type="submit" name="save_and_continue" value="1" class="px-6 py-2 bg-secondary text-white rounded-md hover:bg-secondary/90 btn-hover">
+                        <i class="fa fa-plus-circle mr-2"></i>保存并继续新增
+                    </button>
+                    {% endif %}
+                    <button type="submit" name="save" value="1" class="px-6 py-2 bg-primary text-white rounded-md hover:bg-primary/90 btn-hover">
+                        <i class="fa fa-save mr-2"></i>{% if contract %}保存修改{% else %}保存并返回{% endif %}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </main>
+
+    <!-- 页脚 -->
+    {% include 'footer.html' %}
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // 表单验证
+            const form = document.getElementById('contractForm');
+            form.addEventListener('submit', function(e) {
+                const contractName = document.getElementById('contract_name').value.trim();
+                if (!contractName) {
+                    e.preventDefault();
+                    alert('请输入合同名称');
+                    document.getElementById('contract_name').focus();
+                    return;
+                }
+            });
+
+            // 甲乙方datalist匹配与详情展示逻辑
+            let taxRateAutoFilled = false;
+            const partyANameInput = document.getElementById('party_a_name');
+            const partyAIdInput = document.getElementById('party_a_id');
+            const partyADatalist = document.getElementById('party-a-datalist');
+            const partyADetail = document.getElementById('party_a_detail');
+            const partyBNameInput = document.getElementById('party_b_name');
+            const partyBIdInput = document.getElementById('party_b_id');
+            const partyBDatalist = document.getElementById('party-b-datalist');
+            const partyBDetail = document.getElementById('party_b_detail');
+            const taxRateInput = document.getElementById('tax_rate');
+            const taxRateHint = document.getElementById('taxRateHint');
+
+            // 获取供应商详情并展示
+            function fetchSupplierDetail(supplierId, prefix) {
+                fetch('/api/suppliers/' + supplierId)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success && data.data) {
+                            const d = data.data;
+                            document.getElementById(prefix + '_contact_person').value = d.contact_person || '';
+                            document.getElementById(prefix + '_contact_phone').value = d.contact_phone || '';
+                            document.getElementById(prefix + '_address').value = d.address || '';
+                            document.getElementById(prefix + '_credit_code').value = d.unified_social_credit_code || '';
+                            document.getElementById(prefix + '_legal_representative').value = d.legal_representative || '';
+                            // 设置详情input为readonly（从供应商选择，不可编辑）
+                            setDetailFieldsReadonly(prefix, true);
+                            document.getElementById(prefix + '_detail').style.display = 'block';
+                        }
+                    })
+                    .catch(err => {
+                        console.error('获取供应商详情失败:', err);
+                    });
+            }
+
+            // 设置详情字段readonly状态
+            function setDetailFieldsReadonly(prefix, readonly) {
+                const fields = ['contact_person', 'contact_phone', 'address', 'credit_code', 'legal_representative'];
+                fields.forEach(function(field) {
+                    const el = document.getElementById(prefix + '_' + field);
+                    if (el) el.readOnly = readonly;
+                });
+            }
+
+            // 隐藏供应商详情
+            function hideSupplierDetail(prefix) {
+                const detailDiv = document.getElementById(prefix + '_detail');
+                detailDiv.style.display = 'block'; // 自定义输入时显示详情区域（空字段可编辑）
+                // 清空所有详情input的值
+                const fields = ['contact_person', 'contact_phone', 'address', 'credit_code', 'legal_representative'];
+                fields.forEach(function(field) {
+                    const el = document.getElementById(prefix + '_' + field);
+                    if (el) {
+                        el.value = '';
+                        el.readOnly = false; // 移除readonly（自定义输入时可编辑）
+                    }
+                });
+            }
+
+            // datalist匹配逻辑（参考存放位置实现）
+            function matchDatalistOption(nameInput, idInput, datalist) {
+                const inputVal = nameInput.value.trim();
+                let matched = false;
+                if (datalist) {
+                    const options = datalist.querySelectorAll('option');
+                    for (let i = 0; i < options.length; i++) {
+                        if (options[i].value === inputVal) {
+                            idInput.value = options[i].getAttribute('data-id');
+                            matched = true;
+                            break;
+                        }
+                    }
+                }
+                if (!matched) {
+                    idInput.value = '';
+                }
+                return matched;
+            }
+
+            // 税率自动填充
+            function tryAutoFillTaxRate() {
+                if (taxRateInput.dataset.userModified === 'true') return;
+
+                const partyAId = partyAIdInput.value;
+                const partyBId = partyBIdInput.value;
+
+                if (partyAId) {
+                    fetchTaxRate(partyAId);
+                } else if (partyBId) {
+                    fetchTaxRate(partyBId);
+                } else {
+                    taxRateHint.classList.add('hidden');
+                }
+            }
+
+            function fetchTaxRate(supplierId) {
+                fetch('/api/contracts/suppliers/' + supplierId + '/tax-rate')
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success && data.data && data.data.tax_rate !== null && data.data.tax_rate !== undefined) {
+                            if (taxRateInput.dataset.userModified !== 'true') {
+                                taxRateInput.value = data.data.tax_rate;
+                                taxRateHint.classList.remove('hidden');
+                                taxRateAutoFilled = true;
+                                calculateTaxAmount();
+                            }
+                        } else {
+                            taxRateHint.classList.add('hidden');
+                        }
+                    })
+                    .catch(err => {
+                        console.error('获取税率失败:', err);
+                        taxRateHint.classList.add('hidden');
+                    });
+            }
+
+            // 甲方input事件
+            partyANameInput.addEventListener('input', function() {
+                const matched = matchDatalistOption(partyANameInput, partyAIdInput, partyADatalist);
+                if (matched && partyAIdInput.value) {
+                    fetchSupplierDetail(partyAIdInput.value, 'party_a');
+                    tryAutoFillTaxRate();
+                } else {
+                    hideSupplierDetail('party_a');
+                    tryAutoFillTaxRate();
+                }
+            });
+
+            // 乙方input事件
+            partyBNameInput.addEventListener('input', function() {
+                const matched = matchDatalistOption(partyBNameInput, partyBIdInput, partyBDatalist);
+                if (matched && partyBIdInput.value) {
+                    fetchSupplierDetail(partyBIdInput.value, 'party_b');
+                    tryAutoFillTaxRate();
+                } else {
+                    hideSupplierDetail('party_b');
+                    tryAutoFillTaxRate();
+                }
+            });
+
+            // 用户手动修改税率时标记
+            taxRateInput.addEventListener('input', function() {
+                this.dataset.userModified = 'true';
+                taxRateHint.classList.add('hidden');
+            });
+
+            // 税额实时计算
+            const contractAmountInput = document.getElementById('contract_amount');
+            const taxAmountDisplay = document.getElementById('tax_amount_display');
+            const taxAmountHidden = document.getElementById('tax_amount');
+
+            function calculateTaxAmount() {
+                const amount = parseFloat(contractAmountInput.value);
+                const rate = parseFloat(taxRateInput.value);
+                if (!isNaN(amount) && !isNaN(rate) && amount >= 0 && rate >= 0) {
+                    const taxAmount = (amount * rate / 100).toFixed(2);
+                    taxAmountDisplay.value = taxAmount;
+                    taxAmountHidden.value = taxAmount;
+                } else {
+                    taxAmountDisplay.value = '';
+                    taxAmountHidden.value = '';
+                }
+            }
+
+            contractAmountInput.addEventListener('input', calculateTaxAmount);
+            contractAmountInput.addEventListener('change', calculateTaxAmount);
+            taxRateInput.addEventListener('input', calculateTaxAmount);
+            taxRateInput.addEventListener('change', calculateTaxAmount);
+
+            // 日期联动：签订日期变更时提示更新开始日期
+            const signingDateInput = document.getElementById('signing_date');
+            const startDateInput = document.getElementById('start_date');
+            signingDateInput.addEventListener('change', function() {
+                if (!startDateInput.value || startDateInput.value === '{{ today }}') {
+                    startDateInput.value = this.value;
+                }
+            });
+
+            // 存放位置datalist匹配逻辑
+            const storageLocationName = document.getElementById('storage_location_name');
+            const storageLocationId = document.getElementById('storage_location_id');
+            const locationDatalist = document.getElementById('location-datalist');
+
+            storageLocationName.addEventListener('input', function() {
+                const inputVal = this.value.trim();
+                let matched = false;
+                if (locationDatalist) {
+                    const options = locationDatalist.querySelectorAll('option');
+                    for (let i = 0; i < options.length; i++) {
+                        if (options[i].value === inputVal) {
+                            storageLocationId.value = options[i].getAttribute('data-id');
+                            matched = true;
+                            break;
+                        }
+                    }
+                }
+                if (!matched) {
+                    storageLocationId.value = '';
+                }
+            });
+
+            // 编辑模式：自动显示甲乙方供应商详情
+            if (partyAIdInput.value) {
+                fetchSupplierDetail(partyAIdInput.value, 'party_a');
+            } else if (partyANameInput.value) {
+                // 自定义供应商（无ID），显示详情区域并填充已有的快照值，可编辑
+                {% if contract %}
+                document.getElementById('party_a_contact_person').value = '{{ contract.party_a_contact_person or "" }}';
+                document.getElementById('party_a_contact_phone').value = '{{ contract.party_a_contact_phone or "" }}';
+                document.getElementById('party_a_address').value = '{{ contract.party_a_address or "" }}';
+                document.getElementById('party_a_credit_code').value = '{{ contract.party_a_credit_code or "" }}';
+                document.getElementById('party_a_legal_representative').value = '{{ contract.party_a_legal_representative or "" }}';
+                {% elif p %}
+                document.getElementById('party_a_contact_person').value = '{{ p.party_a_contact_person or "" }}';
+                document.getElementById('party_a_contact_phone').value = '{{ p.party_a_contact_phone or "" }}';
+                document.getElementById('party_a_address').value = '{{ p.party_a_address or "" }}';
+                document.getElementById('party_a_credit_code').value = '{{ p.party_a_credit_code or "" }}';
+                document.getElementById('party_a_legal_representative').value = '{{ p.party_a_legal_representative or "" }}';
+                {% endif %}
+                setDetailFieldsReadonly('party_a', false);
+                document.getElementById('party_a_detail').style.display = 'block';
+            }
+            if (partyBIdInput.value) {
+                fetchSupplierDetail(partyBIdInput.value, 'party_b');
+            } else if (partyBNameInput.value) {
+                // 自定义供应商（无ID），显示详情区域并填充已有的快照值，可编辑
+                {% if contract %}
+                document.getElementById('party_b_contact_person').value = '{{ contract.party_b_contact_person or "" }}';
+                document.getElementById('party_b_contact_phone').value = '{{ contract.party_b_contact_phone or "" }}';
+                document.getElementById('party_b_address').value = '{{ contract.party_b_address or "" }}';
+                document.getElementById('party_b_credit_code').value = '{{ contract.party_b_credit_code or "" }}';
+                document.getElementById('party_b_legal_representative').value = '{{ contract.party_b_legal_representative or "" }}';
+                {% elif p %}
+                document.getElementById('party_b_contact_person').value = '{{ p.party_b_contact_person or "" }}';
+                document.getElementById('party_b_contact_phone').value = '{{ p.party_b_contact_phone or "" }}';
+                document.getElementById('party_b_address').value = '{{ p.party_b_address or "" }}';
+                document.getElementById('party_b_credit_code').value = '{{ p.party_b_credit_code or "" }}';
+                document.getElementById('party_b_legal_representative').value = '{{ p.party_b_legal_representative or "" }}';
+                {% endif %}
+                setDetailFieldsReadonly('party_b', false);
+                document.getElementById('party_b_detail').style.display = 'block';
+            }
+        });
+    </script>
+</body>
+</html>

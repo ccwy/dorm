@@ -204,6 +204,22 @@
            {% endif %}
            
            
+           <!-- 合同管理 -->
+           {% if get_config_value('FEATURE_CONTRACT_MANAGE_ENABLED', True) and current_user.has_permission('contract.view') %}
+           <div class="bg-white rounded-xl p-6 shadow-sm card-hover text-center">
+               <div class="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4 mx-auto">
+                   <i class="fa fa-file-text text-2xl text-blue-600"></i>
+               </div>
+               <h3 class="text-lg font-medium text-dark mb-2">合同管理</h3>
+               <p class="text-gray-500 text-sm mb-4">管理合同的创建、审批、履约跟踪和到期提醒</p>
+               <button onclick="window.location.href='{{ url_for('contract.index') }}'" 
+                       class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
+                   进入合同管理
+               </button>
+           </div>
+           {% endif %}
+           
+           
            
            <!-- 低值易耗品管理 -->
            {% if current_user.has_permission('supply.view') %}

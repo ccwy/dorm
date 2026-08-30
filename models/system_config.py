@@ -57,7 +57,7 @@ class SystemConfig(db.Model):
             # 1. 系统核心配置 (category: system)        
             {
                 'config_key': 'SYSTEM_TITLE',
-                'config_value': '宿舍管理系统',
+                'config_value': '行政后勤管理系统',
                 'config_type': 'string',
                 'category': 'system',
                 'description': '系统标题',
@@ -255,6 +255,15 @@ class SystemConfig(db.Model):
                 'description': '角色管理功能开关',
                 'is_editable': True,
                 'sort_order': 130
+            },
+            {
+                'config_key': 'FEATURE_CONTRACT_MANAGE_ENABLED',
+                'config_value': 'true',
+                'config_type': 'bool',
+                'category': 'system.feature',
+                'description': '合同管理功能开关',
+                'is_editable': True,
+                'sort_order': 140
             },
             
             # 3. 用户管理配置 (category: user)
@@ -523,31 +532,7 @@ class SystemConfig(db.Model):
                 'sort_order': 30
             },
             
-            # 8. 合同管理配置 (category: contract)
-            {
-                'config_key': 'CONTRACT_TEMPLATE_DIR',
-                'config_value': '/static/templates/contracts/',
-                'config_type': 'path',
-                'category': 'contract',
-                'description': '合同模板存储目录',
-                'sort_order': 10
-            },
-            {
-                'config_key': 'CONTRACT_AUTO_RENEW_DAYS',
-                'config_value': '30',
-                'config_type': 'int',
-                'category': 'contract',
-                'description': '合同自动续约提醒天数',
-                'sort_order': 20
-            },
-            {
-                'config_key': 'CONTRACT_MAX_TERM',
-                'config_value': '365',
-                'config_type': 'int',
-                'category': 'contract',
-                'description': '合同最大期限（天）',
-                'sort_order': 30
-            },
+            # 8. 合同管理配置 (category: contract) - 基础配置项已移至下方与CONTRACT_TYPES等统一管理
             
             # 9. 日志管理配置 (category: log)
             {
@@ -727,6 +712,16 @@ class SystemConfig(db.Model):
                 'sort_order': 90
             },
             {
+                'config_key': 'STORAGE_LOCATION_USAGE_TYPES',
+                'config_value': '低值易耗品,固定资产,合同管理',
+                'config_type': 'list',
+                'category': 'supply_manage',
+                'description': '存放位置使用类型选项',
+                'is_editable': True,
+                'is_system': True,
+                'sort_order': 95
+            },
+            {
                 'config_key': 'stock_in_types',
                 'config_value': '采购入库,其它入库',
                 'config_type': 'list',
@@ -746,6 +741,37 @@ class SystemConfig(db.Model):
                 'is_system': False,
                 'sort_order': 110
             },
+    
+            # 合同类型配置
+            {
+                'config_key': 'CONTRACT_TYPES',
+                'config_value': '采购合同,服务合同,租赁合同,劳务合同,其他',
+                'config_type': 'string',
+                'category': 'contract',
+                'description': '合同类型选项（逗号分隔）',
+                'is_editable': True,
+                'sort_order': 10
+            },
+            # 合同到期提醒天数
+            {
+                'config_key': 'CONTRACT_EXPIRY_WARNING_DAYS',
+                'config_value': '30',
+                'config_type': 'int',
+                'category': 'contract',
+                'description': '合同到期提前提醒天数',
+                'is_editable': True,
+                'sort_order': 20
+            },
+            # 合同分类配置
+            {
+                'config_key': 'CONTRACT_CATEGORIES',
+                'config_value': '行政类,后勤类,IT类,其他',
+                'config_type': 'string',
+                'category': 'contract',
+                'description': '合同分类选项（逗号分隔）',
+                'is_editable': True,
+                'sort_order': 30
+            }
 
         ]
     

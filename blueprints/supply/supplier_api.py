@@ -33,6 +33,8 @@ def get_supplier_list():
             query = query.filter(
                 db.or_(
                     Supplier.name.ilike(search_filter),
+                    Supplier.unified_social_credit_code.ilike(search_filter),
+                    Supplier.legal_representative.ilike(search_filter),
                     Supplier.contact_person.ilike(search_filter),
                     Supplier.contact_phone.ilike(search_filter)
                 )
@@ -49,6 +51,8 @@ def get_supplier_list():
             supplier_data = {
                 "id": s.id,
                 "name": s.name,
+                "unified_social_credit_code": s.unified_social_credit_code or '',
+                "legal_representative": s.legal_representative or '',
                 "contact_person": s.contact_person or '',
                 "contact_phone": s.contact_phone or '',
                 "email": s.email or '',
@@ -102,6 +106,8 @@ def get_supplier_detail(id):
         supplier_data = {
             "id": supplier.id,
             "name": supplier.name,
+            "unified_social_credit_code": supplier.unified_social_credit_code or '',
+            "legal_representative": supplier.legal_representative or '',
             "contact_person": supplier.contact_person or '',
             "contact_phone": supplier.contact_phone or '',
             "email": supplier.email or '',
@@ -110,6 +116,7 @@ def get_supplier_detail(id):
             "handler_user_id": supplier.handler_user_id,
             "handler_name": supplier.handler_name,
             "remark": supplier.remark or '',
+            "tax_rate": float(supplier.tax_rate) if supplier.tax_rate is not None else None,
             "created_at": supplier.created_at.strftime('%Y-%m-%d %H:%M') if supplier.created_at else None,
             "updated_at": supplier.updated_at.strftime('%Y-%m-%d %H:%M') if supplier.updated_at else None
         }

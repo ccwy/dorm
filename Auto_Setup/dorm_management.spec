@@ -123,7 +123,7 @@ exe = EXE(
     a.zipfiles,
     a.datas,
     [],
-    name='宿舍管理系统',
+    name='行政后勤管理系统',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,

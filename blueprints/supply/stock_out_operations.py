@@ -161,7 +161,7 @@ def create_stock_out():
 
         logging.info(f"新增出库单成功，出库单ID: {stock_out.id}, 单号: {stock_out.stock_out_number}")
 
-        if request.form.get('action') == 'continue':
+        if request.form.get('save_and_continue'):
             return redirect(url_for('stock_out.add_stock_out'))
         return redirect(url_for('stock_out.list_stock_outs'))
 

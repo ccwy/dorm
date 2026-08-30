@@ -19,6 +19,8 @@ def add_supplier():
     """新增供应商"""
     try:
         name = request.form.get('name', '').strip()
+        unified_social_credit_code = request.form.get('unified_social_credit_code', '').strip() or None
+        legal_representative = request.form.get('legal_representative', '').strip() or None
         contact_person = request.form.get('contact_person', '').strip() or None
         contact_phone = request.form.get('contact_phone', '').strip() or None
         email = request.form.get('email', '').strip() or None
@@ -26,6 +28,12 @@ def add_supplier():
         status = request.form.get('status', '启用').strip() or '启用'
         handler_user_id = current_user.id
         remark = request.form.get('remark', '').strip() or None
+        tax_rate = request.form.get('tax_rate', '').strip() or None
+        if tax_rate:
+            try:
+                tax_rate = float(tax_rate)
+            except (ValueError, TypeError):
+                tax_rate = None
 
         # 必填字段校验
         if not name:
@@ -42,9 +50,11 @@ def add_supplier():
             return redirect(url_for('supplier.add_page'))
 
         supplier = Supplier.create(
-            name=name, contact_person=contact_person, contact_phone=contact_phone,
+            name=name, unified_social_credit_code=unified_social_credit_code,
+            legal_representative=legal_representative,
+            contact_person=contact_person, contact_phone=contact_phone,
             email=email, address=address, status=status,
-            handler_user_id=handler_user_id, remark=remark,
+            handler_user_id=handler_user_id, remark=remark, tax_rate=tax_rate,
             operator_user_id=current_user.id
         )
 
@@ -67,7 +77,7 @@ def add_supplier():
         flash(f'新增供应商成功: {name}', 'success')
         logging.info(f"新增供应商成功，供应商ID: {supplier.id}, 名称: {name}")
 
-        if request.form.get('action') == 'continue':
+        if request.form.get('save_and_continue'):
             return redirect(url_for('supplier.add_page'))
         return redirect(url_for('supplier.index'))
 
@@ -97,6 +107,8 @@ def edit_supplier(id):
 
         # 获取表单数据
         new_name = request.form.get('name', '').strip()
+        new_unified_social_credit_code = request.form.get('unified_social_credit_code', '').strip() or None
+        new_legal_representative = request.form.get('legal_representative', '').strip() or None
         new_contact_person = request.form.get('contact_person', '').strip() or None
         new_contact_phone = request.form.get('contact_phone', '').strip() or None
         new_email = request.form.get('email', '').strip() or None
@@ -104,6 +116,12 @@ def edit_supplier(id):
         new_status = request.form.get('status', '启用').strip() or '启用'
         new_handler_user_id = current_user.id
         new_remark = request.form.get('remark', '').strip() or None
+        new_tax_rate = request.form.get('tax_rate', '').strip() or None
+        if new_tax_rate:
+            try:
+                new_tax_rate = float(new_tax_rate)
+            except (ValueError, TypeError):
+                new_tax_rate = None
 
         # 状态值校验
         if new_status not in ['启用', '停用']:
@@ -123,6 +141,10 @@ def edit_supplier(id):
         changes = []
         if old_name != new_name:
             changes.append(f"名称: {old_name} → {new_name}")
+        if supplier.unified_social_credit_code != new_unified_social_credit_code:
+            changes.append(f"统一社会信用代码: {supplier.unified_social_credit_code or '无'} → {new_unified_social_credit_code or '无'}")
+        if supplier.legal_representative != new_legal_representative:
+            changes.append(f"法定代表人: {supplier.legal_representative or '无'} → {new_legal_representative or '无'}")
         if supplier.contact_person != new_contact_person:
             changes.append(f"联系人: {supplier.contact_person or '无'} → {new_contact_person or '无'}")
         if supplier.contact_phone != new_contact_phone:
@@ -135,9 +157,13 @@ def edit_supplier(id):
             changes.append(f"状态: {supplier.status} → {new_status}")
         if supplier.remark != new_remark:
             changes.append("备注已更新")
+        if (supplier.tax_rate or None) != new_tax_rate:
+            changes.append(f"税率: {supplier.tax_rate or '无'} → {new_tax_rate or '无'}")
 
         # 更新供应商信息
         supplier.name = new_name
+        supplier.unified_social_credit_code = new_unified_social_credit_code
+        supplier.legal_representative = new_legal_representative
         supplier.contact_person = new_contact_person
         supplier.contact_phone = new_contact_phone
         supplier.email = new_email
@@ -145,6 +171,7 @@ def edit_supplier(id):
         supplier.status = new_status
         supplier.handler_user_id = new_handler_user_id
         supplier.remark = new_remark
+        supplier.tax_rate = new_tax_rate
         supplier.operator_user_id = current_user.id
         db.session.commit()
 

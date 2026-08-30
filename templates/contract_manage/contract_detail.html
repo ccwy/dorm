@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+{% include 'static.html' %}
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#165DFF',
+                        secondary: '#36CFC9',
+                        accent: '#722ED1',
+                        danger: '#F5222D',
+                        info: '#1890FF',
+                        warning: '#FAAD14'
+                    },
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .btn-hover {
+                transition: all 0.2s ease;
+            }
+            .btn-hover:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            }
+            .btn-effect {
+                transition: all 0.2s ease;
+            }
+            .btn-effect:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            }
+            .fade-in {
+                animation: fadeIn 0.5s ease-in;
+            }
+            @keyframes fadeIn {
+                from { opacity: 0; }
+                to { opacity: 1; }
+            }
+            .timeline-line {
+                position: absolute;
+                left: 15px;
+                top: 32px;
+                bottom: 0;
+                width: 2px;
+                background-color: #e5e7eb;
+            }
+            @keyframes blink {
+                0%, 100% { opacity: 1; }
+                50% { opacity: 0.5; }
+            }
+            .blink-warning {
+                animation: blink 1.5s ease-in-out infinite;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+{% include 'header.html' %}
+    <main class="container mx-auto px-4 py-6">
+        <!-- Flash消息 -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            <div class="flash-messages mb-6">
+              {% for category, message in messages %}
+                <div class="p-4 rounded-md mb-2 {% if category == 'success' %}bg-green-100 text-green-800{% elif category == 'error' or category == 'danger' %}bg-red-100 text-red-800{% elif category == 'warning' %}bg-yellow-100 text-yellow-800{% else %}bg-blue-100 text-blue-800{% endif %}">
+                  <button type="button" class="float-right ml-2 text-gray-500 hover:text-gray-700" onclick="this.parentElement.remove()">×</button>
+                  {{ message | safe }}
+                </div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        {% endwith %}
+
+        <div class="flex items-center mb-6 fade-in">
+            <a href="{{ url_for('contract.index') }}" class="text-primary hover:text-primary/80 mr-2">
+                <i class="fa fa-arrow-left"></i>
+            </a>
+            <h2 class="text-2xl font-semibold text-dark">{{ title }}</h2>
+            <!-- 状态标签 -->
+            {% if contract.status == '草稿' %}
+            <span class="ml-3 px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm">草稿</span>
+            {% elif contract.status == '生效中' %}
+            <span class="ml-3 px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm">生效中</span>
+            {% elif contract.status == '即将到期' %}
+            <span class="ml-3 px-3 py-1 bg-orange-100 text-orange-800 rounded-full text-sm blink-warning"><i class="fa fa-exclamation-triangle mr-1"></i>即将到期</span>
+            {% elif contract.status == '已到期' %}
+            <span class="ml-3 px-3 py-1 bg-red-100 text-red-800 rounded-full text-sm">已到期</span>
+            {% elif contract.status == '已终止' %}
+            <span class="ml-3 px-3 py-1 bg-gray-200 text-gray-600 rounded-full text-sm">已终止</span>
+            {% elif contract.status == '已归档' %}
+            <span class="ml-3 px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">已归档</span>
+            {% endif %}
+        </div>
+
+        <!-- 操作按钮 -->
+        <div class="flex flex-wrap gap-3 mb-6">
+            {% if current_user.has_permission('contract.edit') %}
+            <a href="{{ url_for('contract.edit_page', id=contract.id) }}" class="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90 btn-hover inline-flex items-center">
+                <i class="fa fa-edit mr-1"></i>编辑
+            </a>
+            {% endif %}
+            {% if contract.status in ['已到期', '即将到期'] and current_user.has_permission('contract.create') %}
+            {% if not contract.has_renewed %}
+            <a href="{{ url_for('contract.renew_contract', id=contract.id) }}" class="px-4 py-2 bg-teal-500 text-white rounded-md hover:bg-teal-600 btn-hover inline-flex items-center">
+                <i class="fa fa-refresh mr-1"></i>续签
+            </a>
+            {% else %}
+            <span class="px-4 py-2 bg-gray-400 text-white rounded-md cursor-not-allowed inline-flex items-center">
+                <i class="fa fa-check mr-1"></i>已续签
+            </span>
+            {% endif %}
+            {% endif %}
+            {% if current_user.has_permission('contract.edit') %}
+            <button type="button" onclick="showStatusChangeModal()" class="px-4 py-2 bg-amber-500 text-white rounded-md hover:bg-amber-600 btn-hover inline-flex items-center">
+                <i class="fa fa-exchange mr-1"></i>状态变更
+            </button>
+            {% endif %}
+            {% if current_user.has_permission('contract.delete') %}
+            <button type="button" onclick="confirmDelete({{ contract.id }})" class="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 btn-hover inline-flex items-center">
+                <i class="fa fa-trash mr-1"></i>删除
+            </button>
+            {% endif %}
+            <button onclick="window.location.href='{{ url_for('contract.index') }}'" class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 btn-hover inline-flex items-center">
+                <i class="fa fa-list mr-1"></i>返回列表
+            </button>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- 左侧: 合同信息 -->
+            <div class="lg:col-span-2 space-y-6">
+                <!-- 基本信息 -->
+                <div class="bg-white rounded-lg shadow-sm p-6">
+                    <h3 class="text-lg font-medium text-gray-800 mb-4 pb-2 border-b border-gray-200">
+                        <i class="fa fa-info-circle text-primary mr-2"></i>基本信息
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div>
+                            <span class="text-sm text-gray-500">合同编号</span>
+                            <p class="font-medium text-gray-800">{{ contract.contract_number or '-' }}</p>
+                        </div>
+                        <div>
+                            <span class="text-sm text-gray-500">合同名称</span>
+                            <p class="font-medium text-gray-800">{{ contract.contract_name or '-' }}</p>
+                        </div>
+                        <div>
+                            <span class="text-sm text-gray-500">合同类型</span>
+                            <p class="font-medium text-gray-800">{{ contract.contract_type or '-' }}</p>
+                        </div>
+                        <div>
+                            <span class="text-sm text-gray-500">合同分类</span>
+                            <p class="font-medium text-gray-800">{{ contract.contract_category or '-' }}</p>
+                        </div>
+                        <div>
+                            <span class="text-sm text-gray-500">归属部门</span>
+                            <p class="font-medium text-gray-800">{{ contract.department.name if contract.department else '-' }}</p>
+                        </div>
+                        <div>
+                            <span class="text-sm text-gray-500">存放位置</span>
+                            <p class="font-medium text-gray-800">{{ contract.storage_location_name or '-' }}</p>
+                        </div>
+                        <div>
+                            <span class="text-sm text-gray-500">状态</span>
+                            <p class="font-medium text-gray-800">
+                                {% if contract.status == '草稿' %}
+                                <span class="px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs">草稿</span>
+                                {% elif contract.status == '生效中' %}
+                                <span class="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs">生效中</span>
+                                {% elif contract.status == '即将到期' %}
+                                <span class="px-2 py-1 bg-orange-100 text-orange-800 rounded-full text-xs">即将到期</span>
+                                {% elif contract.status == '已到期' %}
+                                <span class="px-2 py-1 bg-red-100 text-red-800 rounded-full text-xs">已到期</span>
+                                {% elif contract.status == '已终止' %}
+                                <span class="px-2 py-1 bg-gray-200 text-gray-600 rounded-full text-xs">已终止</span>
+                                {% elif contract.status == '已归档' %}
+                                <span class="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs">已归档</span>
+                                {% else %}
+                                {{ contract.status }}
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 甲乙双方与金额 -->
+                <div class="bg-white rounded-lg shadow-sm p-6">
+                    <h3 class="text-lg font-medium text-gray-800 mb-4 pb-2 border-b border-gray-200">
+                        <i class="fa fa-users text-secondary mr-2"></i>甲乙双方与金额
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div>
+                            <span class="text-sm text-gray-500">甲方（我方）</span>
+                            <p class="font-medium text-gray-800">{{ contract.party_a.name if contract.party_a else '-' }}</p>
+                            {% if contract.party_a_contact_person or contract.party_a_contact_phone %}
+                            <p class="text-xs text-gray-400">联系人：{{ contract.party_a_contact_person or '-' }} {{ contract.party_a_contact_phone or '' }}</p>
+                            {% endif %}
+                            {% if contract.party_a_address %}<p class="text-xs text-gray-400">地址：{{ contract.party_a_address }}</p>{% endif %}
+                            {% if contract.party_a_credit_code %}<p class="text-xs text-gray-400">信用代码：{{ contract.party_a_credit_code }}</p>{% endif %}
+                            {% if contract.party_a_legal_representative %}<p class="text-xs text-gray-400">法定代表人：{{ contract.party_a_legal_representative }}</p>{% endif %}
+                        </div>
+                        <div>
+                            <span class="text-sm text-gray-500">乙方（对方）</span>
+                            <p class="font-medium text-gray-800">{{ contract.party_b.name if contract.party_b else '-' }}</p>
+                            {% if contract.party_b_contact_person or contract.party_b_contact_phone %}
+                            <p class="text-xs text-gray-400">联系人：{{ contract.party_b_contact_person or '-' }} {{ contract.party_b_contact_phone or '' }}</p>
+                            {% endif %}
+                            {% if contract.party_b_address %}<p class="text-xs text-gray-400">地址：{{ contract.party_b_address }}</p>{% endif %}
+                            {% if contract.party_b_credit_code %}<p class="text-xs text-gray-400">信用代码：{{ contract.party_b_credit_code }}</p>{% endif %}
+                            {% if contract.party_b_legal_representative %}<p class="text-xs text-gray-400">法定代表人：{{ contract.party_b_legal_representative }}</p>{% endif %}
+                        </div>
+                        <div>
+                            <span class="text-sm text-gray-500">合同金额</span>
+                            <p class="font-medium text-gray-800">
+                                {% if contract.contract_amount %}
+                                {{ '{:,.2f}'.format(contract.contract_amount) }} {{ contract.currency or 'CNY' }}
+                                {% else %}
+                                -
+                                {% endif %}
+                            </p>
+                        </div>
+                        <div>
+                            <span class="text-sm text-gray-500">税率</span>
+                            <p class="font-medium text-gray-800">
+                                {% if contract.tax_rate is not none %}
+                                {{ contract.tax_rate }}%
+                                {% else %}
+                                -
+                                {% endif %}
+                            </p>
+                        </div>
+                        <div>
+                            <span class="text-sm text-gray-500">税额</span>
+                            <p class="font-medium text-gray-800">
+                                {% if contract.tax_amount is not none %}
+                                {{ '{:,.2f}'.format(contract.tax_amount) }} {{ contract.currency or 'CNY' }}
+                                {% else %}
+                                -
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 日期信息 -->
+                <div class="bg-white rounded-lg shadow-sm p-6">
+                    <h3 class="text-lg font-medium text-gray-800 mb-4 pb-2 border-b border-gray-200">
+                        <i class="fa fa-calendar text-info mr-2"></i>日期信息
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <span class="text-sm text-gray-500">签订日期</span>
+                            <p class="font-medium text-gray-800">{{ contract.signing_date.strftime('%Y-%m-%d') if contract.signing_date else '-' }}</p>
+                        </div>
+                        <div>
+                            <span class="text-sm text-gray-500">合同开始日期</span>
+                            <p class="font-medium text-gray-800">{{ contract.start_date.strftime('%Y-%m-%d') if contract.start_date else '-' }}</p>
+                        </div>
+                        <div>
+                            <span class="text-sm text-gray-500">合同结束日期</span>
+                            <p class="font-medium text-gray-800">
+                                {{ contract.end_date.strftime('%Y-%m-%d') if contract.end_date else '-' }}
+                                {% if contract.status == '即将到期' %}
+                                <span class="ml-2 text-orange-600 text-xs"><i class="fa fa-exclamation-triangle"></i> 即将到期</span>
+                                {% elif contract.status == '已到期' %}
+                                <span class="ml-2 text-red-600 text-xs"><i class="fa fa-times-circle"></i> 已过期</span>
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 其他信息 -->
+                <div class="bg-white rounded-lg shadow-sm p-6">
+                    <h3 class="text-lg font-medium text-gray-800 mb-4 pb-2 border-b border-gray-200">
+                        <i class="fa fa-user text-accent mr-2"></i>其他信息
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <span class="text-sm text-gray-500">经手人</span>
+                            <p class="font-medium text-gray-800">{{ contract.handler.name if contract.handler else '-' }}</p>
+                        </div>
+                        <div>
+                            <span class="text-sm text-gray-500">创建时间</span>
+                            <p class="font-medium text-gray-800">{{ contract.created_at.strftime('%Y-%m-%d %H:%M') if contract.created_at else '-' }}</p>
+                        </div>
+                        <div>
+                            <span class="text-sm text-gray-500">更新时间</span>
+                            <p class="font-medium text-gray-800">{{ contract.updated_at.strftime('%Y-%m-%d %H:%M') if contract.updated_at else '-' }}</p>
+                        </div>
+                        <div class="md:col-span-2">
+                            <span class="text-sm text-gray-500">备注</span>
+                            <p class="font-medium text-gray-800 whitespace-pre-wrap">{{ contract.remark or '-' }}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 续签关系链时间线 -->
+                {% if renewal_chain and renewal_chain|length > 1 %}
+                <div class="bg-white rounded-lg shadow-sm p-6">
+                    <h3 class="text-lg font-medium text-gray-800 mb-4 pb-2 border-b border-gray-200">
+                        <i class="fa fa-link text-blue-500 mr-2"></i>续签关系链
+                        {% if contract.has_renewed %}<span class="text-sm font-normal text-teal-600 ml-2">（已续签 {{ contract.renewal_count }} 次）</span>{% endif %}
+                    </h3>
+                    <div class="relative pl-8">
+                        <div class="timeline-line"></div>
+                        {% for rc in renewal_chain %}
+                        <div class="relative mb-6 last:mb-0">
+                            <div class="absolute -left-8 top-1 w-8 h-8 rounded-full {% if rc.id == contract.id %}bg-primary{% else %}bg-gray-300{% endif %} flex items-center justify-center">
+                                <i class="fa fa-file-text text-white text-xs"></i>
+                            </div>
+                            <div class="ml-4 bg-gray-50 rounded-lg p-4 {% if rc.id == contract.id %}border-2 border-primary{% endif %}">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <a href="{{ url_for('contract.detail', id=rc.id) }}" class="text-primary hover:underline font-medium">{{ rc.contract_number or '未编号' }}</a>
+                                        <span class="text-gray-600 ml-2">{{ rc.contract_name }}</span>
+                                    </div>
+                                    {% if rc.id == contract.id %}
+                                    <span class="px-2 py-0.5 bg-primary text-white text-xs rounded-full">当前</span>
+                                    {% endif %}
+                                </div>
+                                <div class="text-sm text-gray-500 mt-1">
+                                    {{ rc.start_date.strftime('%Y-%m-%d') if rc.start_date else '?' }} ~ {{ rc.end_date.strftime('%Y-%m-%d') if rc.end_date else '?' }}
+                                    <span class="ml-2">
+                                        {% if rc.status == '草稿' %}
+                                        <span class="text-gray-500">草稿</span>
+                                        {% elif rc.status == '生效中' %}
+                                        <span class="text-green-600">生效中</span>
+                                        {% elif rc.status == '即将到期' %}
+                                        <span class="text-orange-600">即将到期</span>
+                                        {% elif rc.status == '已到期' %}
+                                        <span class="text-red-600">已到期</span>
+                                        {% elif rc.status == '已终止' %}
+                                        <span class="text-gray-500">已终止</span>
+                                        {% elif rc.status == '已归档' %}
+                                        <span class="text-blue-600">已归档</span>
+                                        {% endif %}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- 附件管理 -->
+                <div class="bg-white rounded-lg shadow-sm p-6">
+                    <h3 class="text-lg font-medium text-gray-800 mb-4 pb-2 border-b border-gray-200">
+                        <i class="fa fa-paperclip text-warning mr-2"></i>合同附件
+                        {% if current_user.has_permission('contract.edit') %}
+                        <button type="button" onclick="document.getElementById('attachmentUploadArea').classList.toggle('hidden')" class="ml-3 text-sm text-primary hover:text-primary/80">
+                            <i class="fa fa-plus mr-1"></i>上传附件
+                        </button>
+                        {% endif %}
+                    </h3>
+                    <!-- 上传区域 -->
+                    <div id="attachmentUploadArea" class="hidden mb-4">
+                        <form action="{{ url_for('contract.upload_contract_attachment', id=contract.id) }}" method="post" enctype="multipart/form-data" class="flex items-center gap-3">
+                            <input type="file" name="files" multiple required class="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50" onchange="document.getElementById('fileCount').textContent = this.files.length > 0 ? '已选 ' + this.files.length + ' 个文件' : ''">
+                            <span id="fileCount" class="text-sm text-gray-500"></span>
+                            <button type="submit" class="px-4 py-2 bg-primary text-white rounded-md text-sm hover:bg-primary/90 btn-hover">
+                                <i class="fa fa-upload mr-1"></i>上传
+                            </button>
+                        </form>
+                    </div>
+                    <!-- 附件列表 -->
+                    {% if attachments %}
+                    <div class="space-y-2">
+                        {% for att in attachments %}
+                        <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                            <div class="flex items-center">
+                                <i class="fa fa-file text-gray-400 mr-3"></i>
+                                <a href="{{ att.url }}" target="_blank" class="text-primary hover:underline text-sm">{{ att.filename }}</a>
+                                <span class="text-xs text-gray-400 ml-2">{% if att.file_size %}{{ (att.file_size / 1024)|round(1) }}KB{% endif %}</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <span class="text-xs text-gray-400">{{ att.upload_time.strftime('%Y-%m-%d %H:%M') if att.upload_time else '' }}</span>
+                                {% if current_user.has_permission('contract.edit') %}
+                                <button type="button" onclick="confirmDeleteAttachment({{ contract.id }}, '{{ att.filename }}')" class="text-red-500 hover:text-red-700 text-sm">
+                                    <i class="fa fa-trash"></i>
+                                </button>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="text-gray-400 text-sm">暂无附件</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- 右侧: 操作记录 -->
+            <div class="space-y-6">
+                <!-- 操作记录时间线 -->
+                <div class="bg-white rounded-lg shadow-sm p-6">
+                    <h3 class="text-lg font-medium text-gray-800 mb-4 pb-2 border-b border-gray-200">
+                        <i class="fa fa-history text-accent mr-2"></i>操作记录
+                    </h3>
+                    {% if operation_records %}
+                    {% set type_map = {'add': '创建', 'edit': '编辑', 'status_change': '状态变更', 'delete': '删除', 'upload_attachment': '上传附件', 'delete_attachment': '删除附件', 'contract_renew': '合同续签'} %}
+                    {% set type_color = {'add': 'bg-green-500', 'edit': 'bg-blue-500', 'status_change': 'bg-amber-500', 'delete': 'bg-red-500', 'upload_attachment': 'bg-purple-500', 'delete_attachment': 'bg-orange-500', 'contract_renew': 'bg-teal-500'} %}
+                    {% set type_icon = {'add': 'fa-plus', 'edit': 'fa-pencil', 'status_change': 'fa-exchange', 'delete': 'fa-trash', 'upload_attachment': 'fa-upload', 'delete_attachment': 'fa-file', 'contract_renew': 'fa-refresh'} %}
+                    <div class="relative pl-6">
+                        <div class="timeline-line" style="left: 11px;"></div>
+                        {% for record in operation_records %}
+                        <div class="relative mb-4 last:mb-0">
+                            <div class="absolute -left-6 top-1 w-6 h-6 rounded-full {{ type_color.get(record.operation_type, 'bg-gray-400') }} flex items-center justify-center">
+                                <i class="fa {{ type_icon.get(record.operation_type, 'fa-circle') }} text-white text-xs"></i>
+                            </div>
+                            <div class="ml-2">
+                                <div class="flex items-center gap-2">
+                                    <span class="font-medium text-sm text-gray-800">{{ type_map.get(record.operation_type, record.operation_type) }}</span>
+                                    {% if record.operator_name %}
+                                    <span class="text-xs text-gray-400">{{ record.operator_name }}</span>
+                                    {% endif %}
+                                </div>
+                                <p class="text-xs text-gray-500 mt-0.5">{{ record.operation_time.strftime('%Y-%m-%d %H:%M') if record.operation_time else '' }}</p>
+                                {% if record.summary %}
+                                <p class="text-sm text-gray-600 mt-1">{{ record.summary }}</p>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="text-gray-400 text-sm">暂无操作记录</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- 状态变更模态框 -->
+    <div id="statusChangeModal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
+        <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md mx-4">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">
+                <i class="fa fa-exchange text-amber-500 mr-2"></i>状态变更
+            </h3>
+            <form id="statusChangeForm" action="{{ url_for('contract.status_change_contract', id=contract.id) }}" method="post">
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">当前状态</label>
+                    <p class="px-3 py-2 bg-gray-50 rounded-md text-sm text-gray-600">{{ contract.status }}</p>
+                </div>
+                <div class="mb-4">
+                    <label for="new_status" class="block text-sm font-medium text-gray-700 mb-1">变更到</label>
+                    <select id="new_status" name="status" required
+                            class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                        <option value="">请选择目标状态</option>
+                        {% if contract.status == '草稿' %}
+                        <option value="生效中">生效中</option>
+                        <option value="已终止">已终止</option>
+                        {% elif contract.status == '生效中' %}
+                        <option value="即将到期">即将到期</option>
+                        <option value="已到期">已到期</option>
+                        <option value="已终止">已终止</option>
+                        <option value="已归档">已归档</option>
+                        {% elif contract.status == '即将到期' %}
+                        <option value="生效中">生效中</option>
+                        <option value="已到期">已到期</option>
+                        <option value="已终止">已终止</option>
+                        <option value="已归档">已归档</option>
+                        {% elif contract.status == '已到期' %}
+                        <option value="生效中">生效中</option>
+                        <option value="已终止">已终止</option>
+                        <option value="已归档">已归档</option>
+                        {% endif %}
+                    </select>
+                </div>
+                <div class="mb-4">
+                    <label for="status_remark" class="block text-sm font-medium text-gray-700 mb-1">变更说明</label>
+                    <textarea id="status_remark" name="remark" rows="2"
+                              class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                              placeholder="请输入状态变更说明"></textarea>
+                </div>
+                <div class="flex justify-end gap-3">
+                    <button type="button" onclick="hideStatusChangeModal()" class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50">
+                        取消
+                    </button>
+                    <button type="submit" class="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90">
+                        确认变更
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 删除确认表单 -->
+    <form id="deleteForm" action="{{ url_for('contract.delete_contract', id=contract.id) }}" method="post" class="hidden"></form>
+
+    <!-- 删除附件确认表单 -->
+    <form id="deleteAttachmentForm" action="" method="post" class="hidden">
+        <input type="hidden" name="filename" id="deleteAttachmentFilename" value="">
+    </form>
+
+    <!-- 页脚 -->
+    {% include 'footer.html' %}
+    
+    <script>
+        // 状态变更模态框
+        function showStatusChangeModal() {
+            document.getElementById('statusChangeModal').classList.remove('hidden');
+        }
+        function hideStatusChangeModal() {
+            document.getElementById('statusChangeModal').classList.add('hidden');
+        }
+        // 点击遮罩关闭
+        document.getElementById('statusChangeModal').addEventListener('click', function(e) {
+            if (e.target === this) hideStatusChangeModal();
+        });
+
+        // 删除确认
+        function confirmDelete(id) {
+            if (confirm('确定要删除此合同吗？删除后不可恢复！')) {
+                document.getElementById('deleteForm').submit();
+            }
+        }
+
+        // 删除附件确认
+        function confirmDeleteAttachment(contractId, fileName) {
+            if (confirm('确定要删除附件「' + fileName + '」吗？')) {
+                var form = document.getElementById('deleteAttachmentForm');
+                form.action = '/contract/operations/delete_attachment/' + contractId;
+                document.getElementById('deleteAttachmentFilename').value = fileName;
+                form.submit();
+            }
+        }
+    </script>
+</body>
+</html>

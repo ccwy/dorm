@@ -83,7 +83,7 @@
             <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-4">
                 <div class="flex items-center">
                     <!-- 返回上一页按钮 -->
-                    <button onclick="history.back()" class="text-primary hover:text-primary/80 mr-2 p-2">
+                    <button onclick="window.location.href='{{ url_for('dorm.dorm_query') }}'" class="text-primary hover:text-primary/80 mr-2 p-2">
                         <i class="fa fa-arrow-left"></i>
                     </button>
                     <h2 class="text-[clamp(1.2rem,2vw,1.8rem)] font-bold text-gray-800">{{ title }}</h2>

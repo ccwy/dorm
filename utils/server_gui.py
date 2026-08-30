@@ -30,7 +30,7 @@ class ServerGUI:
         self.root = tk.Tk()
         # 获取系统标题配置
         db_config = DatabaseConfig.load_config()
-        self.system_title = db_config.get("SYSTEM_TITLE", "宿舍管理系统") + " - 服务端"
+        self.system_title = db_config.get("SYSTEM_TITLE", "行政后勤管理系统") + " - 服务端"
         self.root.title(self.system_title)
         
         # 设置窗口大小
@@ -569,7 +569,7 @@ class ServerGUI:
         if getattr(sys, 'frozen', False):
             app_name = os.path.splitext(os.path.basename(sys.executable))[0]
         else:
-            app_name = "宿舍管理系统"
+            app_name = "行政后勤管理系统"
         return os.path.join(startup_folder, f"{app_name}.lnk")
     
     def _is_auto_start_enabled(self):
@@ -614,7 +614,7 @@ class ServerGUI:
                 f"$sc = $ws.CreateShortcut('{lnk_path}'); "
                 f"$sc.TargetPath = '{target_path}'; "
                 f"$sc.WorkingDirectory = '{work_dir}'; "
-                f"$sc.Description = '宿舍管理系统开机自启'; "
+                f"$sc.Description = '行政后勤管理系统开机自启'; "
             )
             if arguments:
                 ps_command += f"$sc.Arguments = '{arguments}'; "

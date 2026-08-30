@@ -1,14 +1,14 @@
-; 宿舍管理系统安装程序脚本
+; 行政后勤管理系统安装程序脚本
 ; 使用Inno Setup创建Windows安装程序
 
 [Setup]
-AppName=宿舍管理系统
+AppName=行政后勤管理系统
 AppVersion=1.0
 AppPublisher=愿你三冬暖
 ;AppPublisherURL=https://your-website.com
 DefaultDirName={code:GetDefaultInstallationDir}
-DefaultGroupName=宿舍管理系统
-OutputBaseFilename=宿舍管理系统_Setup_v1.0
+DefaultGroupName=行政后勤管理系统
+OutputBaseFilename=行政后勤管理系统_Setup_v1.0
 ;SetupIconFile=favicon.ico ; 安装程序图标文件
 Compression=lzma
 SolidCompression=yes
@@ -37,7 +37,7 @@ Source: "pre_install_check.bat"; DestDir: "{tmp}"; Flags: deleteafterinstall
 Source: "webview2_detection.bat"; DestDir: "{tmp}"; Flags: deleteafterinstall
 
 ; 主程序文件 - PyInstaller单文件模式
-Source: "..\dist\宿舍管理系统.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\dist\行政后勤管理系统.exe"; DestDir: "{app}"; Flags: ignoreversion
 
 ; 配置数据文件 (程序运行时自动创建)
 
@@ -54,8 +54,8 @@ Name: "{app}\data\file_sharing"
 Name: "{app}\data\logs"
 
 [Icons]
-Name: "{group}\宿舍管理系统"; Filename: "{app}\宿舍管理系统.exe"
-Name: "{userdesktop}\宿舍管理系统"; Filename: "{app}\宿舍管理系统.exe"; Tasks: desktopicon
+Name: "{group}\行政后勤管理系统"; Filename: "{app}\行政后勤管理系统.exe"
+Name: "{userdesktop}\行政后勤管理系统"; Filename: "{app}\行政后勤管理系统.exe"; Tasks: desktopicon
 
 [Tasks]
 Name: "desktopicon"; Description: "创建桌面快捷方式"; GroupDescription: "附加图标"
@@ -105,19 +105,19 @@ begin
       ExtractTemporaryFile('webview2_detection.bat');
       if not Exec(ExpandConstant('{tmp}\webview2_detection.bat'), '', '', SW_SHOW, ewWaitUntilTerminated, ResultCode) then
       begin
-        MsgBox('无法运行WebView2检测脚本。您可能需要手动安装WebView2运行时才能使用宿舍管理系统。', mbInformation, MB_OK);
+        MsgBox('无法运行WebView2检测脚本。您可能需要手动安装WebView2运行时才能使用行政后勤管理系统。', mbInformation, MB_OK);
       end;
     end
     else if not WizardSilent then
     begin
       // 如果未选择检测任务且非静默安装，显示提示信息
-      MsgBox('您选择跳过WebView2运行时检测。请注意，宿舍管理系统需要WebView2运行时才能正常运行。如果程序无法启动，请手动安装WebView2运行时。', mbInformation, MB_OK);
+      MsgBox('您选择跳过WebView2运行时检测。请注意，行政后勤管理系统需要WebView2运行时才能正常运行。如果程序无法启动，请手动安装WebView2运行时。', mbInformation, MB_OK);
     end;
   end;
 end;
 
 [Run]
-Filename: "{app}\宿舍管理系统.exe"; Description: "{cm:LaunchProgram,宿舍管理系统}"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\行政后勤管理系统.exe"; Description: "{cm:LaunchProgram,行政后勤管理系统}"; Flags: nowait postinstall skipifsilent
 
 [UninstallDelete]
 ; 删除应用程序目录下的所有文件和子目录
@@ -127,7 +127,7 @@ Type: filesandordirs; Name: "{app}";
 Type: filesandordirs; Name: "{group}"
 
 ; 删除桌面快捷方式
-Type: files; Name: "{commondesktop}\宿舍管理系统.lnk"
+Type: files; Name: "{commondesktop}\行政后勤管理系统.lnk"
 
 ; 清除可能的临时文件和日志文件
 Type: files; Name: "{localappdata}\dorm_mgmt_system_dorm_mgmt_v1.0\*.log"
@@ -150,8 +150,8 @@ Type: filesandordirs; Name: "{localappdata}\Microsoft\Edge\User Data\Default\Ind
 
 ; 清理应用程序数据目录
 Type: filesandordirs; Name: "{localappdata}\dorm_mgmt_system_dorm_mgmt_v1.0"
-Type: filesandordirs; Name: "{localappdata}\宿舍管理系统"
-Type: filesandordirs; Name: "{localappdata}\宿舍管理系统"
+Type: filesandordirs; Name: "{localappdata}\行政后勤管理系统"
+Type: filesandordirs; Name: "{localappdata}\行政后勤管理系统"
 Type: filesandordirs; Name: "{userdocs}\dorm_mgmt_system_dorm_mgmt_v1.0"
 
 [Tasks]
@@ -179,9 +179,9 @@ Root: HKCU; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\FileExts
 Root: HKCU; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\UFH\SHC"; ValueType: none; Flags: uninsdeletekey; Tasks: cleanup
 Root: HKCU; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\RecentDocs\{#SetupSetting('AppId')}"; ValueType: none; Flags: uninsdeletekey; Tasks: cleanup
 ; 清理FeatureUsage中的应用切换记录
-Root: HKCU; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\FeatureUsage\AppSwitched\宿舍管理系统\宿舍管理系统.exe"; ValueType: none; Flags: uninsdeletekey; Tasks: cleanup
+Root: HKCU; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\FeatureUsage\AppSwitched\行政后勤管理系统\行政后勤管理系统.exe"; ValueType: none; Flags: uninsdeletekey; Tasks: cleanup
 ; 清理FeatureUsage中的应用程序父项记录
-Root: HKCU; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\FeatureUsage\AppSwitched\宿舍管理系统"; ValueType: none; Flags: uninsdeletekey; Tasks: cleanup
+Root: HKCU; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\FeatureUsage\AppSwitched\行政后勤管理系统"; ValueType: none; Flags: uninsdeletekey; Tasks: cleanup
 
 ; 清理兼容性助手记录
 Root: HKCU; Subkey: "SOFTWARE\Microsoft\Windows NT\CurrentVersion\AppCompatFlags\Compatibility Assistant\Store"; ValueType: none; Flags: uninsdeletekey; Tasks: cleanup
@@ -197,7 +197,7 @@ Root: HKCU; Subkey: "Software\Dormitory Management System"; ValueType: none; Fla
 
 [UninstallRun]
 ; 运行程序的卸载参数以执行自定义清理
-Filename: "{app}\宿舍管理系统.exe"; Parameters: "--uninstall"; RunOnceId: "UninstallApp";
+Filename: "{app}\行政后勤管理系统.exe"; Parameters: "--uninstall"; RunOnceId: "UninstallApp";
 ; 清理Flask-Login remember cookie和自定义会话cookie
 Filename: "{sys}\cmd.exe"; Parameters: "/C for /r ""%LOCALAPPDATA%\Microsoft\Windows\INetCookies"" %f in (*) do del /f /q ""%f"" >nul 2>&1"; Flags: runhidden; RunOnceId: "CleanupCookies1"
 Filename: "{sys}\cmd.exe"; Parameters: "/C for /r ""%APPDATA%\Microsoft\Windows\Cookies"" %f in (*) do del /f /q ""%f"" >nul 2>&1"; Flags: runhidden; RunOnceId: "CleanupCookies2"
@@ -225,7 +225,7 @@ Filename: "{sys}\cmd.exe"; Parameters: "/C timeout /t 2 >nul && rd /s /q ""{app}
 [Messages]
 cm:CreateDesktopIcon=创建桌面快捷方式
 cm:AdditionalIcons=附加图标
-cm:LaunchProgram=启动 宿舍管理系统
+cm:LaunchProgram=启动 行政后勤管理系统
 cm:CleanupDescription=完全清理所有程序数据，包括用户数据和设置
 cm:PreInstallCheck=检查并清理旧版本残留...
 cm:OldVersionFound=发现旧版本安装残留，正在清理...
@@ -241,7 +241,7 @@ function GetDefaultInstallationDir(Param: String): String;
 begin
   // 不根据权限强制设置路径，让用户自行选择
   // 提供合理的默认值（用户AppData目录），但用户可以在安装向导中修改
-  Result := ExpandConstant('{userappdata}\宿舍管理系统');
+  Result := ExpandConstant('{userappdata}\行政后勤管理系统');
 end;
 
 // 检查进程是否正在运行
@@ -309,7 +309,7 @@ var
 begin
   // 清理HKEY_LOCAL_MACHINE中的残留
   RootKey := HKEY_LOCAL_MACHINE;
-  SubKey := 'Software\宿舍管理系统';
+  SubKey := 'Software\行政后勤管理系统';
   if RegKeyExists(RootKey, SubKey) then
     RegDeleteKeyIncludingSubkeys(RootKey, SubKey);
     
@@ -320,7 +320,7 @@ begin
   
   // 清理HKEY_CURRENT_USER中的残留
   RootKey := HKEY_CURRENT_USER;
-  SubKey := 'Software\宿舍管理系统';
+  SubKey := 'Software\行政后勤管理系统';
   if RegKeyExists(RootKey, SubKey) then
     RegDeleteKeyIncludingSubkeys(RootKey, SubKey);
   
@@ -331,7 +331,7 @@ begin
   
   // 清理卸载信息中的残留
   RootKey := HKEY_LOCAL_MACHINE;
-  SubKey := 'Software\Microsoft\Windows\CurrentVersion\Uninstall\宿舍管理系统_is1';
+  SubKey := 'Software\Microsoft\Windows\CurrentVersion\Uninstall\行政后勤管理系统_is1';
   if RegKeyExists(RootKey, SubKey) then
     RegDeleteKeyIncludingSubkeys(RootKey, SubKey);
     
@@ -342,7 +342,7 @@ begin
   
   // 清理FeatureUsage相关残留
   RootKey := HKEY_CURRENT_USER;
-  SubKey := 'SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\FeatureUsage\AppSwitched\宿舍管理系统';
+  SubKey := 'SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\FeatureUsage\AppSwitched\行政后勤管理系统';
   if RegKeyExists(RootKey, SubKey) then
     RegDeleteKeyIncludingSubkeys(RootKey, SubKey);
     
@@ -373,8 +373,8 @@ begin
   // 检查是否有管理员权限
   if IsAdminLoggedOn() then
   begin
-    // 动态清理BAM服务用户设置记录中与宿舍管理系统相关的记录
-    ShellExec('', 'cmd.exe', '/C for /f "usebackq tokens=1,2* delims= " %a in (`reg query "HKLM\SYSTEM\CurrentControlSet\Services\bam\State\UserSettings" /s /f "*宿舍管理系统*" /t REG_BINARY 2^>nul`) do @(if /i "%c"=="REG_BINARY" (reg delete "%a %b" /f))', '', SW_HIDE, ewNoWait, ResultCode);
+    // 动态清理BAM服务用户设置记录中与行政后勤管理系统相关的记录
+    ShellExec('', 'cmd.exe', '/C for /f "usebackq tokens=1,2* delims= " %a in (`reg query "HKLM\SYSTEM\CurrentControlSet\Services\bam\State\UserSettings" /s /f "*行政后勤管理系统*" /t REG_BINARY 2^>nul`) do @(if /i "%c"=="REG_BINARY" (reg delete "%a %b" /f))', '', SW_HIDE, ewNoWait, ResultCode);
     // 清理英文名称的BAM记录
     ShellExec('', 'cmd.exe', '/C for /f "usebackq tokens=1,2* delims= " %a in (`reg query "HKLM\SYSTEM\CurrentControlSet\Services\bam\State\UserSettings" /s /f "*Dormitory*" /t REG_BINARY 2^>nul`) do @(if /i "%c"=="REG_BINARY" (reg delete "%a %b" /f))', '', SW_HIDE, ewNoWait, ResultCode);
   end;
@@ -385,8 +385,8 @@ procedure CleanupPrefetchFiles();
 var
   ResultCode: Integer;
 begin
-  // 清理宿舍管理系统相关的所有预取文件（包括不同后缀格式）
-  ShellExec('', 'cmd.exe', '/C del /f /q "C:\Windows\prefetch\宿舍管理系统-*" >nul 2>&1', '', SW_HIDE, ewNoWait, ResultCode);
+  // 清理行政后勤管理系统相关的所有预取文件（包括不同后缀格式）
+  ShellExec('', 'cmd.exe', '/C del /f /q "C:\Windows\prefetch\行政后勤管理系统-*" >nul 2>&1', '', SW_HIDE, ewNoWait, ResultCode);
   // 清理英文名称的预取文件
   ShellExec('', 'cmd.exe', '/C del /f /q "C:\Windows\prefetch\DORMITORY-*" >nul 2>&1', '', SW_HIDE, ewNoWait, ResultCode);
   ShellExec('', 'cmd.exe', '/C del /f /q "C:\Windows\prefetch\DORM_MANAGEMENT-*" >nul 2>&1', '', SW_HIDE, ewNoWait, ResultCode);

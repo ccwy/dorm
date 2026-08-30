@@ -79,7 +79,7 @@ def index():
         categories = SystemConfig.get_config_value('ASSET_CATEGORIES', ['办公设备', '家具', '交通工具', '电子设备', '机械设备', '其他'])
         statuses = SystemConfig.get_config_value('ASSET_STATUSES', ['在用', '闲置', '维修中', '已报废', '已转移', '已出售'])
         departments = Department.get_all_names()  # 用于筛选下拉选项
-        locations = StorageLocation.get_all_names()
+        locations = StorageLocation.get_all_names(usage_type='fixed_asset')
         companies = Department.get_all_companies()
 
         # 构建查询
@@ -557,7 +557,7 @@ def add_page():
         active_departments = []
 
     try:
-        locations = StorageLocation.get_all_names()
+        locations = StorageLocation.get_all_names(usage_type='fixed_asset')
     except Exception as e:
         logging.warning(f"获取存放位置列表失败: {str(e)}")
         locations = []
@@ -649,7 +649,7 @@ def edit_page(id):
         active_departments = []
 
     try:
-        locations = StorageLocation.get_all_names()
+        locations = StorageLocation.get_all_names(usage_type='fixed_asset')
     except Exception as e:
         logging.warning(f"获取存放位置列表失败: {str(e)}")
         locations = []
@@ -743,7 +743,7 @@ def transfer_page(id):
         active_departments = []
 
     try:
-        locations = StorageLocation.get_all_names()
+        locations = StorageLocation.get_all_names(usage_type='fixed_asset')
     except Exception as e:
         logging.warning(f"获取存放位置列表失败: {str(e)}")
         locations = []
