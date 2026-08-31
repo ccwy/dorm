@@ -135,6 +135,9 @@ class ServerGUI:
         mode_and_port_frame = ttk.Frame(mode_frame)
         mode_and_port_frame.pack(fill=tk.X, pady=5)
         
+        # Win7版本模式说明标签
+        ttk.Label(mode_frame, text="（Win7版本仅支持服务端模式）", foreground="gray").pack(anchor=tk.W, pady=(0, 5))
+        
         # 左侧放置启动模式选择
         mode_options_frame = ttk.Frame(mode_and_port_frame)
         mode_options_frame.pack(side=tk.LEFT)
