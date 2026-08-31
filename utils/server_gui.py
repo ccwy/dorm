@@ -162,8 +162,7 @@ class ServerGUI:
         )
         server_rb.pack(side=tk.LEFT, padx=10)
         
-        # Win7版本模式说明标签
-        ttk.Label(mode_options_frame, text="（Win7版本仅支持服务端模式）", foreground="gray").pack(side=tk.LEFT, padx=5)
+
         
         # 右侧放置开机自启和端口设置
         right_frame = ttk.Frame(mode_and_port_frame)
