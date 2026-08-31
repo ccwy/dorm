@@ -10,12 +10,11 @@ import os
 
 
 class ProcessCleaner:
-    def __init__(self, app=None, server_thread=None, webview_ref=None):
+    def __init__(self, app=None, server_thread=None):
         """初始化进程清理器，平衡清理彻底性和无报错"""
         self.main_pid = os.getpid()
         self.app = app
         self.server_thread = server_thread
-        self.webview_ref = webview_ref
         self.registered = False
         self.cleanup_count = 0  # 记录清理次数
         self.max_cleanup_attempts = 2  # 最多允许2次清理尝试，避免重复执行
@@ -23,14 +22,12 @@ class ProcessCleaner:
         self.processed_pids = set()
         self.exit_called = False  # 跟踪是否已调用过sys.exit
 
-    def set_resources(self, app=None, server_thread=None, webview_ref=None):
+    def set_resources(self, app=None, server_thread=None):
         """更新资源引用"""
         if app:
             self.app = app
         if server_thread:
             self.server_thread = server_thread
-        if webview_ref:
-            self.webview_ref = webview_ref
 
     def cleanup_database_connections(self):
         """清理数据库连接"""
@@ -121,52 +118,6 @@ class ProcessCleaner:
             logging.error("无法导入psutil模块，无法终止子进程")
         except Exception as e:
             logging.error(f"终止子进程过程中发生错误: {str(e)}")
-
-    def close_webview(self):
-        """关闭webview窗口（终极增强版：解决'master'错误，确保彻底关闭）"""
-        # 检查webview是否可用
-        if not self._is_webview_available():
-            logging.warning("webview模块不可用，跳过关闭操作")
-            return
-
-        try:
-            import webview
-            
-            # 策略1: 尝试通过webview.windows列表关闭所有窗口
-            try:
-                if hasattr(webview, 'windows') and webview.windows:
-                    logging.info(f"发现{len(webview.windows)}个WebView窗口，尝试逐个关闭")
-                    windows_closed = 0
-                    for window in webview.windows:
-                        try:
-                            if hasattr(window, 'destroy'):
-                                window.destroy()
-                                windows_closed += 1
-                            elif hasattr(window, 'close'):
-                                window.close()
-                                windows_closed += 1
-                        except Exception as e:
-                            logging.warning(f"关闭窗口实例失败: {str(e)}")
-                    
-                    if windows_closed > 0:
-                        logging.info(f"成功关闭{windows_closed}个窗口")
-                        time.sleep(0.5)
-                        return
-            except Exception as e:
-                logging.warning(f"通过webview.windows关闭失败: {str(e)}")
-            
-        except AttributeError as e:
-            logging.error(f"关闭Webview时发生属性错误: {str(e)}")
-        except Exception as e:
-            logging.error(f"关闭Webview时发生异常: {str(e)}")
-
-    def _is_webview_available(self):
-        """检查webview模块是否可用"""
-        try:
-            import webview
-            return True
-        except ImportError:
-            return False
 
     def auto_logout_users(self):
         """自动退出所有登录用户的会话 - 使用多层次清理策略"""
@@ -276,16 +227,7 @@ class ProcessCleaner:
             except Exception as e:
                 logging.error(f"数据库连接清理失败: {str(e)}")
 
-            # 3. 关闭webview窗口（终极增强版：尝试多次不同方法）
-            try:
-                # 尝试正常关闭
-                logging.info("关闭WebView窗口")
-                self.close_webview()
-                time.sleep(0.5)
-            except Exception as e:
-                logging.error(f"关闭WebView窗口失败: {str(e)}")
-
-            # 4. 终止服务器线程（终极增强版：分阶段强制终止）
+            # 3. 终止服务器线程（终极增强版：分阶段强制终止）
             if self.server_thread and self.server_thread.is_alive():
                 logging.info("尝试终止服务器线程...")
                 try:
