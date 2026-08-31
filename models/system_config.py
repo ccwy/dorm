@@ -806,16 +806,6 @@ class SystemConfig(db.Model):
                 'sort_order': 20
             },
 
-            # 默认优先级
-            {
-                'config_key': 'MAINTENANCE_DEFAULT_PRIORITY',
-                'config_value': '一般',
-                'config_type': 'string',
-                'category': 'maintenance',
-                'description': '维修工单默认优先级',
-                'is_editable': True,
-                'sort_order': 30
-            }
 
         ]
     
