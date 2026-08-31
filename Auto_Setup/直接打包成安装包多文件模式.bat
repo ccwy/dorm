@@ -1,87 +1,87 @@
 @echo off
 setlocal enabledelayedexpansion
 
-:: ï¿½ï¿½Ä¿ï¿½ï¿½Ä¿Â¼
+:: ÏîÄ¿¸ùÄ¿Â¼
 cd /d "%~dp0.."
 set "PROJECT_DIR=%cd%"
 set "DEST_DIR=%PROJECT_DIR%\Auto_Setup\Output"
 
-:: ï¿½ï¿½Ê¾ï¿½ï¿½Ê¼ï¿½ï¿½Ï¢ï¿½ï¿½Ê±ï¿½ï¿½
+:: ÏÔÊ¾¿ªÊ¼ÐÅÏ¢¼°Ê±¼ä
 echo ==============================================
-echo ï¿½ï¿½Ê¼Ö´ï¿½ï¿½Pythonï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½×°ï¿½ï¿½ï¿½Ì£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä£Ê½ï¿½ï¿½
-echo ï¿½ï¿½Ê¼Ê±ï¿½ï¿½: %date% %time:~0,8%
-echo ï¿½ï¿½Ä¿Â·ï¿½ï¿½: %PROJECT_DIR%
+echo ¿ªÊ¼Ö´ÐÐPython³ÌÐòÒ»¼ü·â×°Á÷³Ì£¨µ¥´°¿ÚÄ£Ê½£©
+echo ¿ªÊ¼Ê±¼ä: %date% %time:~0,8%
+echo ÏîÄ¿Â·¾¶: %PROJECT_DIR%
 echo ==============================================
 echo.
 
-:: ï¿½Ð»ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿Ä¿Â¼
-echo [%date% %time:~0,8%] ï¿½Ð»ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿Ä¿Â¼...
+:: ÇÐ»»µ½ÏîÄ¿Ä¿Â¼
+echo [%date% %time:~0,8%] ÇÐ»»µ½ÏîÄ¿Ä¿Â¼...
 cd /d "%PROJECT_DIR%"
 if %errorlevel% neq 0 (
-    echo [%date% %time:~0,8%] ï¿½ï¿½ï¿½ï¿½ï¿½Þ·ï¿½ï¿½Ð»ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿Ä¿Â¼ %PROJECT_DIR%
+    echo [%date% %time:~0,8%] ´íÎó£ºÎÞ·¨ÇÐ»»µ½ÏîÄ¿Ä¿Â¼ %PROJECT_DIR%
     pause
     exit /b 1
 )
 
-:: ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½Ä¼ï¿½ï¿½ï¿½
+:: ¿ªÊ¼ÇåÀíÁÙÊ±ÎÄ¼þ¼Ð
 echo.
-echo [%date% %time:~0,8%] ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½Ä¼ï¿½...
+echo [%date% %time:~0,8%] ¿ªÊ¼ÇåÀíÁÙÊ±ÎÄ¼þ...
 if exist "%PROJECT_DIR%\build" (
     rmdir /s /q "%PROJECT_DIR%\build"
-    echo [%date% %time:~0,8%] ï¿½ï¿½É¾ï¿½ï¿½buildï¿½Ä¼ï¿½ï¿½ï¿½
+    echo [%date% %time:~0,8%] ÒÑÉ¾³ýbuildÎÄ¼þ¼Ð
 )
 if exist "%PROJECT_DIR%\__pycache__" (
     rmdir /s /q "%PROJECT_DIR%\__pycache__"
-    echo [%date% %time:~0,8%] ï¿½ï¿½É¾ï¿½ï¿½__pycache__ï¿½Ä¼ï¿½ï¿½ï¿½
+    echo [%date% %time:~0,8%] ÒÑÉ¾³ý__pycache__ÎÄ¼þ¼Ð
 )
 if exist "%PROJECT_DIR%\dist" (
     rmdir /s /q "%PROJECT_DIR%\dist"
-    echo [%date% %time:~0,8%] ï¿½ï¿½É¾ï¿½ï¿½distï¿½Ä¼ï¿½ï¿½ï¿½
+    echo [%date% %time:~0,8%] ÒÑÉ¾³ýdistÎÄ¼þ¼Ð
 )
 for /d /r "%PROJECT_DIR%" %%d in (__pycache__) do (
     if exist "%%d" (
         rmdir /s /q "%%d"
-        echo [%date% %time:~0,8%] ï¿½ï¿½É¾ï¿½ï¿½%%d
+        echo [%date% %time:~0,8%] ÒÑÉ¾³ý%%d
     )
 )
 if exist "%PROJECT_DIR%\data" (
     rmdir /s /q "%PROJECT_DIR%\data"
-    echo [%date% %time:~0,8%] ï¿½ï¿½É¾ï¿½ï¿½dataï¿½Ä¼ï¿½ï¿½ï¿½
+    echo [%date% %time:~0,8%] ÒÑÉ¾³ýdataÎÄ¼þ¼Ð
 )
 
-:: ï¿½ï¿½ï¿½Pythonï¿½Ç·ï¿½×°
-echo [%date% %time:~0,8%] ï¿½ï¿½ï¿½Pythonï¿½Ç·ï¿½×°...
+:: ¼ì²éPythonÊÇ·ñ°²×°
+echo [%date% %time:~0,8%] ¼ì²éPythonÊÇ·ñ°²×°...
 python --version >nul 2>&1
 if %errorlevel% neq 0 (
-    echo [%date% %time:~0,8%] ï¿½ï¿½ï¿½ï¿½Î´ï¿½Òµï¿½Pythonï¿½ï¿½ï¿½ï¿½È·ï¿½ï¿½Pythonï¿½ï¿½ï¿½ï¿½È·ï¿½ï¿½×°ï¿½ï¿½ï¿½ï¿½ï¿½Óµï¿½ÏµÍ³PATHï¿½ï¿½
+    echo [%date% %time:~0,8%] ´íÎó£ºÎ´ÕÒµ½Python£¬ÇëÈ·±£PythonÒÑÕýÈ·°²×°²¢Ìí¼Óµ½ÏµÍ³PATH¡£
     pause
     exit /b 1
 ) else (
-    echo [%date% %time:~0,8%] Pythonï¿½Ñ°ï¿½×°ï¿½ï¿½ï¿½ï¿½ï¿½Ô¶ï¿½Ö´ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½...
+    echo [%date% %time:~0,8%] PythonÒÑ°²×°£¬½«×Ô¶¯Ö´ÐÐÏÂÒ»²½...
 )
 
-:: ï¿½ï¿½ï¿½pyinstallerï¿½Ç·ï¿½ï¿½Ñ°ï¿½×°
-echo [%date% %time:~0,8%] ï¿½ï¿½ï¿½pyinstallerï¿½Ç·ï¿½ï¿½Ñ°ï¿½×°...
+:: ¼ì²âpyinstallerÊÇ·ñÒÑ°²×°
+echo [%date% %time:~0,8%] ¼ì²âpyinstallerÊÇ·ñÒÑ°²×°...
 python -m pip show pyinstaller >nul 2>&1
 if %errorlevel% equ 0 (
-    echo [%date% %time:~0,8%] pyinstaller ï¿½Ñ°ï¿½×°ï¿½ï¿½ï¿½Ô¶ï¿½Ö´ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½...
+    echo [%date% %time:~0,8%] pyinstaller ÒÑ°²×°£¬×Ô¶¯Ö´ÐÐÏÂÒ»²½...
 ) else (
-	echo [%date% %time:~0,8%] pyinstaller Î´ï¿½ï¿½×°ï¿½ï¿½ï¿½ï¿½Ê¼ï¿½ï¿½×°...
+	echo [%date% %time:~0,8%] pyinstaller Î´°²×°£¬¿ªÊ¼°²×°...
 	pip install pyinstaller==6.16
 	if %errorlevel% equ 0 (
-		echo [%date% %time:~0,8%] pyinstaller ï¿½ï¿½×°ï¿½É¹ï¿½ï¿½ï¿½ï¿½Ô¶ï¿½Ö´ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½...
+		echo [%date% %time:~0,8%] pyinstaller °²×°³É¹¦£¡×Ô¶¯Ö´ÐÐÏÂÒ»²½...
 	) else (
-		echo [%date% %time:~0,8%] ï¿½ï¿½ï¿½ï¿½pyinstaller ï¿½ï¿½×°Ê§ï¿½Ü£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ó»ï¿½È¨ï¿½ï¿½ï¿½ï¿½ï¿½â¡£
+		echo [%date% %time:~0,8%] ´íÎó£ºpyinstaller °²×°Ê§°Ü£¬Çë¼ì²éÍøÂçÁ¬½Ó»òÈ¨ÏÞÎÊÌâ¡£
 		pause
 		exit /b 1
 	)
 )
 
-:: ï¿½ï¿½â²¢ï¿½ï¿½×°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+:: ¼ì²â²¢°²×°ËùÐèÒÀÀµ
 echo.
-echo [%date% %time:~0,8%] ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½...
+echo [%date% %time:~0,8%] ¿ªÊ¼¼ì²âÏîÄ¿ÒÀÀµ...
 
-:: ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Òªï¿½ï¿½ï¿½Í°ï¿½×°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð±ï¿½ï¿½ï¿½Ê¹ï¿½Ã±ï¿½Å±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½â£©
+:: ¶¨ÒåÐèÒª¼ì²âºÍ°²×°µÄÒÀÀµÁÐ±í£¨Ê¹ÓÃ±àºÅ±ÜÃâ½âÎöÎÊÌâ£©
 set "dep1=Flask>=2.3.3"
 set "dep2=Flask-SQLAlchemy>=3.1.1"
 set "dep3=Flask-WTF>=1.2.1"
@@ -104,97 +104,97 @@ set "dep19=psutil>=5.9.8,<6.0"
 set "dep20=Pillow>=10.4.0,<11.0"
 set "dep21=pystray>=0.19.5"
 
-:: Ñ­ï¿½ï¿½ï¿½ï¿½â²¢ï¿½ï¿½×°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¹ï¿½Ã±ï¿½ï¿½Ñ­ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö·ï¿½ï¿½ï¿½ï¿½â£©
+:: Ñ­»·¼ì²â²¢°²×°ÒÀÀµ£¨Ê¹ÓÃ±àºÅÑ­»·±ÜÃâÌØÊâ×Ö·ûÎÊÌâ£©
 for /l %%i in (1,1,21) do (
-    :: ï¿½ï¿½È¡ï¿½ï¿½Ç°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+    :: »ñÈ¡µ±Ç°ÒÀÀµÏî
     set "current_dep=!dep%%i!"
     
-    :: ï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È¥ï¿½ï¿½ï¿½æ±¾ï¿½ï¿½Ï¢ï¿½ï¿½
+    :: ÌáÈ¡°üÃû£¨È¥µô°æ±¾ÐÅÏ¢£©
     for /f "delims==<>" %%p in ("!current_dep!") do set "package=%%p"
     
     echo.
-    echo [%date% %time:~0,8%] ï¿½ï¿½ï¿½ !package! ï¿½Ç·ï¿½×°...
+    echo [%date% %time:~0,8%] ¼ì²â !package! ÊÇ·ñ°²×°...
     python -m pip show "!package!" >nul 2>&1
     if !errorlevel! equ 0 (
-        echo [%date% %time:~0,8%] !package! ï¿½Ñ°ï¿½×°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½...
+        echo [%date% %time:~0,8%] !package! ÒÑ°²×°£¬Ìø¹ý...
     ) else (
-        echo [%date% %time:~0,8%] !package! Î´ï¿½ï¿½×°ï¿½ï¿½ï¿½ï¿½Ê¼ï¿½ï¿½×° !current_dep!...
+        echo [%date% %time:~0,8%] !package! Î´°²×°£¬¿ªÊ¼°²×° !current_dep!...
         pip install "!current_dep!"
         if !errorlevel! equ 0 (
-            echo [%date% %time:~0,8%] !package! ï¿½ï¿½×°ï¿½É¹ï¿½ï¿½ï¿½
+            echo [%date% %time:~0,8%] !package! °²×°³É¹¦£¡
         ) else (
-            echo [%date% %time:~0,8%] ï¿½ï¿½ï¿½ï¿½!package! ï¿½ï¿½×°Ê§ï¿½ï¿½
+            echo [%date% %time:~0,8%] ´íÎó£º!package! °²×°Ê§°Ü
             pause
             exit /b 1
         )
     )
 )
 echo.
-echo [%date% %time:~0,8%] ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í°ï¿½×°ï¿½ï¿½ï¿½...
+echo [%date% %time:~0,8%] ËùÓÐÒÀÀµ¼ì²âºÍ°²×°Íê³É...
 
-:: Ö±ï¿½Óµï¿½ï¿½ï¿½pyinstallerï¿½ï¿½Í¬Ò»ï¿½ï¿½ï¿½ï¿½Ö´ï¿½Ð£ï¿½ï¿½Ô¶ï¿½ï¿½È´ï¿½ï¿½ï¿½É£ï¿½
+:: Ö±½Óµ÷ÓÃpyinstaller£¨Í¬Ò»´°¿ÚÖ´ÐÐ£¬×Ô¶¯µÈ´ýÍê³É£©
 echo.
-echo [%date% %time:~0,8%] ï¿½ï¿½Ê¼Ê¹ï¿½ï¿½pyinstallerï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½...
+echo [%date% %time:~0,8%] ¿ªÊ¼Ê¹ÓÃpyinstaller´ò°ü³ÌÐò...
 echo y | pyinstaller "%PROJECT_DIR%\Auto_Setup\dorm_management_multifile.spec"
 if %errorlevel% neq 0 (
-    echo [%date% %time:~0,8%] ï¿½ï¿½ï¿½ï¿½pyinstallerï¿½ï¿½ï¿½Ê§ï¿½ï¿½
+    echo [%date% %time:~0,8%] ´íÎó£ºpyinstaller´ò°üÊ§°Ü
     pause
     exit /b 1
 )
 
-:: ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾
+:: ´ò°üÍê³ÉÌáÊ¾
 echo.
 echo [%date% %time:~0,8%] ==============================================
-echo [%date% %time:~0,8%] Pythonï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½...
-echo [%date% %time:~0,8%] ï¿½È´ï¿½ï¿½ï¿½É±ï¿½ï¿½ï¿½ï¿½ï¿½Ô¶ï¿½ï¿½ï¿½ï¿½ë°²×°ï¿½ï¿½ï¿½ï¿½ï¿½É²ï¿½ï¿½ï¿½...
+echo [%date% %time:~0,8%] Python³ÌÐò´ò°üÒÑÍê³É...
+echo [%date% %time:~0,8%] µÈ´ýÍê³É±£´æºó½«×Ô¶¯½øÈë°²×°°üÉú³É²½Öè...
 timeout /t 2 /nobreak >nul
 echo [%date% %time:~0,8%] ==============================================
 
-:: Ö±ï¿½Óµï¿½ï¿½ï¿½Inno Setupï¿½ï¿½Í¬Ò»ï¿½ï¿½ï¿½ï¿½Ö´ï¿½Ð£ï¿½ï¿½Ô¶ï¿½ï¿½È´ï¿½ï¿½ï¿½É£ï¿½
+:: Ö±½Óµ÷ÓÃInno Setup£¨Í¬Ò»´°¿ÚÖ´ÐÐ£¬×Ô¶¯µÈ´ýÍê³É£©
 echo.
-echo [%date% %time:~0,8%] ï¿½ï¿½Ê¼Ê¹ï¿½ï¿½Inno Setupï¿½ï¿½ï¿½É°ï¿½×°ï¿½ï¿½...
+echo [%date% %time:~0,8%] ¿ªÊ¼Ê¹ÓÃInno SetupÉú³É°²×°°ü...
 "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "%PROJECT_DIR%\Auto_Setup\installer_script_multifile.iss"
 if %errorlevel% neq 0 (
-    echo [%date% %time:~0,8%] ï¿½ï¿½ï¿½ï¿½Inno Setupï¿½ï¿½ï¿½É°ï¿½×°ï¿½ï¿½Ê§ï¿½ï¿½
+    echo [%date% %time:~0,8%] ´íÎó£ºInno SetupÉú³É°²×°°üÊ§°Ü
     pause
     exit /b 1
 )
 
 
-:: ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½Ä¼ï¿½ï¿½ï¿½
+:: ÇåÀíÁÙÊ±ÎÄ¼þ¼Ð
 echo.
-echo [%date% %time:~0,8%] ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½Ä¼ï¿½...
+echo [%date% %time:~0,8%] ¿ªÊ¼ÇåÀíÁÙÊ±ÎÄ¼þ...
 if exist "%PROJECT_DIR%\build" (
     rmdir /s /q "%PROJECT_DIR%\build"
-    echo [%date% %time:~0,8%] ï¿½ï¿½É¾ï¿½ï¿½buildï¿½Ä¼ï¿½ï¿½ï¿½
+    echo [%date% %time:~0,8%] ÒÑÉ¾³ýbuildÎÄ¼þ¼Ð
 )
 if exist "%PROJECT_DIR%\__pycache__" (
     rmdir /s /q "%PROJECT_DIR%\__pycache__"
-    echo [%date% %time:~0,8%] ï¿½ï¿½É¾ï¿½ï¿½__pycache__ï¿½Ä¼ï¿½ï¿½ï¿½
+    echo [%date% %time:~0,8%] ÒÑÉ¾³ý__pycache__ÎÄ¼þ¼Ð
 )
 if exist "%PROJECT_DIR%\dist" (
     rmdir /s /q "%PROJECT_DIR%\dist"
-    echo [%date% %time:~0,8%] ï¿½ï¿½É¾ï¿½ï¿½distï¿½Ä¼ï¿½ï¿½ï¿½
+    echo [%date% %time:~0,8%] ÒÑÉ¾³ýdistÎÄ¼þ¼Ð
 )
 for /d /r "%PROJECT_DIR%" %%d in (__pycache__) do (
     if exist "%%d" (
         rmdir /s /q "%%d"
-        echo [%date% %time:~0,8%] ï¿½ï¿½É¾ï¿½ï¿½%%d
+        echo [%date% %time:~0,8%] ÒÑÉ¾³ý%%d
     )
 )
 if exist "%PROJECT_DIR%\data" (
     rmdir /s /q "%PROJECT_DIR%\data"
-    echo [%date% %time:~0,8%] ï¿½ï¿½É¾ï¿½ï¿½dataï¿½Ä¼ï¿½ï¿½ï¿½
+    echo [%date% %time:~0,8%] ÒÑÉ¾³ýdataÎÄ¼þ¼Ð
 )
 
-:: ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾
+:: Íê³ÉÌáÊ¾
 echo.
 echo [%date% %time:~0,8%] ==============================================
-echo [%date% %time:~0,8%] ï¿½ï¿½ï¿½Ð²ï¿½ï¿½ï¿½ï¿½Ñ³É¹ï¿½ï¿½ï¿½É£ï¿½
-echo [%date% %time:~0,8%] ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í°ï¿½×°ï¿½ï¿½ï¿½ï¿½ï¿½É¾ï¿½ï¿½ï¿½ï¿½Ô¶ï¿½ï¿½ï¿½É£ï¿½
-echo [%date% %time:~0,8%] ï¿½ï¿½ï¿½ï¿½Îªï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½É«ï¿½æ±¾ï¿½ï¿½
-echo [%date% %time:~0,8%] ï¿½ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½Ñ±ï¿½ï¿½ï¿½ï¿½ï¿½: %DEST_DIR%
-echo ï¿½ï¿½ï¿½Ê±ï¿½ï¿½: %date% %time:~0,8%
+echo [%date% %time:~0,8%] ËùÓÐ²Ù×÷ÒÑ³É¹¦Íê³É£¡
+echo [%date% %time:~0,8%] ³ÌÐò´ò°üºÍ°²×°°üÉú³É¾ùÒÑ×Ô¶¯Íê³É£¡
+echo [%date% %time:~0,8%] ±¾´ÎÎª¶àÎÄ¼þÂÌÉ«°æ±¾£¡
+echo [%date% %time:~0,8%] Êä³öÎÄ¼þÒÑ±£´æÖÁ: %DEST_DIR%
+echo Íê³ÉÊ±¼ä: %date% %time:~0,8%
 echo [%date% %time:~0,8%] ==============================================
 
 pause

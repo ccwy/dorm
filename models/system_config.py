@@ -265,6 +265,16 @@ class SystemConfig(db.Model):
                 'is_editable': True,
                 'sort_order': 140
             },
+            # 后勤维修功能开关
+            {
+                'config_key': 'FEATURE_MAINTENANCE_MANAGE_ENABLED',
+                'config_value': 'true',
+                'config_type': 'bool',
+                'category': 'system.feature',
+                'description': '后勤维修功能开关',
+                'is_editable': True,
+                'sort_order': 150
+            },
             
             # 3. 用户管理配置 (category: user)
             {
@@ -682,6 +692,16 @@ class SystemConfig(db.Model):
                 'sort_order': 60
             },
             {
+                'config_key': 'supply_inventory_unapprove_enabled',
+                'config_value': 'true',
+                'config_type': 'bool',
+                'category': 'supply',
+                'description': '启用低值易耗品盘点反审核功能（允许已完成盘点单反审核回退到进行中）',
+                'is_editable': True,
+                'is_system': False,
+                'sort_order': 70
+            },
+            {
                 'config_key': 'supply_default_min_stock',
                 'config_value': '10',
                 'config_type': 'int',
@@ -689,7 +709,7 @@ class SystemConfig(db.Model):
                 'description': '默认最低库存数量',
                 'is_editable': True,
                 'is_system': False,
-                'sort_order': 70
+                'sort_order': 80
             },
             {
                 'config_key': 'supply_units',
@@ -699,7 +719,7 @@ class SystemConfig(db.Model):
                 'description': '预设单位选项（逗号分隔）',
                 'is_editable': True,
                 'is_system': False,
-                'sort_order': 80
+                'sort_order': 90
             },
             {
                 'config_key': 'supply_categories',
@@ -709,7 +729,7 @@ class SystemConfig(db.Model):
                 'description': '物品分类选项（逗号分隔，第一个为默认值）',
                 'is_editable': True,
                 'is_system': False,
-                'sort_order': 85
+                'sort_order': 100
             },
             {
                 'config_key': 'supply_number_prefix',
@@ -719,7 +739,7 @@ class SystemConfig(db.Model):
                 'description': '各单据编号前缀配置',
                 'is_editable': True,
                 'is_system': False,
-                'sort_order': 90
+                'sort_order': 110
             },
             
             {
@@ -730,7 +750,7 @@ class SystemConfig(db.Model):
                 'description': '入库类型选项（逗号分隔，第一个为默认值）',
                 'is_editable': True,
                 'is_system': False,
-                'sort_order': 100
+                'sort_order': 110
             },
             {
                 'config_key': 'stock_out_types',
@@ -740,7 +760,7 @@ class SystemConfig(db.Model):
                 'description': '出库类型选项（逗号分隔，第一个为默认值）',
                 'is_editable': True,
                 'is_system': False,
-                'sort_order': 110
+                'sort_order': 120
             },
             {
                 'config_key': 'storage_location_usage_types',
@@ -750,19 +770,9 @@ class SystemConfig(db.Model):
                 'description': '存放位置使用类型选项（逗号分隔，第一个为默认值）',
                 'is_editable': True,
                 'is_system': False,
-                'sort_order': 120
-            },
-            {
-                'config_key': 'supply_inventory_unapprove_enabled',
-                'config_value': 'true',
-                'config_type': 'bool',
-                'category': 'supply',
-                'description': '启用低值易耗品盘点反审核功能（允许已完成盘点单反审核回退到进行中）',
-                'is_editable': True,
-                'is_system': False,
                 'sort_order': 130
             },
-    
+            
             # 合同类型配置
             {
                 'config_key': 'CONTRACT_TYPES',
@@ -794,16 +804,7 @@ class SystemConfig(db.Model):
                 'sort_order': 30
             },
 
-            # 后勤维修功能开关
-            {
-                'config_key': 'FEATURE_MAINTENANCE_MANAGE_ENABLED',
-                'config_value': 'true',
-                'config_type': 'bool',
-                'category': 'system.feature',
-                'description': '后勤维修功能开关',
-                'is_editable': True,
-                'sort_order': 150
-            },
+            
 
             # 维修类型列表
             {
@@ -825,8 +826,7 @@ class SystemConfig(db.Model):
                 'description': '维修工单自动分配开关（开启后新工单自动分配给空闲维修员）',
                 'is_editable': True,
                 'sort_order': 20
-            },
-
+            }
 
         ]
     

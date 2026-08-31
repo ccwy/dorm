@@ -34,9 +34,9 @@ https://github.com/ccwy/dorm/releases
 
 #### 系统要求
     - Windows 7 SP1（32位或64位）以上系统
-    - win7以上需要安装 VC++ 2015-2019 运行时（x86）
+    - 需要安装 VC++ 2015-2019 运行时（x86）
     - win7建议安装 Windows 更新 KB2999226
-    - 需要安装现代浏览器（Chrome 109+ 或 Firefox 115 ESR 推荐）
+    - 服务器模式需要安装现代浏览器（Chrome 109+ 或 Firefox 115 ESR 推荐）
     - win7仅支持服务器模式运行
     - **不支持 IE11**
     - win10以上需要安装WebView2 运行时
@@ -53,5 +53,14 @@ https://github.com/ccwy/dorm/releases
     docker amd64打包文件已上传，自行部署即可
     启动可能较慢，耐心等待，因为加载的东西较多原因。
 
+### 数据库
 
+    - 支持sqlist
+    - 支持MySQL
+    - 启动时默认是sqlist
+
+### docker文件映射
+    - docker下需要映射数据及存储文件夹
+    - /data
+    - 上面是docker内映射系统
 
