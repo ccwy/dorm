@@ -265,6 +265,16 @@ class SystemConfig(db.Model):
                 'is_editable': True,
                 'sort_order': 140
             },
+            # 后勤维修功能开关
+            {
+                'config_key': 'FEATURE_MAINTENANCE_MANAGE_ENABLED',
+                'config_value': 'true',
+                'config_type': 'bool',
+                'category': 'system.feature',
+                'description': '后勤维修功能开关',
+                'is_editable': True,
+                'sort_order': 150
+            },
             
             # 3. 用户管理配置 (category: user)
             {
@@ -711,16 +721,7 @@ class SystemConfig(db.Model):
                 'is_system': False,
                 'sort_order': 90
             },
-            {
-                'config_key': 'STORAGE_LOCATION_USAGE_TYPES',
-                'config_value': '低值易耗品,固定资产,合同管理',
-                'config_type': 'list',
-                'category': 'supply_manage',
-                'description': '存放位置使用类型选项',
-                'is_editable': True,
-                'is_system': True,
-                'sort_order': 95
-            },
+            
             {
                 'config_key': 'stock_in_types',
                 'config_value': '采购入库,其它入库',
@@ -773,17 +774,6 @@ class SystemConfig(db.Model):
                 'sort_order': 30
             },
 
-            # 后勤维修功能开关
-            {
-                'config_key': 'FEATURE_MAINTENANCE_MANAGE_ENABLED',
-                'config_value': 'true',
-                'config_type': 'bool',
-                'category': 'system.feature',
-                'description': '后勤维修功能开关',
-                'is_editable': True,
-                'sort_order': 150
-            },
-
             # 维修类型列表
             {
                 'config_key': 'MAINTENANCE_TYPES',
@@ -804,17 +794,6 @@ class SystemConfig(db.Model):
                 'description': '维修工单自动分配开关（开启后新工单自动分配给空闲维修员）',
                 'is_editable': True,
                 'sort_order': 20
-            },
-
-            # 默认优先级
-            {
-                'config_key': 'MAINTENANCE_DEFAULT_PRIORITY',
-                'config_value': '一般',
-                'config_type': 'string',
-                'category': 'maintenance',
-                'description': '维修工单默认优先级',
-                'is_editable': True,
-                'sort_order': 30
             }
 
         ]
