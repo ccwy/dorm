@@ -44,7 +44,7 @@ class SupplyStockRecord(db.Model):
     # 约束与索引
     __table_args__ = (
         db.CheckConstraint(
-            "record_type IN ('入库', '出库', '盘盈', '盘亏', '入库反审核', '出库反审核')",
+            "record_type IN ('入库', '出库', '盘盈', '盘亏', '入库反审核', '出库反审核', '盘点反审核')",
             name='check_supply_stock_record_type_valid'
         ),
         db.CheckConstraint(
@@ -128,6 +128,33 @@ class SupplyStockRecord(db.Model):
             user = User.query.get(self.operator_user_id)
             return user.name if user else '未知'
         return '系统'
+
+    @property
+    def source_url(self):
+        """根据来源类型和单号返回对应的详情页URL"""
+        if not self.source_number:
+            return None
+
+        try:
+            if self.record_type in ('入库', '入库反审核'):
+                from models.supply.stock_in import StockIn
+                record = StockIn.query.filter_by(stock_in_number=self.source_number).first()
+                if record:
+                    return f'/stock-in/detail/{record.id}'
+            elif self.record_type in ('出库', '出库反审核'):
+                from models.supply.stock_out import StockOut
+                record = StockOut.query.filter_by(stock_out_number=self.source_number).first()
+                if record:
+                    return f'/stock-out/detail/{record.id}'
+            elif self.record_type in ('盘盈', '盘亏', '盘点反审核'):
+                from models.supply.supply_inventory import SupplyInventory
+                record = SupplyInventory.query.filter_by(inventory_number=self.source_number).first()
+                if record:
+                    return f'/supply-inventory/detail/{record.id}'
+        except Exception:
+            pass
+
+        return None
 
     @classmethod
     def create_record(cls, record_type, item_id, location_id=None, location_name=None,

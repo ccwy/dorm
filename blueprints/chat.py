@@ -406,19 +406,20 @@ def get_users_for_chat():
         page = int(request.args.get('page', 1))
         per_page = int(request.args.get('per_page', 10))
         
-        # 构建查询
-        query = User.query.filter(User.is_active == True, User.status == '在职', User.id != current_user.id)
+        # 构建查询 - 关联Department表以确保公司和部门数据源统一
+        query = User.query.filter(User.is_active == True, User.status == '在职', User.id != current_user.id)\
+            .outerjoin(Department, User.department_id == Department.id)
         
         # 应用筛选条件
         if department:
-            query = query.join(Department, User.department_id == Department.id).filter(Department.name == department)
+            query = query.filter(Department.name == department)
         if gender:
             query = query.filter(User.gender == gender)
         if company:
-            query = query.filter(User.company == company)
+            query = query.filter(Department.company == company)
         if search_term:
             search_pattern = f"%{search_term}%"
-            query = query.outerjoin(Department, User.department_id == Department.id).filter(
+            query = query.filter(
                 (User.name.like(search_pattern)) |
                 (Department.name.like(search_pattern)) |
                 (User.position.like(search_pattern))
@@ -432,7 +433,7 @@ def get_users_for_chat():
         # 获取所有可选的部门、性别、公司值（用于前端筛选下拉框）
         all_departments = Department.query.filter_by(status='正常').with_entities(Department.name).order_by(Department.name).all()
         all_genders = db.session.query(User.gender).filter(User.gender.isnot(None), User.gender != '').distinct().all()
-        all_companies = db.session.query(User.company).filter(User.company.isnot(None), User.company != '').distinct().all()
+        all_companies = Department.get_all_companies()
         
         # 格式化用户数据和筛选选项
         users_data = [{
@@ -446,7 +447,7 @@ def get_users_for_chat():
         
         departments_data = [d[0] for d in all_departments]
         genders_data = [g[0] for g in all_genders]
-        companies_data = [c[0] for c in all_companies]
+        companies_data = all_companies  # Department.get_all_companies()已返回字符串列表
         
         return jsonify({
             'success': True,
@@ -475,12 +476,12 @@ def get_filter_options():
         # 获取所有可选的部门、性别、公司值
         all_departments = Department.query.filter_by(status='正常').with_entities(Department.name).order_by(Department.name).all()
         all_genders = db.session.query(User.gender).filter(User.gender.isnot(None), User.gender != '').distinct().all()
-        all_companies = db.session.query(User.company).filter(User.company.isnot(None), User.company != '').distinct().all()
+        all_companies = Department.get_all_companies()
         
         # 格式化数据
         departments_data = [d[0] for d in all_departments]
         genders_data = [g[0] for g in all_genders]
-        companies_data = [c[0] for c in all_companies]
+        companies_data = all_companies  # Department.get_all_companies()已返回字符串列表
         
         return jsonify({
             'success': True,

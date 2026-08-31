@@ -163,7 +163,11 @@
                         <div class="flex items-center">
                             <span class="text-gray-500 text-sm w-24">来源单号：</span>
                             {% if record.source_number %}
-                            <span class="text-primary font-medium">{{ record.source_number }}</span>
+                                {% if record.source_url %}
+                                <a href="{{ record.source_url }}" class="text-primary font-medium hover:underline">{{ record.source_number }}</a>
+                                {% else %}
+                                <span class="text-primary font-medium">{{ record.source_number }}</span>
+                                {% endif %}
                             {% else %}
                             <span class="text-gray-400">-</span>
                             {% endif %}

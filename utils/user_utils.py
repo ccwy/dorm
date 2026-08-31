@@ -53,7 +53,8 @@ def get_user_model_fields() -> Dict[str, str]:
     
     # 保留模型中实际存在的字段以及导出用的住宿相关字段（排除密码）
     # 导出用的住宿相关字段：is_boarding, room_number, checkin_date, checkout_date, days_stayed
-    export_only_fields = {'is_boarding', 'room_number', 'checkin_date', 'checkout_date', 'days_stayed', 'role_name'}
+    # department和role_name是@property计算属性，需要加入export_only_fields以支持导出和导入
+    export_only_fields = {'is_boarding', 'room_number', 'checkin_date', 'checkout_date', 'days_stayed', 'role_name', 'department'}
     model_fields = {field: display_name for field, display_name in base_fields.items() 
                    if field in model_columns or field == 'password' or field in export_only_fields}
     return model_fields
@@ -68,12 +69,15 @@ def get_importable_fields() -> Dict[str, str]:
         'age', 'birth_date', 'native_place', 'lodging_allowance', 'reduction_fee',
         'is_boarding', 'room_number', 'checkin_date', 'checkout_date', 'days_stayed'  # 导出专用字段
     ]
-    # role_name是导出专用字段（计算属性），导入时使用'角色'列映射到role_id
-    importable = {k: v for k, v in all_fields.items() if k not in non_importable and k != 'role_name'}
+    # role_name和department是导出专用字段（计算属性），导入时使用'角色'列映射到role_id，'部门'列映射到department_id
+    importable = {k: v for k, v in all_fields.items() if k not in non_importable and k not in ('role_name', 'department')}
     
     # 确保导入字段中有'role'用于角色名称→角色ID的映射
     if 'role' not in importable:
         importable['role'] = '角色'
+    # 确保导入字段中有'department'用于部门名称→department_id的映射
+    if 'department' not in importable:
+        importable['department'] = '部门'
     return importable
     
 def process_field_value(field_name: str, value: Any) -> str:

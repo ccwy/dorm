@@ -76,7 +76,7 @@ class DatabaseConfig:
                 "ENABLE_AUTO_BACKUP": True,                 # 是否开启自动备份
                 'ENABLE_CUSTOM_METER_READING_DAY': False,   # 水自定义抄表日期配置（新增默认值）
                 'CUSTOM_METER_READING_DAY': 1,              # 自定义抄表日期
-                "SERVER_MODE": "服务端",                     # Win7专用版本：硬编码服务端模式
+                "SERVER_MODE": "服务端",                     # 启动模式（Win7专用版本：仅服务端模式，不启动WebView2）
                 "SYSTEM_TITLE": "行政后勤管理系统"                # 系统标题   
             }
             

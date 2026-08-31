@@ -266,6 +266,73 @@ def complete_inventory(id):
         return redirect(url_for('supply_inventory.list_inventories'))
 
 
+# ========== 路由：反审核盘点单 ==========
+@supply_inventory_bp.route('/operations/unapprove/<int:id>', methods=['POST'])
+@login_required
+@require_permission('supply.edit')
+def unapprove_inventory(id):
+    """反审核盘点单（仅已完成状态可反审核，反审核后状态变为进行中，库存回滚）"""
+    try:
+        # 检查系统配置是否允许反审核
+        from models.system_config import SystemConfig
+        unapprove_enabled = SystemConfig.get_config_value('supply_inventory_unapprove_enabled', True)
+        if not unapprove_enabled:
+            flash('盘点反审核功能已关闭，请联系管理员开启', 'warning')
+            return redirect(url_for('supply_inventory.list_inventories'))
+
+        inventory = SupplyInventory.query.get_or_404(id)
+
+        # 检查盘点状态
+        if inventory.status != '已完成':
+            flash('仅已完成状态的盘点单可以反审核', 'warning')
+            return redirect(url_for('supply_inventory.list_inventories'))
+
+        # 调用反审核方法（内部会自动回滚库存和创建反审核记录）
+        result = SupplyInventory.unapprove(id, current_user.id)
+
+        if result is None:
+            flash('反审核失败，盘点单不存在或状态不是已完成', 'danger')
+            return redirect(url_for('supply_inventory.list_inventories'))
+
+        # 检查是否返回了错误信息（库存不足）
+        if isinstance(result, dict) and 'error' in result:
+            error_msg = result.get('error', '库存不足，无法反审核')
+            details = result.get('details', [])
+            if details:
+                items_info = '、'.join([f"{d['item_name']}({d['location_name']}: 可用{d['available']}，需扣减{d['required']})" for d in details])
+                flash(f'{error_msg}：{items_info}', 'danger')
+            else:
+                flash(error_msg, 'danger')
+            logging.warning(f"反审核盘点单库存不足，盘点单ID: {id}, 单号: {inventory.inventory_number}")
+            return redirect(url_for('supply_inventory.list_inventories'))
+
+        # 记录操作日志
+        log_operation(
+            user_id=current_user.id,
+            module='supply_inventory',
+            operation_type='inventory_unapprove',
+            action=f"反审核盘点单: {inventory.inventory_number}，库存已回滚",
+            result="成功"
+        )
+
+        flash(f'反审核盘点单成功: {inventory.inventory_number}，库存已回滚，可重新盘点', 'success')
+        logging.info(f"反审核盘点单成功，盘点单ID: {id}, 单号: {inventory.inventory_number}")
+        return redirect(url_for('supply_inventory.list_inventories'))
+
+    except Exception as e:
+        db.session.rollback()
+        log_operation(
+            user_id=current_user.id,
+            module='supply_inventory',
+            operation_type='inventory_unapprove',
+            action=f"反审核盘点单失败 [ID: {id}]: {str(e)}",
+            result="失败"
+        )
+        flash(f'反审核盘点单失败: {str(e)}', 'danger')
+        logging.error(f"反审核盘点单失败，盘点ID: {id}, 错误: {str(e)}\n{traceback.format_exc()}")
+        return redirect(url_for('supply_inventory.list_inventories'))
+
+
 # ========== 路由：删除盘点单 ==========
 @supply_inventory_bp.route('/operations/delete/<int:id>', methods=['POST'])
 @login_required

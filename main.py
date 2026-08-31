@@ -375,29 +375,44 @@ if __name__ == '__main__':
     # 加载配置
     config_data = DatabaseConfig.load_config()
     
-    # Win7专用版本：硬编码服务端模式，不支持客户端模式
-    logging.info("Win7专用版本：以服务端模式启动")
-
-    # 先启动Flask服务器
-    server_thread = threading.Thread(target=run_server, daemon=True)
-    server_thread.start()
-
-    # 等待服务器启动
-    import time
-    time.sleep(1)
-
-    # 设置资源引用并注册信号处理器
-    process_cleaner.set_resources(
-        app=app,
-        server_thread=server_thread
-    )
-    process_cleaner.register_signal_handlers()
-
-    # 在单独的线程中启动服务端GUI
-    from utils.server_gui import run_server_gui
-    gui_thread = threading.Thread(target=lambda: run_server_gui(on_exit_callback=None), daemon=False)
-    gui_thread.start()
-
-    # 等待GUI线程结束
-    gui_thread.join()
-    # GUI关闭后，退出应用 - process_cleaner会自动处理退出清理
+    # Win7专用版本：仅服务端模式，不包含客户端模式（WebView2）
+    if current_config.USE_DESKTOP_VIEW:
+        # 服务端模式：启动Flask服务器 + tkinter GUI + 系统浏览器
+        logging.info("以服务端模式启动（Win7专用版本）")
+        
+        # 先启动Flask服务器
+        server_thread = threading.Thread(target=run_server, daemon=True)
+        server_thread.start()
+        
+        # 等待服务器启动
+        import time
+        time.sleep(1)
+        
+        # 设置资源引用（Win7版本无webview_ref）
+        process_cleaner.set_resources(
+            app=app,
+            server_thread=server_thread
+        )
+        process_cleaner.register_signal_handlers()
+        
+        # 在单独的线程中启动服务端GUI
+        from utils.server_gui import run_server_gui
+        gui_thread = threading.Thread(target=lambda: run_server_gui(on_exit_callback=None), daemon=False)
+        gui_thread.start()
+        
+        # 等待GUI线程结束
+        gui_thread.join()
+        
+        # GUI关闭后，退出应用 - process_cleaner会自动处理退出清理
+    else:
+        # 开发模式：根据配置决定启动网页模式
+        logging.info("以开发模式启动")
+        process_cleaner.set_resources(app=app)
+        process_cleaner.register_signal_handlers()
+        # 开发环境启动网页模式
+        app.run(
+            host=current_config.SERVER_HOST,
+            port=current_config.SERVER_PORT,
+            debug=current_config.DEBUG,
+            use_reloader=current_config.DEBUG
+        )

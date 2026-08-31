@@ -87,6 +87,7 @@ def get_supply_stock_record_list():
                 "total_price": float(record.total_price) if record.total_price else 0,
                 "source_number": record.source_number or '',
                 "source_type": record.source_type or '',
+                "source_url": record.source_url or '',
                 "recipient_user_id": record.recipient_user_id,
                 "recipient_name": record.recipient_name,
                 "department_id": record.department_id,
@@ -147,6 +148,7 @@ def get_supply_stock_record_detail(id):
             "total_price": float(record.total_price) if record.total_price else 0,
             "source_number": record.source_number or '',
             "source_type": record.source_type or '',
+            "source_url": record.source_url or '',
             "recipient_user_id": record.recipient_user_id,
             "recipient_name": record.recipient_name,
             "department_id": record.department_id,
@@ -213,6 +215,7 @@ def get_records_by_item(item_id):
             "total_price": float(r.total_price) if r.total_price else 0,
             "source_number": r.source_number or '',
             "source_type": r.source_type or '',
+            "source_url": r.source_url or '',
             "remark": r.remark or ''
         } for r in records]
 
@@ -271,6 +274,7 @@ def get_records_by_location(location_id):
             "total_price": float(r.total_price) if r.total_price else 0,
             "source_number": r.source_number or '',
             "source_type": r.source_type or '',
+            "source_url": r.source_url or '',
             "remark": r.remark or ''
         } for r in records]
 
@@ -329,6 +333,7 @@ def get_records_by_department(department_id):
             "total_price": float(r.total_price) if r.total_price else 0,
             "source_number": r.source_number or '',
             "source_type": r.source_type or '',
+            "source_url": r.source_url or '',
             "recipient_name": r.recipient_name,
             "department_name": r.department_name,
             "remark": r.remark or ''

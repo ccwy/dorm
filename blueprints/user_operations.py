@@ -245,6 +245,8 @@ def add():
             # 处理部门：通过_ensure_department_exists获取或创建部门
             dept = _ensure_department_exists(department, company)
             department_id = dept.id if dept else None
+            # 确保公司字段与部门管理模块同步：优先使用部门的company
+            synced_company = dept.company if dept else company
             # 创建用户
             new_user = User(
                 student_id=student_id,
@@ -255,7 +257,7 @@ def add():
                 id_address=id_address,
                 lodging_address=lodging_address,
                 phone=phone,
-                company=company,
+                company=synced_company,
                 department_id=department_id,
                 position=position,
                 emergency_contact=emergency_contact,
@@ -588,9 +590,10 @@ def edit(id):
             user.id_address = id_address
             user.lodging_address = lodging_address
             user.phone = phone
-            user.company = company
             dept = _ensure_department_exists(department, company)
             user.department_id = dept.id if dept else None
+            # 确保公司字段与部门管理模块同步：优先使用部门的company
+            user.company = dept.company if dept else company
             user.position = position
             user.emergency_contact = emergency_contact
             user.emergency_phone = emergency_phone

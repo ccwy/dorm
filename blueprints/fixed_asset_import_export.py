@@ -426,6 +426,8 @@ def import_assets():
                     user_obj = User.query.filter(User.name == responsible_user_name, User.status == '在职').first()
                     if user_obj:
                         responsible_user_id = user_obj.id
+                        # 如果匹配到用户，自动同步责任人姓名（与表单行为一致）
+                        responsible_person = user_obj.name
 
                 # 资产来源
                 asset_source_val = row.get('资产来源')
@@ -588,6 +590,7 @@ def download_template():
             "资产分类": [valid_categories[0] if valid_categories else "办公设备", "", ""],
             "规格型号": ["ThinkPad X1 Carbon", "1.4m标准桌", ""],
             "品牌": ["联想", "震旦", ""],
+            "供应商": ["北京联想授权经销商", "", ""],
             "数量": [1, 10, 2],
             "单位": ["台", "张", "辆"],
             "原值": [8999.00, 500.00, 150000.00],
@@ -616,6 +619,7 @@ def download_template():
             f"*必填项，必须是：{', '.join(valid_categories)}",
             "文本（可留空）",
             "文本（可留空）",
+            "文本（可留空）",
             "*必填项，必须为正整数",
             "文本，默认为'台'（可留空）",
             "非负数（可留空，默认为0）",
@@ -642,7 +646,7 @@ def download_template():
             df.to_excel(writer, index=False, sheet_name='固定资产导入模板')
             worksheet = writer.sheets['固定资产导入模板']
             # 设置列宽
-            column_widths = [16, 20, 12, 20, 12, 8, 8, 12, 12, 14, 14, 20, 14, 12, 12, 10, 14, 14, 10, 20]
+            column_widths = [16, 20, 12, 20, 12, 16, 8, 8, 12, 12, 14, 14, 20, 14, 12, 12, 10, 14, 14, 14, 10, 20]
             for i, width in enumerate(column_widths, 1):
                 col_letter = chr(64 + i) if i <= 26 else chr(64 + (i - 1) // 26) + chr(65 + (i - 1) % 26)
                 worksheet.column_dimensions[col_letter].width = width

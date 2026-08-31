@@ -3,9 +3,8 @@ import sys
 import os
 from PyInstaller.utils.hooks import collect_submodules, collect_data_files
 
-# 获取当前目录（使用PyInstaller内置变量SPECPATH）
-# SPECPATH在PyInstaller处理spec文件时自动设置为spec文件所在目录
-current_dir = SPECPATH
+# 获取当前目录（不使用__file__）
+current_dir = os.path.dirname(os.path.abspath(sys.argv[0])) if len(sys.argv) > 0 else os.getcwd()
 
 # 定义项目根目录（脚本位于Auto_Setup文件夹中，需要向上一级目录）
 project_root = os.path.abspath(os.path.join(current_dir, '..'))

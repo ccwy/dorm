@@ -47,8 +47,8 @@ def manage():
         per_page = max(10, min(100, per_page))
         logging.info(f"分页参数: 页码={page}, 每页显示={per_page}")
         
-        # 基础查询
-        query = User.query.order_by(User.id.desc())
+        # 基础查询 - 关联Department表以确保公司和部门数据源统一
+        query = User.query.outerjoin(Department, User.department_id == Department.id).order_by(User.id.desc())
         
         # 搜索筛选
         if search_query:
@@ -56,20 +56,20 @@ def manage():
                 or_(
                     User.name.ilike(f'%{search_query}%'),
                     User.student_id.ilike(f'%{search_query}%'),
-                    User.company.ilike(f'%{search_query}%'),
+                    Department.company.ilike(f'%{search_query}%'),
                     Department.name.ilike(f'%{search_query}%'),
                     User.position.ilike(f'%{search_query}%'),
                     User.phone.ilike(f'%{search_query}%')
                 )
             )
         
-        # 公司筛选
+        # 公司筛选（通过Department表关联查询，确保数据源统一）
         if company:
-            query = query.filter(User.company == company)
+            query = query.filter(Department.company == company)
         
         # 部门筛选
         if department:
-            query = query.join(Department, User.department_id == Department.id).filter(Department.name == department)
+            query = query.filter(Department.name == department)
             
         # 状态筛选
         logging.info(f"状态筛选值: {status}")

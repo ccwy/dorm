@@ -93,7 +93,7 @@ class ProductionConfig(Config):
     if os.environ.get('DOCKER_ENV', 'false').lower() == 'true':
         SERVER_HOST = '0.0.0.0'
     else:
-        server_mode = db_config.get('SERVER_MODE', '客户端')
+        server_mode = db_config.get('SERVER_MODE', '服务端')
         SERVER_HOST = '0.0.0.0' if server_mode == '服务端' else '127.0.0.1'
     SERVER_PORT = int(db_config.get('SERVER_PORT', 35168))
 
@@ -107,7 +107,7 @@ class DevelopmentConfig(Config):
     if os.environ.get('DOCKER_ENV', 'false').lower() == 'true':
         SERVER_HOST = '0.0.0.0'
     else:
-        server_mode = db_config.get('SERVER_MODE', '客户端')
+        server_mode = db_config.get('SERVER_MODE', '服务端')
         SERVER_HOST = '0.0.0.0' if server_mode == '服务端' else '127.0.0.1'
     SERVER_PORT = int(db_config.get('SERVER_PORT', 35168))
     DEBUG = True

@@ -66,10 +66,10 @@ class SystemConfig(db.Model):
             },
             {
                 'config_key': 'SERVER_MODE',
-                'config_value': '客户端',
+                'config_value': '服务端',
                 'config_type': 'string',
                 'category': 'system',
-                'description': '启动类型，默认：客户端，可改成服务端（仅在windows系统上有效）',
+                'description': '启动类型，Win7专用版本仅支持服务端模式（tkinter GUI + 系统浏览器）',
                 'sort_order': 20
             }, 
             {
@@ -264,16 +264,6 @@ class SystemConfig(db.Model):
                 'description': '合同管理功能开关',
                 'is_editable': True,
                 'sort_order': 140
-            },
-            # 后勤维修功能开关
-            {
-                'config_key': 'FEATURE_MAINTENANCE_MANAGE_ENABLED',
-                'config_value': 'true',
-                'config_type': 'bool',
-                'category': 'system.feature',
-                'description': '后勤维修功能开关',
-                'is_editable': True,
-                'sort_order': 150
             },
             
             # 3. 用户管理配置 (category: user)
@@ -631,6 +621,16 @@ class SystemConfig(db.Model):
                 'is_editable': True,
                 'sort_order': 30
             },
+            {
+                'config_key': 'asset_inventory_unapprove_enabled',
+                'config_value': 'true',
+                'config_type': 'bool',
+                'category': 'asset',
+                'description': '启用固定资产盘点反审核功能（允许已完成盘点单反审核回退到进行中）',
+                'is_editable': True,
+                'is_system': False,
+                'sort_order': 40
+            },
 
             # 低值易耗品进销存管理配置 (category: supply)
             {
@@ -742,6 +742,26 @@ class SystemConfig(db.Model):
                 'is_system': False,
                 'sort_order': 110
             },
+            {
+                'config_key': 'storage_location_usage_types',
+                'config_value': '低值易耗品,固定资产,合同管理',
+                'config_type': 'list',
+                'category': 'supply',
+                'description': '存放位置使用类型选项（逗号分隔，第一个为默认值）',
+                'is_editable': True,
+                'is_system': False,
+                'sort_order': 120
+            },
+            {
+                'config_key': 'supply_inventory_unapprove_enabled',
+                'config_value': 'true',
+                'config_type': 'bool',
+                'category': 'supply',
+                'description': '启用低值易耗品盘点反审核功能（允许已完成盘点单反审核回退到进行中）',
+                'is_editable': True,
+                'is_system': False,
+                'sort_order': 130
+            },
     
             # 合同类型配置
             {
@@ -774,6 +794,17 @@ class SystemConfig(db.Model):
                 'sort_order': 30
             },
 
+            # 后勤维修功能开关
+            {
+                'config_key': 'FEATURE_MAINTENANCE_MANAGE_ENABLED',
+                'config_value': 'true',
+                'config_type': 'bool',
+                'category': 'system.feature',
+                'description': '后勤维修功能开关',
+                'is_editable': True,
+                'sort_order': 150
+            },
+
             # 维修类型列表
             {
                 'config_key': 'MAINTENANCE_TYPES',
@@ -794,7 +825,8 @@ class SystemConfig(db.Model):
                 'description': '维修工单自动分配开关（开启后新工单自动分配给空闲维修员）',
                 'is_editable': True,
                 'sort_order': 20
-            }
+            },
+
 
         ]
     

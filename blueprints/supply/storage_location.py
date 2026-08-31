@@ -16,6 +16,20 @@ storage_location_bp = Blueprint(
     static_url_path='/storage-location/static'
 )
 
+
+def get_usage_types():
+    """从系统配置获取存放位置使用类型选项，返回中文列表"""
+    try:
+        from models.system_config import SystemConfig
+        usage_types = SystemConfig.get_config_value('storage_location_usage_types', '低值易耗品,固定资产,合同管理')
+        if isinstance(usage_types, str):
+            usage_types = [v.strip() for v in usage_types.split(',') if v.strip()]
+        if not usage_types:
+            usage_types = ['低值易耗品', '固定资产', '合同管理']
+    except Exception:
+        usage_types = ['低值易耗品', '固定资产', '合同管理']
+    return usage_types
+
 # 分页工具函数
 def generate_page_range(current_page, total_pages, show_pages=5):
     if total_pages <= show_pages:
@@ -63,7 +77,7 @@ def index():
 
         # 获取筛选选项
         statuses = ['启用', '停用']
-        usage_types = [('supply', '低值易耗品'), ('fixed_asset', '固定资产'), ('contract', '合同管理')]
+        usage_types = get_usage_types()
 
         # 构建查询
         query = StorageLocation.query.order_by(StorageLocation.id.desc())
@@ -141,7 +155,7 @@ def index():
             page_range=[],
             companies=[],
             statuses=['启用', '停用'],
-            usage_types=[('supply', '低值易耗品'), ('fixed_asset', '固定资产'), ('contract', '合同管理')],
+            usage_types=get_usage_types(),
             current_status='',
             current_usage_type='',
             keyword=''
@@ -154,7 +168,7 @@ def index():
 @require_permission('supply.create')
 def add_page():
     try:
-        usage_types = [('supply', '低值易耗品'), ('fixed_asset', '固定资产'), ('contract', '合同管理')]
+        usage_types = get_usage_types()
         return render_template(
             'supply_manage/location_form.html',
             title="新增存放位置",
@@ -174,7 +188,7 @@ def add_page():
 def edit_page(id):
     try:
         location = StorageLocation.query.get_or_404(id)
-        usage_types = [('supply', '低值易耗品'), ('fixed_asset', '固定资产'), ('contract', '合同管理')]
+        usage_types = get_usage_types()
         return render_template(
             'supply_manage/location_form.html',
             title=f"编辑存放位置 - {location.name}",
@@ -200,17 +214,17 @@ def detail(id):
         fixed_assets = []
         contracts = []
 
-        if location.usage_type == 'supply':
+        if location.usage_type == '低值易耗品':
             # 低值易耗品：查询SupplyStockDetail
             from models.supply.supply_stock_detail import SupplyStockDetail
             stock_details = SupplyStockDetail.get_stock_by_location(id)
-        elif location.usage_type == 'fixed_asset':
+        elif location.usage_type == '固定资产':
             # 固定资产：通过storage_location(String)与location.name匹配
             from models.fixed_asset import FixedAsset
             fixed_assets = FixedAsset.query.filter(
                 FixedAsset.storage_location == location.name
             ).order_by(FixedAsset.id).all()
-        elif location.usage_type == 'contract':
+        elif location.usage_type == '合同管理':
             # 合同管理：通过storage_location_id(FK)与location.id匹配
             from models.contract.contract import Contract
             contracts = Contract.query.filter(
@@ -226,7 +240,7 @@ def detail(id):
         )
         logging.info(f"查看存放位置详情，位置ID: {id}")
 
-        usage_types = [('supply', '低值易耗品'), ('fixed_asset', '固定资产'), ('contract', '合同管理')]
+        usage_types = get_usage_types()
         return render_template(
             'supply_manage/location_detail.html',
             title=f"存放位置详情 - {location.name}",

@@ -5,6 +5,7 @@ from flask_login import login_required, current_user
 from utils.db import db
 from models.role import Role, RolePermission
 from models.user import User
+from models.department import Department
 from utils.log import log_operation
 from utils.auth import require_permission, PERMISSIONS
 import logging
@@ -82,10 +83,50 @@ def role_detail(id):
         page = request.args.get('page', 1, type=int)
         per_page = 20
 
-        # 获取该角色下的用户（分页）
-        users_pagination = User.query.filter_by(role_id=role.id)\
-            .order_by(User.id.asc())\
+        # 搜索和筛选参数
+        keyword = request.args.get('keyword', '', type=str).strip()
+        filter_company = request.args.get('company', '', type=str).strip()
+        filter_department = request.args.get('department', '', type=str).strip()
+
+        # 构建查询 - 基础条件：该角色下的用户
+        query = User.query.filter_by(role_id=role.id)
+
+        # 关键字搜索（姓名、用户名、工号）
+        if keyword:
+            search_pattern = f'%{keyword}%'
+            query = query.filter(
+                db.or_(
+                    User.name.like(search_pattern),
+                    User.username.like(search_pattern),
+                    User.student_id.like(search_pattern)
+                )
+            )
+
+        # 公司筛选（通过Department表关联查询，确保数据源统一）
+        if filter_company:
+            query = query.join(Department, User.department_id == Department.id).filter(Department.company == filter_company)
+
+        # 部门筛选（通过department_id关联Department表）
+        if filter_department:
+            dept = Department.query.filter_by(name=filter_department).first()
+            if dept:
+                query = query.filter(User.department_id == dept.id)
+            else:
+                # 部门不存在则返回空结果
+                query = query.filter(User.department_id == -1)
+
+        # 排序和分页
+        users_pagination = query.order_by(User.id.asc())\
             .paginate(page=page, per_page=per_page, error_out=False)
+
+        # 获取所有公司列表（从Department表获取，与部门管理模块数据源一致）
+        company_list = Department.get_all_companies()
+
+        department_list = db.session.query(Department.name)\
+            .join(User, User.department_id == Department.id)\
+            .filter(User.role_id == role.id)\
+            .distinct().order_by(Department.name).all()
+        department_list = [d[0] for d in department_list]
 
         # 获取所有角色（用于导航）
         all_roles = Role.query.order_by(Role.sort_order.asc(), Role.id.asc()).all()
@@ -144,7 +185,12 @@ def role_detail(id):
             pagination=users_pagination,
             page_range=page_range,
             all_roles=all_roles,
-            permissions_info=permissions_info
+            permissions_info=permissions_info,
+            keyword=keyword,
+            filter_company=filter_company,
+            filter_department=filter_department,
+            company_list=company_list,
+            department_list=department_list
         )
     except Exception as e:
         logging.error(f"访问角色详情页失败: {str(e)}")

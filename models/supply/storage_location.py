@@ -18,7 +18,7 @@ class StorageLocation(db.Model):
     # 状态与关联
     status = db.Column(db.String(20), default='启用', nullable=False, comment='状态：启用/停用')
     # 使用类型
-    usage_type = db.Column(db.String(20), default='supply', nullable=False, comment='使用类型：supply-低值易耗品/fixed_asset-固定资产/contract-合同管理')
+    usage_type = db.Column(db.String(50), default='低值易耗品', nullable=False, comment='使用类型')
     handler_user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True, comment='经手人用户ID')
 
     # 备注
@@ -43,7 +43,7 @@ class StorageLocation(db.Model):
             name='check_storage_location_status_valid'
         ),
         db.CheckConstraint(
-            "usage_type IN ('supply', 'fixed_asset', 'contract')",
+            "usage_type IN ('低值易耗品', '固定资产', '合同管理')",
             name='check_storage_location_usage_type_valid'
         ),
         db.Index('idx_sl_name', 'name'),
@@ -76,13 +76,8 @@ class StorageLocation(db.Model):
 
     @property
     def display_usage_type(self):
-        """返回使用类型显示文本"""
-        type_map = {
-            'supply': '低值易耗品',
-            'fixed_asset': '固定资产',
-            'contract': '合同管理'
-        }
-        return type_map.get(self.usage_type, self.usage_type)
+        """返回使用类型显示文本（直接存储中文，无需映射）"""
+        return self.usage_type
 
     @property
     def handler_name(self):
@@ -95,7 +90,7 @@ class StorageLocation(db.Model):
 
     @classmethod
     def create(cls, name, code=None, building=None, floor=None, room=None, address=None,
-               status='启用', usage_type='supply', handler_user_id=None, remark=None, operator_user_id=None):
+               status='启用', usage_type='低值易耗品', handler_user_id=None, remark=None, operator_user_id=None):
         """创建存放位置"""
         location = cls(
             name=name,
@@ -115,7 +110,7 @@ class StorageLocation(db.Model):
         return location
 
     @classmethod
-    def is_name_exists(cls, name, usage_type='supply', exclude_id=None):
+    def is_name_exists(cls, name, usage_type='低值易耗品', exclude_id=None):
         """检查位置名称在指定使用类型下是否已存在"""
         query = cls.query.filter_by(name=name, usage_type=usage_type)
         if exclude_id:

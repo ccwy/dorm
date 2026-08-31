@@ -198,7 +198,7 @@ def add_stock_in():
     try:
         departments = Department.query.order_by(Department.id).all()
         suppliers = Supplier.get_active_suppliers()
-        locations = StorageLocation.query.filter_by(status='启用', usage_type='supply').order_by(StorageLocation.id).all()
+        locations = StorageLocation.query.filter_by(status='启用', usage_type='低值易耗品').order_by(StorageLocation.id).all()
         items = SupplyItem.query.filter_by(status='启用').order_by(SupplyItem.id).all()
 
         # 从系统配置获取入库类型选项
@@ -243,7 +243,7 @@ def edit_stock_in(id):
 
         departments = Department.query.order_by(Department.id).all()
         suppliers = Supplier.get_active_suppliers()
-        locations = StorageLocation.query.filter_by(status='启用', usage_type='supply').order_by(StorageLocation.id).all()
+        locations = StorageLocation.query.filter_by(status='启用', usage_type='低值易耗品').order_by(StorageLocation.id).all()
         items = SupplyItem.query.filter_by(status='启用').order_by(SupplyItem.id).all()
 
         # 从系统配置获取入库类型选项
