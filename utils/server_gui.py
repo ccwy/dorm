@@ -53,7 +53,7 @@ class ServerGUI:
         
         # 配置变量
         self.config_data = {}
-        self.is_server_mode = tk.StringVar(value="CLIENT")
+        self.is_server_mode = tk.StringVar(value="服务端")
         self.auto_start_var = tk.BooleanVar(value=False)
         
         # 初始化UI
@@ -140,21 +140,27 @@ class ServerGUI:
         mode_options_frame.pack(side=tk.LEFT)
         
         # 使用单选按钮设置启动模式
-        ttk.Radiobutton(
+        client_rb = ttk.Radiobutton(
             mode_options_frame, 
-            text="客户端", 
+            text="客户端(Win7不可用)", 
             variable=self.is_server_mode, 
             value="客户端",
-            command=self._on_mode_change
-        ).pack(side=tk.LEFT, padx=10)
+            command=self._on_mode_change,
+            state='disabled'
+        )
+        client_rb.pack(side=tk.LEFT, padx=10)
         
-        ttk.Radiobutton(
+        server_rb = ttk.Radiobutton(
             mode_options_frame, 
             text="服务端", 
             variable=self.is_server_mode, 
             value="服务端",
             command=self._on_mode_change
-        ).pack(side=tk.LEFT, padx=10)
+        )
+        server_rb.pack(side=tk.LEFT, padx=10)
+        
+        # Win7版本模式说明标签
+        ttk.Label(mode_options_frame, text="（Win7版本仅支持服务端模式）", foreground="gray").pack(side=tk.LEFT, padx=5)
         
         # 右侧放置开机自启和端口设置
         right_frame = ttk.Frame(mode_and_port_frame)
@@ -399,13 +405,15 @@ class ServerGUI:
                 if key in self.config_data:
                     var.set(str(self.config_data[key]))
             
-            # 加载服务端模式配置，直接使用配置值
-            server_mode_value = self.config_data.get("SERVER_MODE", "客户端")
-            # 映射配置值到显示文本
-            if server_mode_value == "服务端":
+            # 加载服务端模式配置，Win7版本强制使用服务端模式
+            server_mode_value = self.config_data.get("SERVER_MODE", "服务端")
+            # Win7版本不支持客户端模式，强制设为服务端
+            if server_mode_value == "客户端":
+                logging.warning("Win7版本不支持客户端模式，已自动切换为服务端模式")
+                messagebox.showinfo("提示", "Win7版本不支持客户端模式，已自动切换为服务端模式")
                 self.is_server_mode.set("服务端")
             else:
-                self.is_server_mode.set("客户端")
+                self.is_server_mode.set("服务端")
             
             # 更新服务器卡片显示
             self._update_server_card()
@@ -443,11 +451,8 @@ class ServerGUI:
                 else:
                     new_config[key] = var.get()
             
-            # 保存服务端模式配置，直接使用字符串标识
-            if self.is_server_mode.get() == "服务端":
-                new_config["SERVER_MODE"] = "服务端"
-            else:
-                new_config["SERVER_MODE"] = "客户端"
+            # 保存服务端模式配置，Win7版本强制保存为服务端
+            new_config["SERVER_MODE"] = "服务端"
             
             # 保存配置
             success = DatabaseConfig.save_config(new_config)
@@ -654,6 +659,11 @@ class ServerGUI:
             return False
 
     def _on_mode_change(self):
+        # Win7版本保护：防止切换到客户端模式
+        if self.is_server_mode.get() == "客户端":
+            logging.warning("Win7版本不支持客户端模式，已自动切换为服务端模式")
+            messagebox.showinfo("提示", "Win7版本不支持客户端模式，已自动切换为服务端模式")
+            self.is_server_mode.set("服务端")
         # 当启动模式改变时的处理
         self._update_server_card()
         

@@ -806,12 +806,12 @@
                                 </select>
                             `;
                         } else if (key === 'SERVER_MODE') {
-                            // 对SERVER_MODE特殊处理，渲染为下拉框
+                            // Win7版本仅支持服务端模式，禁用切换
                             inputHtml = `
-                                <select id="config_${key}" class="form-input mt-1" ${!isEditable ? 'disabled' : ''}>
-                                    <option value="客户端" ${config === '客户端' ? 'selected' : ''}>客户端</option>
-                                    <option value="服务端" ${config === '服务端' ? 'selected' : ''}>服务端</option>
+                                <select id="config_${key}" class="form-input mt-1" disabled>
+                                    <option value="服务端" selected>服务端</option>
                                 </select>
+                                <p class="text-xs text-amber-500 mt-1">Win7版本仅支持服务端模式</p>
                             `;
                         } else {
                             inputHtml = `

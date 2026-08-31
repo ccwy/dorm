@@ -309,10 +309,8 @@ def update_configs():
                         except ValueError:
                             db_config_updates[key] = 'SQLITE'  # 默认数据库类型
                     elif key == 'SERVER_MODE':
-                        try:
-                            db_config_updates[key] = str(value) # 设置默认启动模式值
-                        except ValueError:
-                            db_config_updates[key] = '客户端'  # 默认启动模式值
+                        # Win7版本强制服务端模式，忽略用户提交的值
+                        db_config_updates[key] = '服务端'
                     elif key == 'SYSTEM_TITLE':
                         try:
                             db_config_updates[key] = str(value) # 设置系统标题值
