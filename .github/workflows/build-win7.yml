@@ -1,0 +1,157 @@
+name: Win7专用版本打包构建
+
+on:
+  push:
+    branches: [ win7 ]
+    tags: [ 'v*', 'v*-win7' ]
+  workflow_dispatch:
+    inputs:
+      build_win7:
+        description: '构建 Win7 专用版本'
+        required: false
+        default: true
+        type: boolean
+
+env:
+  PYTHON_VERSION: '3.8'
+  APP_NAME: '行政后勤管理系统_Win7'
+  PYTHONIOENCODING: 'utf-8'
+
+permissions:
+  contents: write
+
+jobs:
+  build-win7:
+    name: 🖥️ Win7 专用版本打包
+    runs-on: windows-latest
+    if: >
+      github.event_name == 'push' ||
+      (github.event_name == 'workflow_dispatch' && inputs.build_win7)
+
+    steps:
+      - name: 📥 检出代码
+        uses: actions/checkout@v7
+
+      - name: 🔖 提取版本号
+        id: version
+        shell: bash
+        run: |
+          HAS_VERSION=false
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            TAG_NAME="${GITHUB_REF#refs/tags/}"
+            HAS_VERSION=true
+          else
+            COMMIT_MSG="${{ github.event.head_commit.message }}"
+            TAG_NAME=$(echo "$COMMIT_MSG" | grep -oiE 'v[0-9]+\.[0-9]+(\.[0-9]+)?(-win7)?' | head -1 || true)
+            if [ -n "$TAG_NAME" ]; then
+              HAS_VERSION=true
+            fi
+          fi
+          if [ "$HAS_VERSION" = true ]; then
+            # 去掉 -win7 后缀，使用与 main 相同的基础 tag 叠加发布
+            BASE_TAG="${TAG_NAME%-win7}"
+            VERSION="${BASE_TAG#v}"
+            echo "tag=$BASE_TAG" >> $GITHUB_OUTPUT
+            echo "version=$VERSION" >> $GITHUB_OUTPUT
+            echo "has_version=true" >> $GITHUB_OUTPUT
+            echo "✅ 检测到版本号: $TAG_NAME → 发布到 Release tag: $BASE_TAG"
+          else
+            echo "version=" >> $GITHUB_OUTPUT
+            echo "has_version=false" >> $GITHUB_OUTPUT
+            echo "ℹ️ 未检测到版本号，跳过发布"
+          fi
+
+      - name: 🐍 设置 Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v7
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: 📦 安装Win7专用依赖
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements_win7.txt
+          pip install pyinstaller==5.13.2
+
+      - name: 🔨 创建 data 目录
+        run: |
+          if (-not (Test-Path "data")) {
+            New-Item -ItemType Directory -Path "data" -Force
+          }
+
+      - name: 🏗️ PyInstaller 打包 (Win7专用单文件)
+        run: |
+          pyinstaller Auto_Setup/dorm_management_win7.spec --clean --noconfirm
+        continue-on-error: false
+
+      - name: 📦 安装 Inno Setup
+        run: |
+          choco install innosetup --no-progress
+
+      - name: 🌐 下载 Inno Setup 中文语言包
+        run: |
+          $islUrl = "https://raw.githubusercontent.com/jrsoftware/issrc/main/Files/Languages/ChineseSimplified.isl"
+          $islPath = "C:\Program Files (x86)\Inno Setup 6\Languages\ChineseSimplified.isl"
+          Invoke-WebRequest -Uri $islUrl -OutFile $islPath -UseBasicParsing
+          Write-Host "已下载中文语言包到: $islPath"
+
+      - name: 🔨 Inno Setup 打包 (Win7安装包)
+        run: |
+          New-Item -ItemType Directory -Path "Auto_Setup\Output" -Force
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "Auto_Setup\installer_script_win7.iss" /O"Auto_Setup\Output"
+          $version = "${{ steps.version.outputs.version }}"
+          $srcFile = "Auto_Setup\Output\行政后勤管理系统_Win7_Setup_v1.0.exe"
+          if (Test-Path $srcFile) {
+            if ($version -ne "") {
+              Move-Item -Path $srcFile -Destination "Auto_Setup\Output\DormManagement_Win7_Setup_v${version}.exe" -Force
+            } else {
+              Move-Item -Path $srcFile -Destination "Auto_Setup\Output\DormManagement_Win7_Setup.exe" -Force
+            }
+          }
+
+      - name: 📁 整理输出
+        run: |
+          $version = "${{ steps.version.outputs.version }}"
+          # 绿色版
+          $portableDir = "dist/win7-portable"
+          if (-not (Test-Path $portableDir)) { New-Item -ItemType Directory -Path $portableDir -Force }
+          if (Test-Path "dist\行政后勤管理系统_Win7.exe") {
+            if ($version -ne "") {
+              Move-Item -Path "dist\行政后勤管理系统_Win7.exe" -Destination "dist\win7-portable\DormManagement_Win7_Portable_v${version}.exe" -Force
+            } else {
+              Move-Item -Path "dist\行政后勤管理系统_Win7.exe" -Destination "dist\win7-portable\DormManagement_Win7_Portable.exe" -Force
+            }
+          }
+
+          # 安装版
+          $installerDir = "dist/win7-installer"
+          if (-not (Test-Path $installerDir)) { New-Item -ItemType Directory -Path $installerDir -Force }
+          $installer = Get-ChildItem -Path "Auto_Setup\Output" -Filter "DormManagement_Win7_Setup*.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+          if ($installer) { Move-Item -Path $installer.FullName -Destination $installerDir -Force }
+
+      - name: 📤 上传 Win7 绿色版
+        uses: actions/upload-artifact@v7
+        with:
+          name: DormManagement_Win7_Portable
+          path: dist/win7-portable/
+          retention-days: 30
+
+      - name: 📤 上传 Win7 安装版
+        uses: actions/upload-artifact@v7
+        with:
+          name: DormManagement_Win7_Setup
+          path: dist/win7-installer/
+          retention-days: 30
+
+      - name: 🚀 发布到 Release（叠加到主版本）
+        if: steps.version.outputs.has_version == 'true'
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          draft: false
+          prerelease: false
+          files: |
+            dist/win7-portable/*.exe
+            dist/win7-installer/*.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,11 +1,14 @@
 # -*- mode: python ; coding: utf-8 -*-
+# Win7专用独立版本 PyInstaller打包配置
+# 移除pywebview依赖，硬编码服务端模式
 
 import sys
 import os
 from PyInstaller.utils.hooks import collect_submodules, collect_data_files
 
-# 获取当前目录（不使用__file__）
-current_dir = os.path.dirname(os.path.abspath(sys.argv[0])) if len(sys.argv) > 0 else os.getcwd()
+# 获取当前目录（使用PyInstaller内置变量SPECPATH）
+# SPECPATH在PyInstaller处理spec文件时自动设置为spec文件所在目录
+current_dir = SPECPATH
 
 # 定义项目根目录（脚本位于Auto_Setup文件夹中，需要向上一级目录）
 project_root = os.path.abspath(os.path.join(current_dir, '..'))
@@ -13,7 +16,7 @@ project_root = os.path.abspath(os.path.join(current_dir, '..'))
 # 定义资源文件路径 - 指向项目根目录下的资源
 data_dir = os.path.join(project_root, 'data')
 
-# 确保data目录存在（添加这两行）
+# 确保data目录存在
 if not os.path.exists(data_dir):
     os.makedirs(data_dir)
     print(f"Created data directory: {data_dir}")
@@ -30,9 +33,7 @@ static_path = os.path.join(project_root, 'static')
 db_config_path = os.path.join(data_dir, 'db_config.json')
 data_db_path = os.path.join(data_dir, 'data.db')
 
-# 添加更多的隐藏导入
-# 注意：pandas/openpyxl/pymysql 使用延迟导入（lazy_imports.py），
-# PyInstaller静态分析无法检测到这些依赖，必须显式收集所有子模块
+# Win7专用：移除webview，添加win32api支持
 additional_hidden_imports = [
     'pymysql',
     'cryptography',
@@ -40,7 +41,7 @@ additional_hidden_imports = [
     'pandas',
     'numpy',
     'waitress',
-    'webview',
+    # 注意：Win7版本不包含webview
     'flask',
     'flask_sqlalchemy',
     'flask_login',
@@ -56,7 +57,7 @@ additional_hidden_imports = [
     'pystray',
     'PIL',
     'psutil',
-    # Win7兼容支持
+    # Win7专用：添加pywin32支持
     'win32api',
     'win32con',
 ]
@@ -90,8 +91,7 @@ a = Analysis(
         additional_hidden_imports +
         lazy_import_submodules
     ),
-    # 排除不需要的模块以减小包体积和加速启动
-    # 注意：仅排除确定不被任何依赖项使用的模块，避免运行时 ImportError
+    # 排除不需要的模块以减小包体积
     excludes=[
         'pysqlite2', 'MySQLdb', 'psycopg2',  # 不需要的数据库驱动
         'unittest', 'test', 'tests',  # 测试框架
@@ -101,6 +101,8 @@ a = Analysis(
         'py_compile', 'compileall',  # 编译工具
         'cProfile', 'profile', 'pstats',  # 性能分析工具
         'zipimport',  # ZIP导入
+        # Win7专用：明确排除pywebview相关模块
+        'webview', 'pywebview',
     ],
     hookspath=[],
     hooksconfig={},
@@ -114,11 +116,8 @@ a = Analysis(
 pyz = PYZ(a.pure, a.zipped_data, cipher=None)
 
 # 创建可执行文件
-# 设置应用程序唯一后缀，与其他临时目录命名保持一致
-app_unique_suffix = "dorm_mgmt_v1.0"
+app_unique_suffix = "dorm_mgmt_win7_v1.0"
 
-# 创建运行时临时目录前先确保基础目录存在
-# 不使用自定义路径，让PyInstaller使用默认的临时目录处理机制
 exe = EXE(
     pyz,
     a.scripts,
@@ -126,7 +125,7 @@ exe = EXE(
     a.zipfiles,
     a.datas,
     [],
-    name='行政后勤管理系统',
+    name='行政后勤管理系统_Win7',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -145,5 +144,5 @@ exe = EXE(
 
 # 如果是Windows平台，创建安装程序说明
 if sys.platform == 'win32':
-    print("\nPyInstaller打包完成后，请使用Inno Setup打开installer_script.iss文件创建完整的安装程序。")
-    
+    print("\nPyInstaller打包完成（Win7专用版本）。")
+    print("请使用Inno Setup打开installer_script_win7.iss文件创建Win7安装程序。")
