@@ -3,7 +3,7 @@ name: Win7专用版本打包构建
 on:
   push:
     branches: [ win7 ]
-    tags: [ 'v*-win7' ]
+    tags: [ 'v*', 'v*-win7' ]
   workflow_dispatch:
     inputs:
       build_win7:
@@ -37,23 +37,24 @@ jobs:
         shell: bash
         run: |
           HAS_VERSION=false
-          if [[ "$GITHUB_REF" == refs/tags/v*-win7 ]]; then
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
             TAG_NAME="${GITHUB_REF#refs/tags/}"
             HAS_VERSION=true
           else
             COMMIT_MSG="${{ github.event.head_commit.message }}"
-            TAG_NAME=$(echo "$COMMIT_MSG" | grep -oiE 'v[0-9]+\.[0-9]+(\.[0-9]+)?-win7' | head -1 || true)
+            TAG_NAME=$(echo "$COMMIT_MSG" | grep -oiE 'v[0-9]+\.[0-9]+(\.[0-9]+)?(-win7)?' | head -1 || true)
             if [ -n "$TAG_NAME" ]; then
               HAS_VERSION=true
             fi
           fi
           if [ "$HAS_VERSION" = true ]; then
-            VERSION="${TAG_NAME#v}"
-            VERSION="${VERSION%-win7}"
-            echo "tag=$TAG_NAME" >> $GITHUB_OUTPUT
+            # 去掉 -win7 后缀，使用与 main 相同的基础 tag 叠加发布
+            BASE_TAG="${TAG_NAME%-win7}"
+            VERSION="${BASE_TAG#v}"
+            echo "tag=$BASE_TAG" >> $GITHUB_OUTPUT
             echo "version=$VERSION" >> $GITHUB_OUTPUT
             echo "has_version=true" >> $GITHUB_OUTPUT
-            echo "✅ 检测到版本号: $TAG_NAME"
+            echo "✅ 检测到版本号: $TAG_NAME → 发布到 Release tag: $BASE_TAG"
           else
             echo "version=" >> $GITHUB_OUTPUT
             echo "has_version=false" >> $GITHUB_OUTPUT
@@ -142,32 +143,31 @@ jobs:
           path: dist/win7-installer/
           retention-days: 30
 
-      - name: 🚀 发布到 Release
+      - name: 🚀 发布到 Release（叠加到主版本）
         if: steps.version.outputs.has_version == 'true'
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ steps.version.outputs.tag }}
-          name: 行政后勤管理系统(Win7版) ${{ steps.version.outputs.tag }}
+          name: 行政后勤管理系统 ${{ steps.version.outputs.tag }}
           body: |
-            ## 📦 行政后勤管理系统(Win7版) ${{ steps.version.outputs.tag }}
+            ### Win7 专用版本
 
-            ### Win7专用版本说明
-            此版本为Windows 7专用独立版本，使用浏览器模式运行，**不需要安装WebView2运行时**。
+            此版本为 Windows 7 专用，使用浏览器模式运行，**不需要安装 WebView2 运行时**。
 
-            ### 系统要求
+            #### 系统要求
             - Windows 7 SP1（32位或64位）
             - 需要安装 VC++ 2015-2019 运行时（x86）
             - 建议安装 Windows 更新 KB2999226
             - 需要安装现代浏览器（Chrome 109+ 或 Firefox 115 ESR 推荐）
             - **不支持 IE11**
 
-            ### 下载说明
+            #### 下载说明
             | 文件 | 说明 |
             |------|------|
-            | `DormManagement_Win7_Portable_v*.exe` | 绿色版，无需安装，直接运行 |
-            | `DormManagement_Win7_Setup_v*.exe` | 安装程序，自动配置快捷方式和卸载程序 |
+            | `DormManagement_Win7_Portable_v*.exe` | Win7 绿色版，无需安装，直接运行 |
+            | `DormManagement_Win7_Setup_v*.exe` | Win7 安装程序，自动配置快捷方式和卸载程序 |
           draft: false
-          prerelease: true
+          prerelease: false
           files: |
             dist/win7-portable/*.exe
             dist/win7-installer/*.exe
