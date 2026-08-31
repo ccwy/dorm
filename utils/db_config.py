@@ -8,7 +8,7 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.exc import OperationalError, SQLAlchemyError
 import sys
 import base64  # 添加base64模块导入
-from utils.system_detector import is_win7  # Win7兼容支持
+from utils.system_detector import is_win7
 
 # 检查是否在Docker环境中
 is_docker = os.environ.get('DOCKER_ENV') == 'true'
@@ -77,7 +77,7 @@ class DatabaseConfig:
                 "ENABLE_AUTO_BACKUP": True,                 # 是否开启自动备份
                 'ENABLE_CUSTOM_METER_READING_DAY': False,   # 水自定义抄表日期配置（新增默认值）
                 'CUSTOM_METER_READING_DAY': 1,              # 自定义抄表日期
-                "SERVER_MODE": "服务端" if is_win7() else "客户端",  # Win7默认服务端模式
+                "SERVER_MODE": "服务端" if is_win7() else "客户端",  # 启动模式（Win7默认服务端，否则默认客户端）
                 "SYSTEM_TITLE": "行政后勤管理系统"                # 系统标题   
             }
             

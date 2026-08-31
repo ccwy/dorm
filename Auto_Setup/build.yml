@@ -18,7 +18,7 @@ on:
         type: boolean
 
 env:
-  PYTHON_VERSION: '3.10'
+  PYTHON_VERSION: '3.8'
   APP_NAME: '行政后勤管理系统'
   DOCKER_IMAGE_NAME: 'dorm-management-system'
   PYTHONIOENCODING: 'utf-8'

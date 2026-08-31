@@ -271,14 +271,13 @@ def update_configs():
             }), 403
         
         # 检查是否在Win7环境中且尝试将SERVER_MODE修改为客户端
-        if category == 'system' and 'SERVER_MODE' in configs:
-            from utils.system_detector import is_win7
-            if is_win7() and str(configs['SERVER_MODE']) == '客户端':
-                logging.warning("在Win7环境中不允许将SERVER_MODE修改为客户端")
-                return jsonify({
-                    "success": False,
-                    "message": "Windows 7系统不支持客户端模式（需要WebView2运行时）"
-                }), 403
+        from utils.system_detector import is_win7
+        if is_win7() and category == 'system' and 'SERVER_MODE' in configs and str(configs['SERVER_MODE']) == '客户端':
+            logging.warning("在Win7环境中不允许将SERVER_MODE修改为客户端")
+            return jsonify({
+                "success": False,
+                "message": "Win7系统不支持客户端模式，无法修改启动类型(SERVER_MODE)"
+            }), 400
         
         updated_keys = []
         db_config_updates = {}      #数据库更新

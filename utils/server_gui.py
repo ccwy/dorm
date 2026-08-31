@@ -20,8 +20,6 @@ pil_logger.setLevel(pil_logging.WARNING)
 from utils.db_config import DatabaseConfig
 # 导入Windows服务重装工具
 from utils.reload_windows_service import reload_service as reload_windows_service
-# 导入Win7检测函数
-from utils.system_detector import is_win7
 
 class ServerGUI:
     def __init__(self, on_exit_callback=None):
@@ -55,13 +53,11 @@ class ServerGUI:
         
         # 配置变量
         self.config_data = {}
-        self.is_server_mode = tk.StringVar(value="CLIENT")
-        self.auto_start_var = tk.BooleanVar(value=False)
-        
-        # Win7检测：强制服务端模式
+        # Win7下强制服务端
+        from utils.system_detector import is_win7
         self._is_win7 = is_win7()
-        if self._is_win7:
-            self.is_server_mode.set("服务端")
+        self.is_server_mode = tk.StringVar(value="服务端" if self._is_win7 else "客户端")
+        self.auto_start_var = tk.BooleanVar(value=False)
         
         # 初始化UI
         self._init_ui()
@@ -147,28 +143,23 @@ class ServerGUI:
         mode_options_frame.pack(side=tk.LEFT)
         
         # 使用单选按钮设置启动模式
-        # Win7下禁用客户端模式选项
-        client_rb = ttk.Radiobutton(
+        state_client = "disabled" if self._is_win7 else "normal"
+        ttk.Radiobutton(
             mode_options_frame, 
             text="客户端", 
             variable=self.is_server_mode, 
             value="客户端",
-            command=self._on_mode_change
-        )
-        client_rb.pack(side=tk.LEFT, padx=10)
-        if self._is_win7:
-            client_rb.configure(state=tk.DISABLED)
+            command=self._on_mode_change,
+            state=state_client
+        ).pack(side=tk.LEFT, padx=10)
         
-        server_rb = ttk.Radiobutton(
+        ttk.Radiobutton(
             mode_options_frame, 
             text="服务端", 
             variable=self.is_server_mode, 
             value="服务端",
             command=self._on_mode_change
-        )
-        server_rb.pack(side=tk.LEFT, padx=10)
-        if self._is_win7:
-            server_rb.configure(state=tk.DISABLED)
+        ).pack(side=tk.LEFT, padx=10)
         
         # 右侧放置开机自启和端口设置
         right_frame = ttk.Frame(mode_and_port_frame)
@@ -199,16 +190,6 @@ class ServerGUI:
             font=("SimHei", 9),
             justify=tk.LEFT
         ).pack(anchor=tk.W, pady=5)
-        
-        # Win7提示文字
-        if self._is_win7:
-            ttk.Label(
-                mode_frame, 
-                text="⚠ 当前系统为Windows 7，不支持客户端模式（需要WebView2运行时）", 
-                font=("SimHei", 9),
-                foreground="red",
-                justify=tk.LEFT
-            ).pack(anchor=tk.W, pady=2)
         
         # 服务器地址和端口显示卡片（仅在服务端模式显示）
         self.server_card_frame = ttk.LabelFrame(mode_frame, text="服务器访问信息", padding="10")
@@ -468,10 +449,7 @@ class ServerGUI:
                     new_config[key] = var.get()
             
             # 保存服务端模式配置，直接使用字符串标识
-            # Win7下强制服务端模式
-            if self._is_win7:
-                new_config["SERVER_MODE"] = "服务端"
-            elif self.is_server_mode.get() == "服务端":
+            if self.is_server_mode.get() == "服务端":
                 new_config["SERVER_MODE"] = "服务端"
             else:
                 new_config["SERVER_MODE"] = "客户端"
@@ -681,11 +659,6 @@ class ServerGUI:
             return False
 
     def _on_mode_change(self):
-        # Win7下阻止切换到客户端模式
-        if self._is_win7:
-            self.is_server_mode.set("服务端")
-            messagebox.showwarning("提示", "当前系统为Windows 7，不支持客户端模式（需要WebView2运行时）")
-            return
         # 当启动模式改变时的处理
         self._update_server_card()
         

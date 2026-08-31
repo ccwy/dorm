@@ -55,10 +55,7 @@ additional_hidden_imports = [
     'tkinter.messagebox',
     'pystray',
     'PIL',
-    'psutil',
-    # Win7兼容支持
-    'win32api',
-    'win32con',
+    'psutil'
 ]
 
 # 收集延迟导入库的所有子模块，确保打包完整

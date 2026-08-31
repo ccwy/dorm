@@ -376,14 +376,11 @@ if __name__ == '__main__':
     config_data = DatabaseConfig.load_config()
     
     # 根据配置决定启动模式
-    server_mode = config_data.get("SERVER_MODE", "")
-    
+    server_mode = config_data.get("SERVER_MODE", "客户端")
     # Win7系统强制服务端模式
-    from utils.system_detector import is_win7, is_webview2_available
+    from utils.system_detector import is_win7
     if is_win7():
-        logging.info("检测到Win7系统，强制使用服务端模式（不支持WebView2）")
         server_mode = "服务端"
-    
     if server_mode == "服务端" and current_config.USE_DESKTOP_VIEW:
         # 服务端模式：不启动WebView2，只启动服务端GUI
         logging.info("以服务端模式启动，不启动WebView2")
@@ -416,101 +413,76 @@ if __name__ == '__main__':
         
         # GUI关闭后，退出应用 - process_cleaner会自动处理退出清理
     elif server_mode == "客户端" and current_config.USE_DESKTOP_VIEW:
-        # 检查WebView2是否可用
-        if not is_webview2_available():
-            logging.warning("WebView2运行时不可用，自动回退到服务端模式")
-            server_mode = "服务端"
-            # 回退到服务端模式：启动Flask服务器
-            server_thread = threading.Thread(target=run_server, daemon=True)
-            server_thread.start()
-            
-            import time
-            time.sleep(1)
-            
-            # 设置资源引用并注册信号处理器
-            process_cleaner.set_resources(
-                app=app,
-                server_thread=server_thread,
-                webview_ref=None
-            )
-            process_cleaner.register_signal_handlers()
-            
-            # 启动服务端GUI
-            from utils.server_gui import run_server_gui
-            gui_thread = threading.Thread(target=lambda: run_server_gui(on_exit_callback=None), daemon=False)
-            gui_thread.start()
-            gui_thread.join()
-        else:
-            # 客户端模式：启动WebView2窗口
-            import webview  # 延迟导入，避免启动时加载WebView2重型运行时
-            logging.info("启动Flask服务器")
-            server_thread = threading.Thread(target=run_server, daemon=True)
-            server_thread.start()
-            
-            import time
-            time.sleep(1)
-            logging.info("启动WebView窗口")
-            # 在应用上下文中从数据库获取系统标题
-            try:
-                with app.app_context():
-                    config = DatabaseConfig.load_config()
-                    system_title = config.get('SYSTEM_TITLE', '行政后勤管理系统')
-            except Exception as e:
-                logging.error(f"获取系统标题时出错: {str(e)}")
-                system_title = '行政后勤管理系统'
-            
-            # 创建窗口并保存实例引用
-            window = webview.create_window(
-                title=system_title,
-                # 使用服务器的地址和端口，而不是数据库的
-                url=f'http://{current_config.SERVER_HOST}:{current_config.SERVER_PORT}',
-                width=1200,
-                height=800,
-                resizable=True
-            )
-            logging.info("WebView窗口创建完成")
-            
-            # 在应用完全启动后执行自动退出登录机制
-            # 确保在服务器启动且WebView窗口创建后执行
-            logging.info("应用完全启动，执行自动退出登录机制...")
-            from utils.auto_logout import auto_logout_on_startup
+        # 客户端模式：启动WebView2窗口
+        import webview  # 延迟导入，避免启动时加载WebView2重型运行时
+        logging.info("启动Flask服务器")
+        server_thread = threading.Thread(target=run_server, daemon=True)
+        server_thread.start()
+        
+        import time
+        time.sleep(1)
+        logging.info("启动WebView窗口")
+        # 在应用上下文中从数据库获取系统标题
+        try:
             with app.app_context():
-                auto_logout_on_startup()
-            
-            # 启动延迟注入线程，确保WebView完全初始化后再注入JavaScript
-            from utils.webview_injector import start_delayed_injection
-            injection_thread = start_delayed_injection()
-            
-            # 设置资源引用并注册信号处理器
-            process_cleaner.set_resources(
-                app=app,
-                server_thread=server_thread,
-                webview_ref=window  # 传递窗口实例而不是模块
-            )
-            process_cleaner.register_signal_handlers()
-            
-            # 启动WebView并等待其关闭
-            webview.start(debug=current_config.DEBUG)
-            
-            # WebView窗口已关闭，执行彻底的资源清理
-            logging.info("WebView窗口已关闭，开始执行彻底的资源清理...")
-            
-            # 调用增强版cleanup_all_resources进行优雅清理
-            process_cleaner.cleanup_all_resources(signal_received=0)  # 传递0表示非信号触发的清理
-            # 检查并强制终止服务器线程
+                config = DatabaseConfig.load_config()
+                system_title = config.get('SYSTEM_TITLE', '行政后勤管理系统')
+        except Exception as e:
+            logging.error(f"获取系统标题时出错: {str(e)}")
+            system_title = '行政后勤管理系统'
+        
+        # 创建窗口并保存实例引用
+        window = webview.create_window(
+            title=system_title,
+            # 使用服务器的地址和端口，而不是数据库的
+            url=f'http://{current_config.SERVER_HOST}:{current_config.SERVER_PORT}',
+            width=1200,
+            height=800,
+            resizable=True
+        )
+        logging.info("WebView窗口创建完成")
+        
+        # 在应用完全启动后执行自动退出登录机制
+        # 确保在服务器启动且WebView窗口创建后执行
+        logging.info("应用完全启动，执行自动退出登录机制...")
+        from utils.auto_logout import auto_logout_on_startup
+        with app.app_context():
+            auto_logout_on_startup()
+        
+        # 启动延迟注入线程，确保WebView完全初始化后再注入JavaScript
+        from utils.webview_injector import start_delayed_injection
+        injection_thread = start_delayed_injection()
+        
+        # 设置资源引用并注册信号处理器
+        process_cleaner.set_resources(
+            app=app,
+            server_thread=server_thread,
+            webview_ref=window  # 传递窗口实例而不是模块
+        )
+        process_cleaner.register_signal_handlers()
+        
+        # 启动WebView并等待其关闭
+        webview.start(debug=current_config.DEBUG)
+        
+        # WebView窗口已关闭，执行彻底的资源清理
+        logging.info("WebView窗口已关闭，开始执行彻底的资源清理...")
+        
+        # 调用增强版cleanup_all_resources进行优雅清理
+        process_cleaner.cleanup_all_resources(signal_received=0)  # 传递0表示非信号触发的清理
+        # 检查并强制终止服务器线程
+        if server_thread.is_alive():
+            logging.warning("服务器线程未能正常终止，强制退出程序")
+            os._exit(0)
+        logging.info("资源清理完成，程序即将退出")
+        
+        # 最后的安全检查，确保所有线程都已终止
+        try:
             if server_thread.is_alive():
-                logging.warning("服务器线程未能正常终止，强制退出程序")
+                logging.warning("最后的安全检查：服务器线程仍然存活，强制退出")
                 os._exit(0)
-            logging.info("资源清理完成，程序即将退出")
-            
-            # 最后的安全检查，确保所有线程都已终止
-            try:
-                if server_thread.is_alive():
-                    logging.warning("最后的安全检查：服务器线程仍然存活，强制退出")
-                    os._exit(0)
-            except:
-                # 确保无论如何都会退出
-                os._exit(0)
+        except:
+            # 确保无论如何都会退出
+            os._exit(0)
     else:
         # 开发模式：根据配置决定启动网页模式
         logging.info("以开发模式启动")

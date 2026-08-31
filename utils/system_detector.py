@@ -97,155 +97,30 @@ def get_os() -> str:
     """便捷函数：获取操作系统类型"""
     return SystemDetector.get_os()
 
+def is_windows() -> bool:
+    """便捷函数：判断是否为Windows系统"""
+    return SystemDetector.is_windows()
 
-# ========== Windows版本检测功能（Win7兼容支持） ==========
-
-# 模块级缓存，避免重复检测
-_win_version_cache = None
-_is_win7_cache = None
-_is_webview2_available_cache = None
-
-
-def get_windows_version():
-    """
-    获取准确的Windows版本号（不受兼容模式影响）
-    
-    使用ctypes调用ntdll.dll的RtlGetVersion，这是获取Windows版本最准确的方式，
-    不受应用程序兼容性清单(shim)的影响。
-    
-    返回:
-        tuple: (major, minor, build) 版本号元组
-               非Windows系统返回 (0, 0, 0)
-    """
-    global _win_version_cache
-    
-    if _win_version_cache is not None:
-        return _win_version_cache
-    
-    # 非Windows系统直接返回
-    if platform.system() != 'Windows':
-        _win_version_cache = (0, 0, 0)
-        return _win_version_cache
-    
+def is_win7() -> bool:
+    """检测当前系统是否为Windows 7"""
+    if not is_windows():
+        return False
     try:
         import ctypes
-        from ctypes import wintypes
-        
-        # 定义OSVERSIONINFOEXW结构体
         class OSVERSIONINFOEXW(ctypes.Structure):
             _fields_ = [
-                ('dwOSVersionInfoSize', wintypes.DWORD),
-                ('dwMajorVersion', wintypes.DWORD),
-                ('dwMinorVersion', wintypes.DWORD),
-                ('dwBuildNumber', wintypes.DWORD),
-                ('dwPlatformId', wintypes.DWORD),
+                ('dwOSVersionInfoSize', ctypes.c_ulong),
+                ('dwMajorVersion', ctypes.c_ulong),
+                ('dwMinorVersion', ctypes.c_ulong),
+                ('dwBuildNumber', ctypes.c_ulong),
+                ('dwPlatformId', ctypes.c_ulong),
                 ('szCSDVersion', ctypes.c_wchar * 128),
-                ('wServicePackMajor', wintypes.WORD),
-                ('wServicePackMinor', wintypes.WORD),
-                ('wSuiteMask', wintypes.WORD),
-                ('wProductType', wintypes.BYTE),
-                ('wReserved', wintypes.BYTE),
             ]
-        
-        # 调用RtlGetVersion
-        ntdll = ctypes.windll.ntdll
         osvi = OSVERSIONINFOEXW()
         osvi.dwOSVersionInfoSize = ctypes.sizeof(OSVERSIONINFOEXW)
-        
-        # RtlGetVersion返回NTSTATUS，0表示成功
-        result = ntdll.RtlGetVersion(ctypes.byref(osvi))
-        if result == 0:
-            _win_version_cache = (osvi.dwMajorVersion, osvi.dwMinorVersion, osvi.dwBuildNumber)
-            logging.info(f"检测到Windows版本: {osvi.dwMajorVersion}.{osvi.dwMinorVersion}.{osvi.dwBuildNumber}")
-        else:
-            logging.warning(f"RtlGetVersion调用失败，返回值: {result}")
-            _win_version_cache = (0, 0, 0)
-    except Exception as e:
-        logging.warning(f"获取Windows版本号失败: {str(e)}")
-        _win_version_cache = (0, 0, 0)
-    
-    return _win_version_cache
-
-
-def is_win7():
-    """
-    检测当前系统是否为Windows 7或Windows Server 2008 R2
-    
-    Windows 7和Server 2008 R2的版本号均为6.1
-    
-    返回:
-        bool: 如果是Win7/Server 2008 R2返回True，否则返回False
-    """
-    global _is_win7_cache
-    
-    if _is_win7_cache is not None:
-        return _is_win7_cache
-    
-    major, minor, _ = get_windows_version()
-    _is_win7_cache = (major == 6 and minor == 1)
-    
-    if _is_win7_cache:
-        logging.info("检测到Windows 7 / Server 2008 R2系统")
-    
-    return _is_win7_cache
-
-
-def is_webview2_available():
-    """
-    检测WebView2运行时是否可用
-    
-    通过检查注册表中WebView2的客户端GUID是否存在来判断。
-    检查两个位置：
-    - HKLM\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BEB-6731AEBF4D1A} (64位系统上的32位注册表重定向)
-    - HKLM\SOFTWARE\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BEB-6731AEBF4D1A} (原生位置)
-    
-    返回:
-        bool: 如果WebView2运行时可用返回True，否则返回False
-              非Windows系统返回False
-    """
-    global _is_webview2_available_cache
-    
-    if _is_webview2_available_cache is not None:
-        return _is_webview2_available_cache
-    
-    # 非Windows系统不支持WebView2
-    if platform.system() != 'Windows':
-        _is_webview2_available_cache = False
-        return _is_webview2_available_cache
-    
-    try:
-        import winreg
-        
-        # WebView2运行时的客户端GUID
-        webview2_guid = '{F3017226-FE2A-4295-8BEB-6731AEBF4D1A}'
-        
-        # 要检查的注册表路径列表
-        reg_paths = [
-            (winreg.HKEY_LOCAL_MACHINE, f'SOFTWARE\\WOW6432Node\\Microsoft\\EdgeUpdate\\Clients\\{webview2_guid}'),
-            (winreg.HKEY_LOCAL_MACHINE, f'SOFTWARE\\Microsoft\\EdgeUpdate\\Clients\\{webview2_guid}'),
-        ]
-        
-        for hive, path in reg_paths:
-            try:
-                key = winreg.OpenKey(hive, path, 0, winreg.KEY_READ)
-                winreg.CloseKey(key)
-                _is_webview2_available_cache = True
-                logging.info("检测到WebView2运行时已安装")
-                return _is_webview2_available_cache
-            except FileNotFoundError:
-                continue
-            except OSError:
-                continue
-        
-        _is_webview2_available_cache = False
-        logging.info("未检测到WebView2运行时")
-    except ImportError:
-        # winreg模块不可用（非Windows环境）
-        _is_webview2_available_cache = False
-        logging.debug("winreg模块不可用，无法检测WebView2")
-    except Exception as e:
-        _is_webview2_available_cache = False
-        logging.warning(f"检测WebView2运行时失败: {str(e)}")
-    
-    return _is_webview2_available_cache
+        ntdll = ctypes.windll.ntdll
+        ntdll.RtlGetVersion(ctypes.byref(osvi))
+        return osvi.dwMajorVersion == 6 and osvi.dwMinorVersion == 1
+    except Exception:
+        return False
     
