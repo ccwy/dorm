@@ -148,24 +148,6 @@ jobs:
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ steps.version.outputs.tag }}
-          name: 行政后勤管理系统 ${{ steps.version.outputs.tag }}
-          body: |
-            ### Win7 专用版本
-
-            此版本为 Windows 7 专用，使用浏览器模式运行，**不需要安装 WebView2 运行时**。
-
-            #### 系统要求
-            - Windows 7 SP1（32位或64位）
-            - 需要安装 VC++ 2015-2019 运行时（x86）
-            - 建议安装 Windows 更新 KB2999226
-            - 需要安装现代浏览器（Chrome 109+ 或 Firefox 115 ESR 推荐）
-            - **不支持 IE11**
-
-            #### 下载说明
-            | 文件 | 说明 |
-            |------|------|
-            | `DormManagement_Win7_Portable_v*.exe` | Win7 绿色版，无需安装，直接运行 |
-            | `DormManagement_Win7_Setup_v*.exe` | Win7 安装程序，自动配置快捷方式和卸载程序 |
           draft: false
           prerelease: false
           files: |
