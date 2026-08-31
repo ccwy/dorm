@@ -222,7 +222,11 @@
                                 <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-800 text-right font-medium">{{ '¥%.2f'|format(record.total_price) if record.total_price else '-' }}</td>
                                 <td class="px-4 py-4 whitespace-nowrap text-sm">
                                     {% if record.source_number %}
+                                    {% if record.source_url %}
+                                    <a href="{{ record.source_url }}" class="text-primary hover:underline">{{ record.source_number }}</a>
+                                    {% else %}
                                     <span class="text-primary">{{ record.source_number }}</span>
+                                    {% endif %}
                                     {% else %}
                                     <span class="text-gray-400">-</span>
                                     {% endif %}

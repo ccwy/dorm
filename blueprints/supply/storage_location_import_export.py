@@ -205,13 +205,15 @@ def import_locations():
                 remark_val = row.get('备注')
                 remark = str(remark_val).strip() if pd.notna(remark_val) and str(remark_val).strip() else None
 
-                # 使用类型（可选，默认"supply"）
-                usage_type_display_map = {'低值易耗品': 'supply', '固定资产': 'fixed_asset', '合同管理': 'contract'}
+                # 使用类型（可选，默认"低值易耗品"）
+                from .storage_location import get_usage_types
+                valid_usage_types = get_usage_types()
                 usage_type_val = row.get('使用类型')
                 if pd.notna(usage_type_val) and str(usage_type_val).strip():
-                    usage_type = usage_type_display_map.get(str(usage_type_val).strip(), 'supply')
+                    usage_type_str = str(usage_type_val).strip()
+                    usage_type = usage_type_str if usage_type_str in valid_usage_types else valid_usage_types[0]
                 else:
-                    usage_type = 'supply'
+                    usage_type = valid_usage_types[0] if valid_usage_types else '低值易耗品'
 
                 # 检查名称是否重复（联合usage_type校验）
                 existing = StorageLocation.query.filter_by(name=name, usage_type=usage_type).first()

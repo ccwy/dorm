@@ -491,6 +491,14 @@ class User(UserMixin, db.Model):
                 continue
             logging.info(f"第{row_num}行必填字段验证通过，开始创建用户对象")
             try:
+                # 获取部门ID并同步公司字段
+                _dept_id = _get_department_id(user_data.get('department'), user_data.get('company'))
+                # 确保公司字段与部门管理模块同步：优先使用部门的company
+                if _dept_id:
+                    _dept = Department.query.get(_dept_id)
+                    _synced_company = _dept.company if _dept else user_data.get('company')
+                else:
+                    _synced_company = user_data.get('company')
                 # 创建用户对象但不保存
                 user = cls(
                     student_id=user_data['student_id'],
@@ -501,8 +509,8 @@ class User(UserMixin, db.Model):
                     id_address=user_data.get('id_address'),
                     lodging_address=user_data.get('lodging_address'),
                     phone=user_data.get('phone'),
-                    company=user_data.get('company'),
-                    department_id=_get_department_id(user_data.get('department'), user_data.get('company')),
+                    company=_synced_company,
+                    department_id=_dept_id,
                     position=user_data.get('position'),
                     marital_status=user_data.get('marital_status'),
                     ethnicity=user_data.get('ethnicity'),
@@ -611,9 +619,9 @@ class User(UserMixin, db.Model):
                     })
                     continue
                 
-                # 更新用户字段
+                # 更新用户字段（company由下方部门同步逻辑单独处理）
                 fields_to_update = ['name', 'gender', 'category', 'id_card', 'id_address', 
-                                   'lodging_address', 'phone', 'company', 
+                                   'lodging_address', 'phone', 
                                    'position', 'marital_status', 'ethnicity', 'emergency_contact', 
                                    'emergency_phone', 'remarks', 'status', 'hire_date', 'role_id', 
                                    'is_active', 'is_banned', 'username', 'student_id']
@@ -623,9 +631,26 @@ class User(UserMixin, db.Model):
                         value = user_data[field]
                         setattr(user, field, value)
                 
-                # 单独处理department → department_id的转换
+                # 单独处理department → department_id的转换，并同步公司字段
                 if 'department' in user_data and user_data['department'] is not None:
                     user.department_id = _get_department_id(user_data['department'], user_data.get('company'))
+                    # 确保公司字段与部门管理模块同步：优先使用部门的company
+                    if user.department_id:
+                        _dept = Department.query.get(user.department_id)
+                        if _dept:
+                            user.company = _dept.company
+                    elif 'company' in user_data and user_data['company'] is not None:
+                        user.company = user_data['company']
+                elif 'company' in user_data and user_data['company'] is not None:
+                    # 仅更新公司时，也尝试同步部门的公司
+                    if user.department_id:
+                        _dept = Department.query.get(user.department_id)
+                        if _dept:
+                            user.company = _dept.company
+                        else:
+                            user.company = user_data['company']
+                    else:
+                        user.company = user_data['company']
                 
                 # 单独处理密码（如果提供了新密码）
                 if 'password' in user_data and user_data['password']:

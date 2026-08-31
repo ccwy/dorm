@@ -142,10 +142,10 @@
                 <!-- 库存明细 -->
                 <div class="bg-white rounded-lg shadow-sm p-6 fade-in">
                     <h3 class="text-lg font-semibold text-gray-800 mb-4 pb-2 border-b border-gray-200">
-                        {% if location.usage_type == 'fixed_asset' %}
+                        {% if location.usage_type == '固定资产' %}
                         <i class="fa fa-building mr-2 text-accent"></i>资产明细
                         <span class="text-sm font-normal text-gray-500 ml-2">（该位置存放的固定资产）</span>
-                        {% elif location.usage_type == 'contract' %}
+                        {% elif location.usage_type == '合同管理' %}
                         <i class="fa fa-file-text mr-2 text-accent"></i>合同明细
                         <span class="text-sm font-normal text-gray-500 ml-2">（该位置存放的合同）</span>
                         {% else %}
@@ -154,7 +154,7 @@
                         {% endif %}
                     </h3>
 
-                    {% if location.usage_type == 'supply' %}
+                    {% if location.usage_type == '低值易耗品' %}
                     {# 低值易耗品库存明细 #}
                     {% if stock_details %}
                     <div class="overflow-x-auto">
@@ -188,7 +188,7 @@
                     </div>
                     {% endif %}
 
-                    {% elif location.usage_type == 'fixed_asset' %}
+                    {% elif location.usage_type == '固定资产' %}
                     {# 固定资产明细 #}
                     {% if fixed_assets %}
                     <div class="overflow-x-auto">
@@ -241,7 +241,7 @@
                     </div>
                     {% endif %}
 
-                    {% elif location.usage_type == 'contract' %}
+                    {% elif location.usage_type == '合同管理' %}
                     {# 合同明细 #}
                     {% if contracts %}
                     <div class="overflow-x-auto">
@@ -340,7 +340,7 @@
                         <i class="fa fa-bar-chart mr-2 text-info"></i>位置概要
                     </h3>
                     <div class="space-y-4">
-                        {% if location.usage_type == 'supply' %}
+                        {% if location.usage_type == '低值易耗品' %}
                         <div class="flex justify-between items-center">
                             <span class="text-gray-500 text-sm">存放物品种类</span>
                             <span class="text-2xl font-bold text-primary">{{ stock_details|length }}</span>
@@ -349,7 +349,7 @@
                             <span class="text-gray-500 text-sm">总库存数量</span>
                             <span class="text-2xl font-bold text-secondary">{{ stock_details|map(attribute='quantity')|sum }}</span>
                         </div>
-                        {% elif location.usage_type == 'fixed_asset' %}
+                        {% elif location.usage_type == '固定资产' %}
                         <div class="flex justify-between items-center">
                             <span class="text-gray-500 text-sm">资产数量</span>
                             <span class="text-2xl font-bold text-primary">{{ fixed_assets|length }}</span>
@@ -358,7 +358,7 @@
                             <span class="text-gray-500 text-sm">资产总原值</span>
                             <span class="text-2xl font-bold text-secondary">{{ '%.2f'|format(fixed_assets|map(attribute='original_value')|map('float')|sum) }}</span>
                         </div>
-                        {% elif location.usage_type == 'contract' %}
+                        {% elif location.usage_type == '合同管理' %}
                         <div class="flex justify-between items-center">
                             <span class="text-gray-500 text-sm">合同数量</span>
                             <span class="text-2xl font-bold text-primary">{{ contracts|length }}</span>

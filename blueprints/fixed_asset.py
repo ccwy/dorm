@@ -79,7 +79,7 @@ def index():
         categories = SystemConfig.get_config_value('ASSET_CATEGORIES', ['办公设备', '家具', '交通工具', '电子设备', '机械设备', '其他'])
         statuses = SystemConfig.get_config_value('ASSET_STATUSES', ['在用', '闲置', '维修中', '已报废', '已转移', '已出售'])
         departments = Department.get_all_names()  # 用于筛选下拉选项
-        locations = StorageLocation.get_all_names(usage_type='fixed_asset')
+        locations = StorageLocation.get_all_names(usage_type='固定资产')
         companies = Department.get_all_companies()
 
         # 构建查询
@@ -425,7 +425,8 @@ def inventory_detail(id):
             categories=categories,
             companies=companies,
             departments=departments,
-            responsible_persons=responsible_persons
+            responsible_persons=responsible_persons,
+            inventory_unapprove_enabled=SystemConfig.get_config_value('asset_inventory_unapprove_enabled', True)
         )
     except Exception as e:
         log_operation(
@@ -557,7 +558,7 @@ def add_page():
         active_departments = []
 
     try:
-        locations = StorageLocation.get_all_names(usage_type='fixed_asset')
+        locations = StorageLocation.get_all_names(usage_type='固定资产')
     except Exception as e:
         logging.warning(f"获取存放位置列表失败: {str(e)}")
         locations = []
@@ -579,6 +580,20 @@ def add_page():
     except Exception as e:
         logging.warning(f"获取资产来源配置失败: {str(e)}")
         sources = ['采购', '捐赠', '调入', '自建', '其他']
+
+    # 获取用户列表（责任人下拉用）
+    try:
+        users = User.query.filter(User.status == '在职').order_by(User.name).all()
+    except Exception as e:
+        logging.warning(f"获取用户列表失败: {str(e)}")
+        users = []
+
+    # 获取房间列表（关联房间下拉用）
+    try:
+        rooms = Room.query.order_by(Room.building, Room.room_number).all()
+    except Exception as e:
+        logging.warning(f"获取房间列表失败: {str(e)}")
+        rooms = []
 
     logging.info(f"访问新增资产页面，当前用户ID: {current_user.id}")
 
@@ -604,7 +619,9 @@ def add_page():
         locations=locations,
         suppliers=suppliers,
         units=units,
-        sources=sources
+        sources=sources,
+        users=users,
+        rooms=rooms
     )
 
 
@@ -649,7 +666,7 @@ def edit_page(id):
         active_departments = []
 
     try:
-        locations = StorageLocation.get_all_names(usage_type='fixed_asset')
+        locations = StorageLocation.get_all_names(usage_type='固定资产')
     except Exception as e:
         logging.warning(f"获取存放位置列表失败: {str(e)}")
         locations = []
@@ -679,6 +696,20 @@ def edit_page(id):
         logging.warning(f"获取资产照片列表失败，资产ID: {id}, 错误: {str(photo_err)}")
         media_files = []
 
+    # 获取用户列表（责任人下拉用）
+    try:
+        users = User.query.filter(User.status == '在职').order_by(User.name).all()
+    except Exception as e:
+        logging.warning(f"获取用户列表失败: {str(e)}")
+        users = []
+
+    # 获取房间列表（关联房间下拉用）
+    try:
+        rooms = Room.query.order_by(Room.building, Room.room_number).all()
+    except Exception as e:
+        logging.warning(f"获取房间列表失败: {str(e)}")
+        rooms = []
+
     logging.info(f"访问编辑资产页面，资产ID: {id}, 部门数量: {len(departments) if departments else 0}")
 
     try:
@@ -705,7 +736,9 @@ def edit_page(id):
         suppliers=suppliers,
         units=units,
         sources=sources,
-        media_files=media_files
+        media_files=media_files,
+        users=users,
+        rooms=rooms
     )
 
 
@@ -743,10 +776,24 @@ def transfer_page(id):
         active_departments = []
 
     try:
-        locations = StorageLocation.get_all_names(usage_type='fixed_asset')
+        locations = StorageLocation.get_all_names(usage_type='固定资产')
     except Exception as e:
         logging.warning(f"获取存放位置列表失败: {str(e)}")
         locations = []
+
+    # 获取用户列表（责任人下拉用）
+    try:
+        users = User.query.filter(User.status == '在职').order_by(User.name).all()
+    except Exception as e:
+        logging.warning(f"获取用户列表失败: {str(e)}")
+        users = []
+
+    # 获取房间列表（关联房间下拉用）
+    try:
+        rooms = Room.query.order_by(Room.building, Room.room_number).all()
+    except Exception as e:
+        logging.warning(f"获取房间列表失败: {str(e)}")
+        rooms = []
 
     logging.info(f"访问资产转移页面，资产ID: {id}")
 
@@ -768,7 +815,9 @@ def transfer_page(id):
         departments=departments,
         companies=companies,
         active_departments=active_departments,
-        locations=locations
+        locations=locations,
+        users=users,
+        rooms=rooms
     )
 
 

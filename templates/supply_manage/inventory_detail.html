@@ -136,6 +136,16 @@
             </form>
         </div>
         {% endif %}
+        {% if inventory_record.status == '已完成' and inventory_unapprove_enabled %}
+        <div class="mb-6">
+            <form method="POST" action="{{ url_for('supply_inventory.unapprove_inventory', id=inventory_record.id) }}"
+                  onsubmit="return confirm('确定要反审核此盘点单吗？库存将根据盘点结果回滚，盘点单将恢复为进行中状态。')">
+                <button type="submit" class="btn-hover bg-orange-500 text-white px-4 py-2 rounded-md flex items-center">
+                    <i class="fa fa-undo mr-2"></i>反审核
+                </button>
+            </form>
+        </div>
+        {% endif %}
 
         <!-- 盘点明细列表 -->
         <div class="bg-white rounded-lg shadow-sm overflow-hidden">

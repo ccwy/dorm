@@ -68,7 +68,7 @@ def list_stock_details():
 
         # 获取筛选选项
         items = SupplyItem.get_active_items()
-        locations = StorageLocation.get_active_locations(usage_type='supply')
+        locations = StorageLocation.get_active_locations(usage_type='低值易耗品')
 
         # 获取是否显示无库存物品
         show_zero = request.args.get('show_zero', '').strip()

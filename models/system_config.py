@@ -621,6 +621,16 @@ class SystemConfig(db.Model):
                 'is_editable': True,
                 'sort_order': 30
             },
+            {
+                'config_key': 'asset_inventory_unapprove_enabled',
+                'config_value': 'true',
+                'config_type': 'bool',
+                'category': 'asset',
+                'description': '启用固定资产盘点反审核功能（允许已完成盘点单反审核回退到进行中）',
+                'is_editable': True,
+                'is_system': False,
+                'sort_order': 40
+            },
 
             # 低值易耗品进销存管理配置 (category: supply)
             {
@@ -731,6 +741,26 @@ class SystemConfig(db.Model):
                 'is_editable': True,
                 'is_system': False,
                 'sort_order': 110
+            },
+            {
+                'config_key': 'storage_location_usage_types',
+                'config_value': '低值易耗品,固定资产,合同管理',
+                'config_type': 'list',
+                'category': 'supply',
+                'description': '存放位置使用类型选项（逗号分隔，第一个为默认值）',
+                'is_editable': True,
+                'is_system': False,
+                'sort_order': 120
+            },
+            {
+                'config_key': 'supply_inventory_unapprove_enabled',
+                'config_value': 'true',
+                'config_type': 'bool',
+                'category': 'supply',
+                'description': '启用低值易耗品盘点反审核功能（允许已完成盘点单反审核回退到进行中）',
+                'is_editable': True,
+                'is_system': False,
+                'sort_order': 130
             },
     
             # 合同类型配置

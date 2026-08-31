@@ -229,7 +229,7 @@ def add_page():
         departments = Department.query.order_by(Department.name).all()
 
         # 获取合同存放位置列表
-        storage_locations = StorageLocation.get_active_locations(usage_type='contract')
+        storage_locations = StorageLocation.get_active_locations(usage_type='合同管理')
 
         return render_template(
             'contract_manage/contract_form.html',
@@ -274,7 +274,7 @@ def edit_page(id):
         departments = Department.query.order_by(Department.name).all()
 
         # 获取合同存放位置列表
-        storage_locations = StorageLocation.get_active_locations(usage_type='contract')
+        storage_locations = StorageLocation.get_active_locations(usage_type='合同管理')
 
         return render_template(
             'contract_manage/contract_form.html',

@@ -274,7 +274,13 @@
                                     <span class="text-xs text-gray-400">日期：{{ record.record_date.strftime('%Y-%m-%d %H:%M') if record.record_date else '' }}</span>
                                 </div>
                                 {% if record.source_number %}
-                                <p class="text-sm text-gray-600 mt-1">来源单号：{{ record.source_number }}（{{ record.source_type or '未知' }}）</p>
+                                <p class="text-sm text-gray-600 mt-1">来源单号：
+                                    {% if record.source_url %}
+                                    <a href="{{ record.source_url }}" class="text-primary hover:underline">{{ record.source_number }}</a>
+                                    {% else %}
+                                    {{ record.source_number }}
+                                    {% endif %}（{{ record.source_type or '未知' }}）
+                                </p>
                                 {% endif %}
                                 {% if record.remark %}
                                 <p class="text-xs text-gray-400 mt-1">{{ record.remark }}</p>

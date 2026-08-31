@@ -60,7 +60,7 @@ def get_storage_location_list():
                 "room": loc.room or '',
                 "display_name": loc.display_name,
                 "status": loc.status or '启用',
-                "usage_type": loc.usage_type or 'supply',
+                "usage_type": loc.usage_type or '低值易耗品',
                 "display_usage_type": loc.display_usage_type,
                 "remark": loc.remark or '',
                 "created_at": loc.created_at.strftime('%Y-%m-%d %H:%M') if loc.created_at else None,
@@ -115,7 +115,7 @@ def get_storage_location_detail(id):
             "room": location.room or '',
             "display_name": location.display_name,
             "status": location.status or '启用',
-            "usage_type": location.usage_type or 'supply',
+            "usage_type": location.usage_type or '低值易耗品',
             "display_usage_type": location.display_usage_type,
             "remark": location.remark or '',
             "operator_user_id": location.operator_user_id,
@@ -152,7 +152,7 @@ def get_active_storage_locations():
             "display_name": loc.display_name,
             "building": loc.building or '',
             "room": loc.room or '',
-            "usage_type": loc.usage_type or 'supply',
+            "usage_type": loc.usage_type or '低值易耗品',
             "display_usage_type": loc.display_usage_type
         } for loc in locations]
 
@@ -211,7 +211,7 @@ def check_storage_location_usage(id):
                 "id": location.id,
                 "name": location.name,
                 "display_name": location.display_name,
-                "usage_type": location.usage_type or 'supply',
+                "usage_type": location.usage_type or '低值易耗品',
                 "display_usage_type": location.display_usage_type,
                 "is_used": stock_count > 0,
                 "stock_detail_count": stock_count,
@@ -236,15 +236,16 @@ def quick_create_storage_location():
     try:
         data = request.get_json()
         name = data.get('name', '').strip() if data else ''
-        usage_type = data.get('usage_type', 'supply').strip() if data else 'supply'
+        usage_type = data.get('usage_type', '低值易耗品').strip() if data else '低值易耗品'
 
         if not name:
             return jsonify({'success': False, 'message': '位置名称不能为空'}), 400
 
         # 使用类型校验
-        valid_usage_types = ['supply', 'fixed_asset', 'contract']
+        from .storage_location import get_usage_types
+        valid_usage_types = get_usage_types()
         if usage_type not in valid_usage_types:
-            usage_type = 'supply'
+            usage_type = valid_usage_types[0] if valid_usage_types else '低值易耗品'
 
         # 检查是否已存在（联合usage_type校验）
         existing = StorageLocation.query.filter_by(name=name, usage_type=usage_type).first()

@@ -278,41 +278,31 @@
                         <!-- 责任人 -->
                         <div>
                             <label for="responsible_person" class="block text-sm font-medium text-gray-700 mb-1">责任人</label>
-                            <div class="flex gap-2">
-                                <input type="text" id="responsible_person" name="responsible_person"
-                                       class="flex-1 px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
-                                       placeholder="可手动输入或点击选择用户"
-                                       oninput="onResponsiblePersonInput()">
-                                <button type="button" onclick="openUserSelector()"
-                                        class="px-3 py-2 bg-primary text-white rounded-md hover:bg-primary/90 text-sm">
-                                    <i class="fa fa-search mr-1"></i>选择
-                                </button>
-                                <button type="button" onclick="clearResponsible()"
-                                        class="px-3 py-2 border border-gray-300 rounded-md hover:bg-gray-50 text-sm">
-                                    <i class="fa fa-times"></i>
-                                </button>
-                            </div>
+                            <input type="text" id="responsible_person" name="responsible_person" list="userList"
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                   placeholder="请选择或输入责任人" autocomplete="off">
+                            <datalist id="userList">
+                                {% for u in users %}
+                                <option value="{{ u.name }}" data-user-id="{{ u.id }}">
+                                {% endfor %}
+                            </datalist>
                             <input type="hidden" id="responsible_user_id" name="responsible_user_id" value="">
-                            <p class="text-xs text-gray-500 mt-1">可手动输入名称，或点击"选择"从用户列表选取</p>
+                            <p class="text-xs text-gray-500 mt-1">可从用户列表选择或自定义输入</p>
                         </div>
 
                         <!-- 关联房间 -->
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">关联房间</label>
-                            <div class="flex gap-2">
-                                <input type="text" id="room_display" readonly
-                                       class="flex-1 px-4 py-2 border border-gray-300 rounded-md bg-gray-50 focus:outline-none"
-                                       placeholder="点击选择房间">
-                                <button type="button" onclick="openRoomSelector()"
-                                        class="px-3 py-2 bg-primary text-white rounded-md hover:bg-primary/90 text-sm">
-                                    <i class="fa fa-search mr-1"></i>选择
-                                </button>
-                                <button type="button" onclick="clearRoom()"
-                                        class="px-3 py-2 border border-gray-300 rounded-md hover:bg-gray-50 text-sm">
-                                    清除
-                                </button>
-                            </div>
+                            <label for="room_display" class="block text-sm font-medium text-gray-700 mb-1">关联房间</label>
+                            <input type="text" id="room_display" name="room_display" list="roomList"
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                   placeholder="请选择或输入关联房间" autocomplete="off">
+                            <datalist id="roomList">
+                                {% for r in rooms %}
+                                <option value="{{ r.building }}{{ r.room_number }}" data-room-id="{{ r.id }}">
+                                {% endfor %}
+                            </datalist>
                             <input type="hidden" id="room_id" name="room_id" value="">
+                            <p class="text-xs text-gray-500 mt-1">可从房间列表选择或自定义输入</p>
                         </div>
 
 
@@ -348,140 +338,44 @@
         </div>
     </main>
 
-    <!-- 房间选择模态框 -->
-    <div id="roomSelectorModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
-        <div class="bg-white rounded-lg shadow-lg w-full max-w-lg mx-4">
-            <div class="p-4 border-b border-gray-200 flex justify-between items-center">
-                <h3 class="text-lg font-semibold">选择房间</h3>
-                <button onclick="closeRoomSelector()" class="text-gray-500 hover:text-gray-700"><i class="fa fa-times"></i></button>
-            </div>
-            <div class="p-4">
-                <input type="text" id="roomSearchInput" placeholder="搜索楼栋/房间号..."
-                       class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 mb-3"
-                       oninput="searchRooms()">
-                <div id="roomSearchResults" class="max-h-64 overflow-y-auto border border-gray-200 rounded-md">
-                    <div class="p-4 text-center text-gray-500">请输入关键词搜索</div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- 用户选择模态框 -->
-    <div id="userSelectorModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
-        <div class="bg-white rounded-lg shadow-lg w-full max-w-lg mx-4">
-            <div class="p-4 border-b border-gray-200 flex justify-between items-center">
-                <h3 class="text-lg font-semibold">选择责任人</h3>
-                <button onclick="closeUserSelector()" class="text-gray-500 hover:text-gray-700"><i class="fa fa-times"></i></button>
-            </div>
-            <div class="p-4">
-                <input type="text" id="userSearchInput" placeholder="搜索姓名/工号/手机号..."
-                       class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 mb-3"
-                       oninput="searchUsers()">
-                <div id="userSearchResults" class="max-h-64 overflow-y-auto border border-gray-200 rounded-md">
-                    <div class="p-4 text-center text-gray-500">请输入关键词搜索</div>
-                </div>
-            </div>
-        </div>
-    </div>
-
     {% include 'footer.html' %}
     <script>
-        // 房间选择器
-        function openRoomSelector() {
-            document.getElementById('roomSelectorModal').classList.remove('hidden');
-            document.getElementById('roomSearchInput').value = '';
-            document.getElementById('roomSearchResults').innerHTML = '<div class="p-4 text-center text-gray-500">请输入关键词搜索</div>';
-            document.getElementById('roomSearchInput').focus();
-        }
-        function closeRoomSelector() {
-            document.getElementById('roomSelectorModal').classList.add('hidden');
-        }
-        function clearRoom() {
-            document.getElementById('room_id').value = '';
-            document.getElementById('room_display').value = '';
-        }
-        let roomSearchTimer;
-        function searchRooms() {
-            clearTimeout(roomSearchTimer);
-            const query = document.getElementById('roomSearchInput').value.trim();
-            if (!query) {
-                document.getElementById('roomSearchResults').innerHTML = '<div class="p-4 text-center text-gray-500">请输入关键词搜索</div>';
-                return;
-            }
-            roomSearchTimer = setTimeout(function() {
-                fetch('/api/fixed_assets/rooms/search?query=' + encodeURIComponent(query))
-                    .then(r => r.json())
-                    .then(data => {
-                        if (data.length === 0) {
-                            document.getElementById('roomSearchResults').innerHTML = '<div class="p-4 text-center text-gray-500">未找到匹配的房间</div>';
-                            return;
-                        }
-                        let html = '';
-                        data.forEach(function(room) {
-                            html += '<div class="p-3 hover:bg-blue-50 cursor-pointer border-b border-gray-100 flex justify-between items-center" onclick="selectRoom(' + room.id + ', \'' + room.display.replace(/'/g, "\\'") + '\')">';
-                            html += '<span class="font-medium">' + room.display + '</span>';
-                            html += '<span class="text-xs text-gray-500">' + (room.status || '') + '</span>';
-                            html += '</div>';
-                        });
-                        document.getElementById('roomSearchResults').innerHTML = html;
-                    });
-            }, 300);
-        }
-        function selectRoom(id, display) {
-            document.getElementById('room_id').value = id;
-            document.getElementById('room_display').value = display;
-            closeRoomSelector();
+        // 责任人datalist映射：名称→用户ID
+        var userNameToId = {
+            {% for u in users %}'{{ u.name }}': {{ u.id }}{% if not loop.last %}, {% endif %}{% endfor %}
+        };
+
+        // 关联房间datalist映射：显示名→房间ID
+        var roomDisplayToId = {
+            {% for r in rooms %}'{{ r.building }}{{ r.room_number }}': {{ r.id }}{% if not loop.last %}, {% endif %}{% endfor %}
+        };
+
+        // 责任人input事件：选择时设置user_id，自定义输入时清空
+        var responsiblePersonInput = document.getElementById('responsible_person');
+        var responsibleUserIdInput = document.getElementById('responsible_user_id');
+        if (responsiblePersonInput) {
+            responsiblePersonInput.addEventListener('input', function() {
+                var val = this.value.trim();
+                if (userNameToId[val] !== undefined) {
+                    responsibleUserIdInput.value = userNameToId[val];
+                } else {
+                    responsibleUserIdInput.value = '';
+                }
+            });
         }
 
-        // 责任人选择器
-        function openUserSelector() {
-            document.getElementById('userSelectorModal').classList.remove('hidden');
-            document.getElementById('userSearchInput').value = '';
-            document.getElementById('userSearchResults').innerHTML = '<div class="p-4 text-center text-gray-500">请输入关键词搜索</div>';
-            document.getElementById('userSearchInput').focus();
-        }
-        function closeUserSelector() {
-            document.getElementById('userSelectorModal').classList.add('hidden');
-        }
-        function clearResponsible() {
-            document.getElementById('responsible_user_id').value = '';
-            document.getElementById('responsible_person').value = '';
-        }
-        function onResponsiblePersonInput() {
-            // 手动输入时清空user_id，表示自定义名称
-            document.getElementById('responsible_user_id').value = '';
-        }
-        let userSearchTimer;
-        function searchUsers() {
-            clearTimeout(userSearchTimer);
-            const query = document.getElementById('userSearchInput').value.trim();
-            if (!query) {
-                document.getElementById('userSearchResults').innerHTML = '<div class="p-4 text-center text-gray-500">请输入关键词搜索</div>';
-                return;
-            }
-            userSearchTimer = setTimeout(function() {
-                fetch('/api/fixed_assets/users/search?query=' + encodeURIComponent(query))
-                    .then(r => r.json())
-                    .then(data => {
-                        if (data.length === 0) {
-                            document.getElementById('userSearchResults').innerHTML = '<div class="p-4 text-center text-gray-500">未找到匹配的用户</div>';
-                            return;
-                        }
-                        let html = '';
-                        data.forEach(function(user) {
-                            html += '<div class="p-3 hover:bg-blue-50 cursor-pointer border-b border-gray-100" onclick="selectUser(' + user.id + ', \'' + user.name.replace(/'/g, "\\'") + '\')">';
-                            html += '<div class="font-medium">' + user.name + '</div>';
-                            html += '<div class="text-xs text-gray-500">' + (user.student_id || '') + ' | ' + (user.department || '') + ' | ' + (user.phone || '') + '</div>';
-                            html += '</div>';
-                        });
-                        document.getElementById('userSearchResults').innerHTML = html;
-                    });
-            }, 300);
-        }
-        function selectUser(id, name) {
-            document.getElementById('responsible_user_id').value = id;
-            document.getElementById('responsible_person').value = name;
-            closeUserSelector();
+        // 关联房间input事件：选择时设置room_id，自定义输入时清空
+        var roomDisplayInput = document.getElementById('room_display');
+        var roomIdInput = document.getElementById('room_id');
+        if (roomDisplayInput) {
+            roomDisplayInput.addEventListener('input', function() {
+                var val = this.value.trim();
+                if (roomDisplayToId[val] !== undefined) {
+                    roomIdInput.value = roomDisplayToId[val];
+                } else {
+                    roomIdInput.value = '';
+                }
+            });
         }
 
         // 公司-部门级联：AJAX加载部门列表到datalist

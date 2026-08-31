@@ -210,13 +210,18 @@ def detail_inventory(id):
         )
         logging.info(f"查看盘点单详情，盘点ID: {id}")
 
+        # 获取盘点反审核开关配置
+        from models.system_config import SystemConfig
+        inventory_unapprove_enabled = SystemConfig.get_config_value('supply_inventory_unapprove_enabled', True)
+
         return render_template(
             'supply_manage/inventory_detail.html',
             title=f"盘点详情 - {inventory.title}",
             inventory_record=inventory,
             details=details,
             result_filter=result_filter,
-            search=search
+            search=search,
+            inventory_unapprove_enabled=inventory_unapprove_enabled
         )
     except Exception as e:
         log_operation(

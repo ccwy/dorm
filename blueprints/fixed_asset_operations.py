@@ -36,7 +36,7 @@ def _ensure_supplier_exists(name, operator_user_id=None, handler_user_id=None):
         )
 
 
-def _ensure_storage_location_exists(name, operator_user_id=None, usage_type='fixed_asset', handler_user_id=None):
+def _ensure_storage_location_exists(name, operator_user_id=None, usage_type='固定资产', handler_user_id=None):
     """确保存放位置存在，不存在则自动创建（固定资产自定义输入时同步保存）"""
     if not name:
         return
@@ -1200,6 +1200,66 @@ def complete_inventory(id):
         flash(f'完成盘点失败: {str(e)}', 'danger')
         logging.error(f"完成盘点失败，盘点ID: {id}, 错误: {str(e)}\n{traceback.format_exc()}")
         return redirect(url_for('fixed_asset.inventory'))
+
+
+# ========== 路由：反审核盘点单 ==========
+@fixed_asset_bp.route('/operations/inventory/unapprove/<int:id>', methods=['POST'])
+@login_required
+@require_permission('fixed_asset.edit')
+def unapprove_inventory(id):
+    """反审核盘点单 - 检查开关→检查状态→调用模型方法→错误处理"""
+    from models.system_config import SystemConfig
+    unapprove_enabled = SystemConfig.get_config_value('asset_inventory_unapprove_enabled', True)
+    if not unapprove_enabled:
+        flash('固定资产盘点反审核功能已关闭，请联系管理员开启', 'warning')
+        return redirect(url_for('fixed_asset.inventory_detail', id=id))
+
+    inventory = AssetInventory.query.get_or_404(id)
+    if inventory.status != '已完成':
+        flash('仅已完成状态的盘点单可以反审核', 'warning')
+        return redirect(url_for('fixed_asset.inventory_detail', id=id))
+
+    try:
+        result = AssetInventory.unapprove(id, current_user.id)
+
+        if result is None:
+            flash('反审核失败，盘点单状态异常', 'danger')
+            return redirect(url_for('fixed_asset.inventory_detail', id=id))
+
+        if isinstance(result, dict) and 'error' in result:
+            # 库存不足错误
+            error_msg = result['error']
+            details = result.get('details', [])
+            if details:
+                detail_msgs = [f"{d['asset_name']}({d.get('asset_number', '')})：当前{d['current_quantity']}{d.get('unit', '台')}，需扣减{d['need_deduct']}{d.get('unit', '台')}" for d in details]
+                error_msg += '：' + '、'.join(detail_msgs)
+            flash(error_msg, 'danger')
+            return redirect(url_for('fixed_asset.inventory_detail', id=id))
+
+        # 反审核成功
+        log_operation(
+            user_id=current_user.id,
+            module='asset',
+            operation_type='inventory_unapprove',
+            action=f"反审核盘点单: {inventory.inventory_number}",
+            result="成功"
+        )
+        flash(f'盘点单 {inventory.inventory_number} 已反审核，资产数量已回滚，盘点单恢复为进行中状态', 'success')
+        logging.info(f"反审核盘点单，盘点单号: {inventory.inventory_number}")
+        return redirect(url_for('fixed_asset.inventory_detail', id=id))
+
+    except Exception as e:
+        db.session.rollback()
+        log_operation(
+            user_id=current_user.id,
+            module='asset',
+            operation_type='inventory_unapprove',
+            action=f"反审核盘点单失败 [ID: {id}]: {str(e)}",
+            result="失败"
+        )
+        flash(f'反审核盘点失败: {str(e)}', 'danger')
+        logging.error(f"反审核盘点失败，盘点ID: {id}, 错误: {str(e)}\n{traceback.format_exc()}")
+        return redirect(url_for('fixed_asset.inventory_detail', id=id))
 
 
 # ========== 路由：删除盘点单 ==========

@@ -356,6 +356,14 @@ def import_users():
                     user_data['is_banned'] = bool(SystemConfig.get_config_value('USER_DEFAULT_BANNED', False))
                     logging.info(f"导入用户数据操作，第{current_row}行：Excel中未提供'是否允许登录'字段，已设置为默认值")
             
+            # 同步公司和部门到部门管理模块
+            # 当有公司但无部门时，将公司名作为部门名自动创建，确保部门不会为空
+            company_val = user_data.get('company')
+            dept_val = user_data.get('department')
+            if company_val and not dept_val:
+                user_data['department'] = company_val
+                logging.info(f"导入用户数据操作，第{current_row}行：用户有公司'{company_val}'但无部门，自动将公司名设为部门")
+            
             user_data_list.append(user_data)
         logging.info(f"导入用户数据操作，准备导入 {len(user_data_list)} 条记录")
         
@@ -738,6 +746,14 @@ def update_users():
                             value = value.strip()
                         
                         user_data[field_name] = value
+            
+            # 同步公司和部门到部门管理模块
+            # 当有公司但无部门时，将公司名作为部门名自动创建，确保部门不会为空
+            company_val = user_data.get('company')
+            dept_val = user_data.get('department')
+            if company_val and not dept_val:
+                user_data['department'] = company_val
+                logging.info(f"批量更新用户数据操作，第{idx+2}行：用户有公司'{company_val}'但无部门，自动将公司名设为部门")
             
             if user_data:
                 user_data_list.append(user_data)

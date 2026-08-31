@@ -70,7 +70,7 @@ def index():
         # 获取筛选选项
         statuses = ['启用', '停用']
         suppliers = Supplier.get_active_suppliers()
-        locations = StorageLocation.get_active_locations(usage_type='supply')
+        locations = StorageLocation.get_active_locations(usage_type='低值易耗品')
 
         # 构建查询
         query = SupplyItem.query.order_by(SupplyItem.id.desc())
@@ -175,7 +175,7 @@ def index():
 def add_page():
     try:
         suppliers = Supplier.get_active_suppliers()
-        locations = StorageLocation.get_active_locations(usage_type='supply')
+        locations = StorageLocation.get_active_locations(usage_type='低值易耗品')
         # 读取预设单位配置（get_config_value对list类型返回列表，对不存在的配置返回字符串）
         supply_units_value = SystemConfig.get_config_value('supply_units', '个,件,箱,包,盒,瓶,支,本,张,套,台,把,条,块,卷,桶,袋,罐')
         supply_units = supply_units_value if isinstance(supply_units_value, list) else [u.strip() for u in supply_units_value.split(',') if u.strip()]
@@ -205,7 +205,7 @@ def edit_page(id):
     try:
         item = SupplyItem.query.get_or_404(id)
         suppliers = Supplier.get_active_suppliers()
-        locations = StorageLocation.get_active_locations(usage_type='supply')
+        locations = StorageLocation.get_active_locations(usage_type='低值易耗品')
         # 读取预设单位配置（get_config_value对list类型返回列表，对不存在的配置返回字符串）
         supply_units_value = SystemConfig.get_config_value('supply_units', '个,件,箱,包,盒,瓶,支,本,张,套,台,把,条,块,卷,桶,袋,罐')
         supply_units = supply_units_value if isinstance(supply_units_value, list) else [u.strip() for u in supply_units_value.split(',') if u.strip()]

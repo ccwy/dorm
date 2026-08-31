@@ -448,7 +448,7 @@
                             locationSelect.innerHTML = '<option value="">加载中...</option>';
                             fetchItemLocations(foundItem.id).then(locations => {
                                 if (locations.length > 0) {
-                                    updateLocationSelect(locationSelect, locations);
+                                    updateLocationSelect(locationSelect, locations, locations[0].id);
                                 } else {
                                     locationSelect.innerHTML = '<option value="">该物品暂无库存</option>';
                                 }

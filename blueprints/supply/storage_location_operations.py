@@ -7,7 +7,7 @@ from utils.auth import require_permission
 import logging
 import traceback
 from datetime import datetime
-from .storage_location import storage_location_bp
+from .storage_location import storage_location_bp, get_usage_types
 
 
 # ========== 路由：新增存放位置 ==========
@@ -24,7 +24,7 @@ def add_storage_location():
         room = request.form.get('room', '').strip() or None
         address = request.form.get('address', '').strip() or None
         status = request.form.get('status', '启用').strip() or '启用'
-        usage_type = request.form.get('usage_type', 'supply').strip() or 'supply'
+        usage_type = request.form.get('usage_type', '低值易耗品').strip() or '低值易耗品'
         remark = request.form.get('remark', '').strip() or None
 
         # 必填字段校验
@@ -37,9 +37,9 @@ def add_storage_location():
             status = '启用'
 
         # 使用类型校验
-        valid_usage_types = ['supply', 'fixed_asset', 'contract']
+        valid_usage_types = get_usage_types()
         if usage_type not in valid_usage_types:
-            usage_type = 'supply'
+            usage_type = valid_usage_types[0] if valid_usage_types else '低值易耗品'
 
         # 检查名称是否重复（联合usage_type校验）
         if StorageLocation.is_name_exists(name, usage_type=usage_type):
@@ -110,7 +110,7 @@ def edit_storage_location(id):
             new_status = '启用'
 
         # 使用类型校验
-        valid_usage_types = ['supply', 'fixed_asset', 'contract']
+        valid_usage_types = get_usage_types()
         if new_usage_type not in valid_usage_types:
             new_usage_type = location.usage_type
 
@@ -123,9 +123,6 @@ def edit_storage_location(id):
         if StorageLocation.is_name_exists(new_name, usage_type=new_usage_type, exclude_id=id):
             flash(f'已存在存放位置"{new_name}"（相同使用类型下）', 'danger')
             return redirect(url_for('storage_location.edit_page', id=id))
-
-        # 使用类型中文映射
-        usage_type_display = {'supply': '低值易耗品', 'fixed_asset': '固定资产', 'contract': '合同管理'}
 
         # 记录变更
         changes = []
@@ -144,7 +141,7 @@ def edit_storage_location(id):
         if location.status != new_status:
             changes.append(f"状态: {location.status} → {new_status}")
         if old_usage_type != new_usage_type:
-            changes.append(f"使用类型: {usage_type_display.get(old_usage_type, old_usage_type)} → {usage_type_display.get(new_usage_type, new_usage_type)}")
+            changes.append(f"使用类型: {old_usage_type} → {new_usage_type}")
         if location.remark != new_remark:
             changes.append("备注已更新")
 

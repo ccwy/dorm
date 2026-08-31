@@ -139,13 +139,13 @@ def add_contract():
 
         # 处理自定义存放位置
         if not storage_location_id and storage_location_name:
-            existing_location = StorageLocation.query.filter_by(name=storage_location_name, usage_type='contract').first()
+            existing_location = StorageLocation.query.filter_by(name=storage_location_name, usage_type='合同管理').first()
             if existing_location:
                 storage_location_id = existing_location.id
             else:
                 new_location = StorageLocation.create(
                     name=storage_location_name,
-                    usage_type='contract',
+                    usage_type='合同管理',
                     status='启用',
                     handler_user_id=current_user.id,
                     operator_user_id=current_user.id
@@ -439,13 +439,13 @@ def edit_contract(id):
 
         # 处理自定义存放位置
         if not new_storage_location_id and new_storage_location_name:
-            existing_location = StorageLocation.query.filter_by(name=new_storage_location_name, usage_type='contract').first()
+            existing_location = StorageLocation.query.filter_by(name=new_storage_location_name, usage_type='合同管理').first()
             if existing_location:
                 new_storage_location_id = existing_location.id
             else:
                 new_location = StorageLocation.create(
                     name=new_storage_location_name,
-                    usage_type='contract',
+                    usage_type='合同管理',
                     status='启用',
                     handler_user_id=current_user.id,
                     operator_user_id=current_user.id

@@ -142,14 +142,14 @@ def create_stock_in():
 
             # 延迟创建：如果location_id为空但location_name有值，查找或创建位置
             if not location_id and location_name:
-                existing_location = StorageLocation.query.filter_by(name=location_name, usage_type='supply').first()
+                existing_location = StorageLocation.query.filter_by(name=location_name, usage_type='低值易耗品').first()
                 if existing_location:
                     location_id = existing_location.id
                 else:
                     new_location = StorageLocation.create(
                         name=location_name,
                         status='启用',
-                        usage_type='supply',
+                        usage_type='低值易耗品',
                         handler_user_id=current_user.id,
                         operator_user_id=current_user.id
                     )
@@ -340,14 +340,14 @@ def update_stock_in(id):
 
             # 延迟创建：如果location_id为空但location_name有值，查找或创建位置
             if not location_id and location_name:
-                existing_location = StorageLocation.query.filter_by(name=location_name, usage_type='supply').first()
+                existing_location = StorageLocation.query.filter_by(name=location_name, usage_type='低值易耗品').first()
                 if existing_location:
                     location_id = existing_location.id
                 else:
                     new_location = StorageLocation.create(
                         name=location_name,
                         status='启用',
-                        usage_type='supply',
+                        usage_type='低值易耗品',
                         handler_user_id=current_user.id,
                         operator_user_id=current_user.id
                     )

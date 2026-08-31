@@ -392,12 +392,12 @@ def import_contracts():
                 remark_val = row.get('备注')
                 remark = str(remark_val).strip() if pd.notna(remark_val) and str(remark_val).strip() else None
 
-                # 存放位置（可选，通过名称匹配StorageLocation，usage_type='contract'）
+                # 存放位置（可选，通过名称匹配StorageLocation，usage_type='合同管理'）
                 storage_location_id = None
                 storage_location_name_val = row.get('存放位置')
                 if pd.notna(storage_location_name_val) and str(storage_location_name_val).strip():
                     storage_location_name = str(storage_location_name_val).strip()
-                    storage_location = StorageLocation.query.filter_by(name=storage_location_name, usage_type='contract').first()
+                    storage_location = StorageLocation.query.filter_by(name=storage_location_name, usage_type='合同管理').first()
                     if storage_location:
                         storage_location_id = storage_location.id
 
