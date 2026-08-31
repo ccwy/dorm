@@ -335,6 +335,7 @@
 
     <script>
         const roleId = {{ role.id }};
+        const isSuperAdminRole = {{ 'true' if role.code == 'super_admin' else 'false' }};
         let removeUserId = null;
         let addSelectedUserIds = new Set();
 
@@ -369,13 +370,17 @@
                     if (data.success && data.users.length > 0) {
                         let html = '';
                         data.users.forEach(user => {
+                            const isAdmin = user.id === 1 && !isSuperAdminRole;
+                            const disabledAttr = isAdmin ? 'disabled' : '';
+                            const adminBadge = isAdmin ? '<span class="text-xs text-red-500 ml-1">内置管理员</span>' : '';
                             const checked = addSelectedUserIds.has(user.id) ? 'checked' : '';
                             html += `
-                                <label class="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
-                                    <input type="checkbox" class="add-user-checkbox mr-3 w-4 h-4" value="${user.id}" ${checked}
+                                <label class="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-gray-50 ${isAdmin ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}">
+                                    <input type="checkbox" class="add-user-checkbox mr-3 w-4 h-4" value="${user.id}" ${checked} ${disabledAttr}
                                            onchange="toggleAddUser(${user.id}, this.checked)">
                                     <div class="flex-1">
                                         <span class="font-medium text-gray-900">${user.name || '-'}</span>
+                                        ${adminBadge}
                                         <span class="text-gray-400 ml-2">${user.username || ''}</span>
                                         <span class="text-gray-400 ml-2">${user.department || ''}</span>
                                     </div>

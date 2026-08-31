@@ -36,6 +36,10 @@ def api_search_users():
             db.or_(User.role_id != role_id, User.role_id.is_(None))
         )
 
+        # 超级管理员保护：非super_admin角色搜索用户时排除内置admin账号
+        if role.code != 'super_admin':
+            query = query.filter(User.id != 1)
+
         if keyword:
             search_filter = f'%{keyword}%'
             query = query.filter(
@@ -88,6 +92,15 @@ def api_add_users():
         if not user_ids:
             return jsonify({'success': False, 'message': '请选择要添加的用户'}), 400
 
+        # 超级管理员保护：内置admin账号(ID=1)不可被分配到其他角色
+        protected_count = 0
+        if role.code != 'super_admin':
+            admin_id_str = '1'
+            protected_count = user_ids.count(admin_id_str)
+            user_ids = [uid for uid in user_ids if uid != admin_id_str]
+            if protected_count > 0 and not user_ids:
+                return jsonify({'success': False, 'message': '内置超级管理员账号不可分配到其他角色'}), 403
+
         added_count = 0
         for uid_str in user_ids:
             uid = int(uid_str)
@@ -125,7 +138,10 @@ def api_add_users():
             action=f'向角色 {role.name} 添加 {added_count} 个用户',
             result='成功'
         )
-        return jsonify({'success': True, 'message': f'成功添加 {added_count} 个用户'})
+        msg = f'成功添加 {added_count} 个用户'
+        if protected_count > 0:
+            msg += f'（已自动排除 {protected_count} 个内置超级管理员账号）'
+        return jsonify({'success': True, 'message': msg})
 
     except Exception as e:
         db.session.rollback()
