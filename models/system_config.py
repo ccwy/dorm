@@ -711,16 +711,7 @@ class SystemConfig(db.Model):
                 'is_system': False,
                 'sort_order': 90
             },
-            {
-                'config_key': 'STORAGE_LOCATION_USAGE_TYPES',
-                'config_value': '低值易耗品,固定资产,合同管理',
-                'config_type': 'list',
-                'category': 'supply_manage',
-                'description': '存放位置使用类型选项',
-                'is_editable': True,
-                'is_system': True,
-                'sort_order': 95
-            },
+            
             {
                 'config_key': 'stock_in_types',
                 'config_value': '采购入库,其它入库',
