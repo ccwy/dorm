@@ -197,23 +197,16 @@ jobs:
           tag_name: ${{ steps.version.outputs.tag }}
           name: 行政后勤管理系统 ${{ steps.version.outputs.tag }}
           body: |
-            ### Win7 专用版本
-
-            此版本为 Windows 7 专用，使用浏览器模式运行，**不需要安装 WebView2 运行时**。
 
             #### 系统要求
-            - Windows 7 SP1（32位或64位）
-            - 需要安装 VC++ 2015-2019 运行时（x86）
-            - 建议安装 Windows 更新 KB2999226
+            - Windows 7 SP1（32位或64位）以上系统
+            - win7以上需要安装 VC++ 2015-2019 运行时（x86）
+            - win7建议安装 Windows 更新 KB2999226
             - 需要安装现代浏览器（Chrome 109+ 或 Firefox 115 ESR 推荐）
-            - 仅支持服务器模式运行
+            - win7仅支持服务器模式运行
             - **不支持 IE11**
-
-            ### 正常版本
-            - win10以上系统皆可使用
-            - 需要安装WebView2 运行时
-            - 需要安装VC++ 2015-2019 运行时库
-            - 支持客户端模式和服务器模式
+            - win10以上需要安装WebView2 运行时
+            - win10以上支持客户端模式和服务器模式
 
             ### 下载说明
             | 文件 | 说明 |
@@ -222,8 +215,6 @@ jobs:
             | `DormManagement_Portable_MultiFile_v*.zip` | 多文件绿色版，解压后运行主程序，启动更快 |
             | `DormManagement_Setup_SingleFile_v*.exe` | Inno Setup 安装程序（单文件模式），自动配置快捷方式和卸载程序 |
             | `DormManagement_Setup_MultiFile_v*.exe` | Inno Setup 安装程序（多文件模式），自动配置快捷方式和卸载程序 |
-            | `DormManagement_Win7_Portable_v*.exe` | Win7 单文件绿色版，无需安装，直接运行 |
-            | `DormManagement_Win7_Setup_v*.exe` | Win7 安装程序，自动配置快捷方式和卸载程序 |
             | `DormManagement_Docker_v*.tar` | Docker 镜像，使用 `docker load -i` 导入 |
 
             ### 使用方式
