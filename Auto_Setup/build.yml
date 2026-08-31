@@ -85,11 +85,6 @@ jobs:
           cat > /tmp/release_body.md << EOF
           ## 📦 行政后勤管理系统 ${TAG}
 
-          ### 📋 更新日志
-          ${CHANGELOG}
-
-          ---
-
           ### Win7 专用版本
 
           此版本为 Windows 7 专用，使用浏览器模式运行，**不需要安装 WebView2 运行时**。
@@ -123,6 +118,11 @@ jobs:
           1. **绿色版**：下载后直接运行，无需安装
           2. **安装版**：双击安装程序，自动配置快捷方式和卸载程序
           3. **Docker**：下载 tar 文件后使用 \`docker load -i 文件名.tar\` 导入
+
+          ---
+
+          ### 📋 更新日志
+          ${CHANGELOG}
           EOF
           echo "✅ 发布说明已生成"
 
