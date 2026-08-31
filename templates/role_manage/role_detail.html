@@ -214,7 +214,7 @@
                         <tr class="hover:bg-gray-50 transition-colors" id="user-row-{{ user.id }}">
                             {% if current_user.has_permission('role.edit') %}
                             <td class="px-6 py-4 whitespace-nowrap user-checkbox-col hidden">
-                                <input type="checkbox" class="user-checkbox w-4 h-4" value="{{ user.id }}" onchange="updateSelectedCount()">
+                                <input type="checkbox" class="user-checkbox w-4 h-4" value="{{ user.id }}" onchange="updateSelectedCount()" {% if role.code == 'super_admin' and user.id == 1 %}disabled title="内置超级管理员不可移除"{% endif %}>
                             </td>
                             {% endif %}
                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
@@ -226,9 +226,13 @@
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ user.position or '-' }}</td>
                             <td class="px-6 py-4 whitespace-nowrap text-center">
                                 {% if current_user.has_permission('role.edit') %}
-                                <button type="button" onclick="removeUser({{ user.id }}, '{{ user.name or user.username }}')" class="text-red-500 hover:text-red-700 text-sm" title="移除">
-                                    <i class="fa fa-user-minus mr-1"></i>移除
-                                </button>
+                                    {% if role.code == 'super_admin' and user.id == 1 %}
+                                    <span class="text-gray-400 text-sm" title="内置超级管理员不可移除"><i class="fa fa-lock mr-1"></i>内置</span>
+                                    {% else %}
+                                    <button type="button" onclick="removeUser({{ user.id }}, '{{ user.name or user.username }}')" class="text-red-500 hover:text-red-700 text-sm" title="移除">
+                                        <i class="fa fa-user-minus mr-1"></i>移除
+                                    </button>
+                                    {% endif %}
                                 {% endif %}
                             </td>
                         </tr>

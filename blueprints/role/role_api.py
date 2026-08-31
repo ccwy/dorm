@@ -153,6 +153,14 @@ def api_remove_users():
         if not user_ids:
             return jsonify({'success': False, 'message': '请选择要移除的用户'}), 400
 
+        # 超级管理员角色保护：内置admin账号(ID=1)不可移除
+        if role.code == 'super_admin':
+            admin_id_str = '1'
+            protected_count = user_ids.count(admin_id_str)
+            user_ids = [uid for uid in user_ids if uid != admin_id_str]
+            if protected_count > 0 and not user_ids:
+                    return jsonify({'success': False, 'message': '内置超级管理员账号不可从超级管理员角色中移除'}), 403
+
         removed_count = 0
         for uid_str in user_ids:
             uid = int(uid_str)
