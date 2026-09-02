@@ -149,7 +149,7 @@
             <h3 class="text-lg font-medium text-gray-800 mb-4 pb-2 border-b border-gray-200">
                 <i class="fa fa-exchange-alt text-accent mr-2"></i>转移信息
             </h3>
-            <form method="POST" action="{{ url_for('fixed_asset_operations.transfer_asset', id=asset.id) }}">
+            <form method="POST" action="{{ url_for('fixed_asset.transfer_asset', id=asset.id) }}">
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     <!-- 新存放位置 -->
                     <div>

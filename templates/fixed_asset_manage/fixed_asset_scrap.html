@@ -151,7 +151,7 @@
                 <h3 class="text-lg font-medium text-gray-800">报废信息</h3>
                 <span class="ml-3 px-2 py-0.5 bg-red-100 text-red-800 text-xs rounded-full">此操作将变更资产状态为"已报废"</span>
             </div>
-            <form method="POST" action="{{ url_for('fixed_asset_operations.scrap_asset', id=asset.id) }}">
+            <form method="POST" action="{{ url_for('fixed_asset.scrap_asset', id=asset.id) }}">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <!-- 报废数量 -->
                     <div>

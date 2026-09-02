@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, flash, redirect, url_for, jsonify
+from flask import render_template, request, flash, redirect, url_for, jsonify
 from flask_login import login_required, current_user
 from utils.db import db
 from models.fixed_asset import FixedAsset
@@ -15,9 +15,7 @@ from decimal import Decimal, InvalidOperation
 import json
 import logging
 import traceback
-
-# 固定资产操作蓝图（独立注册，与user_operations模式一致）
-fixed_asset_operations_bp = Blueprint('fixed_asset_operations', __name__, url_prefix='/fixed_asset')
+from .fixed_asset import fixed_asset_bp
 
 
 # ========== 工具函数 ==========
@@ -108,7 +106,7 @@ def _generate_inventory_number():
 
 
 # ========== 路由：新增资产 ==========
-@fixed_asset_operations_bp.route('/operations/add', methods=['POST'])
+@fixed_asset_bp.route('/operations/add', methods=['POST'])
 @login_required
 @require_permission('fixed_asset.create')
 def add_asset():
@@ -314,7 +312,7 @@ def add_asset():
 
 
 # ========== 路由：编辑资产 ==========
-@fixed_asset_operations_bp.route('/operations/edit/<int:id>', methods=['POST'])
+@fixed_asset_bp.route('/operations/edit/<int:id>', methods=['POST'])
 @login_required
 @require_permission('fixed_asset.edit')
 def edit_asset(id):
@@ -591,7 +589,7 @@ def edit_asset(id):
 
 
 # ========== 路由：删除资产 ==========
-@fixed_asset_operations_bp.route('/operations/delete/<int:id>', methods=['POST'])
+@fixed_asset_bp.route('/operations/delete/<int:id>', methods=['POST'])
 @login_required
 @require_permission('fixed_asset.delete')
 def delete_asset(id):
@@ -636,7 +634,7 @@ def delete_asset(id):
 
 
 # ========== 路由：批量删除 ==========
-@fixed_asset_operations_bp.route('/operations/batch-delete', methods=['POST'])
+@fixed_asset_bp.route('/operations/batch-delete', methods=['POST'])
 @login_required
 @require_permission('fixed_asset.delete')
 def batch_delete_assets():
@@ -725,7 +723,7 @@ def batch_delete_assets():
 
 
 # ========== 路由：资产转移 ==========
-@fixed_asset_operations_bp.route('/operations/transfer/<int:id>', methods=['POST'])
+@fixed_asset_bp.route('/operations/transfer/<int:id>', methods=['POST'])
 @login_required
 @require_permission('fixed_asset.transfer')
 def transfer_asset(id):
@@ -915,7 +913,7 @@ def transfer_asset(id):
 
 
 # ========== 路由：创建盘点单 ==========
-@fixed_asset_operations_bp.route('/operations/inventory/create', methods=['POST'])
+@fixed_asset_bp.route('/operations/inventory/create', methods=['POST'])
 @login_required
 @require_permission('fixed_asset.inventory')
 def create_inventory():
@@ -1000,7 +998,7 @@ def create_inventory():
 
 
 # ========== 路由：执行盘点 ==========
-@fixed_asset_operations_bp.route('/operations/inventory/check', methods=['POST'])
+@fixed_asset_bp.route('/operations/inventory/check', methods=['POST'])
 @login_required
 @require_permission('fixed_asset.inventory')
 def check_inventory():
@@ -1096,7 +1094,7 @@ def check_inventory():
 
 
 # ========== 路由：完成盘点 ==========
-@fixed_asset_operations_bp.route('/operations/inventory/complete/<int:id>', methods=['POST'])
+@fixed_asset_bp.route('/operations/inventory/complete/<int:id>', methods=['POST'])
 @login_required
 @require_permission('fixed_asset.inventory')
 def complete_inventory(id):
@@ -1246,7 +1244,7 @@ def complete_inventory(id):
 
 
 # ========== 路由：反审核盘点单 ==========
-@fixed_asset_operations_bp.route('/operations/inventory/unapprove/<int:id>', methods=['POST'])
+@fixed_asset_bp.route('/operations/inventory/unapprove/<int:id>', methods=['POST'])
 @login_required
 @require_permission('fixed_asset.inventory_unapprove')
 def unapprove_inventory(id):
@@ -1306,7 +1304,7 @@ def unapprove_inventory(id):
 
 
 # ========== 路由：删除盘点单 ==========
-@fixed_asset_operations_bp.route('/operations/inventory/delete/<int:id>', methods=['POST'])
+@fixed_asset_bp.route('/operations/inventory/delete/<int:id>', methods=['POST'])
 @login_required
 @require_permission('fixed_asset.delete')
 def delete_inventory(id):
@@ -1354,7 +1352,7 @@ def delete_inventory(id):
 
 
 # ========== 路由：删除盘点明细 ==========
-@fixed_asset_operations_bp.route('/operations/inventory/detail/delete/<int:detail_id>', methods=['POST'])
+@fixed_asset_bp.route('/operations/inventory/detail/delete/<int:detail_id>', methods=['POST'])
 @login_required
 @require_permission('fixed_asset.inventory')
 def delete_inventory_detail(detail_id):
@@ -1402,7 +1400,7 @@ def delete_inventory_detail(detail_id):
 
 
 # ========== 路由：批量删除盘点明细 ==========
-@fixed_asset_operations_bp.route('/operations/inventory/detail/batch-delete', methods=['POST'])
+@fixed_asset_bp.route('/operations/inventory/detail/batch-delete', methods=['POST'])
 @login_required
 @require_permission('fixed_asset.inventory')
 def batch_delete_inventory_details():
@@ -1472,7 +1470,7 @@ def batch_delete_inventory_details():
 
 
 # ========== 路由：执行报废 ==========
-@fixed_asset_operations_bp.route('/operations/scrap/<int:id>', methods=['POST'])
+@fixed_asset_bp.route('/operations/scrap/<int:id>', methods=['POST'])
 @login_required
 @require_permission('fixed_asset.scrap')
 def scrap_asset(id):
@@ -1574,7 +1572,7 @@ def scrap_asset(id):
 
 
 # ========== 路由：执行出售 ==========
-@fixed_asset_operations_bp.route('/operations/sell/<int:id>', methods=['POST'])
+@fixed_asset_bp.route('/operations/sell/<int:id>', methods=['POST'])
 @login_required
 @require_permission('fixed_asset.sell')
 def sell_asset(id):

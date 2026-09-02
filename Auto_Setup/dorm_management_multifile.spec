@@ -9,10 +9,6 @@ current_dir = os.path.dirname(os.path.abspath(sys.argv[0])) if len(sys.argv) > 0
 # 定义项目根目录（脚本位于Auto_Setup文件夹中，需要向上一级目录）
 project_root = os.path.abspath(os.path.join(current_dir, '..'))
 
-# 关键：将项目根目录加入sys.path，确保collect_submodules能发现项目包
-if project_root not in sys.path:
-    sys.path.insert(0, project_root)
-
 # 定义资源文件路径 - 指向项目根目录下的资源
 data_dir = os.path.join(project_root, 'data')
 
@@ -59,17 +55,10 @@ additional_hidden_imports = [
     'tkinter.messagebox',
     'pystray',
     'PIL',
-    'psutil',
-    # 显式声明独立注册的蓝图模块，确保PyInstaller打包时包含
-    'blueprints.fixed_asset_operations',
+    'psutil'
 ]
 
 # 收集延迟导入库的所有子模块，确保打包完整
-# 调试：打印collect_submodules结果，确认fixed_asset_operations被发现
-_blueprints_modules = collect_submodules('blueprints')
-print(f"[DEBUG] blueprints子模块列表: {_blueprints_modules}")
-if 'blueprints.fixed_asset_operations' not in _blueprints_modules:
-    print(f"[WARNING] blueprints.fixed_asset_operations 未被collect_submodules发现！将依赖hiddenimports显式包含")
 lazy_import_submodules = (
     collect_submodules('pymysql') +
     collect_submodules('pandas') +
@@ -92,7 +81,7 @@ a = Analysis(
         (data_dir, 'data'),  # 数据目录
     ],
     hiddenimports=(
-        _blueprints_modules +  # 收集所有blueprints模块
+        collect_submodules('blueprints') +  # 收集所有blueprints模块
         collect_submodules('models') +  # 收集所有models模块
         collect_submodules('utils') +  # 收集所有utils模块
         additional_hidden_imports +  # 额外的隐藏导入

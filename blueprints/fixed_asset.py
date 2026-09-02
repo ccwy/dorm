@@ -47,8 +47,8 @@ def generate_page_range(current_page, total_pages, show_pages=5):
         page_range.append(total_pages)
     return page_range
 
-# 导入操作蓝图（通过fixed_asset.py导入，保持与备份版本相同的导入链模式，确保PyInstaller能发现该模块）
-from .fixed_asset_operations import fixed_asset_operations_bp
+# 导入操作模块
+from . import fixed_asset_operations
 
 
 # 固定资产列表页（含筛选+分页）
