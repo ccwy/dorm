@@ -26,6 +26,10 @@ fixed_asset_bp = Blueprint(
     static_url_path='/fixed_asset/static'
 )
 
+
+from . import fixed_asset_operations  # 导入操作模块
+
+
 # 分页工具函数
 def generate_page_range(current_page, total_pages, show_pages=5):
     if total_pages <= show_pages:
@@ -48,7 +52,6 @@ def generate_page_range(current_page, total_pages, show_pages=5):
     return page_range
 
 
-from . import fixed_asset_operations  # 导入操作模块
 
 
 # 固定资产列表页（含筛选+分页）
