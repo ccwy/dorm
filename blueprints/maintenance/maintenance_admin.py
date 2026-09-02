@@ -402,7 +402,7 @@ def update_status(order_id):
 # 删除维修工单
 @maintenance_admin_bp.route('/delete/<int:order_id>', methods=['POST'])
 @login_required
-@require_permission('maintenance.delete')
+@require_permission('maintenance.manage')
 def delete_order(order_id):
     try:
         # 验证用户ID是否有效
@@ -636,7 +636,7 @@ def admin_add_reply(order_id):
 # 编辑维修工单
 @maintenance_admin_bp.route('/edit/<int:order_id>', methods=['POST'])
 @login_required
-@require_permission('maintenance.edit')
+@require_permission('maintenance.manage')
 def edit_order(order_id):
     try:
         # 验证用户ID是否有效
@@ -704,7 +704,7 @@ def edit_order(order_id):
 # 批量删除维修工单
 @maintenance_admin_bp.route('/batch-delete', methods=['POST'])
 @login_required
-@require_permission('maintenance.delete')
+@require_permission('maintenance.manage')
 def batch_delete():
     try:
         # 验证用户ID是否有效

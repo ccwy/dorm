@@ -175,7 +175,7 @@ class StockOut(db.Model):
         """
         审核出库单
         审核通过时：
-        1. 检查每个明细的库存是否充足（按位置检查 SupplyStockDetail）- 可通过supply_stock_out_check配置控制
+        1. 检查每个明细的库存是否充足（按位置检查 SupplyStockDetail）
         2. 更新出库单状态为"已审核"
         3. 遍历出库明细，更新 SupplyStockDetail（按位置减少库存）
         4. 遍历出库明细，更新 SupplyItem.current_stock（汇总减少）
@@ -184,32 +184,28 @@ class StockOut(db.Model):
         """
         from models.supply.supply_stock_detail import SupplyStockDetail
         from models.supply.supply_stock_record import SupplyStockRecord
-        from models.system_config import SystemConfig
 
         stock_out = cls.query.get(stock_out_id)
         if not stock_out or stock_out.status != '待审核':
             return None
 
-        # 根据配置决定是否检查库存充足性
-        stock_out_check = SystemConfig.get_config_value('supply_stock_out_check', True)
-        if stock_out_check:
-            # 先检查所有明细的库存是否充足
-            insufficient_items = []
-            for detail in stock_out.details:
-                stock_detail = SupplyStockDetail.query.filter_by(
-                    item_id=detail.item_id,
-                    location_id=detail.location_id
-                ).first()
-                if not stock_detail or stock_detail.quantity < detail.quantity:
-                    insufficient_items.append({
-                        'item_name': detail.item_name,
-                        'location_name': detail.location_name,
-                        'available': stock_detail.quantity if stock_detail else 0,
-                        'required': detail.quantity
-                    })
+        # 始终检查所有明细的库存是否充足
+        insufficient_items = []
+        for detail in stock_out.details:
+            stock_detail = SupplyStockDetail.query.filter_by(
+                item_id=detail.item_id,
+                location_id=detail.location_id
+            ).first()
+            if not stock_detail or stock_detail.quantity < detail.quantity:
+                insufficient_items.append({
+                    'item_name': detail.item_name,
+                    'location_name': detail.location_name,
+                    'available': stock_detail.quantity if stock_detail else 0,
+                    'required': detail.quantity
+                })
 
-            if insufficient_items:
-                return {'error': '库存不足', 'details': insufficient_items}
+        if insufficient_items:
+            return {'error': '库存不足', 'details': insufficient_items}
 
         # 库存充足，执行出库
         stock_out.status = '已审核'

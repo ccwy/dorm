@@ -65,22 +65,30 @@
                     </div>
                 </div>
                 <div class="mt-4 md:mt-0 flex flex-wrap gap-3">
+                    {% if current_user.has_permission('supply.create') %}
                     <button onclick="window.location.href='{{ url_for('stock_in.add_stock_in') }}'" class="btn-hover bg-primary text-white px-4 py-2 rounded-md flex items-center">
                         <i class="fa fa-plus mr-2"></i>新增入库单
                     </button>
+                    {% endif %}
                     <button onclick="location.reload();" class="btn-hover bg-secondary text-white px-4 py-2 rounded-md flex items-center">
                         <i class="fa fa-refresh mr-2"></i>刷新页面
                     </button>
+                    {% if current_user.has_permission('supply.delete') %}
                     <button id="batchDeleteBtn" class="btn-hover bg-danger text-white px-4 py-2 rounded-md flex items-center disabled:opacity-50 disabled:cursor-not-allowed" disabled>
                         <i class="fa fa-trash mr-2"></i>批量删除
                     </button>
+                    {% endif %}
+                    {% if current_user.has_permission('supply.import') %}
                     <button id="importBtn" class="btn-hover bg-info text-white px-4 py-2 rounded-md flex items-center cursor-pointer">
                         <i class="fa fa-upload mr-2"></i>导入
                     </button>
+                    {% endif %}
+                    {% if current_user.has_permission('supply.export') %}
                     <button type="button" id="exportBtn" class="btn-hover bg-warning text-white px-4 py-2 rounded-md flex items-center">
                         <i class="fa fa-download mr-2"></i>
                         <span id="exportBtnText">导出</span>
                     </button>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -159,7 +167,7 @@
                         <div>
                             <label for="filterKeyword" class="block text-sm font-medium text-gray-700 mb-1">搜索</label>
                             <input type="text" id="filterKeyword" name="keyword" 
-                                   placeholder="入库单号/备注" 
+                                   placeholder="入库单号/物品编号/物品名称/备注" 
                                    value="{{ keyword or '' }}"
                                    class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
                         </div>
@@ -234,28 +242,32 @@
                                         <button onclick="window.location.href='{{ url_for('stock_in.detail_stock_in', id=si.id) }}'" class="btn-effect bg-blue-500 text-white px-2 py-1 rounded-md text-sm flex items-center">
                                             <i class="fa fa-eye mr-1"></i>查看
                                         </button>
-                                        {% if si.status == '待审核' %}
+                                        {% if si.status == '待审核' and current_user.has_permission('supply.edit') %}
                                         <button onclick="window.location.href='{{ url_for('stock_in.edit_stock_in', id=si.id) }}'" class="btn-effect bg-amber-500 text-white px-2 py-1 rounded-md text-sm flex items-center">
                                             <i class="fa fa-pencil mr-1"></i>编辑
                                         </button>
-                                        {% if approval_enabled %}
+                                        {% endif %}
+                                        {% if si.status == '待审核' and approval_enabled and current_user.has_permission('supply.approve') %}
                                         <button class="btn-effect bg-green-500 text-white px-2 py-1 rounded-md text-sm flex items-center"
                                             onclick="approveStockIn({{ si.id }})">
                                             <i class="fa fa-check mr-1"></i>审核
                                         </button>
                                         {% endif %}
+                                        {% if si.status == '待审核' and current_user.has_permission('supply.edit') %}
                                         <button class="btn-effect bg-gray-500 text-white px-2 py-1 rounded-md text-sm flex items-center"
                                             onclick="cancelStockIn({{ si.id }})">
                                             <i class="fa fa-ban mr-1"></i>取消
                                         </button>
                                         {% endif %}
                                         {% if si.status == '待审核' %}
+                                        {% if current_user.has_permission('supply.delete') %}
                                         <button class="btn-effect bg-red-500 text-white px-2 py-1 rounded-md text-sm flex items-center"
                                             onclick="if(confirm('确定要删除入库单 {{ si.stock_in_number }} 吗？')) { document.getElementById('deleteForm-{{ si.id }}').submit(); }">
                                             <i class="fa fa-trash mr-1"></i>删除
                                         </button>
                                         {% endif %}
-                                        {% if si.status == '已审核' and approval_enabled %}
+                                        {% endif %}
+                                        {% if si.status == '已审核' and unapprove_enabled and current_user.has_permission('supply.unapprove') %}
                                         <button class="btn-effect bg-orange-500 text-white px-2 py-1 rounded-md text-sm flex items-center"
                                             onclick="unapproveStockIn({{ si.id }})">
                                             <i class="fa fa-undo mr-1"></i>反审核
@@ -426,6 +438,7 @@
 
             // 导入模态框相关逻辑
             const importBtn = document.getElementById('importBtn');
+            if (importBtn) {
             const importModal = document.getElementById('importModal');
             const closeModal = document.getElementById('closeModal');
             const cancelImport = document.getElementById('cancelImport');
@@ -466,6 +479,7 @@
                 submitButton.disabled = true;
                 submitButton.textContent = '正在导入...';
             });
+            } // end if(importBtn)
             
             // 批量删除相关逻辑
             const selectAllCheckbox = document.getElementById('selectAll');
@@ -474,23 +488,28 @@
             const batchDeleteForm = document.getElementById('batchDeleteForm');
             const batchDeleteIdsContainer = document.getElementById('batchDeleteIdsContainer');
 
+            if (selectAllCheckbox) {
             selectAllCheckbox.addEventListener('change', function() {
                 checkboxes.forEach(checkbox => checkbox.checked = this.checked);
                 updateBatchButtonState();
             });
+            }
 
             checkboxes.forEach(checkbox => {
                 checkbox.addEventListener('change', function() {
-                    selectAllCheckbox.checked = Array.from(checkboxes).every(cb => cb.checked);
+                    if (selectAllCheckbox) selectAllCheckbox.checked = Array.from(checkboxes).every(cb => cb.checked);
                     updateBatchButtonState();
                 });
             });
 
             function updateBatchButtonState() {
+                if (batchDeleteBtn) {
                 const anyChecked = Array.from(checkboxes).some(cb => cb.checked);
                 batchDeleteBtn.disabled = !anyChecked;
+                }
             }
 
+            if (batchDeleteBtn) {
             batchDeleteBtn.addEventListener('click', function() {
                 if (!this.disabled) {
                     const selectedIds = Array.from(checkboxes)
@@ -509,11 +528,13 @@
                     }
                 }
             });
+            }
 
             updateBatchButtonState();
 
             // 导出按钮逻辑
             const exportBtn = document.getElementById('exportBtn');
+            if (exportBtn) {
             const exportBtnText = document.getElementById('exportBtnText');
             exportBtn.addEventListener('click', function() {
                 exportBtnText.textContent = '导出中...';
@@ -524,6 +545,7 @@
                     exportBtn.disabled = false;
                 }, 3000);
             });
+            } // end if(exportBtn)
 
             // 筛选区选择即生效
             const filterType = document.getElementById('filterType');

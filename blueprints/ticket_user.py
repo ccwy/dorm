@@ -442,7 +442,7 @@ def upload_ticket_media(ticket_id):
 # 删除留言媒体文件
 @ticket_user_bp.route('/delete_media/<int:ticket_id>/<path:filename>', methods=['POST'])
 @login_required
-@require_permission('ticket.delete')
+@require_permission('ticket.edit')
 def delete_ticket_media(ticket_id, filename):
     try:
         # 验证用户ID是否有效

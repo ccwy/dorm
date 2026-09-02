@@ -59,21 +59,27 @@
                     </div>
                 </div>
                 <div class="mt-4 md:mt-0 flex flex-wrap gap-3">
+                    {% if current_user.has_permission('todo.create') %}
                     <a href="/todo/add" class="btn-effect bg-primary text-white px-4 py-2 rounded-md flex items-center">
                         <i class="fa fa-plus mr-2"></i>添加
                     </a>
+                    {% endif %}
                     <button onclick="window.location.reload()" class="btn-effect bg-gray-200 text-gray-700 px-4 py-2 rounded-md flex items-center">
                         <i class="fa fa-refresh mr-2"></i>刷新
                     </button>
+                    {% if current_user.has_permission('todo.delete') %}
                     <button id="batchDeleteBtn" class="btn-effect px-3 py-2 bg-danger text-white rounded-md flex items-center" disabled>
                         <i class="fa fa-trash mr-1"></i>批量删除
                     </button>
                     <button id="deleteAllBtn" class="btn-effect px-3 py-2 bg-gray-600 text-white rounded-md flex items-center">
                         <i class="fa fa-trash-o mr-1"></i>删除全部
                     </button>
+                    {% endif %}
+                    {% if current_user.has_permission('todo.export') %}
                     <button id="exportExcelBtn" class="btn-effect bg-secondary text-white px-4 py-2 rounded-md flex items-center">
                         <i class="fa fa-download mr-2"></i>导出
                     </button>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -213,15 +219,19 @@
                                             class="btn-effect bg-blue-500 text-white px-2 py-1 rounded-md text-sm flex items-center">
                                             <i class="fa fa-eye mr-1"></i>详情
                                         </a>
+                                        {% if current_user.has_permission('todo.edit') %}
                                         <a href="/todo/edit/{{ todo.id }}" 
                                             class="btn-effect bg-amber-500 text-white px-2 py-1 rounded-md text-sm flex items-center">
                                             <i class="fa fa-pencil mr-1"></i>编辑
                                         </a>
+                                        {% endif %}
+                                        {% if current_user.has_permission('todo.delete') %}
                                         <button type="button" 
                                             data-todo-id="{{ todo.id }}" 
                                             class="btn-effect bg-red-500 text-white px-2 py-1 rounded-md text-sm flex items-center delete-btn">
                                             <i class="fa fa-trash mr-1"></i>删除
                                         </button>
+                                        {% endif %}
                                     </div>
                                 </td>
                             </tr>
@@ -364,21 +374,33 @@
             }
             
             // 导出按钮点击事件
-            document.getElementById('exportExcelBtn').addEventListener('click', function() {
+            const exportExcelBtn = document.getElementById('exportExcelBtn');
+            if (exportExcelBtn) {
+            exportExcelBtn.addEventListener('click', function() {
                 document.getElementById('exportModal').classList.remove('hidden');
             });
 
-            // 关闭导出弹窗
-            document.getElementById('closeExportModal').addEventListener('click', function() {
-                document.getElementById('exportModal').classList.add('hidden');
-            });
+            } // end if exportExcelBtn
 
-            document.getElementById('cancelExportBtn').addEventListener('click', function() {
+            // 关闭导出弹窗
+            const closeExportModal = document.getElementById('closeExportModal');
+            if (closeExportModal) {
+            closeExportModal.addEventListener('click', function() {
                 document.getElementById('exportModal').classList.add('hidden');
             });
+            }
+
+            const cancelExportBtn = document.getElementById('cancelExportBtn');
+            if (cancelExportBtn) {
+            cancelExportBtn.addEventListener('click', function() {
+                document.getElementById('exportModal').classList.add('hidden');
+            });
+            }
 
             // 导出表单提交
-            document.getElementById('exportForm').addEventListener('submit', function(e) {
+            const exportForm = document.getElementById('exportForm');
+            if (exportForm) {
+            exportForm.addEventListener('submit', function(e) {
                 e.preventDefault();
                 const startDate = document.getElementById('exportStartDate').value;
                 const endDate = document.getElementById('exportEndDate').value;
@@ -395,6 +417,7 @@
                 window.location.href = url;
                 document.getElementById('exportModal').classList.add('hidden');
             });
+            } // end if exportForm
 
             // 全选复选框
             const selectAllCheckbox = document.getElementById('selectAll');
@@ -456,7 +479,9 @@
             });
 
             // 批量删除按钮点击事件
-            document.getElementById('batchDeleteBtn').addEventListener('click', function() {
+            const batchDeleteBtn = document.getElementById('batchDeleteBtn');
+            if (batchDeleteBtn) {
+            batchDeleteBtn.addEventListener('click', function() {
                 const checkedBoxes = document.querySelectorAll('tbody input[type="checkbox"]:checked');
                 if (checkedBoxes.length > 0) {
                     document.getElementById('confirmMessage').textContent = `您确定要删除选中的 ${checkedBoxes.length} 条待办事项吗？`;
@@ -479,9 +504,12 @@
                     };
                 }
             });
+            }
 
             // 删除全部按钮点击事件
-            document.getElementById('deleteAllBtn').addEventListener('click', function() {
+            const deleteAllBtn = document.getElementById('deleteAllBtn');
+            if (deleteAllBtn) {
+            deleteAllBtn.addEventListener('click', function() {
                 document.getElementById('confirmMessage').textContent = '您确定要删除所有待办事项吗？此操作不可恢复！';
                 document.getElementById('confirmModal').classList.remove('hidden');
                 document.getElementById('confirmActionBtn').onclick = function() {
@@ -492,6 +520,7 @@
                     form.submit();
                 };
             });
+            } // end if deleteAllBtn
 
             // 关闭确认弹窗
             document.getElementById('closeConfirmModal').addEventListener('click', function() {

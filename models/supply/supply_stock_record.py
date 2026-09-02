@@ -44,7 +44,7 @@ class SupplyStockRecord(db.Model):
     # 约束与索引
     __table_args__ = (
         db.CheckConstraint(
-            "record_type IN ('入库', '出库', '盘盈', '盘亏', '入库反审核', '出库反审核', '盘点反审核')",
+            "record_type IN ('入库', '出库', '盘盈', '盘亏', '入库反审核', '出库反审核', '盘盈反审核', '盘亏反审核')",
             name='check_supply_stock_record_type_valid'
         ),
         db.CheckConstraint(
@@ -73,6 +73,15 @@ class SupplyStockRecord(db.Model):
         if item:
             return item.name
         return self.item_name or '未知'
+
+    @property
+    def item_number(self):
+        """返回物品编号（从关联物品获取）"""
+        if self.item_id:
+            from models.supply.supply_item import SupplyItem
+            item = SupplyItem.query.get(self.item_id)
+            return item.item_number if item else None
+        return None
 
     @property
     def display_location_name(self):
@@ -146,7 +155,7 @@ class SupplyStockRecord(db.Model):
                 record = StockOut.query.filter_by(stock_out_number=self.source_number).first()
                 if record:
                     return f'/stock-out/detail/{record.id}'
-            elif self.record_type in ('盘盈', '盘亏', '盘点反审核'):
+            elif self.record_type in ('盘盈', '盘亏', '盘盈反审核', '盘亏反审核'):
                 from models.supply.supply_inventory import SupplyInventory
                 record = SupplyInventory.query.filter_by(inventory_number=self.source_number).first()
                 if record:

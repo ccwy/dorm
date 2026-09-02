@@ -495,6 +495,7 @@ def get_stats():
 
 # ========== 获取资产照片文件（静态文件服务） ==========
 @fixed_asset_api_bp.route('/media/<asset_id>/<path:filename>', methods=['GET'])
+@login_required
 def get_asset_media(asset_id, filename):
     """获取资产的媒体文件（照片、视频、文档等）"""
     try:

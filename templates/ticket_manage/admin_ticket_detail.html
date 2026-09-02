@@ -116,9 +116,11 @@
                         <i class="fa fa-times-circle mr-2"></i>关闭留言
                     </button>
                     {% endif %}
+                    {% if current_user.has_permission('ticket.delete') %}
                     <button onclick="confirmDelete({{ ticket.id }})" class="btn-effect px-4 py-2 bg-danger text-white rounded-md hover:bg-danger/90 transition-colors flex items-center">
                         <i class="fa fa-trash mr-2"></i>删除留言
                     </button>
+                    {% endif %}
                 </div>
             </div>
             

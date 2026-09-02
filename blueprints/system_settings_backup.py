@@ -23,7 +23,6 @@ def get_db_type_identifier():
 
 @system_config_bp.route('/api/backup/create', methods=['POST'])
 @login_required
-@require_permission('system_settings.manage')
 def create_backup():
     try:
         # 获取数据库类型标识
@@ -100,7 +99,6 @@ def create_backup():
 
 @system_config_bp.route('/api/backup/list', methods=['GET'])
 @login_required
-@require_permission('system_settings.manage')
 def list_backups():
     try:
         # 获取当前数据库类型
@@ -368,7 +366,6 @@ def clear_all_backups():
     
 @system_config_bp.route('/api/backup/restore/<filename>', methods=['POST'])
 @login_required
-@require_permission('system_settings.manage')
 def restore_backup(filename):
     try:
         # 检查是否为超级管理员
@@ -492,7 +489,6 @@ def restore_backup(filename):
 
 @system_config_bp.route('/api/backup/restore-from-upload', methods=['POST'])
 @login_required
-@require_permission('system_settings.manage')
 def restore_from_upload():
     try:
         # 检查是否为超级管理员
@@ -633,7 +629,6 @@ def restore_from_upload():
 
 @system_config_bp.route('/api/backup/download/<filename>', methods=['GET'])
 @login_required
-@require_permission('system_settings.manage')
 def download_backup(filename):
     """下载备份列表中的指定备份文件"""
     try:
@@ -708,7 +703,6 @@ def download_backup(filename):
 
 @system_config_bp.route('/api/backup/create-and-download', methods=['POST'])
 @login_required
-@require_permission('system_settings.manage')
 def create_and_download_backup():
     """创建直接下载备份文件（不存储到服务器）"""
     try:

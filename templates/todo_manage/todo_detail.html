@@ -179,16 +179,22 @@
                     </div>
                 </div>
                 <div class="mt-4 md:mt-0 flex flex-wrap gap-3">
+                    {% if current_user.has_permission('todo.edit') %}
                     <button id="uploadMediaBtn" class="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors">
                         <i class="fa fa-upload mr-2"></i>添加照片/视频
                     </button>
                     <input type="file" id="mediaFileInput" multiple accept="image/*,video/*" class="hidden">
+                    {% endif %}
+                    {% if current_user.has_permission('todo.edit') %}
                     <a href="/todo/edit/{{ todo.id }}" class="btn-effect px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90 transition-colors flex items-center">
                         <i class="fa fa-pencil mr-1"></i>编辑
                     </a>
+                    {% endif %}
+                    {% if current_user.has_permission('todo.delete') %}
                     <button id="deleteBtn" class="btn-effect px-4 py-2 bg-danger text-white rounded-md hover:bg-danger/90 transition-colors flex items-center">
                         <i class="fa fa-trash mr-1"></i>删除
                     </button>
+                    {% endif %}
                     
                 </div>
             </div>
@@ -485,9 +491,12 @@
             });
 
             // 删除按钮点击事件
-            document.getElementById('deleteBtn').addEventListener('click', function() {
+            const deleteBtn = document.getElementById('deleteBtn');
+            if (deleteBtn) {
+            deleteBtn.addEventListener('click', function() {
                 document.getElementById('confirmModal').classList.remove('hidden');
             });
+            }
 
             // 关闭确认弹窗
             document.getElementById('closeConfirmModal').addEventListener('click', function() {
@@ -520,11 +529,14 @@
         const uploadFeedback = document.getElementById('uploadFeedback');
         
         // 上传按钮点击事件
+        if (uploadMediaBtn) {
         uploadMediaBtn.addEventListener('click', function() {
             mediaFileInput.click();
         });
+        }
         
         // 文件选择变化事件
+        if (mediaFileInput) {
         mediaFileInput.addEventListener('change', function() {
             if (this.files.length > 0) {
                 const totalFiles = this.files.length;
@@ -616,6 +628,7 @@
                 }
             }
         });
+        } // end if mediaFileInput
         
         // 单个文件上传 - 返回Promise便于错误处理和进度管理
         function uploadFile(file) {

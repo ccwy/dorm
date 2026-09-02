@@ -268,6 +268,8 @@ def load_bill():
 
 # 核算当期账单
 @utility_room_bill_occupants_bp.route('/api/calculate_bill', methods=['POST'])
+@login_required
+@require_permission('utility.calculate')
 def calculate_bill():
     """核算指定账期的所有房间费用"""
     try:
@@ -360,7 +362,7 @@ def calculate_bill():
 # 删除当期子表账单
 @utility_room_bill_occupants_bp.route('/api/clear_current_bill', methods=['POST'])
 @login_required
-@require_permission('utility.edit')
+@require_permission('utility.delete')
 def clear_current_bill():
     """删除指定账期的子表分摊记录（保留主表数据）"""
     try:
@@ -666,7 +668,7 @@ def create_fee_export_data(billing_period):
 
 @utility_room_bill_occupants_bp.route('/api/export_fee_data', methods=['GET'])
 @login_required
-@require_permission('utility.export')  # 添加登录验证，与日志蓝图保持一致
+@require_permission('utility.export')
 def export_fee_data():
     """导出人员费用数据为Excel，支持按房间号合并所有相同内容字段并添加完整边框"""
     import pandas as pd  # 延迟导入，避免启动时加载重型库

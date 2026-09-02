@@ -77,15 +77,19 @@
 
         <!-- 操作按钮 -->
         <div class="flex flex-wrap gap-3 mb-6">
+            {% if current_user.has_permission('supply.edit') %}
             <a href="{{ url_for('supply_item.edit_page', id=item.id) }}" class="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90 btn-hover inline-flex items-center">
                 <i class="fa fa-edit mr-1"></i>编辑
             </a>
             <button type="button" onclick="recalculateStock({{ item.id }})" class="px-4 py-2 bg-info text-white rounded-md hover:bg-info/90 btn-hover inline-flex items-center">
                 <i class="fa fa-calculator mr-1"></i>重算库存
             </button>
+            {% endif %}
+            {% if current_user.has_permission('supply.delete') %}
             <button type="button" onclick="confirmDelete({{ item.id }})" class="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 btn-hover inline-flex items-center">
                 <i class="fa fa-trash mr-1"></i>删除
             </button>
+            {% endif %}
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -210,6 +214,7 @@
                             <thead class="bg-gray-50">
                                 <tr>
                                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">序号</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">物品编号</th>
                                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">存放位置</th>
                                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">库存数量</th>
 
@@ -220,7 +225,12 @@
                                 {% for detail in stock_details %}
                                 <tr class="hover:bg-gray-50">
                                     <td class="px-4 py-3 text-sm text-gray-500">{{ loop.index }}</td>
-                                    <td class="px-4 py-3 text-sm font-medium text-gray-800">{{ detail.location_name }}</td>
+                                    <td class="px-4 py-3 text-sm text-primary">
+                                        <a href="{{ url_for('supply_item.detail', id=item.id) }}" class="hover:underline">{{ item.item_number or '-' }}</a>
+                                    </td>
+                                    <td class="px-4 py-3 text-sm font-medium">
+                                        <a href="{{ url_for('storage_location.detail', id=detail.location_id) }}" class="text-primary hover:underline">{{ detail.location_name }}</a>
+                                    </td>
                                     <td class="px-4 py-3 text-sm text-gray-800">{{ detail.quantity }} {{ item.unit or '' }}</td>
 
                                     <td class="px-4 py-3 text-sm text-gray-500">{{ detail.updated_at.strftime('%Y-%m-%d %H:%M') if detail.updated_at else '-' }}</td>
@@ -251,12 +261,20 @@
                                 {% elif record.record_type == '出库' %}bg-red-100 text-red-600
                                 {% elif record.record_type == '盘盈' %}bg-blue-100 text-blue-600
                                 {% elif record.record_type == '盘亏' %}bg-orange-100 text-orange-600
+                                {% elif record.record_type == '入库反审核' %}bg-yellow-100 text-yellow-600
+                                {% elif record.record_type == '出库反审核' %}bg-purple-100 text-purple-600
+                                {% elif record.record_type == '盘盈反审核' %}bg-yellow-100 text-yellow-600
+                                {% elif record.record_type == '盘亏反审核' %}bg-indigo-100 text-indigo-600
                                 {% else %}bg-gray-100 text-gray-600{% endif %}">
                                 <i class="fa 
                                     {% if record.record_type == '入库' %}fa-arrow-down
                                     {% elif record.record_type == '出库' %}fa-arrow-up
                                     {% elif record.record_type == '盘盈' %}fa-plus
                                     {% elif record.record_type == '盘亏' %}fa-minus
+                                    {% elif record.record_type == '入库反审核' %}fa-undo
+                                    {% elif record.record_type == '出库反审核' %}fa-undo
+                                    {% elif record.record_type == '盘盈反审核' %}fa-undo
+                                    {% elif record.record_type == '盘亏反审核' %}fa-undo
                                     {% else %}fa-cog{% endif %} text-xs"></i>
                             </div>
                             <div>
@@ -266,10 +284,14 @@
                                         {% elif record.record_type == '出库' %}bg-red-100 text-red-800
                                         {% elif record.record_type == '盘盈' %}bg-blue-100 text-blue-800
                                         {% elif record.record_type == '盘亏' %}bg-orange-100 text-orange-800
+                                        {% elif record.record_type == '入库反审核' %}bg-yellow-100 text-yellow-800
+                                        {% elif record.record_type == '出库反审核' %}bg-purple-100 text-purple-800
+                                        {% elif record.record_type == '盘盈反审核' %}bg-yellow-100 text-yellow-800
+                                        {% elif record.record_type == '盘亏反审核' %}bg-indigo-100 text-indigo-800
                                         {% else %}bg-gray-100 text-gray-800{% endif %}">
                                         {{ record.record_type }}
                                     </span>
-                                    <span class="font-medium text-gray-800">数量：{{ record.quantity }} {{ item.unit or '' }}</span>
+                                    <span class="font-medium text-gray-800">数量：{% if record.record_type in ['入库', '盘盈', '出库反审核', '盘亏反审核'] %}+{% elif record.record_type in ['出库', '盘亏', '入库反审核', '盘盈反审核'] %}-{% endif %}{{ record.quantity }} {{ item.unit or '' }}</span>
                                     <span class="text-sm text-gray-500">存放位置：{{ record.display_location_name }}</span>
                                     <span class="text-xs text-gray-400">日期：{{ record.record_date.strftime('%Y-%m-%d %H:%M') if record.record_date else '' }}</span>
                                 </div>
@@ -340,9 +362,11 @@
                         <i class="fa fa-bolt text-info mr-2"></i>快捷操作
                     </h3>
                     <div class="space-y-2">
+                        {% if current_user.has_permission('supply.edit') %}
                         <a href="{{ url_for('supply_item.edit_page', id=item.id) }}" class="block px-4 py-2 bg-primary/10 text-primary rounded-md hover:bg-primary/20 text-sm text-center">
                             <i class="fa fa-edit mr-1"></i>编辑物品
                         </a>
+                        {% endif %}
                         <a href="{{ url_for('supply_item.index') }}" class="block px-4 py-2 bg-secondary/10 text-secondary rounded-md hover:bg-secondary/20 text-sm text-center">
                             <i class="fa fa-list mr-1"></i>返回列表
                         </a>

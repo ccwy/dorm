@@ -70,9 +70,11 @@
                 </a>
                 <h2 class="text-2xl font-semibold text-dark">{{ title }}</h2>
             </div>
+            {% if current_user.has_permission('supply.create') %}
             <button onclick="window.location.href='{{ url_for('supply_inventory.create_inventory_page') }}'" class="btn-hover bg-primary text-white px-4 py-2 rounded-md flex items-center">
                 <i class="fa fa-plus mr-2"></i>创建盘点单
             </button>
+            {% endif %}
         </div>
 
         <!-- 筛选栏 -->
@@ -149,11 +151,19 @@
                                     <button onclick="window.location.href='{{ url_for('supply_inventory.detail_inventory', id=inv.id) }}'" class="btn-effect bg-blue-500 text-white px-2 py-1 rounded-md text-sm flex items-center" title="查看详情">
                                         <i class="fa fa-eye mr-1"></i>查看
                                     </button>
-                                    {% if inv.status == '进行中' %}
+                                    {% if inv.status == '进行中' and current_user.has_permission('supply.edit') %}
                                     <button class="btn-effect bg-green-500 text-white px-2 py-1 rounded-md text-sm flex items-center"
-                                        onclick="if(confirm('确定要完成此盘点吗？未盘点的物品将标记为异常。')) { document.getElementById('completeForm-{{ inv.id }}').submit(); }" title="完成盘点">
-                                        <i class="fa fa-check-circle mr-1"></i>完成
+                                        onclick="if(confirm('确定要审核此盘点吗？未盘点的物品将标记为异常。')) { document.getElementById('completeForm-{{ inv.id }}').submit(); }" title="完成盘点">
+                                        <i class="fa fa-check-circle mr-1"></i>审核
                                     </button>
+                                    {% endif %}
+                                    {% if inv.status == '已完成' and inventory_unapprove_enabled and current_user.has_permission('supply.unapprove') %}
+                                    <button class="btn-effect bg-orange-500 text-white px-2 py-1 rounded-md text-sm flex items-center"
+                                        onclick="if(confirm('确定要反审核此盘点单吗？库存将根据盘点结果回滚，盘点单将恢复为进行中状态。')) { document.getElementById('unapproveForm-{{ inv.id }}').submit(); }" title="反审核">
+                                        <i class="fa fa-undo mr-1"></i>反审核
+                                    </button>
+                                    {% endif %}
+                                    {% if inv.status == '进行中' and current_user.has_permission('supply.delete') %}
                                     <button class="btn-effect bg-red-500 text-white px-2 py-1 rounded-md text-sm flex items-center"
                                         onclick="if(confirm('确定要删除此盘点单吗？删除后不可恢复。')) { document.getElementById('deleteInvForm-{{ inv.id }}').submit(); }" title="删除盘点单">
                                         <i class="fa fa-trash mr-1"></i>删除
@@ -162,6 +172,8 @@
                                 </div>
                                 <!-- 完成盘点表单 -->
                                 <form id="completeForm-{{ inv.id }}" action="{{ url_for('supply_inventory.complete_inventory', id=inv.id) }}" method="post" class="hidden"></form>
+                                <!-- 反审核表单 -->
+                                <form id="unapproveForm-{{ inv.id }}" action="{{ url_for('supply_inventory.unapprove_inventory', id=inv.id) }}" method="post" class="hidden"></form>
                                 <!-- 删除盘点表单 -->
                                 <form id="deleteInvForm-{{ inv.id }}" action="{{ url_for('supply_inventory.delete_inventory', id=inv.id) }}" method="post" class="hidden"></form>
                             </td>

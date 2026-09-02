@@ -65,22 +65,30 @@
                     </div>
                 </div>
                 <div class="mt-4 md:mt-0 flex flex-wrap gap-3">
+                    {% if current_user.has_permission('supply.create') %}
                     <button onclick="window.location.href='{{ url_for('stock_out.add_stock_out') }}'" class="btn-hover bg-primary text-white px-4 py-2 rounded-md flex items-center">
                         <i class="fa fa-plus mr-2"></i>新增出库单
                     </button>
+                    {% endif %}
                     <button onclick="location.reload();" class="btn-hover bg-secondary text-white px-4 py-2 rounded-md flex items-center">
                         <i class="fa fa-refresh mr-2"></i>刷新页面
                     </button>
+                    {% if current_user.has_permission('supply.delete') %}
                     <button id="batchDeleteBtn" onclick="batchDeleteStockOut()" class="btn-hover bg-danger text-white px-4 py-2 rounded-md flex items-center disabled:opacity-50 disabled:cursor-not-allowed" disabled>
                         <i class="fa fa-trash mr-2"></i>批量删除
                     </button>
+                    {% endif %}
+                    {% if current_user.has_permission('supply.import') %}
                     <button id="importBtn" class="btn-hover bg-info text-white px-4 py-2 rounded-md flex items-center cursor-pointer">
                         <i class="fa fa-upload mr-2"></i>导入
                     </button>
+                    {% endif %}
+                    {% if current_user.has_permission('supply.export') %}
                     <button type="button" id="exportBtn" class="btn-hover bg-warning text-white px-4 py-2 rounded-md flex items-center">
                         <i class="fa fa-download mr-2"></i>
                         <span id="exportBtnText">导出</span>
                     </button>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -139,7 +147,7 @@
                     <!-- 关键词 -->
                     <div>
                         <label for="keyword" class="block text-xs font-medium text-gray-500 mb-1">关键词</label>
-                        <input type="text" id="keyword" name="keyword" value="{{ request.args.get('keyword', '') }}" placeholder="单号/领用人" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                        <input type="text" id="keyword" name="keyword" value="{{ request.args.get('keyword', '') }}" placeholder="单号/物品编号/物品名称/领用人" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
                     </div>
 
 
@@ -214,26 +222,30 @@
                                     <button onclick="window.location.href='{{ url_for('stock_out.detail_stock_out', id=stock_out.id) }}'" class="btn-effect bg-blue-500 text-white px-2 py-1 rounded-md text-sm flex items-center">
                                         <i class="fa fa-eye mr-1"></i>查看
                                     </button>
-                                    {% if stock_out.status == '待审核' %}
+                                    {% if stock_out.status == '待审核' and current_user.has_permission('supply.edit') %}
                                     <button onclick="window.location.href='{{ url_for('stock_out.edit_stock_out', id=stock_out.id) }}'" class="btn-effect bg-amber-500 text-white px-2 py-1 rounded-md text-sm flex items-center">
                                         <i class="fa fa-pencil mr-1"></i>编辑
                                     </button>
-                                    {% if approval_enabled %}
+                                    {% endif %}
+                                    {% if stock_out.status == '待审核' and approval_enabled and current_user.has_permission('supply.approve') %}
                                     <button type="button" class="btn-effect bg-green-500 text-white px-2 py-1 rounded-md text-sm flex items-center"
                                         onclick="approveStockOut({{ stock_out.id }})">
                                         <i class="fa fa-check mr-1"></i>审核
                                     </button>
                                     {% endif %}
+                                    {% if stock_out.status == '待审核' and current_user.has_permission('supply.edit') %}
                                     <button type="button" class="btn-effect bg-gray-500 text-white px-2 py-1 rounded-md text-sm flex items-center"
                                         onclick="cancelStockOut({{ stock_out.id }})">
                                         <i class="fa fa-ban mr-1"></i>取消
                                     </button>
+                                    {% endif %}
+                                    {% if stock_out.status == '待审核' and current_user.has_permission('supply.delete') %}
                                     <button type="button" class="btn-effect bg-red-500 text-white px-2 py-1 rounded-md text-sm flex items-center"
                                         onclick="deleteStockOut({{ stock_out.id }})">
                                         <i class="fa fa-trash mr-1"></i>删除
                                     </button>
                                     {% endif %}
-                                    {% if stock_out.status == '已审核' and approval_enabled %}
+                                    {% if stock_out.status == '已审核' and unapprove_enabled and current_user.has_permission('supply.unapprove') %}
                                     <button type="button" class="btn-effect bg-orange-500 text-white px-2 py-1 rounded-md text-sm flex items-center"
                                         onclick="unapproveStockOut({{ stock_out.id }})">
                                         <i class="fa fa-undo mr-1"></i>反审核

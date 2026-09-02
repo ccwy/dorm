@@ -7,8 +7,8 @@ from models.contract.contract_operation_record import ContractOperationRecord
 from models.supply.supplier import Supplier
 from models.supply.storage_location import StorageLocation
 from flask_login import login_required, current_user
-from utils.log import log_operation
 from utils.auth import require_permission
+from utils.log import log_operation
 from utils.lazy_imports import pd  # 延迟导入pandas，避免启动时加载重型库
 import io
 from datetime import datetime
@@ -575,7 +575,7 @@ def import_contracts():
 # 下载导入模板
 @contract_import_export_bp.route('/template', methods=['GET'])
 @login_required
-@require_permission('contract.export')
+@require_permission('contract.import')
 def download_template():
     """生成并下载合同数据导入模板"""
     try:

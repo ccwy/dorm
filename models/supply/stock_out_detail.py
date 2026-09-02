@@ -58,6 +58,15 @@ class StockOutDetail(db.Model):
         return f"<StockOutDetail stock_out={self.stock_out_id} item={self.item_name} qty={self.quantity}>"
 
     @property
+    def display_item_number(self):
+        """返回物品编号（优先从主表实时查询）"""
+        from models.supply.supply_item import SupplyItem
+        item = SupplyItem.query.get(self.item_id)
+        if item and item.item_number:
+            return item.item_number
+        return '-'
+
+    @property
     def display_item_name(self):
         """返回物品名称（优先从主表实时查询，冗余字段作为备用）"""
         from models.supply.supply_item import SupplyItem

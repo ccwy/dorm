@@ -126,19 +126,19 @@
         {% endif %}
 
         <!-- 完成盘点按钮 -->
-        {% if inventory_record.status == '进行中' %}
+        {% if inventory_record.status == '进行中' and current_user.has_permission('fixed_asset.inventory') %}
         <div class="mb-6">
             <form method="POST" action="{{ url_for('fixed_asset.complete_inventory', id=inventory_record.id) }}" 
                   onsubmit="return confirm('确定要完成此盘点吗？未盘点的资产将标记为异常。')">
                 <button type="submit" class="btn-hover bg-green-600 text-white px-4 py-2 rounded-md flex items-center">
-                    <i class="fa fa-check-circle mr-2"></i>完成盘点
+                    <i class="fa fa-check-circle mr-2"></i>审核
                 </button>
             </form>
         </div>
         {% endif %}
 
         <!-- 反审核按钮 -->
-        {% if inventory_record.status == '已完成' and inventory_unapprove_enabled %}
+        {% if inventory_record.status == '已完成' and inventory_unapprove_enabled and current_user.has_permission('fixed_asset.inventory_unapprove') %}
         <div class="mb-6">
             <form method="POST" action="{{ url_for('fixed_asset.unapprove_inventory', id=inventory_record.id) }}"
                   onsubmit="return confirm('确定要反审核此盘点单吗？资产数量将根据盘点结果回滚，盘点单将恢复为进行中状态。')">
@@ -209,15 +209,36 @@
                     <a href="{{ url_for('fixed_asset.inventory_detail', id=inventory_record.id) }}" class="text-sm text-gray-500 hover:text-primary">重置</a>
                 </form>
             </div>
+            {% if inventory_record.status == '进行中' %}
+            <!-- 批量操作栏 -->
+            <div id="batchBar" class="px-6 py-3 border-b border-gray-100 bg-blue-50 hidden">
+                <div class="flex items-center gap-4">
+                    <span class="text-sm text-blue-700">已选择 <strong id="selectedCount">0</strong> 条</span>
+                    <form id="batchDeleteForm" method="POST" action="{{ url_for('fixed_asset.batch_delete_inventory_details') }}" class="inline" onsubmit="return confirm('确定要删除选中的明细吗？删除后不可恢复。')">
+                        <input type="hidden" name="inventory_id" value="{{ inventory_record.id }}">
+                        <button type="submit" class="btn-effect bg-red-500 text-white px-3 py-1.5 rounded-md text-sm flex items-center">
+                            <i class="fa fa-trash-o mr-1"></i>批量删除
+                        </button>
+                    </form>
+                    <button type="button" onclick="clearSelection()" class="text-sm text-gray-500 hover:text-primary">取消选择</button>
+                </div>
+            </div>
+            {% endif %}
             <div class="overflow-x-auto">
                 <table class="min-w-full divide-y divide-gray-200">
                     <thead class="bg-gray-50">
                         <tr>
+                            {% if inventory_record.status == '进行中' %}
+                            <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                <input type="checkbox" id="selectAll" onclick="toggleSelectAll(this)" class="form-checkbox h-4 w-4 text-primary rounded border-gray-300">
+                            </th>
+                            {% endif %}
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">资产编号</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">资产名称</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">分类</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">规格型号</th>
                             <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">数量/单位</th>
+                            <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">资产状态</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">公司</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">使用部门</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">归属部门</th>
@@ -237,6 +258,11 @@
                     <tbody class="bg-white divide-y divide-gray-200">
                         {% for detail in details %}
                         <tr class="hover:bg-gray-50" id="detail-row-{{ detail.id }}">
+                            {% if inventory_record.status == '进行中' %}
+                            <td class="px-4 py-4 text-center">
+                                <input type="checkbox" name="detail_checkbox" value="{{ detail.id }}" class="detail-checkbox form-checkbox h-4 w-4 text-primary rounded border-gray-300">
+                            </td>
+                            {% endif %}
                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-primary">
                                 <a href="{{ url_for('fixed_asset.detail', id=detail.asset_id) }}">
                                     {{ detail.asset.display_number if detail.asset else '-' }}
@@ -253,6 +279,27 @@
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-600">
                                 {{ detail.asset.quantity if detail.asset else '-' }}{{ detail.asset.unit if detail.asset and detail.asset.unit else '' }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-center">
+                                {% if detail.asset %}
+                                    {% if detail.asset.status == '在用' %}
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">在用</span>
+                                    {% elif detail.asset.status == '已报废' %}
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">已报废</span>
+                                    {% elif detail.asset.status == '已出售' %}
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">已出售</span>
+                                    {% elif detail.asset.status == '闲置' %}
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">闲置</span>
+                                    {% elif detail.asset.status == '维修中' %}
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">维修中</span>
+                                    {% elif detail.asset.status == '已转移' %}
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">已转移</span>
+                                    {% else %}
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">{{ detail.asset.status }}</span>
+                                    {% endif %}
+                                {% else %}
+                                    -
+                                {% endif %}
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                                 {{ detail.asset.company if detail.asset and detail.asset.company else '-' }}
@@ -297,9 +344,9 @@
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600" id="checked-at-{{ detail.id }}">
                                 {{ detail.checked_at.strftime('%Y-%m-%d %H:%M') if detail.checked_at else '-' }}
                             </td>
-                            {% if inventory_record.status == '进行中' %}
+                            {% if inventory_record.status == '进行中' and current_user.has_permission('fixed_asset.inventory') %}
                             <td class="px-4 py-4 whitespace-nowrap text-sm font-medium">
-                                <div class="flex gap-2">
+                                <div class="flex gap-2 items-center">
                                     {% if detail.inventory_result == '未盘点' %}
                                     <button type="button" onclick="showCheckModal({{ detail.id }}, {{ detail.inventory_id }}, {{ detail.asset_id }})" 
                                             class="btn-effect bg-primary text-white px-2 py-1 rounded-md text-sm flex items-center">
@@ -311,13 +358,24 @@
                                         <i class="fa fa-edit mr-1"></i>修改
                                     </button>
                                     {% endif %}
+                                    <form method="POST" action="{{ url_for('fixed_asset.delete_inventory_detail', detail_id=detail.id) }}"
+                                          onsubmit="return confirm('确定要删除此盘点明细吗？')" class="inline">
+                                        <button type="submit" class="btn-effect bg-red-500 text-white px-2 py-1 rounded-md text-sm flex items-center">
+                                            <i class="fa fa-trash-o mr-1"></i>删除
+                                        </button>
+                                    </form>
+                                    {% if detail.asset and detail.asset.status != '在用' %}
+                                    <span class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-red-50 text-red-600 border border-red-200" title="该资产已{{ detail.asset.status }}，审核时将被阻止，请先删除此明细">
+                                        <i class="fa fa-exclamation-triangle mr-1"></i>无效
+                                    </span>
+                                    {% endif %}
                                 </div>
                             </td>
                             {% endif %}
                         </tr>
                         {% else %}
                         <tr>
-                            <td colspan="{{ 17 if inventory_record.status == '进行中' else 16 }}" class="px-6 py-10 text-center text-gray-500">
+                            <td colspan="{{ 19 if inventory_record.status == '进行中' else 17 }}" class="px-6 py-10 text-center text-gray-500">
                                 <i class="fa fa-list-alt text-4xl mb-2 block text-gray-300"></i>
                                 暂无盘点明细
                             </td>
@@ -531,6 +589,62 @@
                 closeCheckModal();
             }
         });
+
+        {% if inventory_record.status == '进行中' %}
+        // 全选/取消全选
+        function toggleSelectAll(checkbox) {
+            var checkboxes = document.querySelectorAll('.detail-checkbox');
+            checkboxes.forEach(function(cb) {
+                cb.checked = checkbox.checked;
+            });
+            updateBatchBar();
+        }
+
+        // 更新批量操作栏
+        function updateBatchBar() {
+            var checkboxes = document.querySelectorAll('.detail-checkbox:checked');
+            var count = checkboxes.length;
+            var batchBar = document.getElementById('batchBar');
+            var selectedCount = document.getElementById('selectedCount');
+            if (count > 0) {
+                batchBar.classList.remove('hidden');
+                selectedCount.textContent = count;
+            } else {
+                batchBar.classList.add('hidden');
+            }
+            // 更新批量删除表单中的选中项
+            var form = document.getElementById('batchDeleteForm');
+            // 移除旧的hidden inputs
+            form.querySelectorAll('input[name="detail_ids"]').forEach(function(inp) { inp.remove(); });
+            // 添加新的hidden inputs
+            checkboxes.forEach(function(cb) {
+                var inp = document.createElement('input');
+                inp.type = 'hidden';
+                inp.name = 'detail_ids';
+                inp.value = cb.value;
+                form.appendChild(inp);
+            });
+        }
+
+        // 取消选择
+        function clearSelection() {
+            var checkboxes = document.querySelectorAll('.detail-checkbox');
+            checkboxes.forEach(function(cb) { cb.checked = false; });
+            document.getElementById('selectAll').checked = false;
+            updateBatchBar();
+        }
+
+        // 监听checkbox变化
+        document.addEventListener('change', function(e) {
+            if (e.target.classList.contains('detail-checkbox')) {
+                updateBatchBar();
+                // 更新全选状态
+                var all = document.querySelectorAll('.detail-checkbox');
+                var checked = document.querySelectorAll('.detail-checkbox:checked');
+                document.getElementById('selectAll').checked = all.length > 0 && all.length === checked.length;
+            }
+        });
+        {% endif %}
     </script>
 </body>
 </html>

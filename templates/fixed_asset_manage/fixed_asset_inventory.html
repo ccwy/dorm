@@ -70,9 +70,11 @@
                 </a>
                 <h2 class="text-2xl font-semibold text-dark">{{ title }}</h2>
             </div>
+            {% if current_user.has_permission('fixed_asset.inventory') %}
             <button onclick="window.location.href='{{ url_for('fixed_asset.inventory_create_page') }}'" class="btn-hover bg-primary text-white px-4 py-2 rounded-md flex items-center">
                 <i class="fa fa-plus mr-2"></i>创建盘点单
             </button>
+            {% endif %}
         </div>
 
         <!-- 筛选栏 -->
@@ -150,14 +152,18 @@
                                         <i class="fa fa-eye mr-1"></i>查看
                                     </button>
                                     {% if inv.status == '进行中' %}
+                                    {% if current_user.has_permission('fixed_asset.inventory') %}
                                     <button class="btn-effect bg-green-500 text-white px-2 py-1 rounded-md text-sm flex items-center"
-                                        onclick="if(confirm('确定要完成此盘点吗？未盘点的资产将标记为异常。')) { document.getElementById('completeForm-{{ inv.id }}').submit(); }" title="完成盘点">
-                                        <i class="fa fa-check-circle mr-1"></i>完成
+                                        onclick="if(confirm('确定要审核此盘点吗？未盘点的资产将标记为异常。')) { document.getElementById('completeForm-{{ inv.id }}').submit(); }" title="完成盘点">
+                                        <i class="fa fa-check-circle mr-1"></i>审核
                                     </button>
+                                    {% endif %}
+                                    {% if current_user.has_permission('fixed_asset.delete') %}
                                     <button class="btn-effect bg-red-500 text-white px-2 py-1 rounded-md text-sm flex items-center"
                                         onclick="if(confirm('确定要删除此盘点单吗？删除后不可恢复。')) { document.getElementById('deleteInvForm-{{ inv.id }}').submit(); }" title="删除盘点单">
                                         <i class="fa fa-trash mr-1"></i>删除
                                     </button>
+                                    {% endif %}
                                     {% endif %}
                                 </div>
                                 <!-- 完成盘点表单 -->

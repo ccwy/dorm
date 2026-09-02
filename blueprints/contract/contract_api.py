@@ -364,6 +364,7 @@ def get_contract_attachments(id):
 
 # ========== 获取合同附件文件（静态文件服务） ==========
 @contract_api_bp.route('/media/<contract_id>/<path:filename>', methods=['GET'])
+@login_required
 def get_contract_media(contract_id, filename):
     """获取合同的媒体文件（附件、图片、文档等）"""
     try:

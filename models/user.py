@@ -213,6 +213,18 @@ class User(UserMixin, db.Model):
             return self.user_role.has_permission(permission_code)
         return False
     
+    def has_any_permission(self, module_code):
+        """判断用户是否拥有指定模块的任何权限"""
+        if not self.is_authenticated:
+            return False
+        # 超级管理员自动拥有所有权限
+        if self.user_role and self.user_role.code == 'super_admin':
+            return True
+        # 委托给角色
+        if self.user_role:
+            return self.user_role.has_any_permission(module_code)
+        return False
+    
     # 删除用户的方法
     def delete(self):
         """删除用户记录

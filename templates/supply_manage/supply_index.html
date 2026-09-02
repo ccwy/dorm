@@ -80,6 +80,7 @@
             {% endwith %}
 
             <!-- 供应商管理 -->
+            {% if current_user.has_permission('supply.supplier') %}
             <div class="bg-white rounded-xl p-6 shadow-sm card-hover text-center">
                 <div class="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4 mx-auto">
                     <i class="fa fa-truck text-2xl text-blue-600"></i>
@@ -91,8 +92,10 @@
                     查看管理
                 </button>
             </div>
+            {% endif %}
             
             <!-- 基础物料资料 -->
+            {% if current_user.has_permission('supply.supply_item') %}
             <div class="bg-white rounded-xl p-6 shadow-sm card-hover text-center">
                 <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4 mx-auto">
                     <i class="fa fa-cube text-2xl text-green-600"></i>
@@ -104,8 +107,10 @@
                     查看管理
                 </button>
             </div>
+            {% endif %}
             
             <!-- 存放位置管理 -->
+            {% if current_user.has_permission('supply.storage_location') %}
             <div class="bg-white rounded-xl p-6 shadow-sm card-hover text-center">
                 <div class="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mb-4 mx-auto">
                     <i class="fa fa-map-marker text-2xl text-amber-600"></i>
@@ -117,8 +122,10 @@
                     查看管理
                 </button>
             </div>
+            {% endif %}
             
             <!-- 库存明细 -->
+            {% if current_user.has_permission('supply.supply_stock_detail') %}
             <div class="bg-white rounded-xl p-6 shadow-sm card-hover text-center">
                 <div class="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mb-4 mx-auto">
                     <i class="fa fa-cubes text-2xl text-purple-600"></i>
@@ -130,8 +137,10 @@
                     查看明细
                 </button>
             </div>
+            {% endif %}
             
             <!-- 入库管理 -->
+            {% if current_user.has_permission('supply.stock_in') %}
             <div class="bg-white rounded-xl p-6 shadow-sm card-hover text-center">
                 <div class="w-16 h-16 bg-teal-100 rounded-full flex items-center justify-center mb-4 mx-auto">
                     <i class="fa fa-arrow-down text-2xl text-teal-600"></i>
@@ -143,8 +152,10 @@
                     查看管理
                 </button>
             </div>
+            {% endif %}
             
             <!-- 出库管理 -->
+            {% if current_user.has_permission('supply.stock_out') %}
             <div class="bg-white rounded-xl p-6 shadow-sm card-hover text-center">
                 <div class="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mb-4 mx-auto">
                     <i class="fa fa-arrow-up text-2xl text-orange-600"></i>
@@ -156,8 +167,10 @@
                     查看管理
                 </button>
             </div>
+            {% endif %}
             
             <!-- 盘点管理 -->
+            {% if current_user.has_permission('supply.supply_inventory') %}
             <div class="bg-white rounded-xl p-6 shadow-sm card-hover text-center">
                 <div class="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center mb-4 mx-auto">
                     <i class="fa fa-check-square-o text-2xl text-indigo-600"></i>
@@ -169,8 +182,10 @@
                     查看管理
                 </button>
             </div>
+            {% endif %}
             
             <!-- 进出库记录 -->
+            {% if current_user.has_permission('supply.supply_stock_record') %}
             <div class="bg-white rounded-xl p-6 shadow-sm card-hover text-center">
                 <div class="w-16 h-16 bg-cyan-100 rounded-full flex items-center justify-center mb-4 mx-auto">
                     <i class="fa fa-history text-2xl text-cyan-600"></i>
@@ -182,6 +197,7 @@
                     查看记录
                 </button>
             </div>
+            {% endif %}
         </div>
         
     </main>

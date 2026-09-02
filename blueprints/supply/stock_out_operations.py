@@ -387,7 +387,7 @@ def delete_stock_out(id):
 # ========== 路由：审核出库单 ==========
 @stock_out_bp.route('/operations/approve/<int:id>', methods=['POST'])
 @login_required
-@require_permission('supply.edit')
+@require_permission('supply.approve')
 def approve_stock_out(id):
     """审核出库单"""
     try:
@@ -445,10 +445,17 @@ def approve_stock_out(id):
 # ========== 路由：反审核出库单 ==========
 @stock_out_bp.route('/operations/unapprove/<int:id>', methods=['POST'])
 @login_required
-@require_permission('supply.edit')
+@require_permission('supply.unapprove')
 def unapprove_stock_out(id):
     """反审核出库单（仅已审核状态可反审核，反审核后状态变为待审核，库存回滚）"""
     try:
+        # 检查系统配置是否允许反审核
+        from models.system_config import SystemConfig
+        unapprove_enabled = SystemConfig.get_config_value('STOCK_OUT_UNAPPROVE_ENABLED', True)
+        if not unapprove_enabled:
+            flash('出库单反审核功能已关闭，请联系管理员开启', 'warning')
+            return redirect(url_for('stock_out.detail_stock_out', id=id))
+
         stock_out = StockOut.query.get_or_404(id)
 
         # 调用反审核方法（内部会自动回滚库存和删除进出库记录）

@@ -162,18 +162,24 @@
                         <button type="button" id="addBtn" class="bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded-lg btn-hover flex items-center">
                             <i class="fa fa-plus mr-2"></i> 添加
                         </button>
+                        {% if current_user.has_permission('fee_subsidy.delete') %}
                         <button type="button" id="batchDeleteBtn" class="bg-danger hover:bg-danger/90 text-white px-4 py-2 rounded-lg btn-hover flex items-center" disabled>
                             <i class="fa fa-trash mr-2"></i> 批量禁用
                         </button>
                         <button type="button" id="clearAllBtn" class="bg-warning hover:bg-warning/90 text-white px-4 py-2 rounded-lg btn-hover flex items-center">
                             <i class="fa fa-eraser mr-2"></i> 清空当前账期
                         </button>
+                        {% endif %}
+                        {% if current_user.has_permission('fee_subsidy.import') %}
                         <button type="button" id="importBtn" class="bg-info hover:bg-info/90 text-white px-4 py-2 rounded-lg btn-hover flex items-center">
                             <i class="fa fa-upload mr-2"></i> 导入
                         </button>
+                        {% endif %}
+                        {% if current_user.has_permission('fee_subsidy.export') %}
                         <button type="button" id="exportBtn" class="bg-success hover:bg-success/90 text-white px-4 py-2 rounded-lg btn-hover flex items-center">
                             <i class="fa fa-download mr-2"></i> 导出
                         </button>
+                        {% endif %}
                     </div>
                 </div>
             </form>
@@ -418,6 +424,7 @@
         let currentAction = null; // 用于存储当前确认对话框的操作类型
         let showReductionColumns = true; // 控制水电减免列显示的变量
         let isFiltering = false; // 防止重复请求的标记
+        const hasDeletePermission = {{ 'true' if current_user.has_permission('fee_subsidy.delete') else 'false' }};
         
         // 页面加载完成后初始化
         document.addEventListener('DOMContentLoaded', function() {
@@ -594,9 +601,12 @@
             });
             
             // 导入按钮
-            document.getElementById('importBtn').addEventListener('click', function() {
+            const importBtnEl = document.getElementById('importBtn');
+            if (importBtnEl) {
+            importBtnEl.addEventListener('click', function() {
                 document.getElementById('importDialog').style.display = 'flex';
             });
+            }
             
             // 关闭导入对话框
             document.getElementById('cancelImportBtn').addEventListener('click', function() {
@@ -642,13 +652,16 @@
             });
             
             // 导出按钮
-            document.getElementById('exportBtn').addEventListener('click', function() {
+            const exportBtnEl = document.getElementById('exportBtn');
+            if (exportBtnEl) {
+            exportBtnEl.addEventListener('click', function() {
                 // 显示导出对话框
                 document.getElementById('exportDialog').style.display = 'flex';
                 // 加载账期和费用类型数据
                 loadExportBillingPeriods();
                 loadExportFeeTypes();
             });
+            }
             
             // 添加按钮
             document.getElementById('addBtn').addEventListener('click', function() {
@@ -1075,9 +1088,9 @@
                     </td>
                     <td class="px-4 py-3 whitespace-nowrap text-sm font-medium">
                         <div class="flex space-x-2">
-                            <button class="text-danger hover:text-danger/80 transition-colors delete-btn" data-id="${record.id}" data-name="${isWaterElectricType ? (record.room_full_number || '') : (record.user_name || '')}">
+                            ${hasDeletePermission ? `<button class="text-danger hover:text-danger/80 transition-colors delete-btn" data-id="${record.id}" data-name="${isWaterElectricType ? (record.room_full_number || '') : (record.user_name || '')}">
                                 <i class="fa fa-trash"></i>
-                            </button>
+                            </button>` : ''}
                         </div>
                     </td>
                 </tr>`;

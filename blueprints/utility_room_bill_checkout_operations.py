@@ -18,7 +18,7 @@ from utils.auth import require_permission
 
 @utility_room_bill_checkout_bp.route('/create', methods=['POST'])
 @login_required
-@require_permission('utility.create')
+@require_permission('utility.edit')
 def create_checkout_record():
     """创建退宿费用记录"""
     try:

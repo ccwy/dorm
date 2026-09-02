@@ -312,7 +312,7 @@ def get_records_by_period():
 # 一键一键核算接口（仅保留核算功能，保持改动原有标识）
 @utility_room_bill_records_bp.route('/fee_bill', methods=['POST'])  # 保持原有路由
 @login_required
-@require_permission('utility.create')
+@require_permission('utility.calculate')
 def create_record():  # 保持原有接口名称
     """一键核算费用接口，仅处理批量核算逻辑"""
     try:
@@ -904,7 +904,7 @@ def search_records():
 
 @utility_room_bill_records_bp.route('/create_empty_period', methods=['POST'])
 @login_required
-@require_permission('utility.create')
+@require_permission('utility.calculate')
 def create_empty_period_records():
     """
     为指定账期创建空的主表记录，为所有房间初始化该账期的记录
@@ -1016,6 +1016,7 @@ def create_empty_period_records():
 
 @utility_room_bill_records_bp.route('/record_details/<int:record_id>', methods=['GET'])
 @login_required
+@require_permission('utility.view')
 
 def get_record_details(record_id):
     """

@@ -114,19 +114,25 @@
 
                     <!-- 操作按钮 -->
                     <div class="w-full sm:w-auto flex flex-wrap items-center gap-2 mt-2 sm:mt-0">
+                        {% if current_user.has_permission('utility.calculate') %}
                         <button id="calculateBtn" class="px-3 py-1.5 sm:px-4 sm:py-2 bg-success text-white rounded-md hover:bg-success/90 flex items-center transition-custom text-sm sm:text-base" disabled>
                             <i class="fa fa-calculator mr-2"></i>核算费用
                         </button>
+                        {% endif %}
+                        {% if current_user.has_permission('utility.delete') %}
                         <button id="clearPeriodBtn" class="px-3 py-1.5 sm:px-4 sm:py-2 bg-warning text-white rounded-md hover:bg-warning/90 flex items-center transition-custom text-sm sm:text-base" disabled>
                             <i class="fa fa-eraser mr-2"></i>清空数据
                         </button>
                         <button id="deleteAllBtn" class="px-3 py-1.5 sm:px-4 sm:py-2 bg-danger text-white rounded-md hover:bg-danger/90 flex items-center transition-custom text-sm sm:text-base" disabled>
                             <i class="fa fa-trash mr-2"></i>删除账期
                         </button>
+                        {% endif %}
+                        {% if current_user.has_permission('utility.calculate') %}
                         <!-- 新增：生成空账期按钮 -->
                         <button id="createEmptyPeriodBtn" class="px-3 py-1.5 sm:px-4 sm:py-2 bg-info text-white rounded-md hover:bg-info/90 flex items-center transition-custom text-sm sm:text-base">
                             <i class="fa fa-plus mr-2"></i>生成空账期
                         </button>
+                        {% endif %}
                         
                         <!-- 新增：刷新按钮 -->
                         <button id="refreshBtn" class="px-3 py-1.5 sm:px-4 sm:py-2 btn btn-primary flex items-center transition-custom text-sm sm:text-base">
@@ -319,6 +325,9 @@
     {% include 'footer.html' %}
     
     <script>
+        // 权限标志
+        const canDelete = {{ 'true' if current_user.has_permission('utility.delete') else 'false' }};
+
         // 全局变量
         let currentBillingPeriod = '';
         let currentBuilding = '';
@@ -1173,9 +1182,7 @@
                         <a href="{{ url_for('utility_index.utility_room_records_detail') }}?record_id=${record.record_id}" class="text-primary hover:text-blue-700 mr-3">
                             <i class="fa fa-eye"></i> 详情
                         </a>
-                        <button class="text-danger hover:text-red-700 delete-single-btn" data-record-id="${record.record_id}">
-                            <i class="fa fa-trash"></i> 删除
-                        </button>
+                        ${canDelete ? `<button class="text-danger hover:text-red-700 delete-single-btn" data-record-id="${record.record_id}"><i class="fa fa-trash"></i> 删除</button>` : ''}
                     </td>
                 `;
                 

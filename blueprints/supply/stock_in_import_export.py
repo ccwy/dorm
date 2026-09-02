@@ -5,12 +5,12 @@ from utils.db import db
 from models.supply.stock_in import StockIn
 from models.supply.stock_in_detail import StockInDetail
 from flask_login import login_required, current_user
+from utils.auth import require_permission
 from utils.log import log_operation
 from utils.lazy_imports import pd  # 延迟导入pandas，避免启动时加载重型库
 import io
 from datetime import datetime
 import traceback
-from utils.auth import require_permission
 from io import BytesIO
 
 # 创建导入导出专用蓝图
