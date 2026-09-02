@@ -16,7 +16,7 @@ import logging
 
 # 创建蓝图
 user_bp = Blueprint('user', __name__, url_prefix='/user')
-from . import user_info  # 导入用户信息查看页面蓝图
+import blueprints.user_info  # 导入用户信息查看页面蓝图
 # 用户管理列表（带搜索功能）
 @user_bp.route('/manage')
 @login_required

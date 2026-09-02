@@ -38,7 +38,7 @@ def generate_page_range(current_page, total_pages, show_pages=5):
     return page_range
 
 # 导入操作模块
-from . import department_operations
+import blueprints.department_operations
 
 
 # 部门列表页（含筛选+分页）

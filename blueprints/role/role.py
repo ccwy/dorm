@@ -20,8 +20,8 @@ role_bp = Blueprint(
 )
 
 # 导入操作模块和API模块（路由注册到role_bp上）
-from . import role_operations
-from . import role_api
+import blueprints.role.role_operations
+import blueprints.role.role_api
 
 
 # ========== 角色列表页 ==========
