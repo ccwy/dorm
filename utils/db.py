@@ -57,11 +57,17 @@ def init_system_configs():
     logging.info("已初始化系统配置")
 
 def init_roles_and_permissions():
-    """初始化系统内置角色和权限数据（幂等操作）"""
+    """初始化系统内置角色和权限数据（仅在首次创建数据库时创建，后续启动不重置权限）"""
     from models.role import Role, RolePermission
     from utils.auth import PERMISSIONS
     
-    # 定义4个内置角色
+    # 检查是否已存在内置角色（判断是否为首次初始化）
+    existing_system_roles = Role.query.filter_by(is_system=True).count()
+    if existing_system_roles > 0:
+        logging.info("内置角色已存在，跳过权限初始化（保留用户自定义权限配置）")
+        return
+    
+    # 首次创建：定义4个内置角色
     builtin_roles = [
         {'name': '超级管理员', 'code': 'super_admin', 'description': '拥有所有权限', 'is_system': True, 'sort_order': 1},
         {'name': '管理员', 'code': 'admin', 'description': '除系统设置、日志、角色管理外的所有模块的全部操作权限', 'is_system': True, 'sort_order': 2},
@@ -82,19 +88,11 @@ def init_roles_and_permissions():
         'ticket': {'view', 'create'},
     }
     
+    # 创建所有内置角色
     for role_data in builtin_roles:
-        role = Role.query.filter_by(code=role_data['code']).first()
-        if not role:
-            # 角色不存在，创建
-            role = Role(**role_data)
-            db.session.add(role)
-            logging.info(f"创建内置角色: {role_data['name']}")
-        else:
-            # 角色已存在，更新基本信息（不更新权限）
-            role.name = role_data['name']
-            role.description = role_data['description']
-            role.sort_order = role_data['sort_order']
-            logging.info(f"内置角色已存在，更新基本信息: {role_data['name']}")
+        role = Role(**role_data)
+        db.session.add(role)
+        logging.info(f"创建内置角色: {role_data['name']}")
     
     try:
         db.session.flush()  # 确保角色ID可用
@@ -106,85 +104,36 @@ def init_roles_and_permissions():
     # 初始化管理员角色权限
     admin_role = Role.query.filter_by(code='admin').first()
     if admin_role:
-        # 获取管理员已有的权限编码
-        existing_codes = {p.permission_code for p in admin_role.permissions.all()}
-        # 计算管理员应有的权限编码
-        expected_codes = set()
         for module_code, module_info in PERMISSIONS.items():
             if module_code not in admin_excluded_modules:
                 for action_code in module_info['actions']:
-                    expected_codes.add(f"{module_code}.{action_code}")
-        
-        # 添加缺失的权限
-        new_codes = expected_codes - existing_codes
-        for code in new_codes:
-            perm = RolePermission(role_id=admin_role.id, permission_code=code)
-            db.session.add(perm)
-        
-        # 删除不再需要的权限（模块被移除的情况）
-        removed_codes = existing_codes - expected_codes
-        if removed_codes:
-            RolePermission.query.filter(
-                RolePermission.role_id == admin_role.id,
-                RolePermission.permission_code.in_(removed_codes)
-            ).delete(synchronize_session=False)
-        
-        if new_codes or removed_codes:
-            logging.info(f"管理员角色权限已更新: 新增{len(new_codes)}个, 移除{len(removed_codes)}个")
+                    perm = RolePermission(role_id=admin_role.id, permission_code=f"{module_code}.{action_code}")
+                    db.session.add(perm)
+        logging.info("管理员角色权限已初始化")
+    
+    # super_admin角色不需要在role_permission表中配置权限（自动拥有所有权限）
     
     # 初始化普通用户角色权限
     user_role = Role.query.filter_by(code='user').first()
     if user_role:
-        existing_codes = {p.permission_code for p in user_role.permissions.all()}
-        expected_codes = set()
         for module_code, actions in user_permissions.items():
             for action_code in actions:
-                expected_codes.add(f"{module_code}.{action_code}")
-        
-        new_codes = expected_codes - existing_codes
-        for code in new_codes:
-            perm = RolePermission(role_id=user_role.id, permission_code=code)
-            db.session.add(perm)
-        
-        removed_codes = existing_codes - expected_codes
-        if removed_codes:
-            RolePermission.query.filter(
-                RolePermission.role_id ==user_role.id,
-                RolePermission.permission_code.in_(removed_codes)
-            ).delete(synchronize_session=False)
-        
-        if new_codes or removed_codes:
-            logging.info(f"普通用户角色权限已更新: 新增{len(new_codes)}个, 移除{len(removed_codes)}个")
-    
-    # super_admin角色不需要在role_permission表中配置权限（自动拥有所有权限）
+                perm = RolePermission(role_id=user_role.id, permission_code=f"{module_code}.{action_code}")
+                db.session.add(perm)
+        logging.info("普通用户角色权限已初始化")
     
     # 初始化维修员角色权限
     maintenance_role = Role.query.filter_by(code='maintenance_staff').first()
     if maintenance_role:
-        existing_codes = {p.permission_code for p in maintenance_role.permissions.all()}
-        expected_codes = set()
         for module_code, actions in maintenance_permissions.items():
             for action_code in actions:
-                expected_codes.add(f"{module_code}.{action_code}")
-        
-        new_codes = expected_codes - existing_codes
-        for code in new_codes:
-            perm = RolePermission(role_id=maintenance_role.id, permission_code=code)
-            db.session.add(perm)
-        
-        removed_codes = existing_codes - expected_codes
-        if removed_codes:
-            RolePermission.query.filter(
-                RolePermission.role_id == maintenance_role.id,
-                RolePermission.permission_code.in_(removed_codes)
-            ).delete(synchronize_session=False)
-        
-        if new_codes or removed_codes:
-            logging.info(f"维修员角色权限已更新: 新增{len(new_codes)}个, 移除{len(removed_codes)}个")
+                perm = RolePermission(role_id=maintenance_role.id, permission_code=f"{module_code}.{action_code}")
+                db.session.add(perm)
+        logging.info("维修员角色权限已初始化")
     
     try:
         db.session.commit()
-        logging.info("内置角色和权限初始化完成")
+        logging.info("内置角色和权限首次初始化完成")
     except Exception as e:
         db.session.rollback()
         logging.error(f"初始化角色权限失败: {str(e)}")
