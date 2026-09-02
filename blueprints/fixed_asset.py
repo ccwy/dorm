@@ -47,8 +47,6 @@ def generate_page_range(current_page, total_pages, show_pages=5):
         page_range.append(total_pages)
     return page_range
 
-# 导入操作模块
-import blueprints.fixed_asset_operations
 
 
 # 固定资产列表页（含筛选+分页）
@@ -867,3 +865,6 @@ def inventory_create_page():
         flash('加载创建盘点单页面失败，请重试', 'danger')
         logging.error(f"访问创建盘点单页面失败: {str(e)}")
         return redirect(url_for('fixed_asset.inventory'))
+
+# 导入操作模块
+import blueprints.fixed_asset_operations
