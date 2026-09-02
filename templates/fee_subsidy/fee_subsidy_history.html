@@ -168,11 +168,9 @@
                     <button type="button" id="refreshBtn" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg btn-hover flex items-center">
                         <i class="fa fa-repeat mr-2"></i> 刷新
                     </button>
-                    {% if current_user.has_permission('fee_subsidy.export') %}
                     <button type="button" id="exportBtn" class="bg-success hover:bg-success/90 text-white px-4 py-2 rounded-lg btn-hover flex items-center">
                         <i class="fa fa-download mr-2"></i> 导出
                     </button>
-                    {% endif %}
                 </div>
             </form>
         </div>
@@ -389,9 +387,7 @@
             });
             
             // 导出按钮
-            const exportBtnEl = document.getElementById('exportBtn');
-            if (exportBtnEl) {
-            exportBtnEl.addEventListener('click', function() {
+            document.getElementById('exportBtn').addEventListener('click', function() {
                 if (isLoading) return;
                 
                 const btn = this;
@@ -430,7 +426,6 @@
                     btn.disabled = false;
                 }, 60000);
             });
-            }
             
             // 页码大小选择
             document.getElementById('pageSize').addEventListener('change', function() {

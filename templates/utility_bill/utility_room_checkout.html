@@ -186,12 +186,10 @@
             </button>
             
             <!-- 导出按钮 -->
-            {% if current_user.has_permission('utility.export') %}
             <button type="button" id="exportBtn" class="px-4 py-2 bg-success text-white rounded-md flex items-center space-x-1 btn-hover text-sm">
               <i class="fa fa-download"></i>
               <span>导出</span>
             </button>
-            {% endif %}
           </div>
         </div>
         
@@ -365,9 +363,6 @@
       const selectedCountEl = document.querySelector('#selectedCount .font-medium');
       const accountPeriodSelect = document.getElementById('accountPeriod');
       const residentsTableBody = document.getElementById('residentsTableBody');
-      // 权限标志
-      const canEdit = {{ 'true' if current_user.has_permission('utility.edit') else 'false' }};
-      const canDelete = {{ 'true' if current_user.has_permission('utility.delete') else 'false' }};
       const searchBtn = document.getElementById('searchBtn');
       const departmentSelect = document.getElementById('department');
       const buildingSelect = document.getElementById('building');
@@ -672,7 +667,7 @@
           `;
         });
       });
-      }
+      
       // 渲染当前页数据 - 修复排序问题的核心函数
       function renderCurrentPageData() {
         // 清空表格
@@ -785,23 +780,27 @@
                   <button class="btn-effect bg-blue-500 text-white px-2 py-1 rounded-md text-sm flex items-center" title="查看详情" onclick="viewRecord(${subRecordId})">
                     <i class="fa fa-eye mr-1"></i>查看
                   </button>
-                  ${canEdit ? `<button class="btn-effect bg-amber-500 text-white px-2 py-1 rounded-md text-sm flex items-center" title="编辑" onclick="editRecord(${subRecordId})"><i class="fa fa-pencil mr-1"></i>编辑</button>` : ''}
-                  ${canDelete ? `<button class="btn-effect bg-red-500 text-white px-2 py-1 rounded-md text-sm flex items-center" title="删除" onclick="deleteRecord(${subRecordId})"><i class="fa fa-trash mr-1"></i>删除</button>` : ''}
+                  <button class="btn-effect bg-amber-500 text-white px-2 py-1 rounded-md text-sm flex items-center" title="编辑" onclick="editRecord(${subRecordId})">
+                    <i class="fa fa-pencil mr-1"></i>编辑
+                  </button>
+                  <button class="btn-effect bg-red-500 text-white px-2 py-1 rounded-md text-sm flex items-center" title="删除" onclick="deleteRecord(${subRecordId})">
+                    <i class="fa fa-trash mr-1"></i>删除
+                  </button>
                 </div>
               `;
             } else {
               actionButtons = `
                 <div class="flex gap-2">
-                  ${canEdit ? `<button class="btn-effect bg-green-500 text-white px-2 py-1 rounded-md text-sm flex items-center" title="新增" 
+                  <button class="btn-effect bg-green-500 text-white px-2 py-1 rounded-md text-sm flex items-center" title="新增" 
                           onclick="openCreateRecordModal(
                             ${resident.user.id}, 
                             ${resident.room.id}, 
                             '${originalCheckoutDate}',
-                            '${resident.user.name},
+                            '${resident.user.name}',
                             '${resident.room.full_room}'
                           )">
                     <i class="fa fa-plus"></i>
-                  </button>` : ''}
+                  </button>
                 </div>
               `;
             }
@@ -972,7 +971,7 @@
             
             const actionButtons = `
               <div class="flex gap-2">
-                ${canEdit ? `<button class="btn-effect bg-green-500 text-white px-2 py-1 rounded-md text-sm flex items-center" title="新增" 
+                <button class="btn-effect bg-green-500 text-white px-2 py-1 rounded-md text-sm flex items-center" title="新增" 
                         onclick="openCreateRecordModal(
                           ${resident.user.id}, 
                           ${resident.room.id}, 
@@ -981,7 +980,7 @@
                           '${resident.room.full_room}'
                         )">
                   <i class="fa fa-plus"></i>
-                </button>` : ''}
+                </button>
               </div>
             `;
             
@@ -1144,7 +1143,6 @@
       });
       
       // 导出按钮事件
-      if (exportBtn) {
       exportBtn.addEventListener('click', function() {
         const selectedPeriod = document.getElementById('accountPeriod').value;
         const department = departmentSelect.value;
@@ -1230,7 +1228,7 @@
           }, 60000);
         });
       });
-      }
+      
       // 全选/取消全选事件
       selectAllCheckbox.addEventListener('change', function() {
         const isChecked = this.checked;
@@ -1438,7 +1436,7 @@
           this.innerHTML = '<span>确认创建</span>';
         });
       });
-      }
+      
       // 查看记录
       window.viewRecord = function(subRecordId) {
         // 跳转到退宿费用核算结果页面

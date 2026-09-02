@@ -6,7 +6,6 @@ from models.dorm import Dorm
 from models.user import User
 from config import Config
 from flask_login import login_required, current_user
-from utils.auth import require_permission
 from utils.log import log_operation
 import traceback
 from datetime import datetime  # 只保留datetime导入
@@ -487,8 +486,6 @@ def get_batch_user_rooms():
 
 
 @room_api_bp.route('/media/<room_id>/<filename>', methods=['GET'])
-@login_required
-@require_permission('room.view')
 def get_room_media(room_id, filename):
     """获取房间的媒体文件（照片或视频）"""
     try:
@@ -511,8 +508,6 @@ def get_room_media(room_id, filename):
 
 
 @room_api_bp.route('/media/list', methods=['GET'])
-@login_required
-@require_permission('room.view')
 def get_room_media_list():
     """获取房间的所有媒体文件列表"""
     try:

@@ -90,11 +90,13 @@
                             <i class="fa fa-spinner fa-spin mr-2"></i>加载模块中...
                         </li>
                     </ul>
+                    {% if current_user.has_permission('system_settings.initialize') %}
                     <div class="p-4 border-t border-gray-200 bg-gray-50">
                         <button id="initializeAllBtn" class="w-full btn-secondary text-sm flex items-center justify-center">
                             <i class="fa fa-refresh mr-2"></i>初始化所有配置
                         </button>
                     </div>
+                    {% endif %}
                 </div>
             </div>
 
@@ -108,9 +110,11 @@
                             <p id="moduleDescription" class="text-gray-500 text-sm mt-1">选择左侧的配置模块查看和管理相关设置</p>
                         </div>
                         <div class="flex gap-3 w-full sm:w-auto">
+                            {% if current_user.has_permission('system_settings.initialize') %}
                             <button id="initializeModuleBtn" class="btn-secondary text-sm flex-1 sm:flex-none" disabled>
                                 <i class="fa fa-refresh mr-1"></i>初始化模块配置
                             </button>
+                            {% endif %}
                             <button id="saveConfigBtn" class="btn-primary text-sm flex-1 sm:flex-none" disabled>
                                 <i class="fa fa-save mr-1"></i>保存配置
                             </button>
@@ -134,6 +138,7 @@
                     </h3>
                     
                     <!-- 备份管理按钮组 -->
+                    {% if current_user.has_permission('system_settings.backup') %}
                     <div class="flex flex-wrap gap-3 mb-6">
                         <button id="createBackupBtn" class="btn-primary flex items-center">
                             <i class="fa fa-plus mr-2"></i>创建新备份
@@ -145,22 +150,23 @@
                             <i class="fa fa-upload mr-2"></i>恢复备份
                         </button>
                         <input type="file" id="backupFileInput" accept=".sql" class="hidden" />
-                        {% if current_user.has_permission('system_settings.manage') %}
                         <button id="deleteSelectedBtn" class="btn-secondary flex items-center" disabled>
                             <i class="fa fa-trash mr-2"></i>批量删除选中
                         </button>
                         <button id="clearAllBackupsBtn" class="btn-secondary flex items-center text-red-600">
                             <i class="fa fa-trash-o mr-2"></i>清空所有备份
                         </button>
-                        {% endif %}
+                        {% if current_user.has_permission('system_settings.initialize') %}
                         <button id="initializeDbBtn" class="btn-secondary flex items-center">
                             <i class="fa fa-database mr-2"></i>初始化数据库
                         </button>
+                        {% endif %}
                         <!-- 新增：查看数据库信息按钮 -->
                         <button id="viewDbInfoBtn" class="btn-secondary flex items-center ml-2">
                             <i class="fa fa-info-circle mr-2"></i>查看数据库信息
                         </button>
                     </div>
+                    {% endif %}
                     
                     <!-- 新增：数据库信息展示区 -->
                     <div id="dbInfoSection" class="config-card p-6 mb-6 hidden fade-in">
@@ -262,8 +268,18 @@
         let dbInfoVisible = false;
         // 保存原始SERVER_PORT值
         let originalServerPort = null;
-        // 是否拥有系统设置管理权限
-        const hasManagePermission = {{ 'true' if current_user.has_permission('system_settings.manage') else 'false' }};
+        // 模块权限映射
+        const modulePermissions = {
+            'system.feature': {{ 'true' if current_user.has_permission('system_settings.manage') else 'false' }},
+            'user': {{ 'true' if current_user.has_permission('system_settings.user_config') else 'false' }},
+            'room': {{ 'true' if current_user.has_permission('system_settings.room_config') else 'false' }},
+            'fee': {{ 'true' if current_user.has_permission('system_settings.fee_config') else 'false' }},
+            'asset': {{ 'true' if current_user.has_permission('system_settings.asset_config') else 'false' }},
+            'supply': {{ 'true' if current_user.has_permission('system_settings.supply_config') else 'false' }},
+            'contract': {{ 'true' if current_user.has_permission('system_settings.contract_config') else 'false' }},
+            'maintenance': {{ 'true' if current_user.has_permission('system_settings.maintenance_config') else 'false' }},
+            'system.backup': {{ 'true' if current_user.has_permission('system_settings.backup') else 'false' }},
+        };
 
         // 安全绑定事件监听（元素可能因权限控制而不存在于DOM中）
         function safeAddListener(id, event, handler) {
@@ -622,8 +638,8 @@
             moduleListEl.innerHTML = '';
 
             modules.forEach(module => {
-                // 无管理权限则不显示模块
-                if (!hasManagePermission) return;
+                // 根据权限过滤模块菜单
+                if (module.category in modulePermissions && !modulePermissions[module.category]) return;
                 const li = document.createElement('li');
                 li.innerHTML = `
                     <a href="#${module.category}" class="config-module-link block px-4 py-3 hover:bg-gray-50 flex items-center ${module.has_config ? '' : 'opacity-70'}" 
@@ -667,7 +683,7 @@
             loadModuleConfigs(module.category);
             
             // 显示或隐藏备份区域
-            if (module.category === 'system.backup' && hasManagePermission) {
+            if (module.category === 'system.backup' && modulePermissions['system.backup']) {
                 document.getElementById('backupSection').classList.remove('hidden');
                 loadBackupList();
             } else {
@@ -1225,9 +1241,9 @@
                         <button class="text-primary hover:text-primary/80 mr-4 restore-backup" data-filename="${file.filename}">
                             恢复
                         </button>
-                        ${hasManagePermission ? `<button class="text-red-500 hover:text-red-700 delete-backup" data-filename="${file.filename}">
+                        <button class="text-red-500 hover:text-red-700 delete-backup" data-filename="${file.filename}">
                             删除
-                        </button>` : ''}
+                        </button>
                     </td>
                 `;
                 backupListEl.appendChild(tr);

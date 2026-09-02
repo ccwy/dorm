@@ -72,22 +72,16 @@
                     <button onclick="location.reload();" class="btn-hover bg-secondary text-white px-4 py-2 rounded-md flex items-center">
                         <i class="fa fa-refresh mr-2"></i>刷新页面
                     </button>
-                    {% if current_user.has_permission('department.delete') %}
                     <button id="batchDeleteBtn" class="btn-hover bg-danger text-white px-4 py-2 rounded-md flex items-center disabled:opacity-50 disabled:cursor-not-allowed" disabled>
                         <i class="fa fa-trash mr-2"></i>批量删除
                     </button>
-                    {% endif %}
-                    {% if current_user.has_permission('department.import') %}
                     <button id="importBtn" class="btn-hover bg-info text-white px-4 py-2 rounded-md flex items-center cursor-pointer">
                         <i class="fa fa-upload mr-2"></i>导入
                     </button>
-                    {% endif %}
-                    {% if current_user.has_permission('department.export') %}
                     <button type="button" id="exportBtn" class="btn-hover bg-warning text-white px-4 py-2 rounded-md flex items-center">
                         <i class="fa fa-download mr-2"></i>
                         <span id="exportBtnText">导出</span>
                     </button>
-                    {% endif %}
                 </div>
             </div>
         </div>
@@ -208,12 +202,10 @@
                                         <button onclick="window.location.href='{{ url_for('department.edit_page', id=dept.id) }}'" class="btn-effect bg-amber-500 text-white px-2 py-1 rounded-md text-sm flex items-center">
                                             <i class="fa fa-pencil mr-1"></i>编辑
                                         </button>
-                                        {% if current_user.has_permission('department.delete') %}
                                         <button class="btn-effect bg-red-500 text-white px-2 py-1 rounded-md text-sm flex items-center"
                                             onclick="confirmDelete('{{ dept.name }}', {{ dept.id }})">
                                             <i class="fa fa-trash mr-1"></i>删除
                                         </button>
-                                        {% endif %}
                                     </div>
                                     <!-- 单个删除表单 -->
                                     <form id="deleteForm-{{ dept.id }}" action="{{ url_for('department.delete_department', id=dept.id) }}" method="post" class="hidden"></form>
@@ -349,7 +341,6 @@
             const importLoadingContent = document.getElementById('importLoadingContent');
             const importSuccessContent = document.getElementById('importSuccessContent');
             
-            if (importBtn) {
             importBtn.addEventListener('click', function() {
                 importModal.classList.remove('hidden');
                 importInitialContent.classList.remove('hidden');
@@ -357,7 +348,6 @@
                 importSuccessContent.classList.add('hidden');
                 document.body.style.overflow = 'hidden';
             });
-            }
             
             function closeImportModal() {
                 importModal.classList.add('hidden');
@@ -434,7 +424,6 @@
             // 导出按钮逻辑
             const exportBtn = document.getElementById('exportBtn');
             const exportBtnText = document.getElementById('exportBtnText');
-            if (exportBtn) {
             exportBtn.addEventListener('click', function() {
                 exportBtnText.textContent = '导出中...';
                 exportBtn.disabled = true;
@@ -444,7 +433,6 @@
                     exportBtn.disabled = false;
                 }, 3000);
             });
-            }
 
             // 筛选区选择即生效
             const filterCompany = document.getElementById('filterCompany');

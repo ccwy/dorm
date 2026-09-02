@@ -78,23 +78,17 @@
                             <i class="fa fa-pencil-square-o mr-2"></i>编辑用户
                         </a>
                         {% if is_user_boarding %}
-                        {% if current_user.has_permission('dorm.change') %}
                         <a href="{{ url_for('dorm.swap') }}?user_id={{ user.id }}" class="px-4 py-2 border border-primary text-primary rounded-md hover:bg-primary/5 btn-effect">
                             <i class="fa fa-exchange mr-2"></i>更换宿舍
                         </a>
-                        {% endif %}
-                        {% if current_user.has_permission('dorm.checkout') %}
                         <a href="{{ url_for('dorm.checkout') }}?user_id={{ user.id }}" class="px-4 py-2 border border-primary text-primary rounded-md hover:bg-primary/5 btn-effect">
                             <i class="fa fa-sign-out mr-2"></i>办理退宿
                         </a>
-                        {% endif %}
                         {% else %}
                         {% if user.status == '在职' %}
-                        {% if current_user.has_permission('dorm.allocate') %}
                         <a href="{{ url_for('dorm.create_allocation', user_id=user.id) }}" class="px-4 py-2 border border-primary text-primary rounded-md hover:bg-primary/5 btn-effect">
                             <i class="fa fa-home mr-2"></i>分配宿舍
                         </a>
-                        {% endif %}
                         {% endif %}
                         {% endif %}
                     </div>
@@ -263,17 +257,15 @@
                             <ul class="space-y-4">
                                  <li class="flex justify-between pb-4 border-b border-gray-100">
                                     <span class="text-gray-500">ID</span>
-                                    <span class="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs">{{ user.id }}</span>
+                                    <span class="font-medium">{{ user.id }}</span>
                                 </li>
                                 <li class="flex justify-between pb-4 border-b border-gray-100">
                                     <span class="text-gray-500">用户名</span>
-                                    <span class="px-2 py-1 bg-purple-100 text-purple-800 rounded-full text-xs">{{ user.username }}</span>
+                                    <span class="font-medium">{{ user.username }}</span>
                                 </li>
                                 <li class="flex justify-between pb-4 border-b border-gray-100">
                                     <span class="text-gray-500">角色</span>
-                                    <span class="px-2 py-1 {% if user.user_role and user.user_role.code == 'super_admin' %}bg-red-100 text-red-800{% elif user.user_role and user.user_role.code == 'admin' %}bg-orange-100 text-orange-800{% elif user.user_role and user.user_role.code == 'maintenance_staff' %}bg-teal-100 text-teal-800{% elif user.user_role and user.user_role.code == 'user' %}bg-green-100 text-green-800{% elif user.user_role %}bg-indigo-100 text-indigo-800{% else %}bg-gray-100 text-gray-800{% endif %} rounded-full text-xs">
-                                        {{ user.role_name or '无角色' }}
-                                    </span>
+                                    <span class="font-medium">{{ user.role_name }}</span>
                                 </li>
                                 <li class="flex justify-between pb-4 border-b border-gray-100">
                                     <span class="text-gray-500">账号状态</span>

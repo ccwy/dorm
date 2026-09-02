@@ -222,25 +222,6 @@ def complete_inventory(id):
             flash('该盘点单不在进行中状态，无法完成', 'warning')
             return redirect(url_for('supply_inventory.list_inventories'))
 
-        # 审核前置校验：检查账面实时为0且实盘为0的明细
-        invalid_details = []
-        for detail in inventory.details:
-            # 查询实时库存
-            stock_detail = SupplyStockDetail.query.filter_by(
-                item_id=detail.item_id,
-                location_id=detail.location_id
-            ).first()
-            current_stock = stock_detail.quantity if stock_detail else 0
-            # 账面实时为0且实盘为0（或未盘点）的明细应删除
-            if current_stock == 0 and (detail.actual_quantity is None or detail.actual_quantity == 0):
-                item_name = detail.item_name
-                location_name = detail.location_name
-                invalid_details.append(f"{item_name}（{location_name}）")
-
-        if invalid_details:
-            flash(f'以下明细账面库存已为0且实盘为0，请先删除后再审核：{", ".join(invalid_details)}', 'danger')
-            return redirect(url_for('supply_inventory.detail_inventory', id=id))
-
         # 调用完成盘点方法（内部会调整库存和写入记录）
         result = SupplyInventory.complete(id, current_user.id)
 
@@ -288,7 +269,7 @@ def complete_inventory(id):
 # ========== 路由：反审核盘点单 ==========
 @supply_inventory_bp.route('/operations/unapprove/<int:id>', methods=['POST'])
 @login_required
-@require_permission('supply.unapprove')
+@require_permission('supply.edit')
 def unapprove_inventory(id):
     """反审核盘点单（仅已完成状态可反审核，反审核后状态变为进行中，库存回滚）"""
     try:
@@ -398,140 +379,6 @@ def delete_inventory(id):
         flash(f'删除盘点单失败: {str(e)}', 'danger')
         logging.error(f"删除盘点单失败，盘点ID: {id}, 错误: {str(e)}\n{traceback.format_exc()}")
         return redirect(url_for('supply_inventory.list_inventories'))
-
-
-# ========== 路由：删除盘点明细 ==========
-@supply_inventory_bp.route('/operations/delete-detail/<int:id>', methods=['POST'])
-@login_required
-@require_permission('supply.delete')
-def delete_inventory_detail(id):
-    """删除盘点明细 - 仅进行中状态可删除"""
-    try:
-        detail = SupplyInventoryDetail.query.get_or_404(id)
-        inventory = SupplyInventory.query.get_or_404(detail.inventory_id)
-
-        # 检查盘点状态
-        if inventory.status != '进行中':
-            flash('仅进行中状态的盘点单可以删除明细', 'warning')
-            return redirect(url_for('supply_inventory.detail_inventory', id=detail.inventory_id))
-
-        inventory_id = detail.inventory_id
-        item_name = detail.item_name
-
-        # 更新盘点主表统计
-        if detail.inventory_result != '未盘点':
-            inventory.checked_count = max(0, (inventory.checked_count or 0) - 1)
-        if detail.inventory_result == '正常':
-            inventory.normal_count = max(0, (inventory.normal_count or 0) - 1)
-        elif detail.inventory_result == '异常':
-            inventory.abnormal_count = max(0, (inventory.abnormal_count or 0) - 1)
-        inventory.total_count = max(0, (inventory.total_count or 0) - 1)
-
-        # 删除明细
-        db.session.delete(detail)
-        db.session.commit()
-
-        log_operation(
-            user_id=current_user.id,
-            module='supply_inventory',
-            operation_type='inventory_detail_delete',
-            action=f"删除盘点明细: 盘点单 {inventory.inventory_number}，物品 {item_name}",
-            result="成功"
-        )
-
-        flash(f'已删除盘点明细: {item_name}', 'success')
-        logging.info(f"删除盘点明细，盘点单: {inventory.inventory_number}, 物品: {item_name}")
-        return redirect(url_for('supply_inventory.detail_inventory', id=inventory_id))
-
-    except Exception as e:
-        db.session.rollback()
-        log_operation(
-            user_id=current_user.id,
-            module='supply_inventory',
-            operation_type='inventory_detail_delete',
-            action=f"删除盘点明细失败 [ID: {id}]: {str(e)}",
-            result="失败"
-        )
-        flash(f'删除盘点明细失败: {str(e)}', 'danger')
-        logging.error(f"删除盘点明细失败，明细ID: {id}, 错误: {str(e)}\n{traceback.format_exc()}")
-        return redirect(request.referrer or url_for('supply_inventory.list_inventories'))
-
-
-# ========== 路由：批量删除盘点明细 ==========
-@supply_inventory_bp.route('/operations/batch-delete-details', methods=['POST'])
-@login_required
-@require_permission('supply.delete')
-def batch_delete_details():
-    """批量删除盘点明细 - 仅进行中状态可删除"""
-    try:
-        inventory_id = request.form.get('inventory_id', type=int)
-        detail_ids = request.form.getlist('detail_ids', type=int)
-
-        if not inventory_id:
-            flash('缺少盘点单ID', 'danger')
-            return redirect(url_for('supply_inventory.list_inventories'))
-
-        if not detail_ids:
-            flash('未选择要删除的明细', 'warning')
-            return redirect(url_for('supply_inventory.detail_inventory', id=inventory_id))
-
-        inventory = SupplyInventory.query.get_or_404(inventory_id)
-
-        # 检查盘点状态
-        if inventory.status != '进行中':
-            flash('仅进行中状态的盘点单可以删除明细', 'warning')
-            return redirect(url_for('supply_inventory.detail_inventory', id=inventory_id))
-
-        # 查询要删除的明细
-        details = SupplyInventoryDetail.query.filter(
-            SupplyInventoryDetail.id.in_(detail_ids),
-            SupplyInventoryDetail.inventory_id == inventory_id
-        ).all()
-
-        if not details:
-            flash('未找到要删除的明细', 'warning')
-            return redirect(url_for('supply_inventory.detail_inventory', id=inventory_id))
-
-        # 更新盘点主表统计
-        for detail in details:
-            if detail.inventory_result != '未盘点':
-                inventory.checked_count = max(0, (inventory.checked_count or 0) - 1)
-            if detail.inventory_result == '正常':
-                inventory.normal_count = max(0, (inventory.normal_count or 0) - 1)
-            elif detail.inventory_result == '异常':
-                inventory.abnormal_count = max(0, (inventory.abnormal_count or 0) - 1)
-            inventory.total_count = max(0, (inventory.total_count or 0) - 1)
-
-        # 批量删除
-        for detail in details:
-            db.session.delete(detail)
-
-        db.session.commit()
-
-        log_operation(
-            user_id=current_user.id,
-            module='supply_inventory',
-            operation_type='inventory_detail_batch_delete',
-            action=f"批量删除盘点明细: 盘点单 {inventory.inventory_number}，删除{len(details)}条",
-            result="成功"
-        )
-
-        flash(f'已批量删除{len(details)}条盘点明细', 'success')
-        logging.info(f"批量删除盘点明细，盘点单: {inventory.inventory_number}, 删除{len(details)}条")
-        return redirect(url_for('supply_inventory.detail_inventory', id=inventory_id))
-
-    except Exception as e:
-        db.session.rollback()
-        log_operation(
-            user_id=current_user.id,
-            module='supply_inventory',
-            operation_type='inventory_detail_batch_delete',
-            action=f"批量删除盘点明细失败: {str(e)}",
-            result="失败"
-        )
-        flash(f'批量删除盘点明细失败: {str(e)}', 'danger')
-        logging.error(f"批量删除盘点明细失败，错误: {str(e)}\n{traceback.format_exc()}")
-        return redirect(request.referrer or url_for('supply_inventory.list_inventories'))
 
 
 # ========== 工具函数 ==========

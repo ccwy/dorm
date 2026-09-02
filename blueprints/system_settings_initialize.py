@@ -1,5 +1,6 @@
 from flask import request, jsonify, current_app
 from flask_login import login_required, current_user
+from utils.auth import require_permission
 from utils.db import db, init_db  # 导入init_db用于数据库初始化
 from sqlalchemy import text
 import time
@@ -13,6 +14,7 @@ last_initialize_time = 0
 
 @system_config_bp.route('/api/db/initialize', methods=['POST'])
 @login_required
+@require_permission('system_settings.initialize')
 def initialize_database():
     # 检查是否为超级管理员
     if not (current_user.is_authenticated and current_user.user_role and current_user.user_role.code == 'super_admin'):

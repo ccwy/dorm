@@ -70,7 +70,7 @@ def init_roles_and_permissions():
     ]
     
     # 管理员角色的权限模块（排除system_settings、log、role）
-    admin_excluded_modules = {'log', 'role', 'system_settings'}
+    admin_excluded_modules = {'log', 'role'}
     # 普通用户的权限配置
     user_permissions = {
         'ticket': {'view', 'create'},

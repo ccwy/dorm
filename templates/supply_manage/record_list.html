@@ -75,12 +75,10 @@
                     <button onclick="location.reload();" class="btn-hover bg-secondary text-white px-4 py-2 rounded-md flex items-center">
                         <i class="fa fa-refresh mr-2"></i>刷新页面
                     </button>
-                    {% if current_user.has_permission('supply.export') %}
                     <button type="button" id="exportBtn" class="btn-hover bg-warning text-white px-4 py-2 rounded-md flex items-center">
                         <i class="fa fa-download mr-2"></i>
                         <span id="exportBtnText">导出</span>
                     </button>
-                    {% endif %}
                 </div>
             </div>
         </div>
@@ -116,8 +114,6 @@
                                 <option value="盘亏" {% if current_record_type == '盘亏' %}selected{% endif %}>盘亏</option>
                                 <option value="入库反审核" {% if current_record_type == '入库反审核' %}selected{% endif %}>入库反审核</option>
                                 <option value="出库反审核" {% if current_record_type == '出库反审核' %}selected{% endif %}>出库反审核</option>
-                                <option value="盘盈反审核" {% if current_record_type == '盘盈反审核' %}selected{% endif %}>盘盈反审核</option>
-                                <option value="盘亏反审核" {% if current_record_type == '盘亏反审核' %}selected{% endif %}>盘亏反审核</option>
                             </select>
                         </div>
 
@@ -153,7 +149,7 @@
                         <div>
                             <label for="filterKeyword" class="block text-sm font-medium text-gray-700 mb-1">搜索</label>
                             <input type="text" id="filterKeyword" name="keyword" 
-                                   placeholder="物品编号/物品名称/单号/备注" 
+                                   placeholder="物品名称/单号/备注" 
                                    value="{{ keyword or '' }}"
                                    class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
                         </div>
@@ -177,7 +173,6 @@
                             <tr>
                                 <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">序号</th>
                                 <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">记录类型</th>
-                                <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">物品编号</th>
                                 <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">物品名称</th>
                                 <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">规格</th>
                                 <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">位置</th>
@@ -207,24 +202,17 @@
                                     <span class="px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs">入库反审核</span>
                                     {% elif record.record_type == '出库反审核' %}
                                     <span class="px-2 py-1 bg-purple-100 text-purple-800 rounded-full text-xs">出库反审核</span>
-                                    {% elif record.record_type == '盘盈反审核' %}
-                                    <span class="px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs">盘盈反审核</span>
-                                    {% elif record.record_type == '盘亏反审核' %}
-                                    <span class="px-2 py-1 bg-indigo-100 text-indigo-800 rounded-full text-xs">盘亏反审核</span>
                                     {% else %}
                                     <span class="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs">{{ record.record_type }}</span>
                                     {% endif %}
-                                </td>
-                                <td class="px-4 py-4 whitespace-nowrap text-sm text-primary">
-                                    <a href="{{ url_for('supply_item.detail', id=record.item_id) }}" class="hover:underline">{{ record.item_number or '-' }}</a>
                                 </td>
                                 <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-800 font-medium">{{ record.display_item_name }}</td>
                                 <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-600">{{ record.specification or '-' }}</td>
                                 <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-600">{{ record.display_location_name }}</td>
                                 <td class="px-4 py-4 whitespace-nowrap text-sm text-right">
-                                    {% if record.record_type in ['入库', '盘盈', '出库反审核', '盘亏反审核'] %}
+                                    {% if record.record_type in ['入库', '盘盈', '出库反审核'] %}
                                     <span class="qty-positive">+{{ record.quantity }}</span>
-                                    {% elif record.record_type in ['出库', '盘亏', '入库反审核', '盘盈反审核'] %}
+                                    {% elif record.record_type in ['出库', '盘亏', '入库反审核'] %}
                                     <span class="qty-negative">-{{ record.quantity }}</span>
                                     {% else %}
                                     <span>{{ record.quantity }}</span>
@@ -322,7 +310,6 @@
 
             // 导出按钮逻辑
             const exportBtn = document.getElementById('exportBtn');
-            if (exportBtn) {
             const exportBtnText = document.getElementById('exportBtnText');
             exportBtn.addEventListener('click', function() {
                 exportBtnText.textContent = '导出中...';
@@ -336,7 +323,6 @@
                     exportBtn.disabled = false;
                 }, 3000);
             });
-            } // end if(exportBtn)
 
             // 筛选区选择即生效
             const filterType = document.getElementById('filterType');

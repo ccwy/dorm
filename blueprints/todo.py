@@ -557,7 +557,7 @@ def delete_all():
 
 @todo_bp.route('/update_progress/<int:todo_id>', methods=['POST'])
 @login_required
-@require_permission('todo.create')
+@require_permission('todo.edit')
 def update_progress(todo_id):
     """更新待办事项进度"""
     try:

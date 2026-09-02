@@ -113,14 +113,6 @@
                             <span class="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs">盘盈</span>
                             {% elif record.record_type == '盘亏' %}
                             <span class="px-2 py-1 bg-orange-100 text-orange-800 rounded-full text-xs">盘亏</span>
-                            {% elif record.record_type == '入库反审核' %}
-                            <span class="px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs">入库反审核</span>
-                            {% elif record.record_type == '出库反审核' %}
-                            <span class="px-2 py-1 bg-purple-100 text-purple-800 rounded-full text-xs">出库反审核</span>
-                            {% elif record.record_type == '盘盈反审核' %}
-                            <span class="px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs">盘盈反审核</span>
-                            {% elif record.record_type == '盘亏反审核' %}
-                            <span class="px-2 py-1 bg-indigo-100 text-indigo-800 rounded-full text-xs">盘亏反审核</span>
                             {% else %}
                             <span class="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs">{{ record.record_type }}</span>
                             {% endif %}
@@ -128,10 +120,6 @@
                         <div class="flex items-center">
                             <span class="text-gray-500 text-sm w-24">物品名称：</span>
                             <span class="text-gray-800 font-medium">{{ record.display_item_name }}</span>
-                        </div>
-                        <div class="flex items-center">
-                            <span class="text-gray-500 text-sm w-24">物品编号：</span>
-                            <span class="text-gray-800">{{ record.item_number or '-' }}</span>
                         </div>
                         <div class="flex items-center">
                             <span class="text-gray-500 text-sm w-24">规格：</span>
@@ -147,9 +135,9 @@
                         </div>
                         <div class="flex items-center">
                             <span class="text-gray-500 text-sm w-24">数量：</span>
-                            {% if record.record_type in ['入库', '盘盈', '出库反审核', '盘亏反审核'] %}
+                            {% if record.record_type in ['入库', '盘盈'] %}
                             <span class="qty-positive text-lg">+{{ record.quantity }}</span>
-                            {% elif record.record_type in ['出库', '盘亏', '入库反审核', '盘盈反审核'] %}
+                            {% elif record.record_type in ['出库', '盘亏'] %}
                             <span class="qty-negative text-lg">-{{ record.quantity }}</span>
                             {% else %}
                             <span class="text-lg font-medium">{{ record.quantity }}</span>
@@ -261,30 +249,6 @@
                         </div>
                         <p class="text-xl font-bold text-orange-600">盘亏</p>
                         <p class="text-sm text-gray-500 mt-1">实际库存小于系统库存</p>
-                        {% elif record.record_type == '入库反审核' %}
-                        <div class="inline-flex items-center justify-center w-20 h-20 rounded-full bg-yellow-100 mb-3">
-                            <i class="fa fa-undo text-3xl text-yellow-600"></i>
-                        </div>
-                        <p class="text-xl font-bold text-yellow-600">入库反审核</p>
-                        <p class="text-sm text-gray-500 mt-1">入库单反审核，库存减少</p>
-                        {% elif record.record_type == '出库反审核' %}
-                        <div class="inline-flex items-center justify-center w-20 h-20 rounded-full bg-purple-100 mb-3">
-                            <i class="fa fa-undo text-3xl text-purple-600"></i>
-                        </div>
-                        <p class="text-xl font-bold text-purple-600">出库反审核</p>
-                        <p class="text-sm text-gray-500 mt-1">出库单反审核，库存恢复</p>
-                        {% elif record.record_type == '盘盈反审核' %}
-                        <div class="inline-flex items-center justify-center w-20 h-20 rounded-full bg-yellow-100 mb-3">
-                            <i class="fa fa-undo text-3xl text-yellow-600"></i>
-                        </div>
-                        <p class="text-xl font-bold text-yellow-600">盘盈反审核</p>
-                        <p class="text-sm text-gray-500 mt-1">盘点单反审核，扣减盘盈数量</p>
-                        {% elif record.record_type == '盘亏反审核' %}
-                        <div class="inline-flex items-center justify-center w-20 h-20 rounded-full bg-indigo-100 mb-3">
-                            <i class="fa fa-undo text-3xl text-indigo-600"></i>
-                        </div>
-                        <p class="text-xl font-bold text-indigo-600">盘亏反审核</p>
-                        <p class="text-sm text-gray-500 mt-1">盘点单反审核，恢复盘亏数量</p>
                         {% else %}
                         <div class="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gray-100 mb-3">
                             <i class="fa fa-exchange text-3xl text-gray-500"></i>

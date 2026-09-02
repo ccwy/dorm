@@ -2,8 +2,8 @@ from flask import request, send_file, jsonify
 from models.todo import Todo
 from models.todo_progress import TodoProgress
 from utils.log import log_operation
-from utils.auth import require_permission
 from flask_login import login_required, current_user
+from utils.auth import require_permission
 import logging
 from datetime import datetime
 import io

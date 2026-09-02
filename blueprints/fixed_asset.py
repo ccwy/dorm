@@ -26,10 +26,6 @@ fixed_asset_bp = Blueprint(
     static_url_path='/fixed_asset/static'
 )
 
-
-from . import fixed_asset_operations  # 导入操作模块
-
-
 # 分页工具函数
 def generate_page_range(current_page, total_pages, show_pages=5):
     if total_pages <= show_pages:
@@ -51,7 +47,8 @@ def generate_page_range(current_page, total_pages, show_pages=5):
         page_range.append(total_pages)
     return page_range
 
-
+# 导入操作模块
+from . import fixed_asset_operations
 
 
 # 固定资产列表页（含筛选+分页）
@@ -447,7 +444,7 @@ def inventory_detail(id):
 # 报废表单页
 @fixed_asset_bp.route('/scrap/<int:id>', methods=['GET'])
 @login_required
-@require_permission('fixed_asset.scrap')
+@require_permission('fixed_asset.edit')
 def scrap(id):
     try:
         asset = FixedAsset.query.get_or_404(id)
@@ -487,7 +484,7 @@ def scrap(id):
 # 出售表单页
 @fixed_asset_bp.route('/sell/<int:id>', methods=['GET'])
 @login_required
-@require_permission('fixed_asset.sell')
+@require_permission('fixed_asset.edit')
 def sell(id):
     try:
         asset = FixedAsset.query.get_or_404(id)
@@ -748,7 +745,7 @@ def edit_page(id):
 # 资产转移表单页
 @fixed_asset_bp.route('/transfer/<int:id>', methods=['GET'])
 @login_required
-@require_permission('fixed_asset.transfer')
+@require_permission('fixed_asset.edit')
 def transfer_page(id):
     asset = FixedAsset.query.get_or_404(id)
 
@@ -827,6 +824,7 @@ def transfer_page(id):
 # AJAX: 根据公司获取部门列表
 @fixed_asset_bp.route('/api/departments-by-company', methods=['GET'])
 @login_required
+@require_permission('fixed_asset.view')
 def api_departments_by_company():
     """根据公司名称获取状态为正常的部门列表（AJAX级联查询）"""
     try:
@@ -843,7 +841,7 @@ def api_departments_by_company():
 # 创建盘点单表单页
 @fixed_asset_bp.route('/inventory/create', methods=['GET'])
 @login_required
-@require_permission('fixed_asset.inventory')
+@require_permission('fixed_asset.create')
 def inventory_create_page():
     try:
         log_operation(

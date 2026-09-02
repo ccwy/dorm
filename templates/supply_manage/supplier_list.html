@@ -65,30 +65,22 @@
                     </div>
                 </div>
                 <div class="mt-4 md:mt-0 flex flex-wrap gap-3">
-                    {% if current_user.has_permission('supply.create') %}
                     <button onclick="window.location.href='{{ url_for('supplier.add_page') }}'" class="btn-hover bg-primary text-white px-4 py-2 rounded-md flex items-center">
                         <i class="fa fa-plus mr-2"></i>新增供应商
                     </button>
-                    {% endif %}
                     <button onclick="location.reload();" class="btn-hover bg-secondary text-white px-4 py-2 rounded-md flex items-center">
                         <i class="fa fa-refresh mr-2"></i>刷新页面
                     </button>
-                    {% if current_user.has_permission('supply.delete') %}
                     <button id="batchDeleteBtn" class="btn-hover bg-danger text-white px-4 py-2 rounded-md flex items-center disabled:opacity-50 disabled:cursor-not-allowed" disabled>
                         <i class="fa fa-trash mr-2"></i>批量删除
                     </button>
-                    {% endif %}
-                    {% if current_user.has_permission('supply.import') %}
                     <button id="importBtn" class="btn-hover bg-info text-white px-4 py-2 rounded-md flex items-center cursor-pointer">
                         <i class="fa fa-upload mr-2"></i>导入
                     </button>
-                    {% endif %}
-                    {% if current_user.has_permission('supply.export') %}
                     <button type="button" id="exportBtn" class="btn-hover bg-warning text-white px-4 py-2 rounded-md flex items-center">
                         <i class="fa fa-download mr-2"></i>
                         <span id="exportBtnText">导出</span>
                     </button>
-                    {% endif %}
                 </div>
             </div>
         </div>
@@ -194,7 +186,6 @@
                                         <button onclick="window.location.href='{{ url_for('supplier.detail', id=supplier.id) }}'" class="btn-effect bg-blue-500 text-white px-2 py-1 rounded-md text-sm flex items-center">
                                             <i class="fa fa-eye mr-1"></i>查看
                                         </button>
-                                        {% if current_user.has_permission('supply.edit') %}
                                         <button onclick="window.location.href='{{ url_for('supplier.edit_page', id=supplier.id) }}'" class="btn-effect bg-amber-500 text-white px-2 py-1 rounded-md text-sm flex items-center">
                                             <i class="fa fa-pencil mr-1"></i>编辑
                                         </button>
@@ -202,13 +193,10 @@
                                             onclick="toggleStatus({{ supplier.id }}, '{{ supplier.status }}')">
                                             <i class="fa {% if supplier.status == '启用' %}fa-ban{% else %}fa-check{% endif %} mr-1"></i>{% if supplier.status == '启用' %}停用{% else %}启用{% endif %}
                                         </button>
-                                        {% endif %}
-                                        {% if current_user.has_permission('supply.delete') %}
                                         <button class="btn-effect bg-red-500 text-white px-2 py-1 rounded-md text-sm flex items-center"
                                             onclick="if(confirm('确定要删除供应商 {{ supplier.name }} 吗？')) { document.getElementById('deleteForm-{{ supplier.id }}').submit(); }">
                                             <i class="fa fa-trash mr-1"></i>删除
                                         </button>
-                                        {% endif %}
                                     </div>
                                     <!-- 单个删除表单 -->
                                     <form id="deleteForm-{{ supplier.id }}" action="{{ url_for('supplier.delete_supplier', id=supplier.id) }}" method="post" class="hidden"></form>

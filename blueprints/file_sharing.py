@@ -360,7 +360,7 @@ def upload_file():
     root_type = request.form.get('root_type') or request.args.get('root')
     
     # 检查用户是否有上传权限
-    if not current_user.has_permission('file_sharing.manage'):
+    if not current_user.has_permission('file_sharing.upload'):
         flash('操作失败：需要上传权限', 'error')
         logging.warning(f'用户 {current_user.id} 尝试执行需要上传权限的操作')
         return redirect(url_for('file_sharing.file_sharing', path=current_path, root=root_type))
@@ -580,7 +580,7 @@ def upload_chunk():
     root_type = request.args.get('root')
     
     # 检查用户是否有上传权限
-    if not current_user.has_permission('file_sharing.manage'):
+    if not current_user.has_permission('file_sharing.upload'):
         logging.warning(f'用户 {current_user.id} 尝试执行需要上传权限的分块上传操作')
         return jsonify({'success': False, 'message': '操作失败：需要上传权限'}), 403
     
@@ -627,7 +627,7 @@ def merge_chunks():
     root_type = request.args.get('root')
     
     # 检查用户是否有上传权限
-    if not current_user.has_permission('file_sharing.manage'):
+    if not current_user.has_permission('file_sharing.upload'):
         logging.warning(f'用户 {current_user.id} 尝试执行需要上传权限的合并文件块操作')
         return jsonify({'success': False, 'message': '操作失败：需要上传权限'}), 403
     

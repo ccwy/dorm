@@ -107,7 +107,6 @@ def create_stock_in():
             quantity = int(item_data.get('quantity', 0)) if isinstance(item_data, dict) else int(item_data.get('quantity', 0))
             unit_price = float(item_data.get('unit_price', 0)) if isinstance(item_data, dict) else float(item_data.get('unit_price', 0))
             item_name = item_data.get('item_name', '') if isinstance(item_data, dict) else ''
-            item_number = item_data.get('item_number', '') if isinstance(item_data, dict) else ''
             specification = item_data.get('specification', '') if isinstance(item_data, dict) else ''
             location_name = item_data.get('location_name', '') if isinstance(item_data, dict) else ''
             unit = item_data.get('unit', '') if isinstance(item_data, dict) else ''
@@ -130,7 +129,6 @@ def create_stock_in():
                 else:
                     new_item = SupplyItem.create(
                         name=item_name,
-                        item_number=item_number.strip() if item_number and item_number.strip() else None,
                         category='低值易耗品',
                         specification=specification if specification else None,
                         unit=unit if unit else None,
@@ -307,7 +305,6 @@ def update_stock_in(id):
             quantity = int(item_data.get('quantity', 0))
             unit_price = float(item_data.get('unit_price', 0))
             item_name = item_data.get('item_name', '')
-            item_number = item_data.get('item_number', '')
             specification = item_data.get('specification', '')
             location_name = item_data.get('location_name', '')
             unit = item_data.get('unit', '')
@@ -330,7 +327,6 @@ def update_stock_in(id):
                 else:
                     new_item = SupplyItem.create(
                         name=item_name,
-                        item_number=item_number.strip() if item_number and item_number.strip() else None,
                         category='低值易耗品',
                         specification=specification if specification else None,
                         unit=unit if unit else None,
@@ -462,7 +458,7 @@ def delete_stock_in(id):
 # ========== 路由：审核入库单 ==========
 @stock_in_bp.route('/operations/approve/<int:id>', methods=['POST'])
 @login_required
-@require_permission('supply.approve')
+@require_permission('supply.edit')
 def approve_stock_in(id):
     """审核入库单"""
     try:
@@ -506,17 +502,10 @@ def approve_stock_in(id):
 # ========== 路由：反审核入库单 ==========
 @stock_in_bp.route('/operations/unapprove/<int:id>', methods=['POST'])
 @login_required
-@require_permission('supply.unapprove')
+@require_permission('supply.edit')
 def unapprove_stock_in(id):
     """反审核入库单（仅已审核状态可反审核，反审核后状态变为待审核，库存回滚）"""
     try:
-        # 检查系统配置是否允许反审核
-        from models.system_config import SystemConfig
-        unapprove_enabled = SystemConfig.get_config_value('STOCK_IN_UNAPPROVE_ENABLED', True)
-        if not unapprove_enabled:
-            flash('入库单反审核功能已关闭，请联系管理员开启', 'warning')
-            return redirect(url_for('stock_in.detail_stock_in', id=id))
-
         stock_in = StockIn.query.get_or_404(id)
 
         # 调用反审核方法（内部会自动回滚库存和删除进出库记录）

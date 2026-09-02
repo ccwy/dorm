@@ -342,11 +342,9 @@
                 
                 <!-- 操作按钮 -->
                 <div class="flex justify-center gap-4 mt-8 mb-8">
-                    {% if current_user.has_permission('utility.edit') %}
                     <a href="/utility/utility_room_checkout_edit?id={{ checkout_record.id }}" class="px-8 py-3 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 btn-effect">
                         <i class="fa fa-pencil mr-2"></i>编辑退宿费用
                     </a>
-                    {% endif %}
                     <a href="{{ url_for('dorm.dorm_query') }}" class="px-8 py-3 bg-primary text-white rounded-md hover:bg-primary/90 btn-effect">
                         <i class="fa fa-check mr-2"></i>返回
                     </a>

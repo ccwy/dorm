@@ -107,7 +107,6 @@ def get_temp_files():
 # 删除临时文件
 @maintenance_api_bp.route('/delete-temp/<path:filename>', methods=['POST'])
 @login_required
-@require_permission('maintenance.manage')
 def delete_temp_file(filename):
     """删除临时文件"""
     if not _check_maintenance_upload_permission():
@@ -236,7 +235,6 @@ def get_order_photos(order_id):
 # 删除工单照片
 @maintenance_api_bp.route('/delete-photo/<int:order_id>/<path:filename>', methods=['POST'])
 @login_required
-@require_permission('maintenance.manage')
 def delete_order_photo(order_id, filename):
     """删除工单照片"""
     if not _check_maintenance_upload_permission():

@@ -85,18 +85,12 @@ def list_stock_ins():
 
         if keyword:
             search_filter = f'%{keyword}%'
-            from models.supply.stock_in_detail import StockInDetail
-            from models.supply.supply_item import SupplyItem
-            query = query.outerjoin(StockInDetail, StockIn.id == StockInDetail.stock_in_id)\
-                         .outerjoin(SupplyItem, StockInDetail.item_id == SupplyItem.id)
             query = query.filter(
                 db.or_(
                     StockIn.stock_in_number.ilike(search_filter),
-                    StockIn.remark.ilike(search_filter),
-                    SupplyItem.item_number.ilike(search_filter),
-                    SupplyItem.name.ilike(search_filter)
+                    StockIn.remark.ilike(search_filter)
                 )
-            ).distinct()
+            )
         if stock_in_type:
             query = query.filter(StockIn.stock_in_type == stock_in_type)
         if status:
@@ -139,7 +133,6 @@ def list_stock_ins():
         # 获取入库单审核开关状态
         from models.system_config import SystemConfig
         approval_enabled = SystemConfig.get_config_value('STOCK_IN_APPROVAL_ENABLED', True)
-        unapprove_enabled = SystemConfig.get_config_value('STOCK_IN_UNAPPROVE_ENABLED', True)
 
         return render_template(
             'supply_manage/stock_in_list.html',
@@ -163,8 +156,7 @@ def list_stock_ins():
             keyword=keyword,
             date_from=date_from,
             date_to=date_to,
-            approval_enabled=approval_enabled,
-            unapprove_enabled=unapprove_enabled
+            approval_enabled=SystemConfig.get_config_value('STOCK_IN_APPROVAL_ENABLED', True)
         )
     except Exception as e:
         log_operation(
@@ -194,8 +186,7 @@ def list_stock_ins():
             keyword='',
             date_from='',
             date_to='',
-            approval_enabled=True,
-            unapprove_enabled=True
+            approval_enabled=True
         )
 
 
@@ -303,15 +294,13 @@ def detail_stock_in(id):
         # 获取入库单审核开关状态
         from models.system_config import SystemConfig
         approval_enabled = SystemConfig.get_config_value('STOCK_IN_APPROVAL_ENABLED', True)
-        unapprove_enabled = SystemConfig.get_config_value('STOCK_IN_UNAPPROVE_ENABLED', True)
 
         return render_template(
             'supply_manage/stock_in_detail.html',
             title=f"入库单详情 - {stock_in.stock_in_number}",
             stock_in=stock_in,
             details=details,
-            approval_enabled=approval_enabled,
-            unapprove_enabled=unapprove_enabled
+            approval_enabled=approval_enabled
         )
     except Exception as e:
         log_operation(

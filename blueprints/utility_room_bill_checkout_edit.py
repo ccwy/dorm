@@ -16,7 +16,7 @@ from utils.auth import require_permission
 
 @utility_room_bill_checkout_bp.route('/edit/<int:checkout_id>', methods=['GET'])
 @login_required
-@require_permission('utility.edit')
+@require_permission('utility.view')
 def get_checkout_edit_data(checkout_id):
     """获取退宿费用修改页面所需的初始数据（住宿天数直接从子表读取）"""
     try:

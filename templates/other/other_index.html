@@ -140,7 +140,7 @@
             {% endif %}
             
             <!-- OA聊天 -->
-             {% if get_config_value('FEATURE_CHAT_ENABLED', True) and current_user.has_permission('chat.manage') %}
+             {% if get_config_value('FEATURE_CHAT_ENABLED', True) and current_user.has_permission('chat.view') %}
             <div class="bg-white rounded-xl p-6 shadow-sm card-hover text-center">
                 <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4 mx-auto">
                     <i class="fa fa-comments text-2xl text-green-600"></i>

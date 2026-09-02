@@ -69,7 +69,7 @@ def utility_index():
 # 水电费核算页面
 @utility_index_bp.route('/utility_calculate_fees', methods=['GET'])
 @login_required
-@require_permission('utility.view')
+@require_permission('utility.edit')
 def utility_calculate_fees():
     """核算水电费页面（已修正模板文件名）"""
     try:
@@ -94,7 +94,7 @@ def utility_calculate_fees():
 
 @utility_index_bp.route('/utility_room_records_detail')
 @login_required
-@require_permission('utility.view')
+
 def utility_room_records_detail():
     """显示房间费用记录查询页面"""
     try:

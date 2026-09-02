@@ -725,7 +725,7 @@ def batch_delete_assets():
 # ========== 路由：资产转移 ==========
 @fixed_asset_bp.route('/operations/transfer/<int:id>', methods=['POST'])
 @login_required
-@require_permission('fixed_asset.transfer')
+@require_permission('fixed_asset.edit')
 def transfer_asset(id):
     """资产转移 - 更新位置/部门/责任人，记录转移前后信息"""
     try:
@@ -915,7 +915,7 @@ def transfer_asset(id):
 # ========== 路由：创建盘点单 ==========
 @fixed_asset_bp.route('/operations/inventory/create', methods=['POST'])
 @login_required
-@require_permission('fixed_asset.inventory')
+@require_permission('fixed_asset.create')
 def create_inventory():
     """创建盘点单 - 生成盘点单号，获取所有在用/闲置状态资产创建盘点明细"""
     try:
@@ -1000,7 +1000,7 @@ def create_inventory():
 # ========== 路由：执行盘点 ==========
 @fixed_asset_bp.route('/operations/inventory/check', methods=['POST'])
 @login_required
-@require_permission('fixed_asset.inventory')
+@require_permission('fixed_asset.edit')
 def check_inventory():
     """执行盘点 - 逐条确认，更新盘点明细和主表统计"""
     try:
@@ -1096,7 +1096,7 @@ def check_inventory():
 # ========== 路由：完成盘点 ==========
 @fixed_asset_bp.route('/operations/inventory/complete/<int:id>', methods=['POST'])
 @login_required
-@require_permission('fixed_asset.inventory')
+@require_permission('fixed_asset.edit')
 def complete_inventory(id):
     """完成盘点 - 更新盘点状态为已完成"""
     try:
@@ -1107,32 +1107,11 @@ def complete_inventory(id):
             flash('该盘点单不在进行中状态，无法完成', 'warning')
             return redirect(url_for('fixed_asset.inventory'))
 
-        # 获取盘点明细
-        details = AssetInventoryDetail.query.filter_by(inventory_id=id).all()
-
-        # 先检查是否存在无效明细（资产已非在用），阻止审核
-        invalid_items = []
-        for detail in details:
-            asset = FixedAsset.query.get(detail.asset_id) if detail.asset_id else None
-            if not asset:
-                continue
-            if asset.status != '在用':
-                invalid_items.append({
-                    'asset_name': asset.asset_name,
-                    'asset_number': asset.display_number if hasattr(asset, 'display_number') else asset.asset_number,
-                    'status': asset.status,
-                    'unit': asset.unit or '台'
-                })
-
-        if invalid_items:
-            invalid_msgs = [f"{item['asset_name']}({item['asset_number']})：状态为{item['status']}" for item in invalid_items]
-            flash(f'存在无效盘点明细（资产已非在用状态），请先删除后再审核：{"、".join(invalid_msgs)}', 'danger')
-            return redirect(url_for('fixed_asset.inventory_detail', id=id))
-
-        # 检查通过，更新盘点状态
+        # 更新盘点状态
         inventory.status = '已完成'
 
         # 处理盘点结果：更新资产数量并生成变动记录
+        details = AssetInventoryDetail.query.filter_by(inventory_id=id).all()
         surplus_count = 0  # 盘盈数
         shortage_count = 0  # 盘亏数
 
@@ -1142,10 +1121,6 @@ def complete_inventory(id):
 
             asset = FixedAsset.query.get(detail.asset_id) if detail.asset_id else None
             if not asset:
-                continue
-
-            # 安全防护：跳过非在用资产（防止盘点处理覆盖已报废/已出售等终态资产的状态）
-            if asset.status != '在用':
                 continue
 
             # 构建变动记录基础信息
@@ -1158,43 +1133,27 @@ def complete_inventory(id):
                 'remark': detail.inventory_remark or ''
             }
 
-            # 保存盘点前账面数量和状态（用于反审核回滚）
-            detail.book_quantity = asset.quantity
-            detail.book_status = asset.status
-
             # 检查是否有数量差异
             if detail.actual_quantity is not None and detail.actual_quantity != asset.quantity:
                 old_quantity = asset.quantity
                 diff = detail.actual_quantity - old_quantity
 
-                change_detail['old_quantity'] = old_quantity
-                change_detail['new_quantity'] = detail.actual_quantity
-                change_detail['difference'] = diff
-
                 if diff > 0:
                     surplus_count += 1
                     change_type = '盘盈'
-                    # 更新资产数量
-                    asset.quantity = detail.actual_quantity
-                    change_detail['quantity_change'] = f'盘盈：账面{old_quantity}{asset.unit or "台"}，实盘{detail.actual_quantity}{asset.unit or "台"}，差异+{diff}{asset.unit or "台"}'
-                    summary = f"盘点盘盈：{asset.asset_name}，结果{detail.inventory_result}，账面{old_quantity}{asset.unit or '台'}，实盘{detail.actual_quantity}{asset.unit or '台'}，差异{diff}{asset.unit or "台"}，账面盘盈{diff}{asset.unit or "台"}，库存调整为{detail.actual_quantity}{asset.unit or '台'}"
                 else:
                     shortage_count += 1
                     change_type = '盘亏'
-                    # 盘亏处理：实际数量为0时自动报废，否则减少数量
-                    if detail.actual_quantity == 0:
-                        # 全部盘亏：设置资产为已报废状态，原因写盘亏报废
-                        asset.status = '已报废'
-                        asset.scrap_date = date.today()
-                        asset.scrap_reason = '盘亏报废'
-                        change_detail['quantity_change'] = f'盘亏：账面{old_quantity}{asset.unit or "台"}，实盘{detail.actual_quantity}{asset.unit or "台"}，差异{diff}{asset.unit or "台"}，已自动报废'
-                        change_detail['auto_scrap'] = True
-                        summary = f"盘点盘亏：{asset.asset_name}，账面{old_quantity}{asset.unit or '台'}，实盘{detail.actual_quantity}{asset.unit or '台'}，差异{diff}{asset.unit or "台"}，账面盘亏{diff}{asset.unit or "台"}，已自动报废"
-                    else:
-                        # 部分盘亏：减少数量
-                        asset.quantity = detail.actual_quantity
-                        change_detail['quantity_change'] = f'盘亏：账面{old_quantity}{asset.unit or "台"}，实盘{detail.actual_quantity}{asset.unit or "台"}，差异{diff}{asset.unit or "台"}'
-                        summary = f"盘点盘亏：{asset.asset_name}，结果{detail.inventory_result}，账面{old_quantity}{asset.unit or '台'}，实盘{detail.actual_quantity}{asset.unit or '台'}，差异{diff}{asset.unit or "台"}，账面盘亏{diff}{asset.unit or "台"}，库存调整为{detail.actual_quantity}{asset.unit or '台'}"
+
+                change_detail['old_quantity'] = old_quantity
+                change_detail['new_quantity'] = detail.actual_quantity
+                change_detail['difference'] = diff
+                change_detail['quantity_change'] = f'{change_type}：账面{old_quantity}{asset.unit or "台"}，实盘{detail.actual_quantity}{asset.unit or "台"}，差异{"+" if diff > 0 else ""}{diff}{asset.unit or "台"}'
+
+                summary = f"盘点{change_type}：{asset.asset_name}，结果{detail.inventory_result}，账面{old_quantity}{asset.unit or '台'}，实盘{detail.actual_quantity}{asset.unit or '台'}"
+
+                # 更新资产数量
+                asset.quantity = detail.actual_quantity
             else:
                 summary = f"资产盘点：{asset.asset_name}，结果{detail.inventory_result}"
 
@@ -1246,7 +1205,7 @@ def complete_inventory(id):
 # ========== 路由：反审核盘点单 ==========
 @fixed_asset_bp.route('/operations/inventory/unapprove/<int:id>', methods=['POST'])
 @login_required
-@require_permission('fixed_asset.inventory_unapprove')
+@require_permission('fixed_asset.edit')
 def unapprove_inventory(id):
     """反审核盘点单 - 检查开关→检查状态→调用模型方法→错误处理"""
     from models.system_config import SystemConfig
@@ -1351,128 +1310,10 @@ def delete_inventory(id):
         return redirect(url_for('fixed_asset.inventory'))
 
 
-# ========== 路由：删除盘点明细 ==========
-@fixed_asset_bp.route('/operations/inventory/detail/delete/<int:detail_id>', methods=['POST'])
-@login_required
-@require_permission('fixed_asset.inventory')
-def delete_inventory_detail(detail_id):
-    """删除盘点明细 - 仅允许删除进行中状态盘点单的明细"""
-    try:
-        detail = AssetInventoryDetail.query.get_or_404(detail_id)
-        inventory = AssetInventory.query.get_or_404(detail.inventory_id)
-
-        # 仅允许删除进行中状态的盘点单明细
-        if inventory.status != '进行中':
-            flash('仅允许删除进行中状态盘点单的明细', 'warning')
-            return redirect(url_for('fixed_asset.inventory_detail', id=inventory.id))
-
-        asset_name = detail.asset.asset_name if detail.asset else '未知'
-        asset_number = detail.asset.display_number if detail.asset and hasattr(detail.asset, 'display_number') else '未知'
-
-        # 更新盘点单计数
-        inventory.total_count = max(0, (inventory.total_count or 0) - 1)
-        if detail.inventory_result != '未盘点':
-            inventory.checked_count = max(0, (inventory.checked_count or 0) - 1)
-        if detail.inventory_result == '正常':
-            inventory.normal_count = max(0, (inventory.normal_count or 0) - 1)
-        elif detail.inventory_result == '异常':
-            inventory.abnormal_count = max(0, (inventory.abnormal_count or 0) - 1)
-
-        db.session.delete(detail)
-        db.session.commit()
-
-        log_operation(
-            user_id=current_user.id,
-            module='asset',
-            operation_type='inventory_detail_delete',
-            action=f"删除盘点明细: {asset_name}({asset_number})，盘点单号: {inventory.inventory_number}",
-            result="成功"
-        )
-        flash(f'已删除盘点明细: {asset_name}({asset_number})', 'success')
-        logging.info(f"删除盘点明细，资产: {asset_name}({asset_number})，盘点单号: {inventory.inventory_number}")
-        return redirect(url_for('fixed_asset.inventory_detail', id=inventory.id))
-
-    except Exception as e:
-        db.session.rollback()
-        flash(f'删除盘点明细失败: {str(e)}', 'danger')
-        logging.error(f"删除盘点明细失败，detail_id: {detail_id}, 错误: {str(e)}\n{traceback.format_exc()}")
-        return redirect(url_for('fixed_asset.inventory'))
-
-
-# ========== 路由：批量删除盘点明细 ==========
-@fixed_asset_bp.route('/operations/inventory/detail/batch-delete', methods=['POST'])
-@login_required
-@require_permission('fixed_asset.inventory')
-def batch_delete_inventory_details():
-    """批量删除盘点明细 - 仅进行中状态可删除"""
-    try:
-        inventory_id = request.form.get('inventory_id', type=int)
-        detail_ids = request.form.getlist('detail_ids', type=int)
-
-        if not inventory_id:
-            flash('缺少盘点单ID', 'danger')
-            return redirect(url_for('fixed_asset.inventory'))
-
-        if not detail_ids:
-            flash('未选择要删除的明细', 'warning')
-            return redirect(url_for('fixed_asset.inventory_detail', id=inventory_id))
-
-        inventory = AssetInventory.query.get_or_404(inventory_id)
-
-        # 检查盘点状态
-        if inventory.status != '进行中':
-            flash('仅进行中状态的盘点单可以删除明细', 'warning')
-            return redirect(url_for('fixed_asset.inventory_detail', id=inventory_id))
-
-        # 查询要删除的明细
-        details = AssetInventoryDetail.query.filter(
-            AssetInventoryDetail.id.in_(detail_ids),
-            AssetInventoryDetail.inventory_id == inventory_id
-        ).all()
-
-        if not details:
-            flash('未找到要删除的明细', 'warning')
-            return redirect(url_for('fixed_asset.inventory_detail', id=inventory_id))
-
-        # 更新盘点主表统计
-        for detail in details:
-            if detail.inventory_result != '未盘点':
-                inventory.checked_count = max(0, (inventory.checked_count or 0) - 1)
-            if detail.inventory_result == '正常':
-                inventory.normal_count = max(0, (inventory.normal_count or 0) - 1)
-            elif detail.inventory_result == '异常':
-                inventory.abnormal_count = max(0, (inventory.abnormal_count or 0) - 1)
-            inventory.total_count = max(0, (inventory.total_count or 0) - 1)
-
-        # 批量删除
-        for detail in details:
-            db.session.delete(detail)
-
-        db.session.commit()
-
-        log_operation(
-            user_id=current_user.id,
-            module='asset',
-            operation_type='inventory_detail_batch_delete',
-            action=f"批量删除盘点明细: 盘点单 {inventory.inventory_number}，删除{len(details)}条",
-            result="成功"
-        )
-
-        flash(f'已批量删除{len(details)}条盘点明细', 'success')
-        logging.info(f"批量删除盘点明细，盘点单: {inventory.inventory_number}, 删除{len(details)}条")
-        return redirect(url_for('fixed_asset.inventory_detail', id=inventory_id))
-
-    except Exception as e:
-        db.session.rollback()
-        flash(f'批量删除盘点明细失败: {str(e)}', 'danger')
-        logging.error(f"批量删除盘点明细失败, inventory_id: {request.form.get('inventory_id')}, 错误: {str(e)}\n{traceback.format_exc()}")
-        return redirect(url_for('fixed_asset.inventory'))
-
-
 # ========== 路由：执行报废 ==========
 @fixed_asset_bp.route('/operations/scrap/<int:id>', methods=['POST'])
 @login_required
-@require_permission('fixed_asset.scrap')
+@require_permission('fixed_asset.edit')
 def scrap_asset(id):
     """执行报废 - 检查状态，更新为已报废，记录报废信息"""
     try:
@@ -1574,7 +1415,7 @@ def scrap_asset(id):
 # ========== 路由：执行出售 ==========
 @fixed_asset_bp.route('/operations/sell/<int:id>', methods=['POST'])
 @login_required
-@require_permission('fixed_asset.sell')
+@require_permission('fixed_asset.edit')
 def sell_asset(id):
     """执行出售 - 检查状态，更新为已出售，记录出售信息"""
     try:

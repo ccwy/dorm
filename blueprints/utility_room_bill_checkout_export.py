@@ -7,13 +7,14 @@ from models.utility_room_bill_record import RoomUtilityRecord
 from models.utility_room_bill_checkout import CheckoutUtilityRecord
 from flask_login import login_required, current_user
 from utils.log import log_operation
-from utils.auth import require_permission
 import traceback
 from datetime import datetime
 import logging
 from .utility_room_bill_checkout import utility_room_bill_checkout_bp  # 导入退宿费用子表主蓝图
 from io import BytesIO
 from urllib.parse import quote
+# 导入权限装饰器
+from utils.auth import require_permission
     
 @utility_room_bill_checkout_bp.route('/export', methods=['POST'])
 @login_required

@@ -64,7 +64,7 @@ def _get_chat_sessions_data(include_hidden=False):
 
 @chat_bp.route('/')
 @login_required
-@require_permission('chat.manage')
+@require_permission('chat.view')
 def chat_index():
     """聊天功能首页，显示所有聊天会话"""
     logging.info(f"用户 {current_user.id} - {current_user.name} 访问聊天首页")
@@ -88,7 +88,7 @@ def chat_index():
 
 @chat_bp.route('/start_chat/<int:user_id>')
 @login_required
-@require_permission('chat.manage')
+@require_permission('chat.create')
 def start_chat(user_id):
     """开始与指定用户的聊天"""
     logging.info(f"用户 {current_user.id} - {current_user.name} 请求开始聊天，目标用户ID: {user_id}")
@@ -205,7 +205,7 @@ def start_chat(user_id):
 
 @chat_bp.route('/create_group_chat', methods=['POST'])
 @login_required
-@require_permission('chat.manage')
+@require_permission('chat.create')
 def create_group_chat():
     """创建群聊"""
     logging.info(f"用户 {current_user.id} - {current_user.name} 请求创建群聊")
@@ -295,7 +295,7 @@ def create_group_chat():
 
 @chat_bp.route('/send_message', methods=['POST'])
 @login_required
-@require_permission('chat.manage')
+@require_permission('chat.create')
 def send_message():
     """发送消息"""
     logging.info(f"用户 {current_user.id} - {current_user.name} 请求发送消息")
@@ -392,7 +392,7 @@ def send_message():
 
 @chat_bp.route('/get_users_for_chat')
 @login_required
-@require_permission('chat.manage')
+@require_permission('chat.view')
 def get_users_for_chat():
     """获取用户列表用于聊天选择（API），支持部门、性别、公司筛选和分页"""
     try:
@@ -469,7 +469,7 @@ def get_users_for_chat():
 
 @chat_bp.route('/get_filter_options')
 @login_required
-@require_permission('chat.manage')
+@require_permission('chat.view')
 def get_filter_options():
     """获取筛选选项（部门、性别、公司）"""
     try:
@@ -498,7 +498,7 @@ def get_filter_options():
 
 @chat_bp.route('/get_chat_sessions')
 @login_required
-@require_permission('chat.manage')
+@require_permission('chat.view')
 def get_chat_sessions():
     """获取聊天会话列表（API）"""
     try:
@@ -592,7 +592,7 @@ def hide_session(session_id):
 
 @chat_bp.route('/get_new_messages/<int:session_id>/<int:last_message_id>')
 @login_required
-@require_permission('chat.manage')
+@require_permission('chat.view')
 def get_new_messages(session_id, last_message_id):
     """获取新消息（用于简单轮询）"""
     logging.info(f"用户 {current_user.id} - {current_user.name} 请求获取新消息")
@@ -668,7 +668,7 @@ def get_new_messages(session_id, last_message_id):
 
 @chat_bp.route('/get_messages/<int:session_id>')
 @login_required
-@require_permission('chat.manage')
+@require_permission('chat.view')
 def get_messages(session_id):
     """获取特定会话的所有消息"""
     logging.info(f"用户 {current_user.id} - {current_user.name} 请求获取会话消息")

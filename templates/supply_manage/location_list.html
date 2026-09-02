@@ -80,22 +80,16 @@
                     </div>
                 </div>
                 <div class="mt-4 md:mt-0 flex flex-wrap gap-3">
-                    {% if current_user.has_permission('supply.create') %}
                     <a href="{{ url_for('storage_location.add_page') }}" class="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90 btn-hover inline-flex items-center">
                         <i class="fa fa-plus mr-1"></i>新增存放位置
                     </a>
-                    {% endif %}
-                    {% if current_user.has_permission('supply.import') %}
                     <button id="importBtn" class="btn-hover bg-info text-white px-4 py-2 rounded-md flex items-center cursor-pointer">
                         <i class="fa fa-upload mr-2"></i>导入
                     </button>
-                    {% endif %}
-                    {% if current_user.has_permission('supply.export') %}
                     <button type="button" id="exportBtn" class="btn-hover bg-warning text-white px-4 py-2 rounded-md flex items-center">
                         <i class="fa fa-download mr-2"></i>
                         <span id="exportBtnText">导出</span>
                     </button>
-                    {% endif %}
                 </div>
             </div>
         </div>
@@ -147,11 +141,9 @@
         <div class="flex items-center justify-between mb-4">
             <span class="text-sm text-gray-500">共 <strong class="text-gray-800">{{ total_count }}</strong> 条记录</span>
             <div class="flex gap-2">
-                {% if current_user.has_permission('supply.delete') %}
                 <button type="button" onclick="batchDelete()" id="batchDeleteBtn" class="px-3 py-1.5 bg-danger text-white rounded-md hover:bg-danger/90 btn-hover text-sm disabled:opacity-50 disabled:cursor-not-allowed" disabled>
                     <i class="fa fa-trash mr-1"></i>批量删除
                 </button>
-                {% endif %}
             </div>
         </div>
 
@@ -215,16 +207,12 @@
                                     <a href="{{ url_for('storage_location.detail', id=location.id) }}" class="btn-effect bg-blue-500 text-white px-2 py-1 rounded-md text-sm flex items-center">
                                         <i class="fa fa-eye mr-1"></i>详情
                                     </a>
-                                    {% if current_user.has_permission('supply.edit') %}
                                     <a href="{{ url_for('storage_location.edit_page', id=location.id) }}" class="btn-effect bg-amber-500 text-white px-2 py-1 rounded-md text-sm flex items-center">
                                         <i class="fa fa-edit mr-1"></i>编辑
                                     </a>
-                                    {% endif %}
-                                    {% if current_user.has_permission('supply.delete') %}
                                     <button type="button" onclick="confirmDelete({{ location.id }}, '{{ location.name }}')" class="btn-effect bg-red-500 text-white px-2 py-1 rounded-md text-sm flex items-center">
                                         <i class="fa fa-trash mr-1"></i>删除
                                     </button>
-                                    {% endif %}
                                 </div>
                             </td>
                         </tr>
@@ -382,7 +370,6 @@
         document.addEventListener('DOMContentLoaded', function() {
             // 导入模态框
             const importBtn = document.getElementById('importBtn');
-            if (importBtn) {
             const importModal = document.getElementById('importModal');
             const closeModal = document.getElementById('closeModal');
             const cancelImport = document.getElementById('cancelImport');
@@ -423,11 +410,9 @@
                 submitButton.disabled = true;
                 submitButton.textContent = '正在导入...';
             });
-            } // end if(importBtn)
 
             // 导出按钮
             const exportBtn = document.getElementById('exportBtn');
-            if (exportBtn) {
             const exportBtnText = document.getElementById('exportBtnText');
             exportBtn.addEventListener('click', function() {
                 exportBtnText.textContent = '导出中...';
@@ -438,7 +423,6 @@
                     exportBtn.disabled = false;
                 }, 3000);
             });
-            } // end if(exportBtn)
         });
     </script>
 </body>

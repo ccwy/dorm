@@ -241,19 +241,15 @@
                 </button>
                 
                 <!-- 导入按钮 -->
-                {% if current_user.has_permission('dorm.import') %}
                 <button type="button" onclick="document.getElementById('importModal').classList.add('active')" class="px-4 py-2 bg-accent text-white rounded-md hover:bg-accent/90 whitespace-nowrap">
                     <i class="fa fa-upload mr-2"></i>导入
                 </button>
-                {% endif %}
                 
                 <!-- 导出按钮 - 直接导出全部在住记录和换宿记录 -->
-                {% if current_user.has_permission('dorm.export') %}
                 <button type="button" id="exportBtn" class="px-4 py-2 bg-secondary text-white rounded-md hover:bg-secondary/90 whitespace-nowrap">
                     <span id="exportBtnText"><i class="fa fa-download mr-2"></i>导出</span>
                     <span id="exportLoading" class="hidden"><i class="fa fa-circle-o-notch fa-spin mr-2"></i>导出中...</span>
                 </button>
-                {% endif %}
             </div>
         </div>
 
@@ -706,9 +702,7 @@
         document.head.appendChild(style);
         
         // 导出按钮点击事件 - 直接导出全部在住记录和换宿记录
-        const exportBtnEl = document.getElementById('exportBtn');
-        if (exportBtnEl) {
-        exportBtnEl.addEventListener('click', function() {
+        document.getElementById('exportBtn').addEventListener('click', function() {
             // 显示导出中状态
             const exportBtn = document.getElementById('exportBtn');
             const exportBtnText = document.getElementById('exportBtnText');
@@ -735,7 +729,6 @@
                 exportBtn.classList.add('hover:bg-secondary/90');
             }, 60000);
         });
-        }
         
         // 切换历史记录行显示状态
         function toggleHistoryRow(button) {

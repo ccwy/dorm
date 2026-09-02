@@ -6,7 +6,6 @@ from models.fixed_asset import FixedAsset
 from models.asset_operation_record import AssetOperationRecord
 from flask_login import login_required, current_user
 from utils.log import log_operation
-from utils.auth import require_permission
 from utils.lazy_imports import pd  # 延迟导入pandas，避免启动时加载重型库
 import io
 from datetime import datetime
@@ -16,6 +15,7 @@ from models.department import Department
 from models.room import Room
 from models.user import User
 from io import BytesIO
+from utils.auth import require_permission
 from utils.excel_date_utils import excel_date_utils
 from decimal import Decimal
 

@@ -212,14 +212,13 @@ class SupplyInventory(db.Model):
     def unapprove(cls, inventory_id, operator_user_id=None):
         """
         反审核盘点单（仅已完成状态可反审核）
-        反审核时基于审核时实际创建的进出库记录来确定调整量，
-        而非重新计算difference，避免审核时库存已变化导致的逻辑漏洞：
-        1. 查找审核时创建的盘盈/盘亏记录，确定实际调整量
-        2. 检查盘盈物品库存是否充足（扣减后不能为负）
-        3. 遍历有审核记录的盘点明细，回滚库存：
+        反审核时：
+        1. 检查盘盈物品库存是否充足（扣减后不能为负）
+        2. 更新盘点单状态为"进行中"
+        3. 遍历有差异的盘点明细，回滚库存：
            - 盘盈的：扣减库存（反盘盈）
            - 盘亏的：增加库存（反盘亏）
-        4. 新增反审核进出库记录（保留审核历史，反审核操作留痕）
+        4. 新增"盘点反审核"进出库记录（保留审核历史，反审核操作留痕）
         如果盘盈物品库存不足，反审核失败并返回错误信息
         """
         from models.supply.supply_stock_detail import SupplyStockDetail
@@ -230,111 +229,93 @@ class SupplyInventory(db.Model):
         if not inventory or inventory.status != '已完成':
             return None
 
-        # 先检查盘盈物品的库存是否充足（基于审核时实际盘盈记录）
+        # 先检查盘盈物品的库存是否充足（扣减后不能为负）
         insufficient_items = []
         for detail in inventory.details:
-            if detail.inventory_result not in ('正常', '异常') or detail.actual_quantity is None:
-                continue
-
-            # 查找审核时创建的盘盈记录
-            approve_record = SupplyStockRecord.query.filter_by(
-                source_number=inventory.inventory_number,
-                item_id=detail.item_id,
-                location_id=detail.location_id
-            ).filter(SupplyStockRecord.record_type == '盘盈').first()
-
-            if approve_record:
-                # 审核时盘盈了，反审核需要扣减
-                stock_detail = SupplyStockDetail.query.filter_by(
-                    item_id=detail.item_id,
-                    location_id=detail.location_id
-                ).first()
-                available = stock_detail.quantity if stock_detail else 0
-                if available < approve_record.quantity:
-                    insufficient_items.append({
-                        'item_name': detail.item_name,
-                        'location_name': detail.location_name,
-                        'available': available,
-                        'required': approve_record.quantity
-                    })
+            if detail.inventory_result in ('正常', '异常') and detail.actual_quantity is not None:
+                difference = detail.actual_quantity - detail.system_quantity
+                if difference > 0:
+                    # 盘盈的物品，反审核需要扣减库存
+                    stock_detail = SupplyStockDetail.query.filter_by(
+                        item_id=detail.item_id,
+                        location_id=detail.location_id
+                    ).first()
+                    available = stock_detail.quantity if stock_detail else 0
+                    if available < difference:
+                        insufficient_items.append({
+                            'item_name': detail.item_name,
+                            'location_name': detail.location_name,
+                            'available': available,
+                            'required': difference
+                        })
 
         if insufficient_items:
             return {'error': '盘盈物品库存不足，无法反审核', 'details': insufficient_items}
 
-        # 库存充足，执行回滚（基于审核时实际创建的记录）
+        # 库存充足，执行回滚
         for detail in inventory.details:
-            if detail.inventory_result not in ('正常', '异常') or detail.actual_quantity is None:
-                continue
+            if detail.inventory_result in ('正常', '异常') and detail.actual_quantity is not None:
+                difference = detail.actual_quantity - detail.system_quantity
+                if difference == 0:
+                    continue
 
-            # 查找审核时创建的盘盈/盘亏记录
-            approve_record = SupplyStockRecord.query.filter_by(
-                source_number=inventory.inventory_number,
-                item_id=detail.item_id,
-                location_id=detail.location_id
-            ).filter(SupplyStockRecord.record_type.in_(['盘盈', '盘亏'])).first()
-
-            if not approve_record:
-                # 审核时没有操作库存（difference=0），反审核也不操作
-                continue
-
-            stock_detail = SupplyStockDetail.query.filter_by(
-                item_id=detail.item_id,
-                location_id=detail.location_id
-            ).first()
-
-            if not stock_detail:
-                continue
-
-            quantity = approve_record.quantity
-
-            if approve_record.record_type == '盘盈':
-                # 审核时盘盈，反审核扣减库存
-                stock_detail.quantity -= quantity
-                stock_detail.operator_user_id = operator_user_id
-                # 回滚物品汇总库存
-                item = SupplyItem.query.get(detail.item_id)
-                if item:
-                    item.current_stock -= quantity
-                # 创建盘盈反审核记录
-                record = SupplyStockRecord(
-                    record_type='盘盈反审核',
+                stock_detail = SupplyStockDetail.query.filter_by(
                     item_id=detail.item_id,
-                    item_name=detail.item_name,
-                    location_id=detail.location_id,
-                    location_name=detail.location_name,
-                    quantity=quantity,
-                    unit_price=detail.unit_price,
-                    total_price=quantity * detail.unit_price if detail.unit_price else 0,
-                    source_number=inventory.inventory_number,
-                    source_type='盘盈反审核',
-                    operator_user_id=operator_user_id,
-                    remark=f'盘点单{inventory.inventory_number}反审核，扣减盘盈{quantity}件'
-                )
-                db.session.add(record)
-            elif approve_record.record_type == '盘亏':
-                # 审核时盘亏，反审核恢复库存
-                stock_detail.quantity += quantity
-                stock_detail.operator_user_id = operator_user_id
-                # 回滚物品汇总库存
-                item = SupplyItem.query.get(detail.item_id)
-                if item:
-                    item.current_stock += quantity
-                # 创建盘亏反审核记录
-                record = SupplyStockRecord(
-                    record_type='盘亏反审核',
-                    item_id=detail.item_id,
-                    item_name=detail.item_name,
-                    location_id=detail.location_id,
-                    location_name=detail.location_name,
-                    quantity=quantity,
-                    unit_price=detail.unit_price,
-                    total_price=quantity * detail.unit_price if detail.unit_price else 0,
-                    source_number=inventory.inventory_number,
-                    source_type='盘亏反审核',
-                    operator_user_id=operator_user_id,
-                    remark=f'盘点单{inventory.inventory_number}反审核，恢复盘亏{quantity}件'
-                )
-                db.session.add(record)
+                    location_id=detail.location_id
+                ).first()
+
+                if not stock_detail:
+                    continue
+
+                if difference > 0:
+                    # 盘盈的：反审核扣减库存
+                    stock_detail.quantity -= difference
+                    stock_detail.operator_user_id = operator_user_id
+                    # 回滚物品汇总库存
+                    item = SupplyItem.query.get(detail.item_id)
+                    if item:
+                        item.current_stock -= difference
+                    # 创建盘点反审核记录（扣减盘盈数量）
+                    record = SupplyStockRecord(
+                        record_type='盘点反审核',
+                        item_id=detail.item_id,
+                        item_name=detail.item_name,
+                        location_id=detail.location_id,
+                        location_name=detail.location_name,
+                        quantity=difference,
+                        unit_price=detail.unit_price,
+                        total_price=difference * detail.unit_price if detail.unit_price else 0,
+                        source_number=inventory.inventory_number,
+                        source_type='盘点反审核',
+                        operator_user_id=operator_user_id,
+                        remark=f'盘点单{inventory.inventory_number}反审核，扣减盘盈{difference}件'
+                    )
+                    db.session.add(record)
+                else:
+                    # 盘亏的：反审核恢复库存
+                    abs_diff = abs(difference)
+                    stock_detail.quantity += abs_diff
+                    stock_detail.operator_user_id = operator_user_id
+                    # 回滚物品汇总库存
+                    item = SupplyItem.query.get(detail.item_id)
+                    if item:
+                        item.current_stock += abs_diff
+                    # 创建盘点反审核记录（恢复盘亏数量）
+                    record = SupplyStockRecord(
+                        record_type='盘点反审核',
+                        item_id=detail.item_id,
+                        item_name=detail.item_name,
+                        location_id=detail.location_id,
+                        location_name=detail.location_name,
+                        quantity=abs_diff,
+                        unit_price=detail.unit_price,
+                        total_price=abs_diff * detail.unit_price if detail.unit_price else 0,
+                        source_number=inventory.inventory_number,
+                        source_type='盘点反审核',
+                        operator_user_id=operator_user_id,
+                        remark=f'盘点单{inventory.inventory_number}反审核，恢复盘亏{abs_diff}件'
+                    )
+                    db.session.add(record)
 
         # 更新盘点单状态为进行中
         inventory.status = '进行中'

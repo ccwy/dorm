@@ -2,7 +2,7 @@
 """角色表模型"""
 from utils.db import db
 from datetime import datetime
-from models.role.role_permission import RolePermission
+
 
 class Role(db.Model):
     __tablename__ = 'roles'
@@ -30,28 +30,7 @@ class Role(db.Model):
         # 超级管理员自动拥有所有权限
         if self.code == 'super_admin':
             return True
-        # 精确权限匹配
-        if self.permissions.filter_by(permission_code=permission_code).first() is not None:
-            return True
-        # manage 超集逻辑：拥有 module.manage 自动拥有该模块的所有权限
-        parts = permission_code.split('.', 1)
-        if len(parts) == 2:
-            module_code, action = parts
-            if action != 'manage':
-                if self.permissions.filter_by(permission_code=f'{module_code}.manage').first() is not None:
-                    return True
-        return False
-
-    def has_any_permission(self, module_code):
-        """判断角色是否拥有指定模块的任何权限"""
-        # 超级管理员自动拥有所有权限
-        if self.code == 'super_admin':
-            return True
-        # 检查是否有以 module_code. 开头的权限
-        prefix = f'{module_code}.'
-        return self.permissions.filter(
-            RolePermission.permission_code.like(f'{prefix}%')
-        ).first() is not None
+        return self.permissions.filter_by(permission_code=permission_code).first() is not None
 
     def get_permission_codes(self):
         """获取角色的所有权限编码列表"""
@@ -81,6 +60,3 @@ class Role(db.Model):
             'user_count': self.get_user_count(),
             'permission_count': self.permissions.count()
         }
-
-
-
