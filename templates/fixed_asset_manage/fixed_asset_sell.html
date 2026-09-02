@@ -147,7 +147,7 @@
                 <h3 class="text-lg font-medium text-gray-800">出售信息</h3>
                 <span class="ml-3 px-2 py-0.5 bg-cyan-100 text-cyan-800 text-xs rounded-full">此操作将变更资产状态为"已出售"</span>
             </div>
-            <form method="POST" action="{{ url_for('fixed_asset.sell_asset', id=asset.id) }}">
+            <form method="POST" action="{{ url_for('fixed_asset_operations.sell_asset', id=asset.id) }}">
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     <!-- 出售日期 -->
                     <div>

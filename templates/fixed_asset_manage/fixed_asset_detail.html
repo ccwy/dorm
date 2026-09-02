@@ -387,7 +387,7 @@
     {% include 'footer.html' %}
 
     <!-- 删除确认表单(隐藏) -->
-    <form id="deleteForm" method="POST" action="{{ url_for('fixed_asset.delete_asset', id=asset.id) }}" class="hidden"></form>
+    <form id="deleteForm" method="POST" action="{{ url_for('fixed_asset_operations.delete_asset', id=asset.id) }}" class="hidden"></form>
 
     <!-- 图片查看模态框 -->
     <div id="imageModal" class="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 hidden">

@@ -288,7 +288,7 @@
                                         {% endif %}
                                     </div>
                                     <!-- 单个删除表单 -->
-                                    <form id="deleteForm-{{ asset.id }}" action="{{ url_for('fixed_asset.delete_asset', id=asset.id) }}" method="post" class="hidden"></form>
+                                    <form id="deleteForm-{{ asset.id }}" action="{{ url_for('fixed_asset_operations.delete_asset', id=asset.id) }}" method="post" class="hidden"></form>
                                 </td>
                             </tr>
                             {% else %}
@@ -409,7 +409,7 @@
     </div>
 
     <!-- 批量删除表单 -->
-    <form id="batchDeleteForm" action="{{ url_for('fixed_asset.batch_delete_assets') }}" method="post" class="hidden">
+    <form id="batchDeleteForm" action="{{ url_for('fixed_asset_operations.batch_delete_assets') }}" method="post" class="hidden">
         <div id="batchDeleteIdsContainer"></div>
     </form>
 

@@ -167,9 +167,9 @@
                                     {% endif %}
                                 </div>
                                 <!-- 完成盘点表单 -->
-                                <form id="completeForm-{{ inv.id }}" action="{{ url_for('fixed_asset.complete_inventory', id=inv.id) }}" method="post" class="hidden"></form>
+                                <form id="completeForm-{{ inv.id }}" action="{{ url_for('fixed_asset_operations.complete_inventory', id=inv.id) }}" method="post" class="hidden"></form>
                                 <!-- 删除盘点表单 -->
-                                <form id="deleteInvForm-{{ inv.id }}" action="{{ url_for('fixed_asset.delete_inventory', id=inv.id) }}" method="post" class="hidden"></form>
+                                <form id="deleteInvForm-{{ inv.id }}" action="{{ url_for('fixed_asset_operations.delete_inventory', id=inv.id) }}" method="post" class="hidden"></form>
                             </td>
                         </tr>
                         {% else %}
