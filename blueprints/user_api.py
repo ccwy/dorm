@@ -20,7 +20,6 @@ user_api_bp = Blueprint('user_api', __name__, url_prefix='/api/users')
 
 @user_api_bp.route('/<int:user_id>', methods=['GET'])
 @login_required
-@require_permission('user.view')
 def get_user(user_id):
     """获取指定ID的用户详细信息（JSON接口）"""
     try:
@@ -108,7 +107,6 @@ def get_user(user_id):
 
 @user_api_bp.route('/search', methods=['GET'])
 @login_required
-@require_permission('user.view')
 def search_users():
     """搜索用户信息的API接口（支持分页）"""
     try:

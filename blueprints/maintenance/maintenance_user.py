@@ -231,6 +231,9 @@ def user_order_create():
                 room = Room.query.get(room_id)
                 if room:
                     room_number = room.room_full_identifier
+        # 确保room_id不是空字符串，空字符串会导致外键约束失败
+        if not room_id:
+            room_id = None
         
         # 标题自动取描述前20字
         title = description[:20] if description else '无标题'

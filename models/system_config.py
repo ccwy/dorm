@@ -664,16 +664,6 @@ class SystemConfig(db.Model):
                 'sort_order': 30
             },
             {
-                'config_key': 'supply_stock_out_check',
-                'config_value': 'true',
-                'config_type': 'bool',
-                'category': 'supply',
-                'description': '出库审核时检查库存充足性',
-                'is_editable': True,
-                'is_system': False,
-                'sort_order': 40
-            },
-            {
                 'config_key': 'STOCK_IN_APPROVAL_ENABLED',
                 'config_value': 'true',
                 'config_type': 'bool',
@@ -690,6 +680,24 @@ class SystemConfig(db.Model):
                 'description': '出库单审核功能开关（关闭后保存即自动审核）',
                 'is_editable': True,
                 'sort_order': 60
+            },
+            {
+                'config_key': 'STOCK_IN_UNAPPROVE_ENABLED',
+                'config_value': 'true',
+                'config_type': 'bool',
+                'category': 'supply',
+                'description': '入库单反审核功能开关（关闭后已审核入库单不可反审核）',
+                'is_editable': True,
+                'sort_order': 65
+            },
+            {
+                'config_key': 'STOCK_OUT_UNAPPROVE_ENABLED',
+                'config_value': 'true',
+                'config_type': 'bool',
+                'category': 'supply',
+                'description': '出库单反审核功能开关（关闭后已审核出库单不可反审核）',
+                'is_editable': True,
+                'sort_order': 68
             },
             {
                 'config_key': 'supply_inventory_unapprove_enabled',

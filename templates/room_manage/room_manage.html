@@ -67,21 +67,28 @@
                     </div>
                 </div>
                 <div class="mt-4 md:mt-0 flex flex-wrap gap-3">
+                    {% if current_user.has_permission('room.create') %}
                     <button onclick="window.location.href='{{ url_for('room.add') }}'" class="btn-hover bg-primary text-white px-4 py-2 rounded-md flex items-center">
                         <i class="fa fa-plus mr-2"></i>添加房间
                     </button>
+                    {% endif %}
                     <button onclick="location.reload();" class="btn-hover bg-secondary text-white px-4 py-2 rounded-md flex items-center">
                         <i class="fa fa-refresh mr-2"></i>刷新页面
                     </button>
+                    {% if current_user.has_permission('room.delete') %}
                     <button id="batchDeleteBtn" class="btn-hover bg-danger text-white px-4 py-2 rounded-md flex items-center disabled:opacity-50 disabled:cursor-not-allowed">
                         <i class="fa fa-trash mr-2"></i>批量删除
                     </button>
                     <button id="deleteAllBtn" class="btn-hover bg-danger/80 text-white px-4 py-2 rounded-md flex items-center">
                         <i class="fa fa-trash-o mr-2"></i>删除全部
                     </button>
+                    {% endif %}
+                    {% if current_user.has_permission('room.import') %}
                     <button id="importBtn" class="btn-hover bg-info text-white px-4 py-2 rounded-md flex items-center cursor-pointer">
                         <i class="fa fa-upload mr-2"></i>导入
                     </button>
+                    {% endif %}
+                    {% if current_user.has_permission('room.export') %}
                     <button type="button" id="exportRoomBtn" class="btn-hover bg-warning text-white px-4 py-2 rounded-md flex items-center">
                         <i class="fa fa-download mr-2"></i>
                         <span id="exportBtnText">导出</span>
@@ -89,6 +96,7 @@
                             <i class="fa fa-circle-o-notch fa-spin"></i> 导出中...
                         </span>
                     </button>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -262,15 +270,19 @@
                                         <button onclick="window.location.href='{{ url_for('room.view', id=room.id) }}'" class="btn-effect bg-blue-500 text-white px-2 py-1 rounded-md text-sm flex items-center">
                                             <i class="fa fa-eye mr-1"></i>查看
                                         </button>
+                                        {% if current_user.has_permission('room.edit') %}
                                         <button onclick="window.location.href='{{ url_for('room.edit', id=room.id) }}'" class="btn-effect bg-amber-500 text-white px-2 py-1 rounded-md text-sm flex items-center">
                                             <i class="fa fa-pencil mr-1"></i>编辑
                                         </button>
+                                        {% endif %}
+                                        {% if current_user.has_permission('room.delete') %}
                                         <!-- 单个删除按钮 -->
                                         <button 
                                             class="btn-effect bg-red-500 text-white px-2 py-1 rounded-md text-sm flex items-center" 
                                             onclick="if(confirm('确定要删除房间 {{ room.building }}{{ room.room_number }} 吗？')) { window.location.href='{{ url_for('room.delete', id=room.id) }}' }">
                                             <i class="fa fa-trash mr-1"></i>删除
                                         </button>
+                                        {% endif %}
                                     </div>
                                 </td>
                             </tr>
@@ -465,6 +477,7 @@
             const importSuccessContent = document.getElementById('importSuccessContent');
             
             // 打开模态框
+            if (importBtn) {
             importBtn.addEventListener('click', function() {
                 importModal.classList.remove('hidden');
                 // 显示初始内容，隐藏其他状态
@@ -474,6 +487,7 @@
                 // 阻止页面滚动
                 document.body.style.overflow = 'hidden';
             });
+            }
             
             // 关闭模态框的函数
             function closeImportModal() {
@@ -594,9 +608,11 @@
             const exportModal = document.getElementById('exportModal');
             
             // 显示模态框
+            if (exportRoomBtn) {
             exportRoomBtn.addEventListener('click', function() {
                 exportModal.classList.remove('hidden');
             });
+            }
             
             // 关闭模态框
             document.getElementById('closeModalBtn').addEventListener('click', function() {
@@ -613,10 +629,12 @@
             // 导出处理函数
             function handleExport(url) {
                 // 显示导出中状态
-                exportBtnText.textContent = '';
-                exportingIndicator.classList.remove('hidden');
+                if (exportBtnText) exportBtnText.textContent = '';
+                if (exportingIndicator) exportingIndicator.classList.remove('hidden');
+                if (exportRoomBtn) {
                 exportRoomBtn.disabled = true;
                 exportRoomBtn.style.opacity = '0.7';
+                }
                 
                 // 关闭模态框
                 exportModal.classList.add('hidden');
@@ -626,10 +644,12 @@
                 
                 // 60秒后恢复按钮状态
                 setTimeout(function() {
-                    exportBtnText.textContent = '导出';
-                    exportingIndicator.classList.add('hidden');
+                    if (exportBtnText) exportBtnText.textContent = '导出';
+                    if (exportingIndicator) exportingIndicator.classList.add('hidden');
+                    if (exportRoomBtn) {
                     exportRoomBtn.disabled = false;
                     exportRoomBtn.style.opacity = '1';
+                    }
                 }, 60000);
             }
             

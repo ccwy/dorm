@@ -126,17 +126,17 @@
         {% endif %}
 
         <!-- 完成盘点按钮 -->
-        {% if inventory_record.status == '进行中' %}
+        {% if inventory_record.status == '进行中' and current_user.has_permission('supply.edit') %}
         <div class="mb-6">
             <form method="POST" action="{{ url_for('supply_inventory.complete_inventory', id=inventory_record.id) }}"
                   onsubmit="return confirm('确定要完成此盘点吗？未盘点的物品将标记为异常，库存将根据盘点结果调整。')">
                 <button type="submit" class="btn-hover bg-green-600 text-white px-4 py-2 rounded-md flex items-center">
-                    <i class="fa fa-check-circle mr-2"></i>完成盘点
+                    <i class="fa fa-check-circle mr-2"></i>审核
                 </button>
             </form>
         </div>
         {% endif %}
-        {% if inventory_record.status == '已完成' and inventory_unapprove_enabled %}
+        {% if inventory_record.status == '已完成' and inventory_unapprove_enabled and current_user.has_permission('supply.unapprove') %}
         <div class="mb-6">
             <form method="POST" action="{{ url_for('supply_inventory.unapprove_inventory', id=inventory_record.id) }}"
                   onsubmit="return confirm('确定要反审核此盘点单吗？库存将根据盘点结果回滚，盘点单将恢复为进行中状态。')">
@@ -166,7 +166,7 @@
                         </select>
                     </div>
                     <div class="flex items-center">
-                        <input type="text" name="search" value="{{ search }}" placeholder="搜索物品名称/规格"
+                        <input type="text" name="search" value="{{ search }}" placeholder="搜索物品名称/规格/编号/存放位置"
                                class="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 w-64">
                         <button type="submit" class="ml-2 px-3 py-2 bg-primary text-white rounded-md text-sm hover:bg-primary/90">
                             <i class="fa fa-search"></i>
@@ -175,10 +175,31 @@
                     <a href="{{ url_for('supply_inventory.detail_inventory', id=inventory_record.id) }}" class="text-sm text-gray-500 hover:text-primary">重置</a>
                 </form>
             </div>
+            {% if inventory_record.status == '进行中' %}
+            <!-- 批量操作栏 -->
+            <div id="batchBar" class="px-6 py-3 border-b border-gray-100 bg-blue-50 hidden">
+                <div class="flex items-center gap-4">
+                    <span class="text-sm text-blue-700">已选择 <strong id="selectedCount">0</strong> 条</span>
+                    <form id="batchDeleteForm" method="POST" action="{{ url_for('supply_inventory.batch_delete_details') }}" class="inline" onsubmit="return confirm('确定要删除选中的明细吗？删除后不可恢复。')">
+                        <input type="hidden" name="inventory_id" value="{{ inventory_record.id }}">
+                        <button type="submit" class="btn-effect bg-red-500 text-white px-3 py-1.5 rounded-md text-sm flex items-center">
+                            <i class="fa fa-trash-o mr-1"></i>批量删除
+                        </button>
+                    </form>
+                    <button type="button" onclick="clearSelection()" class="text-sm text-gray-500 hover:text-primary">取消选择</button>
+                </div>
+            </div>
+            {% endif %}
             <div class="overflow-x-auto">
                 <table class="min-w-full divide-y divide-gray-200">
                     <thead class="bg-gray-50">
                         <tr>
+                            {% if inventory_record.status == '进行中' %}
+                            <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                <input type="checkbox" id="selectAll" onclick="toggleSelectAll(this)" class="form-checkbox h-4 w-4 text-primary rounded border-gray-300">
+                            </th>
+                            {% endif %}
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">物品编号</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">物品名称</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">规格型号</th>
                             <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">单位</th>
@@ -197,7 +218,17 @@
                     </thead>
                     <tbody class="bg-white divide-y divide-gray-200">
                         {% for detail in details %}
-                        <tr class="hover:bg-gray-50" id="detail-row-{{ detail.id }}">
+                        {% set current_stock = stock_map.get((detail.item_id, detail.location_id), 0) %}
+                        {% set is_invalid = (current_stock == 0 and (detail.actual_quantity is none or detail.actual_quantity == 0)) %}
+                        <tr class="hover:bg-gray-50 {% if is_invalid and inventory_record.status == '进行中' %}bg-red-50{% endif %}" id="detail-row-{{ detail.id }}">
+                            {% if inventory_record.status == '进行中' %}
+                            <td class="px-4 py-4 text-center">
+                                <input type="checkbox" name="detail_checkbox" value="{{ detail.id }}" class="detail-checkbox form-checkbox h-4 w-4 text-primary rounded border-gray-300">
+                            </td>
+                            {% endif %}
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-primary">
+                                <a href="{{ url_for('supply_item.detail', id=detail.item_id) }}" class="hover:underline">{{ detail.item_number or '-' }}</a>
+                            </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-800">
                                 {{ detail.item_name }}
                             </td>
@@ -266,13 +297,17 @@
                                         <i class="fa fa-edit mr-1"></i>修改
                                     </button>
                                     {% endif %}
+                                    <button type="button" onclick="deleteDetail({{ detail.id }})"
+                                            class="btn-effect bg-red-500 text-white px-2 py-1 rounded-md text-sm flex items-center" title="删除明细">
+                                        <i class="fa fa-trash-o mr-1"></i>删除
+                                    </button>
                                 </div>
                             </td>
                             {% endif %}
                         </tr>
                         {% else %}
                         <tr>
-                            <td colspan="{{ 12 if inventory_record.status == '进行中' else 11 }}" class="px-6 py-10 text-center text-gray-500">
+                            <td colspan="{{ 14 if inventory_record.status == '进行中' else 13 }}" class="px-6 py-10 text-center text-gray-500">
                                 <i class="fa fa-list-alt text-4xl mb-2 block text-gray-300"></i>
                                 暂无盘点明细
                             </td>
@@ -461,6 +496,70 @@
         document.getElementById('checkModal').addEventListener('click', function(e) {
             if (e.target === this) {
                 closeCheckModal();
+            }
+        });
+
+        // 删除单条盘点明细
+        function deleteDetail(detailId) {
+            if (!confirm('确定要删除此盘点明细吗？删除后不可恢复。')) return;
+            var form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '{{ url_for("supply_inventory.delete_inventory_detail", id=0) }}'.replace('/0', '/' + detailId);
+            document.body.appendChild(form);
+            form.submit();
+        }
+
+        // 全选/取消全选
+        function toggleSelectAll(checkbox) {
+            var checkboxes = document.querySelectorAll('.detail-checkbox');
+            checkboxes.forEach(function(cb) {
+                cb.checked = checkbox.checked;
+            });
+            updateBatchBar();
+        }
+
+        // 更新批量操作栏
+        function updateBatchBar() {
+            var checkboxes = document.querySelectorAll('.detail-checkbox:checked');
+            var count = checkboxes.length;
+            var batchBar = document.getElementById('batchBar');
+            var selectedCount = document.getElementById('selectedCount');
+            if (count > 0) {
+                batchBar.classList.remove('hidden');
+                selectedCount.textContent = count;
+            } else {
+                batchBar.classList.add('hidden');
+            }
+            // 更新批量删除表单中的选中项
+            var form = document.getElementById('batchDeleteForm');
+            // 移除旧的hidden inputs
+            form.querySelectorAll('input[name="detail_ids"]').forEach(function(inp) { inp.remove(); });
+            // 添加新的hidden inputs
+            checkboxes.forEach(function(cb) {
+                var inp = document.createElement('input');
+                inp.type = 'hidden';
+                inp.name = 'detail_ids';
+                inp.value = cb.value;
+                form.appendChild(inp);
+            });
+        }
+
+        // 取消选择
+        function clearSelection() {
+            var checkboxes = document.querySelectorAll('.detail-checkbox');
+            checkboxes.forEach(function(cb) { cb.checked = false; });
+            document.getElementById('selectAll').checked = false;
+            updateBatchBar();
+        }
+
+        // 监听checkbox变化
+        document.addEventListener('change', function(e) {
+            if (e.target.classList.contains('detail-checkbox')) {
+                updateBatchBar();
+                // 更新全选状态
+                var all = document.querySelectorAll('.detail-checkbox');
+                var checked = document.querySelectorAll('.detail-checkbox:checked');
+                document.getElementById('selectAll').checked = all.length > 0 && all.length === checked.length;
             }
         });
     </script>

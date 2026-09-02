@@ -17,7 +17,6 @@ from utils.auth import require_permission
 # 直接使用主蓝图注册路由，无需创建新蓝图
 @dorm_bp.route('/resident-details', methods=['POST'])
 @login_required
-@require_permission('dorm.view')
 def get_resident_details():
     """
     查询当前在住人员明细及包含历史房间的住宿天数
@@ -338,7 +337,6 @@ def before_request():
 
 @dorm_bp.route('/user-dorm-details', methods=['POST'])
 @login_required
-@require_permission('dorm.view')
 def get_user_dorm_details():
     """
     退宿人员管理页面专用：按用户ID查询完整住宿信息
@@ -532,7 +530,6 @@ def get_user_dorm_details():
         
 @dorm_bp.route('/checkout-residents', methods=['POST'])
 @login_required
-@require_permission('dorm.view')
 def get_checkout_residents():
     """
     查询指定账期内的退宿人员清单（排除换宿人员）

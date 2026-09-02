@@ -73,25 +73,31 @@
 
         <!-- 操作按钮 -->
         <div class="flex flex-wrap gap-3 mb-6">
+            {% if current_user.has_permission('fixed_asset.edit') %}
             <a href="{{ url_for('fixed_asset.edit_page', id=asset.id) }}" class="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90 btn-hover inline-flex items-center">
                 <i class="fa fa-edit mr-1"></i>编辑
             </a>
-            {% if asset.status in ('在用', '闲置', '维修中') %}
+            {% endif %}
+            {% if asset.status in ('在用', '闲置', '维修中') and current_user.has_permission('fixed_asset.transfer') %}
             <a href="{{ url_for('fixed_asset.transfer_page', id=asset.id) }}" class="px-4 py-2 bg-accent text-white rounded-md hover:bg-accent/90 btn-hover inline-flex items-center">
                 <i class="fa fa-exchange-alt mr-1"></i>转移
             </a>
             {% endif %}
-            {% if asset.status not in ('已报废', '已出售') %}
+            {% if asset.status not in ('已报废', '已出售') and current_user.has_permission('fixed_asset.scrap') %}
             <a href="{{ url_for('fixed_asset.scrap', id=asset.id) }}" class="px-4 py-2 bg-danger text-white rounded-md hover:bg-danger/90 btn-hover inline-flex items-center">
                 <i class="fa fa-trash-alt mr-1"></i>报废
             </a>
+            {% endif %}
+            {% if asset.status not in ('已报废', '已出售') and current_user.has_permission('fixed_asset.sell') %}
             <a href="{{ url_for('fixed_asset.sell', id=asset.id) }}" class="px-4 py-2 bg-secondary text-white rounded-md hover:bg-secondary/90 btn-hover inline-flex items-center">
                 <i class="fa fa-dollar-sign mr-1"></i>出售
             </a>
             {% endif %}
+            {% if current_user.has_permission('fixed_asset.delete') %}
             <button type="button" onclick="confirmDelete({{ asset.id }})" class="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 btn-hover inline-flex items-center">
                 <i class="fa fa-trash mr-1"></i>删除
             </button>
+            {% endif %}
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">

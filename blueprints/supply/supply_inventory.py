@@ -98,6 +98,10 @@ def list_inventories():
         )
         logging.info(f"加载盘点管理页面，当前用户ID: {current_user.id}")
 
+        # 获取盘点反审核开关配置
+        from models.system_config import SystemConfig
+        inventory_unapprove_enabled = SystemConfig.get_config_value('supply_inventory_unapprove_enabled', True)
+
         return render_template(
             'supply_manage/inventory_list.html',
             title="盘点管理",
@@ -108,7 +112,8 @@ def list_inventories():
             total_pages=total_pages,
             page_range=page_range,
             current_status=status,
-            keyword=keyword
+            keyword=keyword,
+            inventory_unapprove_enabled=inventory_unapprove_enabled
         )
     except Exception as e:
         log_operation(
@@ -130,7 +135,8 @@ def list_inventories():
             total_pages=0,
             page_range=[],
             current_status='',
-            keyword=''
+            keyword='',
+            inventory_unapprove_enabled=True
         )
 
 
@@ -187,19 +193,31 @@ def detail_inventory(id):
         if result_filter:
             query = query.filter(SupplyInventoryDetail.inventory_result == result_filter)
 
-        # 搜索（按物品名称/规格/存放位置搜索）
+        # 搜索（按物品名称/规格/物品编号/存放位置搜索）
         if search:
             search_filter = f'%{search}%'
             # 需要join SupplyItem和StorageLocation
             query = query.join(SupplyItem, SupplyInventoryDetail.item_id == SupplyItem.id)
+            query = query.join(StorageLocation, SupplyInventoryDetail.location_id == StorageLocation.id)
             query = query.filter(
                 db.or_(
                     SupplyItem.name.ilike(search_filter),
-                    SupplyItem.specification.ilike(search_filter)
+                    SupplyItem.specification.ilike(search_filter),
+                    SupplyItem.item_number.ilike(search_filter),
+                    StorageLocation.name.ilike(search_filter)
                 )
             )
 
         details = query.all()
+
+        # 构建实时库存映射（用于判断账面为0的无效明细）
+        stock_map = {}
+        for detail in details:
+            stock_detail = SupplyStockDetail.query.filter_by(
+                item_id=detail.item_id,
+                location_id=detail.location_id
+            ).first()
+            stock_map[(detail.item_id, detail.location_id)] = stock_detail.quantity if stock_detail else 0
 
         log_operation(
             user_id=current_user.id,
@@ -221,7 +239,8 @@ def detail_inventory(id):
             details=details,
             result_filter=result_filter,
             search=search,
-            inventory_unapprove_enabled=inventory_unapprove_enabled
+            inventory_unapprove_enabled=inventory_unapprove_enabled,
+            stock_map=stock_map
         )
     except Exception as e:
         log_operation(

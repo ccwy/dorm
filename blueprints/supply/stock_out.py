@@ -83,12 +83,18 @@ def list_stock_outs():
 
         if keyword:
             search_filter = f'%{keyword}%'
+            from models.supply.stock_out_detail import StockOutDetail
+            from models.supply.supply_item import SupplyItem
+            query = query.outerjoin(StockOutDetail, StockOut.id == StockOutDetail.stock_out_id)\
+                         .outerjoin(SupplyItem, StockOutDetail.item_id == SupplyItem.id)
             query = query.filter(
                 db.or_(
                     StockOut.stock_out_number.ilike(search_filter),
-                    StockOut.remark.ilike(search_filter)
+                    StockOut.remark.ilike(search_filter),
+                    SupplyItem.item_number.ilike(search_filter),
+                    SupplyItem.name.ilike(search_filter)
                 )
-            )
+            ).distinct()
         if stock_out_type:
             query = query.filter(StockOut.stock_out_type == stock_out_type)
         if status:
@@ -129,6 +135,7 @@ def list_stock_outs():
         # 获取出库单审核开关状态
         from models.system_config import SystemConfig
         approval_enabled = SystemConfig.get_config_value('STOCK_OUT_APPROVAL_ENABLED', True)
+        unapprove_enabled = SystemConfig.get_config_value('STOCK_OUT_UNAPPROVE_ENABLED', True)
 
         return render_template(
             'supply_manage/stock_out_list.html',
@@ -150,7 +157,8 @@ def list_stock_outs():
             keyword=keyword,
             date_from=date_from,
             date_to=date_to,
-            approval_enabled=approval_enabled
+            approval_enabled=approval_enabled,
+            unapprove_enabled=unapprove_enabled
         )
     except Exception as e:
         log_operation(
@@ -178,7 +186,8 @@ def list_stock_outs():
             keyword='',
             date_from='',
             date_to='',
-            approval_enabled=True
+            approval_enabled=True,
+            unapprove_enabled=True
         )
 
 
@@ -302,13 +311,15 @@ def detail_stock_out(id):
         # 获取出库单审核开关状态
         from models.system_config import SystemConfig
         approval_enabled = SystemConfig.get_config_value('STOCK_OUT_APPROVAL_ENABLED', True)
+        unapprove_enabled = SystemConfig.get_config_value('STOCK_OUT_UNAPPROVE_ENABLED', True)
 
         return render_template(
             'supply_manage/stock_out_detail.html',
             title=f"出库单详情 - {stock_out.stock_out_number}",
             stock_out=stock_out,
             details=details,
-            approval_enabled=approval_enabled
+            approval_enabled=approval_enabled,
+            unapprove_enabled=unapprove_enabled
         )
     except Exception as e:
         log_operation(

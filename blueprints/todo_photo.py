@@ -84,7 +84,7 @@ def upload_media():
 
 @todo_bp.route('/delete_file', methods=['POST'])
 @login_required
-@require_permission('todo.delete')
+@require_permission('todo.edit')
 def delete_file():
     """删除待办事项照片或视频"""
     try:

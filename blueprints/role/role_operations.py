@@ -93,29 +93,6 @@ def add_role():
 
         db.session.commit()
 
-        # 记录角色权限变更 - 对该角色下的所有用户记录操作
-        if role.code != 'super_admin':
-            new_permissions = role.get_permission_codes()
-            if set(old_permissions) != set(new_permissions):
-                from models.user_operation_record import UserOperationRecord
-                # 为该角色下的每个用户创建操作记录
-                affected_users = User.query.filter_by(role_id=id).all()
-                for affected_user in affected_users:
-                    UserOperationRecord.create_record(
-                        target_user_id=affected_user.id,
-                        operation_type='role_change',
-                        operator_id=current_user.id,
-                        operator_name=current_user.name,
-                        change_detail={
-                            'action': '角色权限变更',
-                            'role_name': role.name,
-                            'added_permissions': list(set(new_permissions) - set(old_permissions)),
-                            'removed_permissions': list(set(old_permissions) - set(new_permissions))
-                        },
-                        summary=f'角色【{role.name}】权限变更'
-                    )
-                db.session.commit()
-
         log_operation(
             user_id=current_user.id,
             module='role',
@@ -205,29 +182,6 @@ def edit_role(id):
 
         db.session.commit()
 
-        # 记录角色权限变更 - 对该角色下的所有用户记录操作
-        if role.code != 'super_admin':
-            new_permissions = role.get_permission_codes()
-            if set(old_permissions) != set(new_permissions):
-                from models.user_operation_record import UserOperationRecord
-                # 为该角色下的每个用户创建操作记录
-                affected_users = User.query.filter_by(role_id=id).all()
-                for affected_user in affected_users:
-                    UserOperationRecord.create_record(
-                        target_user_id=affected_user.id,
-                        operation_type='role_change',
-                        operator_id=current_user.id,
-                        operator_name=current_user.name,
-                        change_detail={
-                            'action': '角色权限变更',
-                            'role_name': role.name,
-                            'added_permissions': list(set(new_permissions) - set(old_permissions)),
-                            'removed_permissions': list(set(old_permissions) - set(new_permissions))
-                        },
-                        summary=f'角色【{role.name}】权限变更'
-                    )
-                db.session.commit()
-
         log_operation(
             user_id=current_user.id,
             module='role',
@@ -278,29 +232,6 @@ def delete_role(id):
         # 删除角色（级联删除权限关联）
         db.session.delete(role)
         db.session.commit()
-
-        # 记录角色权限变更 - 对该角色下的所有用户记录操作
-        if role.code != 'super_admin':
-            new_permissions = role.get_permission_codes()
-            if set(old_permissions) != set(new_permissions):
-                from models.user_operation_record import UserOperationRecord
-                # 为该角色下的每个用户创建操作记录
-                affected_users = User.query.filter_by(role_id=id).all()
-                for affected_user in affected_users:
-                    UserOperationRecord.create_record(
-                        target_user_id=affected_user.id,
-                        operation_type='role_change',
-                        operator_id=current_user.id,
-                        operator_name=current_user.name,
-                        change_detail={
-                            'action': '角色权限变更',
-                            'role_name': role.name,
-                            'added_permissions': list(set(new_permissions) - set(old_permissions)),
-                            'removed_permissions': list(set(old_permissions) - set(new_permissions))
-                        },
-                        summary=f'角色【{role.name}】权限变更'
-                    )
-                db.session.commit()
 
         log_operation(
             user_id=current_user.id,

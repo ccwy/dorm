@@ -84,6 +84,15 @@ class SupplyInventoryDetail(db.Model):
         return '未知'
 
     @property
+    def item_number(self):
+        """返回物品编号"""
+        if self.item_id:
+            from models.supply.supply_item import SupplyItem
+            item = SupplyItem.query.get(self.item_id)
+            return item.item_number if item and item.item_number else ''
+        return ''
+
+    @property
     def specification(self):
         """返回规格型号"""
         if self.item_id:

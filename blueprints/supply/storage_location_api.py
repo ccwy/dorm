@@ -231,6 +231,7 @@ def check_storage_location_usage(id):
 # ========== 快速创建存放位置（供入库单等表单使用） ==========
 @storage_location_api_bp.route('/quick-create', methods=['POST'])
 @login_required
+@require_permission('supply.create')
 def quick_create_storage_location():
     """快速创建存储位置（供入库单等表单使用）"""
     try:

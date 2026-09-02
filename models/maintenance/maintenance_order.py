@@ -9,7 +9,7 @@ class MaintenanceOrder(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     order_no = db.Column(db.String(50), unique=True, nullable=False, comment='工单编号（如 WX20250101001）')
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, comment='报修人ID')
-    room_id = db.Column(db.Integer, db.ForeignKey('rooms.id'), nullable=False, comment='房间ID')
+    room_id = db.Column(db.Integer, db.ForeignKey('rooms.id'), nullable=True, comment='房间ID')
     room_number = db.Column(db.String(50), nullable=False, comment='房间号（冗余存储）')
     title = db.Column(db.String(255), nullable=False, comment='工单标题（自动取描述前20字）')
     description = db.Column(db.Text, nullable=False, comment='问题描述')

@@ -66,25 +66,35 @@
                     </div>
                 </div>
                 <div class="mt-4 md:mt-0 flex flex-wrap gap-3">
+                    {% if current_user.has_permission('fixed_asset.create') %}
                     <button onclick="window.location.href='{{ url_for('fixed_asset.add_page') }}'" class="btn-hover bg-primary text-white px-4 py-2 rounded-md flex items-center">
                         <i class="fa fa-plus mr-2"></i>新增资产
                     </button>
+                    {% endif %}
                     <button onclick="location.reload();" class="btn-hover bg-secondary text-white px-4 py-2 rounded-md flex items-center">
                         <i class="fa fa-refresh mr-2"></i>刷新页面
                     </button>
+                    {% if current_user.has_permission('fixed_asset.delete') %}
                     <button id="batchDeleteBtn" class="btn-hover bg-danger text-white px-4 py-2 rounded-md flex items-center disabled:opacity-50 disabled:cursor-not-allowed" disabled>
                         <i class="fa fa-trash mr-2"></i>批量删除
                     </button>
+                    {% endif %}
+                    {% if current_user.has_permission('fixed_asset.import') %}
                     <button id="importBtn" class="btn-hover bg-info text-white px-4 py-2 rounded-md flex items-center cursor-pointer">
                         <i class="fa fa-upload mr-2"></i>导入
                     </button>
+                    {% endif %}
+                    {% if current_user.has_permission('fixed_asset.export') %}
                     <button type="button" id="exportBtn" class="btn-hover bg-warning text-white px-4 py-2 rounded-md flex items-center">
                         <i class="fa fa-download mr-2"></i>
                         <span id="exportBtnText">导出</span>
                     </button>
+                    {% endif %}
+                    {% if current_user.has_permission('fixed_asset.inventory') %}
                     <button onclick="window.location.href='{{ url_for('fixed_asset.inventory') }}'" class="btn-hover bg-accent text-white px-4 py-2 rounded-md flex items-center">
                         <i class="fa fa-check-square-o mr-2"></i>盘点管理
                     </button>
+                    {% endif %}
                     <button onclick="window.location.href='{{ url_for('department.index') }}'" class="btn-hover bg-purple-600 text-white px-4 py-2 rounded-md flex items-center">
                         <i class="fa fa-sitemap mr-2"></i>部门管理
                     </button>
@@ -265,13 +275,17 @@
                                         <button onclick="window.location.href='{{ url_for('fixed_asset.detail', id=asset.id) }}'" class="btn-effect bg-blue-500 text-white px-2 py-1 rounded-md text-sm flex items-center">
                                             <i class="fa fa-eye mr-1"></i>查看
                                         </button>
+                                        {% if current_user.has_permission('fixed_asset.edit') %}
                                         <button onclick="window.location.href='{{ url_for('fixed_asset.edit_page', id=asset.id) }}'" class="btn-effect bg-amber-500 text-white px-2 py-1 rounded-md text-sm flex items-center">
                                             <i class="fa fa-pencil mr-1"></i>编辑
                                         </button>
+                                        {% endif %}
+                                        {% if current_user.has_permission('fixed_asset.delete') %}
                                         <button class="btn-effect bg-red-500 text-white px-2 py-1 rounded-md text-sm flex items-center"
                                             onclick="if(confirm('确定要删除资产 {{ asset.asset_name }} 吗？')) { document.getElementById('deleteForm-{{ asset.id }}').submit(); }">
                                             <i class="fa fa-trash mr-1"></i>删除
                                         </button>
+                                        {% endif %}
                                     </div>
                                     <!-- 单个删除表单 -->
                                     <form id="deleteForm-{{ asset.id }}" action="{{ url_for('fixed_asset.delete_asset', id=asset.id) }}" method="post" class="hidden"></form>
@@ -414,6 +428,7 @@
             const importLoadingContent = document.getElementById('importLoadingContent');
             const importSuccessContent = document.getElementById('importSuccessContent');
             
+            if (importBtn) {
             importBtn.addEventListener('click', function() {
                 importModal.classList.remove('hidden');
                 importInitialContent.classList.remove('hidden');
@@ -447,6 +462,7 @@
                 submitButton.disabled = true;
                 submitButton.textContent = '正在导入...';
             });
+            }
             
             // 批量删除相关逻辑
             const selectAllCheckbox = document.getElementById('selectAll');
@@ -497,6 +513,7 @@
             // 导出按钮逻辑
             const exportBtn = document.getElementById('exportBtn');
             const exportBtnText = document.getElementById('exportBtnText');
+            if (exportBtn) {
             exportBtn.addEventListener('click', function() {
                 exportBtnText.textContent = '导出中...';
                 exportBtn.disabled = true;
@@ -506,6 +523,7 @@
                     exportBtn.disabled = false;
                 }, 3000);
             });
+            }
 
             // 筛选区选择即生效
             const filterCategory = document.getElementById('filterCategory');

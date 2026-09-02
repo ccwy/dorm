@@ -41,6 +41,7 @@
                 <h2 class="text-2xl font-semibold text-dark">{{ title }} (ID:{{ room.id }})</h2>
             </div>
             <div class="flex gap-3">
+                {% if current_user.has_permission('room.edit') %}
                 <button type="button" id="uploadMediaBtn" class="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors">
                     <i class="fa fa-upload mr-2"></i>添加照片/视频
                 </button>
@@ -48,6 +49,7 @@
                 <a href="{{ url_for('room.edit', id=room.id) }}" class="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90">
                     <i class="fa fa-pencil mr-2"></i>编辑房间
                 </a>
+                {% endif %}
 				{% if room.status == 'available' %}
                 <a href="{{ url_for('dorm.add') }}" class="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90">
                     <i class="fa fa-pencil mr-2"></i>分配用户
@@ -681,11 +683,14 @@
         const uploadFeedback = document.getElementById('uploadFeedback');
         
         // 上传按钮点击事件
+        if (uploadMediaBtn) {
         uploadMediaBtn.addEventListener('click', function() {
             mediaFileInput.click();
         });
+        }
         
         // 文件选择变化事件
+        if (mediaFileInput) {
         mediaFileInput.addEventListener('change', function() {
             if (this.files.length > 0) {
                 const totalFiles = this.files.length;
@@ -777,6 +782,7 @@
                 }
             }
         });
+        }
         
         // 单个文件上传 - 返回Promise便于错误处理和进度管理
         function uploadFile(file) {

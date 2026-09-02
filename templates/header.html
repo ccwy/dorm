@@ -101,7 +101,7 @@
            class="nav-item nav-other text-gray-700 hover:text-primary transition-colors py-1 border-b-2 {% if request.endpoint == 'other.index' %}border-primary text-primary{% else %}border-transparent{% endif %}">
            <i class="fa fa-th-large mr-2"></i>其他
         </a>
-        {% if current_user.has_permission('system_settings.view') %}
+        {% if current_user.has_any_permission('system_settings') %}
         <a href="{{ url_for('system_settings.settings') }}" 
            class="nav-item nav-settings text-gray-700 hover:text-primary transition-colors py-1 border-b-2 {% if request.endpoint == 'system_settings.settings' %}border-primary text-primary{% else %}border-transparent{% endif %}">
            <i class="fa fa-cog mr-2"></i>设置

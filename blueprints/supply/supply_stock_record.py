@@ -79,11 +79,13 @@ def list_records():
 
         if keyword:
             search_filter = f'%{keyword}%'
+            query = query.outerjoin(SupplyItem, SupplyStockRecord.item_id == SupplyItem.id)
             query = query.filter(
                 db.or_(
                     SupplyStockRecord.item_name.ilike(search_filter),
                     SupplyStockRecord.source_number.ilike(search_filter),
-                    SupplyStockRecord.remark.ilike(search_filter)
+                    SupplyStockRecord.remark.ilike(search_filter),
+                    SupplyItem.item_number.ilike(search_filter)
                 )
             )
         if record_type:

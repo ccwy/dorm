@@ -118,7 +118,7 @@ def get_config_by_key(key):
 
 @system_config_bp.route('/settings')
 @login_required
-@require_permission('system_settings.view')
+@require_permission('system_settings.manage')
 def settings():
     # 根据用户权限过滤模块列表
     filtered_modules = []
@@ -140,7 +140,7 @@ def settings():
 
 @system_config_bp.route('/api/modules', methods=['GET'])
 @login_required
-@require_permission('system_settings.view')
+@require_permission('system_settings.manage')
 def get_modules():
     try:
         # 根据用户权限过滤模块列表
@@ -169,7 +169,7 @@ def get_modules():
 
 @system_config_bp.route('/api/configs/<category>', methods=['GET'])
 @login_required
-@require_permission('system_settings.view')
+@require_permission('system_settings.manage')
 def get_module_configs(category):
     try:
         # 转换category格式，确保与模型匹配
@@ -479,7 +479,6 @@ def update_configs():
 # 在初始化模块配置路由中添加reset参数
 @system_config_bp.route('/api/configs/initialize/<category>', methods=['POST'])
 @login_required
-@require_permission('system_settings.initialize')
 def initialize_module_configs(category):
     try:
         data = request.get_json() or {}
@@ -546,7 +545,6 @@ def initialize_module_configs(category):
 # 在初始化所有配置路由中添加reset参数
 @system_config_bp.route('/api/configs/initialize-all', methods=['POST'])
 @login_required
-@require_permission('system_settings.initialize')
 def initialize_all_configs():
     try:
         data = request.get_json() or {}

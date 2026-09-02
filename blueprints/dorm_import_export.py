@@ -1,5 +1,6 @@
 from flask import Blueprint, request, make_response, abort, redirect, url_for, flash, jsonify
 from flask_login import login_required, current_user
+from utils.auth import require_permission
 from utils.log import log_operation
 from utils.lazy_imports import pd, Font, Alignment  # 延迟导入重型库
 from io import BytesIO
@@ -11,8 +12,6 @@ import re
 import logging
 from dateutil import parser
 
-# 导入require_permission装饰器
-from utils.auth import require_permission
 # 导入数据模型
 from models.dorm import Dorm
 from models.user import User

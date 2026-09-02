@@ -203,18 +203,24 @@
           </div>
           
           <div class="filter-item flex gap-2 flex-1 buttons-container">
+            {% if current_user.has_permission('utility.calculate') %}
             <button type="button" id="calculateBtn" class="flex-1 bg-success hover:bg-success/90 text-white text-sm py-2 px-3 rounded-lg transition-all-300 btn-hover-scale flex items-center justify-center">
               <i class="fa fa-calculator mr-1.5"></i>核算
             </button>
+            {% endif %}
+            {% if current_user.has_permission('utility.delete') %}
             <button type="button" id="clearCurrentBtn" class="flex-1 bg-warning hover:bg-warning/90 text-white text-sm py-2 px-3 rounded-lg transition-all-300 btn-hover-scale flex items-center justify-center">
               <i class="fa fa-eraser mr-1.5"></i>删除
             </button>
+            {% endif %}
             <button type="button" id="refreshBtn" class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-700 text-sm py-2 px-3 rounded-lg transition-all-300 btn-hover-scale flex items-center justify-center">
               <i class="fa fa-refresh mr-1.5"></i>刷新
             </button>
+            {% if current_user.has_permission('utility.export') %}
             <button type="button" id="exportBtn" class="flex-1 bg-success hover:bg-success/90 text-white text-sm py-2 px-3 rounded-lg transition-all-300 btn-hover-scale flex items-center justify-center">
               <i class="fa fa-download mr-1.5"></i>导出
             </button>
+            {% endif %}
           </div>
         </div>
       </form>
@@ -321,6 +327,9 @@
     
 
   <script>
+    // 权限标志
+    const canDelete = {{ 'true' if current_user.has_permission('utility.delete') else 'false' }};
+
     // 全局变量增加房间信息缓存，避免重复请求
     let currentPage = 1;
     let totalPages = 1;
@@ -398,7 +407,9 @@
       });
       
       // 导出按钮
+      if (exportBtn) {
       exportBtn.addEventListener('click', exportFeeData);
+      }
       
       // 核算账单
       calculateBtn.addEventListener('click', calculateBill);
@@ -685,15 +696,14 @@
           // 操作
           html += `<td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <div class="flex space-x-2">
-                      
-                      <a href="javascript:void(0);" class="text-danger hover:text-danger/80 transition-all-300 btn-hover-scale delete-record" 
+                      ${canDelete ? `<a href="javascript:void(0);" class="text-danger hover:text-danger/80 transition-all-300 btn-hover-scale delete-record" 
                          data-billingperiod="${occupant.billing_period}" 
                          data-roomnumber="${(occupant.building || '未知') + (occupant.room_number || '未知')}" 
                          data-name="${occupant.user_name}"
                          data-occupantid="${occupant.occupant_id}" 
                          title="删除">
                         <i class="fa fa-trash"></i>
-                      </a>
+                      </a>` : ''}
                     </div>
                   </td>`;
           

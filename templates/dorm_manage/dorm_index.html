@@ -79,8 +79,8 @@
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
             
             <!-- 分配宿舍 -->
+            {% if current_user.has_permission('dorm.allocate') %}
             <div class="bg-white rounded-xl p-6 shadow-sm card-hover text-center">
-                
                 <div class="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mb-4 mx-auto">
                     <i class="fa fa-user-plus text-2xl text-primary"></i>
                 </div>
@@ -91,8 +91,10 @@
                     办理分配
                 </button>
             </div>
+            {% endif %}
 
             <!-- 更换宿舍 -->
+            {% if current_user.has_permission('dorm.change') %}
             <div class="bg-white rounded-xl p-6 shadow-sm card-hover text-center">
                 <div class="w-16 h-16 bg-secondary/10 rounded-full flex items-center justify-center mb-4 mx-auto">
                     <i class="fa fa-exchange text-2xl text-secondary"></i>
@@ -104,6 +106,7 @@
                     办理更换
                 </button>
             </div>
+            {% endif %}
 
             <!-- 办理退宿 
             <div class="bg-white rounded-xl p-6 shadow-sm card-hover text-center">
@@ -118,6 +121,7 @@
                 </button>
             </div>-->
              <!-- 住宿详情查询 -->
+             {% if current_user.has_permission('dorm.view') %}
             <div class="bg-white rounded-xl p-6 shadow-sm card-hover text-center">
                 <div class="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mb-4 mx-auto">
                     <i class="fa fa-search text-2xl text-purple-600"></i>
@@ -129,8 +133,10 @@
                     进入查询
                 </button>
             </div>
+            {% endif %}
             
             <!-- 住宿详情查询 -->
+            {% if current_user.has_permission('dorm.view') %}
             <div class="bg-white rounded-xl p-6 shadow-sm card-hover text-center">
                 <div class="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4 mx-auto">
                     <i class="fa fa-table text-2xl text-blue-600"></i>
@@ -142,9 +148,10 @@
                     点击查看
                 </button>
             </div>
+            {% endif %}
             
             <!-- 房间管理卡片 -->
-             {% if get_config_value('FEATURE_ROOM_MANAGE_ENABLED', True) %}
+            {% if get_config_value('FEATURE_ROOM_MANAGE_ENABLED', True) and current_user.has_permission('room.view') %}
             <div class="bg-white rounded-xl p-6 shadow-sm card-hover text-center">
                 <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4 mx-auto">
                     <i class="fa fa-home text-2xl text-green-600"></i>
@@ -158,6 +165,7 @@
             </div>
             {% endif %}
 
+            {% if current_user.has_permission('utility.view') %}
             <!-- 水电费管理卡片 -->
              {% if get_config_value('FEATURE_UTILITY_BILL_ENABLED', True) %}
             <div class="bg-white rounded-xl p-6 shadow-sm card-hover text-center">
@@ -171,6 +179,7 @@
                     进入管理
                 </button>
             </div>
+            {% endif %}
             {% endif %}
         </div>
 

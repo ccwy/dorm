@@ -486,6 +486,9 @@
     {% include 'footer.html' %}
     
   <script>
+    // 权限标志
+    const canEdit = {{ 'true' if current_user.has_permission('utility.edit') else 'false' }};
+
     // 从URL获取参数
     function getUrlParameter(name) {
       name = name.replace(/[\[]/, '\\[').replace(/[\]]/, '\\]');
@@ -828,9 +831,7 @@
                 </div>
               </td>
               <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                 <a href="javascript:void(0)" onclick="checkout_id(${occupant.id})" class="text-primary hover:underline">
-                                                ${formatDate(occupant.checkout_date) || '未知'}
-                                            </a>
+                 ${canEdit ? `<a href="javascript:void(0)" onclick="checkout_id(${occupant.id})" class="text-primary hover:underline">${formatDate(occupant.checkout_date) || '未知'}</a>` : (formatDate(occupant.checkout_date) || '未知')}
               </td>
               <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                 ${occupant.user_period_days || '0'}天
@@ -848,9 +849,7 @@
                 ${formatCurrency((occupant.user_independent_reduction || 0)+(occupant.user_proportional_reduction || 0))}
               </td>
               <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-secondary">
-                <a href="javascript:void(0)" onclick="checkout_id(${occupant.id})" class="text-primary hover:underline">
-                ${formatCurrency(occupant.payable_fee)}
-              </a>
+                                ${canEdit ? `<a href="javascript:void(0)" onclick="checkout_id(${occupant.id})" class="text-primary hover:underline">${formatCurrency(occupant.payable_fee)}</a>` : formatCurrency(occupant.payable_fee)}
               </td>
             `;
             

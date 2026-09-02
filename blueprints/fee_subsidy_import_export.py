@@ -1,5 +1,6 @@
 from flask import Blueprint, request, jsonify, send_file
 from flask_login import login_required, current_user
+from utils.auth import require_permission
 from datetime import datetime
 from utils.lazy_imports import openpyxl  # 延迟导入openpyxl
 import re
@@ -14,8 +15,6 @@ from models.room import Room
 from models.system_config import SystemConfig
 from models.dorm import Dorm  # 新增：导入住宿模型
 from utils.log import log_operation  # 导入日志工具
-# 导入权限装饰器
-from utils.auth import require_permission
 from utils.lazy_imports import pd  # 延迟导入pandas
 from utils.excel_date_utils import excel_date_utils
 

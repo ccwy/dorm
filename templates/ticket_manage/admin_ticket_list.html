@@ -73,15 +73,19 @@
                     <button id="refreshListBtn" class="btn-hover bg-secondary text-white px-4 py-2 rounded-md flex items-center">
                         <i class="fa fa-refresh mr-2"></i>刷新列表
                     </button>
+                    {% if current_user.has_permission('ticket.delete') %}
                     <button id="batchDeleteBtn" class="btn-hover bg-danger text-white px-4 py-2 rounded-md flex items-center" disabled>
                         <i class="fa fa-trash mr-2"></i>批量删除
                     </button>
+                    {% endif %}
                     <button id="batchCloseBtn" class="btn-hover bg-warning text-white px-4 py-2 rounded-md flex items-center" disabled>
                         <i class="fa fa-times-circle mr-2"></i>批量关闭
                     </button>
+                    {% if current_user.has_permission('ticket.delete') %}
                     <button id="deleteAllBtn" class="btn-hover bg-danger/80 text-white px-4 py-2 rounded-md flex items-center">
                         <i class="fa fa-trash-o mr-2"></i>删除全部
                     </button>
+                    {% endif %}
                     <button id="closeAllBtn" class="btn-hover bg-warning/80 text-white px-4 py-2 rounded-md flex items-center">
                         <i class="fa fa-times-circle-o mr-2"></i>关闭全部
                     </button>
@@ -210,9 +214,11 @@
                                                 <i class="fa fa-times-circle mr-1"></i>关闭
                                             </button>
                                             {% endif %}
+                                            {% if current_user.has_permission('ticket.delete') %}
                                             <button onclick="confirmDelete({{ ticket.id }})" class="btn-effect bg-red-500 text-white px-2 py-1 rounded-md text-sm flex items-center">
                                                 <i class="fa fa-trash mr-1"></i>删除
                                             </button>
+                                            {% endif %}
                                         </div>
                                     </td>
                                 </tr>

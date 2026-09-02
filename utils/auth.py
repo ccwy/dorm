@@ -16,6 +16,7 @@ PERMISSIONS = {
         'name': '用户管理',
         'actions': {
             'view': '查看',
+            'manage': '管理',
             'create': '新增',
             'edit': '编辑',
             'delete': '删除',
@@ -27,6 +28,7 @@ PERMISSIONS = {
         'name': '部门管理',
         'actions': {
             'view': '查看',
+            'manage': '管理',
             'create': '新增',
             'edit': '编辑',
             'delete': '删除',
@@ -38,6 +40,7 @@ PERMISSIONS = {
         'name': '房间管理',
         'actions': {
             'view': '查看',
+            'manage': '管理',
             'create': '新增',
             'edit': '编辑',
             'delete': '删除',
@@ -49,8 +52,10 @@ PERMISSIONS = {
         'name': '宿舍管理',
         'actions': {
             'view': '查看',
-            'create': '新增',
-            'edit': '编辑',
+            'manage': '管理',
+            'allocate': '分配',
+            'checkout': '退宿',
+            'change': '换宿',
             'delete': '删除',
             'export': '导出',
             'import': '导入',
@@ -60,7 +65,9 @@ PERMISSIONS = {
         'name': '水电费管理',
         'actions': {
             'view': '查看',
-            'create': '新增',
+            'manage': '管理',
+            'reading': '抄表',
+            'calculate': '核算',
             'edit': '编辑',
             'delete': '删除',
             'export': '导出',
@@ -71,6 +78,7 @@ PERMISSIONS = {
         'name': '费用补贴',
         'actions': {
             'view': '查看',
+            'manage': '管理',
             'create': '新增',
             'edit': '编辑',
             'delete': '删除',
@@ -82,20 +90,38 @@ PERMISSIONS = {
         'name': '固定资产管理',
         'actions': {
             'view': '查看',
+            'manage': '管理',
             'create': '新增',
             'edit': '编辑',
             'delete': '删除',
+            'scrap': '报废',
+            'transfer': '转移',
+            'sell': '出售',
+            'inventory': '盘点',
+            'inventory_approve': '盘点审核',
+            'inventory_unapprove': '盘点反审核',
             'export': '导出',
             'import': '导入',
         }
     },
     'supply': {
-        'name': '办公用品管理',
+        'name': '低值易耗品管理',
         'actions': {
             'view': '查看',
+            'manage': '管理',
             'create': '新增',
             'edit': '编辑',
             'delete': '删除',
+            'approve': '审核',
+            'unapprove': '反审核',
+            'supplier': '供应商管理',
+            'supply_item': '基础物料资料',
+            'storage_location': '存放位置管理',
+            'supply_stock_detail': '库存明细',
+            'stock_in': '入库管理',
+            'stock_out': '出库管理',
+            'supply_inventory': '盘点管理',
+            'supply_stock_record': '进出库记录',
             'export': '导出',
             'import': '导入',
         }
@@ -104,29 +130,26 @@ PERMISSIONS = {
         'name': '文件共享',
         'actions': {
             'view': '查看',
-            'upload': '上传',
-            'delete': '删除',
             'manage': '管理',
+            'delete': '删除',
         }
     },
     'ticket': {
         'name': '留言管理',
         'actions': {
             'view': '查看',
+            'manage': '管理',
             'create': '新增',
             'edit': '编辑',
             'delete': '删除',
-            'manage': '管理',
         }
     },
     'maintenance': {
         'name': '后勤维修',
         'actions': {
             'view': '查看',
-            'create': '新增',
-            'edit': '编辑',
-            'delete': '删除',
             'manage': '管理',
+            'create': '新增',
             'handle': '处理',
         }
     },
@@ -134,41 +157,37 @@ PERMISSIONS = {
         'name': '待办事项',
         'actions': {
             'view': '查看',
+            'manage': '管理',
             'create': '新增',
             'edit': '编辑',
             'delete': '删除',
             'export': '导出',
-            'manage': '管理',
         }
     },
     'chat': {
         'name': '聊天',
         'actions': {
-            'view': '查看',
-            'create': '发起',
-            'send': '发送',
             'manage': '管理',
         }
     },
     'system_settings': {
         'name': '系统设置',
         'actions': {
-            'view': '查看',
             'manage': '管理',
-            'backup': '备份',
-            'initialize': '初始化',
         }
     },
     'log': {
         'name': '日志',
         'actions': {
             'view': '查看',
+            'manage': '管理',
         }
     },
     'contract': {
         'name': '合同管理',
         'actions': {
             'view': '查看',
+            'manage': '管理',
             'create': '新增',
             'edit': '编辑',
             'delete': '删除',
@@ -180,6 +199,7 @@ PERMISSIONS = {
         'name': '角色管理',
         'actions': {
             'view': '查看',
+            'manage': '管理',
             'create': '新增',
             'edit': '编辑',
             'delete': '删除',
@@ -220,3 +240,5 @@ def require_permission(permission_code):
             return f(*args, **kwargs)
         return decorated_function
     return decorator
+
+

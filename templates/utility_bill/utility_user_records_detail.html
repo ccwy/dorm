@@ -234,6 +234,7 @@
               <i class="fa fa-refresh mr-2"></i>
               刷新
             </button>
+            {% if current_user.has_permission('utility.export') %}
             <button 
               type="button" 
               id="exportBtn" 
@@ -245,6 +246,7 @@
                 <i class="fa fa-circle-o-notch fa-spin"></i> 导出中...
               </span>
             </button>
+            {% endif %}
           </div>
         </div>
       </form>
@@ -508,7 +510,9 @@
     });
     
     // 导出按钮点击事件
-    document.getElementById('exportBtn').addEventListener('click', function() {
+    const exportBtnEl = document.getElementById('exportBtn');
+    if (exportBtnEl) {
+    exportBtnEl.addEventListener('click', function() {
       // 获取筛选条件
       const billingPeriod = document.getElementById('billingPeriod').value;
       
@@ -553,6 +557,7 @@
         exportBtn.style.opacity = '1';
       }, 60000);
     });
+    }
     
     // 上一页按钮点击事件
     const prevButton = document.querySelector('.flex.items-center.space-x-2 button:nth-child(1)');

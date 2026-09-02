@@ -189,7 +189,7 @@
                 {% endif %}
 
                 <!-- 聊天功能 -->
-                {% if get_config_value('FEATURE_CHAT_ENABLED', True) and current_user.has_permission('chat.view') %}
+                {% if get_config_value('FEATURE_CHAT_ENABLED', True) and current_user.has_permission('chat.manage') %}
                 <div class="bg-white rounded-xl p-6 card-shadow btn-hover">
                     <a href="{{ url_for('chat.chat_index') }}" class="flex flex-col items-center text-center">
                         <div class="w-16 h-16 bg-blue-500/10 rounded-full flex items-center justify-center mb-4">
@@ -288,7 +288,7 @@
                 {% endif %}
 
                 <!-- 系统设置 -->
-                {% if current_user.has_permission('role.view') %}
+                {% if current_user.has_any_permission('system_settings') %}
                 <div class="bg-white rounded-xl p-6 card-shadow btn-hover">
                     <a href="{{ url_for('system_settings.settings') }}" class="flex flex-col items-center text-center">
                         <div class="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mb-4">

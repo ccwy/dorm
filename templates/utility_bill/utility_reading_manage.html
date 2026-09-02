@@ -228,17 +228,21 @@
                         </button>
                     </div>    
                     <div> 
+                        {% if current_user.has_permission('utility.import') %}
                         <button type="button" id="importBtn" class="px-3 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-bg flex items-center whitespace-nowrap text-sm">
                             <i class="fa fa-download mr-1.5"></i>导入
                         </button>
+                        {% endif %}
                     </div>
                     <div>   
+                        {% if current_user.has_permission('utility.export') %}
                         <button type="button" id="exportBtn" class="px-3 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-bg flex items-center whitespace-nowrap text-sm">
                             <i class="fa fa-upload mr-1.5"></i><span id="exportBtnText">导出</span>
                             <span id="exportingIndicator" class="ml-2 hidden">
                                 <i class="fa fa-spinner fa-spin"></i>
                             </span>
                         </button>
+                        {% endif %}
                     </div>
                     <div>
                         <button type="button" id="addReadingBtn" class="px-3 py-2 bg-success text-white rounded-md hover:bg-success/90 transition-bg flex items-center hover-lift whitespace-nowrap text-sm">
@@ -257,12 +261,14 @@
                     共 <span class="font-medium text-primary">0</span> 条记录
                 </div>
                 <div class="flex items-center space-x-3 mt-2 sm:mt-0">
+                    {% if current_user.has_permission('utility.delete') %}
                     <button type="button" id="deleteBillingPeriod" class="px-3 py-2 border border-danger/30 text-danger rounded-md hover:bg-danger/5 transition-bg flex items-center whitespace-nowrap text-sm">
                         <i class="fa fa-trash mr-1.5"></i>删除账期
                     </button>
                     <button id="batchDeleteBtn" class="px-3 py-1.5 text-danger border border-danger/30 rounded-md hover:bg-danger/5 transition-bg text-sm flex items-center" disabled>
                         <i class="fa fa-trash-o mr-1.5"></i>批量删除
                     </button>
+                    {% endif %}
                     <div class="relative">
                         <select id="pageSizeSelect" class="pl-3 pr-8 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-bg custom-select">
                             <option value="10">10条/页</option>
@@ -474,6 +480,9 @@
             let pageSize = 10;
             let hasPeriods = false; // 标记是否有周期数据
             let selectedImportFile = null; // 选中的导入文件
+            // 权限标志
+            const canEdit = {{ 'true' if current_user.has_permission('utility.edit') else 'false' }};
+            const canDelete = {{ 'true' if current_user.has_permission('utility.delete') else 'false' }};
             
             // 获取DOM元素
             const selectAllCheckbox = document.getElementById('selectAll');
@@ -772,12 +781,8 @@
                         <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-700">${record.meter_reader || '未知'}</td>
                         <td class="px-4 py-4 whitespace-nowrap">
                             <div class="flex gap-2">
-                                <button class="btn-effect bg-amber-500 text-white px-2 py-1 rounded-md text-sm flex items-center edit-btn" title="编辑" data-id="${record.id}">
-                                    <i class="fa fa-pencil mr-1"></i>编辑
-                                </button>
-                                <button class="btn-effect bg-red-500 text-white px-2 py-1 rounded-md text-sm flex items-center delete-btn" title="删除" data-id="${record.id}">
-                                    <i class="fa fa-trash mr-1"></i>删除
-                                </button>
+                                ${canEdit ? `<button class="btn-effect bg-amber-500 text-white px-2 py-1 rounded-md text-sm flex items-center edit-btn" title="编辑" data-id="${record.id}"><i class="fa fa-pencil mr-1"></i>编辑</button>` : ''}
+                                ${canDelete ? `<button class="btn-effect bg-red-500 text-white px-2 py-1 rounded-md text-sm flex items-center delete-btn" title="删除" data-id="${record.id}"><i class="fa fa-trash mr-1"></i>删除</button>` : ''}
                             </div>
                         </td>
                     `;
@@ -1157,6 +1162,7 @@
             }
             
             // 导出按钮事件
+            if (exportBtn) {
             exportBtn.addEventListener('click', function() {
                 // 构建查询参数
                 const params = new URLSearchParams();
@@ -1195,6 +1201,7 @@
                     exportBtn.classList.remove('opacity-70', 'cursor-not-allowed');
                 }, 60000);
             });
+            }
             
             // 导入/更新模态框相关功能
             // 打开模态框
@@ -1229,7 +1236,9 @@
             }
             
             // 导入按钮点击事件
+            if (importBtn) {
             importBtn.addEventListener('click', openImportUpdateModal);
+            }
             
             // 关闭模态框按钮事件
             closeImportUpdateModal.addEventListener('click', closeImportUpdateModalFunc);

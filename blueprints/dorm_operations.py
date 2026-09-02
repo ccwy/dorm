@@ -28,7 +28,7 @@ from utils.auth import require_permission
 # --------------------------
 @dorm_bp.route('/create_allocation', methods=['GET', 'POST'])
 @login_required
-@require_permission('dorm.create')
+@require_permission('dorm.allocate')
 def create_allocation():
     """分配宿舍：
     - GET: 接收user_id参数，查询用户信息和可用房间列表
@@ -265,7 +265,7 @@ def create_allocation():
 # --------------------------
 @dorm_bp.route('/add', methods=['GET', 'POST'])
 @login_required
-@require_permission('dorm.create')
+@require_permission('dorm.allocate')
 def add():
     """添加宿舍分配：处理表单提交和页面渲染"""
     is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
@@ -480,7 +480,7 @@ def add():
 # --------------------------   
 @dorm_bp.route('/checkout', methods=['GET', 'POST'])
 @login_required
-@require_permission('dorm.delete')
+@require_permission('dorm.checkout')
 def checkout():
     """退宿办理：
     - GET: 接收user_id参数，查询用户信息、房间信息和室友信息，返回相关数据
@@ -984,7 +984,7 @@ def checkout():
 # 退宿办理
 @dorm_bp.route('dorm_gameout', methods=['GET'])
 @login_required
-@require_permission('dorm.delete')
+@require_permission('dorm.checkout')
 def dorm_gameout():
     """退宿办理页面 - 返回过滤后的活跃用户数据，支持搜索和筛选"""
     # 记录访问日志
@@ -1109,7 +1109,7 @@ def dorm_gameout():
 # --------------------------
 @dorm_bp.route('/swap', methods=['GET', 'POST'])
 @login_required
-@require_permission('dorm.edit')
+@require_permission('dorm.change')
 def swap():
     """单人换宿：
     - GET: 接收user_id参数，查询用户信息、房间信息和室友信息，返回可用房间列表
@@ -1432,7 +1432,7 @@ def swap():
 # 单人更换宿舍页面（GET）
 @dorm_bp.route('/change', methods=['GET'])
 @login_required
-@require_permission('dorm.edit')
+@require_permission('dorm.change')
 def change_page():
     """加载更换宿舍页面，传递必要数据给前端"""
     try:
@@ -1470,7 +1470,7 @@ def change_page():
 # 处理单人更换宿舍提交（POST）
 @dorm_bp.route('/change', methods=['POST'])
 @login_required
-@require_permission('dorm.edit')
+@require_permission('dorm.change')
 def change():
     """处理单人更换宿舍的表单提交"""
     try:
@@ -1592,7 +1592,7 @@ def change():
 # 处理两人互换宿舍提交（POST）
 @dorm_bp.route('/exchange', methods=['POST'])
 @login_required
-@require_permission('dorm.edit')
+@require_permission('dorm.change')
 def exchange():
     """处理两人互换宿舍的表单提交"""
     try:
@@ -1727,7 +1727,7 @@ def exchange():
 # 获取指定日期的减免额度
 @dorm_bp.route('/get_subsidy_by_date', methods=['GET'])
 @login_required
-@require_permission('dorm.delete')
+@require_permission('dorm.checkout')
 def get_subsidy_by_date():
     """根据指定日期获取用户和房间的减免额度"""
     # 获取请求参数
