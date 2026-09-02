@@ -869,4 +869,3 @@ def inventory_create_page():
         logging.error(f"访问创建盘点单页面失败: {str(e)}")
         return redirect(url_for('fixed_asset.inventory'))
 
-import blueprints.fixed_asset_operations
