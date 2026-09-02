@@ -55,7 +55,8 @@ additional_hidden_imports = [
     'tkinter.messagebox',
     'pystray',
     'PIL',
-    'psutil'
+    'psutil',
+    'blueprints.fixed_asset_operations',
 ]
 
 # 收集延迟导入库的所有子模块，确保打包完整
