@@ -42,9 +42,9 @@ class AssetInventory(db.Model):
            - 全部盘亏的：恢复资产状态和数量（反盘亏报废）
         4. 新增"inventory_unapprove"操作记录（保留审核历史，反审核操作留痕）
         """
-        from models.fixed_asset import FixedAsset
-        from models.asset_inventory_detail import AssetInventoryDetail
-        from models.asset_operation_record import AssetOperationRecord
+        from .fixed_asset import FixedAsset
+        from .asset_inventory_detail import AssetInventoryDetail
+        from .asset_operation_record import AssetOperationRecord
 
         inventory = cls.query.get(inventory_id)
         if not inventory or inventory.status != '已完成':

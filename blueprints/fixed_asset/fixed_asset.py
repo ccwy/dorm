@@ -1,9 +1,9 @@
 from flask import Blueprint, render_template, request, flash, redirect, url_for, jsonify
 from utils.db import db
 from models.fixed_asset import FixedAsset
-from models.asset_operation_record import AssetOperationRecord
-from models.asset_inventory import AssetInventory
-from models.asset_inventory_detail import AssetInventoryDetail
+from models.fixed_asset import AssetOperationRecord
+from models.fixed_asset import AssetInventory
+from models.fixed_asset import AssetInventoryDetail
 from models.system_config import SystemConfig
 from models.department import Department
 from utils.asset_photo import AssetPhotoManager
@@ -21,8 +21,8 @@ fixed_asset_bp = Blueprint(
     'fixed_asset',
     __name__,
     url_prefix='/fixed_asset',
-    template_folder='../templates',
-    static_folder='../static',
+    template_folder='../../templates',
+    static_folder='../../static',
     static_url_path='/fixed_asset/static'
 )
 

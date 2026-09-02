@@ -2,9 +2,9 @@ from flask import Blueprint, render_template, request, flash, redirect, url_for,
 from flask_login import login_required, current_user
 from utils.db import db
 from models.fixed_asset import FixedAsset
-from models.asset_operation_record import AssetOperationRecord
-from models.asset_inventory import AssetInventory
-from models.asset_inventory_detail import AssetInventoryDetail
+from models.fixed_asset import AssetOperationRecord
+from models.fixed_asset import AssetInventory
+from models.fixed_asset import AssetInventoryDetail
 from utils.log import log_operation
 from utils.asset_photo import AssetPhotoManager
 from utils.auth import require_permission
@@ -21,8 +21,8 @@ fixed_asset_operations_bp = Blueprint(
     'fixed_asset_operations',
     __name__,
     url_prefix='/fixed_asset',
-    template_folder='../templates',
-    static_folder='../static',
+    template_folder='../../templates',
+    static_folder='../../static',
     static_url_path='/fixed_asset/operations/static'
 )
 

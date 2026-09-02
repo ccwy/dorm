@@ -361,9 +361,9 @@ def init_db(app: Flask, force_recreate=False):
             import models.chat_message  # 聊天消息模型
             import models.department  # 部门管理模型
             import models.fixed_asset  # 固定资产模型
-            import models.asset_inventory  # 盘点主表模型
-            import models.asset_inventory_detail  # 盘点明细模型
-            import models.asset_operation_record  # 资产操作记录模型
+            import models.fixed_asset.asset_inventory  # 盘点主表模型
+            import models.fixed_asset.asset_inventory_detail  # 盘点明细模型
+            import models.fixed_asset.asset_operation_record  # 资产操作记录模型
             import models.user_operation_record  # 用户操作记录模型
 
             # 角色管理模型

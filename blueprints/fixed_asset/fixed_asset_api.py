@@ -9,7 +9,7 @@ from utils.auth import require_permission
 from models.system_config import SystemConfig
 from models.department import Department
 from models.fixed_asset import FixedAsset
-from models.asset_operation_record import AssetOperationRecord
+from models.fixed_asset import AssetOperationRecord
 from utils.asset_photo import AssetPhotoManager
 from config import Config
 from models.room import Room
