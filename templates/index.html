@@ -288,7 +288,7 @@
                 {% endif %}
 
                 <!-- 系统设置 -->
-                {% if current_user.has_permission('system_settings.view') %}
+                {% if current_user.has_permission('role.view') %}
                 <div class="bg-white rounded-xl p-6 card-shadow btn-hover">
                     <a href="{{ url_for('system_settings.settings') }}" class="flex flex-col items-center text-center">
                         <div class="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mb-4">

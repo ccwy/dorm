@@ -158,7 +158,6 @@
             </div>
             {% endif %}
 
-            {% if current_user.has_permission('utility.view') %}
             <!-- 水电费管理卡片 -->
              {% if get_config_value('FEATURE_UTILITY_BILL_ENABLED', True) %}
             <div class="bg-white rounded-xl p-6 shadow-sm card-hover text-center">
@@ -172,7 +171,6 @@
                     进入管理
                 </button>
             </div>
-            {% endif %}
             {% endif %}
         </div>
 

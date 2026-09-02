@@ -157,13 +157,6 @@ PERMISSIONS = {
             'manage': '管理',
             'backup': '备份',
             'initialize': '初始化',
-            'user_config': '用户管理配置',
-            'room_config': '房间管理配置',
-            'fee_config': '水电费管理配置',
-            'asset_config': '固定资产管理配置',
-            'supply_config': '低值易耗品管理配置',
-            'contract_config': '合同管理配置',
-            'maintenance_config': '后勤维修配置',
         }
     },
     'log': {

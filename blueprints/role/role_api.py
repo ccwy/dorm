@@ -102,12 +102,10 @@ def api_add_users():
                 return jsonify({'success': False, 'message': '内置超级管理员账号不可分配到其他角色'}), 403
 
         added_count = 0
-        old_roles = {}
         for uid_str in user_ids:
             uid = int(uid_str)
             user = User.query.get(uid)
             if user and user.role_id != role_id:
-                old_roles[uid] = user.user_role.name if user.user_role else '无角色'
                 user.role_id = role_id
                 added_count += 1
 
@@ -117,7 +115,7 @@ def api_add_users():
             uid = int(uid_str)
             user = User.query.get(uid)
             if user and user.role_id == role_id:
-                old_role_name = old_roles.get(uid, '无角色')
+                old_role_name = user.user_role.name if user.user_role else '无角色'
                 UserOperationRecord.create_record(
                     target_user_id=uid,
                     operation_type='role_change',
