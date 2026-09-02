@@ -556,7 +556,7 @@
             const remark = document.getElementById('inventory_remark').value;
             const actualQuantity = document.getElementById('actual_quantity').value;
 
-            fetch('{{ url_for("fixed_asset_operations.check_inventory") }}', {
+            fetch('{{ url_for("fixed_asset.check_inventory") }}', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',

@@ -52,9 +52,9 @@ from .chat import chat_bp
 
 # 固定资产管理相关
 from .fixed_asset import fixed_asset_bp
-from .fixed_asset import fixed_asset_operations_bp  # 固定资产操作蓝图（独立注册）
-from .fixed_asset import fixed_asset_api_bp
-from .fixed_asset import fixed_asset_import_export_bp
+from .fixed_asset_operations import fixed_asset_operations_bp  # 操作蓝图（独立注册）
+from .fixed_asset_api import fixed_asset_api_bp
+from .fixed_asset_import_export import fixed_asset_import_export_bp
 
 # 部门管理相关
 from .department import department_bp

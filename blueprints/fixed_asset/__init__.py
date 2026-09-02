@@ -1,4 +1,0 @@
-from .fixed_asset import fixed_asset_bp
-from .fixed_asset_operations import fixed_asset_operations_bp
-from .fixed_asset_api import fixed_asset_api_bp
-from .fixed_asset_import_export import fixed_asset_import_export_bp

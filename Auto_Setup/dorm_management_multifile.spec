@@ -56,14 +56,8 @@ additional_hidden_imports = [
     'pystray',
     'PIL',
     'psutil',
-    'blueprints.fixed_asset.fixed_asset',
-    'blueprints.fixed_asset.fixed_asset_operations',
-    'blueprints.fixed_asset.fixed_asset_api',
-    'blueprints.fixed_asset.fixed_asset_import_export',
-    'models.fixed_asset.fixed_asset',
-    'models.fixed_asset.asset_operation_record',
-    'models.fixed_asset.asset_inventory',
-    'models.fixed_asset.asset_inventory_detail',
+    # 显式声明独立注册的蓝图模块，确保PyInstaller打包时包含
+    'blueprints.fixed_asset_operations',
 ]
 
 # 收集延迟导入库的所有子模块，确保打包完整

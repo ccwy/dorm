@@ -3,7 +3,7 @@ from flask import Blueprint, request, flash, redirect, url_for, send_file
 import logging
 from utils.db import db
 from models.fixed_asset import FixedAsset
-from models.fixed_asset import AssetOperationRecord
+from models.asset_operation_record import AssetOperationRecord
 from flask_login import login_required, current_user
 from utils.log import log_operation
 from utils.auth import require_permission
@@ -24,8 +24,8 @@ fixed_asset_import_export_bp = Blueprint(
     'fixed_asset_import_export',
     __name__,
     url_prefix='/fixed_asset/import-export',
-    template_folder='../../templates',
-    static_folder='../../static',
+    template_folder='../templates',
+    static_folder='../static',
     static_url_path='/fixed_asset/import-export/static'
 )
 
