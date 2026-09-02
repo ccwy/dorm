@@ -47,10 +47,6 @@ def generate_page_range(current_page, total_pages, show_pages=5):
         page_range.append(total_pages)
     return page_range
 
-# 导入操作模块
-#from . import fixed_asset_operations
-# 修改后：直接导入模块，而不是通过父包间接导入
-#import blueprints.fixed_asset_operations as fixed_asset_operations
 
 # 固定资产列表页（含筛选+分页）
 @fixed_asset_bp.route('/', methods=['GET'])
