@@ -40,8 +40,8 @@ MODULES = [
     {"name": "备份配置", "category": "system.backup", "icon": "history"}
 ]
 
-import blueprints.system_settings_backup  # 数据备份模块
-import blueprints.system_settings_initialize  # 数据初始化模块
+from . import system_settings_backup  # 数据备份模块
+from . import system_settings_initialize  # 数据初始化模块
 
 @system_config_bp.route('/api/by_configs_key/<string:key>', methods=['GET'])
 @login_required

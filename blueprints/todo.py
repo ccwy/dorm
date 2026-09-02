@@ -11,8 +11,8 @@ from datetime import datetime
 
 # 创建待办事项蓝图
 todo_bp = Blueprint('todo', __name__, url_prefix='/todo')
-import blueprints.todo_photo  # 包含新的在住人员查询API
-import blueprints.todo_export  # 包含新的在住人员查询API
+from . import todo_photo  # 包含新的在住人员查询API
+from . import todo_export  # 包含新的在住人员查询API
 
 @todo_bp.route('/')
 @login_required

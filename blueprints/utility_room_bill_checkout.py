@@ -22,9 +22,9 @@ from utils.auth import require_permission
 
 utility_room_bill_checkout_bp = Blueprint('utility_room_bill_checkout', __name__, url_prefix='/utility_room_bill_checkout')
 
-import blueprints.utility_room_bill_checkout_operations  # 增加删除蓝图
-import blueprints.utility_room_bill_checkout_edit  # 编辑蓝图
-import blueprints.utility_room_bill_checkout_export  # 导出蓝图
+from . import utility_room_bill_checkout_operations  # 增加删除蓝图
+from . import utility_room_bill_checkout_edit  # 编辑蓝图
+from . import utility_room_bill_checkout_export  # 导出蓝图
 
 @utility_room_bill_checkout_bp.route('/checkout_query', methods=['POST'])
 @login_required

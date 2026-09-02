@@ -46,7 +46,7 @@ def generate_page_range(current_page, total_pages, show_pages=5):
     return page_range
 
 # 导入操作模块
-import blueprints.contract.contract_operations
+from . import contract_operations
 
 
 # 合同列表页（含筛选+分页）

@@ -40,7 +40,7 @@ def generate_page_range(current_page, total_pages, show_pages=5):
     return page_range
 
 # 导入操作模块
-import blueprints.supply.supplier_operations
+from . import supplier_operations
 
 
 # 供应商列表页（含筛选+分页）

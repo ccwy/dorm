@@ -22,8 +22,8 @@ dorm_bp = Blueprint(
 )
 
 # 导入路由（确保所有路由被注册）
-import blueprints.dorm_operations  # 包含add、edit、checkout、swap等路由
-import blueprints.dorm_resident_api  # 包含新的在住人员查询API
+from . import dorm_operations  # 包含add、edit、checkout、swap等路由
+from . import dorm_resident_api  # 包含新的在住人员查询API
     
 @dorm_bp.route('/manage')
 @login_required

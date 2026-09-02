@@ -66,7 +66,7 @@ def generate_page_range(current_page, total_pages, show_pages=5):
     return page_range
     
 # 导入其他操作模块
-import blueprints.room_operations
+from . import room_operations
 
 # 房间管理页面
 @room_bp.route('/manage', methods=['GET'])
