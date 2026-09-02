@@ -1179,7 +1179,7 @@ def complete_inventory(id):
                     # 更新资产数量
                     asset.quantity = detail.actual_quantity
                     change_detail['quantity_change'] = f'盘盈：账面{old_quantity}{asset.unit or "台"}，实盘{detail.actual_quantity}{asset.unit or "台"}，差异+{diff}{asset.unit or "台"}'
-                    summary = f"盘点盘盈：{asset.asset_name}，结果{detail.inventory_result}，账面{old_quantity}{asset.unit or '台'}，实盘{detail.actual_quantity}{asset.unit or '台'}，差异{diff}{asset.unit or "台"}，账面盘盈{diff}{asset.unit or "台"}，库存调整为{detail.actual_quantity}{asset.unit or '台'}"
+                    summary = f"盘点盘盈：{asset.asset_name}，结果{detail.inventory_result}，账面{old_quantity}{asset.unit or '台'}，实盘{detail.actual_quantity}{asset.unit or '台'}，差异{diff}{asset.unit or '台'}，账面盘盈{diff}{asset.unit or '台'}，库存调整为{detail.actual_quantity}{asset.unit or '台'}"
                 else:
                     shortage_count += 1
                     change_type = '盘亏'
@@ -1191,12 +1191,12 @@ def complete_inventory(id):
                         asset.scrap_reason = '盘亏报废'
                         change_detail['quantity_change'] = f'盘亏：账面{old_quantity}{asset.unit or "台"}，实盘{detail.actual_quantity}{asset.unit or "台"}，差异{diff}{asset.unit or "台"}，已自动报废'
                         change_detail['auto_scrap'] = True
-                        summary = f"盘点盘亏：{asset.asset_name}，账面{old_quantity}{asset.unit or '台'}，实盘{detail.actual_quantity}{asset.unit or '台'}，差异{diff}{asset.unit or "台"}，账面盘亏{diff}{asset.unit or "台"}，已自动报废"
+                        summary = f"盘点盘亏：{asset.asset_name}，账面{old_quantity}{asset.unit or '台'}，实盘{detail.actual_quantity}{asset.unit or '台'}，差异{diff}{asset.unit or '台'}，账面盘亏{diff}{asset.unit or '台'}，已自动报废"
                     else:
                         # 部分盘亏：减少数量
                         asset.quantity = detail.actual_quantity
                         change_detail['quantity_change'] = f'盘亏：账面{old_quantity}{asset.unit or "台"}，实盘{detail.actual_quantity}{asset.unit or "台"}，差异{diff}{asset.unit or "台"}'
-                        summary = f"盘点盘亏：{asset.asset_name}，结果{detail.inventory_result}，账面{old_quantity}{asset.unit or '台'}，实盘{detail.actual_quantity}{asset.unit or '台'}，差异{diff}{asset.unit or "台"}，账面盘亏{diff}{asset.unit or "台"}，库存调整为{detail.actual_quantity}{asset.unit or '台'}"
+                        summary = f"盘点盘亏：{asset.asset_name}，结果{detail.inventory_result}，账面{old_quantity}{asset.unit or '台'}，实盘{detail.actual_quantity}{asset.unit or '台'}，差异{diff}{asset.unit or '台'}，账面盘亏{diff}{asset.unit or '台'}，库存调整为{detail.actual_quantity}{asset.unit or '台'}"
             else:
                 summary = f"资产盘点：{asset.asset_name}，结果{detail.inventory_result}"
 
