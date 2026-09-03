@@ -94,7 +94,7 @@ def utility_calculate_fees():
 
 @utility_index_bp.route('/utility_room_records_detail')
 @login_required
-@require_permission('utility.view')
+@require_permission('utility.room_records_detail')
 def utility_room_records_detail():
     """显示房间费用记录查询页面"""
     try:

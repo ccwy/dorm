@@ -486,8 +486,6 @@
     {% include 'footer.html' %}
     
   <script>
-    // 权限标志
-    const canEdit = {{ 'true' if current_user.has_permission('utility.edit') else 'false' }};
 
     // 从URL获取参数
     function getUrlParameter(name) {

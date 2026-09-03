@@ -1016,7 +1016,7 @@ def create_empty_period_records():
 
 @utility_room_bill_records_bp.route('/record_details/<int:record_id>', methods=['GET'])
 @login_required
-@require_permission('utility.view')
+@require_permission('utility.room_records_detail')
 
 def get_record_details(record_id):
     """

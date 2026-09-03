@@ -72,6 +72,7 @@ PERMISSIONS = {
             'delete': '删除',
             'export': '导出',
             'import': '导入',
+            'room_records_detail': '查看房间水电费明细',
         }
     },
     'fee_subsidy': {

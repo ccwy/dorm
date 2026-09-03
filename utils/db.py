@@ -81,11 +81,13 @@ def init_roles_and_permissions():
     user_permissions = {
         'ticket': {'view', 'create'},
         'maintenance': {'view', 'create'},
+        'utility': {'room_records_detail'},
     }
     # 维修员的权限配置
     maintenance_permissions = {
         'maintenance': {'view', 'create', 'handle'},
         'ticket': {'view', 'create'},
+        'utility': {'room_records_detail'},
     }
     
     # 创建所有内置角色
