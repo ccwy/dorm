@@ -20,7 +20,7 @@ storage_location_bp = Blueprint(
 def get_usage_types():
     """从系统配置获取存放位置使用类型选项，返回中文列表"""
     try:
-        from models.system_config import SystemConfig
+        from models.system_config.system_config import SystemConfig
         usage_types = SystemConfig.get_config_value('storage_location_usage_types', '低值易耗品,固定资产,合同管理')
         if isinstance(usage_types, str):
             usage_types = [v.strip() for v in usage_types.split(',') if v.strip()]
@@ -220,7 +220,7 @@ def detail(id):
             stock_details = SupplyStockDetail.get_stock_by_location(id)
         elif location.usage_type == '固定资产':
             # 固定资产：通过storage_location(String)与location.name匹配
-            from models.fixed_asset import FixedAsset
+            from models.fixed_asset.fixed_asset import FixedAsset
             fixed_assets = FixedAsset.query.filter(
                 FixedAsset.storage_location == location.name
             ).order_by(FixedAsset.id).all()

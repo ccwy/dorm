@@ -84,7 +84,7 @@ class SupplyItem(db.Model):
     @property
     def is_low_stock(self):
         """是否低于最低库存（受supply_low_stock_alert配置控制）"""
-        from models.system_config import SystemConfig
+        from models.system_config.system_config import SystemConfig
         if not SystemConfig.get_config_value('supply_low_stock_alert', True):
             return False  # 低库存预警关闭时始终返回False
         return self.current_stock <= self.min_stock
@@ -104,7 +104,7 @@ class SupplyItem(db.Model):
                min_stock=0, max_stock=None, status='启用',
                remark=None, operator_user_id=None, item_number=None):
         """创建物品（支持手动指定编号或自动生成）"""
-        from models.system_config import SystemConfig
+        from models.system_config.system_config import SystemConfig
         auto_number = SystemConfig.get_config_value('supply_auto_number', True)
         # 如果提供了手动编号则使用，否则根据配置决定是否自动生成
         if item_number:
@@ -135,7 +135,7 @@ class SupplyItem(db.Model):
     @classmethod
     def generate_item_number(cls):
         """生成物品编号：前缀+年月+4位序号（前缀从系统配置获取）"""
-        from models.system_config import SystemConfig
+        from models.system_config.system_config import SystemConfig
         prefix_config = SystemConfig.get_config_value('supply_number_prefix', {})
         item_prefix = prefix_config.get('item', 'YP') if isinstance(prefix_config, dict) else 'YP'
         prefix = item_prefix + datetime.now().strftime('%Y%m')
@@ -192,7 +192,7 @@ class SupplyItem(db.Model):
     @classmethod
     def get_low_stock_items(cls):
         """获取低于最低库存的物品列表（受supply_low_stock_alert配置控制）"""
-        from models.system_config import SystemConfig
+        from models.system_config.system_config import SystemConfig
         if not SystemConfig.get_config_value('supply_low_stock_alert', True):
             return []  # 低库存预警关闭时返回空列表
         return cls.query.filter(cls.current_stock <= cls.min_stock, cls.status == '启用').all()

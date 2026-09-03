@@ -367,7 +367,7 @@ def import_contracts():
                 handler_val = row.get('经手人')
                 if pd.notna(handler_val) and str(handler_val).strip():
                     try:
-                        from models.user import User
+                        from models.user.user import User
                         handler_name = str(handler_val).strip()
                         handler_user = User.query.filter_by(name=handler_name).first()
                         if handler_user:
@@ -380,7 +380,7 @@ def import_contracts():
                 department_val = row.get('归属部门')
                 if pd.notna(department_val) and str(department_val).strip():
                     try:
-                        from models.department import Department
+                        from models.department.department import Department
                         dept_name = str(department_val).strip()
                         dept = Department.query.filter_by(name=dept_name).first()
                         if dept:

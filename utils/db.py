@@ -13,7 +13,7 @@ _is_initialized = False
 
 def create_admin_user():
     """创建初始超级管理员"""
-    from models.user import User
+    from models.user.user import User
     from models.role import Role
     # 查找超级管理员角色
     super_admin_role = Role.query.filter_by(code='super_admin').first()
@@ -52,7 +52,7 @@ def create_admin_user():
 
 def init_system_configs():
     """初始化系统配置"""
-    from models.system_config import SystemConfig
+    from models.system_config.system_config import SystemConfig
     SystemConfig.init_default_configs()
     logging.info("已初始化系统配置")
 
@@ -288,32 +288,32 @@ def init_db(app: Flask, force_recreate=False):
         with app.app_context():
             
             # 导入所有模型
-            import models.user
-            import models.room
-            import models.room_bed
-            import models.dorm
-            import models.log
-            import models.utility_room_meter
-            import models.system_config
-            import models.utility_room_bill_record
-            import models.utility_room_bill_occupant
-            import models.utility_room_bill_checkout
-            import models.fee_subsidy
-            import models.fee_subsidy_usage
-            import models.room_facility  # 房间设施模型
-            import models.ticket  # 留言模型
-            import models.ticket_reply  # 留言回复模型
-            import models.todo  # 待办事项模型
-            import models.todo_progress  # 待办事项进度记录模型
-            import models.chat_session  # 聊天会话模型
-            import models.chat_participant  # 聊天参与者模型
-            import models.chat_message  # 聊天消息模型
-            import models.department  # 部门管理模型
-            import models.fixed_asset  # 固定资产模型
-            import models.asset_inventory  # 盘点主表模型
-            import models.asset_inventory_detail  # 盘点明细模型
-            import models.asset_operation_record  # 资产操作记录模型
-            import models.user_operation_record  # 用户操作记录模型
+            import models.user.user  # 用户模型
+            import models.room.room
+            import models.room.room_bed
+            import models.dorm.dorm
+            import models.log.log
+            import models.utility.utility_room_meter
+            import models.system_config.system_config
+            import models.utility.utility_room_bill_record
+            import models.utility.utility_room_bill_occupant
+            import models.utility.utility_room_bill_checkout
+            import models.fee_subsidy.fee_subsidy
+            import models.fee_subsidy.fee_subsidy_usage
+            import models.room.room_facility  # 房间设施模型
+            import models.ticket.ticket  # 留言模型
+            import models.ticket.ticket_reply  # 留言回复模型
+            import models.todo.todo  # 待办事项模型
+            import models.todo.todo_progress  # 待办事项进度记录模型
+            import models.chat.chat_session  # 聊天会话模型
+            import models.chat.chat_participant  # 聊天参与者模型
+            import models.chat.chat_message  # 聊天消息模型
+            import models.department.department  # 部门管理模型
+            import models.fixed_asset.fixed_asset  # 固定资产模型
+            import models.fixed_asset.asset_inventory  # 盘点主表模型
+            import models.fixed_asset.asset_inventory_detail  # 盘点明细模型
+            import models.fixed_asset.asset_operation_record  # 资产操作记录模型
+            import models.user.user_operation_record  # 用户操作记录模型
 
             # 角色管理模型
             import models.role.role

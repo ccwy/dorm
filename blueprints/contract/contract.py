@@ -4,8 +4,8 @@ from models.contract.contract import Contract
 from models.contract.contract_operation_record import ContractOperationRecord
 from models.supply.supplier import Supplier
 from models.supply.storage_location import StorageLocation
-from models.department import Department
-from models.system_config import SystemConfig
+from models.department.department import Department
+from models.system_config.system_config import SystemConfig
 from flask_login import login_required, current_user
 from utils.log import log_operation
 from utils.auth import require_permission
@@ -226,7 +226,7 @@ def add_page():
                 renewal_contract_name = f'{base_name}（第{renewal_count}次续签）'
 
         # 获取部门列表
-        departments = Department.query.order_by(Department.name).all()
+        departments = Department.query.filter_by(status='正常').order_by(Department.name).all()
 
         # 获取合同存放位置列表
         storage_locations = StorageLocation.get_active_locations(usage_type='合同管理')
@@ -271,7 +271,7 @@ def edit_page(id):
         contract_categories = contract_categories_value if isinstance(contract_categories_value, list) else [c.strip() for c in contract_categories_value.split(',') if c.strip()]
 
         # 获取部门列表
-        departments = Department.query.order_by(Department.name).all()
+        departments = Department.query.filter_by(status='正常').order_by(Department.name).all()
 
         # 获取合同存放位置列表
         storage_locations = StorageLocation.get_active_locations(usage_type='合同管理')

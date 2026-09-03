@@ -392,7 +392,7 @@ def log_operation(
         # 在函数内部导入，避免循环导入
         from datetime import datetime
         from utils.db import db
-        from models.log import OperationLog
+        from models.log.log import OperationLog
         
         # 自动获取IP地址（如果未提供）
         if ip_address is None:

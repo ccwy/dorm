@@ -5,8 +5,8 @@ from models.supply.stock_in_detail import StockInDetail
 from models.supply.supplier import Supplier
 from models.supply.supply_item import SupplyItem
 from models.supply.storage_location import StorageLocation
-from models.department import Department
-from models.user import User
+from models.department.department import Department
+from models.user.user import User
 from flask_login import login_required, current_user
 from utils.log import log_operation
 from utils.auth import require_permission
@@ -75,7 +75,7 @@ def list_stock_ins():
         suppliers = Supplier.get_active_suppliers()
 
         # 从系统配置获取入库类型选项
-        from models.system_config import SystemConfig
+        from models.system_config.system_config import SystemConfig
         stock_in_types = SystemConfig.get_config_value('stock_in_types', '采购入库,其它入库')
         if isinstance(stock_in_types, str):
             stock_in_types = [t.strip() for t in stock_in_types.split(',') if t.strip()]
@@ -137,7 +137,7 @@ def list_stock_ins():
         logging.info(f"加载入库管理页面，当前用户ID: {current_user.id}")
 
         # 获取入库单审核开关状态
-        from models.system_config import SystemConfig
+        from models.system_config.system_config import SystemConfig
         approval_enabled = SystemConfig.get_config_value('STOCK_IN_APPROVAL_ENABLED', True)
         unapprove_enabled = SystemConfig.get_config_value('STOCK_IN_UNAPPROVE_ENABLED', True)
 
@@ -211,7 +211,7 @@ def add_stock_in():
         items = SupplyItem.query.filter_by(status='启用').order_by(SupplyItem.id).all()
 
         # 从系统配置获取入库类型选项
-        from models.system_config import SystemConfig
+        from models.system_config.system_config import SystemConfig
         stock_in_types = SystemConfig.get_config_value('stock_in_types', '采购入库,其它入库')
         if isinstance(stock_in_types, str):
             stock_in_types = [t.strip() for t in stock_in_types.split(',') if t.strip()]
@@ -256,7 +256,7 @@ def edit_stock_in(id):
         items = SupplyItem.query.filter_by(status='启用').order_by(SupplyItem.id).all()
 
         # 从系统配置获取入库类型选项
-        from models.system_config import SystemConfig
+        from models.system_config.system_config import SystemConfig
         stock_in_types = SystemConfig.get_config_value('stock_in_types', '采购入库,其它入库')
         if isinstance(stock_in_types, str):
             stock_in_types = [t.strip() for t in stock_in_types.split(',') if t.strip()]
@@ -301,7 +301,7 @@ def detail_stock_in(id):
         logging.info(f"查看出库单详情，入库单ID: {id}")
 
         # 获取入库单审核开关状态
-        from models.system_config import SystemConfig
+        from models.system_config.system_config import SystemConfig
         approval_enabled = SystemConfig.get_config_value('STOCK_IN_APPROVAL_ENABLED', True)
         unapprove_enabled = SystemConfig.get_config_value('STOCK_IN_UNAPPROVE_ENABLED', True)
 

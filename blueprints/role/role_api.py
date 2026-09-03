@@ -4,7 +4,7 @@ from flask import request, jsonify
 from flask_login import login_required, current_user
 from utils.db import db
 from models.role import Role, RolePermission
-from models.user import User
+from models.user.user import User
 from utils.log import log_operation
 from utils.auth import require_permission
 import logging
@@ -31,9 +31,10 @@ def api_search_users():
         if not role:
             return jsonify({'success': False, 'message': '角色不存在'}), 404
 
-        # 查询不在当前角色中的用户
+        # 查询不在当前角色中的用户（仅限在职用户）
         query = User.query.filter(
-            db.or_(User.role_id != role_id, User.role_id.is_(None))
+            db.or_(User.role_id != role_id, User.role_id.is_(None)),
+            User.status == '在职'
         )
 
         # 超级管理员保护：非super_admin角色搜索用户时排除内置admin账号
@@ -102,17 +103,22 @@ def api_add_users():
                 return jsonify({'success': False, 'message': '内置超级管理员账号不可分配到其他角色'}), 403
 
         added_count = 0
+        skipped_count = 0
         old_roles = {}
         for uid_str in user_ids:
             uid = int(uid_str)
             user = User.query.get(uid)
             if user and user.role_id != role_id:
+                # 跳过非在职用户
+                if user.status != '在职':
+                    skipped_count += 1
+                    continue
                 old_roles[uid] = user.user_role.name if user.user_role else '无角色'
                 user.role_id = role_id
                 added_count += 1
 
         # 记录角色变更
-        from models.user_operation_record import UserOperationRecord
+        from models.user.user_operation_record import UserOperationRecord
         for uid_str in user_ids:
             uid = int(uid_str)
             user = User.query.get(uid)
@@ -143,6 +149,8 @@ def api_add_users():
         msg = f'成功添加 {added_count} 个用户'
         if protected_count > 0:
             msg += f'（已自动排除 {protected_count} 个内置超级管理员账号）'
+        if skipped_count > 0:
+            msg += f'（已自动排除 {skipped_count} 个非在职用户）'
         return jsonify({'success': True, 'message': msg})
 
     except Exception as e:
@@ -188,7 +196,7 @@ def api_remove_users():
                 removed_count += 1
 
         # 记录角色移除
-        from models.user_operation_record import UserOperationRecord
+        from models.user.user_operation_record import UserOperationRecord
         for uid_str in user_ids:
             uid = int(uid_str)
             user = User.query.get(uid)

@@ -5,8 +5,8 @@ from models.supply.stock_out_detail import StockOutDetail
 from models.supply.supply_item import SupplyItem
 from models.supply.storage_location import StorageLocation
 from models.supply.supply_stock_detail import SupplyStockDetail
-from models.department import Department
-from models.user import User
+from models.department.department import Department
+from models.user.user import User
 from flask_login import login_required, current_user
 from utils.log import log_operation
 from utils.auth import require_permission
@@ -73,7 +73,7 @@ def list_stock_outs():
         statuses = ['待审核', '已审核', '已取消']
 
         # 从系统配置获取出库类型选项
-        from models.system_config import SystemConfig
+        from models.system_config.system_config import SystemConfig
         stock_out_types = SystemConfig.get_config_value('stock_out_types', '正常领用,其他出库')
         if isinstance(stock_out_types, str):
             stock_out_types = [t.strip() for t in stock_out_types.split(',') if t.strip()]
@@ -133,7 +133,7 @@ def list_stock_outs():
         logging.info(f"加载出库管理页面，当前用户ID: {current_user.id}")
 
         # 获取出库单审核开关状态
-        from models.system_config import SystemConfig
+        from models.system_config.system_config import SystemConfig
         approval_enabled = SystemConfig.get_config_value('STOCK_OUT_APPROVAL_ENABLED', True)
         unapprove_enabled = SystemConfig.get_config_value('STOCK_OUT_UNAPPROVE_ENABLED', True)
 
@@ -197,13 +197,13 @@ def list_stock_outs():
 @require_permission('supply.create')
 def add_stock_out():
     try:
-        departments = Department.query.order_by(Department.id).all()
-        users = User.query.order_by(User.id).all()
+        departments = Department.query.filter_by(status='正常').order_by(Department.id).all()
+        users = User.query.filter(User.status == '在职').order_by(User.id).all()
         locations = StorageLocation.query.filter_by(status='启用', usage_type='低值易耗品').order_by(StorageLocation.id).all()
         items = SupplyItem.query.filter_by(status='启用').order_by(SupplyItem.id).all()
 
         # 从系统配置获取出库类型选项
-        from models.system_config import SystemConfig
+        from models.system_config.system_config import SystemConfig
         stock_out_types = SystemConfig.get_config_value('stock_out_types', '正常领用,其他出库')
         if isinstance(stock_out_types, str):
             stock_out_types = [t.strip() for t in stock_out_types.split(',') if t.strip()]
@@ -263,13 +263,13 @@ def edit_stock_out(id):
             flash('仅待审核状态的出库单可以编辑', 'warning')
             return redirect(url_for('stock_out.detail_stock_out', id=id))
 
-        departments = Department.query.order_by(Department.id).all()
-        users = User.query.order_by(User.id).all()
+        departments = Department.query.filter_by(status='正常').order_by(Department.id).all()
+        users = User.query.filter(User.status == '在职').order_by(User.id).all()
         locations = StorageLocation.query.filter_by(status='启用', usage_type='低值易耗品').order_by(StorageLocation.id).all()
         items = SupplyItem.query.filter_by(status='启用').order_by(SupplyItem.id).all()
 
         # 从系统配置获取出库类型选项
-        from models.system_config import SystemConfig
+        from models.system_config.system_config import SystemConfig
         stock_out_types = SystemConfig.get_config_value('stock_out_types', '正常领用,其他出库')
         if isinstance(stock_out_types, str):
             stock_out_types = [t.strip() for t in stock_out_types.split(',') if t.strip()]
@@ -309,7 +309,7 @@ def detail_stock_out(id):
         logging.info(f"查看出库单详情，出库单ID: {id}")
 
         # 获取出库单审核开关状态
-        from models.system_config import SystemConfig
+        from models.system_config.system_config import SystemConfig
         approval_enabled = SystemConfig.get_config_value('STOCK_OUT_APPROVAL_ENABLED', True)
         unapprove_enabled = SystemConfig.get_config_value('STOCK_OUT_UNAPPROVE_ENABLED', True)
 

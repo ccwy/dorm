@@ -62,7 +62,7 @@ class Supplier(db.Model):
     def handler_name(self):
         """返回经手人姓名"""
         if self.handler_user_id:
-            from models.user import User
+            from models.user.user import User
             user = User.query.get(self.handler_user_id)
             return user.name if user else '未知'
         return '未指定'
@@ -127,6 +127,6 @@ class Supplier(db.Model):
 
     @classmethod
     def get_all_names(cls):
-        """获取所有供应商名称列表"""
-        suppliers = cls.query.order_by(cls.name).all()
+        """获取所有启用状态的供应商名称列表"""
+        suppliers = cls.query.filter_by(status='启用').order_by(cls.name).all()
         return [s.name for s in suppliers]

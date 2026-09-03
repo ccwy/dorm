@@ -25,23 +25,30 @@ def create_stock_out():
         stock_out_date_str = request.form.get('stock_out_date', '').strip()
         recipient_user_id = request.form.get('recipient_user_id', type=int) or None
         recipient_name = request.form.get('recipient_name', '').strip()
+        # 校验领用人是否为在职用户
+        if recipient_user_id:
+            from models.user.user import User
+            recipient_user = User.query.get(recipient_user_id)
+            if recipient_user and recipient_user.status != '在职':
+                flash('领用人必须为在职用户', 'danger')
+                return redirect(url_for('stock_out.add_stock_out'))
         department_id = request.form.get('department_id', type=int) or None
         department_name = request.form.get('department_name', '').strip()
         handler_user_id = current_user.id
         remark = request.form.get('remark', '').strip() or None
         stock_out_number = request.form.get('stock_out_number', '').strip() or None  # 手动编号（可选）
 
-        # 处理领用人：如果没选系统用户但有自定义输入，尝试按名称查找
+        # 处理领用人：如果没选系统用户但有自定义输入，尝试按名称查找（仅限在职用户）
         if not recipient_user_id and recipient_name:
-            from models.user import User
-            existing_user = User.query.filter(User.name == recipient_name).first()
+            from models.user.user import User
+            existing_user = User.query.filter(User.name == recipient_name, User.status == '在职').first()
             if existing_user:
                 recipient_user_id = existing_user.id
 
         # 处理部门：如果没选系统部门但有自定义输入，尝试按名称查找
         if not department_id and department_name:
-            from models.department import Department
-            existing_dept = Department.query.filter(Department.name == department_name).first()
+            from models.department.department import Department
+            existing_dept = Department.query.filter(Department.name == department_name, Department.status == '正常').first()
             if existing_dept:
                 department_id = existing_dept.id
 
@@ -146,7 +153,7 @@ def create_stock_out():
         )
 
         # 检查出库单审核开关：未启用审核时保存即自动审核
-        from models.system_config import SystemConfig
+        from models.system_config.system_config import SystemConfig
         approval_enabled = SystemConfig.get_config_value('STOCK_OUT_APPROVAL_ENABLED', True)
         if not approval_enabled:
             try:
@@ -198,23 +205,30 @@ def update_stock_out(id):
         stock_out_date_str = request.form.get('stock_out_date', '').strip()
         recipient_user_id = request.form.get('recipient_user_id', type=int) or None
         recipient_name = request.form.get('recipient_name', '').strip()
+        # 校验领用人是否为在职用户
+        if recipient_user_id:
+            from models.user.user import User
+            recipient_user = User.query.get(recipient_user_id)
+            if recipient_user and recipient_user.status != '在职':
+                flash('领用人必须为在职用户', 'danger')
+                return redirect(url_for('stock_out.edit_stock_out', id=id))
         department_id = request.form.get('department_id', type=int) or None
         department_name = request.form.get('department_name', '').strip()
         handler_user_id = current_user.id
         remark = request.form.get('remark', '').strip() or None
         stock_out_number = request.form.get('stock_out_number', '').strip() or None  # 手动编号（可选）
 
-        # 处理领用人：如果没选系统用户但有自定义输入，尝试按名称查找
+        # 处理领用人：如果没选系统用户但有自定义输入，尝试按名称查找（仅限在职用户）
         if not recipient_user_id and recipient_name:
-            from models.user import User
-            existing_user = User.query.filter(User.name == recipient_name).first()
+            from models.user.user import User
+            existing_user = User.query.filter(User.name == recipient_name, User.status == '在职').first()
             if existing_user:
                 recipient_user_id = existing_user.id
 
         # 处理部门：如果没选系统部门但有自定义输入，尝试按名称查找
         if not department_id and department_name:
-            from models.department import Department
-            existing_dept = Department.query.filter(Department.name == department_name).first()
+            from models.department.department import Department
+            existing_dept = Department.query.filter(Department.name == department_name, Department.status == '正常').first()
             if existing_dept:
                 department_id = existing_dept.id
 
@@ -308,7 +322,7 @@ def update_stock_out(id):
         )
 
         # 检查出库单审核开关：未启用审核时保存即自动审核
-        from models.system_config import SystemConfig
+        from models.system_config.system_config import SystemConfig
         approval_enabled = SystemConfig.get_config_value('STOCK_OUT_APPROVAL_ENABLED', True)
         if not approval_enabled:
             try:
@@ -450,7 +464,7 @@ def unapprove_stock_out(id):
     """反审核出库单（仅已审核状态可反审核，反审核后状态变为待审核，库存回滚）"""
     try:
         # 检查系统配置是否允许反审核
-        from models.system_config import SystemConfig
+        from models.system_config.system_config import SystemConfig
         unapprove_enabled = SystemConfig.get_config_value('STOCK_OUT_UNAPPROVE_ENABLED', True)
         if not unapprove_enabled:
             flash('出库单反审核功能已关闭，请联系管理员开启', 'warning')

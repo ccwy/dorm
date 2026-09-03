@@ -6,7 +6,7 @@ from models.supply.stock_in_detail import StockInDetail
 from models.supply.supplier import Supplier
 from models.supply.supply_item import SupplyItem
 from models.supply.storage_location import StorageLocation
-from models.system_config import SystemConfig
+from models.system_config.system_config import SystemConfig
 from utils.log import log_operation
 from utils.auth import require_permission
 import logging
@@ -511,7 +511,7 @@ def unapprove_stock_in(id):
     """反审核入库单（仅已审核状态可反审核，反审核后状态变为待审核，库存回滚）"""
     try:
         # 检查系统配置是否允许反审核
-        from models.system_config import SystemConfig
+        from models.system_config.system_config import SystemConfig
         unapprove_enabled = SystemConfig.get_config_value('STOCK_IN_UNAPPROVE_ENABLED', True)
         if not unapprove_enabled:
             flash('入库单反审核功能已关闭，请联系管理员开启', 'warning')

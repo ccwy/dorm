@@ -53,7 +53,7 @@ def generate_monthly_utility_records():
     """
     try:
         # 内部导入所需模型
-        from models.utility_room_bill_record import RoomUtilityRecord
+        from models.utility.utility_room_bill_record import RoomUtilityRecord
         from utils.db import db  # 导入数据库实例
         # 获取当前年月作为账期 - 修改为带连字符的格式
         current_year = datetime.now().year

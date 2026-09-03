@@ -3,8 +3,8 @@ from utils.db import db
 from models.supply.supply_stock_record import SupplyStockRecord
 from models.supply.supply_item import SupplyItem
 from models.supply.storage_location import StorageLocation
-from models.department import Department
-from models.user import User
+from models.department.department import Department
+from models.user.user import User
 from flask_login import login_required, current_user
 from utils.log import log_operation
 from utils.auth import require_permission
@@ -71,7 +71,7 @@ def list_records():
         record_types = ['入库', '出库', '盘盈', '盘亏']
         items = SupplyItem.get_active_items()
         locations = StorageLocation.query.filter_by(status='启用', usage_type='低值易耗品').order_by(StorageLocation.id).all()
-        departments = Department.query.order_by(Department.id).all()
+        departments = Department.query.filter_by(status='正常').order_by(Department.id).all()
         users = User.query.order_by(User.id).all()
 
         # 构建查询

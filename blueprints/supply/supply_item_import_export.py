@@ -180,7 +180,7 @@ def import_items():
             supplier_map[s.name.strip()] = s.id
 
         # 获取系统配置默认值
-        from models.system_config import SystemConfig
+        from models.system_config.system_config import SystemConfig
         default_min_stock = SystemConfig.get_config_value('supply_default_min_stock', 0)
 
         # 准备导入数据列表

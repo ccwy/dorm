@@ -78,7 +78,7 @@ _stamp("初始化日志系统")
 
 # 仅导入User模型（login_manager.user_loader需要）
 # 其他模型在init_db()中按需导入，无需在此重复导入
-from models.user import User
+from models.user.user import User
 _stamp("导入User模型")
 
 # 蓝图导入
@@ -225,7 +225,7 @@ _stamp("初始化数据库")
 @app.context_processor
 def inject_common_common_variables():
     # 从数据库获取系统标题
-    from models.system_config import SystemConfig  # 延迟导入，init_db已加载模型模块
+    from models.system_config.system_config import SystemConfig  # 延迟导入，init_db已加载模型模块
     config = DatabaseConfig.load_config()
     system_title = config.get('SYSTEM_TITLE', '行政后勤管理系统')
     return {

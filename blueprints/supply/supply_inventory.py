@@ -6,7 +6,7 @@ from models.supply.supply_inventory_detail import SupplyInventoryDetail
 from models.supply.supply_item import SupplyItem
 from models.supply.storage_location import StorageLocation
 from models.supply.supply_stock_detail import SupplyStockDetail
-from models.user import User
+from models.user.user import User
 from flask_login import login_required, current_user
 from utils.log import log_operation
 from utils.auth import require_permission
@@ -99,7 +99,7 @@ def list_inventories():
         logging.info(f"加载盘点管理页面，当前用户ID: {current_user.id}")
 
         # 获取盘点反审核开关配置
-        from models.system_config import SystemConfig
+        from models.system_config.system_config import SystemConfig
         inventory_unapprove_enabled = SystemConfig.get_config_value('supply_inventory_unapprove_enabled', True)
 
         return render_template(
@@ -229,7 +229,7 @@ def detail_inventory(id):
         logging.info(f"查看盘点单详情，盘点ID: {id}")
 
         # 获取盘点反审核开关配置
-        from models.system_config import SystemConfig
+        from models.system_config.system_config import SystemConfig
         inventory_unapprove_enabled = SystemConfig.get_config_value('supply_inventory_unapprove_enabled', True)
 
         return render_template(

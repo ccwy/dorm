@@ -1,9 +1,9 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
 from utils.db import db
 from models.maintenance import MaintenanceOrder, MaintenanceReply
-from models.user import User
+from models.user.user import User
 from models.role import Role
-from models.system_config import SystemConfig
+from models.system_config.system_config import SystemConfig
 from utils.maintenance_photo import MaintenancePhotoManager
 from flask_login import login_required, current_user
 from sqlalchemy import or_

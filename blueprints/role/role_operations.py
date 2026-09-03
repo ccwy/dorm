@@ -4,7 +4,7 @@ from flask import render_template, request, flash, redirect, url_for, jsonify
 from flask_login import login_required, current_user
 from utils.db import db
 from models.role import Role, RolePermission
-from models.user import User
+from models.user.user import User
 from utils.log import log_operation
 from utils.auth import require_permission, PERMISSIONS
 import logging

@@ -83,7 +83,7 @@ class StorageLocation(db.Model):
     def handler_name(self):
         """返回经手人姓名"""
         if self.handler_user_id:
-            from models.user import User
+            from models.user.user import User
             user = User.query.get(self.handler_user_id)
             return user.name if user else '未知'
         return '未指定'

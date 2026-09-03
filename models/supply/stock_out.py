@@ -80,7 +80,7 @@ class StockOut(db.Model):
     def recipient_name(self):
         """返回领用人姓名"""
         if self.recipient_user_id:
-            from models.user import User
+            from models.user.user import User
             user = User.query.get(self.recipient_user_id)
             return user.name if user else '未知'
         return '未指定'
@@ -89,7 +89,7 @@ class StockOut(db.Model):
     def department_name(self):
         """返回领用部门名称"""
         if self.department_id:
-            from models.department import Department
+            from models.department.department import Department
             dept = Department.query.get(self.department_id)
             return dept.name if dept else '未知'
         return '未指定'
@@ -98,7 +98,7 @@ class StockOut(db.Model):
     def handler_name(self):
         """返回经手人姓名"""
         if self.handler_user_id:
-            from models.user import User
+            from models.user.user import User
             user = User.query.get(self.handler_user_id)
             return user.name if user else '未知'
         return '未指定'
@@ -107,7 +107,7 @@ class StockOut(db.Model):
     def operator_name(self):
         """返回操作人姓名"""
         if self.operator_user_id:
-            from models.user import User
+            from models.user.user import User
             user = User.query.get(self.operator_user_id)
             return user.name if user else '未知'
         return '系统'
@@ -116,7 +116,7 @@ class StockOut(db.Model):
     def reviewer_name(self):
         """返回审核人姓名"""
         if self.review_user_id:
-            from models.user import User
+            from models.user.user import User
             user = User.query.get(self.review_user_id)
             return user.name if user else '未知'
         return '-'
@@ -131,7 +131,7 @@ class StockOut(db.Model):
                department_id=None, handler_user_id=None,
                remark=None, operator_user_id=None, stock_out_number=None):
         """创建出库单（支持手动指定编号或自动生成）"""
-        from models.system_config import SystemConfig
+        from models.system_config.system_config import SystemConfig
         auto_number = SystemConfig.get_config_value('supply_auto_number', True)
         if stock_out_number:
             final_number = stock_out_number
@@ -156,7 +156,7 @@ class StockOut(db.Model):
     @classmethod
     def generate_stock_out_number(cls):
         """生成出库单号：前缀+年月+4位序号（前缀从系统配置获取）"""
-        from models.system_config import SystemConfig
+        from models.system_config.system_config import SystemConfig
         prefix_config = SystemConfig.get_config_value('supply_number_prefix', {})
         stock_out_prefix = prefix_config.get('stock_out', 'CK') if isinstance(prefix_config, dict) else 'CK'
         prefix = stock_out_prefix + datetime.now().strftime('%Y%m')

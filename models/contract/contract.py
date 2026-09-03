@@ -180,7 +180,7 @@ class Contract(db.Model):
     def handler_name(self):
         """返回经手人姓名"""
         if self.handler_user_id:
-            from models.user import User
+            from models.user.user import User
             user = User.query.get(self.handler_user_id)
             return user.name if user else '未知'
         return '未指定'
@@ -189,7 +189,7 @@ class Contract(db.Model):
     def department_name(self):
         """返回归属部门名称"""
         if self.department_id:
-            from models.department import Department
+            from models.department.department import Department
             dept = Department.query.get(self.department_id)
             return dept.name if dept else '未知'
         return '未指定'
@@ -328,7 +328,7 @@ class Contract(db.Model):
         - 生效中的合同，如果已过期 → 更新为'已到期'
         - 生效中的合同，如果在配置的提醒天数内到期 → 更新为'即将到期'
         """
-        from models.system_config import SystemConfig
+        from models.system_config.system_config import SystemConfig
         warning_days = SystemConfig.get_config_value('CONTRACT_EXPIRY_WARNING_DAYS', 30)
         if isinstance(warning_days, str):
             warning_days = int(warning_days)
@@ -359,7 +359,7 @@ class Contract(db.Model):
     @classmethod
     def get_expiring_contracts(cls, days=None):
         """获取即将到期的合同列表，默认天数从系统配置读取"""
-        from models.system_config import SystemConfig
+        from models.system_config.system_config import SystemConfig
         if days is None:
             days = SystemConfig.get_config_value('CONTRACT_EXPIRY_WARNING_DAYS', 30)
             if isinstance(days, str):

@@ -63,7 +63,7 @@ class SupplyInventory(db.Model):
     def creator_name(self):
         """返回创建人姓名"""
         if self.operator_user_id:
-            from models.user import User
+            from models.user.user import User
             user = User.query.get(self.operator_user_id)
             return user.name if user else '未知'
         return '-'
@@ -76,7 +76,7 @@ class SupplyInventory(db.Model):
     @classmethod
     def create(cls, title, inventory_date, remark=None, operator_user_id=None, inventory_number=None):
         """创建盘点单（支持手动指定编号或自动生成）"""
-        from models.system_config import SystemConfig
+        from models.system_config.system_config import SystemConfig
         auto_number = SystemConfig.get_config_value('supply_auto_number', True)
         if inventory_number:
             final_number = inventory_number
@@ -103,7 +103,7 @@ class SupplyInventory(db.Model):
     @classmethod
     def generate_inventory_number(cls):
         """生成盘点单号：前缀+年月+4位序号（前缀从系统配置获取）"""
-        from models.system_config import SystemConfig
+        from models.system_config.system_config import SystemConfig
         prefix_config = SystemConfig.get_config_value('supply_number_prefix', {})
         inventory_prefix = prefix_config.get('inventory', 'PD') if isinstance(prefix_config, dict) else 'PD'
         prefix = inventory_prefix + datetime.now().strftime('%Y%m')

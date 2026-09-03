@@ -3,7 +3,7 @@ from utils.db import db
 from models.supply.supply_item import SupplyItem
 from models.supply.supplier import Supplier
 from models.supply.storage_location import StorageLocation
-from models.system_config import SystemConfig
+from models.system_config.system_config import SystemConfig
 from flask_login import login_required, current_user
 from utils.log import log_operation
 from utils.auth import require_permission
@@ -91,7 +91,7 @@ def index():
         if supplier_id:
             query = query.filter(SupplyItem.supplier_id == supplier_id)
         if low_stock == '1':
-            from models.system_config import SystemConfig
+            from models.system_config.system_config import SystemConfig
             if SystemConfig.get_config_value('supply_low_stock_alert', True):
                 query = query.filter(SupplyItem.current_stock <= SupplyItem.min_stock)
 

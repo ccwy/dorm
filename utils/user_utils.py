@@ -1,6 +1,6 @@
 import time
 import random
-from models.user import User
+from models.user.user import User
 import datetime
 from typing import Any, Dict, Set, Optional
 from sqlalchemy.inspection import inspect

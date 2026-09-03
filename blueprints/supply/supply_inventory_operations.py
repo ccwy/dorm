@@ -35,7 +35,7 @@ def create_inventory():
             inventory_date = date.today()
 
         # 生成盘点单号（支持手动指定或自动生成）
-        from models.system_config import SystemConfig
+        from models.system_config.system_config import SystemConfig
         auto_number = SystemConfig.get_config_value('supply_auto_number', True)
         manual_number = request.form.get('inventory_number', '').strip() or None
         if manual_number:
@@ -293,7 +293,7 @@ def unapprove_inventory(id):
     """反审核盘点单（仅已完成状态可反审核，反审核后状态变为进行中，库存回滚）"""
     try:
         # 检查系统配置是否允许反审核
-        from models.system_config import SystemConfig
+        from models.system_config.system_config import SystemConfig
         unapprove_enabled = SystemConfig.get_config_value('supply_inventory_unapprove_enabled', True)
         if not unapprove_enabled:
             flash('盘点反审核功能已关闭，请联系管理员开启', 'warning')

@@ -2,7 +2,7 @@ from flask import Blueprint, render_template, request, flash, redirect, url_for,
 from utils.db import db
 from models.supply.supplier import Supplier
 from models.supply.supplier_operation_record import SupplierOperationRecord
-from models.user import User
+from models.user.user import User
 from flask_login import login_required, current_user
 from utils.log import log_operation
 from utils.auth import require_permission

@@ -104,7 +104,7 @@ def list_stock_details():
 
         # 低库存筛选（受supply_low_stock_alert配置控制）
         if low_stock == '1':
-            from models.system_config import SystemConfig
+            from models.system_config.system_config import SystemConfig
             if SystemConfig.get_config_value('supply_low_stock_alert', True):
                 item_query = item_query.filter(SupplyItem.current_stock <= SupplyItem.min_stock)
 
@@ -328,7 +328,7 @@ def low_stock():
     """低库存预警列表页"""
     try:
         # 检查低库存预警是否启用
-        from models.system_config import SystemConfig
+        from models.system_config.system_config import SystemConfig
         low_stock_alert_enabled = SystemConfig.get_config_value('supply_low_stock_alert', True)
         
         page = request.args.get('page', 1, type=int)
@@ -467,7 +467,7 @@ def export_stock_details():
             ).filter(SupplyStockDetail.location_id == location_id)
 
         if low_stock == '1':
-            from models.system_config import SystemConfig
+            from models.system_config.system_config import SystemConfig
             if SystemConfig.get_config_value('supply_low_stock_alert', True):
                 item_query = item_query.filter(SupplyItem.current_stock <= SupplyItem.min_stock)
 

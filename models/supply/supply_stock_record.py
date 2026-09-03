@@ -97,7 +97,7 @@ class SupplyStockRecord(db.Model):
     def recipient_name(self):
         """返回领用人姓名"""
         if self.recipient_user_id:
-            from models.user import User
+            from models.user.user import User
             user = User.query.get(self.recipient_user_id)
             return user.name if user else '未知'
         return '无'
@@ -106,7 +106,7 @@ class SupplyStockRecord(db.Model):
     def department_name(self):
         """返回领用部门名称"""
         if self.department_id:
-            from models.department import Department
+            from models.department.department import Department
             dept = Department.query.get(self.department_id)
             return dept.name if dept else '未知'
         return '无'
@@ -133,7 +133,7 @@ class SupplyStockRecord(db.Model):
     def operator_name(self):
         """返回操作人姓名"""
         if self.operator_user_id:
-            from models.user import User
+            from models.user.user import User
             user = User.query.get(self.operator_user_id)
             return user.name if user else '未知'
         return '系统'

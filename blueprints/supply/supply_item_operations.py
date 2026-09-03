@@ -29,7 +29,7 @@ def add_supply_item():
         min_stock = request.form.get('min_stock', 0, type=int)
         # 如果未提供min_stock，使用系统配置的默认值
         if min_stock == 0 and not request.form.get('min_stock'):
-            from models.system_config import SystemConfig
+            from models.system_config.system_config import SystemConfig
             min_stock = SystemConfig.get_config_value('supply_default_min_stock', 0)
         max_stock = request.form.get('max_stock', type=int)
         status = request.form.get('status', '启用').strip() or '启用'

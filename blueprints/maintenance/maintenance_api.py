@@ -1,8 +1,8 @@
 from flask import Blueprint, request, jsonify, send_file, current_app
 from models.maintenance import MaintenanceOrder
-from models.user import User
+from models.user.user import User
 from models.role import Role
-from models.room import Room
+from models.room.room import Room
 from utils.maintenance_photo import MaintenancePhotoManager
 from flask_login import login_required, current_user
 from utils.auth import require_permission
