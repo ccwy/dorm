@@ -243,6 +243,35 @@ def add_asset():
             responsible_user_id=responsible_user_id
         )
 
+        # 构建详细摘要
+        summary_parts = [f"新增资产: {asset.asset_name}({asset.display_number})"]
+        summary_parts.append(f"分类: {asset.asset_category}")
+        if asset.specification:
+            summary_parts.append(f"规格: {asset.specification}")
+        if asset.brand:
+            summary_parts.append(f"品牌: {asset.brand}")
+        summary_parts.append(f"数量: {asset.quantity}{asset.unit or '台'}")
+        if asset.original_value:
+            summary_parts.append(f"原值: {asset.original_value}元")
+        if asset.net_value:
+            summary_parts.append(f"净值: {asset.net_value}元")
+        if asset.purchase_date:
+            summary_parts.append(f"购置日期: {asset.purchase_date.isoformat()}")
+        if asset.storage_location:
+            summary_parts.append(f"存放位置: {asset.storage_location}")
+        if asset.department_using:
+            summary_parts.append(f"使用部门: {asset.department_using}")
+        if asset.department_owning:
+            summary_parts.append(f"归属部门: {asset.department_owning}")
+        if asset.responsible_person:
+            summary_parts.append(f"责任人: {asset.responsible_person}")
+        if asset.company:
+            summary_parts.append(f"所属公司: {asset.company}")
+        if asset.asset_source:
+            summary_parts.append(f"来源: {asset.asset_source}")
+        summary_parts.append(f"状态: {asset.status}")
+        summary = "，".join(summary_parts)
+
         # 创建操作记录（完整资产信息JSON）
         change_detail = {
             'asset_number': asset.asset_number,
@@ -261,14 +290,11 @@ def add_asset():
             'company': asset.company,
             'department_using': asset.department_using,
             'department_owning': asset.department_owning,
-            'department_using_id': asset.department_using_id,
-            'department_owning_id': asset.department_owning_id,
             'responsible_person': asset.responsible_person,
-            'room_id': asset.room_id,
             'room_display': asset.room_display,
-            'responsible_user_id': asset.responsible_user_id,
             'responsible_user_name': asset.responsible_user_name,
             'asset_source': asset.asset_source,
+            'status': asset.status,
         }
 
         AssetOperationRecord.create_record(
@@ -277,7 +303,7 @@ def add_asset():
             operator_id=current_user.id,
             operator_name=current_user.username if hasattr(current_user, 'username') else None,
             change_detail=change_detail,
-            summary=f"新增资产: {asset.asset_name}"
+            summary=summary
         )
 
         # 记录操作日志
@@ -552,13 +578,27 @@ def edit_asset(id):
 
         # 创建操作记录（变更字段数组）
         changed_field_names = '、'.join([c['field_display'] for c in changes])
+        # 构建详细变更描述
+        change_descriptions = []
+        for c in changes:
+            old_val = c.get('old', '')
+            new_val = c.get('new', '')
+            if old_val and new_val:
+                change_descriptions.append(f"{c['field_display']}: {old_val}→{new_val}")
+            elif new_val:
+                change_descriptions.append(f"{c['field_display']}: (空)→{new_val}")
+            elif old_val:
+                change_descriptions.append(f"{c['field_display']}: {old_val}→(空)")
+        detail_summary = '；'.join(change_descriptions)
+        summary = f"编辑资产: {asset.asset_name}({asset.display_number})，修改了：{detail_summary}"
+
         AssetOperationRecord.create_record(
             asset_id=asset.id,
             operation_type='edit',
             operator_id=current_user.id,
             operator_name=current_user.username if hasattr(current_user, 'username') else None,
             change_detail=changes,
-            summary=f"编辑资产: {asset.asset_name}，修改了{changed_field_names}"
+            summary=summary
         )
 
         # 记录操作日志
@@ -854,6 +894,11 @@ def transfer_asset(id):
 
         # 创建操作记录
         change_detail = {
+            'asset_number': asset.asset_number or asset.display_number,
+            'asset_name': asset.asset_name,
+            'asset_category': asset.asset_category,
+            'specification': asset.specification,
+            'brand': asset.brand,
             'from_location': from_location,
             'to_location': to_location or '',
             'from_company': from_company,
@@ -874,7 +919,25 @@ def transfer_asset(id):
             'original_quantity': original_quantity,
             'remaining_quantity': asset.quantity
         }
-        summary = f"资产转移: {asset.asset_name}，转移数量: {quantity}，从{from_location or '无'}转移到{to_location or '无'}，责任人: {from_responsible_person or '无'}→{to_responsible_person or '无'}，转移日期: {transfer_date.isoformat()}"
+        # 构建详细转移摘要
+        transfer_parts = [f"资产转移: {asset.asset_name}({asset.display_number})"]
+        transfer_parts.append(f"转移数量: {quantity}")
+        if from_location != (to_location or ''):
+            transfer_parts.append(f"存放位置: {from_location or '无'}→{to_location or '无'}")
+        if from_company != (to_company or ''):
+            transfer_parts.append(f"所属公司: {from_company or '无'}→{to_company or '无'}")
+        if from_department_using != (to_department_using or ''):
+            transfer_parts.append(f"使用部门: {from_department_using or '无'}→{to_department_using or '无'}")
+        if from_department_owning != (to_department_owning or ''):
+            transfer_parts.append(f"归属部门: {from_department_owning or '无'}→{to_department_owning or '无'}")
+        if from_responsible_person != (to_responsible_person or ''):
+            transfer_parts.append(f"责任人: {from_responsible_person or '无'}→{to_responsible_person or '无'}")
+        if from_room_display != (to_room_display or ''):
+            transfer_parts.append(f"关联房间: {from_room_display or '无'}→{to_room_display or '无'}")
+        transfer_parts.append(f"转移日期: {transfer_date.isoformat()}")
+        if reason:
+            transfer_parts.append(f"转移原因: {reason}")
+        summary = "，".join(transfer_parts)
 
         AssetOperationRecord.create_record(
             asset_id=asset.id,
@@ -1076,6 +1139,26 @@ def check_inventory():
 
         db.session.commit()
 
+        # 创建盘点操作记录
+        AssetOperationRecord.create_record(
+            asset_id=asset.id,
+            operation_type='inventory',
+            operator_id=current_user.id,
+            operator_name=current_user.username if hasattr(current_user, 'username') else None,
+            change_detail={
+                'inventory_id': inventory_id,
+                'inventory_number': inventory.inventory_number,
+                'asset_number': asset.asset_number or asset.display_number,
+                'asset_name': asset.asset_name,
+                'inventory_result': inventory_result,
+                'inventory_remark': inventory_remark or '',
+                'actual_quantity': int(actual_quantity_str) if actual_quantity_str else None,
+                'book_quantity': asset.quantity,
+                'checked_by': current_user.username if hasattr(current_user, 'username') else str(current_user.id),
+            },
+            summary=f"资产盘点确认: {asset.asset_name}({asset.display_number})，结果: {inventory_result}，盘点单: {inventory.inventory_number}{f'，实盘数量: {actual_quantity_str}' if actual_quantity_str else ''}{f'，备注: {inventory_remark}' if inventory_remark else ''}"
+        )
+
         result_text = '正常' if inventory_result == '正常' else '异常'
         logging.info(f"资产盘点成功，盘点单: {inventory.inventory_number}, 资产: {asset.asset_name}, 结果: {inventory_result}")
 
@@ -1153,9 +1236,18 @@ def complete_inventory(id):
                 'inventory_id': id,
                 'inventory_number': inventory.inventory_number,
                 'asset_id': asset.id,
+                'asset_number': asset.asset_number or asset.display_number,
                 'asset_name': asset.asset_name,
+                'asset_category': asset.asset_category,
+                'specification': asset.specification,
+                'brand': asset.brand,
                 'result': detail.inventory_result,
-                'remark': detail.inventory_remark or ''
+                'remark': detail.inventory_remark or '',
+                'storage_location': asset.storage_location or '',
+                'department_using': asset.department_using or '',
+                'responsible_person': asset.responsible_person or '',
+                'original_value': str(asset.original_value) if asset.original_value else '',
+                'net_value': str(asset.net_value) if asset.net_value else '',
             }
 
             # 保存盘点前账面数量和状态（用于反审核回滚）
@@ -1526,14 +1618,37 @@ def scrap_asset(id):
 
         # 创建操作记录
         change_detail = {
+            'asset_number': asset.asset_number or asset.display_number,
+            'asset_name': asset.asset_name,
+            'asset_category': asset.asset_category,
+            'specification': asset.specification,
+            'brand': asset.brand,
             'scrap_date': scrap_date.isoformat(),
             'scrap_reason': scrap_reason,
             'old_status': old_status,
             'new_status': '已报废' if quantity >= original_quantity else old_status,
             'quantity': quantity,
-            'remaining_quantity': asset.quantity
+            'original_quantity': original_quantity,
+            'remaining_quantity': asset.quantity,
+            'original_value': str(asset.original_value) if asset.original_value else '',
+            'net_value': str(asset.net_value) if asset.net_value else '',
+            'storage_location': asset.storage_location or '',
+            'department_using': asset.department_using or '',
+            'responsible_person': asset.responsible_person or '',
         }
-        summary = f"资产报废: {asset.asset_name}，报废数量: {quantity}，原因: {scrap_reason}"
+        # 构建详细报废摘要
+        scrap_parts = [f"资产报废: {asset.asset_name}({asset.display_number})"]
+        scrap_parts.append(f"报废数量: {quantity}")
+        if quantity < original_quantity:
+            scrap_parts.append(f"部分报废，剩余数量: {asset.quantity}")
+        scrap_parts.append(f"报废日期: {scrap_date.isoformat()}")
+        scrap_parts.append(f"报废原因: {scrap_reason}")
+        scrap_parts.append(f"原状态: {old_status}→{'已报废' if quantity >= original_quantity else old_status}")
+        if asset.original_value:
+            scrap_parts.append(f"原值: {asset.original_value}元")
+        if asset.net_value:
+            scrap_parts.append(f"净值: {asset.net_value}元")
+        summary = "，".join(scrap_parts)
 
         AssetOperationRecord.create_record(
             asset_id=asset.id,
@@ -1630,6 +1745,11 @@ def sell_asset(id):
 
         # 创建操作记录
         change_detail = {
+            'asset_number': asset.asset_number or asset.display_number,
+            'asset_name': asset.asset_name,
+            'asset_category': asset.asset_category,
+            'specification': asset.specification,
+            'brand': asset.brand,
             'sale_date': sale_date.isoformat(),
             'sale_price': str(sale_price) if sale_price else '',
             'sale_buyer': sale_buyer or '',
@@ -1637,11 +1757,31 @@ def sell_asset(id):
             'old_status': old_status,
             'new_status': '已出售' if quantity >= original_quantity else old_status,
             'quantity': quantity,
-            'remaining_quantity': asset.quantity
+            'original_quantity': original_quantity,
+            'remaining_quantity': asset.quantity,
+            'original_value': str(asset.original_value) if asset.original_value else '',
+            'net_value': str(asset.net_value) if asset.net_value else '',
+            'storage_location': asset.storage_location or '',
+            'department_using': asset.department_using or '',
+            'responsible_person': asset.responsible_person or '',
         }
-        price_display = f"{sale_price}元" if sale_price else "未填写"
-        buyer_display = sale_buyer or "未填写"
-        summary = f"资产出售: {asset.asset_name}，出售数量: {quantity}，金额: {price_display}，买方: {buyer_display}"
+        # 构建详细出售摘要
+        sell_parts = [f"资产出售: {asset.asset_name}({asset.display_number})"]
+        sell_parts.append(f"出售数量: {quantity}")
+        if quantity < original_quantity:
+            sell_parts.append(f"部分出售，剩余数量: {asset.quantity}")
+        sell_parts.append(f"出售日期: {sale_date.isoformat()}")
+        sell_parts.append(f"出售金额: {sale_price or 0}元")
+        if sale_buyer:
+            sell_parts.append(f"买方: {sale_buyer}")
+        sell_parts.append(f"原状态: {old_status}→{'已出售' if quantity >= original_quantity else old_status}")
+        if asset.original_value:
+            sell_parts.append(f"原值: {asset.original_value}元")
+        if asset.net_value:
+            sell_parts.append(f"净值: {asset.net_value}元")
+        if sale_remark:
+            sell_parts.append(f"出售备注: {sale_remark}")
+        summary = "，".join(sell_parts)
 
         AssetOperationRecord.create_record(
             asset_id=asset.id,
@@ -1662,7 +1802,7 @@ def sell_asset(id):
         )
 
         flash(f'资产出售成功: {asset.asset_name}({asset.display_number})', 'success')
-        logging.info(f"资产出售成功，资产ID: {id}, 金额: {price_display}, 买方: {buyer_display}")
+        logging.info(f"资产出售成功，资产ID: {id}, 金额: {sale_price}, 买方: {sale_buyer or ''}")
         return redirect(url_for('fixed_asset.detail', id=id))
 
     except Exception as e:

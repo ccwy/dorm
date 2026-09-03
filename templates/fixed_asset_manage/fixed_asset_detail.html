@@ -292,6 +292,12 @@
                                 {% if record.summary %}
                                 <p class="text-sm text-gray-600 mt-1">{{ record.summary }}</p>
                                 {% endif %}
+                                {% if record.change_detail %}
+                                <details class="mt-1">
+                                    <summary class="text-xs text-blue-500 cursor-pointer hover:text-blue-700 select-none">查看详情</summary>
+                                    <div class="mt-1 text-xs text-gray-500 bg-gray-50 rounded p-2 border border-gray-100 overflow-x-auto change-detail-content" data-detail='{{ record.change_detail }}' data-type='{{ record.operation_type }}'></div>
+                                </details>
+                                {% endif %}
                             </div>
                         </div>
                         {% endfor %}
@@ -567,6 +573,144 @@
                 alert('删除出错: ' + error.message);
             });
         }
+    </script>
+    <script>
+    // 解析操作记录变更详情
+    document.addEventListener('DOMContentLoaded', function() {
+        // 字段显示名映射
+        const fieldDisplayNames = {
+            'asset_number': '资产编号', 'asset_name': '资产名称', 'asset_category': '资产分类',
+            'specification': '规格型号', 'brand': '品牌', 'supplier': '供应商',
+            'quantity': '数量', 'unit': '单位', 'original_value': '原值', 'net_value': '净值',
+            'purchase_date': '购置日期', 'warranty_expiry': '质保到期日',
+            'storage_location': '存放位置', 'company': '所属公司',
+            'department_using': '使用部门', 'department_owning': '归属部门',
+            'department_using_id': '使用部门ID', 'department_owning_id': '归属部门ID',
+            'responsible_person': '责任人', 'room_id': '关联房间ID', 'room_display': '关联房间',
+            'responsible_user_id': '责任人用户ID', 'responsible_user_name': '责任人用户',
+            'asset_source': '资产来源', 'status': '资产状态', 'remark': '备注',
+            'from_location': '原存放位置', 'to_location': '新存放位置',
+            'from_company': '原公司', 'to_company': '新公司',
+            'from_department_using': '原使用部门', 'to_department_using': '新使用部门',
+            'from_department_owning': '原归属部门', 'to_department_owning': '新归属部门',
+            'from_responsible_person': '原责任人', 'to_responsible_person': '新责任人',
+            'from_room_display': '原房间', 'to_room_display': '新房间',
+            'from_responsible_user_name': '原责任人用户', 'to_responsible_user_name': '新责任人用户',
+            'reason': '转移原因', 'transfer_date': '转移日期',
+            'scrap_date': '报废日期', 'scrap_reason': '报废原因',
+            'old_status': '原状态', 'new_status': '新状态',
+            'remaining_quantity': '剩余数量', 'original_quantity': '原数量',
+            'sale_date': '出售日期', 'sale_price': '出售金额', 'sale_buyer': '买方',
+            'sale_remark': '出售备注',
+            'inventory_id': '盘点单ID', 'inventory_number': '盘点单号',
+            'inventory_result': '盘点结果', 'inventory_remark': '盘点备注',
+            'actual_quantity': '实盘数量', 'book_quantity': '账面数量',
+            'checked_by': '盘点人', 'import_source': '导入来源',
+            'original_value': '原值', 'difference': '差异',
+            'quantity_change': '数量变动', 'auto_scrap': '自动报废',
+            'old_quantity': '原数量', 'new_quantity': '新数量',
+            'old': '原值', 'new': '新值', 'field': '字段', 'field_display': '字段名'
+        };
+
+        document.querySelectorAll('.change-detail-content').forEach(function(el) {
+            try {
+                const detail = JSON.parse(el.dataset.detail);
+                if (!detail) return;
+
+                let html = '';
+                // 编辑操作: change_detail是数组
+                if (Array.isArray(detail)) {
+                    html = '<table class="w-full text-xs border-collapse">';
+                    html += '<thead><tr class="border-b border-gray-200"><th class="text-left py-1 pr-2 text-gray-600">字段</th><th class="text-left py-1 pr-2 text-gray-600">原值</th><th class="text-left py-1 text-gray-600">新值</th></tr></thead><tbody>';
+                    detail.forEach(function(item) {
+                        const fieldName = item.field_display || fieldDisplayNames[item.field] || item.field || '';
+                        const oldVal = item.old || '';
+                        const newVal = item.new || '';
+                        html += '<tr class="border-b border-gray-100">';
+                        html += '<td class="py-1 pr-2 font-medium text-gray-700">' + escapeHtml(fieldName) + '</td>';
+                        html += '<td class="py-1 pr-2 text-red-500 line-through">' + escapeHtml(String(oldVal)) + '</td>';
+                        html += '<td class="py-1 text-green-600">' + escapeHtml(String(newVal)) + '</td>';
+                        html += '</tr>';
+                    });
+                    html += '</tbody></table>';
+                } else if (typeof detail === 'object') {
+                    // 其他操作: change_detail是对象，根据操作类型选择分组
+                    const opType = el.dataset.type || '';
+                    const allGroups = {
+                        '基本信息': ['asset_number', 'asset_name', 'asset_category', 'specification', 'brand', 'supplier', 'quantity', 'unit', 'original_value', 'net_value', 'purchase_date', 'warranty_expiry', 'status', 'asset_source', 'import_source'],
+                        '位置信息': ['storage_location', 'company', 'department_using', 'department_owning', 'department_using_id', 'department_owning_id', 'responsible_person', 'room_display', 'room_id', 'responsible_user_name', 'responsible_user_id'],
+                        '转移信息': ['from_location', 'to_location', 'from_company', 'to_company', 'from_department_using', 'to_department_using', 'from_department_owning', 'to_department_owning', 'from_responsible_person', 'to_responsible_person', 'from_room_display', 'to_room_display', 'from_responsible_user_name', 'to_responsible_user_name', 'reason', 'transfer_date'],
+                        '报废信息': ['scrap_date', 'scrap_reason', 'old_status', 'new_status', 'quantity', 'original_quantity', 'remaining_quantity'],
+                        '出售信息': ['sale_date', 'sale_price', 'sale_buyer', 'sale_remark', 'old_status', 'new_status', 'quantity', 'original_quantity', 'remaining_quantity'],
+                        '盘点信息': ['inventory_id', 'inventory_number', 'inventory_result', 'inventory_remark', 'actual_quantity', 'book_quantity', 'checked_by', 'difference', 'quantity_change', 'auto_scrap', 'old_quantity', 'new_quantity'],
+                    };
+
+                    // 根据操作类型决定显示哪些分组
+                    const typeGroupMap = {
+                        'add': ['基本信息', '位置信息'],
+                        'transfer': ['基本信息', '转移信息'],
+                        'scrap': ['基本信息', '位置信息', '报废信息'],
+                        'sell': ['基本信息', '位置信息', '出售信息'],
+                        'inventory': ['基本信息', '盘点信息'],
+                    };
+                    const activeGroups = typeGroupMap[opType] || Object.keys(allGroups);
+
+                    let groups = {};
+                    for (const gName of activeGroups) {
+                        if (allGroups[gName]) groups[gName] = allGroups[gName];
+                    }
+
+                    html = '<table class="w-full text-xs border-collapse"><tbody>';
+                    let renderedKeys = new Set();
+                    for (const [groupName, keys] of Object.entries(groups)) {
+                        let groupHtml = '';
+                        let hasContent = false;
+                        for (const key of keys) {
+                            if (detail.hasOwnProperty(key) && detail[key] !== undefined && detail[key] !== '') {
+                                hasContent = true;
+                                const displayName = fieldDisplayNames[key] || key;
+                                groupHtml += '<tr class="border-b border-gray-100">';
+                                groupHtml += '<td class="py-1 pr-2 font-medium text-gray-700 whitespace-nowrap">' + escapeHtml(displayName) + '</td>';
+                                groupHtml += '<td class="py-1 text-gray-600">' + escapeHtml(String(detail[key])) + '</td>';
+                                groupHtml += '</tr>';
+                                renderedKeys.add(key);
+                            }
+                        }
+                        if (hasContent) {
+                            groupHtml = '<tr><td colspan="2" class="py-1 font-bold text-gray-800 bg-gray-100 rounded">' + escapeHtml(groupName) + '</td></tr>' + groupHtml;
+                            html += groupHtml;
+                        }
+                    }
+                    // 渲染未分组的字段
+                    let ungroupedHtml = '';
+                    for (const [key, value] of Object.entries(detail)) {
+                        if (!renderedKeys.has(key) && value !== undefined && value !== '') {
+                            const displayName = fieldDisplayNames[key] || key;
+                            ungroupedHtml += '<tr class="border-b border-gray-100">';
+                            ungroupedHtml += '<td class="py-1 pr-2 font-medium text-gray-700 whitespace-nowrap">' + escapeHtml(displayName) + '</td>';
+                            ungroupedHtml += '<td class="py-1 text-gray-600">' + escapeHtml(String(value)) + '</td>';
+                            ungroupedHtml += '</tr>';
+                        }
+                    }
+                    if (ungroupedHtml) {
+                        html += '<tr><td colspan="2" class="py-1 font-bold text-gray-800 bg-gray-100 rounded">其他信息</td></tr>' + ungroupedHtml;
+                    }
+                    html += '</tbody></table>';
+                }
+
+                el.innerHTML = html || '<span class="text-gray-400">无详细信息</span>';
+            } catch (e) {
+                // JSON解析失败时直接显示原始文本
+                el.textContent = el.dataset.detail || '无详细信息';
+            }
+        });
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    });
     </script>
 </body>
 </html>

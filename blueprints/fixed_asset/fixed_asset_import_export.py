@@ -497,10 +497,27 @@ def import_assets():
                             'asset_number': asset.asset_number or '',
                             'asset_name': asset.asset_name,
                             'asset_category': asset.asset_category,
+                            'specification': asset.specification or '',
+                            'brand': asset.brand or '',
+                            'supplier': asset.supplier or '',
+                            'quantity': asset.quantity,
+                            'unit': asset.unit or '台',
+                            'original_value': str(asset.original_value) if asset.original_value else '',
+                            'net_value': str(asset.net_value) if asset.net_value else '',
+                            'purchase_date': asset.purchase_date.isoformat() if asset.purchase_date else '',
+                            'warranty_expiry': asset.warranty_expiry.isoformat() if asset.warranty_expiry else '',
+                            'storage_location': asset.storage_location or '',
+                            'company': asset.company or '',
+                            'department_using': asset.department_using or '',
+                            'department_owning': asset.department_owning or '',
+                            'responsible_person': asset.responsible_person or '',
+                            'room_display': asset.room_display or '',
+                            'responsible_user_name': asset.responsible_user_name or '',
+                            'asset_source': asset.asset_source or '采购',
                             'status': asset.status,
-                            'import_source': 'Excel批量导入'
+                            'import_source': 'Excel批量导入',
                         },
-                        summary=f"批量导入新增资产: {asset.asset_name}"
+                        summary=f"批量导入新增资产: {asset.asset_name}({asset.display_number})，分类: {asset.asset_category}，数量: {asset.quantity}{asset.unit or '台'}，状态: {asset.status}"
                     )
 
                     success_count += 1
