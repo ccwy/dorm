@@ -364,6 +364,13 @@ def _wait_for_server(port, timeout=30, interval=0.5):
     raise TimeoutError(f"服务器在{timeout}秒内未就绪")
 
 
+def run_server():
+    """Docker入口函数：初始化Flask应用并直接启动服务器"""
+    app, process_cleaner, _run_server = init_flask_app()
+    process_cleaner.register_signal_handlers()
+    _run_server()
+
+
 # 主程序入口
 if __name__ == '__main__':
     import argparse
