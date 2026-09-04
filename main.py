@@ -55,7 +55,6 @@ def _load_splash_html(system_title):
     with open(splash_path, 'r', encoding='utf-8') as f:
         return f.read().replace('{{SYSTEM_TITLE}}', system_title)
 
-
 def init_flask_app(progress_callback=None):
     """
     初始化Flask应用及所有依赖。
