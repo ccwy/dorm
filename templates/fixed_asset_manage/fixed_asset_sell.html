@@ -63,39 +63,28 @@
             <h2 class="text-2xl font-semibold text-dark">{{ title }}</h2>
         </div>
 
-        <!-- 当前资产信息 -->
+        <!-- 当前资产信息 + 出售表单（整体包裹form，确保radio按钮提交） -->
+        <form method="POST" action="{{ url_for('fixed_asset.sell_asset', id=asset.id) }}">
         <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
             <h3 class="text-lg font-medium text-gray-800 mb-4 pb-2 border-b border-gray-200">
                 <i class="fa fa-info-circle text-primary mr-2"></i>资产信息
             </h3>
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
                 <div>
                     <span class="text-sm text-gray-500">资产编号</span>
                     <p class="font-medium text-gray-800">{{ asset.display_number }}</p>
                 </div>
                 <div>
                     <span class="text-sm text-gray-500">资产名称</span>
-                    <p class="font-medium text-gray-800">{{ asset.asset_name }}</p>
+                    <p class="font-medium text-gray-800">{{ asset.display_asset_name }}</p>
                 </div>
                 <div>
                     <span class="text-sm text-gray-500">资产分类</span>
                     <p class="font-medium text-gray-800">{{ asset.asset_category or '-' }}</p>
                 </div>
                 <div>
-                    <span class="text-sm text-gray-500">规格型号</span>
-                    <p class="font-medium text-gray-800">{{ asset.specification or '-' }}</p>
-                </div>
-                <div>
-                    <span class="text-sm text-gray-500">品牌</span>
-                    <p class="font-medium text-gray-800">{{ asset.brand or '-' }}</p>
-                </div>
-                <div>
-                    <span class="text-sm text-gray-500">供应商</span>
-                    <p class="font-medium text-gray-800">{{ asset.supplier or '-' }}</p>
-                </div>
-                <div>
-                    <span class="text-sm text-gray-500">数量/单位</span>
-                    <p class="font-medium text-gray-800">{{ asset.quantity }} {{ asset.unit or '台' }}</p>
+                    <span class="text-sm text-gray-500">汇总数量</span>
+                    <p class="font-medium text-primary text-lg">{{ asset.total_quantity }} {{ asset.display_unit or '台' }}</p>
                 </div>
                 <div>
                     <span class="text-sm text-gray-500">当前状态</span>
@@ -117,27 +106,51 @@
                     <span class="text-sm text-gray-500">净值</span>
                     <p class="font-medium text-gray-800">{% if asset.net_value %}¥{{ "%.2f"|format(asset.net_value) }}{% else %}-{% endif %}</p>
                 </div>
-                <div>
-                    <span class="text-sm text-gray-500">存放位置</span>
-                    <p class="font-medium text-gray-800">{{ asset.storage_location or '-' }}</p>
-                </div>
-                <div>
-                    <span class="text-sm text-gray-500">所属公司</span>
-                    <p class="font-medium text-gray-800">{{ asset.company or '-' }}</p>
-                </div>
-                <div>
-                    <span class="text-sm text-gray-500">使用部门</span>
-                    <p class="font-medium text-gray-800">{{ asset.department_using or '-' }}</p>
-                </div>
-                <div>
-                    <span class="text-sm text-gray-500">归属部门</span>
-                    <p class="font-medium text-gray-800">{{ asset.department_owning or '-' }}</p>
-                </div>
-                <div>
-                    <span class="text-sm text-gray-500">责任人</span>
-                    <p class="font-medium text-gray-800">{{ asset.responsible_person or '-' }}</p>
-                </div>
             </div>
+
+            <!-- 当前库存明细（选择出库位置） -->
+            {% if asset.stock_items %}
+            <h4 class="text-sm font-medium text-gray-700 mb-2">
+                <i class="fa fa-boxes mr-1"></i>选择出库位置
+            </h4>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="bg-gray-50 border-b border-gray-200">
+                            <th class="px-3 py-2 text-left text-gray-600 font-medium">选择</th>
+                            <th class="px-3 py-2 text-left text-gray-600 font-medium">存放位置</th>
+                            <th class="px-3 py-2 text-left text-gray-600 font-medium">关联房间</th>
+                            <th class="px-3 py-2 text-left text-gray-600 font-medium">所属公司</th>
+                            <th class="px-3 py-2 text-left text-gray-600 font-medium">使用部门</th>
+                            <th class="px-3 py-2 text-left text-gray-600 font-medium">归属部门</th>
+                            <th class="px-3 py-2 text-left text-gray-600 font-medium">责任人</th>
+                            <th class="px-3 py-2 text-right text-gray-600 font-medium">数量</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in asset.stock_items %}
+                        <tr class="border-b border-gray-100 hover:bg-gray-50">
+                            <td class="px-3 py-2">
+                                <input type="radio" name="from_stock_item_id" value="{{ item.id }}"
+                                       {% if loop.first %}checked{% endif %}
+                                       data-quantity="{{ item.quantity }}"
+                                       class="from-stock-radio">
+                            </td>
+                            <td class="px-3 py-2 text-gray-800">{{ item.storage_location or '-' }}</td>
+                            <td class="px-3 py-2 text-gray-800">{{ item.room_display or '-' }}</td>
+                            <td class="px-3 py-2 text-gray-800">{{ item.company or '-' }}</td>
+                            <td class="px-3 py-2 text-gray-800">{{ item.department_using or '-' }}</td>
+                            <td class="px-3 py-2 text-gray-800">{{ item.department_owning or '-' }}</td>
+                            <td class="px-3 py-2 text-gray-800">{{ item.responsible_user_name or item.responsible_person or '-' }}</td>
+                            <td class="px-3 py-2 text-right font-medium text-gray-800">{{ item.quantity }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p class="text-gray-500 text-sm">暂无库存明细记录</p>
+            {% endif %}
         </div>
 
         <!-- 出售表单 -->
@@ -147,8 +160,7 @@
                 <h3 class="text-lg font-medium text-gray-800">出售信息</h3>
                 <span class="ml-3 px-2 py-0.5 bg-cyan-100 text-cyan-800 text-xs rounded-full">此操作将变更资产状态为"已出售"</span>
             </div>
-            <form method="POST" action="{{ url_for('fixed_asset.sell_asset', id=asset.id) }}">
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     <!-- 出售日期 -->
                     <div>
                         <label for="sale_date" class="block text-sm font-medium text-gray-700 mb-1">出售日期 <span class="text-red-500">*</span></label>
@@ -167,9 +179,11 @@
                     <!-- 出售数量 -->
                     <div>
                         <label for="quantity" class="block text-sm font-medium text-gray-700 mb-1">出售数量 <span class="text-red-500">*</span></label>
-                        <input type="number" id="quantity" name="quantity" min="1" max="{{ asset.quantity }}" value="{{ asset.quantity }}" required
+                        <input type="number" id="quantity" name="quantity" min="1" max="{{ asset.total_quantity }}" value="1" required
                                class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
-                        <p class="text-xs text-gray-500 mt-1">当前数量: {{ asset.quantity }} {{ asset.unit or '台' }}</p>
+                        <p id="quantity_hint" class="text-xs text-orange-600 mt-1">
+                            当前选中位置可用: {{ asset.stock_items[0].quantity if asset.stock_items else 0 }} {{ asset.display_unit or '台' }}
+                        </p>
                     </div>
 
                     <!-- 买方 -->
@@ -198,8 +212,8 @@
                         </button>
                     </div>
                 </div>
-            </form>
         </div>
+        </form>
     </main>
     {% include 'footer.html' %}
     <script>
@@ -209,6 +223,38 @@
             if (saleDateInput && !saleDateInput.value) {
                 saleDateInput.value = new Date().toISOString().split('T')[0];
             }
+            // 初始化数量联动
+            updateQuantityLimit();
+        });
+
+        // 监听库存明细radio变化，联动出售数量上限
+        function updateQuantityLimit() {
+            var radios = document.querySelectorAll('.from-stock-radio');
+            var quantityInput = document.getElementById('quantity');
+            var hintEl = document.getElementById('quantity_hint');
+            var selectedQty = 0;
+            radios.forEach(function(r) {
+                if (r.checked) {
+                    selectedQty = parseInt(r.getAttribute('data-quantity')) || 0;
+                }
+            });
+            if (quantityInput) {
+                quantityInput.max = selectedQty;
+                if (parseInt(quantityInput.value) > selectedQty) {
+                    quantityInput.value = selectedQty;
+                }
+                if (parseInt(quantityInput.value) < 1 && selectedQty > 0) {
+                    quantityInput.value = 1;
+                }
+            }
+            if (hintEl) {
+                var unit = '{{ asset.display_unit or "台" }}';
+                hintEl.textContent = '当前选中位置可用: ' + selectedQty + ' ' + unit;
+            }
+        }
+
+        document.querySelectorAll('.from-stock-radio').forEach(function(r) {
+            r.addEventListener('change', updateQuantityLimit);
         });
     </script>
 </body>

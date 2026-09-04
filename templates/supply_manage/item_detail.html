@@ -77,7 +77,7 @@
 
         <!-- 操作按钮 -->
         <div class="flex flex-wrap gap-3 mb-6">
-            {% if current_user.has_permission('supply.edit') %}
+            {% if current_user.has_permission('supply_item.edit') %}
             <a href="{{ url_for('supply_item.edit_page', id=item.id) }}" class="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90 btn-hover inline-flex items-center">
                 <i class="fa fa-edit mr-1"></i>编辑
             </a>
@@ -85,7 +85,7 @@
                 <i class="fa fa-calculator mr-1"></i>重算库存
             </button>
             {% endif %}
-            {% if current_user.has_permission('supply.delete') %}
+            {% if current_user.has_permission('supply_item.delete') %}
             <button type="button" onclick="confirmDelete({{ item.id }})" class="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 btn-hover inline-flex items-center">
                 <i class="fa fa-trash mr-1"></i>删除
             </button>
@@ -116,6 +116,10 @@
                         <div>
                             <span class="text-sm text-gray-500">规格型号</span>
                             <p class="font-medium text-gray-800">{{ item.specification or '-' }}</p>
+                        </div>
+                        <div>
+                            <span class="text-sm text-gray-500">品牌</span>
+                            <p class="font-medium text-gray-800">{{ item.brand or '-' }}</p>
                         </div>
                         <div>
                             <span class="text-sm text-gray-500">单位</span>
@@ -362,7 +366,7 @@
                         <i class="fa fa-bolt text-info mr-2"></i>快捷操作
                     </h3>
                     <div class="space-y-2">
-                        {% if current_user.has_permission('supply.edit') %}
+                        {% if current_user.has_permission('supply_item.edit') %}
                         <a href="{{ url_for('supply_item.edit_page', id=item.id) }}" class="block px-4 py-2 bg-primary/10 text-primary rounded-md hover:bg-primary/20 text-sm text-center">
                             <i class="fa fa-edit mr-1"></i>编辑物品
                         </a>

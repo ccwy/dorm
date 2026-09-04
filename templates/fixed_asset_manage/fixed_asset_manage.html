@@ -253,9 +253,9 @@
                                 <td class="px-4 py-4 whitespace-nowrap">
                                     <a href="{{ url_for('fixed_asset.detail', id=asset.id) }}" class="text-primary hover:underline">{{ asset.display_number }}</a>
                                 </td>
-                                <td class="px-4 py-4 whitespace-nowrap">{{ asset.asset_name }}</td>
-                                <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-600">{{ asset.specification or '-' }}</td>
-                                <td class="px-4 py-4 whitespace-nowrap text-sm text-center text-gray-600">{{ asset.quantity }}{{ asset.unit or '' }}</td>
+                                <td class="px-4 py-4 whitespace-nowrap">{{ asset.display_asset_name }}</td>
+                                <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-600">{{ asset.display_specification or '-' }}</td>
+                                <td class="px-4 py-4 whitespace-nowrap text-sm text-center text-gray-600">{{ asset.quantity }}{{ asset.display_unit or '' }}</td>
                                 <td class="px-4 py-4 whitespace-nowrap">{{ asset.asset_category or '-' }}</td>
                                 <td class="px-4 py-4 whitespace-nowrap">
                                     {% if asset.status == '在用' %}
@@ -292,7 +292,7 @@
                                         {% endif %}
                                         {% if current_user.has_permission('fixed_asset.delete') %}
                                         <button class="btn-effect bg-red-500 text-white px-2 py-1 rounded-md text-sm flex items-center"
-                                            onclick="if(confirm('确定要删除资产 {{ asset.asset_name }} 吗？')) { document.getElementById('deleteForm-{{ asset.id }}').submit(); }">
+                                            onclick="if(confirm('确定要删除资产 {{ asset.display_asset_name }} 吗？')) { document.getElementById('deleteForm-{{ asset.id }}').submit(); }">
                                             <i class="fa fa-trash mr-1"></i>删除
                                         </button>
                                         {% endif %}

@@ -27,7 +27,7 @@ supply_item_import_export_bp = Blueprint(
 # 导出物品数据
 @supply_item_import_export_bp.route('/export', methods=['GET'])
 @login_required
-@require_permission('supply.export')
+@require_permission('supply_item.export')
 def export():
     """导出物品数据为Excel"""
     try:
@@ -57,6 +57,7 @@ def export():
                     '物品名称': item.name or '',
                     '分类': item.category or '',
                     '规格型号': item.specification or '',
+                    '品牌': item.brand or '',
                     '单位': item.unit or '',
                     '供应商': supplier_name,
                     '单价': float(item.unit_price) if item.unit_price else 0,
@@ -117,7 +118,7 @@ def export():
 # 导入物品数据
 @supply_item_import_export_bp.route('/import', methods=['POST'])
 @login_required
-@require_permission('supply.import')
+@require_permission('supply_item.import')
 def import_items():
     """批量导入物品数据"""
     try:
@@ -231,6 +232,12 @@ def import_items():
                 if pd.notna(specification_val) and str(specification_val).strip():
                     specification = str(specification_val).strip()
 
+                # 品牌（可选）
+                brand = None
+                brand_val = row.get('品牌')
+                if pd.notna(brand_val) and str(brand_val).strip():
+                    brand = str(brand_val).strip()
+
                 # 单位（可选）
                 unit = None
                 unit_val = row.get('单位')
@@ -304,6 +311,7 @@ def import_items():
                         # 覆盖更新
                         existing.category = category or existing.category
                         existing.specification = specification or existing.specification
+                        existing.brand = brand or existing.brand
                         existing.unit = unit or existing.unit
                         existing.supplier_id = supplier_id if supplier_id is not None else existing.supplier_id
                         existing.unit_price = unit_price if unit_price > 0 else existing.unit_price
@@ -325,6 +333,7 @@ def import_items():
                     name=name,
                     category=category,
                     specification=specification,
+                    brand=brand,
                     unit=unit,
                     supplier_id=supplier_id,
                     unit_price=unit_price,
@@ -416,6 +425,11 @@ def _update_item_from_row(item, row, row_num, supplier_map, default_min_stock, w
     if pd.notna(specification_val) and str(specification_val).strip():
         item.specification = str(specification_val).strip()
 
+    # 品牌
+    brand_val = row.get('品牌')
+    if pd.notna(brand_val) and str(brand_val).strip():
+        item.brand = str(brand_val).strip()
+
     # 单位
     unit_val = row.get('单位')
     if pd.notna(unit_val) and str(unit_val).strip():
@@ -485,7 +499,7 @@ def _update_item_from_row(item, row, row_num, supplier_map, default_min_stock, w
 # 下载导入模板
 @supply_item_import_export_bp.route('/template', methods=['GET'])
 @login_required
-@require_permission('supply.import')
+@require_permission('supply_item.import')
 def download_template():
     """生成并下载物品数据导入模板"""
     try:
@@ -497,6 +511,7 @@ def download_template():
             "物品名称": ["示例物品A", "示例物品B", "示例物品C"],
             "分类": ["办公用品", "清洁用品", "维修工具"],
             "规格型号": ["A4 500张/包", "500ml/瓶", "十字 PH2"],
+            "品牌": ["得力", "蓝月亮", ""],
             "单位": ["包", "瓶", "把"],
             "供应商": ["示例供应商A", "示例供应商B", ""],
             "单价": [25.00, 15.50, 35.00],

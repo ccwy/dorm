@@ -115,12 +115,23 @@ PERMISSIONS = {
             'delete': '删除',
             'approve': '审核',
             'unapprove': '反审核',
-            'supply_item': '基础物料资料',
             'supply_stock_detail': '库存明细',
             'stock_in': '入库管理',
             'stock_out': '出库管理',
             'supply_inventory': '盘点管理',
             'supply_stock_record': '进出库记录',
+            'export': '导出',
+            'import': '导入',
+        }
+    },
+    'supply_item': {
+        'name': '基础物料资料',
+        'actions': {
+            'view': '查看',
+            'manage': '管理',
+            'create': '新增',
+            'edit': '编辑',
+            'delete': '删除',
             'export': '导出',
             'import': '导入',
         }

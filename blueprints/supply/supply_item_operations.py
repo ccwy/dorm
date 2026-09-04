@@ -15,13 +15,14 @@ from .supply_item import supply_item_bp
 # ========== 路由：新增物品 ==========
 @supply_item_bp.route('/operations/add', methods=['POST'])
 @login_required
-@require_permission('supply.create')
+@require_permission('supply_item.create')
 def add_supply_item():
     """新增物品"""
     try:
         name = request.form.get('name', '').strip()
         category = request.form.get('category', '').strip() or None
         specification = request.form.get('specification', '').strip() or None
+        brand = request.form.get('brand', '').strip() or None
         unit = request.form.get('unit', '').strip() or None
         supplier_id = request.form.get('supplier_id', type=int)
         unit_price = request.form.get('unit_price', 0, type=float)
@@ -45,11 +46,6 @@ def add_supply_item():
         if status not in ['启用', '停用']:
             status = '启用'
 
-        # 检查名称是否重复
-        if SupplyItem.is_name_exists(name):
-            flash(f'已存在物品"{name}"', 'danger')
-            return redirect(url_for('supply_item.add_page'))
-
         # 检查手动编号是否重复
         if item_number and SupplyItem.query.filter_by(item_number=item_number).first():
             flash(f'物品编号"{item_number}"已存在', 'danger')
@@ -58,7 +54,7 @@ def add_supply_item():
         try:
             item = SupplyItem.create(
                 name=name, category=category, specification=specification,
-                unit=unit, supplier_id=supplier_id, unit_price=unit_price,
+                brand=brand, unit=unit, supplier_id=supplier_id, unit_price=unit_price,
                 reference_price=reference_price, min_stock=min_stock,
                 max_stock=max_stock, status=status,
                 remark=remark, operator_user_id=current_user.id,
@@ -101,7 +97,7 @@ def add_supply_item():
 # ========== 路由：编辑物品 ==========
 @supply_item_bp.route('/operations/edit/<int:id>', methods=['POST'])
 @login_required
-@require_permission('supply.edit')
+@require_permission('supply_item.edit')
 def edit_supply_item(id):
     """编辑物品"""
     try:
@@ -112,6 +108,7 @@ def edit_supply_item(id):
         new_name = request.form.get('name', '').strip()
         new_category = request.form.get('category', '').strip() or None
         new_specification = request.form.get('specification', '').strip() or None
+        new_brand = request.form.get('brand', '').strip() or None
         new_unit = request.form.get('unit', '').strip() or None
         new_supplier_id = request.form.get('supplier_id', type=int)
         new_unit_price = request.form.get('unit_price', 0, type=float)
@@ -130,11 +127,6 @@ def edit_supply_item(id):
             flash('物品名称不能为空', 'danger')
             return redirect(url_for('supply_item.edit_page', id=id))
 
-        # 检查名称是否重复（排除自身）
-        if SupplyItem.is_name_exists(new_name, exclude_id=id):
-            flash(f'已存在物品"{new_name}"', 'danger')
-            return redirect(url_for('supply_item.edit_page', id=id))
-
         # 记录变更
         changes = []
         if old_name != new_name:
@@ -143,6 +135,8 @@ def edit_supply_item(id):
             changes.append(f"分类: {item.category or '无'} → {new_category or '无'}")
         if item.specification != new_specification:
             changes.append(f"规格型号: {item.specification or '无'} → {new_specification or '无'}")
+        if item.brand != new_brand:
+            changes.append(f"品牌: {item.brand or '无'} → {new_brand or '无'}")
         if item.unit != new_unit:
             changes.append(f"计量单位: {item.unit or '无'} → {new_unit or '无'}")
         if item.supplier_id != new_supplier_id:
@@ -162,6 +156,7 @@ def edit_supply_item(id):
         item.name = new_name
         item.category = new_category
         item.specification = new_specification
+        item.brand = new_brand
         item.unit = new_unit
         item.supplier_id = new_supplier_id
         item.unit_price = new_unit_price
@@ -204,7 +199,7 @@ def edit_supply_item(id):
 # ========== 路由：删除物品 ==========
 @supply_item_bp.route('/operations/delete/<int:id>', methods=['POST'])
 @login_required
-@require_permission('supply.delete')
+@require_permission('supply_item.delete')
 def delete_supply_item(id):
     """删除物品 - 检查使用情况，被引用时拒绝删除"""
     try:
@@ -261,7 +256,7 @@ def delete_supply_item(id):
 # ========== 路由：重新计算物品总库存 ==========
 @supply_item_bp.route('/operations/recalculate-stock/<int:id>', methods=['POST'])
 @login_required
-@require_permission('supply.edit')
+@require_permission('supply_item.edit')
 def recalculate_item_stock(id):
     """重新计算物品总库存"""
     try:
@@ -299,7 +294,7 @@ def recalculate_item_stock(id):
 # ========== 路由：批量删除物品 ==========
 @supply_item_bp.route('/operations/batch-delete', methods=['POST'])
 @login_required
-@require_permission('supply.delete')
+@require_permission('supply_item.delete')
 def batch_delete_supply_items():
     """批量删除物品"""
     try:

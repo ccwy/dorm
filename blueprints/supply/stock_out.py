@@ -200,7 +200,7 @@ def add_stock_out():
         departments = Department.query.filter_by(status='正常').order_by(Department.id).all()
         users = User.query.filter(User.status == '在职').order_by(User.id).all()
         locations = StorageLocation.query.filter_by(status='启用', usage_type='低值易耗品').order_by(StorageLocation.id).all()
-        items = SupplyItem.query.filter_by(status='启用').order_by(SupplyItem.id).all()
+        items = SupplyItem.query.filter_by(status='启用', category='低值易耗品').order_by(SupplyItem.id).all()
 
         # 从系统配置获取出库类型选项
         from models.system_config.system_config import SystemConfig
@@ -266,7 +266,7 @@ def edit_stock_out(id):
         departments = Department.query.filter_by(status='正常').order_by(Department.id).all()
         users = User.query.filter(User.status == '在职').order_by(User.id).all()
         locations = StorageLocation.query.filter_by(status='启用', usage_type='低值易耗品').order_by(StorageLocation.id).all()
-        items = SupplyItem.query.filter_by(status='启用').order_by(SupplyItem.id).all()
+        items = SupplyItem.query.filter_by(status='启用', category='低值易耗品').order_by(SupplyItem.id).all()
 
         # 从系统配置获取出库类型选项
         from models.system_config.system_config import SystemConfig

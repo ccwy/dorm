@@ -12,6 +12,7 @@ class SupplyItem(db.Model):
     name = db.Column(db.String(200), nullable=False, comment='物品名称')
     category = db.Column(db.String(100), nullable=True, comment='物品分类（从系统配置获取）')
     specification = db.Column(db.String(200), nullable=True, comment='规格型号')
+    brand = db.Column(db.String(200), nullable=True, comment='品牌')
     unit = db.Column(db.String(20), nullable=True, comment='计量单位（个/盒/箱/包/瓶/支/本/套等）')
 
     # 供应商关联
@@ -99,7 +100,7 @@ class SupplyItem(db.Model):
         return '未指定'
 
     @classmethod
-    def create(cls, name, category=None, specification=None, unit=None,
+    def create(cls, name, category=None, specification=None, brand=None, unit=None,
                supplier_id=None, unit_price=0, reference_price=None,
                min_stock=0, max_stock=None, status='启用',
                remark=None, operator_user_id=None, item_number=None):
@@ -118,6 +119,7 @@ class SupplyItem(db.Model):
             name=name,
             category=category,
             specification=specification,
+            brand=brand,
             unit=unit,
             supplier_id=supplier_id,
             unit_price=unit_price,

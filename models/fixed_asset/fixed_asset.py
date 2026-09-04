@@ -42,6 +42,9 @@ class FixedAsset(db.Model):
     # 关联责任人用户
     responsible_user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True, comment='责任人用户ID')
 
+    # 关联物料基础资料
+    supply_item_id = db.Column(db.Integer, db.ForeignKey('supply_items.id'), nullable=True, comment='关联物料基础资料ID')
+
     # 来源与状态
     asset_source = db.Column(db.String(20), default='采购', comment='资产来源')
     status = db.Column(db.String(20), default='在用', nullable=False, comment='资产状态')
@@ -71,7 +74,6 @@ class FixedAsset(db.Model):
 
     # 关系定义
     operation_records = db.relationship('AssetOperationRecord', backref='asset', lazy=True, cascade='all, delete-orphan')
-    inventory_details = db.relationship('AssetInventoryDetail', backref='asset', lazy=True, cascade='all, delete-orphan')
 
     # 部门关系映射
     dept_using = db.relationship('Department', foreign_keys=[department_using_id], backref='assets_using_lazy', lazy='select')
@@ -80,6 +82,7 @@ class FixedAsset(db.Model):
     # 关联房间和责任人用户
     room = db.relationship('Room', foreign_keys=[room_id], lazy='select')
     responsible_user = db.relationship('User', foreign_keys=[responsible_user_id], lazy='select')
+    supply_item = db.relationship('SupplyItem', foreign_keys=[supply_item_id], lazy='select')
 
     # 便捷属性：通过relationship返回部门名称字符串，供模板使用
     @property
@@ -110,13 +113,27 @@ class FixedAsset(db.Model):
             return self.responsible_user.name
         return None
 
+    @property
+    def total_quantity(self):
+        """从库存明细汇总总数量"""
+        if hasattr(self, 'stock_items') and self.stock_items:
+            return sum(item.quantity for item in self.stock_items)
+        return self.quantity
+
+    @property
+    def stock_item_count(self):
+        """返回库存明细条数（即存放位置数量）"""
+        if hasattr(self, 'stock_items') and self.stock_items:
+            return len(self.stock_items)
+        return 0
+
     # 删除联动说明：删除资产时，数据库级联删除 operation_records 和 inventory_details；
     # 磁盘上的照片文件需在删除路由中显式调用 AssetPhotoManager.delete_all_files(asset_id) 清理照片目录。
     # 删除操作仅写入 OperationLog(module='asset') 记录摘要，因为 AssetOperationRecord 会被级联删除。
 
     # 约束与索引
     __table_args__ = (
-        db.CheckConstraint('quantity > 0', name='check_quantity_positive'),
+        db.CheckConstraint('quantity >= 0', name='check_quantity_positive'),
         db.CheckConstraint(
             "status IN ('在用', '闲置', '维修中', '已报废', '已转移', '已出售')",
             name='check_asset_status_valid'
@@ -137,6 +154,7 @@ class FixedAsset(db.Model):
         db.Index('idx_asset_sale_date', 'sale_date'),
         db.Index('idx_asset_room_id', 'room_id'),
         db.Index('idx_asset_responsible_user_id', 'responsible_user_id'),
+        db.Index('idx_asset_supply_item_id', 'supply_item_id'),
     )
 
     def __repr__(self):
@@ -146,6 +164,41 @@ class FixedAsset(db.Model):
     def display_number(self):
         """返回资产编号，若为空则返回自增ID格式"""
         return self.asset_number or f"ZC{self.id:06d}"
+
+    @property
+    def display_asset_name(self):
+        """返回资产名称，优先从关联物料基础资料获取"""
+        if self.supply_item:
+            return self.supply_item.name
+        return self.asset_name
+
+    @property
+    def display_specification(self):
+        """返回规格型号，优先从关联物料基础资料获取"""
+        if self.supply_item and self.supply_item.specification:
+            return self.supply_item.specification
+        return self.specification
+
+    @property
+    def display_brand(self):
+        """返回品牌，优先从关联物料基础资料获取"""
+        if self.supply_item and self.supply_item.brand:
+            return self.supply_item.brand
+        return self.brand
+
+    @property
+    def display_unit(self):
+        """返回单位，优先从关联物料基础资料获取"""
+        if self.supply_item and self.supply_item.unit:
+            return self.supply_item.unit
+        return self.unit
+
+    @property
+    def item_number(self):
+        """返回关联物料的物品编号"""
+        if self.supply_item:
+            return self.supply_item.item_number
+        return None
 
     @classmethod
     def generate_asset_number(cls):
@@ -173,7 +226,7 @@ class FixedAsset(db.Model):
                company=None,
                responsible_person=None, asset_source=None, status=None,
                remark=None, operator_user_id=None,
-               room_id=None, responsible_user_id=None):
+               room_id=None, responsible_user_id=None, supply_item_id=None):
         """创建固定资产
 
         参数说明：
@@ -205,7 +258,8 @@ class FixedAsset(db.Model):
             remark=remark,
             operator_user_id=operator_user_id,
             room_id=room_id,
-            responsible_user_id=responsible_user_id
+            responsible_user_id=responsible_user_id,
+            supply_item_id=supply_item_id
         )
 
         db.session.add(asset)

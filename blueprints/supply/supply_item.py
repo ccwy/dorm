@@ -47,7 +47,7 @@ from . import supply_item_operations
 # 物品列表页（含筛选+分页）
 @supply_item_bp.route('/', methods=['GET'])
 @login_required
-@require_permission('supply.view')
+@require_permission('supply_item.view')
 def index():
     try:
         # 获取筛选参数
@@ -171,7 +171,7 @@ def index():
 # 新增物品页面
 @supply_item_bp.route('/add', methods=['GET'])
 @login_required
-@require_permission('supply.create')
+@require_permission('supply_item.create')
 def add_page():
     try:
         suppliers = Supplier.get_active_suppliers()
@@ -200,7 +200,7 @@ def add_page():
 # 编辑物品页面
 @supply_item_bp.route('/edit/<int:id>', methods=['GET'])
 @login_required
-@require_permission('supply.edit')
+@require_permission('supply_item.edit')
 def edit_page(id):
     try:
         item = SupplyItem.query.get_or_404(id)
@@ -230,7 +230,7 @@ def edit_page(id):
 # 物品详情页（含库存明细和进出库记录）
 @supply_item_bp.route('/detail/<int:id>', methods=['GET'])
 @login_required
-@require_permission('supply.view')
+@require_permission('supply_item.view')
 def detail(id):
     try:
         item = SupplyItem.query.get_or_404(id)

@@ -30,21 +30,23 @@ class AssetInventory(db.Model):
     )
 
     @classmethod
-    def unapprove(cls, inventory_id, operator_user_id=None):
+    def unapprove(cls, inventory_id, operator_user_id=None, operator_name=None):
         """
         反审核盘点单（仅已完成状态可反审核）
         反审核时：
-        1. 检查盘盈资产数量是否充足（扣减后不能为0以下）
+        1. 检查盘盈资产库存明细数量是否充足（扣减后不能为0以下）
         2. 更新盘点单状态为"进行中"
-        3. 遍历有差异的盘点明细，回滚资产数量和状态：
-           - 盘盈的：恢复到账面数量（反盘盈）
-           - 部分盘亏的：恢复到账面数量（反盘亏）
-           - 全部盘亏的：恢复资产状态和数量（反盘亏报废）
+        3. 遍历有差异的盘点明细，按库存明细维度回滚：
+           - 盘盈的：恢复到账面数量（反盘盈，减少库存明细数量）
+           - 部分盘亏的：恢复到账面数量（反盘亏，增加库存明细数量）
+           - 全部盘亏的：恢复资产状态和数量（反盘亏报废，恢复库存明细数量）
         4. 新增"inventory_unapprove"操作记录（保留审核历史，反审核操作留痕）
         """
         from .fixed_asset import FixedAsset
         from .asset_inventory_detail import AssetInventoryDetail
         from .asset_operation_record import AssetOperationRecord
+        from .asset_stock_item import AssetStockItem
+        from .asset_stock_record import AssetStockRecord
 
         inventory = cls.query.get(inventory_id)
         if not inventory or inventory.status != '已完成':
@@ -52,7 +54,7 @@ class AssetInventory(db.Model):
 
         details = AssetInventoryDetail.query.filter_by(inventory_id=inventory_id).all()
 
-        # 第一遍：检查盘盈资产数量充足性（扣减后不能<=0）
+        # 第一遍：检查盘盈库存明细数量充足性（扣减后不能<=0）
         insufficient_items = []
         for detail in details:
             if detail.inventory_result == '未盘点':
@@ -61,7 +63,6 @@ class AssetInventory(db.Model):
             if not asset:
                 continue
 
-            # 使用book_quantity（盘点前账面数量）来判断差异类型
             book_qty = detail.book_quantity if detail.book_quantity is not None else None
             actual_qty = detail.actual_quantity
 
@@ -69,14 +70,16 @@ class AssetInventory(db.Model):
                 continue
 
             diff = actual_qty - book_qty
-            # 盘盈的：完成时增加了数量，反审核需要扣减回账面数量
+            # 盘盈的：完成时增加了库存明细数量，反审核需要扣减回账面数量
             if diff > 0:
-                deduct_amount = actual_qty - book_qty  # 需要扣减的量
-                if asset.quantity < deduct_amount:
+                stock_item = AssetStockItem.query.get(detail.stock_item_id) if detail.stock_item_id else None
+                current_qty = stock_item.quantity if stock_item else asset.quantity
+                deduct_amount = diff  # 需要扣减的量
+                if current_qty < deduct_amount:
                     insufficient_items.append({
                         'asset_name': asset.asset_name,
                         'asset_number': asset.asset_number,
-                        'current_quantity': asset.quantity,
+                        'current_quantity': current_qty,
                         'need_deduct': deduct_amount,
                         'unit': asset.unit or '台'
                     })
@@ -108,15 +111,56 @@ class AssetInventory(db.Model):
 
             old_quantity = asset.quantity
             old_status = asset.status
+            stock_item = AssetStockItem.query.get(detail.stock_item_id) if detail.stock_item_id else None
 
             if diff > 0:
-                # 盘盈：反审核恢复到账面数量
-                asset.quantity = book_qty
+                # 盘盈：反审核恢复到账面数量，减少库存明细
+                if stock_item:
+                    stock_item.quantity = book_qty
+                    stock_item.updated_at = datetime.now()
+                    asset.quantity = sum(item.quantity for item in asset.stock_items)
+                    AssetStockRecord.create_record(
+                        record_type='出库',
+                        record_subtype='盘亏',
+                        asset_id=asset.id,
+                        quantity=abs(diff),
+                        from_stock_item_id=stock_item.id,
+                        storage_location=stock_item.storage_location,
+                        room_id=stock_item.room_id,
+                        company=stock_item.company,
+                        department_using_id=stock_item.department_using_id,
+                        department_owning_id=stock_item.department_owning_id,
+                        operator_user_id=operator_user_id,
+                        operator_name=operator_name,
+                        remark=f'盘点反审核-反盘盈：数量从{actual_qty}{asset.unit or "台"}扣减{abs(diff)}{asset.unit or "台"}至{book_qty}{asset.unit or "台"}'
+                    )
+                else:
+                    asset.quantity = book_qty
                 change_type = '反盘盈'
                 summary = f"盘点反审核-反盘盈：{asset.asset_name}，数量从{old_quantity}{asset.unit or '台'}扣减{diff}{asset.unit or '台'}至{asset.quantity}{asset.unit or '台'}"
             else:
-                # 盘亏：反审核恢复到账面数量
-                asset.quantity = book_qty
+                # 盘亏：反审核恢复到账面数量，增加库存明细
+                if stock_item:
+                    stock_item.quantity = book_qty
+                    stock_item.updated_at = datetime.now()
+                    asset.quantity = sum(item.quantity for item in asset.stock_items)
+                    AssetStockRecord.create_record(
+                        record_type='入库',
+                        record_subtype='盘盈',
+                        asset_id=asset.id,
+                        quantity=abs(diff),
+                        to_stock_item_id=stock_item.id,
+                        storage_location=stock_item.storage_location,
+                        room_id=stock_item.room_id,
+                        company=stock_item.company,
+                        department_using_id=stock_item.department_using_id,
+                        department_owning_id=stock_item.department_owning_id,
+                        operator_user_id=operator_user_id,
+                        operator_name=operator_name,
+                        remark=f'盘点反审核-反盘亏：数量从{actual_qty}{asset.unit or "台"}恢复{abs(diff)}{asset.unit or "台"}至{book_qty}{asset.unit or "台"}'
+                    )
+                else:
+                    asset.quantity = book_qty
                 change_type = '反盘亏'
 
                 if actual_qty == 0 and book_status:
@@ -142,6 +186,7 @@ class AssetInventory(db.Model):
                 'book_quantity': book_qty,
                 'actual_quantity': actual_qty,
                 'difference': -diff,
+                'stock_item_id': detail.stock_item_id,
                 'remark': f'盘点反审核，{change_type}'
             }
 

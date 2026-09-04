@@ -6,15 +6,20 @@ from models.fixed_asset.asset_inventory import AssetInventory
 from models.fixed_asset.asset_inventory_detail import AssetInventoryDetail
 from models.system_config.system_config import SystemConfig
 from models.department.department import Department
-from utils.asset_photo import AssetPhotoManager
-from flask_login import login_required, current_user
-from utils.log import log_operation
-from utils.auth import require_permission
-import logging
 from models.room.room import Room
 from models.user.user import User
 from models.supply.supplier import Supplier
 from models.supply.storage_location import StorageLocation
+from models.supply.supply_item import SupplyItem
+from utils.asset_photo import AssetPhotoManager
+from flask_login import login_required, current_user
+from utils.log import log_operation
+from utils.auth import require_permission
+from datetime import datetime, date
+from decimal import Decimal, InvalidOperation
+import json
+import logging
+import traceback
 
 # 定义蓝图
 fixed_asset_bp = Blueprint(
@@ -355,8 +360,22 @@ def inventory_detail(id):
         if result_filter:
             query = query.filter(AssetInventoryDetail.inventory_result == result_filter)
 
-        # 判断是否需要join FixedAsset（避免重复join）
-        need_join_asset = bool(search or category_filter or company_filter or responsible_filter or department_filter)
+        # 公司筛选 - 使用盘点明细自身的冗余字段
+        if company_filter:
+            query = query.filter(AssetInventoryDetail.company == company_filter)
+
+        # 部门筛选 - 使用盘点明细自身的冗余字段（join Department）
+        if department_filter:
+            query = query.join(Department, AssetInventoryDetail.department_using_id == Department.id).filter(
+                Department.name == department_filter
+            )
+
+        # 责任人筛选 - 使用盘点明细自身的冗余字段
+        if responsible_filter:
+            query = query.filter(AssetInventoryDetail.responsible_person == responsible_filter)
+
+        # 判断是否需要join FixedAsset（分类筛选和搜索需要）
+        need_join_asset = bool(search or category_filter)
 
         if need_join_asset:
             query = query.join(FixedAsset, AssetInventoryDetail.asset_id == FixedAsset.id)
@@ -365,30 +384,17 @@ def inventory_detail(id):
         if category_filter:
             query = query.filter(FixedAsset.asset_category == category_filter)
 
-        # 公司筛选
-        if company_filter:
-            query = query.filter(FixedAsset.company == company_filter)
-
-        # 部门筛选（需join Department）
-        if department_filter:
-            query = query.join(Department, FixedAsset.department_using_id == Department.id).filter(
-                Department.name == department_filter
-            )
-
-        # 责任人筛选
-        if responsible_filter:
-            query = query.filter(FixedAsset.responsible_person == responsible_filter)
-
         # 搜索（按资产编号/名称/规格/存放位置/责任人搜索）
         if search:
             search_filter = f'%{search}%'
+            # 同时搜索资产字段和盘点明细的位置字段
             query = query.filter(
                 db.or_(
                     FixedAsset.asset_number.ilike(search_filter),
                     FixedAsset.asset_name.ilike(search_filter),
                     FixedAsset.specification.ilike(search_filter),
-                    FixedAsset.storage_location.ilike(search_filter),
-                    FixedAsset.responsible_person.ilike(search_filter)
+                    AssetInventoryDetail.storage_location.ilike(search_filter),
+                    AssetInventoryDetail.responsible_person.ilike(search_filter)
                 )
             )
 
@@ -396,11 +402,19 @@ def inventory_detail(id):
 
         # 获取下拉选项数据
         categories = [c[0] for c in db.session.query(FixedAsset.asset_category).distinct().order_by(FixedAsset.asset_category).all()]
-        companies = Department.get_all_companies()
+        # 公司从盘点明细冗余字段获取
+        companies = [c[0] for c in db.session.query(AssetInventoryDetail.company).filter(
+            AssetInventoryDetail.inventory_id == id,
+            AssetInventoryDetail.company.isnot(None),
+            AssetInventoryDetail.company != ''
+        ).distinct().order_by(AssetInventoryDetail.company).all()]
         departments = [d[0] for d in db.session.query(Department.name).filter(Department.status == '正常').distinct().order_by(Department.name).all()]
-        responsible_persons = [r[0] for r in db.session.query(FixedAsset.responsible_person).filter(
-            FixedAsset.responsible_person.isnot(None), FixedAsset.responsible_person != ''
-        ).distinct().order_by(FixedAsset.responsible_person).all()]
+        # 责任人从盘点明细冗余字段获取
+        responsible_persons = [r[0] for r in db.session.query(AssetInventoryDetail.responsible_person).filter(
+            AssetInventoryDetail.inventory_id == id,
+            AssetInventoryDetail.responsible_person.isnot(None),
+            AssetInventoryDetail.responsible_person != ''
+        ).distinct().order_by(AssetInventoryDetail.responsible_person).all()]
 
         log_operation(
             user_id=current_user.id,
@@ -595,6 +609,16 @@ def add_page():
         logging.warning(f"获取房间列表失败: {str(e)}")
         rooms = []
 
+    # 获取物料基础资料中分类为"固定资产"的启用物品（供资产名称下拉选择）
+    try:
+        supply_items = SupplyItem.query.filter(
+            SupplyItem.category == '固定资产',
+            SupplyItem.status == '启用'
+        ).order_by(SupplyItem.name).all()
+    except Exception as e:
+        logging.warning(f"获取物料基础资料失败: {str(e)}")
+        supply_items = []
+
     logging.info(f"访问新增资产页面，当前用户ID: {current_user.id}")
 
     try:
@@ -621,7 +645,8 @@ def add_page():
         units=units,
         sources=sources,
         users=users,
-        rooms=rooms
+        rooms=rooms,
+        supply_items=supply_items
     )
 
 
@@ -710,6 +735,16 @@ def edit_page(id):
         logging.warning(f"获取房间列表失败: {str(e)}")
         rooms = []
 
+    # 获取物料基础资料中分类为"固定资产"的启用物品（供资产名称下拉选择）
+    try:
+        supply_items = SupplyItem.query.filter(
+            SupplyItem.category == '固定资产',
+            SupplyItem.status == '启用'
+        ).order_by(SupplyItem.name).all()
+    except Exception as e:
+        logging.warning(f"获取物料基础资料失败: {str(e)}")
+        supply_items = []
+
     logging.info(f"访问编辑资产页面，资产ID: {id}, 部门数量: {len(departments) if departments else 0}")
 
     try:
@@ -738,7 +773,8 @@ def edit_page(id):
         sources=sources,
         media_files=media_files,
         users=users,
-        rooms=rooms
+        rooms=rooms,
+        supply_items=supply_items
     )
 
 

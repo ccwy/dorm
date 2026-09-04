@@ -8,7 +8,7 @@ class AssetOperationRecord(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     asset_id = db.Column(db.Integer, db.ForeignKey('fixed_assets.id', ondelete='CASCADE'), nullable=False, comment='关联资产ID')
-    operation_type = db.Column(db.String(20), nullable=False, comment='操作类型：add/edit/transfer/inventory/scrap/sell/delete')
+    operation_type = db.Column(db.String(20), nullable=False, comment='操作类型：add/edit/transfer/inventory/inventory_unapprove/scrap/sell/delete')
     operator_id = db.Column(db.Integer, nullable=True, comment='操作人ID')
     operator_name = db.Column(db.String(50), nullable=True, comment='操作人姓名')
     operation_time = db.Column(db.DateTime, default=datetime.now, nullable=False, comment='操作时间')

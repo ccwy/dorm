@@ -10,6 +10,7 @@ from models.system_config.system_config import SystemConfig
 from models.department.department import Department
 from models.fixed_asset.fixed_asset import FixedAsset
 from models.fixed_asset.asset_operation_record import AssetOperationRecord
+from models.supply.supply_item import SupplyItem
 from utils.asset_photo import AssetPhotoManager
 from config import Config
 from models.room.room import Room
@@ -534,6 +535,37 @@ def search_rooms():
         } for r in rooms])
     except Exception as e:
         logging.error(f"搜索房间失败: {str(e)}\n{traceback.format_exc()}")
+        return jsonify([]), 500
+
+
+# ========== 搜索物料基础资料（分类=固定资产，供资产名称选择用） ==========
+@fixed_asset_api_bp.route('/supply-items/search', methods=['GET'])
+@login_required
+@require_permission('fixed_asset.view')
+def search_supply_items():
+    """搜索物料基础资料中分类为'固定资产'的物品，供资产名称下拉选择"""
+    try:
+        query = request.args.get('query', '').strip()
+        items = SupplyItem.query.filter(SupplyItem.category == '固定资产', SupplyItem.status == '启用')
+        if query:
+            items = items.filter(
+                db.or_(
+                    SupplyItem.name.ilike(f'%{query}%'),
+                    SupplyItem.specification.ilike(f'%{query}%'),
+                    SupplyItem.brand.ilike(f'%{query}%')
+                )
+            )
+        items = items.order_by(SupplyItem.name).limit(50).all()
+        return jsonify([{
+            'id': item.id,
+            'name': item.name,
+            'specification': item.specification or '',
+            'brand': item.brand or '',
+            'unit': item.unit or '',
+            'category': item.category or ''
+        } for item in items])
+    except Exception as e:
+        logging.error(f"搜索物料基础资料失败: {str(e)}\n{traceback.format_exc()}")
         return jsonify([]), 500
 
 

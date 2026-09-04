@@ -83,8 +83,16 @@
                         <div>
                             <label for="asset_name" class="block text-sm font-medium text-gray-700 mb-1">资产名称 <span class="text-red-500">*</span></label>
                             <input type="text" id="asset_name" name="asset_name" required
-                                   value="{{ asset.asset_name }}"
-                                   class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                                   value="{{ asset.display_asset_name }}"
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                   placeholder="请输入或从物料基础资料选择" list="supplyItemList" autocomplete="off">
+                            <datalist id="supplyItemList">
+                                {% for item in supply_items %}
+                                <option value="{{ item.name }}" data-id="{{ item.id }}" data-specification="{{ item.specification or '' }}" data-brand="{{ item.brand or '' }}" data-unit="{{ item.unit or '' }}">
+                                {% endfor %}
+                            </datalist>
+                            <input type="hidden" id="supply_item_id" name="supply_item_id" value="{{ asset.supply_item_id or '' }}">
+                            <p class="text-xs text-gray-500 mt-1">可从物料基础资料（分类：固定资产）选择或自定义输入，自定义输入将同步保存到物料基础资料</p>
                         </div>
 
                         <!-- 资产分类 -->
@@ -103,7 +111,7 @@
                         <div>
                             <label for="specification" class="block text-sm font-medium text-gray-700 mb-1">规格型号</label>
                             <input type="text" id="specification" name="specification"
-                                   value="{{ asset.specification or '' }}"
+                                   value="{{ asset.display_specification or '' }}"
                                    class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
                         </div>
 
@@ -111,7 +119,7 @@
                         <div>
                             <label for="brand" class="block text-sm font-medium text-gray-700 mb-1">品牌</label>
                             <input type="text" id="brand" name="brand"
-                                   value="{{ asset.brand or '' }}"
+                                   value="{{ asset.display_brand or '' }}"
                                    class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
                         </div>
 
@@ -140,7 +148,7 @@
                         <!-- 单位 -->
                         <div>
                             <label for="unit" class="block text-sm font-medium text-gray-700 mb-1">单位</label>
-                            <input type="text" id="unit" name="unit" value="{{ asset.unit or '台' }}"
+                            <input type="text" id="unit" name="unit" value="{{ asset.display_unit or '台' }}"
                                    class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
                                    placeholder="如：台、套、个" list="unitList" autocomplete="off">
                             <datalist id="unitList">
@@ -398,6 +406,11 @@
     {% include 'footer.html' %}
 
     <script>
+        // 物料基础资料映射：名称→{id, specification, brand, unit}
+        var supplyItemData = {
+            {% for item in supply_items %}'{{ item.name }}': {id: {{ item.id }}, specification: '{{ item.specification or '' }}', brand: '{{ item.brand or '' }}', unit: '{{ item.unit or '' }}'}{% if not loop.last %}, {% endif %}{% endfor %}
+        };
+
         // 责任人datalist映射：名称→用户ID
         var userNameToId = {
             {% for u in users %}'{{ u.name }}': {{ u.id }}{% if not loop.last %}, {% endif %}{% endfor %}
@@ -432,6 +445,34 @@
                     roomIdInput.value = roomDisplayToId[val];
                 } else {
                     roomIdInput.value = '';
+                }
+            });
+        }
+
+        // 资产名称input事件：从物料基础资料选择时自动填充规格/品牌/单位，自定义输入时清空
+        var assetNameInput = document.getElementById('asset_name');
+        var supplyItemIdInput = document.getElementById('supply_item_id');
+        var specificationInput = document.getElementById('specification');
+        var brandInput = document.getElementById('brand');
+        var unitInput = document.getElementById('unit');
+        if (assetNameInput) {
+            assetNameInput.addEventListener('input', function() {
+                var val = this.value.trim();
+                if (supplyItemData[val] !== undefined) {
+                    var data = supplyItemData[val];
+                    supplyItemIdInput.value = data.id;
+                    // 自动填充规格型号、品牌、单位（仅当目标字段为空时填充）
+                    if (specificationInput && !specificationInput.value.trim()) {
+                        specificationInput.value = data.specification;
+                    }
+                    if (brandInput && !brandInput.value.trim()) {
+                        brandInput.value = data.brand;
+                    }
+                    if (unitInput && !unitInput.value.trim()) {
+                        unitInput.value = data.unit;
+                    }
+                } else {
+                    supplyItemIdInput.value = '';
                 }
             });
         }

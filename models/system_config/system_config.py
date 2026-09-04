@@ -275,6 +275,16 @@ class SystemConfig(db.Model):
                 'is_editable': True,
                 'sort_order': 150
             },
+            # 手机号身份证号登录开关
+            {
+                'config_key': 'FEATURE_PHONE_IDCARD_LOGIN_ENABLED',
+                'config_value': 'true',
+                'config_type': 'bool',
+                'category': 'system.feature',
+                'description': '是否开启手机号、身份证号码登录',
+                'is_editable': True,
+                'sort_order': 160
+            },
             
             # 3. 用户管理配置 (category: user)
             {
@@ -731,7 +741,7 @@ class SystemConfig(db.Model):
             },
             {
                 'config_key': 'supply_categories',
-                'config_value': '文具,办公设备,耗材,清洁用品,其他',
+                'config_value': '低值易耗品,固定资产,其他',
                 'config_type': 'list',
                 'category': 'supply',
                 'description': '物品分类选项（逗号分隔，第一个为默认值）',

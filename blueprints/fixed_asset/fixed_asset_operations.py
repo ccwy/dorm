@@ -129,6 +129,15 @@ def add_asset():
         company = request.form.get('company', '').strip() or None
         department_using_name = request.form.get('department_using', '').strip()
         department_owning_name = request.form.get('department_owning', '').strip()
+        supply_item_id_str = request.form.get('supply_item_id', '').strip()
+
+        # 验证选择的物料基础资料是否为启用状态
+        if supply_item_id_str:
+            from models.supply.supply_item import SupplyItem
+            selected_item = SupplyItem.query.get(int(supply_item_id_str))
+            if not selected_item or selected_item.status != '启用':
+                flash('所选物料基础资料已停用，请重新选择', 'danger')
+                return redirect(url_for('fixed_asset.index'))
 
         # 同步保存自定义供应商到供应商模块
         if supplier:
@@ -201,10 +210,6 @@ def add_asset():
         original_value = _parse_decimal(original_value_str)
         net_value = _parse_decimal(net_value_str)
 
-        # 资产编号：为空则自动生成
-        if not asset_number:
-            asset_number = None  # create方法内部会自动生成
-
         # FK字段转换：room_id和responsible_user_id
         room_id = int(room_id_str) if room_id_str else None
         responsible_user_id = int(responsible_user_id_str) if responsible_user_id_str else None
@@ -215,6 +220,24 @@ def add_asset():
             user = User.query.get(responsible_user_id)
             if user:
                 responsible_person = user.name
+
+        # 资产编号：为空则预生成（需在创建物料前确定，以便同步为物品编号）
+        if not asset_number:
+            from models.fixed_asset.fixed_asset import FixedAsset as FA
+            asset_number = FA.generate_asset_number()
+
+        # 同步保存到物料基础资料（每次新增资产都创建新的物料记录，物品编号=资产编号）
+        supply_item_id = None
+        if asset_name:
+            from models.supply.supply_item import SupplyItem
+            new_item = SupplyItem.create(
+                name=asset_name, category='固定资产',
+                specification=specification or None, brand=brand or None,
+                unit=unit or None, status='启用',
+                operator_user_id=current_user.id,
+                item_number=asset_number
+            )
+            supply_item_id = new_item.id
 
         # 调用模型创建资产
         asset = FixedAsset.create(
@@ -240,7 +263,40 @@ def add_asset():
             remark=remark or None,
             operator_user_id=current_user.id,
             room_id=room_id,
-            responsible_user_id=responsible_user_id
+            responsible_user_id=responsible_user_id,
+            supply_item_id=supply_item_id
+        )
+
+        # 创建库存明细记录（入库）
+        from models.fixed_asset.asset_stock_item import AssetStockItem
+        from models.fixed_asset.asset_stock_record import AssetStockRecord
+        stock_item = AssetStockItem.add_stock(
+            asset_id=asset.id,
+            quantity=quantity,
+            storage_location=storage_location or None,
+            room_id=room_id,
+            company=company,
+            department_using_id=dept_using_id,
+            department_owning_id=dept_owning_id,
+            responsible_person=responsible_person or None,
+            responsible_user_id=responsible_user_id,
+            operator_user_id=current_user.id
+        )
+        # 创建库存变动记录
+        AssetStockRecord.create_record(
+            asset_id=asset.id,
+            record_type='入库',
+            record_subtype='新增入库',
+            quantity=quantity,
+            to_stock_item_id=stock_item.id if stock_item else None,
+            storage_location=storage_location or None,
+            room_id=room_id,
+            company=company,
+            department_using_id=dept_using_id,
+            department_owning_id=dept_owning_id,
+            operator_user_id=current_user.id,
+            operator_name=current_user.username if hasattr(current_user, 'username') else None,
+            remark='新增资产入库'
         )
 
         # 构建详细摘要
@@ -343,6 +399,8 @@ def add_asset():
 @require_permission('fixed_asset.edit')
 def edit_asset(id):
     """编辑资产 - 逐字段对比，仅记录变更字段"""
+    from models.fixed_asset.asset_stock_item import AssetStockItem
+    from models.fixed_asset.asset_stock_record import AssetStockRecord
     try:
         asset = FixedAsset.query.get_or_404(id)
 
@@ -460,6 +518,53 @@ def edit_asset(id):
         if new_storage_location:
             _ensure_storage_location_exists(new_storage_location, current_user.id, handler_user_id=current_user.id)
 
+        # 处理物料基础资料关联
+        supply_item_id_str = request.form.get('supply_item_id', '').strip()
+        new_supply_item_id = int(supply_item_id_str) if supply_item_id_str else None
+        # 验证选择的物料是否为启用状态
+        if new_supply_item_id:
+            from models.supply.supply_item import SupplyItem
+            selected_item = SupplyItem.query.get(new_supply_item_id)
+            if not selected_item or selected_item.status != '启用':
+                flash('所选物料基础资料已停用，请重新选择', 'danger')
+                return redirect(url_for('fixed_asset.edit_page', id=id))
+        # 编辑时：始终确保有对应的物料记录，物品编号=资产编号
+        if not new_supply_item_id and asset.asset_name:
+            from models.supply.supply_item import SupplyItem
+            # 资产编号作为物品编号传递到物料基础资料
+            new_item = SupplyItem.create(
+                name=asset.asset_name,
+                category='固定资产',
+                specification=asset.specification or None,
+                brand=asset.brand or None,
+                unit=asset.unit or None,
+                status='启用',
+                operator_user_id=current_user.id,
+                item_number=asset.asset_number
+            )
+            new_supply_item_id = new_item.id
+        # 比较并更新 supply_item_id 字段
+        old_supply_item_id = asset.supply_item_id
+        if old_supply_item_id != new_supply_item_id:
+            old_supply_item_name = ''
+            new_supply_item_name = ''
+            from models.supply.supply_item import SupplyItem
+            if old_supply_item_id:
+                old_item = SupplyItem.query.get(old_supply_item_id)
+                if old_item:
+                    old_supply_item_name = old_item.name
+            if new_supply_item_id:
+                new_item = SupplyItem.query.get(new_supply_item_id)
+                if new_item:
+                    new_supply_item_name = new_item.name
+            changes.append({
+                'field': 'supply_item_id',
+                'field_display': '关联物料',
+                'old': old_supply_item_name,
+                'new': new_supply_item_name
+            })
+            asset.supply_item_id = new_supply_item_id
+
         # FK字段：room_id
         room_id_str = request.form.get('room_id', '').strip()
         new_room_id = int(room_id_str) if room_id_str else None
@@ -508,22 +613,102 @@ def edit_asset(id):
                 # 用户清空了关联用户，responsible_person保留表单输入值（已在上面editable_fields处理）
                 pass
 
-        # 数量字段
+        # 数量字段 - 通过库存明细调整
         quantity_str = request.form.get('quantity', '').strip()
         if quantity_str:
             try:
                 new_quantity = int(quantity_str)
-                if new_quantity != asset.quantity:
+                old_quantity = asset.total_quantity
+                if new_quantity != old_quantity:
                     if new_quantity <= 0:
                         flash('数量必须大于0', 'danger')
                         return redirect(url_for('fixed_asset.detail', id=id))
+                    if new_quantity < old_quantity:
+                        # 数量减少：从库存明细中扣减（优先从第一条扣减）
+                        reduce_amount = old_quantity - new_quantity
+                        stock_items = AssetStockItem.query.filter_by(asset_id=asset.id).order_by(AssetStockItem.id).all()
+                        remaining = reduce_amount
+                        for item in stock_items:
+                            if remaining <= 0:
+                                break
+                            deduct = min(item.quantity, remaining)
+                            item.quantity -= deduct
+                            remaining -= deduct
+                            if item.quantity == 0:
+                                db.session.delete(item)
+                        # 创建编辑调整出库记录
+                        AssetStockRecord.create_record(
+                            asset_id=asset.id,
+                            record_type='出库',
+                            record_subtype='编辑调整',
+                            quantity=reduce_amount,
+                            from_stock_item_id=stock_items[0].id if stock_items else None,
+                            storage_location=stock_items[0].storage_location if stock_items else '',
+                            room_id=stock_items[0].room_id if stock_items else None,
+                            company=stock_items[0].company if stock_items else '',
+                            department_using_id=stock_items[0].department_using_id if stock_items else None,
+                            department_owning_id=stock_items[0].department_owning_id if stock_items else None,
+                            operator_user_id=current_user.id,
+                            operator_name=current_user.username if hasattr(current_user, 'username') else None,
+                            remark=f'编辑调整：数量从{old_quantity}减少到{new_quantity}'
+                        )
+                    else:
+                        # 数量增加：增加到第一条库存明细或创建新明细
+                        add_amount = new_quantity - old_quantity
+                        stock_items = AssetStockItem.query.filter_by(asset_id=asset.id).order_by(AssetStockItem.id).all()
+                        if stock_items:
+                            # 增加到第一条库存明细
+                            stock_items[0].quantity += add_amount
+                            AssetStockRecord.create_record(
+                                asset_id=asset.id,
+                                record_type='入库',
+                                record_subtype='编辑调整',
+                                quantity=add_amount,
+                                to_stock_item_id=stock_items[0].id,
+                                storage_location=stock_items[0].storage_location,
+                                room_id=stock_items[0].room_id,
+                                company=stock_items[0].company,
+                                department_using_id=stock_items[0].department_using_id,
+                                department_owning_id=stock_items[0].department_owning_id,
+                                operator_user_id=current_user.id,
+                                operator_name=current_user.username if hasattr(current_user, 'username') else None,
+                                remark=f'编辑调整：数量从{old_quantity}增加到{new_quantity}'
+                            )
+                        else:
+                            # 没有库存明细，创建新的
+                            AssetStockItem.add_stock(
+                                asset_id=asset.id,
+                                quantity=add_amount,
+                                storage_location=asset.storage_location or '',
+                                room_id=asset.room_id,
+                                company=asset.company or '',
+                                department_using_id=asset.department_using_id,
+                                department_owning_id=asset.department_owning_id,
+                                responsible_person=asset.responsible_person or '',
+                                responsible_user_id=asset.responsible_user_id
+                            )
+                            AssetStockRecord.create_record(
+                                asset_id=asset.id,
+                                record_type='入库',
+                                record_subtype='编辑调整',
+                                quantity=add_amount,
+                                storage_location=asset.storage_location or '',
+                                room_id=asset.room_id,
+                                company=asset.company or '',
+                                department_using_id=asset.department_using_id,
+                                department_owning_id=asset.department_owning_id,
+                                operator_user_id=current_user.id,
+                                operator_name=current_user.username if hasattr(current_user, 'username') else None,
+                                remark=f'编辑调整：数量从{old_quantity}增加到{new_quantity}'
+                            )
+                    # 同步主表quantity
+                    asset.quantity = new_quantity
                     changes.append({
                         'field': 'quantity',
                         'field_display': '数量',
-                        'old': str(asset.quantity),
+                        'old': str(old_quantity),
                         'new': str(new_quantity)
                     })
-                    asset.quantity = new_quantity
             except ValueError:
                 flash('数量格式无效', 'danger')
                 return redirect(url_for('fixed_asset.detail', id=id))
@@ -786,14 +971,7 @@ def transfer_asset(id):
             flash(f'转移数量无效，有效范围为1~{asset.quantity}', 'danger')
             return redirect(url_for('fixed_asset.detail', id=id))
 
-        # 记录转移前信息
-        from_location = asset.storage_location or ''
-        from_company = asset.company or ''
-        from_department_using = asset.department_using or ''
-        from_department_owning = asset.department_owning or ''
-        from_responsible_person = asset.responsible_person or ''
-        from_room_display = asset.room_display or ''
-        from_responsible_user_name = asset.responsible_user_name or ''
+        # 记录转移前信息（将在库存明细转移逻辑中从库存明细获取）
         original_quantity = asset.quantity
 
         # 获取转移后信息（字段名与模板fixed_asset_transfer.html一致）
@@ -861,7 +1039,93 @@ def transfer_asset(id):
         if to_location:
             _ensure_storage_location_exists(to_location, current_user.id, handler_user_id=current_user.id)
 
-        # 更新资产字段
+        # ========== 库存明细转移逻辑 ==========
+        from models.fixed_asset.asset_stock_item import AssetStockItem
+        from models.fixed_asset.asset_stock_record import AssetStockRecord
+
+        # 获取源库存明细ID（从前端传入，或默认取第一条）
+        from_stock_item_id_str = request.form.get('from_stock_item_id', '').strip()
+        from_stock_item_id = int(from_stock_item_id_str) if from_stock_item_id_str else None
+
+        # 查找源库存明细
+        from_stock_item = None
+        if from_stock_item_id:
+            from_stock_item = AssetStockItem.query.filter_by(id=from_stock_item_id, asset_id=asset.id).first()
+        if not from_stock_item:
+            # 默认取第一条库存明细
+            from_stock_item = AssetStockItem.query.filter_by(asset_id=asset.id).first()
+
+        # 记录源位置信息（用于变更记录）
+        if from_stock_item:
+            from_location = from_stock_item.storage_location or ''
+            from_company = from_stock_item.company or ''
+            from_department_using = from_stock_item.department_using or ''
+            from_department_owning = from_stock_item.department_owning or ''
+            from_responsible_person = from_stock_item.responsible_person or ''
+            from_room_display = from_stock_item.room_display or ''
+            from_responsible_user_name = from_stock_item.responsible_user_name or ''
+            from_stock_item_id_actual = from_stock_item.id
+        else:
+            # 无库存明细时，从主表获取
+            from_location = asset.storage_location or ''
+            from_company = asset.company or ''
+            from_department_using = asset.department_using or ''
+            from_department_owning = asset.department_owning or ''
+            from_responsible_person = asset.responsible_person or ''
+            from_room_display = asset.room_display or ''
+            from_responsible_user_name = asset.responsible_user_name or ''
+            from_stock_item_id_actual = None
+
+        # 减少源库存明细数量
+        if from_stock_item:
+            if from_stock_item.quantity < quantity:
+                flash(f'源位置库存不足，当前库存: {from_stock_item.quantity}', 'danger')
+                return redirect(url_for('fixed_asset.detail', id=id))
+            from_stock_item.quantity -= quantity
+            from_stock_item.operator_user_id = current_user.id
+            from_stock_item.updated_at = datetime.now()
+            # 如果数量为0，删除该条记录
+            if from_stock_item.quantity <= 0:
+                db.session.delete(from_stock_item)
+
+        # 增加目标库存明细数量
+        to_stock_item = AssetStockItem.add_stock(
+            asset_id=asset.id,
+            quantity=quantity,
+            storage_location=to_location,
+            room_id=to_room_id,
+            company=to_company,
+            department_using_id=to_dept_using_id,
+            department_owning_id=to_dept_owning_id,
+            responsible_person=to_responsible_person,
+            responsible_user_id=to_responsible_user_id,
+            operator_user_id=current_user.id
+        )
+
+        # 创建库存变动记录
+        AssetStockRecord.create_record(
+            asset_id=asset.id,
+            record_type='转移',
+            record_subtype='转移调拨',
+            quantity=quantity,
+            from_stock_item_id=from_stock_item_id_actual,
+            to_stock_item_id=to_stock_item.id if to_stock_item else None,
+            storage_location=from_location or None,
+            room_id=from_stock_item.room_id if from_stock_item else asset.room_id,
+            company=from_company or None,
+            department_using_id=from_stock_item.department_using_id if from_stock_item else asset.department_using_id,
+            department_owning_id=from_stock_item.department_owning_id if from_stock_item else asset.department_owning_id,
+            to_storage_location=to_location,
+            to_room_id=to_room_id,
+            to_company=to_company,
+            to_department_using_id=to_dept_using_id,
+            to_department_owning_id=to_dept_owning_id,
+            operator_user_id=current_user.id,
+            operator_name=current_user.username if hasattr(current_user, 'username') else None,
+            remark=reason or '资产转移'
+        )
+
+        # 更新资产主表字段（兼容旧逻辑，取第一条库存明细或目标位置）
         asset.storage_location = to_location
         asset.company = to_company
         asset.department_using_id = to_dept_using_id
@@ -871,6 +1135,8 @@ def transfer_asset(id):
         asset.responsible_user_id = to_responsible_user_id
         asset.transfer_date = transfer_date
         asset.operator_user_id = current_user.id
+        # 主表quantity从库存明细汇总（转移不改变总数量）
+        asset.quantity = sum(item.quantity for item in asset.stock_items)
 
         # 查找转移后的显示名（用于变更记录）
         to_room_display = ''
@@ -885,10 +1151,6 @@ def transfer_asset(id):
             new_user = User.query.get(to_responsible_user_id)
             if new_user:
                 to_responsible_user_display = new_user.name
-
-        # 处理转移数量：部分转移时只减少数量，不改变状态
-        if quantity < original_quantity:
-            asset.quantity = original_quantity - quantity
 
         db.session.commit()
 
@@ -980,7 +1242,8 @@ def transfer_asset(id):
 @login_required
 @require_permission('fixed_asset.inventory')
 def create_inventory():
-    """创建盘点单 - 生成盘点单号，获取所有在用/闲置状态资产创建盘点明细"""
+    """创建盘点单 - 生成盘点单号，获取所有在用/闲置状态资产的库存明细创建盘点明细"""
+    from models.fixed_asset.asset_stock_item import AssetStockItem
     try:
         title = request.form.get('title', '').strip()
         inventory_date_str = request.form.get('inventory_date', '').strip()
@@ -998,9 +1261,12 @@ def create_inventory():
         # 生成盘点单号
         inventory_number = _generate_inventory_number()
 
-        # 获取所有在用/闲置状态资产
-        assets = FixedAsset.query.filter(
-            FixedAsset.status.in_(['在用', '闲置'])
+        # 获取所有在用/闲置状态资产的库存明细（按位置维度）
+        stock_items = AssetStockItem.query.join(
+            FixedAsset, AssetStockItem.asset_id == FixedAsset.id
+        ).filter(
+            FixedAsset.status.in_(['在用', '闲置']),
+            AssetStockItem.quantity > 0
         ).all()
 
         # 创建盘点主表
@@ -1009,7 +1275,7 @@ def create_inventory():
             title=title,
             inventory_date=inventory_date,
             status='进行中',
-            total_count=len(assets),
+            total_count=len(stock_items),
             checked_count=0,
             normal_count=0,
             abnormal_count=0,
@@ -1019,15 +1285,23 @@ def create_inventory():
         db.session.add(inventory)
         db.session.flush()  # 获取inventory.id
 
-        # 创建盘点明细
-        for asset in assets:
+        # 创建盘点明细（按库存明细维度，每个位置一条）
+        for si in stock_items:
             detail = AssetInventoryDetail(
                 inventory_id=inventory.id,
-                asset_id=asset.id,
+                asset_id=si.asset_id,
+                stock_item_id=si.id,
                 inventory_result='未盘点',
                 inventory_remark=None,
                 checked_by=None,
-                checked_at=None
+                checked_at=None,
+                # 快照位置信息
+                storage_location=si.storage_location,
+                room_id=si.room_id,
+                company=si.company,
+                department_using_id=si.department_using_id,
+                department_owning_id=si.department_owning_id,
+                responsible_person=si.responsible_person,
             )
             db.session.add(detail)
 
@@ -1038,12 +1312,12 @@ def create_inventory():
             user_id=current_user.id,
             module='asset',
             operation_type='inventory_create',
-            action=f"创建盘点单: {inventory_number}，标题: {title}，应盘{len(assets)}项",
+            action=f"创建盘点单: {inventory_number}，标题: {title}，应盘{len(stock_items)}项",
             result="成功"
         )
 
-        flash(f'创建盘点单成功: {inventory_number}，应盘{len(assets)}项资产', 'success')
-        logging.info(f"创建盘点单成功，盘点单号: {inventory_number}, 应盘: {len(assets)}项")
+        flash(f'创建盘点单成功: {inventory_number}，应盘{len(stock_items)}项资产', 'success')
+        logging.info(f"创建盘点单成功，盘点单号: {inventory_number}, 应盘: {len(stock_items)}项")
         return redirect(url_for('fixed_asset.inventory'))
 
     except Exception as e:
@@ -1068,29 +1342,29 @@ def check_inventory():
     """执行盘点 - 逐条确认，更新盘点明细和主表统计"""
     try:
         inventory_id = request.form.get('inventory_id', type=int)
-        asset_id = request.form.get('asset_id', type=int)
+        detail_id = request.form.get('detail_id', type=int)
         inventory_result = request.form.get('inventory_result', '').strip()
         inventory_remark = request.form.get('inventory_remark', '').strip()
         actual_quantity_str = request.form.get('actual_quantity', '').strip()
 
         # 参数校验
-        if not inventory_id or not asset_id:
+        if not inventory_id or not detail_id:
             return jsonify({'success': False, 'message': '缺少必要参数'}), 400
 
         if inventory_result not in ('正常', '异常'):
             return jsonify({'success': False, 'message': '盘点结果必须为"正常"或"异常"'}), 400
 
-        # 获取盘点明细记录
+        # 获取盘点明细记录（按detail_id查找）
         detail = AssetInventoryDetail.query.filter_by(
-            inventory_id=inventory_id,
-            asset_id=asset_id
+            id=detail_id,
+            inventory_id=inventory_id
         ).first()
 
         if not detail:
             return jsonify({'success': False, 'message': '未找到对应的盘点明细记录'}), 404
 
         # 获取资产信息
-        asset = FixedAsset.query.get(asset_id)
+        asset = FixedAsset.query.get(detail.asset_id)
         if not asset:
             return jsonify({'success': False, 'message': '未找到对应的资产'}), 404
 
@@ -1139,6 +1413,10 @@ def check_inventory():
 
         db.session.commit()
 
+        # 获取库存明细的账面数量（用于记录）
+        book_qty = detail.stock_item.quantity if detail.stock_item else asset.quantity
+        location_info = detail.storage_location or (detail.stock_item.storage_location if detail.stock_item else None) or ''
+
         # 创建盘点操作记录
         AssetOperationRecord.create_record(
             asset_id=asset.id,
@@ -1153,10 +1431,11 @@ def check_inventory():
                 'inventory_result': inventory_result,
                 'inventory_remark': inventory_remark or '',
                 'actual_quantity': int(actual_quantity_str) if actual_quantity_str else None,
-                'book_quantity': asset.quantity,
+                'book_quantity': book_qty,
+                'storage_location': location_info,
                 'checked_by': current_user.username if hasattr(current_user, 'username') else str(current_user.id),
             },
-            summary=f"资产盘点确认: {asset.asset_name}({asset.display_number})，结果: {inventory_result}，盘点单: {inventory.inventory_number}{f'，实盘数量: {actual_quantity_str}' if actual_quantity_str else ''}{f'，备注: {inventory_remark}' if inventory_remark else ''}"
+            summary=f"资产盘点确认: {asset.asset_name}({asset.display_number})，结果: {inventory_result}，盘点单: {inventory.inventory_number}{f'，位置: {location_info}' if location_info else ''}{f'，实盘数量: {actual_quantity_str}' if actual_quantity_str else ''}{f'，备注: {inventory_remark}' if inventory_remark else ''}"
         )
 
         result_text = '正常' if inventory_result == '正常' else '异常'
@@ -1181,7 +1460,9 @@ def check_inventory():
 @login_required
 @require_permission('fixed_asset.inventory')
 def complete_inventory(id):
-    """完成盘点 - 更新盘点状态为已完成"""
+    """完成盘点 - 更新盘点状态为已完成，按库存明细维度处理盘盈盘亏"""
+    from models.fixed_asset.asset_stock_item import AssetStockItem
+    from models.fixed_asset.asset_stock_record import AssetStockRecord
     try:
         inventory = AssetInventory.query.get_or_404(id)
 
@@ -1215,7 +1496,7 @@ def complete_inventory(id):
         # 检查通过，更新盘点状态
         inventory.status = '已完成'
 
-        # 处理盘点结果：更新资产数量并生成变动记录
+        # 处理盘点结果：按库存明细维度更新数量并生成变动记录
         surplus_count = 0  # 盘盈数
         shortage_count = 0  # 盘亏数
 
@@ -1231,6 +1512,10 @@ def complete_inventory(id):
             if asset.status != '在用':
                 continue
 
+            # 获取关联的库存明细
+            stock_item = AssetStockItem.query.get(detail.stock_item_id) if detail.stock_item_id else None
+            book_qty = stock_item.quantity if stock_item else asset.quantity
+
             # 构建变动记录基础信息
             change_detail = {
                 'inventory_id': id,
@@ -1243,20 +1528,22 @@ def complete_inventory(id):
                 'brand': asset.brand,
                 'result': detail.inventory_result,
                 'remark': detail.inventory_remark or '',
-                'storage_location': asset.storage_location or '',
-                'department_using': asset.department_using or '',
-                'responsible_person': asset.responsible_person or '',
+                'storage_location': detail.storage_location or (stock_item.storage_location if stock_item else '') or '',
+                'department_using': detail.department_using or '',
+                'responsible_person': detail.responsible_person or '',
                 'original_value': str(asset.original_value) if asset.original_value else '',
                 'net_value': str(asset.net_value) if asset.net_value else '',
+                'stock_item_id': detail.stock_item_id,
+                'book_quantity': book_qty,
             }
 
             # 保存盘点前账面数量和状态（用于反审核回滚）
-            detail.book_quantity = asset.quantity
+            detail.book_quantity = book_qty
             detail.book_status = asset.status
 
             # 检查是否有数量差异
-            if detail.actual_quantity is not None and detail.actual_quantity != asset.quantity:
-                old_quantity = asset.quantity
+            if detail.actual_quantity is not None and detail.actual_quantity != book_qty:
+                old_quantity = book_qty
                 diff = detail.actual_quantity - old_quantity
 
                 change_detail['old_quantity'] = old_quantity
@@ -1264,41 +1551,96 @@ def complete_inventory(id):
                 change_detail['difference'] = diff
 
                 if diff > 0:
+                    # 盘盈：增加库存明细数量
                     surplus_count += 1
                     change_type = '盘盈'
-                    # 更新资产数量
-                    asset.quantity = detail.actual_quantity
+                    if stock_item:
+                        stock_item.quantity = detail.actual_quantity
+                        stock_item.updated_at = datetime.now()
+                        # 同步主表quantity
+                        asset.quantity = sum(item.quantity for item in asset.stock_items)
+                        # 创建库存变动记录
+                        AssetStockRecord.create_record(
+                            record_type='入库',
+                            record_subtype='盘盈',
+                            asset_id=asset.id,
+                            quantity=diff,
+                            to_stock_item_id=stock_item.id,
+                            storage_location=stock_item.storage_location,
+                            room_id=stock_item.room_id,
+                            company=stock_item.company,
+                            department_using_id=stock_item.department_using_id,
+                            department_owning_id=stock_item.department_owning_id,
+                            operator_user_id=current_user.id,
+                            operator_name=current_user.username if hasattr(current_user, 'username') else None,
+                            remark=f'盘点盘盈：账面{old_quantity}{asset.unit or "台"}，实盘{detail.actual_quantity}{asset.unit or "台"}，差异+{diff}{asset.unit or "台"}'
+                        )
+                    else:
+                        asset.quantity = detail.actual_quantity
                     change_detail['quantity_change'] = f'盘盈：账面{old_quantity}{asset.unit or "台"}，实盘{detail.actual_quantity}{asset.unit or "台"}，差异+{diff}{asset.unit or "台"}'
                     summary = f"盘点盘盈：{asset.asset_name}，结果{detail.inventory_result}，账面{old_quantity}{asset.unit or '台'}，实盘{detail.actual_quantity}{asset.unit or '台'}，差异{diff}{asset.unit or '台'}，账面盘盈{diff}{asset.unit or '台'}，库存调整为{detail.actual_quantity}{asset.unit or '台'}"
                 else:
+                    # 盘亏：减少库存明细数量
                     shortage_count += 1
                     change_type = '盘亏'
-                    # 盘亏处理：实际数量为0时自动报废，否则减少数量
                     if detail.actual_quantity == 0:
-                        # 全部盘亏：设置资产为已报废状态，原因写盘亏报废
+                        # 全部盘亏：设置资产为已报废状态
                         asset.status = '已报废'
                         asset.scrap_date = date.today()
                         asset.scrap_reason = '盘亏报废'
+                        if stock_item:
+                            stock_item.quantity = 0
+                            stock_item.updated_at = datetime.now()
+                            asset.quantity = sum(item.quantity for item in asset.stock_items)
+                            AssetStockRecord.create_record(
+                                record_type='出库',
+                                record_subtype='报废出库',
+                                asset_id=asset.id,
+                                quantity=old_quantity,
+                                from_stock_item_id=stock_item.id,
+                                storage_location=stock_item.storage_location,
+                                room_id=stock_item.room_id,
+                                company=stock_item.company,
+                                department_using_id=stock_item.department_using_id,
+                                department_owning_id=stock_item.department_owning_id,
+                                operator_user_id=current_user.id,
+                                operator_name=current_user.username if hasattr(current_user, 'username') else None,
+                                remark=f'盘点盘亏报废：账面{old_quantity}{asset.unit or "台"}，实盘0{asset.unit or "台"}'
+                            )
+                        else:
+                            asset.quantity = 0
                         change_detail['quantity_change'] = f'盘亏：账面{old_quantity}{asset.unit or "台"}，实盘{detail.actual_quantity}{asset.unit or "台"}，差异{diff}{asset.unit or "台"}，已自动报废'
                         change_detail['auto_scrap'] = True
                         summary = f"盘点盘亏：{asset.asset_name}，账面{old_quantity}{asset.unit or '台'}，实盘{detail.actual_quantity}{asset.unit or '台'}，差异{diff}{asset.unit or '台'}，账面盘亏{diff}{asset.unit or '台'}，已自动报废"
                     else:
-                        # 部分盘亏：减少数量
-                        asset.quantity = detail.actual_quantity
+                        # 部分盘亏：减少库存明细数量
+                        if stock_item:
+                            stock_item.quantity = detail.actual_quantity
+                            stock_item.updated_at = datetime.now()
+                            asset.quantity = sum(item.quantity for item in asset.stock_items)
+                            AssetStockRecord.create_record(
+                                record_type='出库',
+                                record_subtype='盘亏',
+                                asset_id=asset.id,
+                                quantity=abs(diff),
+                                from_stock_item_id=stock_item.id,
+                                storage_location=stock_item.storage_location,
+                                room_id=stock_item.room_id,
+                                company=stock_item.company,
+                                department_using_id=stock_item.department_using_id,
+                                department_owning_id=stock_item.department_owning_id,
+                                operator_user_id=current_user.id,
+                                operator_name=current_user.username if hasattr(current_user, 'username') else None,
+                                remark=f'盘点盘亏：账面{old_quantity}{asset.unit or "台"}，实盘{detail.actual_quantity}{asset.unit or "台"}，差异{diff}{asset.unit or "台"}'
+                            )
+                        else:
+                            asset.quantity = detail.actual_quantity
                         change_detail['quantity_change'] = f'盘亏：账面{old_quantity}{asset.unit or "台"}，实盘{detail.actual_quantity}{asset.unit or "台"}，差异{diff}{asset.unit or "台"}'
                         summary = f"盘点盘亏：{asset.asset_name}，结果{detail.inventory_result}，账面{old_quantity}{asset.unit or '台'}，实盘{detail.actual_quantity}{asset.unit or '台'}，差异{diff}{asset.unit or '台'}，账面盘亏{diff}{asset.unit or '台'}，库存调整为{detail.actual_quantity}{asset.unit or '台'}"
             else:
                 summary = f"资产盘点：{asset.asset_name}，结果{detail.inventory_result}"
 
-            # 生成一条变动记录
-            AssetOperationRecord.create_record(
-                asset_id=asset.id,
-                operation_type='inventory',
-                operator_id=current_user.id,
-                operator_name=current_user.username if hasattr(current_user, 'username') else None,
-                change_detail=change_detail,
-                summary=summary
-            )
+            # 注意：操作记录已在check_inventory逐条确认时创建，此处不再重复创建
 
         # 未盘点的资产自动标记为异常
         unchecked_details = AssetInventoryDetail.query.filter_by(inventory_id=id, inventory_result='未盘点').all()
@@ -1353,7 +1695,7 @@ def unapprove_inventory(id):
         return redirect(url_for('fixed_asset.inventory_detail', id=id))
 
     try:
-        result = AssetInventory.unapprove(id, current_user.id)
+        result = AssetInventory.unapprove(id, current_user.id, current_user.username if hasattr(current_user, 'username') else None)
 
         if result is None:
             flash('反审核失败，盘点单状态异常', 'danger')
@@ -1603,16 +1945,75 @@ def scrap_asset(id):
         old_status = asset.status
         original_quantity = asset.quantity
 
-        # 处理报废数量：部分报废时只减少数量，不改变状态；全部报废时更新状态
-        if quantity < original_quantity:
-            asset.quantity = original_quantity - quantity
-            asset.operator_user_id = current_user.id
+        # ========== 库存明细出库逻辑 ==========
+        from models.fixed_asset.asset_stock_item import AssetStockItem
+        from models.fixed_asset.asset_stock_record import AssetStockRecord
+
+        # 获取出库位置（从前端传入，或默认取第一条库存明细）
+        from_stock_item_id_str = request.form.get('from_stock_item_id', '').strip()
+        from_stock_item_id = int(from_stock_item_id_str) if from_stock_item_id_str else None
+
+        # 查找出库库存明细
+        from_stock_item = None
+        if from_stock_item_id:
+            from_stock_item = AssetStockItem.query.filter_by(id=from_stock_item_id, asset_id=asset.id).first()
+        if not from_stock_item:
+            # 默认取第一条库存明细
+            from_stock_item = AssetStockItem.query.filter_by(asset_id=asset.id).first()
+
+        # 减少库存明细数量
+        if from_stock_item:
+            if from_stock_item.quantity < quantity:
+                flash(f'出库位置库存不足，当前库存: {from_stock_item.quantity}', 'danger')
+                return redirect(url_for('fixed_asset.detail', id=id))
+            from_stock_item.quantity -= quantity
+            from_stock_item.operator_user_id = current_user.id
+            from_stock_item.updated_at = datetime.now()
+            # 如果数量为0，删除该条记录
+            if from_stock_item.quantity <= 0:
+                db.session.delete(from_stock_item)
+            # 创建库存变动记录
+            AssetStockRecord.create_record(
+                asset_id=asset.id,
+                record_type='出库',
+                record_subtype='报废出库',
+                quantity=quantity,
+                from_stock_item_id=from_stock_item.id,
+                storage_location=from_stock_item.storage_location,
+                room_id=from_stock_item.room_id,
+                company=from_stock_item.company,
+                department_using_id=from_stock_item.department_using_id,
+                department_owning_id=from_stock_item.department_owning_id,
+                operator_user_id=current_user.id,
+                operator_name=current_user.username if hasattr(current_user, 'username') else None,
+                remark=f'报废出库: {scrap_reason}'
+            )
         else:
+            # 无库存明细时，创建变动记录（仅记录，不影响明细）
+            AssetStockRecord.create_record(
+                asset_id=asset.id,
+                record_type='出库',
+                record_subtype='报废出库',
+                quantity=quantity,
+                storage_location=asset.storage_location,
+                room_id=asset.room_id,
+                company=asset.company,
+                department_using_id=asset.department_using_id,
+                department_owning_id=asset.department_owning_id,
+                operator_user_id=current_user.id,
+                operator_name=current_user.username if hasattr(current_user, 'username') else None,
+                remark=f'报废出库: {scrap_reason}'
+            )
+
+        # 处理报废数量：部分报废时只减少数量，不改变状态；全部报废时更新状态
+        # 主表quantity从库存明细汇总
+        asset.quantity = sum(item.quantity for item in asset.stock_items)
+        asset.operator_user_id = current_user.id
+        if quantity >= original_quantity or asset.quantity <= 0:
             # 更新资产状态
             asset.status = '已报废'
             asset.scrap_date = scrap_date
             asset.scrap_reason = scrap_reason
-            asset.operator_user_id = current_user.id
 
         db.session.commit()
 
@@ -1728,18 +2129,77 @@ def sell_asset(id):
         old_status = asset.status
         original_quantity = asset.quantity
 
-        # 处理出售数量：部分出售时只减少数量，不改变状态；全部出售时更新状态
-        if quantity < original_quantity:
-            asset.quantity = original_quantity - quantity
-            asset.operator_user_id = current_user.id
+        # ========== 库存明细出库逻辑 ==========
+        from models.fixed_asset.asset_stock_item import AssetStockItem
+        from models.fixed_asset.asset_stock_record import AssetStockRecord
+
+        # 获取出库位置（从前端传入，或默认取第一条库存明细）
+        from_stock_item_id_str = request.form.get('from_stock_item_id', '').strip()
+        from_stock_item_id = int(from_stock_item_id_str) if from_stock_item_id_str else None
+
+        # 查找出库库存明细
+        from_stock_item = None
+        if from_stock_item_id:
+            from_stock_item = AssetStockItem.query.filter_by(id=from_stock_item_id, asset_id=asset.id).first()
+        if not from_stock_item:
+            # 默认取第一条库存明细
+            from_stock_item = AssetStockItem.query.filter_by(asset_id=asset.id).first()
+
+        # 减少库存明细数量
+        if from_stock_item:
+            if from_stock_item.quantity < quantity:
+                flash(f'出库位置库存不足，当前库存: {from_stock_item.quantity}', 'danger')
+                return redirect(url_for('fixed_asset.detail', id=id))
+            from_stock_item.quantity -= quantity
+            from_stock_item.operator_user_id = current_user.id
+            from_stock_item.updated_at = datetime.now()
+            # 如果数量为0，删除该条记录
+            if from_stock_item.quantity <= 0:
+                db.session.delete(from_stock_item)
+            # 创建库存变动记录
+            AssetStockRecord.create_record(
+                asset_id=asset.id,
+                record_type='出库',
+                record_subtype='出售出库',
+                quantity=quantity,
+                from_stock_item_id=from_stock_item.id,
+                storage_location=from_stock_item.storage_location,
+                room_id=from_stock_item.room_id,
+                company=from_stock_item.company,
+                department_using_id=from_stock_item.department_using_id,
+                department_owning_id=from_stock_item.department_owning_id,
+                operator_user_id=current_user.id,
+                operator_name=current_user.username if hasattr(current_user, 'username') else None,
+                remark=f'出售出库: 买方{sale_buyer or "未知"}, 金额{sale_price or "0"}元'
+            )
         else:
+            # 无库存明细时，创建变动记录（仅记录，不影响明细）
+            AssetStockRecord.create_record(
+                asset_id=asset.id,
+                record_type='出库',
+                record_subtype='出售出库',
+                quantity=quantity,
+                storage_location=asset.storage_location,
+                room_id=asset.room_id,
+                company=asset.company,
+                department_using_id=asset.department_using_id,
+                department_owning_id=asset.department_owning_id,
+                operator_user_id=current_user.id,
+                operator_name=current_user.username if hasattr(current_user, 'username') else None,
+                remark=f'出售出库: 买方{sale_buyer or "未知"}, 金额{sale_price or "0"}元'
+            )
+
+        # 处理出售数量：部分出售时只减少数量，不改变状态；全部出售时更新状态
+        # 主表quantity从库存明细汇总
+        asset.quantity = sum(item.quantity for item in asset.stock_items)
+        asset.operator_user_id = current_user.id
+        if quantity >= original_quantity or asset.quantity <= 0:
             # 更新资产状态
             asset.status = '已出售'
             asset.sale_date = sale_date
             asset.sale_price = sale_price
             asset.sale_buyer = sale_buyer or None
             asset.sale_remark = sale_remark or None
-            asset.operator_user_id = current_user.id
 
         db.session.commit()
 

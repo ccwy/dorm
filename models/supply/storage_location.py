@@ -155,8 +155,8 @@ class StorageLocation(db.Model):
 
     @classmethod
     def get_all_names(cls, usage_type=None):
-        """获取位置名称列表，可按使用类型筛选"""
-        query = cls.query
+        """获取位置名称列表，可按使用类型筛选，仅返回启用状态的位置"""
+        query = cls.query.filter_by(status='启用')
         if usage_type:
             query = query.filter_by(usage_type=usage_type)
         locations = query.order_by(cls.name).all()

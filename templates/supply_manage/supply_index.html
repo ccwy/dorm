@@ -95,7 +95,7 @@
             {% endif %}
             
             <!-- 基础物料资料 -->
-            {% if current_user.has_permission('supply.supply_item') %}
+            {% if current_user.has_permission('supply_item.view') %}
             <div class="bg-white rounded-xl p-6 shadow-sm card-hover text-center">
                 <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4 mx-auto">
                     <i class="fa fa-cube text-2xl text-green-600"></i>

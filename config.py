@@ -69,7 +69,7 @@ class Config:
     else:
         USE_DESKTOP_VIEW = True  # False为开发网页模式，True为桌面窗口模式，方便开发调试
     
-    DEBUG = True  # 是否开启调试模式
+    DEBUG = False  # 是否开启调试模式
 
     # 开发模式自动登录开关
     # 设置为True时，程序运行免登录，自动以admin账号登录
@@ -84,7 +84,7 @@ class Config:
 class ProductionConfig(Config):
     db_config = _shared_db_config  # 使用共享配置，避免重复load_config调用
     SECRET_KEY = 'WUQIOkxuidS3zcadSwdsdSQzcsWa8dsa'
-    DEBUG = True
+    DEBUG = False
     SYSTEM_TITLE = db_config.get('SERVER_PORT', "行政后勤管理系统")
     # 根据SERVER_MODE配置决定SERVER_HOST
     # 服务端模式：使用0.0.0.0
@@ -110,9 +110,9 @@ class DevelopmentConfig(Config):
         server_mode = db_config.get('SERVER_MODE', '客户端')
         SERVER_HOST = '0.0.0.0' if server_mode == '服务端' else '127.0.0.1'
     SERVER_PORT = int(db_config.get('SERVER_PORT', 35168))
-    DEBUG = True
+    DEBUG = False
     SYSTEM_TITLE = "行政后勤管理系统（开发模式）"
-    DEV_AUTO_LOGIN = True  # 开发模式自动登录为admin账号
+    DEV_AUTO_LOGIN = False  # 开发模式自动登录为admin账号
 
 #模式选择
 config = {

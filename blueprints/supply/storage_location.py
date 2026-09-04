@@ -212,6 +212,7 @@ def detail(id):
         # 根据usage_type查询不同的库存明细
         stock_details = []
         fixed_assets = []
+        asset_stock_items = []
         contracts = []
 
         if location.usage_type == '低值易耗品':
@@ -219,11 +220,11 @@ def detail(id):
             from models.supply.supply_stock_detail import SupplyStockDetail
             stock_details = SupplyStockDetail.get_stock_by_location(id)
         elif location.usage_type == '固定资产':
-            # 固定资产：通过storage_location(String)与location.name匹配
-            from models.fixed_asset.fixed_asset import FixedAsset
-            fixed_assets = FixedAsset.query.filter(
-                FixedAsset.storage_location == location.name
-            ).order_by(FixedAsset.id).all()
+            # 固定资产：通过AssetStockItem的storage_location与location.name匹配
+            from models.fixed_asset.asset_stock_item import AssetStockItem
+            asset_stock_items = AssetStockItem.query.filter(
+                AssetStockItem.storage_location == location.name
+            ).order_by(AssetStockItem.id).all()
         elif location.usage_type == '合同管理':
             # 合同管理：通过storage_location_id(FK)与location.id匹配
             from models.contract.contract import Contract
@@ -246,7 +247,7 @@ def detail(id):
             title=f"存放位置详情 - {location.name}",
             location=location,
             stock_details=stock_details,
-            fixed_assets=fixed_assets,
+            asset_stock_items=asset_stock_items,
             contracts=contracts,
             usage_types=usage_types
         )

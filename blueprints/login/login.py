@@ -25,6 +25,10 @@ def login():
     # 添加调试日志
     print('登录路由访问 - 用户认证状态:', current_user.is_authenticated)
     
+    # 获取手机号身份证号登录开关配置
+    from models.system_config.system_config import SystemConfig
+    phone_idcard_login_enabled = SystemConfig.get_config('FEATURE_PHONE_IDCARD_LOGIN_ENABLED', True)
+    
     # 检查全局强制重新登录标志（双重保障）
     force_relogin = False
     
@@ -95,57 +99,59 @@ def login():
         if not username:
             flash('请输入用户名', 'danger')
             logging.error("登录失败，请输入用户名")
-            response.set_data(render_template('login/login.html',title=f"登录"))
+            response.set_data(render_template('login/login.html',title=f"登录",phone_idcard_login_enabled=phone_idcard_login_enabled))
             return response
         
         if not password:
             flash('请输入密码', 'danger')
             logging.error("登录失败，请输入密码")
-            response.set_data(render_template('login/login.html',title=f"登录"))
+            response.set_data(render_template('login/login.html',title=f"登录",phone_idcard_login_enabled=phone_idcard_login_enabled))
             return response
         
         try:
-            # 1. 从数据库查询用户，支持用户名、工号、手机号、身份证号登录
-            user = User.query.filter(
-                (User.username == username) | 
-                (User.student_id == username) | 
-                (User.phone == username) | 
-                (User.id_card == username)
-            ).first()
+            # 1. 从数据库查询用户，支持用户名、工号登录；手机号、身份证号根据开关控制
+            from models.system_config.system_config import SystemConfig
+            phone_idcard_login_enabled = SystemConfig.get_config('FEATURE_PHONE_IDCARD_LOGIN_ENABLED', True)
+            
+            query_filter = (User.username == username) | (User.student_id == username)
+            if phone_idcard_login_enabled:
+                query_filter = query_filter | (User.phone == username) | (User.id_card == username)
+            
+            user = User.query.filter(query_filter).first()
             
             # 2. 验证用户是否存在
             if not user:
                 flash('用户名或密码错误', 'danger')
                 logging.error("用户名或密码错误")
-                response.set_data(render_template('login/login.html',title=f"登录"))
+                response.set_data(render_template('login/login.html',title=f"登录",phone_idcard_login_enabled=phone_idcard_login_enabled))
                 return response
             
             # 3. 验证账号是否激活
             if not user.is_active:
                 flash('账号未激活', 'danger')
                 logging.error("账号未激活")
-                response.set_data(render_template('login/login.html',title=f"登录"))
+                response.set_data(render_template('login/login.html',title=f"登录",phone_idcard_login_enabled=phone_idcard_login_enabled))
                 return response
                 
             # 3. 验证账号状态（是否在职）
             if not user.is_active or not user.is_status:
                 flash('账号已被停用', 'danger')
                 logging.error("账号已被停用")
-                response.set_data(render_template('login/login.html',title=f"登录"))
+                response.set_data(render_template('login/login.html',title=f"登录",phone_idcard_login_enabled=phone_idcard_login_enabled))
                 return response
             
             # 4. 验证是否被禁止登录
             if not user.is_banned:
                 flash('您的账号已被禁止登录', 'danger')
                 logging.error(f"您的账号已被禁止登录")
-                response.set_data(render_template('login/login.html',title=f"登录"))
+                response.set_data(render_template('login/login.html',title=f"登录",phone_idcard_login_enabled=phone_idcard_login_enabled))
                 return response
             
             # 5. 验证密码（使用模型自带的check_password方法）
             if not user.check_password(password):
                 flash('用户名或密码错误', 'danger')
                 logging.error("用户名或密码错误")
-                response.set_data(render_template('login/login.html',title=f"登录"))
+                response.set_data(render_template('login/login.html',title=f"登录",phone_idcard_login_enabled=phone_idcard_login_enabled))
                 return response
             
             # 使用安全Cookie管理模块设置用户会话，传入响应对象
@@ -186,11 +192,11 @@ def login():
             flash('登录失败：数据库错误', 'danger')
             # 生产环境建议记录日志
             logging.error(f"登录失败: {str(e)}")
-            response.set_data(render_template('login/login.html',title=f"登录"))
+            response.set_data(render_template('login/login.html',title=f"登录",phone_idcard_login_enabled=phone_idcard_login_enabled))
             return response
     
     # 如果是GET请求，渲染登录页面
-    response.set_data(render_template('login/login.html',title=f"登录"))
+    response.set_data(render_template('login/login.html',title=f"登录",phone_idcard_login_enabled=phone_idcard_login_enabled))
     return response
 
 @login_bp.route('/logout')

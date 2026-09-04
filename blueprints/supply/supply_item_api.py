@@ -13,7 +13,7 @@ supply_item_api_bp = Blueprint('supply_item_api', __name__, url_prefix='/api/sup
 # ========== 获取物品列表JSON（分页+筛选） ==========
 @supply_item_api_bp.route('/list', methods=['GET'])
 @login_required
-@require_permission('supply.view')
+@require_permission('supply_item.view')
 def get_supply_item_list():
     """获取物品列表JSON，支持分页和多条件筛选"""
     try:
@@ -61,6 +61,7 @@ def get_supply_item_list():
                 "name": item.name,
                 "category": item.category or '',
                 "specification": item.specification or '',
+                "brand": item.brand or '',
                 "unit": item.unit or '',
                 "supplier_id": item.supplier_id,
                 "supplier_name": item.supplier_name,
@@ -109,7 +110,7 @@ def get_supply_item_list():
 # ========== 获取物品详情JSON ==========
 @supply_item_api_bp.route('/<int:id>', methods=['GET'])
 @login_required
-@require_permission('supply.view')
+@require_permission('supply_item.view')
 def get_supply_item_detail(id):
     """获取物品详情JSON"""
     try:
@@ -121,6 +122,7 @@ def get_supply_item_detail(id):
             "name": item.name,
             "category": item.category or '',
             "specification": item.specification or '',
+            "brand": item.brand or '',
             "unit": item.unit or '',
             "supplier_id": item.supplier_id,
             "supplier_name": item.supplier_name,
@@ -183,7 +185,7 @@ def get_active_supply_items():
 # ========== 获取低库存物品列表JSON ==========
 @supply_item_api_bp.route('/low-stock', methods=['GET'])
 @login_required
-@require_permission('supply.view')
+@require_permission('supply_item.view')
 def get_low_stock_items():
     """获取低于最低库存的物品列表"""
     try:

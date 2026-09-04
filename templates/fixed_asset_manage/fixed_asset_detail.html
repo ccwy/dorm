@@ -113,9 +113,10 @@
                             <span class="text-sm text-gray-500">资产编号</span>
                             <p class="font-medium text-gray-800">{{ asset.display_number }}</p>
                         </div>
+
                         <div>
                             <span class="text-sm text-gray-500">资产名称</span>
-                            <p class="font-medium text-gray-800">{{ asset.asset_name }}</p>
+                            <p class="font-medium text-gray-800">{{ asset.display_asset_name }}</p>
                         </div>
                         <div>
                             <span class="text-sm text-gray-500">资产分类</span>
@@ -123,19 +124,15 @@
                         </div>
                         <div>
                             <span class="text-sm text-gray-500">规格型号</span>
-                            <p class="font-medium text-gray-800">{{ asset.specification or '-' }}</p>
+                            <p class="font-medium text-gray-800">{{ asset.display_specification or '-' }}</p>
                         </div>
                         <div>
                             <span class="text-sm text-gray-500">品牌</span>
-                            <p class="font-medium text-gray-800">{{ asset.brand or '-' }}</p>
+                            <p class="font-medium text-gray-800">{{ asset.display_brand or '-' }}</p>
                         </div>
                         <div>
                             <span class="text-sm text-gray-500">供应商</span>
                             <p class="font-medium text-gray-800">{{ asset.supplier or '-' }}</p>
-                        </div>
-                        <div>
-                            <span class="text-sm text-gray-500">数量/单位</span>
-                            <p class="font-medium text-gray-800">{{ asset.quantity }} {{ asset.unit or '台' }}</p>
                         </div>
                         <div>
                             <span class="text-sm text-gray-500">资产来源</span>
@@ -201,37 +198,103 @@
                     </div>
                 </div>
 
-                <!-- 位置与部门 -->
+                <!-- 库存明细 -->
                 <div class="bg-white rounded-lg shadow-sm p-6">
                     <h3 class="text-lg font-medium text-gray-800 mb-4 pb-2 border-b border-gray-200">
-                        <i class="fa fa-map-marker text-accent mr-2"></i>位置与部门
+                        <i class="fa fa-map-marker text-accent mr-2"></i>库存明细
+                        <span class="text-sm font-normal text-gray-500 ml-2">（共 {{ asset.stock_item_count }} 个存放位置）</span>
                     </h3>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <span class="text-sm text-gray-500">存放位置</span>
-                            <p class="font-medium text-gray-800">{{ asset.storage_location or '-' }}</p>
-                        </div>
-                        <div>
-                            <span class="text-sm text-gray-500">关联房间</span>
-                            <p class="font-medium text-gray-800">{{ asset.room_display or '-' }}</p>
-                        </div>
-                        <div>
-                            <span class="text-sm text-gray-500">责任人</span>
-                            <p class="font-medium text-gray-800">{{ asset.responsible_user_name or asset.responsible_person or '-' }}</p>
-                        </div>
-                        <div>
-                            <span class="text-sm text-gray-500">所属公司</span>
-                            <p class="font-medium text-gray-800">{{ asset.company or '-' }}</p>
-                        </div>
-                        <div>
-                            <span class="text-sm text-gray-500">使用部门</span>
-                            <p class="font-medium text-gray-800">{{ asset.department_using or '-' }}</p>
-                        </div>
-                        <div>
-                            <span class="text-sm text-gray-500">归属部门</span>
-                            <p class="font-medium text-gray-800">{{ asset.department_owning or '-' }}</p>
-                        </div>
+                    {% if asset.stock_items %}
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm" style="min-width:640px">
+                            <thead>
+                                <tr class="bg-gray-50 border-b border-gray-200">
+                                    <th class="px-3 py-2 text-left text-gray-600 font-medium">存放位置</th>
+                                    <th class="px-3 py-2 text-left text-gray-600 font-medium">关联房间</th>
+                                    <th class="px-3 py-2 text-left text-gray-600 font-medium">所属公司</th>
+                                    <th class="px-3 py-2 text-left text-gray-600 font-medium">使用部门</th>
+                                    <th class="px-3 py-2 text-left text-gray-600 font-medium">归属部门</th>
+                                    <th class="px-3 py-2 text-left text-gray-600 font-medium">责任人</th>
+                                    <th class="px-3 py-2 text-right text-gray-600 font-medium">数量</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in asset.stock_items %}
+                                <tr class="border-b border-gray-100 hover:bg-gray-50">
+                                    <td class="px-3 py-2 text-gray-800">{{ item.storage_location or '-' }}</td>
+                                    <td class="px-3 py-2 text-gray-800">{{ item.room_display or '-' }}</td>
+                                    <td class="px-3 py-2 text-gray-800">{{ item.company or '-' }}</td>
+                                    <td class="px-3 py-2 text-gray-800">{{ item.department_using or '-' }}</td>
+                                    <td class="px-3 py-2 text-gray-800">{{ item.department_owning or '-' }}</td>
+                                    <td class="px-3 py-2 text-gray-800">{{ item.responsible_user_name or item.responsible_person or '-' }}</td>
+                                    <td class="px-3 py-2 text-right font-medium text-gray-800">{{ item.quantity }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                            <tfoot>
+                                <tr class="bg-gray-50 font-semibold">
+                                    <td colspan="6" class="px-3 py-2 text-right text-gray-700">汇总数量</td>
+                                    <td class="px-3 py-2 text-right text-primary text-lg">{{ asset.total_quantity }} {{ asset.display_unit or '台' }}</td>
+                                </tr>
+                            </tfoot>
+                        </table>
                     </div>
+                    {% else %}
+                    <p class="text-gray-500 text-center py-4">暂无库存明细记录</p>
+                    {% endif %}
+                </div>
+
+                <!-- 库存变动记录 -->
+                <div class="bg-white rounded-lg shadow-sm p-6">
+                    <h3 class="text-lg font-medium text-gray-800 mb-4 pb-2 border-b border-gray-200">
+                        <i class="fa fa-exchange-alt text-info mr-2"></i>库存变动记录
+                    </h3>
+                    {% if asset.stock_records %}
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm" style="min-width:640px">
+                            <thead>
+                                <tr class="bg-gray-50 border-b border-gray-200">
+                                    <th class="px-3 py-2 text-left text-gray-600 font-medium">时间</th>
+                                    <th class="px-3 py-2 text-left text-gray-600 font-medium">类型</th>
+                                    <th class="px-3 py-2 text-left text-gray-600 font-medium">子类型</th>
+                                    <th class="px-3 py-2 text-right text-gray-600 font-medium">数量</th>
+                                    <th class="px-3 py-2 text-left text-gray-600 font-medium">源位置</th>
+                                    <th class="px-3 py-2 text-left text-gray-600 font-medium">目标位置</th>
+                                    <th class="px-3 py-2 text-left text-gray-600 font-medium">操作人</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for record in asset.stock_records|sort(attribute='record_date', reverse=True) %}
+                                <tr class="border-b border-gray-100 hover:bg-gray-50">
+                                    <td class="px-3 py-2 text-gray-600 whitespace-nowrap">{{ record.record_date.strftime('%Y-%m-%d %H:%M') }}</td>
+                                    <td class="px-3 py-2">
+                                        {% if record.record_type == '入库' %}
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">{{ record.record_type }}</span>
+                                        {% elif record.record_type == '出库' %}
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">{{ record.record_type }}</span>
+                                        {% elif record.record_type == '转移' %}
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">{{ record.record_type }}</span>
+                                        {% elif record.record_subtype == '盘盈' %}
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">{{ record.record_subtype }}</span>
+                                        {% elif record.record_subtype == '盘亏' %}
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">{{ record.record_subtype }}</span>
+                                        {% else %}
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">{{ record.record_type }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="px-3 py-2 text-gray-700">{{ record.record_subtype }}</td>
+                                    <td class="px-3 py-2 text-right font-medium text-gray-800">{{ record.quantity }}</td>
+                                    <td class="px-3 py-2 text-gray-600">{{ record.storage_location or '-' }}</td>
+                                    <td class="px-3 py-2 text-gray-600">{{ record.to_storage_location or '-' }}</td>
+                                    <td class="px-3 py-2 text-gray-600">{{ record.operator_name or '-' }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-gray-500 text-center py-4">暂无库存变动记录</p>
+                    {% endif %}
                 </div>
 
                 <!-- 备注 -->
@@ -259,6 +322,7 @@
                                 {% elif record.operation_type == 'edit' %}bg-blue-500
                                 {% elif record.operation_type == 'transfer' %}bg-orange-500
                                 {% elif record.operation_type == 'inventory' %}bg-purple-500
+                                {% elif record.operation_type == 'inventory_unapprove' %}bg-yellow-500
                                 {% elif record.operation_type == 'scrap' %}bg-red-500
                                 {% elif record.operation_type == 'sell' %}bg-cyan-500
                                 {% elif record.operation_type == 'delete' %}bg-gray-500
@@ -267,6 +331,7 @@
                                 {% elif record.operation_type == 'edit' %}<i class="fa fa-edit"></i>
                                 {% elif record.operation_type == 'transfer' %}<i class="fa fa-exchange-alt"></i>
                                 {% elif record.operation_type == 'inventory' %}<i class="fa fa-check-square-o"></i>
+                                {% elif record.operation_type == 'inventory_unapprove' %}<i class="fa fa-undo"></i>
                                 {% elif record.operation_type == 'scrap' %}<i class="fa fa-trash-alt"></i>
                                 {% elif record.operation_type == 'sell' %}<i class="fa fa-dollar-sign"></i>
                                 {% elif record.operation_type == 'delete' %}<i class="fa fa-times"></i>
@@ -279,6 +344,7 @@
                                         {% elif record.operation_type == 'edit' %}编辑资产
                                         {% elif record.operation_type == 'transfer' %}资产转移
                                         {% elif record.operation_type == 'inventory' %}资产盘点
+                                        {% elif record.operation_type == 'inventory_unapprove' %}盘点反审核
                                         {% elif record.operation_type == 'scrap' %}资产报废
                                         {% elif record.operation_type == 'sell' %}资产出售
                                         {% elif record.operation_type == 'delete' %}删除资产
