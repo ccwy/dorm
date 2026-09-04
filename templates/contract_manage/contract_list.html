@@ -95,6 +95,16 @@
                     <button onclick="location.reload();" class="btn-hover bg-secondary text-white px-4 py-2 rounded-md flex items-center">
                         <i class="fa fa-refresh mr-2"></i>刷新页面
                     </button>
+                    {% if current_user.has_permission('supplier.view') %}
+                    <button onclick="window.location.href='{{ url_for('supplier.index') }}'" class="btn-hover bg-teal-500 text-white px-4 py-2 rounded-md flex items-center">
+                        <i class="fa fa-truck mr-2"></i>供应商管理
+                    </button>
+                    {% endif %}
+                    {% if current_user.has_permission('storage_location.view') %}
+                    <button onclick="window.location.href='{{ url_for('storage_location.index') }}'" class="btn-hover bg-amber-600 text-white px-4 py-2 rounded-md flex items-center">
+                        <i class="fa fa-map-marker mr-2"></i>存放位置
+                    </button>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -265,7 +275,7 @@
                                     {% endif %}
                                 </td>
                                 <td class="px-4 py-4 whitespace-nowrap text-sm font-medium">
-                                    <div class="flex gap-2 flex-wrap">
+                                    <div class="flex gap-2">
                                         <button onclick="window.location.href='{{ url_for('contract.detail', id=contract.id) }}'" class="btn-effect bg-blue-500 text-white px-2 py-1 rounded-md text-sm flex items-center">
                                             <i class="fa fa-eye mr-1"></i>查看
                                         </button>
@@ -291,7 +301,7 @@
                                             <i class="fa fa-trash mr-1"></i>删除
                                         </button>
                                         {% endif %}
-                                    </div>
+                                    
                                     <!-- 单个删除表单 -->
                                     <form id="deleteForm-{{ contract.id }}" action="{{ url_for('contract.delete_contract', id=contract.id) }}" method="post" class="hidden"></form>
                                 </td>

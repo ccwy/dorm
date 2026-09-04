@@ -13,7 +13,7 @@ supplier_api_bp = Blueprint('supplier_api', __name__, url_prefix='/api/suppliers
 # ========== 获取供应商列表JSON（分页+筛选） ==========
 @supplier_api_bp.route('/list', methods=['GET'])
 @login_required
-@require_permission('supply.view')
+@require_permission('supplier.view')
 def get_supplier_list():
     """获取供应商列表JSON，支持分页和多条件筛选"""
     try:
@@ -97,7 +97,7 @@ def get_supplier_list():
 # ========== 获取供应商详情JSON ==========
 @supplier_api_bp.route('/<int:id>', methods=['GET'])
 @login_required
-@require_permission('supply.view')
+@require_permission('supplier.view')
 def get_supplier_detail(id):
     """获取供应商详情JSON"""
     try:
@@ -137,7 +137,7 @@ def get_supplier_detail(id):
 # ========== 检查供应商使用情况JSON ==========
 @supplier_api_bp.route('/check-usage/<int:id>', methods=['GET'])
 @login_required
-@require_permission('supply.view')
+@require_permission('supplier.view')
 def check_supplier_usage(id):
     """检查供应商是否被使用，返回使用详情JSON"""
     try:
@@ -203,7 +203,7 @@ def get_supplier_names():
 # ========== 快速创建供应商JSON（从入库单页面调用） ==========
 @supplier_api_bp.route('/quick-create', methods=['POST'])
 @login_required
-@require_permission('supply.create')
+@require_permission('supplier.create')
 def quick_create_supplier():
     """快速创建供应商（从入库单页面调用）"""
     try:

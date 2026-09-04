@@ -152,6 +152,41 @@
                     </tbody>
                 </table>
             </div>
+
+            <!-- 分页 -->
+            {% if pagination and pagination.total > 0 %}
+            <div class="px-6 py-4 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div class="text-sm text-gray-500">
+                    共 {{ pagination.total }} 条记录，第 {{ pagination.page }}/{{ pagination.pages }} 页
+                    <select id="perPageSelect" class="ml-2 px-2 py-1 border border-gray-300 rounded text-sm" onchange="changePerPage(this.value)">
+                        <option value="20" {{ 'selected' if per_page == 20 }}>20条/页</option>
+                        <option value="50" {{ 'selected' if per_page == 50 }}>50条/页</option>
+                        <option value="100" {{ 'selected' if per_page == 100 }}>100条/页</option>
+                    </select>
+                </div>
+                {% if pagination.pages > 1 %}
+                <div class="flex space-x-1">
+                    {% if pagination.has_prev %}
+                    <a href="{{ url_for('role.role_list', page=1, per_page=per_page) }}" class="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200">首页</a>
+                    <a href="{{ url_for('role.role_list', page=pagination.prev_num, per_page=per_page) }}" class="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200">上一页</a>
+                    {% endif %}
+                    {% for p in page_range %}
+                        {% if p == '...' %}
+                        <span class="px-2 py-1 text-sm text-gray-400">...</span>
+                        {% elif p == pagination.page %}
+                        <span class="px-3 py-1 text-sm bg-primary text-white rounded">{{ p }}</span>
+                        {% else %}
+                        <a href="{{ url_for('role.role_list', page=p, per_page=per_page) }}" class="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200">{{ p }}</a>
+                        {% endif %}
+                    {% endfor %}
+                    {% if pagination.has_next %}
+                    <a href="{{ url_for('role.role_list', page=pagination.next_num, per_page=per_page) }}" class="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200">下一页</a>
+                    <a href="{{ url_for('role.role_list', page=pagination.pages, per_page=per_page) }}" class="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200">末页</a>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+            {% endif %}
         </div>
     </main>
 
@@ -184,6 +219,13 @@
         document.getElementById('deleteModal').addEventListener('click', function(e) {
             if (e.target === this) closeDeleteModal();
         });
+
+        function changePerPage(value) {
+            const url = new URL(window.location.href);
+            url.searchParams.set('per_page', value);
+            url.searchParams.set('page', '1');
+            window.location.href = url.toString();
+        }
     </script>
 
 {% include 'footer.html' %}

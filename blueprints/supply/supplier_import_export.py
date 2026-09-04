@@ -26,7 +26,7 @@ supplier_import_export_bp = Blueprint(
 # 导出供应商数据
 @supplier_import_export_bp.route('/export', methods=['GET'])
 @login_required
-@require_permission('supply.export')
+@require_permission('supplier.export')
 def export():
     """导出供应商数据为Excel"""
     try:
@@ -107,7 +107,7 @@ def export():
 # 导入供应商数据
 @supplier_import_export_bp.route('/import', methods=['POST'])
 @login_required
-@require_permission('supply.import')
+@require_permission('supplier.import')
 def import_suppliers():
     """批量导入供应商数据"""
     try:
@@ -309,7 +309,7 @@ def import_suppliers():
 # 下载导入模板
 @supplier_import_export_bp.route('/template', methods=['GET'])
 @login_required
-@require_permission('supply.import')
+@require_permission('supplier.import')
 def download_template():
     """生成并下载供应商数据导入模板"""
     try:

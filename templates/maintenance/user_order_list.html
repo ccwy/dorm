@@ -202,7 +202,6 @@
                     <div class="flex items-center space-x-2">
                         <span class="text-sm text-gray-700">每页显示：</span>
                         <select id="pageSizeSelect" class="px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
-                            <option value="10" {% if per_page == 10 %}selected{% endif %}>10条/页</option>
                             <option value="20" {% if per_page == 20 %}selected{% endif %}>20条/页</option>
                             <option value="50" {% if per_page == 50 %}selected{% endif %}>50条/页</option>
                             <option value="100" {% if per_page == 100 %}selected{% endif %}>100条/页</option>
@@ -213,17 +212,40 @@
                     <div class="text-sm text-gray-700">
                         第{{ pagination.page }}页/共{{ pagination.pages }}页
                     </div>
-                    <div class="flex space-x-1">
+                    {% if pagination.pages > 1 %}
+                    <div class="flex items-center space-x-1">
+                    {% if pagination.has_prev %}
+                    <a href="{{ url_for('maintenance_user.user_order_list', page=1, per_page=per_page, status=request.args.get('status','')) }}"
+                       class="px-3 py-1 border border-gray-300 rounded bg-white text-gray-500 hover:bg-gray-50 transition-colors">
+                        首页
+                    </a>
                     <a href="{{ url_for('maintenance_user.user_order_list', page=pagination.prev_num, per_page=per_page, status=request.args.get('status','')) }}"
-                       class="px-3 py-1 border border-gray-300 rounded bg-white text-gray-500 hover:bg-gray-50 {% if not pagination.has_prev %}opacity-50 cursor-not-allowed{% endif %} transition-colors">
+                       class="px-3 py-1 border border-gray-300 rounded bg-white text-gray-500 hover:bg-gray-50 transition-colors">
                         <i class="fa fa-chevron-left"></i>
                         <span class="ml-1">上一页</span>
                     </a>
+                    {% endif %}
+                    {% for p in generate_page_range(pagination.page, pagination.pages) %}
+                    {% if p == '...' %}
+                    <span class="px-3 py-1 text-gray-400">...</span>
+                    {% else %}
+                    <a href="{{ url_for('maintenance_user.user_order_list', page=p, per_page=per_page, status=request.args.get('status','')) }}"
+                       class="px-3 py-1 border {{ 'border-primary bg-primary text-white' if p == pagination.page else 'border-gray-300 bg-white text-gray-500 hover:bg-gray-50' }} rounded text-sm transition-colors">{{ p }}</a>
+                    {% endif %}
+                    {% endfor %}
+                    {% if pagination.has_next %}
                     <a href="{{ url_for('maintenance_user.user_order_list', page=pagination.next_num, per_page=per_page, status=request.args.get('status','')) }}"
-                       class="px-3 py-1 border border-gray-300 rounded bg-white text-gray-500 hover:bg-gray-50 {% if not pagination.has_next %}opacity-50 cursor-not-allowed{% endif %} transition-colors">
+                       class="px-3 py-1 border border-gray-300 rounded bg-white text-gray-500 hover:bg-gray-50 transition-colors">
                         <span class="mr-1">下一页</span>
                         <i class="fa fa-chevron-right"></i>
                     </a>
+                    <a href="{{ url_for('maintenance_user.user_order_list', page=pagination.pages, per_page=per_page, status=request.args.get('status','')) }}"
+                       class="px-3 py-1 border border-gray-300 rounded bg-white text-gray-500 hover:bg-gray-50 transition-colors">
+                        末页
+                    </a>
+                    {% endif %}
+                    </div>
+                    {% endif %}
                 </div>
             </div>
             {% endif %}

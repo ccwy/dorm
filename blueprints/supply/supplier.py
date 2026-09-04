@@ -46,7 +46,7 @@ from . import supplier_operations
 # 供应商列表页（含筛选+分页）
 @supplier_bp.route('/', methods=['GET'])
 @login_required
-@require_permission('supply.view')
+@require_permission('supplier.view')
 def index():
     try:
         # 获取筛选参数
@@ -145,7 +145,7 @@ def index():
 # 新增供应商页面
 @supplier_bp.route('/add', methods=['GET'])
 @login_required
-@require_permission('supply.create')
+@require_permission('supplier.create')
 def add_page():
     try:
         from datetime import date
@@ -165,7 +165,7 @@ def add_page():
 # 编辑供应商页面
 @supplier_bp.route('/edit/<int:id>', methods=['GET'])
 @login_required
-@require_permission('supply.edit')
+@require_permission('supplier.edit')
 def edit_page(id):
     try:
         supplier = Supplier.query.get_or_404(id)
@@ -183,7 +183,7 @@ def edit_page(id):
 # 供应商详情页（含操作记录时间线）
 @supplier_bp.route('/detail/<int:id>', methods=['GET'])
 @login_required
-@require_permission('supply.view')
+@require_permission('supplier.view')
 def detail(id):
     try:
         supplier = Supplier.query.get_or_404(id)

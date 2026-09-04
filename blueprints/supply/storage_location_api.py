@@ -14,7 +14,7 @@ storage_location_api_bp = Blueprint('storage_location_api', __name__, url_prefix
 # ========== 获取存放位置列表JSON（分页+筛选） ==========
 @storage_location_api_bp.route('/list', methods=['GET'])
 @login_required
-@require_permission('supply.view')
+@require_permission('storage_location.view')
 def get_storage_location_list():
     """获取存放位置列表JSON，支持分页和多条件筛选"""
     try:
@@ -100,7 +100,7 @@ def get_storage_location_list():
 # ========== 获取存放位置详情JSON ==========
 @storage_location_api_bp.route('/<int:id>', methods=['GET'])
 @login_required
-@require_permission('supply.view')
+@require_permission('storage_location.view')
 def get_storage_location_detail(id):
     """获取存放位置详情JSON"""
     try:
@@ -191,7 +191,7 @@ def get_storage_location_names():
 # ========== 检查存放位置是否被使用 ==========
 @storage_location_api_bp.route('/check-usage/<int:id>', methods=['GET'])
 @login_required
-@require_permission('supply.view')
+@require_permission('storage_location.view')
 def check_storage_location_usage(id):
     """检查存放位置是否被库存明细使用"""
     try:
@@ -231,7 +231,7 @@ def check_storage_location_usage(id):
 # ========== 快速创建存放位置（供入库单等表单使用） ==========
 @storage_location_api_bp.route('/quick-create', methods=['POST'])
 @login_required
-@require_permission('supply.create')
+@require_permission('storage_location.create')
 def quick_create_storage_location():
     """快速创建存储位置（供入库单等表单使用）"""
     try:

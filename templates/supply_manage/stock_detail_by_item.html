@@ -152,6 +152,9 @@
                     共 <span class="font-medium">{{ total_count }}</span> 条记录
                 </div>
                 <div class="flex space-x-1">
+                    {% if current_page > 1 %}
+                    <a href="{{ url_for('supply_stock_detail.by_item', item_id=item.id, page=1, per_page=per_page) }}" class="px-3 py-1 border border-gray-300 rounded bg-white text-gray-500 hover:bg-gray-50 text-sm">首页</a>
+                    {% endif %}
                     <button class="px-3 py-1 border border-gray-300 rounded bg-white text-gray-500 hover:bg-gray-50 {% if current_page == 1 %}opacity-50 cursor-not-allowed{% endif %}" 
                             {% if current_page > 1 %}onclick="window.location.href='{{ url_for('supply_stock_detail.by_item', item_id=item.id, page=current_page-1, per_page=per_page) }}'"{% endif %}>
                         <i class="fa fa-chevron-left"></i>
@@ -168,6 +171,9 @@
                             {% if current_page < total_pages %}onclick="window.location.href='{{ url_for('supply_stock_detail.by_item', item_id=item.id, page=current_page+1, per_page=per_page) }}'"{% endif %}>
                         <i class="fa fa-chevron-right"></i>
                     </button>
+                    {% if current_page < total_pages %}
+                    <a href="{{ url_for('supply_stock_detail.by_item', item_id=item.id, page=total_pages, per_page=per_page) }}" class="px-3 py-1 border border-gray-300 rounded bg-white text-gray-500 hover:bg-gray-50 text-sm">末页</a>
+                    {% endif %}
                 </div>
             </div>
             {% endif %}

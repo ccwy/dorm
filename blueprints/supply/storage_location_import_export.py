@@ -26,7 +26,7 @@ storage_location_import_export_bp = Blueprint(
 # 导出存放位置数据
 @storage_location_import_export_bp.route('/export', methods=['GET'])
 @login_required
-@require_permission('supply.export')
+@require_permission('storage_location.export')
 def export():
     """导出存放位置数据为Excel"""
     try:
@@ -106,7 +106,7 @@ def export():
 # 导入存放位置数据
 @storage_location_import_export_bp.route('/import', methods=['POST'])
 @login_required
-@require_permission('supply.import')
+@require_permission('storage_location.import')
 def import_locations():
     """批量导入存放位置数据"""
     try:
@@ -308,7 +308,7 @@ def import_locations():
 # 下载导入模板
 @storage_location_import_export_bp.route('/template', methods=['GET'])
 @login_required
-@require_permission('supply.import')
+@require_permission('storage_location.import')
 def download_template():
     """下载存放位置导入模板"""
     try:

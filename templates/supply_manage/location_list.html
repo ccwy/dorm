@@ -80,17 +80,17 @@
                     </div>
                 </div>
                 <div class="mt-4 md:mt-0 flex flex-wrap gap-3">
-                    {% if current_user.has_permission('supply.create') %}
+                    {% if current_user.has_permission('storage_location.create') %}
                     <a href="{{ url_for('storage_location.add_page') }}" class="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90 btn-hover inline-flex items-center">
                         <i class="fa fa-plus mr-1"></i>新增存放位置
                     </a>
                     {% endif %}
-                    {% if current_user.has_permission('supply.import') %}
+                    {% if current_user.has_permission('storage_location.import') %}
                     <button id="importBtn" class="btn-hover bg-info text-white px-4 py-2 rounded-md flex items-center cursor-pointer">
                         <i class="fa fa-upload mr-2"></i>导入
                     </button>
                     {% endif %}
-                    {% if current_user.has_permission('supply.export') %}
+                    {% if current_user.has_permission('storage_location.export') %}
                     <button type="button" id="exportBtn" class="btn-hover bg-warning text-white px-4 py-2 rounded-md flex items-center">
                         <i class="fa fa-download mr-2"></i>
                         <span id="exportBtnText">导出</span>
@@ -147,7 +147,7 @@
         <div class="flex items-center justify-between mb-4">
             <span class="text-sm text-gray-500">共 <strong class="text-gray-800">{{ total_count }}</strong> 条记录</span>
             <div class="flex gap-2">
-                {% if current_user.has_permission('supply.delete') %}
+                {% if current_user.has_permission('storage_location.delete') %}
                 <button type="button" onclick="batchDelete()" id="batchDeleteBtn" class="px-3 py-1.5 bg-danger text-white rounded-md hover:bg-danger/90 btn-hover text-sm disabled:opacity-50 disabled:cursor-not-allowed" disabled>
                     <i class="fa fa-trash mr-1"></i>批量删除
                 </button>
@@ -156,7 +156,7 @@
         </div>
 
         <!-- 数据表格 -->
-        <div class="bg-white rounded-lg shadow-sm overflow-hidden mb-6">
+        <div class="bg-white rounded-lg shadow-sm overflow-hidden">
             <div class="overflow-x-auto">
                 <table class="min-w-full divide-y divide-gray-200">
                     <thead class="bg-gray-50">
@@ -185,24 +185,24 @@
                             <td class="px-4 py-3">
                                 <input type="checkbox" name="selected_ids" value="{{ location.id }}" class="location-checkbox h-4 w-4 text-primary border-gray-300 rounded focus:ring-primary" onchange="updateBatchButtons()">
                             </td>
-                            <td class="px-4 py-3 text-sm text-gray-500">{{ (current_page - 1) * per_page + loop.index }}</td>
-                            <td class="px-4 py-3 text-sm font-medium text-gray-800">
+                            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">{{ (current_page - 1) * per_page + loop.index }}</td>
+                            <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-800">
                                 <a href="{{ url_for('storage_location.detail', id=location.id) }}" class="text-primary hover:underline">{{ location.name }}</a>
                             </td>
-                            <td class="px-4 py-3 text-sm text-gray-600">{{ location.code or '-' }}</td>
-                            <td class="px-4 py-3 text-sm text-gray-600">{{ location.building or '-' }}</td>
-                            <td class="px-4 py-3 text-sm text-gray-600">{{ location.floor or '-' }}</td>
-                            <td class="px-4 py-3 text-sm text-gray-600">{{ location.room or '-' }}</td>
+                            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{{ location.code or '-' }}</td>
+                            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{{ location.building or '-' }}</td>
+                            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{{ location.floor or '-' }}</td>
+                            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{{ location.room or '-' }}</td>
                             
-                            <td class="px-4 py-3 text-sm text-gray-600">{{ location.handler_name }}</td>
-                            <td class="px-4 py-3 text-sm">
+                            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{{ location.handler_name }}</td>
+                            <td class="px-4 py-3 whitespace-nowrap text-sm">
                                 {% if location.status == '启用' %}
                                 <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">启用</span>
                                 {% else %}
                                 <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">停用</span>
                                 {% endif %}
                             </td>
-                            <td class="px-4 py-3 text-sm">
+                            <td class="px-4 py-3 whitespace-nowrap text-sm">
                                 {% if location.display_usage_type %}
                                 <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">{{ location.display_usage_type }}</span>
                                 {% else %}
@@ -210,17 +210,17 @@
                                 {% endif %}
                             </td>
 
-                            <td class="px-4 py-3 text-sm">
+                            <td class="px-4 py-3 whitespace-nowrap text-sm">
                                 <div class="flex gap-2">
                                     <a href="{{ url_for('storage_location.detail', id=location.id) }}" class="btn-effect bg-blue-500 text-white px-2 py-1 rounded-md text-sm flex items-center">
                                         <i class="fa fa-eye mr-1"></i>详情
                                     </a>
-                                    {% if current_user.has_permission('supply.edit') %}
+                                    {% if current_user.has_permission('storage_location.edit') %}
                                     <a href="{{ url_for('storage_location.edit_page', id=location.id) }}" class="btn-effect bg-amber-500 text-white px-2 py-1 rounded-md text-sm flex items-center">
                                         <i class="fa fa-edit mr-1"></i>编辑
                                     </a>
                                     {% endif %}
-                                    {% if current_user.has_permission('supply.delete') %}
+                                    {% if current_user.has_permission('storage_location.delete') %}
                                     <button type="button" onclick="confirmDelete({{ location.id }}, '{{ location.name }}')" class="btn-effect bg-red-500 text-white px-2 py-1 rounded-md text-sm flex items-center">
                                         <i class="fa fa-trash mr-1"></i>删除
                                     </button>
@@ -240,33 +240,46 @@
                     </tbody>
                 </table>
             </div>
-        </div>
 
-        <!-- 分页 -->
-        {% if total_pages > 1 %}
-        <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div class="text-sm text-gray-500">
-                第 {{ current_page }} 页，共 {{ total_pages }} 页
-            </div>
-            <div class="flex gap-1">
-                {% if current_page > 1 %}
-                <a href="{{ url_for('storage_location.index', page=current_page-1, status=current_status, keyword=keyword, usage_type=current_usage_type) }}" class="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-50">上一页</a>
-                {% endif %}
-                {% for p in page_range %}
-                    {% if p == '...' %}
-                    <span class="px-3 py-1 text-gray-400">...</span>
-                    {% elif p == current_page %}
-                    <span class="px-3 py-1 bg-primary text-white rounded text-sm">{{ p }}</span>
-                    {% else %}
-                    <a href="{{ url_for('storage_location.index', page=p, status=current_status, keyword=keyword, usage_type=current_usage_type) }}" class="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-50">{{ p }}</a>
+            <!-- 分页 -->
+            {% if total_count > 0 %}
+            <div class="px-4 py-3 border-t border-gray-200 flex flex-col md:flex-row items-center justify-between gap-3">
+                <div class="text-sm text-gray-500">
+                    共 {{ total_count }} 条记录，第 {{ current_page }}/{{ total_pages }} 页
+                </div>
+                {% if total_pages > 1 %}
+                <div class="flex items-center gap-1">
+                    {% if current_page > 1 %}
+                    <a href="{{ url_for('storage_location.index', page=1, status=current_status, keyword=keyword, usage_type=current_usage_type, per_page=per_page) }}" class="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-50">首页</a>
+                    <a href="{{ url_for('storage_location.index', page=current_page-1, status=current_status, keyword=keyword, usage_type=current_usage_type, per_page=per_page) }}" class="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-50">上一页</a>
                     {% endif %}
-                {% endfor %}
-                {% if current_page < total_pages %}
-                <a href="{{ url_for('storage_location.index', page=current_page+1, status=current_status, keyword=keyword, usage_type=current_usage_type) }}" class="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-50">下一页</a>
+                    {% for p in page_range %}
+                        {% if p == '...' %}
+                        <span class="px-3 py-1 text-gray-400">...</span>
+                        {% elif p == current_page %}
+                        <span class="px-3 py-1 bg-primary text-white rounded text-sm">{{ p }}</span>
+                        {% else %}
+                        <a href="{{ url_for('storage_location.index', page=p, status=current_status, keyword=keyword, usage_type=current_usage_type, per_page=per_page) }}" class="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-50">{{ p }}</a>
+                        {% endif %}
+                    {% endfor %}
+                    {% if current_page < total_pages %}
+                    <a href="{{ url_for('storage_location.index', page=current_page+1, status=current_status, keyword=keyword, usage_type=current_usage_type, per_page=per_page) }}" class="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-50">下一页</a>
+                    <a href="{{ url_for('storage_location.index', page=total_pages, status=current_status, keyword=keyword, usage_type=current_usage_type, per_page=per_page) }}" class="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-50">末页</a>
+                    {% endif %}
+                </div>
                 {% endif %}
+                <div class="flex items-center gap-2">
+                    <span class="text-sm text-gray-500">每页</span>
+                    <select id="perPage" onchange="changePerPage(this.value)" class="px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-primary/50">
+                        {% for size in [20, 50, 100] %}
+                        <option value="{{ size }}" {% if per_page == size %}selected{% endif %}>{{ size }}</option>
+                        {% endfor %}
+                    </select>
+                    <span class="text-sm text-gray-500">条</span>
+                </div>
             </div>
+            {% endif %}
         </div>
-        {% endif %}
     </main>
 
     <!-- 删除确认表单 -->
@@ -375,6 +388,14 @@
                 });
                 form.submit();
             }
+        }
+
+        // 切换每页条数
+        function changePerPage(size) {
+            const params = new URLSearchParams(window.location.search);
+            params.set('per_page', size);
+            params.set('page', '1');
+            window.location.href = "{{ url_for('storage_location.index') }}?" + params.toString();
         }
     </script>
     <script>

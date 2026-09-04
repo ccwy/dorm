@@ -14,7 +14,7 @@ from .supplier import supplier_bp
 # ========== 路由：新增供应商 ==========
 @supplier_bp.route('/operations/add', methods=['POST'])
 @login_required
-@require_permission('supply.create')
+@require_permission('supplier.create')
 def add_supplier():
     """新增供应商"""
     try:
@@ -98,7 +98,7 @@ def add_supplier():
 # ========== 路由：编辑供应商 ==========
 @supplier_bp.route('/operations/edit/<int:id>', methods=['POST'])
 @login_required
-@require_permission('supply.edit')
+@require_permission('supplier.edit')
 def edit_supplier(id):
     """编辑供应商"""
     try:
@@ -215,7 +215,7 @@ def edit_supplier(id):
 # ========== 路由：删除供应商 ==========
 @supplier_bp.route('/operations/delete/<int:id>', methods=['POST'])
 @login_required
-@require_permission('supply.delete')
+@require_permission('supplier.delete')
 def delete_supplier(id):
     """删除供应商 - 检查使用情况，被引用时拒绝删除"""
     try:
@@ -274,7 +274,7 @@ def delete_supplier(id):
 # ========== 路由：切换供应商状态 ==========
 @supplier_bp.route('/operations/toggle-status/<int:id>', methods=['POST'])
 @login_required
-@require_permission('supply.edit')
+@require_permission('supplier.edit')
 def toggle_supplier_status(id):
     """切换供应商启用/停用状态"""
     try:
@@ -323,7 +323,7 @@ def toggle_supplier_status(id):
 # ========== 路由：批量删除供应商 ==========
 @supplier_bp.route('/operations/batch-delete', methods=['POST'])
 @login_required
-@require_permission('supply.delete')
+@require_permission('supplier.delete')
 def batch_delete_suppliers():
     """批量删除供应商"""
     try:

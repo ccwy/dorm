@@ -65,7 +65,7 @@
                     </div>
                 </div>
                 <div class="mt-4 md:mt-0 flex flex-wrap gap-3">
-                    {% if current_user.has_permission('supply.create') %}
+                    {% if current_user.has_permission('supplier.create') %}
                     <button onclick="window.location.href='{{ url_for('supplier.add_page') }}'" class="btn-hover bg-primary text-white px-4 py-2 rounded-md flex items-center">
                         <i class="fa fa-plus mr-2"></i>新增供应商
                     </button>
@@ -73,17 +73,17 @@
                     <button onclick="location.reload();" class="btn-hover bg-secondary text-white px-4 py-2 rounded-md flex items-center">
                         <i class="fa fa-refresh mr-2"></i>刷新页面
                     </button>
-                    {% if current_user.has_permission('supply.delete') %}
+                    {% if current_user.has_permission('supplier.delete') %}
                     <button id="batchDeleteBtn" class="btn-hover bg-danger text-white px-4 py-2 rounded-md flex items-center disabled:opacity-50 disabled:cursor-not-allowed" disabled>
                         <i class="fa fa-trash mr-2"></i>批量删除
                     </button>
                     {% endif %}
-                    {% if current_user.has_permission('supply.import') %}
+                    {% if current_user.has_permission('supplier.import') %}
                     <button id="importBtn" class="btn-hover bg-info text-white px-4 py-2 rounded-md flex items-center cursor-pointer">
                         <i class="fa fa-upload mr-2"></i>导入
                     </button>
                     {% endif %}
-                    {% if current_user.has_permission('supply.export') %}
+                    {% if current_user.has_permission('supplier.export') %}
                     <button type="button" id="exportBtn" class="btn-hover bg-warning text-white px-4 py-2 rounded-md flex items-center">
                         <i class="fa fa-download mr-2"></i>
                         <span id="exportBtnText">导出</span>
@@ -194,7 +194,7 @@
                                         <button onclick="window.location.href='{{ url_for('supplier.detail', id=supplier.id) }}'" class="btn-effect bg-blue-500 text-white px-2 py-1 rounded-md text-sm flex items-center">
                                             <i class="fa fa-eye mr-1"></i>查看
                                         </button>
-                                        {% if current_user.has_permission('supply.edit') %}
+                                        {% if current_user.has_permission('supplier.edit') %}
                                         <button onclick="window.location.href='{{ url_for('supplier.edit_page', id=supplier.id) }}'" class="btn-effect bg-amber-500 text-white px-2 py-1 rounded-md text-sm flex items-center">
                                             <i class="fa fa-pencil mr-1"></i>编辑
                                         </button>
@@ -203,7 +203,7 @@
                                             <i class="fa {% if supplier.status == '启用' %}fa-ban{% else %}fa-check{% endif %} mr-1"></i>{% if supplier.status == '启用' %}停用{% else %}启用{% endif %}
                                         </button>
                                         {% endif %}
-                                        {% if current_user.has_permission('supply.delete') %}
+                                        {% if current_user.has_permission('supplier.delete') %}
                                         <button class="btn-effect bg-red-500 text-white px-2 py-1 rounded-md text-sm flex items-center"
                                             onclick="if(confirm('确定要删除供应商 {{ supplier.name }} 吗？')) { document.getElementById('deleteForm-{{ supplier.id }}').submit(); }">
                                             <i class="fa fa-trash mr-1"></i>删除
@@ -233,7 +233,6 @@
                         <div class="flex items-center space-x-2">
                             <span class="text-sm text-gray-700">每页显示：</span>
                             <select id="pageSizeSelect" class="px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
-                                <option value="10" {% if per_page == 10 %}selected{% endif %}>10条/页</option>
                                 <option value="20" {% if per_page == 20 %}selected{% endif %}>20条/页</option>
                                 <option value="50" {% if per_page == 50 %}selected{% endif %}>50条/页</option>
                                 <option value="100" {% if per_page == 100 %}selected{% endif %}>100条/页</option>
@@ -241,6 +240,9 @@
                         </div>
                     </div>
                     <div class="flex space-x-1">
+                        {% if current_page > 1 %}
+                        <a href="{{ url_for('supplier.index', page=1, per_page=per_page, status=current_status, keyword=keyword) }}" class="px-3 py-1 border border-gray-300 rounded bg-white text-gray-500 hover:bg-gray-50 text-sm">首页</a>
+                        {% endif %}
                         <button class="px-3 py-1 border border-gray-300 rounded bg-white text-gray-500 hover:bg-gray-50 {% if current_page == 1 %}opacity-50 cursor-not-allowed{% endif %}" 
                                 {% if current_page > 1 %}onclick="window.location.href='{{ url_for('supplier.index', page=current_page-1, per_page=per_page, status=current_status, keyword=keyword) }}'"{% endif %}>
                             <i class="fa fa-chevron-left"></i>
@@ -257,6 +259,9 @@
                                 {% if current_page < total_pages %}onclick="window.location.href='{{ url_for('supplier.index', page=current_page+1, per_page=per_page, status=current_status, keyword=keyword) }}'"{% endif %}>
                             <i class="fa fa-chevron-right"></i>
                         </button>
+                        {% if current_page < total_pages %}
+                        <a href="{{ url_for('supplier.index', page=total_pages, per_page=per_page, status=current_status, keyword=keyword) }}" class="px-3 py-1 border border-gray-300 rounded bg-white text-gray-500 hover:bg-gray-50 text-sm">末页</a>
+                        {% endif %}
                     </div>
                 </div>
                 {% endif %}

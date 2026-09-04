@@ -31,12 +31,18 @@ from . import role_api
 def role_list():
     """角色列表页"""
     try:
-        # 获取所有角色，按sort_order排序
-        roles = Role.query.order_by(Role.sort_order.asc(), Role.id.asc()).all()
+        # 分页参数
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 20, type=int)
+        per_page = max(10, min(100, per_page))
+
+        # 获取所有角色，按sort_order排序（分页）
+        roles_pagination = Role.query.order_by(Role.sort_order.asc(), Role.id.asc())\
+            .paginate(page=page, per_page=per_page, error_out=False)
 
         # 构建角色信息列表
         role_list_data = []
-        for role in roles:
+        for role in roles_pagination.items:
             permission_codes = role.get_permission_codes()
             role_list_data.append({
                 'id': role.id,
@@ -50,6 +56,29 @@ def role_list():
                 'created_at': role.created_at.strftime('%Y-%m-%d %H:%M') if role.created_at else ''
             })
 
+        # 分页工具
+        def generate_page_range(current_page, total_pages, show_pages=5):
+            if total_pages <= show_pages:
+                return list(range(1, total_pages + 1))
+            half = show_pages // 2
+            start = max(1, current_page - half)
+            end = min(total_pages, start + show_pages - 1)
+            if end - start < show_pages - 1:
+                start = max(1, end - show_pages + 1)
+            page_range = []
+            if start > 1:
+                page_range.append(1)
+                if start > 2:
+                    page_range.append('...')
+            page_range.extend(range(start, end + 1))
+            if end < total_pages:
+                if end < total_pages - 1:
+                    page_range.append('...')
+                page_range.append(total_pages)
+            return page_range
+
+        page_range = generate_page_range(page, roles_pagination.pages)
+
         log_operation(
             user_id=current_user.id,
             module='role',
@@ -57,7 +86,15 @@ def role_list():
             action='访问角色列表页',
             result='成功'
         )
-        return render_template('role_manage/role_list.html', title='角色管理', roles=role_list_data)
+        return render_template(
+            'role_manage/role_list.html',
+            title='角色管理',
+            roles=role_list_data,
+            pagination=roles_pagination,
+            page=page,
+            per_page=per_page,
+            page_range=page_range
+        )
     except Exception as e:
         logging.error(f"访问角色列表页失败: {str(e)}")
         log_operation(

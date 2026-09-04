@@ -86,7 +86,7 @@ def user_order_list():
         
         # 分页参数处理
         page = request.args.get('page', 1, type=int)
-        per_page = request.args.get('per_page', 10, type=int)
+        per_page = request.args.get('per_page', 20, type=int)
         
         # 获取筛选参数
         status = request.args.get('status', '').strip()

@@ -58,7 +58,7 @@ from . import storage_location_operations
 # 存放位置列表页（含筛选+分页）
 @storage_location_bp.route('/', methods=['GET'])
 @login_required
-@require_permission('supply.view')
+@require_permission('storage_location.view')
 def index():
     try:
         # 获取筛选参数
@@ -165,7 +165,7 @@ def index():
 # 新增存放位置页面
 @storage_location_bp.route('/add', methods=['GET'])
 @login_required
-@require_permission('supply.create')
+@require_permission('storage_location.create')
 def add_page():
     try:
         usage_types = get_usage_types()
@@ -184,7 +184,7 @@ def add_page():
 # 编辑存放位置页面
 @storage_location_bp.route('/edit/<int:id>', methods=['GET'])
 @login_required
-@require_permission('supply.edit')
+@require_permission('storage_location.edit')
 def edit_page(id):
     try:
         location = StorageLocation.query.get_or_404(id)
@@ -204,7 +204,7 @@ def edit_page(id):
 # 存放位置详情页（含库存明细）
 @storage_location_bp.route('/detail/<int:id>', methods=['GET'])
 @login_required
-@require_permission('supply.view')
+@require_permission('storage_location.view')
 def detail(id):
     try:
         location = StorageLocation.query.get_or_404(id)

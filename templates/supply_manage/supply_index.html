@@ -80,7 +80,7 @@
             {% endwith %}
 
             <!-- 供应商管理 -->
-            {% if current_user.has_permission('supply.supplier') %}
+            {% if current_user.has_permission('supplier.view') %}
             <div class="bg-white rounded-xl p-6 shadow-sm card-hover text-center">
                 <div class="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4 mx-auto">
                     <i class="fa fa-truck text-2xl text-blue-600"></i>
@@ -110,7 +110,7 @@
             {% endif %}
             
             <!-- 存放位置管理 -->
-            {% if current_user.has_permission('supply.storage_location') %}
+            {% if current_user.has_permission('storage_location.view') %}
             <div class="bg-white rounded-xl p-6 shadow-sm card-hover text-center">
                 <div class="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mb-4 mx-auto">
                     <i class="fa fa-map-marker text-2xl text-amber-600"></i>

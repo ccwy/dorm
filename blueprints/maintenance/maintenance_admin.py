@@ -92,7 +92,7 @@ def admin_order_list():
         
         # 分页参数处理
         page = request.args.get('page', 1, type=int)
-        per_page = request.args.get('per_page', 10, type=int)
+        per_page = request.args.get('per_page', 20, type=int)
         
         # 使用search方法进行多条件查询，预加载关联数据
         query = MaintenanceOrder.query.options(

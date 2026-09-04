@@ -72,7 +72,7 @@
 
         <!-- 操作按钮 -->
         <div class="flex flex-wrap gap-3 mb-6">
-            {% if current_user.has_permission('supply.edit') %}
+            {% if current_user.has_permission('supplier.edit') %}
             <a href="{{ url_for('supplier.edit_page', id=supplier.id) }}" class="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90 btn-hover inline-flex items-center">
                 <i class="fa fa-edit mr-1"></i>编辑
             </a>
@@ -81,7 +81,7 @@
                 <i class="fa {% if supplier.status == '启用' %}fa-ban{% else %}fa-check{% endif %} mr-1"></i>{% if supplier.status == '启用' %}停用{% else %}启用{% endif %}
             </button>
             {% endif %}
-            {% if current_user.has_permission('supply.delete') %}
+            {% if current_user.has_permission('supplier.delete') %}
             <button type="button" onclick="confirmDelete({{ supplier.id }})" class="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 btn-hover inline-flex items-center">
                 <i class="fa fa-trash mr-1"></i>删除
             </button>
@@ -245,7 +245,7 @@
                         <i class="fa fa-bolt text-info mr-2"></i>快捷操作
                     </h3>
                     <div class="space-y-2">
-                        {% if current_user.has_permission('supply.edit') %}
+                        {% if current_user.has_permission('supplier.edit') %}
                         <a href="{{ url_for('supplier.edit_page', id=supplier.id) }}" class="block px-4 py-2 bg-primary/10 text-primary rounded-md hover:bg-primary/20 text-sm text-center">
                             <i class="fa fa-edit mr-1"></i>编辑供应商
                         </a>

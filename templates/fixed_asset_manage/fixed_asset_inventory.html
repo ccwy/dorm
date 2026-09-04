@@ -185,15 +185,21 @@
             </div>
 
             <!-- 分页 -->
-            {% if total_pages > 1 %}
+            {% if total_count > 0 %}
             <div class="px-6 py-4 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-4">
                 <div class="text-sm text-gray-500">
                     共 {{ total_count }} 条记录，第 {{ current_page }}/{{ total_pages }} 页
+                    <select id="perPageSelect" class="ml-2 px-2 py-1 border border-gray-300 rounded text-sm" onchange="changePerPage(this.value)">
+                        <option value="20" {{ 'selected' if per_page == 20 }}>20条/页</option>
+                        <option value="50" {{ 'selected' if per_page == 50 }}>50条/页</option>
+                        <option value="100" {{ 'selected' if per_page == 100 }}>100条/页</option>
+                    </select>
                 </div>
+                {% if total_pages > 1 %}
                 <div class="flex items-center gap-1">
                     {% if current_page > 1 %}
-                    <a href="{{ url_for('fixed_asset.inventory', page=1, status=inventory_status, search=search) }}" class="px-3 py-1 border rounded text-sm hover:bg-gray-50">首页</a>
-                    <a href="{{ url_for('fixed_asset.inventory', page=current_page-1, status=inventory_status, search=search) }}" class="px-3 py-1 border rounded text-sm hover:bg-gray-50">上一页</a>
+                    <a href="{{ url_for('fixed_asset.inventory', page=1, status=inventory_status, search=search, per_page=per_page) }}" class="px-3 py-1 border rounded text-sm hover:bg-gray-50">首页</a>
+                    <a href="{{ url_for('fixed_asset.inventory', page=current_page-1, status=inventory_status, search=search, per_page=per_page) }}" class="px-3 py-1 border rounded text-sm hover:bg-gray-50">上一页</a>
                     {% endif %}
 
                     {% for p in page_range %}
@@ -202,19 +208,28 @@
                         {% elif p == current_page %}
                         <span class="px-3 py-1 bg-primary text-white rounded text-sm">{{ p }}</span>
                         {% else %}
-                        <a href="{{ url_for('fixed_asset.inventory', page=p, status=inventory_status, search=search) }}" class="px-3 py-1 border rounded text-sm hover:bg-gray-50">{{ p }}</a>
+                        <a href="{{ url_for('fixed_asset.inventory', page=p, status=inventory_status, search=search, per_page=per_page) }}" class="px-3 py-1 border rounded text-sm hover:bg-gray-50">{{ p }}</a>
                         {% endif %}
                     {% endfor %}
 
                     {% if current_page < total_pages %}
-                    <a href="{{ url_for('fixed_asset.inventory', page=current_page+1, status=inventory_status, search=search) }}" class="px-3 py-1 border rounded text-sm hover:bg-gray-50">下一页</a>
-                    <a href="{{ url_for('fixed_asset.inventory', page=total_pages, status=inventory_status, search=search) }}" class="px-3 py-1 border rounded text-sm hover:bg-gray-50">末页</a>
+                    <a href="{{ url_for('fixed_asset.inventory', page=current_page+1, status=inventory_status, search=search, per_page=per_page) }}" class="px-3 py-1 border rounded text-sm hover:bg-gray-50">下一页</a>
+                    <a href="{{ url_for('fixed_asset.inventory', page=total_pages, status=inventory_status, search=search, per_page=per_page) }}" class="px-3 py-1 border rounded text-sm hover:bg-gray-50">末页</a>
                     {% endif %}
                 </div>
+                {% endif %}
             </div>
             {% endif %}
         </div>
     </main>
     {% include 'footer.html' %}
+    <script>
+        function changePerPage(value) {
+            const url = new URL(window.location.href);
+            url.searchParams.set('per_page', value);
+            url.searchParams.set('page', '1');
+            window.location.href = url.toString();
+        }
+    </script>
 </body>
 </html>
