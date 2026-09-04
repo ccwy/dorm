@@ -339,6 +339,12 @@ class ProcessCleaner:
         if self.registered:
             return
 
+        # 非主线程中无法注册信号处理器，跳过
+        if threading.current_thread() is not threading.main_thread():
+            logging.warning("非主线程调用register_signal_handlers，跳过信号处理器注册")
+            self.registered = True
+            return
+
         # 处理标准信号
         signal.signal(signal.SIGINT, self.cleanup_all_resources)
         signal.signal(signal.SIGTERM, self.cleanup_all_resources)

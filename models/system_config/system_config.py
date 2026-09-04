@@ -278,10 +278,10 @@ class SystemConfig(db.Model):
             # 手机号身份证号登录开关
             {
                 'config_key': 'FEATURE_PHONE_IDCARD_LOGIN_ENABLED',
-                'config_value': 'true',
+                'config_value': 'False',
                 'config_type': 'bool',
                 'category': 'system.feature',
-                'description': '是否开启手机号、身份证号码登录',
+                'description': '是否开启手机号、身份证号码登录，默认是False',
                 'is_editable': True,
                 'sort_order': 160
             },
