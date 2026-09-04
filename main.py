@@ -1,12 +1,9 @@
-from flask import Flask, redirect, url_for, render_template, current_app, Blueprint, jsonify
 import os
 import sys
 import threading
-import signal
 import logging
 import time
 from datetime import datetime, date
-from flask_login import LoginManager, current_user, login_required  
 
 # ===== 启动计时 profiling =====
 _startup_time = time.perf_counter()
@@ -20,8 +17,7 @@ from config import Config, config
 _stamp("导入config")
 # 从外部配置获取数据库连接
 from utils.db_config import DatabaseConfig
-from utils.db import db, init_db
-_stamp("导入db_config+db")
+_stamp("导入db_config")
 
 # 确定运行环境（优先从命令行参数获取，然后是环境变量，最后是默认值）
 import argparse
@@ -69,6 +65,12 @@ def init_flask_app(progress_callback=None):
     Returns:
         tuple: (app, process_cleaner, run_server)
     """
+    # 延迟导入重型模块，加速启动
+    from flask import Flask, redirect, url_for, render_template, current_app, Blueprint, jsonify
+    from flask_login import LoginManager, current_user, login_required
+    from utils.db import db, init_db
+    _stamp("导入db")
+
     # 阶段1：创建Flask应用实例
     if progress_callback:
         progress_callback(5, "正在创建应用实例...")
