@@ -2,6 +2,7 @@ package com.dorm.management
 
 import android.app.*
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
@@ -24,7 +25,13 @@ class FlaskService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val notification = createNotification("宿舍管理系统运行中")
-        startForeground(NOTIFICATION_ID, notification)
+        // Android 14+ 必须显式指定前台服务类型
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            startForeground(NOTIFICATION_ID, notification,
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
+        } else {
+            startForeground(NOTIFICATION_ID, notification)
+        }
 
         // 在后台线程启动 Flask
         if (flaskThread == null || !flaskThread!!.isAlive) {
