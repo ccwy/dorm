@@ -1,0 +1,30 @@
+# Android 专用依赖文件 (Chaquopy + WebView 架构)
+# 此文件用于 Android 平台构建，排除了桌面专用包
+
+# 需 Chaquopy 预编译的 C 扩展包（版本可能需根据 Chaquopy 支持情况调整）
+pandas>=2.0.3,<2.1  # Chaquopy 预编译版本可能受限，构建时需验证
+numpy>=1.24.4,<1.25  # Chaquopy 预编译版本可能受限，构建时需验证
+cryptography>=41.0.7,<43.0
+Pillow>=10.4.0,<11.0
+
+# 纯 Python 包
+Flask>=2.3.3
+Flask-SQLAlchemy>=3.1.1
+Flask-WTF>=1.2.1
+Flask-Login>=0.6.3
+Flask-Migrate>=4.0.5
+openpyxl>=3.1.2
+python-dotenv>=1.0.0
+PyMySQL>=1.1.0
+Werkzeug>=2.3.7
+Jinja2>=3.1.2
+schedule>=1.2.0
+xlsxwriter>=3.2.5
+waitress>=2.1.2
+requests>=2.31.0
+
+# 排除的桌面专用包（通过 stub 模块替换）：
+# - pywebview==3.7      → Android 使用原生 WebView 替代
+# - psutil>=5.9.8,<6.0  → Android 使用 Activity 生命周期替代
+# - pystray>=0.19.5     → Android 无系统托盘
+# - tkinter             → Python 内置模块，通过 stub 替换

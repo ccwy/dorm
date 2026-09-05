@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">行政后勤管理系统</string>
+    <string name="flask_service_channel_name">Flask 后台服务</string>
+    <string name="flask_service_channel_desc">保持宿舍管理系统后台运行</string>
+    <string name="notification_channel_name">宿舍管理</string>
+</resources>

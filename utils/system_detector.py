@@ -46,8 +46,12 @@ class SystemDetector:
         获取操作系统类型
         
         返回:
-            str: 操作系统类型，可能值为"windows"、"linux"、"macos"或"unknown"
+            str: 操作系统类型，可能值为"windows"、"android"、"linux"、"macos"或"unknown"
         """
+        # Android底层也是Linux，需要优先判断
+        if SystemDetector.is_android():
+            return "android"
+            
         system = platform.system().lower()
         
         if system == "windows":
@@ -62,14 +66,18 @@ class SystemDetector:
     @staticmethod
     def get_environment() -> str:
         """
-        获取综合环境类型（优先判断容器环境）
+        获取综合环境类型（优先判断容器环境，其次判断Android平台）
         
         返回:
-            str: 环境类型，可能值为"docker"、"windows"、"linux"、"macos"或"unknown"
+            str: 环境类型，可能值为"docker"、"android"、"windows"、"linux"、"macos"或"unknown"
         """
         # 容器环境优先
         if SystemDetector.is_docker():
             return "docker"
+            
+        # Android平台判断（在OS判断之前，因为Android底层也是Linux）
+        if SystemDetector.is_android():
+            return "android"
             
         # 否则返回操作系统类型
         return SystemDetector.get_os()
@@ -83,6 +91,25 @@ class SystemDetector:
     def is_windows() -> bool:
         """判断是否为Windows系统"""
         return SystemDetector.get_os() == "windows" and not SystemDetector.is_docker()
+
+    @staticmethod
+    def is_android() -> bool:
+        """
+        判断当前环境是否为Android平台
+        
+        通过ANDROID_ENV环境变量检测，该变量在Chaquopy环境中由应用设置
+        
+        返回:
+            bool: 如果在Android平台返回True，否则返回False
+        """
+        try:
+            is_android_env = os.getenv('ANDROID_ENV', 'false').lower() == 'true'
+            if is_android_env:
+                logging.debug("检测到Android环境（ANDROID_ENV=true）")
+            return is_android_env
+        except Exception as e:
+            logging.debug(f"Android环境检测出错: {str(e)}")
+            return False
 
 # 提供便捷的直接调用接口
 def is_docker() -> bool:
@@ -100,6 +127,10 @@ def get_os() -> str:
 def is_windows() -> bool:
     """便捷函数：判断是否为Windows系统"""
     return SystemDetector.is_windows()
+
+def is_android() -> bool:
+    """便捷函数：判断是否为Android平台"""
+    return SystemDetector.is_android()
 
 def is_win7() -> bool:
     """检测当前系统是否为Windows 7"""

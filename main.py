@@ -380,19 +380,46 @@ if __name__ == '__main__':
     parser.add_argument('--config', type=str, help='指定配置环境')
     args = parser.parse_args()
     logging.info("解析命令行参数")
+    from utils.system_detector import is_win7, is_android
     
     if args.uninstall:
         is_docker = os.environ.get('DOCKER_ENV', 'false').lower() == 'true'
-        if is_docker:
-            logging.warning("在Docker环境中，不执行卸载操作。")
+        if is_docker or is_android():
+            logging.warning("在 Docker/Android 环境中，不执行卸载操作。")
         else:
             from utils.uninstall_handler import handle_uninstall
             handle_uninstall()
     logging.info("处理卸载参数")
     
+    # Android 环境检测 - 必须在所有其他分支之前
+    if is_android():
+        logging.info("检测到 Android 环境，启动 Android 客户端模式")
+        from utils.android_adapter import install_stub_modules, setup_android_env
+        # 1. 安装 stub 模块（必须在所有 import 之前）
+        install_stub_modules()
+        # 2. 配置 Android 环境
+        setup_android_env()
+        # 3. 初始化 Flask 应用
+        app, process_cleaner, run_server = init_flask_app()
+        # 4. 启动 waitress 服务器（后台线程）
+        server_thread = threading.Thread(target=run_server, daemon=True)
+        server_thread.start()
+        # 5. 等待服务器就绪
+        port = current_config.SERVER_PORT if hasattr(current_config, 'SERVER_PORT') else 5000
+        if _wait_for_server(port):
+            logging.info(f"Android 服务器已就绪: http://127.0.0.1:{port}")
+        # 6. Android 上由 Java 层 WebView 加载页面，Python 进程保持运行
+        logging.info("Android Flask 服务已启动，等待 WebView 连接...")
+        # 保持主线程运行
+        try:
+            while True:
+                time.sleep(1)
+        except KeyboardInterrupt:
+            logging.info("收到中断信号，关闭服务器")
+        sys.exit(0)
+
     config_data = DatabaseConfig.load_config()
     server_mode = config_data.get("SERVER_MODE", "客户端")
-    from utils.system_detector import is_win7
     if is_win7():
         server_mode = "服务端"
     

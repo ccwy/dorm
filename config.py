@@ -46,7 +46,10 @@ class Config:
     SERVER_PORT = db_config.get('SERVER_PORT', 35168)  # 使用安全的端口，避免浏览器阻止
 
     # 备份目录配置
-    if os.environ.get('DOCKER_ENV', 'false').lower() == 'true':  # 优先检查Docker环境
+    if os.environ.get('ANDROID_ENV', 'false').lower() == 'true':  # 优先检查Android环境
+        APP_DIR = get_app_dir()
+        BACKUP_DIR = os.path.join(APP_DIR, 'data', 'backups')  # Android环境 - 使用应用内部存储路径
+    elif os.environ.get('DOCKER_ENV', 'false').lower() == 'true':  # 其次检查Docker环境
         BACKUP_DIR = '/data/backups'    # Docker环境 - 使用外部数据卷路径
     elif getattr(sys, 'frozen', False):
         APP_DIR = get_app_dir()   # 打包环境 - 备份目录保存在应用程序所在目录的data/backups下
@@ -63,8 +66,11 @@ class Config:
     SQLALCHEMY_ENGINE_OPTIONS = {}  # 默认为空字典，将在运行时根据数据库类型被覆盖
     
     # 配置：控制使用Web浏览器还是桌面窗口
+    is_android = os.environ.get('ANDROID_ENV', 'false').lower() == 'true'
     is_docker = os.environ.get('DOCKER_ENV', 'false').lower() == 'true'
-    if is_docker:
+    if is_android:
+        USE_DESKTOP_VIEW = False  # Android环境 - 使用WebView，不需要桌面视图
+    elif is_docker:
         USE_DESKTOP_VIEW = False
     else:
         USE_DESKTOP_VIEW = True  # False为开发网页模式，True为桌面窗口模式，方便开发调试
@@ -87,10 +93,13 @@ class ProductionConfig(Config):
     DEBUG = False
     SYSTEM_TITLE = db_config.get('SERVER_PORT', "行政后勤管理系统")
     # 根据SERVER_MODE配置决定SERVER_HOST
+    # Android环境：使用127.0.0.1（本地运行）
     # 服务端模式：使用0.0.0.0
     # 客户端模式：使用127.0.0.1
     # 同时保留Docker环境的优先判断
-    if os.environ.get('DOCKER_ENV', 'false').lower() == 'true':
+    if os.environ.get('ANDROID_ENV', 'false').lower() == 'true':
+        SERVER_HOST = '127.0.0.1'  # Android环境 - 本地运行，绑定localhost
+    elif os.environ.get('DOCKER_ENV', 'false').lower() == 'true':
         SERVER_HOST = '0.0.0.0'
     else:
         server_mode = db_config.get('SERVER_MODE', '客户端')
@@ -101,10 +110,13 @@ class ProductionConfig(Config):
 class DevelopmentConfig(Config):
     db_config = _shared_db_config  # 使用共享配置，避免重复load_config调用
     # 根据SERVER_MODE配置决定SERVER_HOST
+    # Android环境：使用127.0.0.1（本地运行）
     # 服务端模式：使用0.0.0.0
     # 客户端模式：使用127.0.0.1
     # 同时保留Docker环境的优先判断
-    if os.environ.get('DOCKER_ENV', 'false').lower() == 'true':
+    if os.environ.get('ANDROID_ENV', 'false').lower() == 'true':
+        SERVER_HOST = '127.0.0.1'  # Android环境 - 本地运行，绑定localhost
+    elif os.environ.get('DOCKER_ENV', 'false').lower() == 'true':
         SERVER_HOST = '0.0.0.0'
     else:
         server_mode = db_config.get('SERVER_MODE', '客户端')
