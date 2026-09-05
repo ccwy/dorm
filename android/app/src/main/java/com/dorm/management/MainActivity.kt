@@ -7,6 +7,7 @@ import android.os.Bundle
 import android.view.View
 import android.view.WindowManager
 import android.webkit.*
+import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
@@ -25,8 +26,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     private lateinit var webView: WebView
-    private lateinit var progressBar: ProgressBar
     private lateinit var errorView: TextView
+    private lateinit var loadingOverlay: LinearLayout
+    private lateinit var loadingProgressBar: ProgressBar
+    private lateinit var loadingStatus: TextView
+    private lateinit var loadingPercent: TextView
+    private lateinit var webProgress: ProgressBar
     private var python: Python? = null
     private var isServerReady = false
 
@@ -41,11 +46,18 @@ class MainActivity : AppCompatActivity() {
 
         // 初始化视图
         webView = findViewById(R.id.webview)
-        progressBar = findViewById(R.id.progressBar)
         errorView = findViewById(R.id.errorView)
+        loadingOverlay = findViewById(R.id.loadingOverlay)
+        loadingProgressBar = findViewById(R.id.loadingProgressBar)
+        loadingStatus = findViewById(R.id.loadingStatus)
+        loadingPercent = findViewById(R.id.loadingPercent)
+        webProgress = findViewById(R.id.webProgress)
 
         // Python 已在 DormApplication.onCreate() 中初始化
         python = Python.getInstance()
+
+        // 更新加载状态
+        updateLoadingProgress(10, "正在启动服务...")
 
         // 启动 Flask 后台服务
         startFlaskServer()
@@ -58,6 +70,14 @@ class MainActivity : AppCompatActivity() {
 
         // 保持启动屏直到服务器就绪
         splashScreen.setKeepOnScreenCondition { !isServerReady }
+    }
+
+    private fun updateLoadingProgress(progress: Int, status: String) {
+        runOnUiThread {
+            loadingProgressBar.progress = progress
+            loadingPercent.text = "$progress%"
+            loadingStatus.text = status
+        }
     }
 
     private fun startFlaskServer() {
@@ -98,6 +118,12 @@ class MainActivity : AppCompatActivity() {
                 return true
             }
 
+            override fun onPageFinished(view: WebView?, url: String?) {
+                super.onPageFinished(view, url)
+                // 页面加载完成，隐藏加载覆盖层
+                hideLoadingOverlay()
+            }
+
             override fun onReceivedError(
                 view: WebView?, request: WebResourceRequest?,
                 error: WebResourceError?
@@ -127,6 +153,10 @@ class MainActivity : AppCompatActivity() {
         Thread {
             var retries = 0
             val maxRetries = MAX_SERVER_WAIT_SECONDS * 2  // 500ms 间隔
+
+            // 阶段1: 启动服务 (10% → 40%)
+            updateLoadingProgress(15, "正在启动后端服务...")
+
             while (retries < maxRetries) {
                 try {
                     val url = URL("$FLASK_BASE_URL/login")
@@ -138,15 +168,21 @@ class MainActivity : AppCompatActivity() {
                     conn.disconnect()
                     if (responseCode == 200) {
                         isServerReady = true
+                        // 阶段2: 服务就绪，开始加载页面 (40% → 60%)
+                        updateLoadingProgress(40, "服务已就绪，正在加载页面...")
                         runOnUiThread {
-                            progressBar.visibility = View.GONE
-                            errorView.visibility = View.GONE
                             webView.loadUrl("$FLASK_BASE_URL/login")
                         }
                         return@Thread
                     }
                 } catch (e: Exception) {
                     // 服务器尚未就绪，继续等待
+                }
+
+                // 渐进更新进度 (15% → 38%)
+                val estimatedProgress = 15 + (retries * 23 / maxRetries)
+                if (retries % 4 == 0) {
+                    updateLoadingProgress(estimatedProgress, "正在启动后端服务...")
                 }
                 retries++
                 Thread.sleep(500)
@@ -155,15 +191,58 @@ class MainActivity : AppCompatActivity() {
         }.start()
     }
 
+    /**
+     * 由 DormWebChromeClient 调用，更新 WebView 页面加载进度
+     * 进度范围: 40% → 100% (服务就绪后)
+     */
+    fun updateWebProgress(newProgress: Int) {
+        runOnUiThread {
+            // 映射 WebView 进度 (0-100) 到总进度 (40-100)
+            val totalProgress = 40 + (newProgress * 60 / 100)
+            loadingProgressBar.progress = totalProgress
+            loadingPercent.text = "$totalProgress%"
+
+            // WebView 顶部进度条
+            webProgress.progress = newProgress
+            if (newProgress > 0 && newProgress < 100) {
+                webProgress.visibility = View.VISIBLE
+            }
+
+            // 更新状态文字
+            when {
+                newProgress < 30 -> loadingStatus.text = "正在加载页面资源..."
+                newProgress < 70 -> loadingStatus.text = "正在渲染页面..."
+                newProgress < 100 -> loadingStatus.text = "即将完成..."
+            }
+
+            if (newProgress == 100) {
+                webProgress.visibility = View.GONE
+            }
+        }
+    }
+
+    private fun hideLoadingOverlay() {
+        runOnUiThread {
+            loadingOverlay.animate()
+                .alpha(0f)
+                .setDuration(300)
+                .withEndAction {
+                    loadingOverlay.visibility = View.GONE
+                }
+                .start()
+        }
+    }
+
     private fun showErrorPage(message: String) {
         runOnUiThread {
             webView.loadUrl("about:blank")
-            progressBar.visibility = View.GONE
+            loadingOverlay.visibility = View.GONE
             errorView.text = message
             errorView.visibility = View.VISIBLE
         }
     }
 
+    @Suppress("DEPRECATION")
     override fun onBackPressed() {
         if (webView.canGoBack()) {
             webView.goBack()

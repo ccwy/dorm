@@ -6,7 +6,6 @@ import android.net.Uri
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebView
-import android.widget.ProgressBar
 
 class DormWebChromeClient(private val activity: Activity) : WebChromeClient() {
 
@@ -36,10 +35,7 @@ class DormWebChromeClient(private val activity: Activity) : WebChromeClient() {
 
     override fun onProgressChanged(view: WebView?, newProgress: Int) {
         super.onProgressChanged(view, newProgress)
-        val progressBar = activity.findViewById<ProgressBar>(R.id.progressBar)
-        progressBar?.progress = newProgress
-        if (newProgress == 100) {
-            progressBar?.visibility = android.view.View.GONE
-        }
+        // 通知 MainActivity 更新加载进度
+        (activity as? MainActivity)?.updateWebProgress(newProgress)
     }
 }

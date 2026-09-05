@@ -367,6 +367,9 @@ jobs:
         with:
           python-version: ${{ env.ANDROID_PYTHON_VERSION }}
 
+      - name: 🖼️ 安装图标生成依赖
+        run: pip install Pillow
+
       - name: 🤖 设置 Android SDK
         uses: android-actions/setup-android@v4
 

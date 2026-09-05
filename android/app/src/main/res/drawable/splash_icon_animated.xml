@@ -7,10 +7,31 @@
             android:height="108dp"
             android:viewportWidth="108"
             android:viewportHeight="108">
+            <!-- 建筑主体 -->
             <path
-                android:name="icon"
-                android:fillColor="#1976D2"
-                android:pathData="M54,30 L78,54 L54,78 L30,54 Z" />
+                android:name="building"
+                android:fillColor="#FFFFFF"
+                android:pathData="M27,34 L81,34 L81,74 L27,74 Z" />
+            <!-- 底部入口 -->
+            <path
+                android:name="entrance"
+                android:fillColor="#FFFFFF"
+                android:pathData="M40,74 L68,74 L68,86 L40,86 Z" />
+            <!-- 左窗 -->
+            <path
+                android:name="window_left"
+                android:fillColor="#165DFF"
+                android:pathData="M34,46 L46,46 L46,66 L34,66 Z" />
+            <!-- 右窗 -->
+            <path
+                android:name="window_right"
+                android:fillColor="#165DFF"
+                android:pathData="M62,46 L74,46 L74,66 L62,66 Z" />
+            <!-- 中窗 -->
+            <path
+                android:name="window_center"
+                android:fillColor="#165DFF"
+                android:pathData="M46,58 L62,58 L62,64 L46,64 Z" />
         </vector>
     </aapt:attr>
 </animated-vector>

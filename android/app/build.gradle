@@ -135,3 +135,11 @@ dependencies {
     androidTestImplementation 'androidx.test.ext:junit:1.1.5'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'
 }
+
+// 从 favicon.ico 自动生成 Android 图标（需要 Pillow: pip install Pillow）
+task generateIcons(type: Exec) {
+    workingDir file('..')
+    commandLine 'python', 'generate_icons.py'
+    ignoreExitValue = true
+}
+preBuild.dependsOn generateIcons
