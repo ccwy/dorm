@@ -694,13 +694,13 @@
             info.sub_dirs.forEach(dir => {
                 html += `
                     <tr>
-                        <td class="px-4 py-2 text-sm text-gray-900">
+                        <td class="px-4 py-2 text-sm text-gray-900 whitespace-nowrap">
                             <i class="fa fa-folder text-yellow-400 mr-1"></i>${dir.name}
                         </td>
                         <td class="px-4 py-2 text-sm text-gray-600 font-mono whitespace-nowrap">${dir.path}</td>
-                        <td class="px-4 py-2 text-sm text-gray-600">${dir.size_display}</td>
-                        <td class="px-4 py-2 text-sm text-gray-600">${dir.file_count}</td>
-                        <td class="px-4 py-2 text-sm">
+                        <td class="px-4 py-2 text-sm text-gray-600 whitespace-nowrap">${dir.size_display}</td>
+                        <td class="px-4 py-2 text-sm text-gray-600 whitespace-nowrap">${dir.file_count}</td>
+                        <td class="px-4 py-2 text-sm whitespace-nowrap">
                             ${dir.exists ? 
                                 '<span class="px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">正常</span>' : 
                                 '<span class="px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">不存在</span>'
