@@ -30,11 +30,24 @@ def get_android_context():
 
 def get_files_dir():
     """
-    获取 Android 内部存储路径（等同于 Context.getFilesDir()）
-    Chaquopy 环境下通过 sys.path 推断，或通过 Context 获取
+    获取 Android 外部存储应用专属路径（等同于 Context.getExternalFilesDir(null)）
+    
+    使用外部存储应用专属目录（/sdcard/Android/data/包名/files/），
+    系统文件管理器可访问，方便用户查看和管理数据文件。
+    如果外部存储不可用，回退到内部存储（Context.getFilesDir()）。
+    
+    Chaquopy 环境下通过 Context 获取，或通过 sys.path 推断。
     """
     if _android_context is not None:
         try:
+            # 优先使用外部存储应用专属目录（文件管理器可访问）
+            external_dir = _android_context.getExternalFilesDir(None)
+            if external_dir is not None:
+                return str(external_dir.getAbsolutePath())
+        except Exception:
+            pass
+        try:
+            # 回退到内部存储
             return str(_android_context.getFilesDir().getAbsolutePath())
         except Exception:
             pass
@@ -71,8 +84,11 @@ def setup_android_env():
     设置 Android 环境变量
 
     在 Flask 启动前调用，确保所有环境检测正确识别 Android 平台。
-    APP_DATA_DIR 统一指向 {files_dir}/data，与 Docker(/data) 和 Windows({app}/data) 结构一致。
+    APP_DATA_DIR 统一指向 {external_files_dir}/data，与 Docker(/data) 和 Windows({app}/data) 结构一致。
     所有数据（数据库、配置、照片、文件共享、备份）均存储在 APP_DATA_DIR 下。
+    
+    数据目录位于外部存储应用专属目录（/sdcard/Android/data/包名/files/data/），
+    系统文件管理器可访问，方便用户查看和管理数据文件。
     """
     # 设置 Android 环境标识（与 DOCKER_ENV 机制一致）
     os.environ['ANDROID_ENV'] = 'true'
@@ -83,8 +99,9 @@ def setup_android_env():
     # 禁用桌面视图
     os.environ['USE_DESKTOP_VIEW'] = 'false'
 
-    # 设置数据目录：统一使用 {files_dir}/data 作为数据根目录
+    # 设置数据目录：统一使用 {external_files_dir}/data 作为数据根目录
     # 目录结构：data/{data.db, db_config.json, photo/, file_sharing/, backups/}
+    # 位于外部存储应用专属目录，系统文件管理器可访问
     files_dir = get_files_dir()
     data_dir = os.path.join(files_dir, 'data')
     os.environ['APP_DATA_DIR'] = data_dir
