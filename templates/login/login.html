@@ -57,7 +57,7 @@
 <body class="font-sans bg-gray-50 min-h-screen p-0 m-0">
     <div class="flex flex-col lg:flex-row min-h-screen w-full">
         <!-- 品牌展示区 - 仅在大屏幕显示，移动端完全隐藏 -->
-        <div class="hidden md:flex md:w-1/2 lg:w-3/5 bg-gradient-hero text-white p-6 md:p-8 lg:p-16 flex-col justify-between relative overflow-hidden">
+        <div class="hidden lg:block lg:w-3/5 bg-gradient-hero text-white p-8 md:p-16 flex-col justify-between relative overflow-hidden">
             <!-- 装饰元素 -->
             <div class="absolute top-20 right-20 w-96 h-96 bg-white/10 rounded-full filter blur-3xl"></div>
             <div class="absolute bottom-10 left-10 w-72 h-72 bg-white/5 rounded-full filter blur-3xl"></div>
@@ -70,11 +70,11 @@
                     <div class="w-12 h-12 rounded-lg bg-white/20 flex items-center justify-center backdrop-blur-sm">
                         <i class="fa fa-building-o text-2xl"></i>
                     </div>
-                    <h1 class="text-[clamp(1.5rem,5vw,3.5rem)] font-bold tracking-tight">{{ system_title }}</h1>
+                    <h1 class="text-[clamp(2rem,5vw,3.5rem)] font-bold tracking-tight">{{ system_title }}</h1>
                 </div>
                 
                 <div class="max-w-2xl">
-                    <h2 class="text-[clamp(1.2rem,3vw,2.5rem)] font-semibold mb-6 leading-tight">
+                    <h2 class="text-[clamp(1.5rem,3vw,2.5rem)] font-semibold mb-6 leading-tight">
                         智能管理，<br>
                         打造舒适住宿体验
                     </h2>
@@ -117,26 +117,26 @@
             </div>
             
             <!-- 底部版权信息 -->
-            <div class="relative z-10 text-white/60 text-sm mt-8 pb-8">
+            <div class="relative z-10 text-white/60 text-sm mt-16 pb-8">
                 &copy; <span id="currentYear"></span> {{ system_title }} - 版权所有
             </div>
         </div>
         
         <!-- 登录表单区 - 移动端占满全屏 -->
-        <div class="w-full md:w-1/2 lg:w-2/5 flex flex-col items-center p-4 md:p-5 lg:p-6 bg-white min-h-screen">
-            <div class="w-full flex flex-col flex-1 justify-between">
+        <div class="w-full lg:w-2/5 flex items-center justify-center p-8 md:p-16 bg-white min-h-screen">
+            <div class="w-full max-w-md">
                 <!-- 移动端显示系统标题 -->
-                <div class="flex items-center space-x-4 lg:hidden pt-2">
-                    <div class="w-16 h-16 rounded-lg bg-primary/10 flex items-center justify-center">
-                        <i class="fa fa-building-o text-3xl text-primary"></i>
+                <div class="flex items-center space-x-4 mb-12 lg:hidden">
+                    <div class="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
+                        <i class="fa fa-building-o text-2xl text-primary"></i>
                     </div>
-                    <h1 class="text-4xl font-bold tracking-tight text-dark">{{ system_title }}</h1>
+                    <h1 class="text-2xl font-bold tracking-tight text-dark">{{ system_title }}</h1>
                 </div>
                 
                 <!-- 显示后端flash消息 -->
                 {% with messages = get_flashed_messages(with_categories=true) %}
                     {% if messages %}
-                        <div class="space-y-3">
+                        <div class="mb-8 space-y-3">
                             {% for category, message in messages %}
                                 <div class="px-4 py-3 rounded-lg {% if category == 'success' %}bg-green-50 text-green-700{% elif category == 'danger' %}bg-red-50 text-red-700{% else %}bg-blue-50 text-blue-700{% endif %}">
                                     {{ message }}
@@ -146,22 +146,22 @@
                     {% endif %}
                 {% endwith %}
                 
-                <div class="text-center">
-                    <h2 class="text-[clamp(2.2rem,6vw,3rem)] font-bold text-dark mb-3">欢迎回来</h2>
-                    <p class="text-gray-500 text-2xl">请登录您的账号以继续</p>
+                <div class="mb-12 text-center">
+                    <h2 class="text-[clamp(1.8rem,4vw,2.5rem)] font-bold text-dark mb-3">欢迎回来</h2>
+                    <p class="text-gray-500 text-lg">请登录您的账号以继续</p>
                 </div>
                 
                 <!-- 登录表单 -->
-                <form id="loginForm" action="{{ url_for('login.login') }}" method="post" class="space-y-4 md:space-y-6">
+                <form id="loginForm" action="{{ url_for('login.login') }}" method="post" class="space-y-6">
                     <!-- 用户名输入 -->
                     <div class="space-y-3">
-                        <label for="username" class="block text-xl font-medium text-gray-700">账号</label>
+                        <label for="username" class="block text-sm font-medium text-gray-700">账号</label>
                         <div class="relative">
                             <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                                 <i class="fa fa-user text-gray-400"></i>
                             </div>
                             <input type="text" id="username" name="username" 
-                                   class="w-full pl-12 pr-4 py-4 md:py-5 text-xl border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all duration-300 outline-none"
+                                   class="w-full pl-12 pr-4 py-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all duration-300 outline-none"
                                    placeholder="{% if phone_idcard_login_enabled %}请输入用户名/工号/手机号/身份证号{% else %}请输入用户名{% endif %}" required
                                    value="{{ request.form.username if request.method == 'POST' else '' }}">
                         </div>
@@ -169,13 +169,13 @@
                     
                     <!-- 密码输入 -->
                     <div class="space-y-3">
-                        <label for="password" class="block text-xl font-medium text-gray-700">密码</label>
+                        <label for="password" class="block text-sm font-medium text-gray-700">密码</label>
                         <div class="relative">
                             <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                                 <i class="fa fa-lock text-gray-400"></i>
                             </div>
                             <input type="password" id="password" name="password" 
-                                   class="w-full pl-12 pr-12 py-4 md:py-5 text-xl border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all duration-300 outline-none"
+                                   class="w-full pl-12 pr-12 py-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all duration-300 outline-none"
                                    placeholder="请输入密码" required>
                             <button type="button" id="togglePassword" class="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 hover:text-primary transition-colors">
                                 <i class="fa fa-eye-slash"></i>
@@ -189,25 +189,25 @@
                             <input type="checkbox" id="remember" name="remember" 
                                    class="w-5 h-5 text-primary focus:ring-primary border-gray-300 rounded"
                                    {% if request.form.remember %}checked{% endif %}>
-                            <label for="remember" class="ml-3 block text-xl text-gray-700">记住我 30 天</label>
+                            <label for="remember" class="ml-3 block text-sm text-gray-700">记住我 30 天</label>
                         </div>
                     </div>
                     
                     <!-- 登录按钮 -->
                     <button type="submit" 
-                            class="w-full bg-primary hover:bg-primary/90 text-white font-medium py-4 md:py-5 px-6 rounded-xl transition-all duration-300 transform hover:translate-y-[-2px] hover:shadow-lg active:translate-y-0 flex items-center justify-center space-x-2 text-2xl">
+                            class="w-full bg-primary hover:bg-primary/90 text-white font-medium py-4 px-6 rounded-xl transition-all duration-300 transform hover:translate-y-[-2px] hover:shadow-lg active:translate-y-0 flex items-center justify-center space-x-2">
                         <span>登录系统</span>
                         <i class="fa fa-arrow-right"></i>
                     </button>
                 </form>
                 
                 <!-- 底部提示 -->
-                <div class="text-center text-gray-500 text-xl mt-1 md:mt-2">
+                <div class="mt-12 text-center text-gray-500 text-sm">
                     <p>遇到登录问题？请联系管理员</p>
                 </div>
                 
                 <!-- 移动端底部版权信息 -->
-                <div class="text-center text-gray-400 text-xl lg:hidden pb-2 mt-4 md:mt-6">
+                <div class="mt-16 text-center text-gray-400 text-sm lg:hidden">
                     &copy; <span id="mobileCurrentYear"></span> {{ system_title }} - 版权所有
                 </div>
             </div>
