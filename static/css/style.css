@@ -198,7 +198,7 @@ body {
 @media (max-width: 767px) {
     .btn {
         padding: 0.5rem 1rem;
-        font-size: 1.1rem;
+        font-size: 0.875rem;  /* 移动端按钮字体应比桌面小 */
     }
 }
 
@@ -265,6 +265,10 @@ body {
 
 /* 移动端适配调整 */
 @media (max-width: 767px) {
+    /* 移动端缩小基础字号，使rem单位整体缩小 */
+    html {
+        font-size: 14px;  /* 默认16px降为14px，所有rem单位自动缩小12.5% */
+    }
     /* 导航栏折叠 */
     .navbar-menu {
         position: absolute;
