@@ -7,31 +7,33 @@
             android:height="108dp"
             android:viewportWidth="108"
             android:viewportHeight="108">
-            <!-- 建筑主体 -->
+            <!-- 建筑图案（缩放至 72dp 安全区域，防止圆形遮罩裁剪） -->
+            <!-- 安全区域: x=18~90, y=18~90, 中心 (54,54) -->
+            <!-- 主楼 -->
             <path
                 android:name="building"
                 android:fillColor="#FFFFFF"
-                android:pathData="M27,34 L81,34 L81,74 L27,74 Z" />
+                android:pathData="M30,28 L78,28 L78,68 L30,68 Z" />
             <!-- 底部入口 -->
             <path
                 android:name="entrance"
                 android:fillColor="#FFFFFF"
-                android:pathData="M40,74 L68,74 L68,86 L40,86 Z" />
+                android:pathData="M42,68 L66,68 L66,80 L42,80 Z" />
             <!-- 左窗 -->
             <path
                 android:name="window_left"
                 android:fillColor="#165DFF"
-                android:pathData="M34,46 L46,46 L46,66 L34,66 Z" />
+                android:pathData="M36,38 L48,38 L48,58 L36,58 Z" />
             <!-- 右窗 -->
             <path
                 android:name="window_right"
                 android:fillColor="#165DFF"
-                android:pathData="M62,46 L74,46 L74,66 L62,66 Z" />
+                android:pathData="M60,38 L72,38 L72,58 L60,58 Z" />
             <!-- 中窗 -->
             <path
                 android:name="window_center"
                 android:fillColor="#165DFF"
-                android:pathData="M46,58 L62,58 L62,64 L46,64 Z" />
+                android:pathData="M48,50 L60,50 L60,56 L48,56 Z" />
         </vector>
     </aapt:attr>
 </animated-vector>

@@ -4,7 +4,14 @@
     android:height="24dp"
     android:viewportWidth="24"
     android:viewportHeight="24">
+    <!-- 建筑轮廓（通知栏白色剪影） -->
     <path
-        android:fillColor="#1976D2"
-        android:pathData="M12,2L2,7l10,5 10,-5 -10,-5zM2,17l10,5 10,-5M2,12l10,5 10,-5" />
+        android:fillColor="#FFFFFF"
+        android:pathData="M5,8 L12,4 L19,8 L19,20 L5,20 Z" />
+    <path
+        android:fillColor="#165DFF"
+        android:pathData="M8,11 L11,11 L11,15 L8,15 Z" />
+    <path
+        android:fillColor="#165DFF"
+        android:pathData="M13,11 L16,11 L16,15 L13,15 Z" />
 </vector>
