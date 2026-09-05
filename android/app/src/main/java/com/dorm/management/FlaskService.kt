@@ -5,7 +5,8 @@ import android.content.Intent
 import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
-import chaquopy.Python
+import com.chaquo.python.Python
+import com.chaquo.python.AndroidPlatform
 
 class FlaskService : Service() {
 

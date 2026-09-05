@@ -11,7 +11,8 @@ import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
-import chaquopy.Python
+import com.chaquo.python.Python
+import com.chaquo.python.AndroidPlatform
 import java.net.HttpURLConnection
 import java.net.URL
 
@@ -46,7 +47,7 @@ class MainActivity : AppCompatActivity() {
 
         // 初始化 Chaquopy Python
         if (!Python.isStarted()) {
-            Python.start(application)
+            Python.start(AndroidPlatform(application))
         }
         python = Python.getInstance()
 
