@@ -1,2 +1,8 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# Gradle Wrapper - ensure shell scripts use LF for Linux CI
+android/gradlew text eol=lf
+android/gradlew.bat text eol=crlf
+# JAR files must be treated as binary
+*.jar binary
