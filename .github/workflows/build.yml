@@ -2,7 +2,7 @@ name: 自动化打包构建
 
 on:
   push:
-    branches: [ main, master, Android ]
+    branches: [ main, master ]
     tags: [ 'v*' ]
   workflow_dispatch:
     inputs:
@@ -24,6 +24,7 @@ on:
 
 env:
   PYTHON_VERSION: '3.8'
+  ANDROID_PYTHON_VERSION: '3.12'
   APP_NAME: '行政后勤管理系统'
   DOCKER_IMAGE_NAME: 'dorm-management-system'
   PYTHONIOENCODING: 'utf-8'
@@ -360,6 +361,11 @@ jobs:
         with:
           java-version: '17'
           distribution: 'temurin'
+
+      - name: 🐍 设置 Python ${{ env.ANDROID_PYTHON_VERSION }}
+        uses: actions/setup-python@v7
+        with:
+          python-version: ${{ env.ANDROID_PYTHON_VERSION }}
 
       - name: 🤖 设置 Android SDK
         uses: android-actions/setup-android@v4
