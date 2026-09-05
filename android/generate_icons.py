@@ -23,7 +23,7 @@ RES_DIR = os.path.join(SCRIPT_DIR, 'app', 'src', 'main', 'res')
 FOREGROUND_SIZES = {
     'drawable-mdpi': 108,
     'drawable-hdpi': 162,
-    'drawable-xdpi': 216,
+    'drawable-xhdpi': 216,
     'drawable-xxhdpi': 324,
     'drawable-xxxhdpi': 432,
 }
