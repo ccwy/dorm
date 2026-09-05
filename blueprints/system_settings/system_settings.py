@@ -727,9 +727,12 @@ def get_storage_info():
         android_info = None
         if is_android:
             app_data_dir = os.environ.get('APP_DATA_DIR', '未设置')
+            # 下载文件保存路径（与 MainActivity.handleDownload 保持一致）
+            download_dir = os.path.join(app_data_dir, 'Download') if app_data_dir != '未设置' else '未设置'
             android_info = {
                 'app_data_dir': app_data_dir,
-                'note': '数据存储在外部存储应用专属目录，可通过系统文件管理器访问（需开启"显示隐藏文件"查看Android/data目录）'
+                'download_dir': download_dir,
+                'note': '数据存储在外部存储应用专属目录，可通过系统文件管理器访问（需开启"显示隐藏文件"查看Android/data目录）。导出/下载的文件保存在Download子目录中。'
             }
         
         log_operation(

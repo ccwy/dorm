@@ -665,7 +665,8 @@
                             <div>
                                 <h5 class="text-sm font-medium text-blue-800 mb-1">Android 存储说明</h5>
                                 <p class="text-sm text-blue-700">${info.android_info.note}</p>
-                                <p class="text-xs text-blue-600 mt-2 font-mono break-all">APP_DATA_DIR: ${info.android_info.app_data_dir}</p>
+                                <p class="text-xs text-blue-600 mt-2 font-mono break-all">数据目录: ${info.android_info.app_data_dir}</p>
+                                ${info.android_info.download_dir ? `<p class="text-xs text-blue-600 mt-1 font-mono break-all">下载目录: ${info.android_info.download_dir}</p>` : ''}
                             </div>
                         </div>
                     </div>

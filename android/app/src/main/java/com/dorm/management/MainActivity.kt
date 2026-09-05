@@ -1,8 +1,7 @@
 package com.dorm.management
 
-import android.app.DownloadManager
-import android.content.Context
 import android.content.Intent
+import android.media.MediaScannerConnection
 import android.net.Uri
 import android.net.http.SslError
 import android.os.Build
@@ -18,6 +17,8 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import com.chaquo.python.Python
+import java.io.File
+import java.io.FileOutputStream
 import java.net.HttpURLConnection
 import java.net.URL
 
@@ -161,46 +162,74 @@ class MainActivity : AppCompatActivity() {
 
     /**
      * 处理 WebView 中的文件下载请求
-     * 使用系统 DownloadManager 将文件保存到公共 Downloads 目录
+     * 由于 Flask 服务运行在 localhost，系统 DownloadManager 无法访问，
+     * 改用直接 HTTP 请求下载文件并保存到应用外部存储专属目录
+     *
+     * 保存路径: getExternalFilesDir(DIRECTORY_DOWNLOADS)
+     * 即 /sdcard/Android/data/com.dorm.management/files/Download/
+     * 全版本（Android 8+）无需权限，文件管理器可访问
      */
     private fun handleDownload(url: String, contentDisposition: String, mimetype: String) {
-        try {
-            val request = DownloadManager.Request(Uri.parse(url))
+        // 从 Content-Disposition 解析文件名
+        val filename = parseContentDisposition(contentDisposition)
+            ?: Uri.parse(url)?.lastPathSegment
+            ?: "download_${System.currentTimeMillis()}"
 
-            // 设置请求头（本地Flask服务需要）
-            request.addRequestHeader("Cookie", CookieManager.getInstance().getCookie(url))
-
-            // 从 Content-Disposition 解析文件名
-            val filename = parseContentDisposition(contentDisposition)
-                ?: Uri.parse(url)?.lastPathSegment
-                ?: "download_${System.currentTimeMillis()}"
-
-            // 设置文件名和 MIME 类型
-            request.setTitle(filename)
-            request.setDescription("宿舍管理系统下载")
-            request.setMimeType(mimetype.ifEmpty { "*/*" })
-
-            // 保存到公共 Downloads 目录（所有Android版本可用，无需权限）
-            // Android 10+ 通过 MediaStore 插入，旧版本直接写入
-            request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, filename)
-
-            // 允许在通知栏显示下载进度
-            request.setNotificationVisibility(
-                DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED
-            )
-
-            // 使用系统 DownloadManager 执行下载
-            val dm = getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
-            dm.enqueue(request)
-
-            runOnUiThread {
-                Toast.makeText(this, "正在下载: $filename", Toast.LENGTH_SHORT).show()
-            }
-        } catch (e: Exception) {
-            runOnUiThread {
-                Toast.makeText(this, "下载失败: ${e.message}", Toast.LENGTH_LONG).show()
-            }
+        runOnUiThread {
+            Toast.makeText(this, "正在下载: $filename", Toast.LENGTH_SHORT).show()
         }
+
+        // 在后台线程执行下载
+        Thread {
+            try {
+                val connection = URL(url).openConnection() as java.net.HttpURLConnection
+                connection.requestMethod = "GET"
+                // 传递 Cookie 以通过登录验证
+                val cookie = CookieManager.getInstance().getCookie(url)
+                if (!cookie.isNullOrEmpty()) {
+                    connection.addRequestProperty("Cookie", cookie)
+                }
+                connection.connectTimeout = 30000
+                connection.readTimeout = 60000
+                connection.connect()
+
+                if (connection.responseCode != java.net.HttpURLConnection.HTTP_OK) {
+                    throw Exception("服务器返回 ${connection.responseCode}")
+                }
+
+                // 保存到应用外部存储专属目录（全版本无需权限）
+                val downloadsDir = getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)
+                    ?: File(filesDir, "Download")
+                if (!downloadsDir.exists()) downloadsDir.mkdirs()
+                val outputFile = File(downloadsDir, filename)
+
+                // 写入文件
+                connection.inputStream.use { input ->
+                    FileOutputStream(outputFile).use { output ->
+                        val buffer = ByteArray(8192)
+                        var bytesRead: Int
+                        while (input.read(buffer).also { bytesRead = it } != -1) {
+                            output.write(buffer, 0, bytesRead)
+                        }
+                    }
+                }
+                connection.disconnect()
+
+                // 通知媒体扫描器，使文件在文件管理器中可见
+                MediaScannerConnection.scanFile(
+                    this, arrayOf(outputFile.absolutePath), arrayOf(mimetype.ifEmpty { "*/*" }), null
+                )
+
+                val savePath = outputFile.absolutePath
+                runOnUiThread {
+                    Toast.makeText(this, "下载完成: $filename\n保存到 $savePath", Toast.LENGTH_LONG).show()
+                }
+            } catch (e: Exception) {
+                runOnUiThread {
+                    Toast.makeText(this, "下载失败: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            }
+        }.start()
     }
 
     /**
