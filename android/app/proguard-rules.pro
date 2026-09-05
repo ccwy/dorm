@@ -1,5 +1,4 @@
-# Chaquopy Python 运行时
--keep class chaquopy.** { *; }
+# Chaquopy Python 运行时（com.chaquo 是 Chaquopy 的 Java 包名，chaquopy 仅是插件 ID）
 -keep class com.chaquo.** { *; }
 
 # Python 模块调用

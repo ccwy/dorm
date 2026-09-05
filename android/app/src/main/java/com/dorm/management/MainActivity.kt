@@ -12,7 +12,6 @@ import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import com.chaquo.python.Python
-import com.chaquo.python.AndroidPlatform
 import java.net.HttpURLConnection
 import java.net.URL
 
@@ -45,10 +44,7 @@ class MainActivity : AppCompatActivity() {
         progressBar = findViewById(R.id.progressBar)
         errorView = findViewById(R.id.errorView)
 
-        // 初始化 Chaquopy Python
-        if (!Python.isStarted()) {
-            Python.start(AndroidPlatform(application))
-        }
+        // Python 已在 DormApplication.onCreate() 中初始化
         python = Python.getInstance()
 
         // 启动 Flask 后台服务

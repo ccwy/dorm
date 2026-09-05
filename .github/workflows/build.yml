@@ -383,7 +383,6 @@ jobs:
             ~/.gradle/caches
             ~/.gradle/wrapper
             android/.gradle
-            android/app/build
           key: gradle-android-${{ hashFiles('android/**/*.gradle*', 'android/**/gradle-wrapper.properties') }}
           restore-keys: gradle-android-
 

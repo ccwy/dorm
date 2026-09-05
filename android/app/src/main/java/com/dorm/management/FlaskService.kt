@@ -6,7 +6,7 @@ import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import com.chaquo.python.Python
-import com.chaquo.python.AndroidPlatform
+import com.chaquo.python.android.AndroidPlatform
 
 class FlaskService : Service() {
 
@@ -30,8 +30,12 @@ class FlaskService : Service() {
         if (flaskThread == null || !flaskThread!!.isAlive) {
             flaskThread = Thread {
                 try {
+                    // 安全检查：确保 Python 已初始化（正常情况下 DormApplication.onCreate 已调用）
+                    if (!Python.isStarted()) {
+                        Python.start(AndroidPlatform(applicationContext))
+                    }
                     val python = Python.getInstance()
-                    val androidAdapter = python.getModule("android_adapter")
+                    val androidAdapter = python.getModule("utils.android_adapter")
                     androidAdapter.callAttr("set_android_context", this)
                     androidAdapter.callAttr("start_flask_server")
                 } catch (e: Exception) {
