@@ -17,37 +17,85 @@ file_sharing_bp = Blueprint(
 )
 
 
-# 根据环境获取基础目录
-if os.environ.get('DOCKER_ENV', 'false').lower() == 'true':  # 优先检查Docker环境
-    BASE_DATA_PATH = '/data'  # Docker环境 - 使用外部数据卷路径
-elif getattr(sys, 'frozen', False):
-    # 打包环境 - 文件存储在应用程序所在目录的data下
-    app_dir = os.path.dirname(sys.executable)
-    BASE_DATA_PATH = os.path.join(app_dir, 'data')
-else:
-    # 开发环境 - 文件存储在项目根目录的data下
-    base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    BASE_DATA_PATH = os.path.join(base_dir, 'data')
+# ==================== 数据目录路径（延迟求值） ====================
+# 注意：不在模块顶层求值路径，因为 Android 环境下 ANDROID_ENV 和 APP_DATA_DIR
+# 由 android_adapter.setup_android_env() 设置，可能在模块导入后才执行。
+# 使用函数延迟求值，确保每次访问路径时环境变量已正确设置。
 
-# 定义支持的根目录配置
-supported_roots = {
-    'file_sharing': {
-        'name': '文件共享',
-        'path': os.path.join(BASE_DATA_PATH, 'file_sharing')
-    },
-    'photo': {
-        'name': '图片管理',
-        'path': os.path.join(BASE_DATA_PATH, 'photo')
-    },
-    'backups': {
-        'name': '数据库备份',
-        'path': os.path.join(BASE_DATA_PATH, 'backups')
-    },
-    'logs': {
-        'name': '日志文件',
-        'path': os.path.join(BASE_DATA_PATH, 'logs')
+def get_base_data_path():
+    """
+    获取基础数据目录路径（延迟求值）
+    
+    每次调用时根据当前环境变量计算路径，避免模块加载时序问题。
+    Android 环境下 APP_DATA_DIR 由 android_adapter.setup_android_env() 设置。
+    """
+    if os.environ.get('DOCKER_ENV', 'false').lower() == 'true':
+        # Docker环境 - 使用外部数据卷路径
+        return '/data'
+    elif os.environ.get('ANDROID_ENV', 'false').lower() == 'true':
+        # Android环境 - 使用 APP_DATA_DIR
+        return os.environ.get('APP_DATA_DIR', '/data')
+    elif getattr(sys, 'frozen', False):
+        # 打包环境 - 文件存储在应用程序所在目录的data下
+        app_dir = os.path.dirname(sys.executable)
+        return os.path.join(app_dir, 'data')
+    else:
+        # 开发环境 - 文件存储在项目根目录的data下
+        base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        return os.path.join(base_dir, 'data')
+
+
+# 支持的根目录配置缓存
+_supported_roots_cache = None
+
+
+def get_supported_roots():
+    """
+    获取支持的根目录配置（延迟求值，首次调用时计算并缓存）
+    
+    首次调用时根据环境变量计算路径并创建目录，后续调用返回缓存。
+    缓存在进程生命周期内有效，因为路径不会在运行时改变。
+    """
+    global _supported_roots_cache
+    if _supported_roots_cache is not None:
+        return _supported_roots_cache
+    
+    base_path = get_base_data_path()
+    _supported_roots_cache = {
+        'file_sharing': {
+            'name': '文件共享',
+            'path': os.path.join(base_path, 'file_sharing')
+        },
+        'photo': {
+            'name': '图片管理',
+            'path': os.path.join(base_path, 'photo')
+        },
+        'backups': {
+            'name': '数据库备份',
+            'path': os.path.join(base_path, 'backups')
+        },
+        'logs': {
+            'name': '日志文件',
+            'path': os.path.join(base_path, 'logs')
+        }
     }
-}
+    
+    # 确保所有根目录都存在
+    for root in _supported_roots_cache.values():
+        if not os.path.exists(root['path']):
+            logging.info(f"创建目录: {root['path']}")
+            os.makedirs(root['path'])
+    
+    return _supported_roots_cache
+
+
+# 向后兼容：模块级常量通过 __getattr__ 延迟求值
+def __getattr__(name):
+    if name == 'BASE_DATA_PATH':
+        return get_base_data_path()
+    if name == 'supported_roots':
+        return get_supported_roots()
+    raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
 
 # 获取当前选择的根目录
 def get_current_root(root_type=None):
@@ -69,18 +117,13 @@ def get_current_root(root_type=None):
             root_type = 'file_sharing'
     
     # 确保根目录类型有效
-    if root_type not in supported_roots:
+    roots = get_supported_roots()
+    if root_type not in roots:
         logging.warning(f'无效的root_type: {root_type}, 默认为file_sharing')
         root_type = 'file_sharing'
     
-    logging.info(f'最终使用的root_type: {root_type}, 对应路径: {supported_roots[root_type]["path"]}')
-    return root_type, supported_roots[root_type]['path']
-
-# 确保所有根目录都存在
-for root in supported_roots.values():
-    if not os.path.exists(root['path']):
-        logging.info(f'创建目录: {root["path"]}')
-        os.makedirs(root['path'])
+    logging.info(f'最终使用的root_type: {root_type}, 对应路径: {roots[root_type]["path"]}')
+    return root_type, roots[root_type]['path']
 
 # 获取文件大小的人类可读形式
 def get_human_readable_size(size_bytes):
@@ -276,23 +319,24 @@ def file_sharing():
     pagination = paginate_items(items, page, per_page)
     
     # 确保root_type有效，防止KeyError
-    if root_type not in supported_roots:
+    if root_type not in get_supported_roots():
         root_type = 'file_sharing'
     
     # 根据用户权限过滤显示的根目录选项
+    roots = get_supported_roots()
     if current_user.is_authenticated and current_user.has_permission('file_sharing.manage'):
         # 管理员可以看到所有根目录
-        display_roots = supported_roots
+        display_roots = roots
     else:
         # 非管理员只能看到文件共享目录
-        display_roots = {'file_sharing': supported_roots['file_sharing']}
+        display_roots = {'file_sharing': roots['file_sharing']}
         # 确保非管理员用户总是使用file_sharing目录
         if root_type != 'file_sharing':
             root_type = 'file_sharing'
             current_root_type = 'file_sharing'
     logging.info(f'用户 {current_user.id} 访问路径: {abs_path}')
     return render_template('file_sharing/file_sharing.html', 
-                          title=supported_roots[root_type]['name'],
+                          title=roots[root_type]['name'],
                           items=pagination['items'], 
                           pagination=pagination,
                           current_path=current_path, 
@@ -313,7 +357,7 @@ def create_folder():
     root_type = request.form.get('root_type') or request.args.get('root')
     
     # 确保root_type有效
-    if not root_type or root_type not in supported_roots:
+    if not root_type or root_type not in get_supported_roots():
         logging.error(f'无效或缺失的root_type: {root_type}，创建文件夹操作被拒绝')
         flash('操作失败：无效或缺失的根目录类型', 'error')
         return redirect(url_for('file_sharing.file_sharing', path=current_path))
@@ -366,7 +410,7 @@ def upload_file():
         return redirect(url_for('file_sharing.file_sharing', path=current_path, root=root_type))
     
     # 确保root_type有效
-    if not root_type or root_type not in supported_roots:
+    if not root_type or root_type not in get_supported_roots():
         logging.error(f'无效或缺失的root_type: {root_type}，上传操作被拒绝')
         flash('操作失败：无效或缺失的根目录类型', 'error')
         return redirect(url_for('file_sharing.file_sharing', path=current_path))
@@ -452,7 +496,7 @@ def download_file(file_path):
     root_type = request.args.get('root')
     
     # 确保root_type有效
-    if not root_type or root_type not in supported_roots:
+    if not root_type or root_type not in get_supported_roots():
         logging.error(f'无效或缺失的root_type: {root_type}，下载操作被拒绝')
         flash('操作失败：无效或缺失的根目录类型', 'error')
         return redirect(url_for('file_sharing.file_sharing'))
@@ -495,7 +539,7 @@ def delete_file():
     logging.info(f'删除操作请求参数: root_type={root_type}, file_paths={file_paths}, current_path={current_path}')
     
     # 确保root_type有效
-    if not root_type or root_type not in supported_roots:
+    if not root_type or root_type not in get_supported_roots():
         logging.error(f'无效或缺失的root_type: {root_type}，删除操作被拒绝')
         flash('操作失败：无效或缺失的根目录类型', 'error')
         return redirect(url_for('file_sharing.file_sharing', path=current_path))
@@ -585,7 +629,7 @@ def upload_chunk():
         return jsonify({'success': False, 'message': '操作失败：需要上传权限'}), 403
     
     # 确保root_type有效
-    if not root_type or root_type not in supported_roots:
+    if not root_type or root_type not in get_supported_roots():
         logging.error(f'无效或缺失的root_type: {root_type}，分块上传操作被拒绝')
         return jsonify({'success': False, 'message': '无效或缺失的根目录类型'}), 400
     
@@ -632,7 +676,7 @@ def merge_chunks():
         return jsonify({'success': False, 'message': '操作失败：需要上传权限'}), 403
     
     # 确保root_type有效
-    if not root_type or root_type not in supported_roots:
+    if not root_type or root_type not in get_supported_roots():
         logging.error(f'无效或缺失的root_type: {root_type}，合并文件块操作被拒绝')
         return jsonify({'success': False, 'message': '无效或缺失的根目录类型'}), 400
     
@@ -714,7 +758,7 @@ def rename_file():
         return redirect(url_for('file_sharing.file_sharing', path=current_path, root=root_type))
     
     # 确保root_type有效
-    if not root_type or root_type not in supported_roots:
+    if not root_type or root_type not in get_supported_roots():
         logging.error(f'无效或缺失的root_type: {root_type}，重命名操作被拒绝')
         flash('操作失败：无效或缺失的根目录类型', 'error')
         return redirect(url_for('file_sharing.file_sharing', path=current_path))

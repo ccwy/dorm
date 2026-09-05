@@ -39,6 +39,7 @@ https://github.com/ccwy/dorm/releases
 ### 支持系统
 
     win7 - win11系统
+    Android 8-17系统（安卓版仅在模拟器测试通过）
 
 #### 系统要求
     - Windows 7 SP1（32位或64位）以上系统
@@ -49,6 +50,7 @@ https://github.com/ccwy/dorm/releases
     - **不支持 IE11**
     - win10以上需要安装WebView2 运行时
     - win10以上支持客户端模式和服务器模式
+    - Android 8 以上系统支持ARM64和x86架构系统
 
 
 ### 默认登录账号密码

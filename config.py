@@ -3,8 +3,19 @@ import sys
 from datetime import timedelta
 from utils.db_config import DatabaseConfig
 
+# ⚠️ 时序依赖说明：
+# config.py 中的类级属性（APP_DIR、BACKUP_DIR、USE_DESKTOP_VIEW、SERVER_HOST 等）
+# 在类定义时求值，依赖 ANDROID_ENV / APP_DATA_DIR 环境变量。
+# 在 Android 环境下，这些环境变量由 android_adapter.setup_android_env() 设置，
+# 必须在 config.py 被导入之前调用。当前启动流程保证了这一点：
+#   start_flask_server() → setup_android_env() → from main import → from config import
+# 如果导入顺序变更，需要确保环境变量在 config.py 导入前已设置。
+
 # 确定配置文件路径，支持开发环境和打包环境
 def get_app_dir():
+    if os.environ.get('ANDROID_ENV', 'false').lower() == 'true':
+        # Android环境 - 使用 APP_DATA_DIR（由 android_adapter.py 设置）
+        return os.environ.get('APP_DATA_DIR', os.path.abspath(os.path.dirname(__file__)))
     if getattr(sys, 'frozen', False):
         # 打包环境 - 配置文件始终存储在应用程序所在目录
         return os.path.dirname(sys.executable)
@@ -46,7 +57,10 @@ class Config:
     SERVER_PORT = db_config.get('SERVER_PORT', 35168)  # 使用安全的端口，避免浏览器阻止
 
     # 备份目录配置
-    if os.environ.get('DOCKER_ENV', 'false').lower() == 'true':  # 优先检查Docker环境
+    if os.environ.get('ANDROID_ENV', 'false').lower() == 'true':  # 优先检查Android环境
+        APP_DIR = get_app_dir()  # APP_DATA_DIR，已包含 /data 后缀
+        BACKUP_DIR = os.path.join(APP_DIR, 'backups')  # Android环境 - APP_DATA_DIR/backups
+    elif os.environ.get('DOCKER_ENV', 'false').lower() == 'true':  # 其次检查Docker环境
         BACKUP_DIR = '/data/backups'    # Docker环境 - 使用外部数据卷路径
     elif getattr(sys, 'frozen', False):
         APP_DIR = get_app_dir()   # 打包环境 - 备份目录保存在应用程序所在目录的data/backups下
@@ -63,8 +77,11 @@ class Config:
     SQLALCHEMY_ENGINE_OPTIONS = {}  # 默认为空字典，将在运行时根据数据库类型被覆盖
     
     # 配置：控制使用Web浏览器还是桌面窗口
+    is_android = os.environ.get('ANDROID_ENV', 'false').lower() == 'true'
     is_docker = os.environ.get('DOCKER_ENV', 'false').lower() == 'true'
-    if is_docker:
+    if is_android:
+        USE_DESKTOP_VIEW = False  # Android环境 - 使用WebView，不需要桌面视图
+    elif is_docker:
         USE_DESKTOP_VIEW = False
     else:
         USE_DESKTOP_VIEW = True  # False为开发网页模式，True为桌面窗口模式，方便开发调试
@@ -87,10 +104,13 @@ class ProductionConfig(Config):
     DEBUG = False
     SYSTEM_TITLE = db_config.get('SERVER_PORT', "行政后勤管理系统")
     # 根据SERVER_MODE配置决定SERVER_HOST
+    # Android环境：使用127.0.0.1（本地运行）
     # 服务端模式：使用0.0.0.0
     # 客户端模式：使用127.0.0.1
     # 同时保留Docker环境的优先判断
-    if os.environ.get('DOCKER_ENV', 'false').lower() == 'true':
+    if os.environ.get('ANDROID_ENV', 'false').lower() == 'true':
+        SERVER_HOST = '127.0.0.1'  # Android环境 - 本地运行，绑定localhost
+    elif os.environ.get('DOCKER_ENV', 'false').lower() == 'true':
         SERVER_HOST = '0.0.0.0'
     else:
         server_mode = db_config.get('SERVER_MODE', '客户端')
@@ -101,10 +121,13 @@ class ProductionConfig(Config):
 class DevelopmentConfig(Config):
     db_config = _shared_db_config  # 使用共享配置，避免重复load_config调用
     # 根据SERVER_MODE配置决定SERVER_HOST
+    # Android环境：使用127.0.0.1（本地运行）
     # 服务端模式：使用0.0.0.0
     # 客户端模式：使用127.0.0.1
     # 同时保留Docker环境的优先判断
-    if os.environ.get('DOCKER_ENV', 'false').lower() == 'true':
+    if os.environ.get('ANDROID_ENV', 'false').lower() == 'true':
+        SERVER_HOST = '127.0.0.1'  # Android环境 - 本地运行，绑定localhost
+    elif os.environ.get('DOCKER_ENV', 'false').lower() == 'true':
         SERVER_HOST = '0.0.0.0'
     else:
         server_mode = db_config.get('SERVER_MODE', '客户端')

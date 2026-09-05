@@ -4,6 +4,7 @@ import logging
 from utils.db import db, init_db  # 导入init_db用于数据库初始化
 from sqlalchemy import text
 import os
+import sys
 import json
 import time
 import shutil
@@ -657,3 +658,123 @@ def get_database_info():
             "success": False,
             "message": f"获取数据库信息失败: {str(e)}"
         }), 500
+
+
+@system_config_bp.route('/api/storage-info', methods=['GET'])
+@login_required
+def get_storage_info():
+    """获取系统存储信息，包括数据目录路径、环境类型和子目录信息"""
+    try:
+        import platform
+        from blueprints.other.file_sharing import get_base_data_path, get_supported_roots
+        
+        # 判断运行环境
+        is_docker = os.environ.get('DOCKER_ENV', 'false').lower() == 'true'
+        is_android = os.environ.get('ANDROID_ENV', 'false').lower() == 'true'
+        
+        if is_docker:
+            env_type = 'Docker'
+            env_icon = 'docker'
+        elif is_android:
+            env_type = 'Android'
+            env_icon = 'android'
+        elif getattr(sys, 'frozen', False):
+            env_type = 'Windows (打包版)'
+            env_icon = 'windows'
+        else:
+            env_type = 'Windows (开发版)'
+            env_icon = 'windows'
+        
+        # 获取数据目录路径
+        data_path = get_base_data_path()
+        
+        # 获取子目录信息
+        supported_roots = get_supported_roots()
+        sub_dirs = []
+        for key, info in supported_roots.items():
+            dir_path = info['path']
+            dir_exists = os.path.exists(dir_path)
+            dir_size = 0
+            file_count = 0
+            if dir_exists:
+                try:
+                    for root, dirs, files in os.walk(dir_path):
+                        for f in files:
+                            fp = os.path.join(root, f)
+                            try:
+                                dir_size += os.path.getsize(fp)
+                                file_count += 1
+                            except OSError:
+                                pass
+                except OSError:
+                    pass
+            
+            sub_dirs.append({
+                'key': key,
+                'name': info['name'],
+                'path': dir_path,
+                'exists': dir_exists,
+                'size': dir_size,
+                'size_display': _format_size(dir_size),
+                'file_count': file_count
+            })
+        
+        # 计算总大小
+        total_size = sum(d['size'] for d in sub_dirs)
+        total_files = sum(d['file_count'] for d in sub_dirs)
+        
+        # Android 特有信息
+        android_info = None
+        if is_android:
+            app_data_dir = os.environ.get('APP_DATA_DIR', '未设置')
+            # 下载文件保存路径（与 MainActivity.handleDownload 保持一致）
+            download_dir = os.path.join(app_data_dir, 'Download') if app_data_dir != '未设置' else '未设置'
+            android_info = {
+                'app_data_dir': app_data_dir,
+                'download_dir': download_dir,
+                'note': '数据存储在外部存储应用专属目录，可通过系统文件管理器访问（需开启"显示隐藏文件"查看Android/data目录）。导出/下载的文件保存在Download子目录中。'
+            }
+        
+        log_operation(
+            user_id=current_user.id,
+            action="查询系统存储信息",
+            module="system",
+            operation_type="system_api",
+            result="成功"
+        )
+        
+        return jsonify({
+            "success": True,
+            "data": {
+                "env_type": env_type,
+                "env_icon": env_icon,
+                "data_path": data_path,
+                "data_path_exists": os.path.exists(data_path),
+                "sub_dirs": sub_dirs,
+                "total_size": total_size,
+                "total_size_display": _format_size(total_size),
+                "total_files": total_files,
+                "platform": platform.platform(),
+                "android_info": android_info
+            }
+        })
+        
+    except Exception as e:
+        logging.error(f"获取存储信息失败: {str(e)}")
+        return jsonify({
+            "success": False,
+            "message": f"获取存储信息失败: {str(e)}"
+        }), 500
+
+
+def _format_size(size_bytes):
+    """将字节数格式化为可读的大小字符串"""
+    if size_bytes == 0:
+        return "0 B"
+    units = ['B', 'KB', 'MB', 'GB', 'TB']
+    i = 0
+    size = float(size_bytes)
+    while size >= 1024 and i < len(units) - 1:
+        size /= 1024
+        i += 1
+    return f"{size:.1f} {units[i]}"

@@ -10,24 +10,44 @@ import sys
 import base64  # 添加base64模块导入
 from utils.system_detector import is_win7
 
-# 检查是否在Docker环境中
-is_docker = os.environ.get('DOCKER_ENV') == 'true'
+# ==================== 数据库配置文件路径（延迟求值） ====================
+# 注意：不在模块顶层求值 DB_CONFIG_PATH，因为 Android 环境下 ANDROID_ENV 和 APP_DATA_DIR
+# 由 android_adapter.setup_android_env() 设置，可能在 db_config.py 导入之后才执行。
+# 使用函数延迟求值，确保每次访问路径时环境变量已正确设置。
 
-# 确定配置文件路径
-if is_docker:
-    # Docker环境 - 使用简化的外部数据卷路径
-    DB_CONFIG_PATH = '/data/db_config.json'
-else:
-    # 非Docker环境
-    if getattr(sys, 'frozen', False):
-        # 打包环境
-        app_dir = os.path.dirname(sys.executable)
-        DB_CONFIG_PATH = os.path.join(app_dir, 'data', 'db_config.json')
+def get_db_config_path():
+    """
+    获取数据库配置文件路径（延迟求值）
+    
+    每次调用时根据当前环境变量计算路径，避免模块加载时序问题。
+    Android 环境下 ANDROID_ENV/APP_DATA_DIR 由 android_adapter.setup_android_env() 设置，
+    必须在环境变量设置后才能正确解析路径。
+    """
+    if os.environ.get('DOCKER_ENV') == 'true':
+        # Docker环境 - 使用简化的外部数据卷路径
+        return '/data/db_config.json'
+    elif os.environ.get('ANDROID_ENV', 'false').lower() == 'true':
+        # Android环境 - 使用 APP_DATA_DIR（由 android_adapter.py 设置）
+        return os.path.join(os.environ.get('APP_DATA_DIR', '/data'), 'db_config.json')
     else:
-        # 开发环境
-        current_file_dir = os.path.abspath(os.path.dirname(__file__))
-        app_dir = os.path.abspath(os.path.join(current_file_dir, os.pardir))
-        DB_CONFIG_PATH = os.path.join(app_dir, 'data', 'db_config.json')
+        # 非Docker环境
+        if getattr(sys, 'frozen', False):
+            # 打包环境
+            app_dir = os.path.dirname(sys.executable)
+            return os.path.join(app_dir, 'data', 'db_config.json')
+        else:
+            # 开发环境
+            current_file_dir = os.path.abspath(os.path.dirname(__file__))
+            app_dir = os.path.abspath(os.path.join(current_file_dir, os.pardir))
+            return os.path.join(app_dir, 'data', 'db_config.json')
+
+
+# 向后兼容：模块级常量通过 __getattr__ 延迟求值
+# 外部代码使用 db_config.DB_CONFIG_PATH 仍可正常工作
+def __getattr__(name):
+    if name == 'DB_CONFIG_PATH':
+        return get_db_config_path()
+    raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
 
 class DatabaseConfig:
     # 配置缓存，避免启动期间重复读取文件和解码
@@ -37,13 +57,17 @@ class DatabaseConfig:
     @staticmethod
     def initialize():
         """初始化配置文件（如果不存在）"""
-        if not os.path.exists(DB_CONFIG_PATH):
+        if not os.path.exists(get_db_config_path()):
             # 检查是否在Docker环境中
             is_docker = os.environ.get('DOCKER_ENV') == 'true'
+            is_android = os.environ.get('ANDROID_ENV', 'false').lower() == 'true'
             
             if is_docker:
                 # Docker环境 - 使用简化的外部数据卷路径
                 sqlite_db_path = '/data/data.db'
+            elif is_android:
+                # Android环境 - 使用 APP_DATA_DIR（由 android_adapter.py 设置）
+                sqlite_db_path = os.path.join(os.environ.get('APP_DATA_DIR', '/data'), 'data.db')
             else:
                 # 获取应用程序目录
                 if getattr(sys, 'frozen', False):
@@ -99,17 +123,17 @@ class DatabaseConfig:
         """加载配置文件（带缓存，避免重复读取文件和解码）"""
         try:
             # 检查缓存是否有效（文件未修改时使用缓存）
-            if DatabaseConfig._config_cache is not None and os.path.exists(DB_CONFIG_PATH):
-                current_mtime = os.path.getmtime(DB_CONFIG_PATH)
+            if DatabaseConfig._config_cache is not None and os.path.exists(get_db_config_path()):
+                current_mtime = os.path.getmtime(get_db_config_path())
                 if DatabaseConfig._config_cache_mtime == current_mtime:
                     return DatabaseConfig._config_cache.copy()
             
-            if not os.path.exists(DB_CONFIG_PATH):
+            if not os.path.exists(get_db_config_path()):
                 config = DatabaseConfig.initialize()
                 DatabaseConfig._update_cache(config)
                 return config
                 
-            with open(DB_CONFIG_PATH, 'r', encoding='utf-8') as f:
+            with open(get_db_config_path(), 'r', encoding='utf-8') as f:
                 content = f.read().strip()
                 
             # 直接使用base64解码
@@ -128,8 +152,8 @@ class DatabaseConfig:
     def _update_cache(config):
         """更新配置缓存"""
         DatabaseConfig._config_cache = config.copy()
-        if os.path.exists(DB_CONFIG_PATH):
-            DatabaseConfig._config_cache_mtime = os.path.getmtime(DB_CONFIG_PATH)
+        if os.path.exists(get_db_config_path()):
+            DatabaseConfig._config_cache_mtime = os.path.getmtime(get_db_config_path())
     
     @staticmethod
     def invalidate_cache():
@@ -142,7 +166,7 @@ class DatabaseConfig:
         """保存配置到文件"""
         try:
             # 确保配置文件目录存在
-            dir_path = os.path.dirname(DB_CONFIG_PATH)
+            dir_path = os.path.dirname(get_db_config_path())
             if not os.path.exists(dir_path):
                 os.makedirs(dir_path)
                 
@@ -150,7 +174,7 @@ class DatabaseConfig:
             json_str = json.dumps(config_data, ensure_ascii=False, indent=4)
             encoded_str = base64.b64encode(json_str.encode('utf-8')).decode('utf-8')
             
-            with open(DB_CONFIG_PATH, 'w', encoding='utf-8') as f:
+            with open(get_db_config_path(), 'w', encoding='utf-8') as f:
                 f.write(encoded_str)
             # 保存后使缓存失效，下次读取时重新加载
             DatabaseConfig.invalidate_cache()

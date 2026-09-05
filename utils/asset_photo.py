@@ -26,6 +26,10 @@ class AssetPhotoManager:
         if os.environ.get('DOCKER_ENV') == 'true':
             # Docker环境下，数据存储在/data目录
             media_root = '/data/photo/asset_photo'
+        # 检查是否是Android环境
+        elif os.environ.get('ANDROID_ENV', 'false').lower() == 'true':
+            # Android环境 - 使用 APP_DATA_DIR（由 android_adapter.py 设置）
+            media_root = os.path.join(os.environ.get('APP_DATA_DIR', '/data'), 'photo', 'asset_photo')
         # 检查是否是PyInstaller打包环境
         elif getattr(sys, 'frozen', False):
             # 获取打包后可执行文件所在目录

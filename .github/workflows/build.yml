@@ -16,9 +16,15 @@ on:
         required: false
         default: true
         type: boolean
+      build_android:
+        description: '构建 Android APK'
+        required: false
+        default: true
+        type: boolean
 
 env:
   PYTHON_VERSION: '3.8'
+  ANDROID_PYTHON_VERSION: '3.12'
   APP_NAME: '行政后勤管理系统'
   DOCKER_IMAGE_NAME: 'dorm-management-system'
   PYTHONIOENCODING: 'utf-8'
@@ -216,11 +222,13 @@ jobs:
             | `DormManagement_Setup_SingleFile_v*.exe` | Inno Setup 安装程序（单文件模式），自动配置快捷方式和卸载程序 |
             | `DormManagement_Setup_MultiFile_v*.exe` | Inno Setup 安装程序（多文件模式），自动配置快捷方式和卸载程序 |
             | `DormManagement_Docker_v*.tar` | Docker 镜像，使用 `docker load -i` 导入 |
+            | `DormManagement_v*.apk` | Android APK，直接安装运行（最低 Android 8） |
 
             ### 使用方式
             1. **绿色版**：下载后直接运行，无需安装
             2. **安装版**：双击安装程序，自动配置快捷方式和卸载程序
             3. **Docker**：下载 tar 文件后使用 `docker load -i 文件名.tar` 导入
+            4. **Android**：下载 APK 文件后直接安装，允许未知来源安装
           draft: false
           prerelease: false
           files: |
@@ -309,12 +317,132 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   # ============================================
+  # Android APK 构建（新增）
+  # ============================================
+  build-android:
+    name: 📱 Android 打包
+    runs-on: ubuntu-latest
+    if: >
+      github.event_name == 'push' ||
+      (github.event_name == 'workflow_dispatch' && inputs.build_android)
+
+    steps:
+      - name: 📥 检出代码
+        uses: actions/checkout@v7
+
+      - name: 🔖 提取版本号
+        id: version
+        run: |
+          HAS_VERSION=false
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            TAG_NAME="${GITHUB_REF#refs/tags/}"
+            HAS_VERSION=true
+          else
+            COMMIT_MSG="${{ github.event.head_commit.message }}"
+            TAG_NAME=$(echo "$COMMIT_MSG" | grep -oiE 'v[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1 || true)
+            if [ -n "$TAG_NAME" ]; then
+              HAS_VERSION=true
+            fi
+          fi
+          if [ "$HAS_VERSION" = true ]; then
+            VERSION="${TAG_NAME#v}"
+            echo "tag=$TAG_NAME" >> $GITHUB_OUTPUT
+            echo "version=$VERSION" >> $GITHUB_OUTPUT
+            echo "has_version=true" >> $GITHUB_OUTPUT
+            echo "✅ 检测到版本号: $TAG_NAME"
+          else
+            echo "version=" >> $GITHUB_OUTPUT
+            echo "has_version=false" >> $GITHUB_OUTPUT
+            echo "ℹ️ 未检测到版本号，跳过发布"
+          fi
+
+      - name: ☕ 设置 JDK 17
+        uses: actions/setup-java@v6
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: 🐍 设置 Python ${{ env.ANDROID_PYTHON_VERSION }}
+        uses: actions/setup-python@v7
+        with:
+          python-version: ${{ env.ANDROID_PYTHON_VERSION }}
+
+      - name: 🖼️ 安装图标生成依赖
+        run: pip install Pillow
+
+      - name: 🤖 设置 Android SDK
+        uses: android-actions/setup-android@v4
+
+      - name: 📦 安装 Android SDK 组件
+        run: |
+          sdkmanager "platforms;android-34"
+          sdkmanager "build-tools;34.0.0"
+          sdkmanager "ndk;26.1.10909125"
+
+      - name: 📦 缓存 Gradle 依赖
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+            android/.gradle
+          key: gradle-android-${{ hashFiles('android/**/*.gradle*', 'android/**/gradle-wrapper.properties') }}
+          restore-keys: gradle-android-
+
+      - name: 🔑 解码签名密钥
+        if: steps.version.outputs.has_version == 'true'
+        run: |
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > android/app/release.keystore
+          echo "KEYSTORE_PASSWORD=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" >> $GITHUB_ENV
+          echo "KEY_ALIAS=${{ secrets.ANDROID_KEY_ALIAS }}" >> $GITHUB_ENV
+          echo "KEY_PASSWORD=${{ secrets.ANDROID_KEY_PASSWORD }}" >> $GITHUB_ENV
+
+      - name: 🏗️ 构建 Debug APK（无版本号时）
+        if: steps.version.outputs.has_version != 'true'
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug
+          mkdir -p ../dist/android
+          cp app/build/outputs/apk/debug/*.apk ../dist/android/DormManagement-debug.apk
+
+      - name: 🏗️ 构建 Release APK（有版本号时）
+        if: steps.version.outputs.has_version == 'true'
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease \
+            -PversionCode=$(echo "${{ steps.version.outputs.version }}" | tr -d '.') \
+            -PversionName="${{ steps.version.outputs.version }}"
+          mkdir -p ../dist/android
+          cp app/build/outputs/apk/release/*.apk ../dist/android/
+          cd ../dist/android
+          APK_FILE=$(ls *.apk | head -1)
+          mv "$APK_FILE" "DormManagement_v${{ steps.version.outputs.version }}.apk"
+
+      - name: 📤 上传 Android APK
+        uses: actions/upload-artifact@v7
+        with:
+          name: DormManagement_Android
+          path: dist/android/
+          retention-days: 30
+
+      - name: 🚀 发布到 Release
+        if: steps.version.outputs.has_version == 'true'
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          files: dist/android/*.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ============================================
   # 构建总结
   # ============================================
   build-summary:
     name: 📊 构建总结
     runs-on: ubuntu-latest
-    needs: [build-windows, build-docker]
+    needs: [build-windows, build-docker, build-android]
     if: always()
 
     steps:
@@ -326,6 +454,7 @@ jobs:
           echo ""
           echo "Windows 构建: ${{ needs.build-windows.result }}"
           echo "Docker 构建:  ${{ needs.build-docker.result }}"
+          echo "Android 构建: ${{ needs.build-android.result }}"
           echo ""
           if [ "${{ needs.build-windows.result }}" = "success" ]; then
             echo "✅ Windows 版本构建成功"
@@ -336,6 +465,11 @@ jobs:
             echo "✅ Docker 镜像构建成功"
           else
             echo "❌ Docker 镜像构建失败或被跳过"
+          fi
+          if [ "${{ needs.build-android.result }}" = "success" ]; then
+            echo "✅ Android APK 构建成功"
+          else
+            echo "❌ Android APK 构建失败或被跳过"
           fi
           echo ""
           echo "========================================"

@@ -277,10 +277,15 @@ OPERATION_TYPE_MAP = {
 def get_log_directory():
     # 检查是否在Docker环境中
     is_docker = os.environ.get('DOCKER_ENV') == 'true'
+    # 检查是否在Android环境中
+    is_android = os.environ.get('ANDROID_ENV', 'false').lower() == 'true'
     
     if is_docker:
         # Docker环境 - 使用简化的外部数据卷路径
         log_dir = '/data/logs'
+    elif is_android:
+        # Android环境 - 使用 APP_DATA_DIR
+        log_dir = os.path.join(os.environ.get('APP_DATA_DIR', '/data'), 'logs')
     else:
         # 非Docker环境
         if getattr(sys, 'frozen', False):

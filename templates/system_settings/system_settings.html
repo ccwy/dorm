@@ -160,6 +160,27 @@
                         <button id="viewDbInfoBtn" class="btn-secondary flex items-center ml-2">
                             <i class="fa fa-info-circle mr-2"></i>查看数据库信息
                         </button>
+                        <!-- 存储信息按钮 -->
+                        <button id="viewStorageInfoBtn" class="btn-secondary flex items-center ml-2">
+                            <i class="fa fa-hdd-o mr-2"></i>存储信息
+                        </button>
+                    </div>
+                    
+                    <!-- 存储信息展示区 -->
+                    <div id="storageInfoSection" class="config-card p-6 mb-6 hidden fade-in">
+                        <h4 class="text-md font-medium mb-4 flex items-center justify-between">
+                            <div class="flex items-center">
+                                <i class="fa fa-hdd-o text-primary mr-2"></i>存储信息
+                            </div>
+                            <button id="closeStorageInfoBtn" class="close-btn">
+                                <i class="fa fa-times"></i>
+                            </button>
+                        </h4>
+                        <div id="storageInfoContent">
+                            <div class="flex items-center justify-center py-8 text-gray-500">
+                                <i class="fa fa-spinner fa-spin mr-2"></i>加载存储信息中...
+                            </div>
+                        </div>
                     </div>
                     
                     <!-- 新增：数据库信息展示区 -->
@@ -291,6 +312,9 @@
             // 新增：绑定查看和关闭数据库信息按钮事件
             document.getElementById('viewDbInfoBtn').addEventListener('click', toggleDatabaseInfo);
             document.getElementById('closeDbInfoBtn').addEventListener('click', toggleDatabaseInfo);
+            // 存储信息按钮事件
+            document.getElementById('viewStorageInfoBtn').addEventListener('click', toggleStorageInfo);
+            document.getElementById('closeStorageInfoBtn').addEventListener('click', toggleStorageInfo);
             
             // 对话框事件
             document.getElementById('dialogCancelBtn').addEventListener('click', hideConfirmDialog);
@@ -301,67 +325,31 @@
         function createAndDownloadBackup() {
             showLoadingBackup();
             
-            // 创建一个隐藏的iframe用于文件下载
-            const iframe = document.createElement('iframe');
-            iframe.style.display = 'none';
-            document.body.appendChild(iframe);
-            
-            // 发送请求创建并下载备份
-            fetch('/system/api/backup/create-and-download', {
+            // 分两步操作：先创建备份保存到服务器，再通过下载端点下载
+            // 这样WebView的DownloadListener可以正常拦截GET请求的下载
+            // 直接用fetch+blob方式在Android WebView中无法触发DownloadListener
+            fetch('/system/api/backup/create', {
                 method: 'POST',
                 headers: {
                     'X-Requested-With': 'XMLHttpRequest'
                 }
             })
-            .then(response => {
-                console.log('创建并下载备份响应状态码:', response.status);
-                if (!response.ok) {
-                    // 尝试解析JSON错误信息
-                    return response.json().catch(() => {
-                        // 如果无法解析JSON（可能是二进制文件），抛出带有状态码的错误
-                        throw new Error(`创建并下载备份失败: HTTP ${response.status}`);
-                    }).then(data => {
-                        // 如果能解析到JSON，抛出包含详细错误信息的错误
-                        if (data && data.message) {
-                            throw new Error(`创建并下载备份失败: ${data.message}`);
-                        }
-                        throw new Error(`创建并下载备份失败: HTTP ${response.status}`);
-                    });
-                }
-                
-                // 获取文件名
-                const contentDisposition = response.headers.get('content-disposition');
-                let filename = 'backup.sql';
-                if (contentDisposition && contentDisposition.includes('filename=')) {
-                    filename = contentDisposition.split('filename=')[1].replace(/["']/g, '');
-                }
-                
-                // 处理文件下载
-                return response.blob().then(blob => {
-                    const url = window.URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = filename;
-                    document.body.appendChild(a);
-                    a.click();
-                    a.remove();
-                    window.URL.revokeObjectURL(url);
-                    
-                    return { success: true };
-                });
-            })
+            .then(response => response.json())
             .then(data => {
-                if (data.success) {
-                    showToast('备份创建并下载成功', 'success');
+                if (data.success && data.backup_file) {
+                    // 备份创建成功，使用下载端点下载文件
+                    downloadBackup(data.backup_file);
+                    showToast('备份创建成功，开始下载: ' + data.backup_file, 'success');
                     loadBackupList();
                 } else {
-                    showToast('创建并下载备份失败: ' + (data.message || '未知错误'), 'error');
+                    showToast('创建备份失败: ' + (data.message || '未知错误'), 'error');
+                    loadBackupList();
                 }
             })
             .catch(error => {
-                console.error('创建并下载备份错误:', error);
-                showToast(error.message, 'error');
-                loadBackupList(); // 无论如何都重新加载备份列表
+                console.error('创建备份错误:', error);
+                showToast('创建备份失败: ' + error.message, 'error');
+                loadBackupList();
             });
         }
 
@@ -513,6 +501,217 @@
             `;
             
             dbInfoContent.innerHTML = html;
+        }
+
+        // ==================== 存储信息功能 ====================
+        let storageInfoVisible = false;
+
+        // 切换存储信息显示/隐藏
+        function toggleStorageInfo() {
+            const storageInfoSection = document.getElementById('storageInfoSection');
+            if (!storageInfoSection) return;
+            
+            if (storageInfoVisible) {
+                storageInfoSection.classList.add('fade-out');
+                setTimeout(() => {
+                    storageInfoSection.classList.add('hidden');
+                    storageInfoSection.classList.remove('fade-out');
+                }, 300);
+                storageInfoVisible = false;
+            } else {
+                const storageInfoContent = document.getElementById('storageInfoContent');
+                storageInfoContent.innerHTML = `
+                    <div class="flex justify-center py-6">
+                        <i class="fa fa-spinner fa-spin text-2xl text-gray-300"></i>
+                    </div>
+                `;
+                storageInfoSection.classList.remove('hidden');
+                storageInfoSection.classList.add('fade-in');
+                storageInfoVisible = true;
+                
+                fetch('/system/api/storage-info', {
+                    method: 'GET',
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                })
+                .then(response => response.json().catch(() => {
+                    throw new Error('无法解析响应');
+                }).then(data => {
+                    if (!response.ok) {
+                        throw new Error(data.message || `HTTP ${response.status}`);
+                    }
+                    return data;
+                }))
+                .then(data => {
+                    if (data.success) {
+                        renderStorageInfo(data.data);
+                    } else {
+                        showToast('获取存储信息失败: ' + data.message, 'error');
+                        storageInfoContent.innerHTML = `
+                            <div class="text-center py-6 text-gray-500">
+                                <i class="fa fa-exclamation-triangle text-yellow-400 mr-2"></i>
+                                ${data.message || '无法获取存储信息'}
+                            </div>
+                        `;
+                    }
+                })
+                .catch(error => {
+                    console.error('获取存储信息错误:', error);
+                    showToast(error.message, 'error');
+                    storageInfoContent.innerHTML = `
+                        <div class="text-center py-6 text-gray-500">
+                            <i class="fa fa-exclamation-circle text-red-400 mr-2"></i>
+                            ${error.message}
+                        </div>
+                    `;
+                });
+            }
+        }
+
+        // 渲染存储信息
+        function renderStorageInfo(info) {
+            const container = document.getElementById('storageInfoContent');
+            let html = '';
+            
+            // 环境信息
+            const envIcons = {
+                'docker': 'fa fa-docker',
+                'android': 'fa fa-android',
+                'windows': 'fa fa-windows'
+            };
+            const envIconClass = envIcons[info.env_icon] || 'fa fa-desktop';
+            
+            html += `
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                    <div class="p-4 border border-gray-100 rounded-lg bg-gray-50">
+                        <h5 class="text-sm font-medium text-gray-700 mb-2">运行环境</h5>
+                        <p class="text-gray-900 flex items-center">
+                            <i class="${envIconClass} mr-2 text-lg"></i>
+                            ${info.env_type}
+                        </p>
+                    </div>
+                    <div class="p-4 border border-gray-100 rounded-lg bg-gray-50">
+                        <h5 class="text-sm font-medium text-gray-700 mb-2">数据总大小</h5>
+                        <p class="text-gray-900">
+                            <i class="fa fa-database mr-1 text-primary"></i>
+                            ${info.total_size_display}（${info.total_files} 个文件）
+                        </p>
+                    </div>
+                </div>
+                
+                <!-- 数据目录路径 -->
+                <div class="p-4 border border-gray-100 rounded-lg bg-blue-50 mb-4">
+                    <div class="flex items-start justify-between">
+                        <div class="flex-1">
+                            <h5 class="text-sm font-medium text-gray-700 mb-2">
+                                <i class="fa fa-folder-open mr-1 text-primary"></i>数据目录路径
+                            </h5>
+                            <p class="text-gray-900 break-all font-mono text-sm" id="dataPathText">${info.data_path}</p>
+                            ${info.data_path_exists ? 
+                                '<span class="inline-flex items-center mt-1 px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800"><i class="fa fa-check mr-1"></i>目录存在</span>' : 
+                                '<span class="inline-flex items-center mt-1 px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800"><i class="fa fa-times mr-1"></i>目录不存在</span>'
+                            }
+                        </div>
+                        <button onclick="copyToClipboard('${info.data_path.replace(/'/g, "\\'")}')" 
+                                class="ml-3 px-3 py-1.5 text-xs bg-primary text-white rounded hover:bg-primary-dark transition-colors flex-shrink-0"
+                                title="复制路径">
+                            <i class="fa fa-copy mr-1"></i>复制
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            // Android 特有提示
+            if (info.android_info) {
+                html += `
+                    <div class="p-4 border border-blue-200 rounded-lg bg-blue-50 mb-4">
+                        <div class="flex items-start">
+                            <i class="fa fa-android text-blue-500 mr-3 mt-0.5 text-lg"></i>
+                            <div>
+                                <h5 class="text-sm font-medium text-blue-800 mb-1">Android 存储说明</h5>
+                                <p class="text-sm text-blue-700">${info.android_info.note}</p>
+                                <p class="text-xs text-blue-600 mt-2 font-mono break-all">数据目录: ${info.android_info.app_data_dir}</p>
+                                ${info.android_info.download_dir ? `<p class="text-xs text-blue-600 mt-1 font-mono break-all">下载目录: ${info.android_info.download_dir}</p>` : ''}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            // 子目录信息
+            html += `
+                <h5 class="text-sm font-medium text-gray-700 mb-3 mt-4">
+                    <i class="fa fa-folder mr-1"></i>子目录详情
+                </h5>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead>
+                            <tr>
+                                <th class="px-4 py-2 bg-gray-50 text-left text-xs font-medium text-gray-500">目录名称</th>
+                                <th class="px-4 py-2 bg-gray-50 text-left text-xs font-medium text-gray-500">路径</th>
+                                <th class="px-4 py-2 bg-gray-50 text-left text-xs font-medium text-gray-500">大小</th>
+                                <th class="px-4 py-2 bg-gray-50 text-left text-xs font-medium text-gray-500">文件数</th>
+                                <th class="px-4 py-2 bg-gray-50 text-left text-xs font-medium text-gray-500">状态</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+            `;
+            
+            info.sub_dirs.forEach(dir => {
+                html += `
+                    <tr>
+                        <td class="px-4 py-2 text-sm text-gray-900 whitespace-nowrap">
+                            <i class="fa fa-folder text-yellow-400 mr-1"></i>${dir.name}
+                        </td>
+                        <td class="px-4 py-2 text-sm text-gray-600 font-mono whitespace-nowrap">${dir.path}</td>
+                        <td class="px-4 py-2 text-sm text-gray-600 whitespace-nowrap">${dir.size_display}</td>
+                        <td class="px-4 py-2 text-sm text-gray-600 whitespace-nowrap">${dir.file_count}</td>
+                        <td class="px-4 py-2 text-sm whitespace-nowrap">
+                            ${dir.exists ? 
+                                '<span class="px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">正常</span>' : 
+                                '<span class="px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">不存在</span>'
+                            }
+                        </td>
+                    </tr>
+                `;
+            });
+            
+            html += `
+                        </tbody>
+                    </table>
+                </div>
+            `;
+            
+            container.innerHTML = html;
+        }
+
+        // 复制到剪贴板
+        function copyToClipboard(text) {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).then(() => {
+                    showToast('路径已复制到剪贴板', 'success');
+                }).catch(() => {
+                    fallbackCopyToClipboard(text);
+                });
+            } else {
+                fallbackCopyToClipboard(text);
+            }
+        }
+
+        // 兼容性复制方法
+        function fallbackCopyToClipboard(text) {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            textarea.style.position = 'fixed';
+            textarea.style.opacity = '0';
+            document.body.appendChild(textarea);
+            textarea.select();
+            try {
+                document.execCommand('copy');
+                showToast('路径已复制到剪贴板', 'success');
+            } catch (e) {
+                showToast('复制失败，请手动复制', 'error');
+            }
+            document.body.removeChild(textarea);
         }
 
         // 选择备份文件
@@ -675,6 +874,10 @@
                 // 新增：隐藏数据库信息区域
                 if (dbInfoVisible) {
                     toggleDatabaseInfo();
+                }
+                // 隐藏存储信息区域
+                if (storageInfoVisible) {
+                    toggleStorageInfo();
                 }
             }
         }
