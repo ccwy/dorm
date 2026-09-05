@@ -23,6 +23,9 @@ class TodoMediaManager:
         if os.environ.get('DOCKER_ENV') == 'true':
             # Docker环境下，数据存储在/data目录
             media_root = '/data/photo/todo_photo'
+        # 检查是否是Android环境
+        elif os.environ.get('ANDROID_ENV', 'false').lower() == 'true':
+            media_root = os.path.join(os.environ.get('APP_DATA_DIR', '/data'), 'photo', 'todo_photo')
         # 检查是否是PyInstaller打包环境
         elif getattr(sys, 'frozen', False):
             # 获取打包后可执行文件所在目录

@@ -21,6 +21,11 @@ def get_force_relogin_file_path():
         # Docker环境 - 使用外部数据卷路径
         return os.path.join('/data', 'force_relogin.flag')
     
+    # 检查是否为Android环境
+    if os.environ.get('ANDROID_ENV', 'false').lower() == 'true':
+        # Android环境 - 使用 APP_DATA_DIR
+        return os.path.join(os.environ.get('APP_DATA_DIR', '/data'), 'force_relogin.flag')
+    
     # 检查是否为打包环境
     if getattr(sys, 'frozen', False):
         # 打包环境 - 配置文件始终存储在应用程序所在目录

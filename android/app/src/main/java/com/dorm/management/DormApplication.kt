@@ -20,20 +20,10 @@ class DormApplication : Application() {
             Python.start(AndroidPlatform(this))
         }
 
-        // 创建数据目录
-        val dataDir = getExternalFilesDir(null)?.resolve("data")
+        // 创建数据根目录（子目录由 Python ensure_data_dirs() 创建）
+        val dataDir = getFilesDir()?.resolve("data")
         if (dataDir != null && !dataDir.exists()) {
             dataDir.mkdirs()
-        }
-
-        val dbDir = getExternalFilesDir(null)?.resolve("data/db")
-        if (dbDir != null && !dbDir.exists()) {
-            dbDir.mkdirs()
-        }
-
-        val backupDir = getExternalFilesDir(null)?.resolve("data/backups")
-        if (backupDir != null && !backupDir.exists()) {
-            backupDir.mkdirs()
         }
     }
 }

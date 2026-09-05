@@ -58,9 +58,10 @@ def get_cache_dir():
     return os.path.join(get_files_dir(), 'cache')
 
 
-def get_database_path(db_name='dorm.db'):
+def get_database_path(db_name='data.db'):
     """获取数据库文件路径"""
-    return os.path.join(get_files_dir(), 'data', db_name)
+    data_dir = os.environ.get('APP_DATA_DIR', os.path.join(get_files_dir(), 'data'))
+    return os.path.join(data_dir, db_name)
 
 
 # ==================== 环境配置 ====================
@@ -70,6 +71,8 @@ def setup_android_env():
     设置 Android 环境变量
 
     在 Flask 启动前调用，确保所有环境检测正确识别 Android 平台。
+    APP_DATA_DIR 统一指向 {files_dir}/data，与 Docker(/data) 和 Windows({app}/data) 结构一致。
+    所有数据（数据库、配置、照片、文件共享、备份）均存储在 APP_DATA_DIR 下。
     """
     # 设置 Android 环境标识（与 DOCKER_ENV 机制一致）
     os.environ['ANDROID_ENV'] = 'true'
@@ -80,16 +83,65 @@ def setup_android_env():
     # 禁用桌面视图
     os.environ['USE_DESKTOP_VIEW'] = 'false'
 
-    # 设置数据目录
+    # 设置数据目录：统一使用 {files_dir}/data 作为数据根目录
+    # 目录结构：data/{data.db, db_config.json, photo/, file_sharing/, backups/}
     files_dir = get_files_dir()
-    os.environ.setdefault('APP_DATA_DIR', files_dir)
+    data_dir = os.path.join(files_dir, 'data')
+    os.environ['APP_DATA_DIR'] = data_dir
 
     # 配置 Python 路径
-    app_dir = files_dir
-    if app_dir not in sys.path:
-        sys.path.insert(0, app_dir)
+    if files_dir not in sys.path:
+        sys.path.insert(0, files_dir)
 
-    logger.info(f"Android 环境配置完成: files_dir={files_dir}")
+    # 确保数据目录结构存在
+    ensure_data_dirs(data_dir)
+
+    logger.info(f"Android 环境配置完成: files_dir={files_dir}, data_dir={data_dir}")
+
+
+def ensure_data_dirs(data_dir):
+    """
+    创建 Android 数据目录结构
+
+    统一目录结构：
+    data/
+    ├── data.db              ← SQLite 数据库
+    ├── db_config.json       ← 数据库配置
+    ├── photo/               ← 照片存储
+    │   ├── asset_photo/     ← 资产照片
+    │   ├── room_photo/      ← 房间照片
+    │   ├── maintenance_photo/ ← 维修照片
+    │   ├── contract_attachments/ ← 合同附件
+    │   ├── room_meter_photo/ ← 水电表照片
+    │   ├── todo_photo/      ← 待办照片
+    │   └── ticket_photo/    ← 工单照片
+    ├── file_sharing/        ← 文件共享
+    └── backups/             ← 数据库备份
+    """
+    subdirs = [
+        '',  # data 根目录本身
+        'photo',
+        'photo/asset_photo',
+        'photo/room_photo',
+        'photo/maintenance_photo',
+        'photo/maintenance_temp',
+        'photo/contract_attachments',
+        'photo/room_meter_photo',
+        'photo/todo_photo',
+        'photo/ticket_photo',
+        'file_sharing',
+        'backups',
+        'logs',
+    ]
+
+    for subdir in subdirs:
+        dir_path = os.path.join(data_dir, subdir) if subdir else data_dir
+        if not os.path.exists(dir_path):
+            try:
+                os.makedirs(dir_path, exist_ok=True)
+                logger.debug(f"创建数据目录: {dir_path}")
+            except Exception as e:
+                logger.warning(f"创建数据目录失败: {dir_path}, 错误: {e}")
 
 
 # ==================== 空模块替换（Stub） ====================

@@ -3,8 +3,19 @@ import sys
 from datetime import timedelta
 from utils.db_config import DatabaseConfig
 
+# ⚠️ 时序依赖说明：
+# config.py 中的类级属性（APP_DIR、BACKUP_DIR、USE_DESKTOP_VIEW、SERVER_HOST 等）
+# 在类定义时求值，依赖 ANDROID_ENV / APP_DATA_DIR 环境变量。
+# 在 Android 环境下，这些环境变量由 android_adapter.setup_android_env() 设置，
+# 必须在 config.py 被导入之前调用。当前启动流程保证了这一点：
+#   start_flask_server() → setup_android_env() → from main import → from config import
+# 如果导入顺序变更，需要确保环境变量在 config.py 导入前已设置。
+
 # 确定配置文件路径，支持开发环境和打包环境
 def get_app_dir():
+    if os.environ.get('ANDROID_ENV', 'false').lower() == 'true':
+        # Android环境 - 使用 APP_DATA_DIR（由 android_adapter.py 设置）
+        return os.environ.get('APP_DATA_DIR', os.path.abspath(os.path.dirname(__file__)))
     if getattr(sys, 'frozen', False):
         # 打包环境 - 配置文件始终存储在应用程序所在目录
         return os.path.dirname(sys.executable)
@@ -47,8 +58,8 @@ class Config:
 
     # 备份目录配置
     if os.environ.get('ANDROID_ENV', 'false').lower() == 'true':  # 优先检查Android环境
-        APP_DIR = get_app_dir()
-        BACKUP_DIR = os.path.join(APP_DIR, 'data', 'backups')  # Android环境 - 使用应用内部存储路径
+        APP_DIR = get_app_dir()  # APP_DATA_DIR，已包含 /data 后缀
+        BACKUP_DIR = os.path.join(APP_DIR, 'backups')  # Android环境 - APP_DATA_DIR/backups
     elif os.environ.get('DOCKER_ENV', 'false').lower() == 'true':  # 其次检查Docker环境
         BACKUP_DIR = '/data/backups'    # Docker环境 - 使用外部数据卷路径
     elif getattr(sys, 'frozen', False):
