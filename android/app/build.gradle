@@ -22,28 +22,35 @@ android {
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
     }
 
+    signingConfigs {
+        create('release') {
+            def keystoreFile = file('release.keystore')
+            if (keystoreFile.exists()) {
+                def pwd = System.getenv('KEYSTORE_PASSWORD') ?: ''
+                def alias = System.getenv('KEY_ALIAS') ?: 'dorm'
+                def keyPwd = System.getenv('KEY_PASSWORD') ?: ''
+                if (pwd && keyPwd) {
+                    storeFile = keystoreFile
+                    storePassword = pwd
+                    keyAlias = alias
+                    keyPassword = keyPwd
+                }
+            }
+        }
+    }
+
     buildTypes {
         release {
             minifyEnabled true
             shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-            // 签名配置 - 从环境变量读取
-            signingConfig signingConfigs.findByName('release')
+            // 签名配置：有 release 密钥时用 release 签名，否则回退 debug 签名
+            signingConfig = signingConfigs.findByName('release')?.storeFile != null
+                ? signingConfigs.release
+                : signingConfigs.debug
         }
         debug {
             minifyEnabled false
-        }
-    }
-
-    signingConfigs {
-        create('release') {
-            def keystoreFile = file('release.keystore')
-            if (keystoreFile.exists()) {
-                storeFile = keystoreFile
-                storePassword = System.getenv('KEYSTORE_PASSWORD') ?: ''
-                keyAlias = System.getenv('KEY_ALIAS') ?: 'dorm'
-                keyPassword = System.getenv('KEY_PASSWORD') ?: ''
-            }
         }
     }
 

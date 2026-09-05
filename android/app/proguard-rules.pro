@@ -1,12 +1,47 @@
-# Chaquopy Python 运行时（com.chaquo 是 Chaquopy 的 Java 包名，chaquopy 仅是插件 ID）
+# Chaquopy Python 运行时
 -keep class com.chaquo.** { *; }
-
-# Python 模块调用
 -keep class com.dorm.management.** { *; }
+-keep class org.python.** { *; }
 
-# AndroidX 和 Material
+# Kotlin 协程与反射
+-dontwarn kotlinx.coroutines.**
+-keep class kotlinx.coroutines.** { *; }
+-keepclassmembers class kotlinx.coroutines.** { *; }
+-keep class kotlin.reflect.** { *; }
+
+# AndroidX Core
+-keep class androidx.core.** { *; }
+-keep class androidx.appcompat.** { *; }
+-keep class androidx.webkit.** { *; }
+-keep class androidx.core.splashscreen.** { *; }
 -dontwarn androidx.**
+
+# Material Design
+-keep class com.google.android.material.** { *; }
 -dontwarn com.google.android.material.**
 
-# Flask 相关
--keep class org.python.** { *; }
+# Lottie 动画库
+-keep class com.airbnb.lottie.** { *; }
+-dontwarn com.airbnb.lottie.**
+
+# WebView JavaScript Interface
+-keepclassmembers class * {
+    @android.webkit.JavascriptInterface <methods>;
+}
+
+# 序列化
+-keepclassmembers class * implements java.io.Serializable {
+    static final long serialVersionUID;
+    private static final java.io.ObjectStreamField[] serialPersistentFields;
+    !static !transient <fields>;
+    private void writeObject(java.io.ObjectOutputStream);
+    private void readObject(java.io.ObjectInputStream);
+    java.lang.Object writeReplace();
+    java.lang.Object readResolve();
+}
+
+# 通用优化
+-dontwarn java.lang.invoke.StringConcatFactory
+-dontwarn javax.annotation.**
+-keepattributes SourceFile,LineNumberTable
+-renamesourcefileattribute SourceFile

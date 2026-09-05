@@ -389,13 +389,32 @@ jobs:
           key: gradle-android-${{ hashFiles('android/**/*.gradle*', 'android/**/gradle-wrapper.properties') }}
           restore-keys: gradle-android-
 
-      - name: 🔑 解码签名密钥
+      - name: 🔑 准备签名密钥
         if: steps.version.outputs.has_version == 'true'
         run: |
-          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > android/app/release.keystore
-          echo "KEYSTORE_PASSWORD=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" >> $GITHUB_ENV
-          echo "KEY_ALIAS=${{ secrets.ANDROID_KEY_ALIAS }}" >> $GITHUB_ENV
-          echo "KEY_PASSWORD=${{ secrets.ANDROID_KEY_PASSWORD }}" >> $GITHUB_ENV
+          if [ -n "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" ]; then
+            echo "✅ 使用 GitHub Secrets 中的签名密钥"
+            echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > android/app/release.keystore
+            echo "KEYSTORE_PASSWORD=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" >> $GITHUB_ENV
+            echo "KEY_ALIAS=${{ secrets.ANDROID_KEY_ALIAS }}" >> $GITHUB_ENV
+            echo "KEY_PASSWORD=${{ secrets.ANDROID_KEY_PASSWORD }}" >> $GITHUB_ENV
+          else
+            echo "⚠️ 未配置签名密钥 Secrets，自动生成临时密钥"
+            cd android/app
+            keytool -genkeypair -v \
+              -keystore release.keystore \
+              -alias dorm \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 10000 \
+              -storepass android123 \
+              -keypass android123 \
+              -dname "CN=DormManagement, OU=Dev, O=Dorm, L=Beijing, ST=Beijing, C=CN"
+            echo "KEYSTORE_PASSWORD=android123" >> $GITHUB_ENV
+            echo "KEY_ALIAS=dorm" >> $GITHUB_ENV
+            echo "KEY_PASSWORD=android123" >> $GITHUB_ENV
+            cd ../..
+          fi
 
       - name: 🏗️ 构建 Debug APK（无版本号时）
         if: steps.version.outputs.has_version != 'true'
