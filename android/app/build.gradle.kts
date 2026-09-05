@@ -105,7 +105,7 @@ chaquopy {
 
         sourceSets {
             getByName("main") {
-                srcDir("../")
+                srcDir("../../")
                 // 排除不需要的文件
                 exclude("Auto_Setup/**")
                 exclude(".github/**")

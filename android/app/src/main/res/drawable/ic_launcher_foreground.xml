@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- 建筑主体 - 白色填充 -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M34,44 L54,28 L74,44 L74,82 L34,82 Z" />
+    <!-- 屋顶三角 -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M30,46 L54,26 L78,46 L74,44 L54,28 L34,44 Z" />
+    <!-- 门 -->
+    <path
+        android:fillColor="#1976D2"
+        android:pathData="M48,60 L48,82 L60,82 L60,60 Q54,54 48,60 Z" />
+    <!-- 左窗 -->
+    <path
+        android:fillColor="#1976D2"
+        android:pathData="M38,50 L44,50 L44,56 L38,56 Z" />
+    <!-- 右窗 -->
+    <path
+        android:fillColor="#1976D2"
+        android:pathData="M64,50 L70,50 L70,56 L64,56 Z" />
+</vector>

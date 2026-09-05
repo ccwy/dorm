@@ -189,10 +189,15 @@ def start_flask_server():
     Android 端 Flask 服务器启动入口
 
     由 Chaquopy 从 Android 端调用，完成以下步骤：
-    1. 安装 stub 模块
-    2. 设置 Android 环境变量
-    3. 启动 Flask+waitress 服务器
+    1. 设置 Android 环境标识（此函数仅从 Android/Chaquopy 调用）
+    2. 安装 stub 模块
+    3. 设置 Android 环境变量
+    4. 启动 Flask+waitress 服务器
     """
+    # 此函数仅从 Android/Chaquopy 调用，立即设置 ANDROID_ENV 标识
+    # 必须在检查之前设置，否则 setup_android_env() 尚未执行会导致检查失败
+    os.environ['ANDROID_ENV'] = 'true'
+
     if not os.environ.get('ANDROID_ENV', 'false').lower() == 'true':
         logger.warning("start_flask_server() 仅应在 Android 环境下调用")
         return None
