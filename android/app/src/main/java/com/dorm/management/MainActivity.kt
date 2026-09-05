@@ -1,15 +1,19 @@
 package com.dorm.management
 
+import android.app.DownloadManager
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.net.http.SslError
-import android.os.Bundle
+import android.os.Build
+import android.os.Environment
 import android.view.View
 import android.view.WindowManager
 import android.webkit.*
 import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import com.chaquo.python.Python
@@ -147,6 +151,83 @@ class MainActivity : AppCompatActivity() {
 
         // 注册 JS Bridge
         webView.addJavascriptInterface(JsBridgeInterface(this), "AndroidBridge")
+
+        // 文件下载处理 — 将下载文件保存到公共 Downloads 目录
+        webView.setDownloadListener { url, userAgent, contentDisposition, mimetype, contentLength ->
+            handleDownload(url, contentDisposition, mimetype)
+        }
+    }
+
+    /**
+     * 处理 WebView 中的文件下载请求
+     * 使用系统 DownloadManager 将文件保存到公共 Downloads 目录
+     */
+    private fun handleDownload(url: String, contentDisposition: String, mimetype: String) {
+        try {
+            val request = DownloadManager.Request(Uri.parse(url))
+
+            // 设置请求头（本地Flask服务需要）
+            request.addRequestHeader("Cookie", CookieManager.getInstance().getCookie(url))
+
+            // 从 Content-Disposition 解析文件名
+            val filename = parseContentDisposition(contentDisposition)
+                ?: Uri.parse(url)?.lastPathSegment
+                ?: "download_${System.currentTimeMillis()}"
+
+            // 设置文件名和 MIME 类型
+            request.setTitle(filename)
+            request.setDescription("宿舍管理系统下载")
+            request.setMimeType(mimetype.ifEmpty { "*/*" })
+
+            // 保存到公共 Downloads 目录（所有Android版本可用，无需权限）
+            // Android 10+ 通过 MediaStore 插入，旧版本直接写入
+            request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, filename)
+
+            // 允许在通知栏显示下载进度
+            request.setNotificationVisibility(
+                DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED
+            )
+
+            // 使用系统 DownloadManager 执行下载
+            val dm = getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+            dm.enqueue(request)
+
+            runOnUiThread {
+                Toast.makeText(this, "正在下载: $filename", Toast.LENGTH_SHORT).show()
+            }
+        } catch (e: Exception) {
+            runOnUiThread {
+                Toast.makeText(this, "下载失败: ${e.message}", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
+    /**
+     * 解析 Content-Disposition 头获取文件名
+     * 格式: attachment; filename="文件名.sql" 或 filename*=UTF-8''文件名
+     */
+    private fun parseContentDisposition(contentDisposition: String): String? {
+        if (contentDisposition.isBlank()) return null
+
+        // 尝试匹配 filename*=UTF-8''编码文件名
+        val utf8Pattern = Regex("""filename\*\s*=\s*UTF-8''(.+?)(?:;|$)""")
+        utf8Pattern.find(contentDisposition)?.let { match ->
+            return java.net.URLDecoder.decode(match.groupValues[1].trim(), "UTF-8")
+        }
+
+        // 尝试匹配 filename="文件名"
+        val quotedPattern = Regex("""filename\s*=\s*"(.+?)"(?:;|$)""")
+        quotedPattern.find(contentDisposition)?.let { match ->
+            return match.groupValues[1]
+        }
+
+        // 尝试匹配 filename=文件名（无引号）
+        val plainPattern = Regex("""filename\s*=\s*([^;]+)""")
+        plainPattern.find(contentDisposition)?.let { match ->
+            return match.groupValues[1].trim()
+        }
+
+        return null
     }
 
     private fun waitForServerAndLoad() {
@@ -248,6 +329,16 @@ class MainActivity : AppCompatActivity() {
             webView.goBack()
         } else {
             super.onBackPressed()
+        }
+    }
+
+    @Deprecated("Deprecated in API 30+, but required for file chooser compatibility")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+
+        // 处理文件选择结果
+        if (requestCode == DormWebChromeClient.REQUEST_FILE_CHOOSER) {
+            (webView.webChromeClient as? DormWebChromeClient)?.handleFileChooserResult(resultCode, data)
         }
     }
 
