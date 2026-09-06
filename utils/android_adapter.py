@@ -251,6 +251,32 @@ def install_stub_modules():
     logger.info("Android stub 模块安装完成")
 
 
+# ==================== Flask 启动进度（供 Java 端轮询读取） ====================
+
+_progress_pct = 0
+_progress_msg = "正在初始化..."
+
+
+def _android_progress_callback(pct, msg):
+    """Android 端启动进度回调，更新全局进度状态"""
+    global _progress_pct, _progress_msg
+    _progress_pct = pct
+    _progress_msg = msg
+
+
+def get_progress():
+    """
+    返回当前启动进度字符串（pct|msg 格式），供 Java 端通过 Chaquopy 轮询调用。
+    
+    使用方式（Kotlin 端）：
+        val result = androidAdapter.callAttr("get_progress")?.toString()
+        val parts = result.split("|")
+        val pct = parts[0].toInt()
+        val msg = parts[1]
+    """
+    return f"{_progress_pct}|{_progress_msg}"
+
+
 # ==================== Flask 启动适配 ====================
 
 def start_flask_server():
@@ -261,7 +287,7 @@ def start_flask_server():
     1. 设置 Android 环境标识（此函数仅从 Android/Chaquopy 调用）
     2. 安装 stub 模块
     3. 设置 Android 环境变量
-    4. 启动 Flask+waitress 服务器
+    4. 启动 Flask+waitress 服务器（带进度回调）
     """
     # 此函数仅从 Android/Chaquopy 调用，立即设置 ANDROID_ENV 标识
     # 必须在检查之前设置，否则 setup_android_env() 尚未执行会导致检查失败
@@ -277,9 +303,9 @@ def start_flask_server():
     # 2. 设置环境变量
     setup_android_env()
 
-    # 3. 导入并启动 Flask
+    # 3. 导入并启动 Flask（传递进度回调，Python 端更新全局变量，Java 端轮询读取）
     from main import init_flask_app
-    app, process_cleaner, run_server = init_flask_app()
+    app, process_cleaner, run_server = init_flask_app(progress_callback=_android_progress_callback)
 
     logger.info("Android 端 Flask 应用初始化完成")
 

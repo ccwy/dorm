@@ -18,6 +18,7 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import android.view.animation.AnimationUtils
 import android.widget.ImageView
 import com.chaquo.python.Python
 import java.io.File
@@ -64,20 +65,9 @@ class MainActivity : AppCompatActivity() {
         webProgress = findViewById(R.id.webProgress)
         loadingIcon = findViewById(R.id.loadingIcon)
 
-        // 启动图标脉冲动画
-        loadingIcon.animate()
-            .scaleX(1.08f).scaleY(1.08f)
-            .setDuration(800)
-            .alpha(0.9f)
-            .withEndAction {
-                loadingIcon.animate()
-                    .scaleX(1f).scaleY(1f)
-                    .setDuration(800)
-                    .alpha(1f)
-                    .withEndAction { loadingIcon.post { loadingIcon.performClick() } }
-                    .start()
-            }
-            .start()
+        // 启动图标脉冲动画（XML动画资源，缩放+透明度+微旋转组合）
+        val pulseAnim = AnimationUtils.loadAnimation(this, R.anim.loading_pulse)
+        loadingIcon.startAnimation(pulseAnim)
 
         // 初始化重试按钮
         val retryButton = errorView.findViewById<Button>(R.id.retryButton)
@@ -288,11 +278,35 @@ class MainActivity : AppCompatActivity() {
         Thread {
             var retries = 0
             val maxRetries = MAX_SERVER_WAIT_SECONDS * 2  // 500ms 间隔
+            var lastPythonPct = 0
+            var lastPythonMsg = ""
 
             // 阶段1: 启动服务 (10% → 40%)
             updateLoadingProgress(15, "正在启动后端服务...")
 
             while (retries < maxRetries) {
+                // 轮询 Python 启动进度（通过 Chaquopy 读取全局变量，安全无 lambda 回调风险）
+                try {
+                    val py = python
+                    if (py != null) {
+                        val androidAdapter = py.getModule("utils.android_adapter")
+                        val progressStr = androidAdapter.callAttr("get_progress")?.toString()
+                        if (progressStr != null && progressStr.contains("|")) {
+                            val parts = progressStr.split("|", limit = 2)
+                            val pct = parts[0].toIntOrNull() ?: 0
+                            val msg = if (parts.size > 1) parts[1] else ""
+                            // 仅在进度有变化时更新 UI
+                            if (pct != lastPythonPct || msg != lastPythonMsg) {
+                                lastPythonPct = pct
+                                lastPythonMsg = msg
+                                updateLoadingProgress(pct, msg)
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    // Chaquopy 调用失败时静默忽略，使用 Java 端估算进度
+                }
+
                 try {
                     val url = URL("$FLASK_BASE_URL/login")
                     val conn = url.openConnection() as HttpURLConnection
@@ -314,10 +328,12 @@ class MainActivity : AppCompatActivity() {
                     // 服务器尚未就绪，继续等待
                 }
 
-                // 渐进更新进度 (15% → 38%)
-                val estimatedProgress = 15 + (retries * 23 / maxRetries)
-                if (retries % 4 == 0) {
-                    updateLoadingProgress(estimatedProgress, "正在启动后端服务...")
+                // 仅在 Python 未提供进度时，使用 Java 端估算进度作为补充
+                if (lastPythonPct == 0) {
+                    val estimatedProgress = 15 + (retries * 23 / maxRetries)
+                    if (retries % 4 == 0) {
+                        updateLoadingProgress(estimatedProgress, "正在启动后端服务...")
+                    }
                 }
                 retries++
                 Thread.sleep(500)
@@ -358,7 +374,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun hideLoadingOverlay() {
         runOnUiThread {
-            loadingIcon.animate().cancel()
+            loadingIcon.clearAnimation()
             loadingOverlay.animate()
                 .alpha(0f)
                 .setDuration(300)
@@ -384,18 +400,8 @@ class MainActivity : AppCompatActivity() {
             errorView.visibility = View.GONE
             loadingOverlay.visibility = View.VISIBLE
             loadingOverlay.alpha = 1f
-            loadingIcon.animate()
-                .scaleX(1.08f).scaleY(1.08f)
-                .setDuration(800)
-                .alpha(0.9f)
-                .withEndAction {
-                    loadingIcon.animate()
-                        .scaleX(1f).scaleY(1f)
-                        .setDuration(800)
-                        .alpha(1f)
-                        .start()
-                }
-                .start()
+            val retryAnim = AnimationUtils.loadAnimation(this, R.anim.loading_pulse)
+            loadingIcon.startAnimation(retryAnim)
             updateLoadingProgress(5, "正在重新连接服务...")
             isServerReady = false
             waitForServerAndLoad()
@@ -425,7 +431,7 @@ class MainActivity : AppCompatActivity() {
         // 停止启动图标动画
         try {
             if (::loadingIcon.isInitialized) {
-                loadingIcon.animate().cancel()
+                loadingIcon.clearAnimation()
             }
         } catch (e: Exception) {
             // 忽略
