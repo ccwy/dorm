@@ -456,10 +456,6 @@ def update_configs():
             result="成功"
         )
 
-        # Android环境统一追加重启提示到message
-        from utils.system_detector import is_android as check_android
-        if check_android() and '手动重启' not in message:
-            message += '，请手动重启应用以使配置生效'
 
         return jsonify({
             "success": True,
