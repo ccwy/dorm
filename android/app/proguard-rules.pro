@@ -20,10 +20,6 @@
 -keep class com.google.android.material.** { *; }
 -dontwarn com.google.android.material.**
 
-# Lottie 动画库
--keep class com.airbnb.lottie.** { *; }
--dontwarn com.airbnb.lottie.**
-
 # WebView JavaScript Interface
 -keepclassmembers class * {
     @android.webkit.JavascriptInterface <methods>;

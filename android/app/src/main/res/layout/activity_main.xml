@@ -50,12 +50,14 @@
         android:elevation="4dp"
         android:visibility="visible">
 
-        <!-- Lottie 启动动画 -->
-        <com.airbnb.lottie.LottieAnimationView
-            android:id="@+id/lottieAnimation"
-            android:layout_width="160dp"
-            android:layout_height="160dp"
-            android:layout_marginBottom="8dp" />
+        <!-- 启动图标动画 -->
+        <ImageView
+            android:id="@+id/loadingIcon"
+            android:layout_width="120dp"
+            android:layout_height="120dp"
+            android:src="@mipmap/ic_launcher"
+            android:layout_marginBottom="8dp"
+            android:contentDescription="@string/app_name" />
 
         <!-- 应用名称 -->
         <TextView

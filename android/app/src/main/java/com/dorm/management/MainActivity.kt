@@ -18,8 +18,7 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
-import com.airbnb.lottie.LottieAnimationView
-import com.airbnb.lottie.LottieDrawable
+import android.widget.ImageView
 import com.chaquo.python.Python
 import java.io.File
 import java.io.FileOutputStream
@@ -42,7 +41,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var loadingStatus: TextView
     private lateinit var loadingPercent: TextView
     private lateinit var webProgress: ProgressBar
-    private lateinit var lottieAnimation: LottieAnimationView
+    private lateinit var loadingIcon: ImageView
     private var python: Python? = null
     private var isServerReady = false
 
@@ -63,17 +62,22 @@ class MainActivity : AppCompatActivity() {
         loadingStatus = findViewById(R.id.loadingStatus)
         loadingPercent = findViewById(R.id.loadingPercent)
         webProgress = findViewById(R.id.webProgress)
-        lottieAnimation = findViewById(R.id.lottieAnimation)
+        loadingIcon = findViewById(R.id.loadingIcon)
 
-        // 初始化 Lottie 启动动画（加异常保护，动画加载失败不影响启动）
-        try {
-            lottieAnimation.setAnimation(R.raw.splash_animation)
-            lottieAnimation.repeatCount = LottieDrawable.INFINITE
-            lottieAnimation.playAnimation()
-        } catch (e: Exception) {
-            // Lottie 动画加载失败，隐藏动画视图
-            lottieAnimation.visibility = View.GONE
-        }
+        // 启动图标脉冲动画
+        loadingIcon.animate()
+            .scaleX(1.08f).scaleY(1.08f)
+            .setDuration(800)
+            .alpha(0.9f)
+            .withEndAction {
+                loadingIcon.animate()
+                    .scaleX(1f).scaleY(1f)
+                    .setDuration(800)
+                    .alpha(1f)
+                    .withEndAction { loadingIcon.post { loadingIcon.performClick() } }
+                    .start()
+            }
+            .start()
 
         // 初始化重试按钮
         val retryButton = errorView.findViewById<Button>(R.id.retryButton)
@@ -354,7 +358,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun hideLoadingOverlay() {
         runOnUiThread {
-            lottieAnimation.pauseAnimation()
+            loadingIcon.animate().cancel()
             loadingOverlay.animate()
                 .alpha(0f)
                 .setDuration(300)
@@ -380,7 +384,18 @@ class MainActivity : AppCompatActivity() {
             errorView.visibility = View.GONE
             loadingOverlay.visibility = View.VISIBLE
             loadingOverlay.alpha = 1f
-            lottieAnimation.playAnimation()
+            loadingIcon.animate()
+                .scaleX(1.08f).scaleY(1.08f)
+                .setDuration(800)
+                .alpha(0.9f)
+                .withEndAction {
+                    loadingIcon.animate()
+                        .scaleX(1f).scaleY(1f)
+                        .setDuration(800)
+                        .alpha(1f)
+                        .start()
+                }
+                .start()
             updateLoadingProgress(5, "正在重新连接服务...")
             isServerReady = false
             waitForServerAndLoad()
@@ -407,10 +422,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
-        // 停止 Lottie 动画
+        // 停止启动图标动画
         try {
-            if (::lottieAnimation.isInitialized) {
-                lottieAnimation.cancelAnimation()
+            if (::loadingIcon.isInitialized) {
+                loadingIcon.animate().cancel()
             }
         } catch (e: Exception) {
             // 忽略
