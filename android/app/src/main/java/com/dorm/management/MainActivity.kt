@@ -10,6 +10,7 @@ import android.os.Environment
 import android.view.View
 import android.view.WindowManager
 import android.webkit.*
+import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
@@ -28,11 +29,11 @@ class MainActivity : AppCompatActivity() {
         private const val FLASK_PORT = 35168
         private const val FLASK_HOST = "127.0.0.1"
         private const val FLASK_BASE_URL = "http://$FLASK_HOST:$FLASK_PORT"
-        private const val MAX_SERVER_WAIT_SECONDS = 30
+        private const val MAX_SERVER_WAIT_SECONDS = 300  // MySQL数据库创建耗时较长，需要足够的等待时间
     }
 
     private lateinit var webView: WebView
-    private lateinit var errorView: TextView
+    private lateinit var errorView: LinearLayout
     private lateinit var loadingOverlay: LinearLayout
     private lateinit var loadingProgressBar: ProgressBar
     private lateinit var loadingStatus: TextView
@@ -58,6 +59,10 @@ class MainActivity : AppCompatActivity() {
         loadingStatus = findViewById(R.id.loadingStatus)
         loadingPercent = findViewById(R.id.loadingPercent)
         webProgress = findViewById(R.id.webProgress)
+
+        // 初始化重试按钮
+        val retryButton = errorView.findViewById<Button>(R.id.retryButton)
+        retryButton.setOnClickListener { retryLoadPage() }
 
         // Python 已在 DormApplication.onCreate() 中初始化
         python = Python.getInstance()
@@ -348,8 +353,19 @@ class MainActivity : AppCompatActivity() {
         runOnUiThread {
             webView.loadUrl("about:blank")
             loadingOverlay.visibility = View.GONE
-            errorView.text = message
+            val errorMessage = errorView.findViewById<TextView>(R.id.errorMessage)
+            errorMessage.text = message
             errorView.visibility = View.VISIBLE
+        }
+    }
+
+    private fun retryLoadPage() {
+        runOnUiThread {
+            errorView.visibility = View.GONE
+            loadingOverlay.visibility = View.VISIBLE
+            updateLoadingProgress(10, "正在重新连接服务...")
+            isServerReady = false
+            waitForServerAndLoad()
         }
     }
 

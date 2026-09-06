@@ -10,14 +10,34 @@
         android:layout_height="match_parent" />
 
     <!-- 错误提示 -->
-    <TextView
+    <LinearLayout
         android:id="@+id/errorView"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
+        android:orientation="vertical"
         android:gravity="center"
-        android:text=""
-        android:textSize="16sp"
-        android:visibility="gone" />
+        android:visibility="gone">
+
+        <TextView
+            android:id="@+id/errorMessage"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text=""
+            android:textSize="16sp"
+            android:textColor="#666666"
+            android:gravity="center"
+            android:layout_marginBottom="24dp" />
+
+        <Button
+            android:id="@+id/retryButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="重试"
+            android:textSize="14sp"
+            android:backgroundTint="#165DFF"
+            android:textColor="#FFFFFF" />
+
+    </LinearLayout>
 
     <!-- 加载中覆盖层 -->
     <LinearLayout
