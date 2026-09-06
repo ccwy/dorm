@@ -303,7 +303,7 @@ class MainActivity : AppCompatActivity() {
                 retries++
                 Thread.sleep(500)
             }
-            runOnUiThread { showErrorPage("服务器启动超时，请重启应用") }
+            runOnUiThread { showErrorPage("服务器启动超时，如果是首次连接MySQL创建数据库，耗时可能较长，请点击重试或重启应用再试") }
         }.start()
     }
 
