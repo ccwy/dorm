@@ -271,6 +271,10 @@
     <script>
         // 当前选中的模块
         let currentModule = null;
+        // 环境标识：是否为Android环境
+        const isAndroidEnv = {{ is_android_env | tojson }};
+        // 环境标识：是否为Docker环境
+        const isDockerEnv = {{ is_docker_env | tojson }};
         // 配置项数据
         let configData = {};
         // 备份文件列表
@@ -1023,12 +1027,22 @@
                             `;
                         } else if (key === 'SERVER_MODE') {
                             // 对SERVER_MODE特殊处理，渲染为下拉框
+                            // Android和Docker环境禁止选择服务端模式
+                            const hideServerMode = isAndroidEnv || isDockerEnv;
+                            const serverModeOptions = hideServerMode
+                                ? `<option value="客户端" ${config === '客户端' ? 'selected' : ''}>客户端</option>`
+                                : `<option value="客户端" ${config === '客户端' ? 'selected' : ''}>客户端</option>
+                                   <option value="服务端" ${config === '服务端' ? 'selected' : ''}>服务端</option>`;
                             inputHtml = `
                                 <select id="config_${key}" class="form-input mt-1" ${!isEditable ? 'disabled' : ''}>
-                                    <option value="客户端" ${config === '客户端' ? 'selected' : ''}>客户端</option>
-                                    <option value="服务端" ${config === '服务端' ? 'selected' : ''}>服务端</option>
+                                    ${serverModeOptions}
                                 </select>
                             `;
+                            if (isAndroidEnv) {
+                                inputHtml += `<p class="text-xs text-amber-600 mt-1"><i class="fa fa-info-circle mr-1"></i>Android客户端仅支持客户端模式</p>`;
+                            } else if (isDockerEnv) {
+                                inputHtml += `<p class="text-xs text-amber-600 mt-1"><i class="fa fa-info-circle mr-1"></i>Docker环境仅支持客户端模式</p>`;
+                            }
                         } else {
                             inputHtml = `
                                 <input type="text" id="config_${key}" value="${config}" 

@@ -137,7 +137,8 @@ def settings():
             action="访问系统设置页面",
             result="成功"
     )
-    return render_template('system_settings/system_settings.html', modules=filtered_modules,title=f"系统设置")
+    from utils.system_detector import is_android, is_docker
+    return render_template('system_settings/system_settings.html', modules=filtered_modules, title=f"系统设置", is_android_env=is_android(), is_docker_env=is_docker())
 
 @system_config_bp.route('/api/modules', methods=['GET'])
 @login_required
@@ -269,6 +270,15 @@ def update_configs():
             return jsonify({
                 "success": False,
                 "message": "在Docker环境中不允许修改启动类型(SERVER_MODE)"
+            }), 403
+        
+        # 检查是否在Android环境中且尝试将SERVER_MODE修改为服务端
+        from utils.system_detector import is_android
+        if is_android() and category == 'system' and 'SERVER_MODE' in configs and str(configs['SERVER_MODE']) == '服务端':
+            logging.warning("在Android环境中不允许将SERVER_MODE修改为服务端")
+            return jsonify({
+                "success": False,
+                "message": "Android客户端不支持服务端模式，无法修改启动类型(SERVER_MODE)"
             }), 403
         
         # 检查是否在Win7环境中且尝试将SERVER_MODE修改为客户端
@@ -436,16 +446,21 @@ def update_configs():
                 from utils.reload_docker_service import reload_service
                 logging.info("使用Docker环境重载服务")
                 message = f"更新{category}模块配置,成功更新{len(updated_keys)}项配置，数据库配置已更新，当前是Docker环境，需要你手动重启Docker生效"
+                reload_service()
+            # 其次判断Android环境
+            elif SystemDetector.is_android():
+                logging.info("Android环境不支持自动重载，需要手动重启应用")
+                message = f"更新{category}模块配置,成功更新{len(updated_keys)}项配置，数据库配置已更新，当前是Android环境，需要关闭并重新打开应用生效"
             # 其次判断Windows系统
             elif SystemDetector.is_windows():
                 from utils.reload_windows_service import reload_service
                 logging.info("使用Windows系统重载服务")
                 message = f"更新{category}模块配置,成功更新{len(updated_keys)}项配置，数据库配置已更新，当前是Windows环境，触发自动重载，请等待系统自动重启完成"
-            # 移除其他系统处理，仅保留Docker和Windows
+                reload_service()
+            # 移除其他系统处理，仅保留Docker、Android和Windows
             else:
                 # 理论上不会执行到这里，可根据实际需求添加异常处理
                 logging.error("不支持的系统环境，无法执行重载")
-            reload_service() #重载触发
             
             
         log_operation(
