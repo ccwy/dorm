@@ -14,6 +14,9 @@ class FlaskService : Service() {
     companion object {
         private const val NOTIFICATION_CHANNEL_ID = "dorm_flask_service"
         private const val NOTIFICATION_ID = 1001
+        const val ACTION_PROGRESS = "com.dorm.management.PROGRESS"
+        const val EXTRA_PROGRESS_PCT = "progress_pct"
+        const val EXTRA_PROGRESS_MSG = "progress_msg"
     }
 
     private var flaskThread: Thread? = null
@@ -44,6 +47,12 @@ class FlaskService : Service() {
                     val python = Python.getInstance()
                     val androidAdapter = python.getModule("utils.android_adapter")
                     androidAdapter.callAttr("set_android_context", this)
+
+                    // 设置进度回调：Python 端启动进度通过广播发送到 UI 层
+                    androidAdapter.callAttr("set_progress_callback", { pct: Int, msg: String ->
+                        sendProgressBroadcast(pct, msg)
+                    })
+
                     androidAdapter.callAttr("start_flask_server")
                 } catch (e: Exception) {
                     e.printStackTrace()
@@ -52,6 +61,17 @@ class FlaskService : Service() {
         }
 
         return START_STICKY
+    }
+
+    /**
+     * 发送进度广播，通知 MainActivity 更新加载界面
+     */
+    private fun sendProgressBroadcast(pct: Int, msg: String) {
+        val intent = Intent(ACTION_PROGRESS)
+        intent.putExtra(EXTRA_PROGRESS_PCT, pct)
+        intent.putExtra(EXTRA_PROGRESS_MSG, msg)
+        intent.setPackage(packageName)  // 限制广播范围，避免泄露
+        sendBroadcast(intent)
     }
 
     override fun onBind(intent: Intent?): IBinder? = null

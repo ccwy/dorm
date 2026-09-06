@@ -435,10 +435,7 @@ def update_configs():
             # 其次判断Android环境
             elif SystemDetector.is_android():
                 logging.info("当前是Android环境，需要手动重启应用生效")
-                message = f"更新{category}模块配置,成功更新{len(updated_keys)}项配置，数据库配置已更新，当前是Android环境，需要手动重启应用生效"
-                # 如果切换到MySQL，追加首次创建数据库的耗时提示
-                if db_config_updates.get('DATABASE_TYPE') == 'MYSQL':
-                    message += '。如果首次创建数据库，将需要较长时间，如果过程中提示报错或卡死超过5分钟，请重启应用程序再试'
+                message = f"更新{category}模块配置,成功更新{len(updated_keys)}项配置，数据库配置已更新，当前是Android环境，需要手动重启应用生效，如果首次切换到MySQL创建数据库，将需要较长时间，如果过程中提示报错或卡死超过5分钟，请重启应用程序再试"
             # 其次判断Windows系统
             elif SystemDetector.is_windows():
                 from utils.reload_windows_service import reload_service

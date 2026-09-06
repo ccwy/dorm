@@ -39,7 +39,7 @@
 
     </LinearLayout>
 
-    <!-- 加载中覆盖层 -->
+    <!-- 启动动画覆盖层 -->
     <LinearLayout
         android:id="@+id/loadingOverlay"
         android:layout_width="match_parent"
@@ -50,13 +50,12 @@
         android:elevation="4dp"
         android:visibility="visible">
 
-        <!-- 应用图标 -->
-        <ImageView
-            android:id="@+id/loadingIcon"
-            android:layout_width="96dp"
-            android:layout_height="96dp"
-            android:src="@drawable/ic_launcher_foreground"
-            android:contentDescription="@string/app_name" />
+        <!-- Lottie 启动动画 -->
+        <com.airbnb.lottie.LottieAnimationView
+            android:id="@+id/lottieAnimation"
+            android:layout_width="160dp"
+            android:layout_height="160dp"
+            android:layout_marginBottom="8dp" />
 
         <!-- 应用名称 -->
         <TextView
@@ -67,8 +66,8 @@
             android:textSize="22sp"
             android:textColor="#165DFF"
             android:textStyle="bold"
-            android:layout_marginTop="16dp"
-            android:layout_marginBottom="8dp" />
+            android:layout_marginTop="8dp"
+            android:layout_marginBottom="16dp" />
 
         <!-- 状态文字 -->
         <TextView
@@ -78,14 +77,14 @@
             android:text="正在初始化..."
             android:textSize="14sp"
             android:textColor="#888888"
-            android:layout_marginBottom="24dp" />
+            android:layout_marginBottom="20dp" />
 
         <!-- 进度条 -->
         <ProgressBar
             android:id="@+id/loadingProgressBar"
             style="?android:attr/progressBarStyleHorizontal"
-            android:layout_width="200dp"
-            android:layout_height="4dp"
+            android:layout_width="240dp"
+            android:layout_height="6dp"
             android:max="100"
             android:progress="0"
             android:progressTint="#165DFF"

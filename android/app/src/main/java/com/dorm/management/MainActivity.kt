@@ -1,6 +1,9 @@
 package com.dorm.management
 
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.media.MediaScannerConnection
 import android.net.Uri
 import android.net.http.SslError
@@ -17,6 +20,7 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import com.airbnb.lottie.LottieAnimationView
 import com.chaquo.python.Python
 import java.io.File
 import java.io.FileOutputStream
@@ -39,8 +43,20 @@ class MainActivity : AppCompatActivity() {
     private lateinit var loadingStatus: TextView
     private lateinit var loadingPercent: TextView
     private lateinit var webProgress: ProgressBar
+    private lateinit var lottieAnimation: LottieAnimationView
     private var python: Python? = null
     private var isServerReady = false
+
+    // 进度广播接收器：接收 Python 端 init_flask_app 的启动进度
+    private val progressReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action == FlaskService.ACTION_PROGRESS) {
+                val pct = intent.getIntExtra(FlaskService.EXTRA_PROGRESS_PCT, 0)
+                val msg = intent.getStringExtra(FlaskService.EXTRA_PROGRESS_MSG) ?: ""
+                updateLoadingProgress(pct, msg)
+            }
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         val splashScreen = installSplashScreen()
@@ -59,16 +75,30 @@ class MainActivity : AppCompatActivity() {
         loadingStatus = findViewById(R.id.loadingStatus)
         loadingPercent = findViewById(R.id.loadingPercent)
         webProgress = findViewById(R.id.webProgress)
+        lottieAnimation = findViewById(R.id.lottieAnimation)
+
+        // 初始化 Lottie 启动动画
+        lottieAnimation.setAnimation(R.raw.splash_animation)
+        lottieAnimation.loop(true)
+        lottieAnimation.playAnimation()
 
         // 初始化重试按钮
         val retryButton = errorView.findViewById<Button>(R.id.retryButton)
         retryButton.setOnClickListener { retryLoadPage() }
 
+        // 注册进度广播接收器
+        val filter = IntentFilter(FlaskService.ACTION_PROGRESS)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(progressReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            registerReceiver(progressReceiver, filter)
+        }
+
         // Python 已在 DormApplication.onCreate() 中初始化
         python = Python.getInstance()
 
         // 更新加载状态
-        updateLoadingProgress(10, "正在启动服务...")
+        updateLoadingProgress(5, "正在初始化...")
 
         // 启动 Flask 后台服务
         startFlaskServer()
@@ -339,6 +369,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun hideLoadingOverlay() {
         runOnUiThread {
+            lottieAnimation.pauseAnimation()
             loadingOverlay.animate()
                 .alpha(0f)
                 .setDuration(300)
@@ -363,7 +394,9 @@ class MainActivity : AppCompatActivity() {
         runOnUiThread {
             errorView.visibility = View.GONE
             loadingOverlay.visibility = View.VISIBLE
-            updateLoadingProgress(10, "正在重新连接服务...")
+            loadingOverlay.alpha = 1f
+            lottieAnimation.playAnimation()
+            updateLoadingProgress(5, "正在重新连接服务...")
             isServerReady = false
             waitForServerAndLoad()
         }
@@ -389,6 +422,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
+        // 注销进度广播接收器
+        try {
+            unregisterReceiver(progressReceiver)
+        } catch (e: Exception) {
+            // 接收器可能已注销
+        }
         // 停止 Flask 服务
         val intent = Intent(this, FlaskService::class.java)
         stopService(intent)
