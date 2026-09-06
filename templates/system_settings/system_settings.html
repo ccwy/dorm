@@ -271,10 +271,6 @@
     <script>
         // 当前选中的模块
         let currentModule = null;
-        // 环境标识：是否为Android环境
-        const isAndroidEnv = {{ is_android_env | tojson }};
-        // 环境标识：是否为Docker环境
-        const isDockerEnv = {{ is_docker_env | tojson }};
         // 配置项数据
         let configData = {};
         // 备份文件列表
@@ -289,6 +285,8 @@
         let originalServerPort = null;
         // 是否拥有系统设置管理权限
         const hasManagePermission = {{ 'true' if current_user.has_permission('system_settings.manage') else 'false' }};
+        // 当前运行环境类型
+        const currentEnv = '{{ current_env | default("unknown") }}';
 
         // 安全绑定事件监听（元素可能因权限控制而不存在于DOM中）
         function safeAddListener(id, event, handler) {
@@ -1026,23 +1024,14 @@
                                 </select>
                             `;
                         } else if (key === 'SERVER_MODE') {
-                            // 对SERVER_MODE特殊处理，渲染为下拉框
-                            // Android和Docker环境禁止选择服务端模式
-                            const hideServerMode = isAndroidEnv || isDockerEnv;
-                            const serverModeOptions = hideServerMode
-                                ? `<option value="客户端" ${config === '客户端' ? 'selected' : ''}>客户端</option>`
-                                : `<option value="客户端" ${config === '客户端' ? 'selected' : ''}>客户端</option>
-                                   <option value="服务端" ${config === '服务端' ? 'selected' : ''}>服务端</option>`;
+                            // 对SERVER_MODE特殊处理，渲染为下拉框（Docker/Android环境禁用）
+                            const serverModeDisabled = !isEditable || (currentEnv === 'docker' || currentEnv === 'android');
                             inputHtml = `
-                                <select id="config_${key}" class="form-input mt-1" ${!isEditable ? 'disabled' : ''}>
-                                    ${serverModeOptions}
+                                <select id="config_${key}" class="form-input mt-1" ${serverModeDisabled ? 'disabled' : ''}>
+                                    <option value="客户端" ${config === '客户端' ? 'selected' : ''}>客户端</option>
+                                    <option value="服务端" ${config === '服务端' ? 'selected' : ''}>服务端</option>
                                 </select>
                             `;
-                            if (isAndroidEnv) {
-                                inputHtml += `<p class="text-xs text-amber-600 mt-1"><i class="fa fa-info-circle mr-1"></i>Android客户端仅支持客户端模式</p>`;
-                            } else if (isDockerEnv) {
-                                inputHtml += `<p class="text-xs text-amber-600 mt-1"><i class="fa fa-info-circle mr-1"></i>Docker环境仅支持客户端模式</p>`;
-                            }
                         } else {
                             inputHtml = `
                                 <input type="text" id="config_${key}" value="${config}" 
@@ -1189,7 +1178,7 @@
             })
             .then(data => {
                 if (data.success) {
-					//直接显示后端返回的消息
+                    // 直接显示后端返回的消息（后端已根据环境包含重启提示）
                     showToast(data.message, 'success');
                     // 重新加载配置以显示最新数据
                     loadModuleConfigs(currentModule.category);  

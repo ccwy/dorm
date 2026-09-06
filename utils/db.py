@@ -5,15 +5,11 @@ from sqlalchemy import event
 from flask import Flask
 import traceback
 import logging
-import threading
 from flask import current_app
 
 # 全局数据库实例
 db = SQLAlchemy()
 _is_initialized = False
-
-# MySQL建表超时时间（秒）
-_MYSQL_CREATE_ALL_TIMEOUT = 120
 
 def create_admin_user():
     """创建初始超级管理员"""
@@ -170,12 +166,6 @@ def register_db_listeners():
             set_sqlite_pragma(dbapi_connection, connection_record)
             
     elif 'mysql' in db_uri:
-        # MySQL连接池配置：pool_pre_ping检测过期连接，pool_recycle防止MySQL断开闲置连接
-        current_app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
-            'pool_pre_ping': True,     # 每次从池中取连接时先检测是否存活
-            'pool_recycle': 3600,      # 1小时回收连接（MySQL默认wait_timeout=8小时）
-            'pool_timeout': 30,        # 获取连接最多等待30秒
-        }
         @event.listens_for(db.engine, 'connect')
         def handle_connect(dbapi_connection, connection_record):
             set_mysql_charset(dbapi_connection, connection_record)
@@ -226,8 +216,6 @@ def _force_create_mysql_database(app, db_uri):
             password=db_password,
             charset='utf8mb4',
             connect_timeout=10,
-            read_timeout=30,
-            write_timeout=30,
             autocommit=True
         )
         logging.info(f"成功连接到MySQL服务器: {db_host}:{db_port}")
@@ -265,34 +253,6 @@ def _force_create_mysql_database(app, db_uri):
         logging.error(f"创建数据库时发生未知错误: {str(e)}")
         logging.error(traceback.format_exc())
         return False
-
-def _create_all_with_timeout(db_instance, timeout=_MYSQL_CREATE_ALL_TIMEOUT):
-    """
-    带超时保护的db.create_all()，防止MySQL建表在网络延迟下无限阻塞。
-    使用线程执行建表操作，主线程等待超时后强制终止。
-    """
-    result = {'success': False, 'error': None}
-    
-    def _do_create_all():
-        try:
-            db_instance.create_all()
-            result['success'] = True
-        except Exception as e:
-            result['error'] = str(e)
-            logging.error(f"建表过程中发生错误: {str(e)}")
-            logging.error(traceback.format_exc())
-    
-    worker = threading.Thread(target=_do_create_all, daemon=True)
-    worker.start()
-    worker.join(timeout=timeout)
-    
-    if worker.is_alive():
-        logging.error(f"MySQL建表操作超时（{timeout}秒），可能存在网络问题或MySQL服务器响应缓慢")
-        raise TimeoutError(f"创建数据表超时（{timeout}秒），请检查MySQL服务器连接是否正常")
-    
-    if not result['success']:
-        error_msg = result.get('error', '未知错误')
-        raise RuntimeError(f"创建数据表失败: {error_msg}")
 
 def init_db(app: Flask, force_recreate=False):
     """初始化数据库（完全基于连接字符串判断数据库类型）"""
@@ -386,11 +346,7 @@ def init_db(app: Flask, force_recreate=False):
             # 创建表结构
             if force_recreate or not _is_initialized:
                 logging.info("开始创建数据表结构...")
-                if 'mysql' in db_uri:
-                    # MySQL建表添加超时保护，避免网络延迟导致无限阻塞
-                    _create_all_with_timeout(db, timeout=_MYSQL_CREATE_ALL_TIMEOUT)
-                else:
-                    db.create_all()
+                db.create_all()
                 logging.info("数据表结构创建完成")
 
                 # 初始化角色和权限数据（必须在create_admin_user之前）

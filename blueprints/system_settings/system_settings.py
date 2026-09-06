@@ -129,6 +129,10 @@ def settings():
             continue
         filtered_modules.append(module)
     
+    # 获取当前运行环境类型
+    from utils.system_detector import SystemDetector
+    current_env = SystemDetector.get_environment()
+    
     # 记录访问日志
     log_operation(
             user_id=current_user.id,
@@ -137,8 +141,7 @@ def settings():
             action="访问系统设置页面",
             result="成功"
     )
-    from utils.system_detector import is_android, is_docker
-    return render_template('system_settings/system_settings.html', modules=filtered_modules, title=f"系统设置", is_android_env=is_android(), is_docker_env=is_docker())
+    return render_template('system_settings/system_settings.html', modules=filtered_modules, title=f"系统设置", current_env=current_env)
 
 @system_config_bp.route('/api/modules', methods=['GET'])
 @login_required
@@ -261,24 +264,6 @@ def update_configs():
             return jsonify({
                 "success": False,
                 "message": "需要超级管理员权限才能修改系统核心配置"
-            }), 403
-        
-        # 检查是否在Docker环境中且尝试将SERVER_MODE修改为服务端
-        from utils.system_detector import is_docker
-        if is_docker() and category == 'system' and 'SERVER_MODE' in configs and str(configs['SERVER_MODE']) == '服务端':
-            logging.warning("在Docker环境中不允许将SERVER_MODE修改为服务端")
-            return jsonify({
-                "success": False,
-                "message": "在Docker环境中不允许修改启动类型(SERVER_MODE)"
-            }), 403
-        
-        # 检查是否在Android环境中且尝试将SERVER_MODE修改为服务端
-        from utils.system_detector import is_android
-        if is_android() and category == 'system' and 'SERVER_MODE' in configs and str(configs['SERVER_MODE']) == '服务端':
-            logging.warning("在Android环境中不允许将SERVER_MODE修改为服务端")
-            return jsonify({
-                "success": False,
-                "message": "Android客户端不支持服务端模式，无法修改启动类型(SERVER_MODE)"
             }), 403
         
         # 检查是否在Win7环境中且尝试将SERVER_MODE修改为客户端
@@ -446,21 +431,21 @@ def update_configs():
                 from utils.reload_docker_service import reload_service
                 logging.info("使用Docker环境重载服务")
                 message = f"更新{category}模块配置,成功更新{len(updated_keys)}项配置，数据库配置已更新，当前是Docker环境，需要你手动重启Docker生效"
-                reload_service()
+                reload_service() #重载触发
             # 其次判断Android环境
             elif SystemDetector.is_android():
-                logging.info("Android环境不支持自动重载，需要手动重启应用")
-                message = f"更新{category}模块配置,成功更新{len(updated_keys)}项配置，数据库配置已更新，当前是Android环境，需要关闭并重新打开应用生效"
+                logging.info("当前是Android环境，需要手动重启应用生效")
+                message = f"更新{category}模块配置,成功更新{len(updated_keys)}项配置，数据库配置已更新，当前是Android环境，需要手动重启应用生效"
             # 其次判断Windows系统
             elif SystemDetector.is_windows():
                 from utils.reload_windows_service import reload_service
                 logging.info("使用Windows系统重载服务")
                 message = f"更新{category}模块配置,成功更新{len(updated_keys)}项配置，数据库配置已更新，当前是Windows环境，触发自动重载，请等待系统自动重启完成"
-                reload_service()
-            # 移除其他系统处理，仅保留Docker、Android和Windows
+                reload_service() #重载触发
             else:
-                # 理论上不会执行到这里，可根据实际需求添加异常处理
-                logging.error("不支持的系统环境，无法执行重载")
+                # 其他系统环境，无法执行重载
+                logging.warning("不支持的系统环境，无法执行重载")
+                message = f"更新{category}模块配置,成功更新{len(updated_keys)}项配置，数据库配置已更新，请手动重启应用生效"
             
             
         log_operation(
@@ -470,6 +455,11 @@ def update_configs():
             operation_type='config_update',
             result="成功"
         )
+
+        # Android环境统一追加重启提示到message
+        from utils.system_detector import is_android as check_android
+        if check_android() and '手动重启' not in message:
+            message += '，请手动重启应用以使配置生效'
 
         return jsonify({
             "success": True,
