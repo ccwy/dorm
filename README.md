@@ -38,8 +38,8 @@ https://github.com/ccwy/dorm/releases
 
 ### 支持系统
 
-    win7 - win11系统
-    Android 8-17系统（安卓版仅在模拟器测试通过）
+    win7 - win11 系统（win7仅支持服务端运行）
+    Android 8+ 系统（安卓版仅在模拟器测试通过）
 
 #### 系统要求
     - Windows 7 SP1（32位或64位）以上系统
