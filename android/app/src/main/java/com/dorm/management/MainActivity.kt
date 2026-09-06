@@ -15,12 +15,14 @@ import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
+import android.util.Log
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import android.animation.ObjectAnimator
 import android.view.animation.AnimationUtils
 import android.widget.ImageView
+import com.chaquo.python.PyObject
 import com.chaquo.python.Python
 import java.io.File
 import java.io.FileOutputStream
@@ -30,6 +32,7 @@ import java.net.URL
 class MainActivity : AppCompatActivity() {
 
     companion object {
+        private const val TAG = "MainActivity"
         private const val FLASK_PORT = 35168
         private const val FLASK_HOST = "127.0.0.1"
         private const val FLASK_BASE_URL = "http://$FLASK_HOST:$FLASK_PORT"
@@ -50,7 +53,10 @@ class MainActivity : AppCompatActivity() {
     private var isServerReady = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        val splashScreen = installSplashScreen()
+        // 安装启动屏（Android 12+），提供从启动图标到应用内容的平滑过渡
+        // 不使用 setKeepOnScreenCondition，启动屏在 onCreate 完成后自然消失
+        // 这样加载覆盖层（进度条+旋转圈+状态文字）可以立即显示
+        installSplashScreen()
         super.onCreate(savedInstanceState)
 
         // 保持屏幕常亮
@@ -91,9 +97,6 @@ class MainActivity : AppCompatActivity() {
 
         // 等待服务器就绪并加载页面
         waitForServerAndLoad()
-
-        // 保持启动屏直到服务器就绪
-        splashScreen.setKeepOnScreenCondition { !isServerReady }
     }
 
     private fun updateLoadingProgress(progress: Int, status: String) {
@@ -293,22 +296,40 @@ class MainActivity : AppCompatActivity() {
             var lastPythonPct = 0
             var lastPythonMsg = ""
 
-            // 阶段1: 启动服务 (10% → 40%)
-            updateLoadingProgress(15, "正在启动后端服务...")
+            // 缓存 Python 模块对象，避免每轮循环重复 getModule 调用
+            var cachedAdapter: PyObject? = null
+            try {
+                val py = python
+                if (py != null) {
+                    cachedAdapter = py.getModule("utils.android_adapter")
+                    Log.d(TAG, "Python 模块缓存成功，开始轮询进度")
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "缓存 Python 模块失败，将在循环中重试: ${e.message}")
+            }
+
+            // 阶段1: 启动服务
+            updateLoadingProgress(5, "正在启动后端服务...")
 
             while (retries < maxRetries) {
                 // 轮询 Python 启动进度（通过 Chaquopy 读取全局变量，安全无 lambda 回调风险）
                 try {
-                    val py = python
-                    if (py != null) {
-                        val androidAdapter = py.getModule("utils.android_adapter")
-                        val progressStr = androidAdapter.callAttr("get_progress")?.toString()
+                    if (cachedAdapter == null) {
+                        val py = python
+                        if (py != null) {
+                            cachedAdapter = py.getModule("utils.android_adapter")
+                            Log.d(TAG, "Python 模块缓存重试成功")
+                        }
+                    }
+                    if (cachedAdapter != null) {
+                        val progressStr = cachedAdapter.callAttr("get_progress")?.toString()
                         if (progressStr != null && progressStr.contains("|")) {
                             val parts = progressStr.split("|", limit = 2)
                             val pct = parts[0].toIntOrNull() ?: 0
                             val msg = if (parts.size > 1) parts[1] else ""
-                            // 仅在进度有变化时更新 UI
+                            // 仅在进度有变化时更新 UI 并记录日志
                             if (pct != lastPythonPct || msg != lastPythonMsg) {
+                                Log.d(TAG, "Python 进度更新: $pct% - $msg")
                                 lastPythonPct = pct
                                 lastPythonMsg = msg
                                 updateLoadingProgress(pct, msg)
@@ -316,7 +337,7 @@ class MainActivity : AppCompatActivity() {
                         }
                     }
                 } catch (e: Exception) {
-                    // Chaquopy 调用失败时静默忽略，使用 Java 端估算进度
+                    Log.w(TAG, "轮询 Python 进度失败: ${e.message}")
                 }
 
                 try {
@@ -329,6 +350,7 @@ class MainActivity : AppCompatActivity() {
                     conn.disconnect()
                     if (responseCode == 200) {
                         isServerReady = true
+                        Log.i(TAG, "服务器已就绪，Python 最后进度: $lastPythonPct%")
                         // 服务就绪，进度不低于Python当前进度，避免进度条倒退
                         val readyPct = maxOf(lastPythonPct + 5, 95)
                         updateLoadingProgress(readyPct, "服务已就绪，正在加载页面...")
@@ -343,7 +365,7 @@ class MainActivity : AppCompatActivity() {
 
                 // 仅在 Python 未提供进度时，使用 Java 端估算进度作为补充
                 if (lastPythonPct == 0) {
-                    val estimatedProgress = 15 + (retries * 23 / maxRetries)
+                    val estimatedProgress = 5 + (retries * 25 / maxRetries)
                     if (retries % 4 == 0) {
                         updateLoadingProgress(estimatedProgress, "正在启动后端服务...")
                     }
@@ -351,6 +373,7 @@ class MainActivity : AppCompatActivity() {
                 retries++
                 Thread.sleep(500)
             }
+            Log.e(TAG, "服务器启动超时（等待${MAX_SERVER_WAIT_SECONDS}秒）")
             runOnUiThread { showErrorPage("服务器启动超时，如果是首次连接MySQL创建数据库，耗时可能较长，请点击重试或重启应用再试") }
         }.start()
     }
