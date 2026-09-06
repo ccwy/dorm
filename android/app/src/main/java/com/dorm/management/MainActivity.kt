@@ -1,9 +1,7 @@
 package com.dorm.management
 
-import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.content.IntentFilter
 import android.media.MediaScannerConnection
 import android.net.Uri
 import android.net.http.SslError
@@ -21,6 +19,7 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import com.airbnb.lottie.LottieAnimationView
+import com.airbnb.lottie.LottieDrawable
 import com.chaquo.python.Python
 import java.io.File
 import java.io.FileOutputStream
@@ -47,17 +46,6 @@ class MainActivity : AppCompatActivity() {
     private var python: Python? = null
     private var isServerReady = false
 
-    // 进度广播接收器：接收 Python 端 init_flask_app 的启动进度
-    private val progressReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context?, intent: Intent?) {
-            if (intent?.action == FlaskService.ACTION_PROGRESS) {
-                val pct = intent.getIntExtra(FlaskService.EXTRA_PROGRESS_PCT, 0)
-                val msg = intent.getStringExtra(FlaskService.EXTRA_PROGRESS_MSG) ?: ""
-                updateLoadingProgress(pct, msg)
-            }
-        }
-    }
-
     override fun onCreate(savedInstanceState: Bundle?) {
         val splashScreen = installSplashScreen()
         super.onCreate(savedInstanceState)
@@ -77,22 +65,19 @@ class MainActivity : AppCompatActivity() {
         webProgress = findViewById(R.id.webProgress)
         lottieAnimation = findViewById(R.id.lottieAnimation)
 
-        // 初始化 Lottie 启动动画
-        lottieAnimation.setAnimation(R.raw.splash_animation)
-        lottieAnimation.loop(true)
-        lottieAnimation.playAnimation()
+        // 初始化 Lottie 启动动画（加异常保护，动画加载失败不影响启动）
+        try {
+            lottieAnimation.setAnimation(R.raw.splash_animation)
+            lottieAnimation.repeatCount = LottieDrawable.INFINITE
+            lottieAnimation.playAnimation()
+        } catch (e: Exception) {
+            // Lottie 动画加载失败，隐藏动画视图
+            lottieAnimation.visibility = View.GONE
+        }
 
         // 初始化重试按钮
         val retryButton = errorView.findViewById<Button>(R.id.retryButton)
         retryButton.setOnClickListener { retryLoadPage() }
-
-        // 注册进度广播接收器
-        val filter = IntentFilter(FlaskService.ACTION_PROGRESS)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(progressReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
-        } else {
-            registerReceiver(progressReceiver, filter)
-        }
 
         // Python 已在 DormApplication.onCreate() 中初始化
         python = Python.getInstance()
@@ -422,11 +407,13 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
-        // 注销进度广播接收器
+        // 停止 Lottie 动画
         try {
-            unregisterReceiver(progressReceiver)
+            if (::lottieAnimation.isInitialized) {
+                lottieAnimation.cancelAnimation()
+            }
         } catch (e: Exception) {
-            // 接收器可能已注销
+            // 忽略
         }
         // 停止 Flask 服务
         val intent = Intent(this, FlaskService::class.java)

@@ -253,37 +253,6 @@ def install_stub_modules():
 
 # ==================== Flask 启动适配 ====================
 
-# 进度回调：由 Android Java 层设置，用于将启动进度广播到 UI
-_progress_callback = None
-
-
-def set_progress_callback(callback):
-    """
-    设置进度回调函数，由 Android Java 层通过 Chaquopy 调用。
-
-    Args:
-        callback: 接受两个参数 (progress_pct: int, message: str) 的回调函数
-    """
-    global _progress_callback
-    _progress_callback = callback
-    logger.info("Android 进度回调已设置")
-
-
-def _android_progress_callback(pct, msg):
-    """
-    Android 端启动进度回调，将进度信息通过回调传递给 Java 层。
-
-    Args:
-        pct: 进度百分比 (0-100)
-        msg: 进度描述信息
-    """
-    if _progress_callback:
-        try:
-            _progress_callback(pct, msg)
-        except Exception as e:
-            logger.warning(f"进度回调执行失败: {e}")
-
-
 def start_flask_server():
     """
     Android 端 Flask 服务器启动入口
@@ -292,7 +261,7 @@ def start_flask_server():
     1. 设置 Android 环境标识（此函数仅从 Android/Chaquopy 调用）
     2. 安装 stub 模块
     3. 设置 Android 环境变量
-    4. 启动 Flask+waitress 服务器（带进度回调）
+    4. 启动 Flask+waitress 服务器
     """
     # 此函数仅从 Android/Chaquopy 调用，立即设置 ANDROID_ENV 标识
     # 必须在检查之前设置，否则 setup_android_env() 尚未执行会导致检查失败
@@ -308,9 +277,9 @@ def start_flask_server():
     # 2. 设置环境变量
     setup_android_env()
 
-    # 3. 导入并启动 Flask（传递进度回调）
+    # 3. 导入并启动 Flask
     from main import init_flask_app
-    app, process_cleaner, run_server = init_flask_app(progress_callback=_android_progress_callback)
+    app, process_cleaner, run_server = init_flask_app()
 
     logger.info("Android 端 Flask 应用初始化完成")
 
