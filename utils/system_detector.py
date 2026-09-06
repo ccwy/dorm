@@ -16,6 +16,10 @@ class SystemDetector:
         返回:
             bool: 如果在Docker容器中返回True，否则返回False
         """
+        # Android环境不可能是Docker，优先判断避免不必要的文件系统访问
+        if SystemDetector.is_android():
+            return False
+        
         # 首先检查环境变量，这是最可靠和最快的方法
         if os.getenv('DOCKER_ENV', 'false').lower() == 'true':
             return True
