@@ -53,11 +53,20 @@
         <!-- 启动图标动画 -->
         <ImageView
             android:id="@+id/loadingIcon"
-            android:layout_width="120dp"
-            android:layout_height="120dp"
+            android:layout_width="100dp"
+            android:layout_height="100dp"
             android:src="@mipmap/ic_launcher"
-            android:layout_marginBottom="8dp"
+            android:layout_marginBottom="12dp"
             android:contentDescription="@string/app_name" />
+
+        <!-- 旋转加载圈 — 明确的"正在加载"视觉指示 -->
+        <ProgressBar
+            android:id="@+id/loadingSpinner"
+            style="?android:attr/progressBarStyle"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:layout_marginBottom="16dp"
+            android:indeterminateTint="#165DFF" />
 
         <!-- 应用名称 -->
         <TextView
@@ -68,8 +77,7 @@
             android:textSize="22sp"
             android:textColor="#165DFF"
             android:textStyle="bold"
-            android:layout_marginTop="8dp"
-            android:layout_marginBottom="16dp" />
+            android:layout_marginBottom="4dp" />
 
         <!-- 状态文字 -->
         <TextView
@@ -81,7 +89,7 @@
             android:textColor="#888888"
             android:layout_marginBottom="20dp" />
 
-        <!-- 进度条 -->
+        <!-- 进度条（平滑填充，由ObjectAnimator驱动） -->
         <ProgressBar
             android:id="@+id/loadingProgressBar"
             style="?android:attr/progressBarStyleHorizontal"

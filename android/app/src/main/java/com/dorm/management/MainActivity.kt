@@ -18,6 +18,7 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import android.animation.ObjectAnimator
 import android.view.animation.AnimationUtils
 import android.widget.ImageView
 import com.chaquo.python.Python
@@ -39,10 +40,12 @@ class MainActivity : AppCompatActivity() {
     private lateinit var errorView: LinearLayout
     private lateinit var loadingOverlay: LinearLayout
     private lateinit var loadingProgressBar: ProgressBar
+    private lateinit var loadingSpinner: ProgressBar
     private lateinit var loadingStatus: TextView
     private lateinit var loadingPercent: TextView
     private lateinit var webProgress: ProgressBar
     private lateinit var loadingIcon: ImageView
+    private var progressAnimator: ObjectAnimator? = null
     private var python: Python? = null
     private var isServerReady = false
 
@@ -60,6 +63,7 @@ class MainActivity : AppCompatActivity() {
         errorView = findViewById(R.id.errorView)
         loadingOverlay = findViewById(R.id.loadingOverlay)
         loadingProgressBar = findViewById(R.id.loadingProgressBar)
+        loadingSpinner = findViewById(R.id.loadingSpinner)
         loadingStatus = findViewById(R.id.loadingStatus)
         loadingPercent = findViewById(R.id.loadingPercent)
         webProgress = findViewById(R.id.webProgress)
@@ -94,7 +98,15 @@ class MainActivity : AppCompatActivity() {
 
     private fun updateLoadingProgress(progress: Int, status: String) {
         runOnUiThread {
-            loadingProgressBar.progress = progress
+            // 平滑动画填充进度条（对标Windows端 CSS transition: width 0.5s ease）
+            progressAnimator?.cancel()
+            progressAnimator = ObjectAnimator.ofInt(
+                loadingProgressBar, "progress",
+                loadingProgressBar.progress, progress
+            ).apply {
+                duration = 400
+                start()
+            }
             loadingPercent.text = "$progress%"
             loadingStatus.text = status
         }
@@ -317,8 +329,9 @@ class MainActivity : AppCompatActivity() {
                     conn.disconnect()
                     if (responseCode == 200) {
                         isServerReady = true
-                        // 阶段2: 服务就绪，开始加载页面 (40% → 60%)
-                        updateLoadingProgress(40, "服务已就绪，正在加载页面...")
+                        // 服务就绪，进度不低于Python当前进度，避免进度条倒退
+                        val readyPct = maxOf(lastPythonPct + 5, 95)
+                        updateLoadingProgress(readyPct, "服务已就绪，正在加载页面...")
                         runOnUiThread {
                             webView.loadUrl("$FLASK_BASE_URL/login")
                         }
@@ -348,9 +361,17 @@ class MainActivity : AppCompatActivity() {
      */
     fun updateWebProgress(newProgress: Int) {
         runOnUiThread {
-            // 映射 WebView 进度 (0-100) 到总进度 (40-100)
-            val totalProgress = 40 + (newProgress * 60 / 100)
-            loadingProgressBar.progress = totalProgress
+            // 映射 WebView 进度 (0-100) 到总进度 (95-100)，平滑动画填充
+            // Python初始化已占0-90%，服务就绪95%，WebView加载填充最后5%
+            val totalProgress = 95 + (newProgress * 5 / 100)
+            progressAnimator?.cancel()
+            progressAnimator = ObjectAnimator.ofInt(
+                loadingProgressBar, "progress",
+                loadingProgressBar.progress, totalProgress
+            ).apply {
+                duration = 300
+                start()
+            }
             loadingPercent.text = "$totalProgress%"
 
             // WebView 顶部进度条
@@ -375,6 +396,8 @@ class MainActivity : AppCompatActivity() {
     private fun hideLoadingOverlay() {
         runOnUiThread {
             loadingIcon.clearAnimation()
+            loadingSpinner.visibility = View.GONE
+            progressAnimator?.cancel()
             loadingOverlay.animate()
                 .alpha(0f)
                 .setDuration(300)
@@ -400,6 +423,7 @@ class MainActivity : AppCompatActivity() {
             errorView.visibility = View.GONE
             loadingOverlay.visibility = View.VISIBLE
             loadingOverlay.alpha = 1f
+            loadingSpinner.visibility = View.VISIBLE
             val retryAnim = AnimationUtils.loadAnimation(this, R.anim.loading_pulse)
             loadingIcon.startAnimation(retryAnim)
             updateLoadingProgress(5, "正在重新连接服务...")
@@ -428,7 +452,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
-        // 停止启动图标动画
+        // 停止启动图标动画和进度动画
         try {
             if (::loadingIcon.isInitialized) {
                 loadingIcon.clearAnimation()
@@ -436,6 +460,7 @@ class MainActivity : AppCompatActivity() {
         } catch (e: Exception) {
             // 忽略
         }
+        progressAnimator?.cancel()
         // 停止 Flask 服务
         val intent = Intent(this, FlaskService::class.java)
         stopService(intent)
