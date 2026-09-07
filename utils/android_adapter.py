@@ -277,6 +277,25 @@ def get_progress():
     return f"{_progress_pct}|{_progress_msg}"
 
 
+def get_system_title():
+    """
+    返回系统标题，供 Java 端通过 Chaquopy 调用，动态设置 Android 端界面标题。
+    
+    从 db_config.json 读取 SYSTEM_TITLE 配置项。
+    在 setup_android_env() 执行后调用（此时 APP_DATA_DIR 和配置文件路径已就绪）。
+    
+    使用方式（Kotlin 端）：
+        val title = androidAdapter.callAttr("get_system_title")?.toString() ?: "行政后勤管理系统"
+    """
+    try:
+        from utils.db_config import DatabaseConfig
+        config = DatabaseConfig.load_config()
+        return config.get("SYSTEM_TITLE", "行政后勤管理系统")
+    except Exception as e:
+        logger.warning(f"获取系统标题失败: {e}")
+        return "行政后勤管理系统"
+
+
 # ==================== Flask 启动适配 ====================
 
 def start_flask_server():

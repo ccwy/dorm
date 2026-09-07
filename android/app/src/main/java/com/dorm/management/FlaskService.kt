@@ -14,6 +14,8 @@ class FlaskService : Service() {
     companion object {
         private const val NOTIFICATION_CHANNEL_ID = "dorm_flask_service"
         private const val NOTIFICATION_ID = 1001
+        // 动态系统标题，由 MainActivity 设置
+        var systemTitle: String = "行政后勤管理系统"
     }
 
     private var flaskThread: Thread? = null
@@ -45,6 +47,20 @@ class FlaskService : Service() {
                     val androidAdapter = python.getModule("utils.android_adapter")
                     androidAdapter.callAttr("set_android_context", this)
                     androidAdapter.callAttr("start_flask_server")
+                    
+                    // Flask 启动后读取系统标题并更新通知
+                    try {
+                        val title = androidAdapter.callAttr("get_system_title")?.toString()
+                        if (!title.isNullOrEmpty()) {
+                            systemTitle = title
+                            // 更新前台通知标题
+                            val updatedNotification = createNotification("宿舍管理系统运行中")
+                            val notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+                            notificationManager.notify(NOTIFICATION_ID, updatedNotification)
+                        }
+                    } catch (e: Exception) {
+                        // 获取标题失败不影响核心功能
+                    }
                 } catch (e: Exception) {
                     e.printStackTrace()
                 }
@@ -86,7 +102,7 @@ class FlaskService : Service() {
         }
 
         return NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
-            .setContentTitle("行政后勤管理系统")
+            .setContentTitle(systemTitle)
             .setContentText(text)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentIntent(pendingIntent)

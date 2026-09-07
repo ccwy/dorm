@@ -51,6 +51,7 @@ class MainActivity : AppCompatActivity() {
     private var progressAnimator: ObjectAnimator? = null
     private var python: Python? = null
     private var isServerReady = false
+    private var systemTitle: String? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         // 安装启动屏（Android 12+），提供从启动图标到应用内容的平滑过渡
@@ -334,6 +335,28 @@ class MainActivity : AppCompatActivity() {
                                 lastPythonMsg = msg
                                 updateLoadingProgress(pct, msg)
                             }
+                        
+                        // 首次获取到 Python 进度后，读取系统标题并更新 UI
+                        if (systemTitle == null && cachedAdapter != null) {
+                            try {
+                                val title = cachedAdapter.callAttr("get_system_title")?.toString()
+                                if (!title.isNullOrEmpty()) {
+                                    systemTitle = title
+                                    runOnUiThread {
+                                        // 更新加载页标题
+                                        val loadingTitle = findViewById<TextView>(R.id.loadingTitle)
+                                        loadingTitle.text = title
+                                        // 更新 Activity 标题
+                                        setTitle(title)
+                                    }
+                                    // 同步标题到 FlaskService 通知
+                                    FlaskService.systemTitle = title
+                                    Log.i(TAG, "动态系统标题: $title")
+                                }
+                            } catch (e: Exception) {
+                                Log.w(TAG, "获取系统标题失败: ${e.message}")
+                            }
+                        }
                         }
                     }
                 } catch (e: Exception) {
