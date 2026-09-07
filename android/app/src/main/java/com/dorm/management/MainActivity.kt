@@ -28,6 +28,8 @@ import java.io.File
 import java.io.FileOutputStream
 import java.net.HttpURLConnection
 import java.net.URL
+import org.json.JSONObject
+import android.util.Base64
 
 class MainActivity : AppCompatActivity() {
 
@@ -84,6 +86,9 @@ class MainActivity : AppCompatActivity() {
         val retryButton = errorView.findViewById<Button>(R.id.retryButton)
         retryButton.setOnClickListener { retryLoadPage() }
 
+        // 从本地配置文件预加载系统标题（无需等Python初始化，立即显示正确标题）
+        loadCachedSystemTitle()
+
         // Python 已在 DormApplication.onCreate() 中初始化
         python = Python.getInstance()
 
@@ -98,6 +103,36 @@ class MainActivity : AppCompatActivity() {
 
         // 等待服务器就绪并加载页面
         waitForServerAndLoad()
+    }
+
+    private fun loadCachedSystemTitle() {
+        """
+        从本地 db_config.json 预加载系统标题，无需等待 Python 初始化。
+        配置文件使用 base64 编码存储，需先解码再解析 JSON。
+        在 setContentView() 后立即调用，确保加载覆盖层第一时间显示正确标题。
+        首次安装时配置文件不存在，回退到 strings.xml 默认值。
+        """
+        try {
+            val dataDir = getExternalFilesDir(null)?.resolve("data")
+            val configFile = dataDir?.resolve("db_config.json")
+            if (configFile?.exists() == true) {
+                val encodedContent = configFile.readText().trim()
+                val decodedBytes = Base64.decode(encodedContent, Base64.DEFAULT)
+                val decodedContent = String(decodedBytes, Charsets.UTF_8)
+                val json = JSONObject(decodedContent)
+                val title = json.optString("SYSTEM_TITLE", "")
+                if (title.isNotEmpty()) {
+                    val loadingTitle = findViewById<TextView>(R.id.loadingTitle)
+                    loadingTitle.text = title
+                    setTitle(title)
+                    FlaskService.systemTitle = title
+                    systemTitle = title
+                    Log.i(TAG, "从缓存预加载系统标题: $title")
+                }
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "预加载系统标题失败，使用默认值: ${e.message}")
+        }
     }
 
     private fun updateLoadingProgress(progress: Int, status: String) {
