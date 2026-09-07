@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 import threading
+import time
 import logging
 import platform
 import socket
@@ -22,9 +23,11 @@ from utils.db_config import DatabaseConfig
 from utils.reload_windows_service import reload_service as reload_windows_service
 
 class ServerGUI:
-    def __init__(self, on_exit_callback=None):
+    def __init__(self, on_exit_callback=None, window_handle_callback=None):
         # 保存退出回调函数
         self.on_exit_callback = on_exit_callback
+        # 保存窗口句柄回调函数（供单实例激活使用）
+        self._window_handle_callback = window_handle_callback
         
         # 创建主窗口
         self.root = tk.Tk()
@@ -73,6 +76,11 @@ class ServerGUI:
         
         # 设置窗口图标
         self._set_window_icon()
+        
+        # 通知主窗口句柄（供单实例激活使用）
+        if self._window_handle_callback:
+            self.root.update_idletasks()
+            self._window_handle_callback(self.root.winfo_id())
         
     def _init_ui(self):
         # 创建主框架
@@ -759,14 +767,199 @@ class ServerGUI:
         # 运行GUI主循环
         self.root.mainloop()
 
+class SplashScreen:
+    """服务端启动闪屏窗口，显示初始化进度"""
+    
+    def __init__(self, system_title, window_handle_callback=None):
+        self.system_title = system_title
+        self._init_result = None
+        self._init_error = None
+        self._window_handle_callback = window_handle_callback
+        
+        # 创建无边框置顶窗口
+        self.root = tk.Tk()
+        self.root.overrideredirect(True)
+        self.root.attributes('-topmost', True)
+        
+        # 窗口大小和居中
+        self.width, self.height = 480, 300
+        screen_w = self.root.winfo_screenwidth()
+        screen_h = self.root.winfo_screenheight()
+        x = (screen_w - self.width) // 2
+        y = (screen_h - self.height) // 2
+        self.root.geometry(f"{self.width}x{self.height}+{x}+{y}")
+        
+        # 尝试设置窗口图标
+        self._set_icon()
+        
+        # 构建界面
+        self._build_ui()
+        
+        # 通知主窗口句柄（供单实例激活使用）
+        if self._window_handle_callback:
+            self.root.update_idletasks()
+            self._window_handle_callback(self.root.winfo_id())
+    
+    def _set_icon(self):
+        """设置窗口图标"""
+        try:
+            icon_path = self._get_icon_path()
+            if os.path.exists(icon_path):
+                self.root.iconbitmap(icon_path)
+        except Exception:
+            pass
+    
+    def _get_icon_path(self):
+        """获取图标文件路径，支持打包环境"""
+        if getattr(sys, 'frozen', False):
+            return os.path.join(sys._MEIPASS, 'static', 'favicon.ico')
+        else:
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            return os.path.join(current_dir, '..', 'static', 'favicon.ico')
+    
+    def _build_ui(self):
+        """构建闪屏界面"""
+        # 使用Canvas绘制渐变背景和所有元素
+        self.canvas = tk.Canvas(self.root, highlightthickness=0)
+        self.canvas.pack(fill=tk.BOTH, expand=True)
+        
+        # 绘制渐变背景
+        self._draw_gradient()
+        
+        # 图标
+        self.canvas.create_text(self.width // 2, 55, text="🏢",
+                               font=("Segoe UI Emoji", 32))
+        
+        # 标题
+        self.canvas.create_text(self.width // 2, 105, text=self.system_title,
+                               font=("SimHei", 16, "bold"), fill="white")
+        
+        # 副标题
+        self.canvas.create_text(self.width // 2, 130, text="系统启动中，请稍候...",
+                               font=("SimHei", 9), fill="#cccccc")
+        
+        # 进度条参数
+        bar_x = 60
+        bar_y = 165
+        bar_w = self.width - 120
+        bar_h = 6
+        
+        # 进度条背景
+        self.canvas.create_rectangle(bar_x, bar_y, bar_x + bar_w, bar_y + bar_h,
+                                     fill="#8b81ce", outline="")
+        
+        # 进度条填充（初始宽度为0）
+        self.progress_rect = self.canvas.create_rectangle(
+            bar_x, bar_y, bar_x, bar_y + bar_h,
+            fill="white", outline="")
+        
+        self._bar_x = bar_x
+        self._bar_w = bar_w
+        self._bar_y = bar_y
+        self._bar_h = bar_h
+        
+        # 状态文字
+        self._status_id = self.canvas.create_text(
+            self.width // 2, 195, text="正在初始化...",
+            font=("SimHei", 9), fill="#dddddd")
+        
+        # 百分比文字
+        self._pct_id = self.canvas.create_text(
+            self.width // 2, 215, text="0%",
+            font=("SimHei", 8), fill="#aaaaaa")
+    
+    def _draw_gradient(self):
+        """绘制渐变背景（#667eea → #764ba2）"""
+        steps = 64
+        for i in range(steps):
+            ratio = i / steps
+            r = int(102 + (118 - 102) * ratio)
+            g = int(126 + (75 - 126) * ratio)
+            b = int(234 + (162 - 234) * ratio)
+            color = f"#{r:02x}{g:02x}{b:02x}"
+            y0 = int(self.height * i / steps)
+            y1 = int(self.height * (i + 1) / steps) + 1
+            self.canvas.create_rectangle(0, y0, self.width, y1,
+                                        fill=color, outline="")
+    
+    def update_progress(self, pct, msg):
+        """线程安全的进度更新（从后台线程调用）"""
+        try:
+            self.root.after(0, self._update_ui, pct, msg)
+        except Exception:
+            pass
+    
+    def _update_ui(self, pct, msg):
+        """在主线程中更新进度UI"""
+        fill_w = self._bar_w * pct / 100
+        self.canvas.coords(self.progress_rect,
+                          self._bar_x, self._bar_y,
+                          self._bar_x + fill_w, self._bar_y + self._bar_h)
+        self.canvas.itemconfig(self._status_id, text=msg)
+        self.canvas.itemconfig(self._pct_id, text=f"{pct}%")
+    
+    def show_error(self, msg):
+        """线程安全的错误显示"""
+        try:
+            self.root.after(0, self._show_error_ui, msg)
+        except Exception:
+            pass
+    
+    def _show_error_ui(self, msg):
+        """在主线程中显示错误"""
+        self.canvas.itemconfig(self._status_id, text=f"启动失败: {msg}", fill="#ff6b6b")
+        self.canvas.itemconfig(self._pct_id, text="")
+    
+    def close(self):
+        """线程安全的关闭"""
+        try:
+            self.root.after(0, self._do_close)
+        except Exception:
+            pass
+    
+    def _do_close(self):
+        """在主线程中销毁窗口"""
+        try:
+            self.root.destroy()
+        except Exception:
+            pass
+    
+    def run_with_init(self, init_func):
+        """显示闪屏并在后台线程执行初始化函数
+        
+        Args:
+            init_func: 无参初始化函数，返回 init_flask_app 的结果元组
+            
+        Returns:
+            tuple: (init_result, init_error)，init_result 为 init_func 的返回值，
+                   init_error 为异常信息（成功时为 None）
+        """
+        def bg_init():
+            try:
+                self._init_result = init_func()
+                # 更新到100%并短暂停留
+                self.update_progress(100, "即将进入系统...")
+                time.sleep(0.5)
+            except Exception as e:
+                self._init_error = e
+                self.show_error(str(e))
+                time.sleep(3)  # 让用户看到错误信息
+            self.close()
+        
+        t = threading.Thread(target=bg_init, daemon=True)
+        t.start()
+        
+        self.root.mainloop()
+        return self._init_result, self._init_error
+
 # 创建并运行服务端GUI的函数
-def run_server_gui(on_exit_callback=None):
+def run_server_gui(on_exit_callback=None, window_handle_callback=None):
     
     # 只在Windows系统上创建GUI（此脚本设计为仅在Windows系统运行）
     if platform.system() == "Windows":
         try:
             # 创建并运行GUI
-            gui = ServerGUI(on_exit_callback=on_exit_callback)
+            gui = ServerGUI(on_exit_callback=on_exit_callback, window_handle_callback=window_handle_callback)
             gui.run()
         except Exception as e:
             logging.error(f"服务端GUI运行时出错: {str(e)}")

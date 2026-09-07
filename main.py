@@ -371,6 +371,65 @@ def run_server():
     _run_server()
 
 
+# ===== 单实例控制 =====
+_single_instance_mutex = None
+_main_window_handle = None
+
+
+def _check_single_instance():
+    """Windows单实例检测：已有实例运行时激活其窗口并退出当前进程"""
+    global _single_instance_mutex
+    import ctypes
+    kernel32 = ctypes.windll.kernel32
+
+    # 创建命名互斥体
+    mutex_name = "Local\\DormManagement_SingleInstance"
+    mutex = kernel32.CreateMutexW(None, False, mutex_name)
+    if kernel32.GetLastError() == 183:  # ERROR_ALREADY_EXISTS
+        # 已有实例运行，发送激活信号
+        event_name = "Local\\DormManagement_ActivateEvent"
+        event_handle = kernel32.OpenEventW(0x1F0003, False, event_name)
+        if event_handle:
+            kernel32.SetEvent(event_handle)
+            kernel32.CloseHandle(event_handle)
+        time.sleep(0.5)
+        sys.exit(0)
+
+    # 保存互斥体句柄，防止被GC回收
+    _single_instance_mutex = mutex
+    _start_activate_watcher()
+
+
+def _start_activate_watcher():
+    """后台线程监听激活事件，收到信号时将已有窗口带到前台"""
+    import ctypes
+
+    def watcher():
+        kernel32 = ctypes.windll.kernel32
+        user32 = ctypes.windll.user32
+        event_name = "Local\\DormManagement_ActivateEvent"
+        event_handle = kernel32.CreateEventW(None, True, False, event_name)
+        if not event_handle:
+            return
+        while True:
+            # 无限等待激活信号
+            kernel32.WaitForSingleObject(event_handle, 0xFFFFFFFF)
+            kernel32.ResetEvent(event_handle)
+            hwnd = _main_window_handle
+            if hwnd:
+                # SW_RESTORE = 9，恢复最小化/隐藏的窗口
+                user32.ShowWindow(hwnd, 9)
+                user32.SetForegroundWindow(hwnd)
+
+    threading.Thread(target=watcher, daemon=True).start()
+
+
+def _set_main_window_handle(hwnd):
+    """设置主窗口句柄，供单实例激活使用"""
+    global _main_window_handle
+    _main_window_handle = hwnd
+
+
 # 主程序入口
 if __name__ == '__main__':
     import argparse
@@ -423,15 +482,29 @@ if __name__ == '__main__':
     if is_win7():
         server_mode = "服务端"
     
+    # 单实例检测（仅Windows桌面模式）
+    if current_config.USE_DESKTOP_VIEW and sys.platform == 'win32':
+        _check_single_instance()
+    
     if server_mode == "服务端" and current_config.USE_DESKTOP_VIEW:
-        logging.info("以服务端模式启动，不启动WebView2")
+        logging.info("以服务端模式启动，显示启动闪屏")
         
-        app, process_cleaner, run_server = init_flask_app()
+        from utils.server_gui import SplashScreen, run_server_gui
+        
+        system_title = config_data.get('SYSTEM_TITLE', '行政后勤管理系统') + " - 服务端"
+        splash = SplashScreen(system_title, window_handle_callback=_set_main_window_handle)
+        
+        (app, process_cleaner, run_server), init_error = splash.run_with_init(
+            lambda: init_flask_app(progress_callback=splash.update_progress)
+        )
+        
+        if init_error or app is None:
+            logging.error(f"服务端初始化失败: {init_error}")
+            sys.exit(1)
         
         server_thread = threading.Thread(target=run_server, daemon=True)
         server_thread.start()
         
-        import time
         time.sleep(1)
         
         process_cleaner.set_resources(
@@ -441,8 +514,10 @@ if __name__ == '__main__':
         )
         process_cleaner.register_signal_handlers()
         
-        from utils.server_gui import run_server_gui
-        gui_thread = threading.Thread(target=lambda: run_server_gui(on_exit_callback=None), daemon=False)
+        gui_thread = threading.Thread(
+            target=lambda: run_server_gui(on_exit_callback=None, window_handle_callback=_set_main_window_handle),
+            daemon=False
+        )
         gui_thread.start()
         
         gui_thread.join()
@@ -469,6 +544,13 @@ if __name__ == '__main__':
         def background_init(window):
             """WebView窗口显示后，在后台线程中执行Flask初始化"""
             try:
+                # 设置窗口句柄供单实例激活使用
+                try:
+                    if hasattr(window, 'hwnd') and window.hwnd:
+                        _set_main_window_handle(window.hwnd)
+                except Exception:
+                    pass
+                
                 def progress_callback(pct, msg):
                     try:
                         safe_msg = msg.replace('\\', '\\\\').replace('"', '\\"').replace("'", "\\'")
