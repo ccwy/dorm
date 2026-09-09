@@ -52,7 +52,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: 🔧 Cache MinGW-w64 (${{ matrix.arch }})
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: C:\mingw
           key: mingw-16.1.0-posix-${{ matrix.arch }}
@@ -163,9 +163,10 @@ jobs:
           path: static/agent/
 
       - name: ✅ Verify Agent binaries
+        shell: bash
         run: |
-          dir static\agent\
-          if not exist static\agent\asset-agent.exe exit 1
+          ls -la static/agent/
+          test -f static/agent/asset-agent.exe || exit 1
 
       - name: 🔖 提取版本号
         id: version
