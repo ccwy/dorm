@@ -8,6 +8,7 @@ on:
       - 'agent/**'
       - 'static/agent/**'
       - '.github/workflows/build.yml'
+      - '/**'
   workflow_dispatch:
     inputs:
       build_windows:
