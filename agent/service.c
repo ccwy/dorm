@@ -143,7 +143,19 @@ static DWORD WINAPI ipc_server_thread(LPVOID param) {
                             /* 在下次心跳循环中处理 */
                         } else if (strcmp(cmd_chan, "edit_info") == 0) {
                             log_write("收到IPC编辑信息命令");
-                            /* KNOWN_LIMIT: 信息编辑窗口未实现，命令已接收但无UI响应 */
+                            /* 在后台线程中弹出编辑窗口 */
+                            char loc[MAX_FIELD_LEN], dept[MAX_FIELD_LEN], resp[MAX_FIELD_LEN];
+                            safe_strncpy(loc, g_agent->config->location, MAX_FIELD_LEN);
+                            safe_strncpy(dept, g_agent->config->department, MAX_FIELD_LEN);
+                            safe_strncpy(resp, g_agent->config->responsible_person, MAX_FIELD_LEN);
+                            if (show_info_editor(g_agent->config, loc, MAX_FIELD_LEN,
+                                                 dept, MAX_FIELD_LEN, resp, MAX_FIELD_LEN)) {
+                                safe_strncpy(g_agent->config->location, loc, MAX_FIELD_LEN);
+                                safe_strncpy(g_agent->config->department, dept, MAX_FIELD_LEN);
+                                safe_strncpy(g_agent->config->responsible_person, resp, MAX_FIELD_LEN);
+                                SaveConfig(g_agent->config);
+                                log_write("IPC编辑信息: 配置已更新");
+                            }
                         }
                     }
                     cJSON_Delete(json);
@@ -251,30 +263,286 @@ int execute_edit_info(void) {
 }
 
 /* ================================================================
- *  配置窗口（兜底方案）- KNOWN_LIMIT
- *
- *  已知限制：当前版本未实现Win32对话框，始终返回0（表示用户取消）。
- *  用户需通过配置文件或CLI参数设置服务器URL。
+ *  配置窗口（兜底方案）- Win32对话框实现
+ *  编辑服务器地址和API Key
  * ================================================================ */
+
+#define IDC_SERVER_URL_EDIT  201
+#define IDC_API_KEY_EDIT     202
+#define IDOK_SETUP           203
+#define IDCANCEL_SETUP       204
+#define IDC_SERVER_URL_LABEL 205
+#define IDC_API_KEY_LABEL    206
+
+typedef struct {
+    char *server_url;
+    size_t url_bufsize;
+    char *api_key;
+    size_t key_bufsize;
+} SetupData;
+
+static INT_PTR CALLBACK SetupDlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
+    static SetupData *data = NULL;
+
+    switch (msg) {
+    case WM_INITDIALOG: {
+        data = (SetupData *)lParam;
+        SetWindowTextA(hwnd, "配置Agent连接");
+        SetDlgItemTextA(hwnd, IDC_SERVER_URL_EDIT, data->server_url);
+        SetDlgItemTextA(hwnd, IDC_API_KEY_EDIT, data->api_key);
+        SetFocus(GetDlgItem(hwnd, IDC_SERVER_URL_EDIT));
+        return FALSE;
+    }
+    case WM_COMMAND: {
+        switch (LOWORD(wParam)) {
+        case IDOK_SETUP:
+            GetDlgItemTextA(hwnd, IDC_SERVER_URL_EDIT, data->server_url, (int)data->url_bufsize);
+            GetDlgItemTextA(hwnd, IDC_API_KEY_EDIT, data->api_key, (int)data->key_bufsize);
+            EndDialog(hwnd, 1);
+            return TRUE;
+        case IDCANCEL_SETUP:
+            EndDialog(hwnd, 0);
+            return TRUE;
+        }
+        break;
+    }
+    case WM_CLOSE:
+        EndDialog(hwnd, 0);
+        return TRUE;
+    }
+    return FALSE;
+}
+
 int showSetupWindow(char *server_url, size_t url_bufsize,
                     char *api_key, size_t key_bufsize) {
-    /* KNOWN_LIMIT: 未实现Win32对话框，当前版本返回0表示用户取消 */
-    /* 窗口内容：服务器地址输入框、API Key输入框、确认按钮 */
-    return 0;
+    HINSTANCE hInst = GetModuleHandle(NULL);
+    SetupData data = {
+        .server_url = server_url,
+        .url_bufsize = url_bufsize,
+        .api_key = api_key,
+        .key_bufsize = key_bufsize
+    };
+
+    /* 使用DialogBoxIndirectParam创建模态对话框 */
+    int ctrl_count = 6;  /* 2标签 + 2编辑框 + 2按钮 */
+    size_t tmpl_size = sizeof(DLGTEMPLATE) + 3 * sizeof(WORD) +
+                       ctrl_count * sizeof(DLGITEMTEMPLATE) + 1024;
+    BYTE *buf = (BYTE *)calloc(1, tmpl_size);
+    if (!buf) return 0;
+
+    DLGTEMPLATE *dlg = (DLGTEMPLATE *)buf;
+    dlg->style = WS_POPUP | WS_BORDER | WS_SYSMENU | DS_MODALFRAME | DS_CENTER | WS_CAPTION;
+    dlg->dwExtendedStyle = 0;
+    dlg->cdit = ctrl_count;
+    dlg->x = 0; dlg->y = 0;
+    dlg->cx = 260; dlg->cy = 140;
+
+    BYTE *ptr = buf + sizeof(DLGTEMPLATE);
+    *((WORD *)ptr) = 0; ptr += sizeof(WORD);  /* menu */
+    *((WORD *)ptr) = 0; ptr += sizeof(WORD);  /* class */
+    wchar_t wtitle[] = L"配置Agent连接";
+    size_t title_len = (wcslen(wtitle) + 1) * sizeof(wchar_t);
+    memcpy(ptr, wtitle, title_len);
+    ptr += (wcslen(wtitle) + 1) * sizeof(WORD);
+    while ((uintptr_t)ptr % sizeof(DWORD)) ptr++;
+
+    #define ADD_CTRL2(_id, _cls, _text, _x, _y, _cx, _cy, _style) do { \
+        DLGITEMTEMPLATE *item = (DLGITEMTEMPLATE *)ptr; \
+        item->style = (_style); \
+        item->dwExtendedStyle = 0; \
+        item->x = (_x); item->y = (_y); item->cx = (_cx); item->cy = (_cy); \
+        item->id = (_id); \
+        ptr += sizeof(DLGITEMTEMPLATE); \
+        *((WORD *)ptr) = 0xFFFF; ptr += sizeof(WORD); \
+        *((WORD *)ptr) = (_cls); ptr += sizeof(WORD); \
+        { wchar_t _wt[] = _text; size_t _wl = (wcslen(_wt)+1)*sizeof(wchar_t); \
+          memcpy(ptr, _wt, _wl); ptr += (wcslen(_wt)+1)*sizeof(WORD); } \
+        *((WORD *)ptr) = 0; ptr += sizeof(WORD); \
+        while ((uintptr_t)ptr % sizeof(DWORD)) ptr++; \
+    } while(0)
+
+    int y = 8, label_w = 60, edit_w = 180, row_h = 24, margin = 10;
+    ADD_CTRL2(IDC_SERVER_URL_LABEL, 0x0082, L"服务器地址:", margin, y+3, label_w, 14, WS_CHILD | WS_VISIBLE | SS_LEFT);
+    ADD_CTRL2(IDC_SERVER_URL_EDIT, 0x0081, L"", margin+label_w+4, y, edit_w, 14, WS_CHILD | WS_VISIBLE | WS_BORDER | ES_AUTOHSCROLL | WS_TABSTOP);
+    y += row_h;
+    ADD_CTRL2(IDC_API_KEY_LABEL, 0x0082, L"API Key:", margin, y+3, label_w, 14, WS_CHILD | WS_VISIBLE | SS_LEFT);
+    ADD_CTRL2(IDC_API_KEY_EDIT, 0x0081, L"", margin+label_w+4, y, edit_w, 14, WS_CHILD | WS_VISIBLE | WS_BORDER | ES_AUTOHSCROLL | WS_TABSTOP);
+    y += row_h + 10;
+    ADD_CTRL2(IDOK_SETUP, 0x0080, L"确定", 70, y, 50, 16, WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | WS_TABSTOP);
+    ADD_CTRL2(IDCANCEL_SETUP, 0x0080, L"取消", 140, y, 50, 16, WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | WS_TABSTOP);
+
+    #undef ADD_CTRL2
+
+    INT_PTR result = DialogBoxIndirectParamA(hInst, dlg, NULL, SetupDlgProc, (LPARAM)&data);
+    free(buf);
+    return (int)result;
 }
 
 /* ================================================================
- *  信息编辑窗口 - KNOWN_LIMIT
- *
- *  已知限制：当前版本未实现Win32信息编辑对话框，始终返回0（表示用户取消）。
- *  用户需通过管理端Web界面编辑设备信息。
+ *  信息编辑窗口 - Win32对话框实现
+ *  编辑位置、部门、负责人三个字段
  * ================================================================ */
+
+/* 对话框控件ID */
+#define IDC_LOCATION_EDIT   101
+#define IDC_DEPARTMENT_EDIT 102
+#define IDC_RESPONSIBLE_EDIT 103
+#define IDOK_EDIT           104
+#define IDCANCEL_EDIT       105
+#define IDC_LOCATION_LABEL  106
+#define IDC_DEPARTMENT_LABEL 107
+#define IDC_RESPONSIBLE_LABEL 108
+
+/* 对话框数据结构 */
+typedef struct {
+    char *location;
+    size_t loc_bufsize;
+    char *department;
+    size_t dept_bufsize;
+    char *responsible_person;
+    size_t resp_bufsize;
+} EditInfoData;
+
+/* 对话框过程 */
+static INT_PTR CALLBACK EditInfoDlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
+    static EditInfoData *data = NULL;
+
+    switch (msg) {
+    case WM_INITDIALOG: {
+        data = (EditInfoData *)lParam;
+        /* 设置窗口标题 */
+        SetWindowTextA(hwnd, "编辑设备信息");
+        /* 设置初始值 */
+        SetDlgItemTextA(hwnd, IDC_LOCATION_EDIT, data->location);
+        SetDlgItemTextA(hwnd, IDC_DEPARTMENT_EDIT, data->department);
+        SetDlgItemTextA(hwnd, IDC_RESPONSIBLE_EDIT, data->responsible_person);
+        /* 聚焦到第一个编辑框 */
+        SetFocus(GetDlgItem(hwnd, IDC_LOCATION_EDIT));
+        return FALSE;
+    }
+    case WM_COMMAND: {
+        switch (LOWORD(wParam)) {
+        case IDOK_EDIT: {
+            /* 读取编辑框内容 */
+            GetDlgItemTextA(hwnd, IDC_LOCATION_EDIT, data->location, (int)data->loc_bufsize);
+            GetDlgItemTextA(hwnd, IDC_DEPARTMENT_EDIT, data->department, (int)data->dept_bufsize);
+            GetDlgItemTextA(hwnd, IDC_RESPONSIBLE_EDIT, data->responsible_person, (int)data->resp_bufsize);
+            EndDialog(hwnd, 1);  /* 返回1表示用户确认 */
+            return TRUE;
+        }
+        case IDCANCEL_EDIT:
+            EndDialog(hwnd, 0);  /* 返回0表示用户取消 */
+            return TRUE;
+        }
+        break;
+    }
+    case WM_CLOSE:
+        EndDialog(hwnd, 0);
+        return TRUE;
+    }
+    return FALSE;
+}
+
+/* 注册并创建对话框窗口类 */
+static int create_info_editor_dialog(EditInfoData *data) {
+    HINSTANCE hInst = GetModuleHandle(NULL);
+
+    /* 使用DialogBoxIndirectParam创建模态对话框，无需资源文件 */
+    /* 对话框模板结构 */
+    typedef struct {
+        DLGTEMPLATE dlg;
+        WORD menu;
+        WORD cls;
+        WORD title;
+    } DlgTemplateBase;
+
+    /* 计算控件数量和模板大小 */
+    /* 3个标签 + 3个编辑框 + 2个按钮 = 8个控件 */
+    int ctrl_count = 8;
+    size_t tmpl_size = sizeof(DLGTEMPLATE) + 3 * sizeof(WORD) +
+                       ctrl_count * sizeof(DLGITEMTEMPLATE) + 1024;  /* 额外空间给字符串 */
+    BYTE *buf = (BYTE *)calloc(1, tmpl_size);
+    if (!buf) return 0;
+
+    DLGTEMPLATE *dlg = (DLGTEMPLATE *)buf;
+    dlg->style = WS_POPUP | WS_BORDER | WS_SYSMENU | DS_MODALFRAME | DS_CENTER | WS_CAPTION;
+    dlg->dwExtendedStyle = 0;
+    dlg->cdit = ctrl_count;
+    dlg->x = 0;
+    dlg->y = 0;
+    dlg->cx = 220;
+    dlg->cy = 180;
+
+    /* 跳过对话框模板头部后的菜单、类、标题（各1个WORD，0表示无） */
+    BYTE *ptr = buf + sizeof(DLGTEMPLATE);
+    *((WORD *)ptr) = 0; ptr += sizeof(WORD);  /* menu */
+    *((WORD *)ptr) = 0; ptr += sizeof(WORD);  /* class */
+    /* 标题使用宽字符 */
+    wchar_t wtitle[] = L"编辑设备信息";
+    size_t title_len = (wcslen(wtitle) + 1) * sizeof(wchar_t);
+    memcpy(ptr, wtitle, title_len);
+    ptr += (wcslen(wtitle) + 1) * sizeof(WORD);
+
+    /* 对齐到DWORD边界 */
+    while ((uintptr_t)ptr % sizeof(DWORD)) ptr++;
+
+    /* 辅助宏：添加控件 */
+    #define ADD_CTRL(_id, _cls, _text, _x, _y, _cx, _cy, _style) do { \
+        DLGITEMTEMPLATE *item = (DLGITEMTEMPLATE *)ptr; \
+        item->style = (_style); \
+        item->dwExtendedStyle = 0; \
+        item->x = (_x); item->y = (_y); item->cx = (_cx); item->cy = (_cy); \
+        item->id = (_id); \
+        ptr += sizeof(DLGITEMTEMPLATE); \
+        /* class: 0xFFFF + atom */ \
+        *((WORD *)ptr) = 0xFFFF; ptr += sizeof(WORD); \
+        *((WORD *)ptr) = (_cls); ptr += sizeof(WORD); \
+        /* text: wide string */ \
+        { wchar_t _wt[] = _text; size_t _wl = (wcslen(_wt)+1)*sizeof(wchar_t); \
+          memcpy(ptr, _wt, _wl); ptr += (wcslen(_wt)+1)*sizeof(WORD); } \
+        /* creation data */ \
+        *((WORD *)ptr) = 0; ptr += sizeof(WORD); \
+        /* align to DWORD */ \
+        while ((uintptr_t)ptr % sizeof(DWORD)) ptr++; \
+    } while(0)
+
+    /* 添加控件：3个标签 + 3个编辑框 + 2个按钮 */
+    int y = 8, label_w = 50, edit_w = 140, row_h = 24, margin = 10;
+    ADD_CTRL(IDC_LOCATION_LABEL, 0x0082, L"位置:", margin, y+3, label_w, 14, WS_CHILD | WS_VISIBLE | SS_LEFT);
+    ADD_CTRL(IDC_LOCATION_EDIT, 0x0081, L"", margin+label_w+4, y, edit_w, 14, WS_CHILD | WS_VISIBLE | WS_BORDER | ES_AUTOHSCROLL | WS_TABSTOP);
+    y += row_h;
+    ADD_CTRL(IDC_DEPARTMENT_LABEL, 0x0082, L"部门:", margin, y+3, label_w, 14, WS_CHILD | WS_VISIBLE | SS_LEFT);
+    ADD_CTRL(IDC_DEPARTMENT_EDIT, 0x0081, L"", margin+label_w+4, y, edit_w, 14, WS_CHILD | WS_VISIBLE | WS_BORDER | ES_AUTOHSCROLL | WS_TABSTOP);
+    y += row_h;
+    ADD_CTRL(IDC_RESPONSIBLE_LABEL, 0x0082, L"负责人:", margin, y+3, label_w, 14, WS_CHILD | WS_VISIBLE | SS_LEFT);
+    ADD_CTRL(IDC_RESPONSIBLE_EDIT, 0x0081, L"", margin+label_w+4, y, edit_w, 14, WS_CHILD | WS_VISIBLE | WS_BORDER | ES_AUTOHSCROLL | WS_TABSTOP);
+    y += row_h + 10;
+    ADD_CTRL(IDOK_EDIT, 0x0080, L"确定", 50, y, 50, 16, WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | WS_TABSTOP);
+    ADD_CTRL(IDCANCEL_EDIT, 0x0080, L"取消", 120, y, 50, 16, WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | WS_TABSTOP);
+
+    #undef ADD_CTRL
+
+    INT_PTR result = DialogBoxIndirectParamA(hInst, dlg, NULL, EditInfoDlgProc, (LPARAM)data);
+    free(buf);
+    return (int)result;
+}
+
 int show_info_editor(const AgentConfig *current,
                      char *location, size_t loc_bufsize,
                      char *department, size_t dept_bufsize,
                      char *responsible_person, size_t resp_bufsize) {
-    /* KNOWN_LIMIT: 未实现Win32信息编辑对话框，当前版本返回0表示用户取消 */
-    return 0;
+    (void)current;  /* 当前配置仅用于显示参考，编辑框初始值由调用者设置 */
+
+    EditInfoData data = {
+        .location = location,
+        .loc_bufsize = loc_bufsize,
+        .department = department,
+        .dept_bufsize = dept_bufsize,
+        .responsible_person = responsible_person,
+        .resp_bufsize = resp_bufsize
+    };
+
+    return create_info_editor_dialog(&data);
 }
 
 /* ================================================================
@@ -318,7 +586,7 @@ static void handle_heartbeat_response(Agent *a, const char *resp_json) {
                 a->migration_confirmed = 1;
                 a->migration_fail_count = 0;
             }
-        } else if (new_interval && new_interval->valueint >= 30 && new_interval->valueint <= 600) {
+        } else if (new_interval && new_interval->valueint >= 10 && new_interval->valueint <= 600) {
             a->config->heartbeat_interval = new_interval->valueint;
             SaveConfig(a->config);
         }
@@ -356,7 +624,7 @@ static void handle_heartbeat_response(Agent *a, const char *resp_json) {
                     log_write("收到远程指令: stop");
                     a->running = 0;
                 } else if (strcmp(cmd_name_str, "update_interval") == 0) {
-                    if (interval_val && interval_val->valueint >= 30 && interval_val->valueint <= 600) {
+                    if (interval_val && interval_val->valueint >= 10 && interval_val->valueint <= 600) {
                         a->config->heartbeat_interval = interval_val->valueint;
                         SaveConfig(a->config);
                         log_write("心跳间隔已更新为 %d 秒", interval_val->valueint);
@@ -494,15 +762,18 @@ void agent_run(Agent *a) {
             if (reg_result.server_agent_id[0]) {
                 safe_strncpy(a->config->server_agent_id, reg_result.server_agent_id, MAX_SERVER_ID_LEN);
                 safe_strncpy(a->reporter->server_agent_id, reg_result.server_agent_id, MAX_SERVER_ID_LEN);
+                /* 同步更新agent_id为服务端分配的ID，确保后续心跳使用一致标识 */
+                safe_strncpy(a->config->agent_id, reg_result.server_agent_id, MAX_ID_LEN);
+                safe_strncpy(a->reporter->agent_id, reg_result.server_agent_id, MAX_ID_LEN);
                 config_changed = 1;
                 log_write("收到服务端agent_id: %s", reg_result.server_agent_id);
             }
-            if (reg_result.heartbeat_interval >= 30 && reg_result.heartbeat_interval <= 600) {
+            if (reg_result.heartbeat_interval >= 10 && reg_result.heartbeat_interval <= 600) {
                 a->config->heartbeat_interval = reg_result.heartbeat_interval;
                 config_changed = 1;
                 log_write("收到服务端心跳间隔: %d秒", reg_result.heartbeat_interval);
             } else if (reg_result.heartbeat_interval > 0) {
-                log_write("服务端心跳间隔%d秒超出范围(30-600)，忽略", reg_result.heartbeat_interval);
+                log_write("服务端心跳间隔%d秒超出范围(10-600)，忽略", reg_result.heartbeat_interval);
             }
             if (reg_result.server_url[0]) {
                 safe_strncpy(a->config->server_url_override, reg_result.server_url, MAX_URL_LEN);
@@ -597,15 +868,18 @@ void agent_run(Agent *a) {
                         if (reg_result.server_agent_id[0]) {
                             safe_strncpy(a->config->server_agent_id, reg_result.server_agent_id, MAX_SERVER_ID_LEN);
                             safe_strncpy(a->reporter->server_agent_id, reg_result.server_agent_id, MAX_SERVER_ID_LEN);
+                            /* 同步更新agent_id为服务端分配的ID */
+                            safe_strncpy(a->config->agent_id, reg_result.server_agent_id, MAX_ID_LEN);
+                            safe_strncpy(a->reporter->agent_id, reg_result.server_agent_id, MAX_ID_LEN);
                             config_changed = 1;
                             log_write("收到新agent_id: %s", reg_result.server_agent_id);
                         }
-                        if (reg_result.heartbeat_interval >= 30 && reg_result.heartbeat_interval <= 600) {
+                        if (reg_result.heartbeat_interval >= 10 && reg_result.heartbeat_interval <= 600) {
                             a->config->heartbeat_interval = reg_result.heartbeat_interval;
                             config_changed = 1;
                             log_write("收到服务端心跳间隔: %d秒", reg_result.heartbeat_interval);
                         } else if (reg_result.heartbeat_interval > 0) {
-                            log_write("服务端心跳间隔%d秒超出范围(30-600)，忽略", reg_result.heartbeat_interval);
+                            log_write("服务端心跳间隔%d秒超出范围(10-600)，忽略", reg_result.heartbeat_interval);
                         }
                         if (reg_result.server_url[0]) {
                             safe_strncpy(a->config->server_url_override, reg_result.server_url, MAX_URL_LEN);

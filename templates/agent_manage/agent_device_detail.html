@@ -286,7 +286,7 @@
                                 <i class="fa fa-power-off mr-1"></i>远程停止
                             </button>
                             <div class="flex items-center gap-2">
-                                <input type="number" id="heartbeatInterval" min="30" value="120" placeholder="间隔秒数" class="w-28 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary">
+                                <input type="number" id="heartbeatInterval" min="10" value="10" placeholder="间隔秒数" class="w-28 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary">
                                 <span class="text-sm text-gray-500">秒</span>
                                 <button onclick="sendUpdateInterval()" class="px-4 py-2 bg-accent text-white rounded-md hover:bg-accent/90 btn-hover inline-flex items-center">
                                     <i class="fa fa-clock-o mr-1"></i>修改心跳间隔
@@ -385,15 +385,30 @@
             document.getElementById('hwLoggedInUser').textContent = d.logged_in_user || '-';
             document.getElementById('hwDeviceFingerprint').textContent = d.device_fingerprint || '-';
 
-            // JSON格式化显示
+            // 磁盘信息格式化显示
             try {
                 const diskInfo = typeof d.disks === 'string' ? JSON.parse(d.disks) : d.disks;
-                document.getElementById('hwDiskInfo').textContent = diskInfo ? JSON.stringify(diskInfo, null, 2) : '-';
+                const diskEl = document.getElementById('hwDiskInfo');
+                if (Array.isArray(diskInfo) && diskInfo.length > 0) {
+                    diskEl.innerHTML = '<table class="w-full text-sm"><thead><tr class="text-left text-gray-500 border-b"><th class="pb-1 pr-4">盘符</th><th class="pb-1 pr-4">总容量</th><th class="pb-1">可用空间</th></tr></thead><tbody>' +
+                        diskInfo.map(disk => `<tr class="border-b border-gray-100"><td class="py-1.5 pr-4 font-mono">${escapeHtml(disk.drive || '-')}</td><td class="py-1.5 pr-4">${disk.total_gb != null ? Number(disk.total_gb).toFixed(1) + ' GB' : '-'}</td><td class="py-1.5">${disk.free_gb != null ? Number(disk.free_gb).toFixed(1) + ' GB' : '-'}</td></tr>`).join('') +
+                        '</tbody></table>';
+                } else {
+                    diskEl.textContent = '-';
+                }
             } catch { document.getElementById('hwDiskInfo').textContent = d.disks || '-'; }
 
+            // 网络接口格式化显示
             try {
                 const netInfo = typeof d.network_interfaces === 'string' ? JSON.parse(d.network_interfaces) : d.network_interfaces;
-                document.getElementById('hwNetworkInterfaces').textContent = netInfo ? JSON.stringify(netInfo, null, 2) : '-';
+                const netEl = document.getElementById('hwNetworkInterfaces');
+                if (Array.isArray(netInfo) && netInfo.length > 0) {
+                    netEl.innerHTML = '<table class="w-full text-sm"><thead><tr class="text-left text-gray-500 border-b"><th class="pb-1 pr-4">网卡名称</th><th class="pb-1 pr-4">MAC地址</th><th class="pb-1">IP地址</th></tr></thead><tbody>' +
+                        netInfo.map(nic => `<tr class="border-b border-gray-100"><td class="py-1.5 pr-4">${escapeHtml(nic.name || '-')}</td><td class="py-1.5 pr-4 font-mono">${escapeHtml(nic.mac || '-')}</td><td class="py-1.5 font-mono">${escapeHtml(nic.ip || '-')}</td></tr>`).join('') +
+                        '</tbody></table>';
+                } else {
+                    netEl.textContent = '-';
+                }
             } catch { document.getElementById('hwNetworkInterfaces').textContent = d.network_interfaces || '-'; }
 
             // 手动字段
@@ -583,9 +598,9 @@
         function sendUpdateInterval() {
             const input = document.getElementById('heartbeatInterval');
             const interval = parseInt(input.value);
-            if (isNaN(interval) || interval < 30) {
-                showToast('心跳间隔不能小于30秒', 'error');
-                input.value = 30;
+            if (isNaN(interval) || interval < 10) {
+                showToast('心跳间隔不能小于10秒', 'error');
+                input.value = 10;
                 return;
             }
             sendCommand('update_interval', { interval: interval });

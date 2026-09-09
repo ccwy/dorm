@@ -105,7 +105,7 @@ static void ensure_device_fingerprint(AgentConfig *config) {
 AgentConfig* LoadConfig(void) {
     AgentConfig *config = (AgentConfig*)calloc(1, sizeof(AgentConfig));
     if (!config) return NULL;
-    config->heartbeat_interval = 120;
+    config->heartbeat_interval = 10;
 
     /* 1. 尝试从exe同目录读取 config.json（下载时注入的配置） */
     char local_path[MAX_PATH];
@@ -154,7 +154,7 @@ const char* EffectiveServerURL(const AgentConfig *config) {
 void ApplyServerUpdate(AgentConfig *config, const char *new_url, int new_interval) {
     log_write("收到服务端配置更新: server_url=%s", new_url);
     safe_strncpy(config->server_url_override, new_url, MAX_URL_LEN);
-    if (new_interval >= 30 && new_interval <= 600)
+    if (new_interval >= 10 && new_interval <= 600)
         config->heartbeat_interval = new_interval;
     SaveConfig(config);
 }

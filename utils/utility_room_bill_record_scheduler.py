@@ -190,7 +190,7 @@ def check_agent_offline():
             logging.warning(f"OFFLINE_THRESHOLD配置值无效('{threshold_str}')，使用默认值360秒")
 
         # 计算超时截止时间
-        cutoff_time = datetime.now() - timedelta(seconds=offline_threshold)
+        cutoff_time = datetime.utcnow() - timedelta(seconds=offline_threshold)
 
         # 查询所有在线但心跳超时的设备
         offline_devices = AgentDevice.query.filter(

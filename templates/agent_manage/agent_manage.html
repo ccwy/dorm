@@ -495,7 +495,7 @@
                     <tr class="hover:bg-gray-50">
                         <td class="px-4 py-3 text-sm text-gray-800">${escapeHtml(key.name)}</td>
                         <td class="px-4 py-3 text-sm text-gray-600 font-mono">
-                            <span class="mr-2">${maskKey(key.key_preview || key.key || '')}</span>
+                            <span class="mr-2">${escapeHtml(key.key_preview || key.key || '')}</span>
                             ${key.key ? `<button onclick="copyText('${escapeHtml(key.key)}')" class="text-primary hover:text-primary/80 text-xs"><i class="fa fa-copy"></i></button>` : ''}
                         </td>
                         <td class="px-4 py-3 text-sm">

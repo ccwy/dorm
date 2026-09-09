@@ -4,11 +4,6 @@ on:
   push:
     branches: [ main, master ]
     tags: [ 'v*' ]
-    paths:
-      - 'agent/**'
-      - 'static/agent/**'
-      - '.github/workflows/build.yml'
-      - '/**'
   workflow_dispatch:
     inputs:
       build_windows:

@@ -60,17 +60,6 @@ DEVICE_AUTO_UPDATE_FIELDS = {
 DEVICE_MANUAL_FIELDS = {'asset_number', 'location', 'department', 'responsible_person'}
 
 
-def mask_ip(ip):
-    """IP地址脱敏：将最后一段替换为***，如 192.168.1.100 → 192.168.1.***"""
-    if not ip:
-        return ''
-    parts = ip.split('.')
-    if len(parts) == 4:
-        return '.'.join(parts[:3]) + '.***'
-    # IPv6或非标准格式，返回前8字符+***
-    return ip[:8] + '***' if len(ip) > 8 else ip
-
-
 agent_api_bp = Blueprint(
     'agent_api',
     __name__,
@@ -346,7 +335,8 @@ def register():
             request.api_key_record.agent_id = device.agent_id
         request.api_key_record.last_used_at = datetime.utcnow()
         db.session.commit()
-        heartbeat_interval = int(AgentConfig.get_value('heartbeat_interval', default='120'))
+        logger.info(f"设备注册成功: agent_id={device.agent_id}, hostname={hostname}, ip={data.get('ip_address', '-')}")
+        heartbeat_interval = int(AgentConfig.get_value('heartbeat_interval', default='10'))
         server_url = AgentConfig.get_value('server_url', default='')
         return jsonify({
             "success": True,
@@ -405,7 +395,7 @@ def heartbeat():
                 agent_id=device.agent_id, ip_address=request.remote_addr))
         db.session.commit()
         # 构建响应
-        heartbeat_interval = int(AgentConfig.get_value('heartbeat_interval', default='120'))
+        heartbeat_interval = int(AgentConfig.get_value('heartbeat_interval', default='10'))
         # 构建 config_update 供客户端解析
         config_update = {"heartbeat_interval": heartbeat_interval}
         # 检查迁移配置
@@ -688,7 +678,7 @@ def list_devices():
             "hostname": d.hostname,
             "os_name": d.os_name,
             "os_version": d.os_version,
-            "ip_address": mask_ip(d.ip_address),
+            "ip_address": d.ip_address or '',
             "mac_address": d.mac_address,
             "asset_number": d.asset_number,
             "status": d.status,
@@ -732,7 +722,7 @@ def get_device_by_asset(asset_id):
             "os_info": f"{device.os_name or ''} {device.os_version or ''}".strip() or None,
             "status": device.status,
             "agent_version": device.agent_version,
-            "ip_address": mask_ip(device.ip_address),
+            "ip_address": device.ip_address or '',
             "last_heartbeat": device.last_heartbeat_at.strftime('%Y-%m-%d %H:%M:%S') if device.last_heartbeat_at else None,
             "last_heartbeat_at": device.last_heartbeat_at.strftime('%Y-%m-%d %H:%M:%S') if device.last_heartbeat_at else None,
             "first_seen_at": device.first_seen_at.strftime('%Y-%m-%d %H:%M:%S') if device.first_seen_at else None,
@@ -777,7 +767,7 @@ def get_device(agent_id):
         "available_memory_mb": device.available_memory_mb,
         "disks": disks,
         "mac_address": device.mac_address,
-        "ip_address": mask_ip(device.ip_address),
+        "ip_address": device.ip_address or '',
         "network_interfaces": network_interfaces,
         "agent_version": device.agent_version,
         "logged_in_user": device.logged_in_user,
@@ -823,7 +813,7 @@ def download_agent():
         server_url = _get_effective_server_url()
         api_key = _get_effective_api_key(name='通用下载自动创建', remark='通用下载自动创建')
         # 构建config.json
-        heartbeat_interval = AgentConfig.get_value('heartbeat_interval', default='120')
+        heartbeat_interval = AgentConfig.get_value('heartbeat_interval', default='10')
         config = {
             "server_url": server_url,
             "api_key": api_key,
@@ -855,7 +845,7 @@ def download_agent_for_asset(asset_number):
         server_url = _get_effective_server_url()
         api_key = _get_effective_api_key(name='通用下载自动创建', remark='通用下载自动创建')
         # 构建config.json（含asset_number和三字段）
-        heartbeat_interval = AgentConfig.get_value('heartbeat_interval', default='120')
+        heartbeat_interval = AgentConfig.get_value('heartbeat_interval', default='10')
         dept_name = asset.dept_using.name if asset.dept_using else ''
         config = {
             "server_url": server_url,
@@ -1034,8 +1024,8 @@ def update_config():
             if key == 'heartbeat_interval':
                 try:
                     val = int(value)
-                    if val < 30 or val > 600:
-                        return jsonify({"success": False, "message": "heartbeat_interval必须为30-600之间的整数"}), 400
+                    if val < 10 or val > 600:
+                        return jsonify({"success": False, "message": "heartbeat_interval必须为10-600之间的整数"}), 400
                 except (ValueError, TypeError):
                     return jsonify({"success": False, "message": "heartbeat_interval必须为整数"}), 400
             elif key == 'offline_threshold':
@@ -1214,8 +1204,8 @@ def send_device_command(agent_id):
         cmd_obj = {"command": command}
         if command == 'update_interval':
             interval = data.get('interval', 0)
-            if not isinstance(interval, int) or interval < 30 or interval > 600:
-                return jsonify({"success": False, "message": "interval必须为30-600之间的整数"}), 400
+            if not isinstance(interval, int) or interval < 10 or interval > 600:
+                return jsonify({"success": False, "message": "interval必须为10-600之间的整数"}), 400
             cmd_obj["interval"] = interval
         # 追加到pending_commands
         existing = []
