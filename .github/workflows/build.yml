@@ -51,45 +51,62 @@ jobs:
       - name: 📥 检出代码
         uses: actions/checkout@v7
 
-      - name: 🔧 Install MinGW-w64 (${{ matrix.arch }})
+      - name: 🔧 Cache MinGW-w64 (${{ matrix.arch }})
+        uses: actions/cache@v4
+        with:
+          path: C:\mingw
+          key: mingw-16.1.0-posix-${{ matrix.arch }}
+
+      - name: 🔧 Setup MinGW-w64 (${{ matrix.arch }})
         shell: pwsh
         run: |
-          # MinGW v16.1.0+ post-install script attempts to remove libpthread.dll.a
-          # which no longer exists in newer builds, causing a non-zero exit code.
-          # The actual MinGW installation succeeds despite this error.
-          if ('${{ matrix.arch }}' -eq 'x86') {
-            choco uninstall mingw -y --no-progress 2>$null
-            choco install mingw -y --no-progress --x86 --allow-downgrade 2>$null
+          # Chocolatey mingw v16.1.0 post-install script fails (Remove-Item libpthread.dll.a),
+          # causing Chocolatey to cancel/rollback the entire installation.
+          # Bypass Chocolatey: download MinGW directly from official niXman releases.
+          $arch = '${{ matrix.arch }}'
+
+          if ($arch -eq 'x64') {
+            $url = 'https://github.com/niXMAN/mingw-builds-binaries/releases/download/16.1.0-rt_v14-rev0/x86_64-16.1.0-release-posix-seh-ucrt-rt_v14-rev0.7z'
+            $subDir = 'mingw64'
           } else {
-            choco install mingw -y --no-progress --allow-downgrade 2>$null
-          }
-        continue-on-error: true
-
-      - name: 🔧 Configure MinGW-w64 (${{ matrix.arch }})
-        shell: pwsh
-        run: |
-          $mingwDir = if ('${{ matrix.arch }}' -eq 'x64') { 'mingw64' } else { 'mingw32' }
-          $installPaths = @(
-            "C:\ProgramData\mingw64\$mingwDir\bin"
-            "C:\ProgramData\chocolatey\lib\mingw\tools\install\$mingwDir\bin"
-          )
-
-          foreach ($path in $installPaths) {
-            if (Test-Path $path) {
-              echo $path >> $env:GITHUB_PATH
-              Write-Host "✅ MinGW found at: $path"
-
-              $gccExe = Join-Path $path 'gcc.exe'
-              if (Test-Path $gccExe) {
-                Write-Host "✅ GCC: $gccExe"
-                & $gccExe --version
-                exit 0
-              }
-            }
+            $url = 'https://github.com/niXMAN/mingw-builds-binaries/releases/download/16.1.0-rt_v14-rev0/i686-16.1.0-release-posix-dwarf-ucrt-rt_v14-rev0.7z'
+            $subDir = 'mingw32'
           }
 
-          Write-Error "❌ MinGW/GCC not found after installation"
-          exit 1
+          $installDir = 'C:\mingw'
+          $binPath = Join-Path $installDir "$subDir\bin"
+          $gccExe = Join-Path $binPath 'gcc.exe'
+
+          # Use cached installation if available
+          if (Test-Path $gccExe) {
+            Write-Host "✅ MinGW found in cache: $binPath"
+            echo $binPath >> $env:GITHUB_PATH
+            & $gccExe --version
+            exit 0
+          }
+
+          # Download MinGW archive
+          $archive = Join-Path $env:RUNNER_TEMP 'mingw.7z'
+          Write-Host "📥 Downloading MinGW $arch from niXman releases..."
+          Invoke-WebRequest -Uri $url -OutFile $archive -UseBasicParsing
+          Write-Host "✅ Download complete ($('{0:N2}' -f ((Get-Item $archive).Length / 1MB)) MB)"
+
+          # Extract
+          Write-Host "📦 Extracting MinGW..."
+          New-Item -ItemType Directory -Path $installDir -Force | Out-Null
+          & 7z x $archive "-o$installDir" -y | Select-Object -Last 5
+          Write-Host "✅ Extraction complete"
+
+          # Verify and configure PATH
+          if (Test-Path $gccExe) {
+            echo $binPath >> $env:GITHUB_PATH
+            Write-Host "✅ MinGW installed: $binPath"
+            & $gccExe --version
+          } else {
+            Write-Error "❌ GCC not found at: $gccExe"
+            Get-ChildItem $installDir -Directory -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "  $($_.Name)" }
+            exit 1
+          }
 
       - name: 🔨 Build Agent (${{ matrix.arch }})
         run: |
