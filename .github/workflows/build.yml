@@ -4,6 +4,10 @@ on:
   push:
     branches: [ main, master ]
     tags: [ 'v*' ]
+    paths:
+      - 'agent/**'
+      - 'static/agent/**'
+      - '.github/workflows/build.yml'
   workflow_dispatch:
     inputs:
       build_windows:
@@ -34,10 +38,42 @@ permissions:
 
 jobs:
   # ============================================
+  # 阶段1：构建 Asset Agent 二进制
+  # ============================================
+  build-agent:
+    name: 🔧 构建 Asset Agent
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        arch: [x64, x86]
+
+    steps:
+      - name: 📥 检出代码
+        uses: actions/checkout@v7
+
+      - name: 🔧 Setup MinGW-w64
+        uses: egor-tensin/setup-mingw@v2
+        with:
+          platform: ${{ matrix.arch }}
+
+      - name: 🔨 Build Agent (${{ matrix.arch }})
+        run: |
+          cd agent
+          make
+
+      - name: 📤 Upload Artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: asset-agent-${{ matrix.arch }}
+          path: agent/asset-agent.exe
+          retention-days: 30
+
+  # ============================================
   # Windows 平台打包 (PyInstaller + Inno Setup)
   # ============================================
   build-windows:
     name: 🖥️ Windows 打包
+    needs: build-agent
     runs-on: windows-latest
     if: >
       github.event_name == 'push' ||
@@ -46,6 +82,23 @@ jobs:
     steps:
       - name: 📥 检出代码
         uses: actions/checkout@v7
+
+      - name: 📥 Download Agent x64
+        uses: actions/download-artifact@v7
+        with:
+          name: asset-agent-x64
+          path: static/agent/
+
+      - name: 📥 Download Agent x86
+        uses: actions/download-artifact@v7
+        with:
+          name: asset-agent-x86
+          path: static/agent/
+
+      - name: ✅ Verify Agent binaries
+        run: |
+          dir static\agent\
+          if not exist static\agent\asset-agent.exe exit 1
 
       - name: 🔖 提取版本号
         id: version
@@ -243,6 +296,7 @@ jobs:
   # ============================================
   build-docker:
     name: 🐳 Docker 构建
+    needs: build-agent
     runs-on: ubuntu-latest
     if: >
       github.event_name == 'push' ||
@@ -251,6 +305,17 @@ jobs:
     steps:
       - name: 📥 检出代码
         uses: actions/checkout@v7
+
+      - name: 📥 Download Agent x64
+        uses: actions/download-artifact@v7
+        with:
+          name: asset-agent-x64
+          path: static/agent/
+
+      - name: ✅ Verify Agent binary
+        run: |
+          ls -la static/agent/
+          test -f static/agent/asset-agent.exe || exit 1
 
       - name: 🔖 提取版本号
         id: version
@@ -321,6 +386,7 @@ jobs:
   # ============================================
   build-android:
     name: 📱 Android 打包
+    needs: build-agent
     runs-on: ubuntu-latest
     if: >
       github.event_name == 'push' ||
@@ -329,6 +395,18 @@ jobs:
     steps:
       - name: 📥 检出代码
         uses: actions/checkout@v7
+
+      - name: 📥 Download Agent x64
+        uses: actions/download-artifact@v7
+        with:
+          name: asset-agent-x64
+          path: static/agent/
+
+      - name: 📋 Copy Agent to Android assets
+        run: |
+          mkdir -p android/app/src/main/assets/agent
+          cp static/agent/asset-agent.exe android/app/src/main/assets/agent/
+          echo "✅ Agent binary copied to android/app/src/main/assets/agent/"
 
       - name: 🔖 提取版本号
         id: version
@@ -461,7 +539,7 @@ jobs:
   build-summary:
     name: 📊 构建总结
     runs-on: ubuntu-latest
-    needs: [build-windows, build-docker, build-android]
+    needs: [build-agent, build-windows, build-docker, build-android]
     if: always()
 
     steps:
@@ -471,10 +549,16 @@ jobs:
           echo "  行政后勤管理系统 - Build Summary"
           echo "========================================"
           echo ""
+          echo "Agent 构建:   ${{ needs.build-agent.result }}"
           echo "Windows 构建: ${{ needs.build-windows.result }}"
           echo "Docker 构建:  ${{ needs.build-docker.result }}"
           echo "Android 构建: ${{ needs.build-android.result }}"
           echo ""
+          if [ "${{ needs.build-agent.result }}" = "success" ]; then
+            echo "✅ Asset Agent 构建成功"
+          else
+            echo "❌ Asset Agent 构建失败或被跳过"
+          fi
           if [ "${{ needs.build-windows.result }}" = "success" ]; then
             echo "✅ Windows 版本构建成功"
           else

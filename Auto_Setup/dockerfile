@@ -31,6 +31,8 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # 复制项目文件
+# 注意：static/agent/asset-agent.exe 需要在构建前已编译完成
+# 可通过 python Auto_Setup/build_agent.py 编译，或由 CI/CD 的 build-agent job 提供
 COPY . .
 
 # 创建外部数据目录

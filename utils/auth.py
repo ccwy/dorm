@@ -105,6 +105,15 @@ PERMISSIONS = {
             'import': '导入',
         }
     },
+    'agent': {
+        'name': '资产代理管理',
+        'actions': {
+            'view': '查看',
+            'manage': '管理',
+            'create_key': '创建Key',
+            'revoke_key': '吊销Key',
+        }
+    },
     'supply': {
         'name': '低值易耗品管理',
         'actions': {

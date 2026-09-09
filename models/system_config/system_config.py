@@ -275,6 +275,26 @@ class SystemConfig(db.Model):
                 'is_editable': True,
                 'sort_order': 150
             },
+            # Agent系统全局开关
+            {
+                'config_key': 'FEATURE_AGENT_MANAGE_ENABLED',
+                'config_value': 'true',
+                'config_type': 'bool',
+                'category': 'system.feature',
+                'description': 'Agent系统开关',
+                'is_editable': True,
+                'sort_order': 170
+            },
+            # Agent功能全局启用开关（控制Agent客户端API是否可用）
+            {
+                'config_key': 'AGENT_ENABLED',
+                'config_value': 'true',
+                'config_type': 'bool',
+                'category': 'system.feature',
+                'description': 'Agent系统全局开关，禁用后所有Agent API返回403',
+                'is_editable': True,
+                'sort_order': 175
+            },
             # 手机号身份证号登录开关
             {
                 'config_key': 'FEATURE_PHONE_IDCARD_LOGIN_ENABLED',
@@ -616,7 +636,7 @@ class SystemConfig(db.Model):
             # 固定资产管理配置 (category: asset)
             {
                 'config_key': 'ASSET_CATEGORIES',
-                'config_value': '办公设备,家具,交通工具,电子设备,机械设备,其他',
+                'config_value': '办公设备,电脑,家具,交通工具,电子设备,机械设备,其他',
                 'config_type': 'list',
                 'category': 'asset',
                 'description': '固定资产分类列表',

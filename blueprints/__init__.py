@@ -68,3 +68,6 @@ from .contract import contract_bp, contract_api_bp, contract_import_export_bp
 
 # 后勤维修管理相关
 from .maintenance import maintenance_user_bp, maintenance_admin_bp, maintenance_staff_bp, maintenance_api_bp
+
+# 资产代理管理相关
+from .agent import agent_api_bp, agent_manage_bp

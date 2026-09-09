@@ -98,6 +98,11 @@
                 <i class="fa fa-trash mr-1"></i>删除
             </button>
             {% endif %}
+            {% if current_user.has_permission('agent.manage') and asset.asset_category and asset.asset_category in ('电脑', '计算机', '台式机', '笔记本', '服务器') %}
+            <button type="button" onclick="downloadAgentClient()" class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 btn-hover inline-flex items-center">
+                <i class="fa fa-download mr-1"></i>下载关联客户端
+            </button>
+            {% endif %}
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -372,6 +377,18 @@
                     <p class="text-gray-500 text-center py-4">暂无操作记录</p>
                     {% endif %}
                 </div>
+
+                <!-- 关联Agent设备信息 -->
+                <div class="bg-white rounded-lg shadow-sm p-6" id="agentDeviceCard" style="display:none;">
+                    <h3 class="text-lg font-medium text-gray-800 mb-4 pb-2 border-b border-gray-200">
+                        <i class="fa fa-android text-green-600 mr-2"></i>关联Agent设备
+                    </h3>
+                    <div id="agentDeviceInfo">
+                        <div class="flex items-center justify-center py-4 text-gray-500">
+                            <i class="fa fa-spinner fa-spin mr-2"></i>加载中...
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <!-- 右侧: 时间信息与照片附件 -->
@@ -639,6 +656,141 @@
                 alert('删除出错: ' + error.message);
             });
         }
+
+        // 下载Agent客户端
+        async function downloadAgentClient() {
+            const assetNumber = '{{ asset.asset_number }}';
+            if (!assetNumber) {
+                alert('资产编号不存在，无法下载关联客户端');
+                return;
+            }
+            try {
+                const url = '/api/agent/download/' + encodeURIComponent(assetNumber);
+                const response = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+                if (!response.ok) {
+                    let errorMsg = '下载失败';
+                    try {
+                        const data = await response.json();
+                        errorMsg = data.message || errorMsg;
+                    } catch (e) {
+                        errorMsg = '下载失败 (HTTP ' + response.status + ')';
+                    }
+                    alert(errorMsg);
+                    return;
+                }
+                const contentType = response.headers.get('Content-Type') || '';
+                if (contentType.includes('application/json')) {
+                    const data = await response.json();
+                    if (data.success === false) {
+                        alert(data.message || '下载失败');
+                        return;
+                    }
+                }
+                const blob = await response.blob();
+                const blobUrl = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = blobUrl;
+                a.download = 'asset-agent-' + assetNumber + '.zip';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(blobUrl);
+            } catch (err) {
+                alert('下载出错: ' + err.message);
+            }
+        }
+
+        // 加载关联Agent设备信息
+        function loadAgentDeviceInfo() {
+            fetch('/api/agent/devices/by-asset/{{ asset.id }}', {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            })
+            .then(response => response.json())
+            .then(data => {
+                const card = document.getElementById('agentDeviceCard');
+                const container = document.getElementById('agentDeviceInfo');
+                if (data.device) {
+                    const d = data.device;
+                    card.style.display = '';
+                    const statusHtml = d.status === 'online' 
+                        ? '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800"><i class="fa fa-circle text-xs mr-1" style="font-size:6px"></i>在线</span>'
+                        : '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800"><i class="fa fa-circle text-xs mr-1" style="font-size:6px"></i>离线</span>';
+                    container.innerHTML = `
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            <div>
+                                <span class="text-sm text-gray-500">主机名</span>
+                                <p class="font-medium text-gray-800">${escapeHtml(d.hostname || '-')}</p>
+                            </div>
+                            <div>
+                                <span class="text-sm text-gray-500">操作系统</span>
+                                <p class="font-medium text-gray-800">${escapeHtml(d.os_info || '-')}</p>
+                            </div>
+                            <div>
+                                <span class="text-sm text-gray-500">状态</span>
+                                <p>${statusHtml}</p>
+                            </div>
+                            <div>
+                                <span class="text-sm text-gray-500">Agent版本</span>
+                                <p class="font-medium text-gray-800">${escapeHtml(d.agent_version || '-')}</p>
+                            </div>
+                            <div>
+                                <span class="text-sm text-gray-500">IP地址</span>
+                                <p class="font-mono text-sm text-gray-800">${escapeHtml(d.ip_address || '-')}</p>
+                            </div>
+                            <div>
+                                <span class="text-sm text-gray-500">最后心跳</span>
+                                <p class="text-sm text-gray-800">${formatAgentDate(d.last_heartbeat)}</p>
+                            </div>
+                            <div>
+                                <span class="text-sm text-gray-500">CPU型号</span>
+                                <p class="font-medium text-gray-800">${escapeHtml(d.cpu_model || '-')}</p>
+                            </div>
+                            <div>
+                                <span class="text-sm text-gray-500">内存</span>
+                                <p class="font-medium text-gray-800">${d.total_memory_mb ? (d.total_memory_mb / 1024).toFixed(1) + ' GB' : '-'}</p>
+                            </div>
+                            <div>
+                                <span class="text-sm text-gray-500">MAC地址</span>
+                                <p class="font-mono text-sm text-gray-800">${escapeHtml(d.mac_address || '-')}</p>
+                            </div>
+                            <div>
+                                <span class="text-sm text-gray-500">磁盘</span>
+                                <p class="font-medium text-gray-800">${d.disks ? JSON.parse(d.disks).length + '个磁盘' : '-'}</p>
+                            </div>
+                        </div>
+                        <div class="mt-4">
+                            <a href="/agent_manage/device/${d.agent_id}" class="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90 btn-hover inline-flex items-center text-sm">
+                                <i class="fa fa-external-link mr-1"></i>查看设备详情
+                            </a>
+                        </div>
+                    `;
+                } else {
+                    // 没有关联的Agent设备，不显示卡片
+                    card.style.display = 'none';
+                }
+            })
+            .catch(() => {
+                // API不存在或出错，隐藏卡片
+                document.getElementById('agentDeviceCard').style.display = 'none';
+            });
+        }
+
+        function formatAgentDate(dateStr) {
+            if (!dateStr) return '-';
+            try {
+                const d = new Date(dateStr);
+                if (isNaN(d.getTime())) return dateStr;
+                return d.toLocaleString('zh-CN', {
+                    year: 'numeric', month: '2-digit', day: '2-digit',
+                    hour: '2-digit', minute: '2-digit'
+                });
+            } catch { return dateStr; }
+        }
+
+        // 页面加载时尝试加载Agent设备信息
+        document.addEventListener('DOMContentLoaded', function() {
+            loadAgentDeviceInfo();
+        });
     </script>
     <script>
     // 解析操作记录变更详情

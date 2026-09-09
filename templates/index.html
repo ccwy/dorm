@@ -227,6 +227,19 @@
                 </div>
                 {% endif %}
 
+                <!-- Agent管理 -->
+                {% if get_config_value('FEATURE_AGENT_MANAGE_ENABLED', True) and current_user.has_permission('agent.view') %}
+                <div class="bg-white rounded-xl p-6 card-shadow btn-hover">
+                    <a href="{{ url_for('agent_manage.index') }}" class="flex flex-col items-center text-center">
+                        <div class="w-16 h-16 bg-indigo-500/10 rounded-full flex items-center justify-center mb-4">
+                            <i class="fa fa-desktop text-xl md:text-2xl text-indigo-600"></i>
+                        </div>
+                        <h3 class="text-base md:text-lg font-medium text-dark mb-2">Agent管理</h3>
+                        <p class="text-gray-500 text-sm">终端设备监控与Agent配置管理</p>
+                    </a>
+                </div>
+                {% endif %}
+
                 <!-- 低值易耗品管理 -->
                 {% if get_config_value('FEATURE_SUPPLY_MANAGE_ENABLED', True) and current_user.has_permission('supply.view') %}
                 <div class="bg-white rounded-xl p-6 card-shadow btn-hover">

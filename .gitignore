@@ -1,0 +1,2 @@
+# Asset Agent 二进制文件（编译产物，不入git）
+static/agent/*.exe

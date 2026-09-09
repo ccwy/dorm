@@ -131,9 +131,10 @@ def init_flask_app(progress_callback=None):
         supply_stock_record_bp, supply_stock_record_api_bp,
         role_bp,
         contract_bp, contract_api_bp, contract_import_export_bp,
-        maintenance_user_bp, maintenance_admin_bp, maintenance_staff_bp, maintenance_api_bp
+        maintenance_user_bp, maintenance_admin_bp, maintenance_staff_bp, maintenance_api_bp,
+        agent_api_bp, agent_manage_bp
     )
-    _stamp("导入37个蓝图")
+    _stamp("导入39个蓝图")
     app.register_blueprint(login_bp)
     app.register_blueprint(user_bp)
     app.register_blueprint(user_api_bp)
@@ -198,7 +199,9 @@ def init_flask_app(progress_callback=None):
     app.register_blueprint(maintenance_admin_bp)
     app.register_blueprint(maintenance_staff_bp)
     app.register_blueprint(maintenance_api_bp)
-    _stamp("注册38个蓝图")
+    app.register_blueprint(agent_api_bp)
+    app.register_blueprint(agent_manage_bp)
+    _stamp("注册40个蓝图")
 
     # 阶段4：初始化数据库
     if progress_callback:
