@@ -2,6 +2,8 @@
 #ifndef COLLECT_USER_H
 #define COLLECT_USER_H
 
+#include <stddef.h>
+
 /* 采集当前Windows登录用户名 */
 void collect_logged_in_user(char *buf, size_t bufsize);
 

@@ -3,6 +3,7 @@
 #define FINGERPRINT_H
 
 #include "config.h"
+#include "collector.h"
 
 /* 生成设备指纹: SHA-256(hostname + "|" + mac_address + "|" + disk_serial)
  * 结果写入buf，为64字符hex字符串 + null终止符
