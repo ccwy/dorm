@@ -54,8 +54,6 @@ def init_system_configs():
     """初始化系统配置"""
     from models.system_config.system_config import SystemConfig
     SystemConfig.init_default_configs()
-    from models.agent.agent_config import AgentConfig
-    AgentConfig.init_default_configs()
     logging.info("已初始化系统配置")
 
 def init_roles_and_permissions():
@@ -345,81 +343,11 @@ def init_db(app: Flask, force_recreate=False):
             import models.maintenance.maintenance_order  # 维修工单模型
             import models.maintenance.maintenance_reply  # 维修回复模型
 
-            # Agent管理模型
-            import models.agent.agent_api_key  # Agent API Key模型
-            import models.agent.agent_device  # Agent设备模型
-            import models.agent.agent_heartbeat_log  # Agent心跳日志模型
-            import models.agent.agent_config  # Agent配置模型
-
             # 创建表结构
             if force_recreate or not _is_initialized:
                 logging.info("开始创建数据表结构...")
                 db.create_all()
                 logging.info("数据表结构创建完成")
-
-                # 数据库迁移：为已有的agent_devices表添加pending_commands列
-                try:
-                    from sqlalchemy import inspect as sa_inspect
-                    inspector = sa_inspect(db.engine)
-                    if 'agent_devices' in inspector.get_table_names():
-                        columns = [col['name'] for col in inspector.get_columns('agent_devices')]
-                        if 'pending_commands' not in columns:
-                            with db.engine.connect() as conn:
-                                conn.execute(db.text('ALTER TABLE agent_devices ADD COLUMN pending_commands TEXT'))
-                                conn.commit()
-                            logging.info("数据库迁移：已为agent_devices表添加pending_commands列")
-                except Exception as migrate_err:
-                    logging.warning(f"数据库迁移检查失败（可忽略）: {migrate_err}")
-
-                # Agent Device表添加info_hash列（如果不存在）
-                try:
-                    from sqlalchemy import text
-                    result = db.session.execute(text("SELECT info_hash FROM agent_devices LIMIT 1"))
-                    db.session.commit()
-                except Exception:
-                    db.session.rollback()
-                    try:
-                        db.session.execute(text("ALTER TABLE agent_devices ADD COLUMN info_hash VARCHAR(64) DEFAULT NULL COMMENT '系统信息哈希(SHA-256 hex)，用于变更检测'"))
-                        db.session.commit()
-                        logging.info("agent_devices表已添加info_hash列")
-                    except Exception as e:
-                        db.session.rollback()
-                        logging.warning(f"添加info_hash列失败(可能已存在): {e}")
-
-                # 数据库迁移：为已有的agent_devices表创建缺失索引
-                try:
-                    indexes_to_create = [
-                        ('idx_agent_device_asset_number', 'agent_devices', 'asset_number'),
-                        ('idx_agent_device_fingerprint', 'agent_devices', 'device_fingerprint'),
-                        ('idx_agent_device_hostname_mac', 'agent_devices', ['hostname', 'mac_address']),
-                        ('idx_agent_device_platform', 'agent_devices', 'platform'),
-                    ]
-                    for idx_name, table, columns in indexes_to_create:
-                        try:
-                            col_list = columns if isinstance(columns, list) else [columns]
-                            # 检查索引是否已存在
-                            existing = db.session.execute(db.text(
-                                "SELECT name FROM sqlite_master WHERE type='index' AND name=:name"
-                            ), {"name": idx_name}).fetchone()
-                            if not existing:
-                                cols = ', '.join(col_list)
-                                db.session.execute(db.text(f'CREATE INDEX {idx_name} ON {table}({cols})'))
-                                db.session.commit()
-                                logging.info(f'创建索引 {idx_name}')
-                        except Exception as e:
-                            db.session.rollback()
-                            logging.warning(f'创建索引 {idx_name} 失败: {e}')
-                except Exception as migrate_err:
-                    logging.warning(f"索引迁移检查失败（可忽略）: {migrate_err}")
-
-                # 数据库迁移：将agent_configs表重命名为agent_config（与设计文档一致）
-                try:
-                    if 'agent_configs' in inspector.get_table_names():
-                        db.session.execute(text('ALTER TABLE agent_configs RENAME TO agent_config'))
-                        db.session.commit()
-                        logging.info("数据库迁移：已将agent_configs表重命名为agent_config")
-                except Exception as migrate_err:
-                    logging.warning(f"表名迁移检查失败（可忽略）: {migrate_err}")
 
                 # 初始化角色和权限数据（必须在create_admin_user之前）
                 init_roles_and_permissions()

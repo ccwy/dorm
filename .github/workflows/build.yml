@@ -34,109 +34,10 @@ permissions:
 
 jobs:
   # ============================================
-  # 阶段1：构建 Asset Agent 二进制
-  # ============================================
-  build-agent:
-    name: 🔧 构建 Asset Agent
-    runs-on: windows-latest
-    strategy:
-      matrix:
-        arch: [x64, x86]
-
-    steps:
-      - name: 📥 检出代码
-        uses: actions/checkout@v7
-
-      - name: 🔧 Cache MinGW-w64 (${{ matrix.arch }})
-        uses: actions/cache@v6
-        with:
-          path: C:\mingw
-          key: mingw-16.1.0-posix-${{ matrix.arch }}
-
-      - name: 🔧 Setup MinGW-w64 (${{ matrix.arch }})
-        shell: pwsh
-        run: |
-          # Chocolatey mingw v16.1.0 post-install script fails (Remove-Item libpthread.dll.a),
-          # causing Chocolatey to cancel/rollback the entire installation.
-          # Bypass Chocolatey: download MinGW directly from official niXman releases.
-          $arch = '${{ matrix.arch }}'
-
-          if ($arch -eq 'x64') {
-            $url = 'https://github.com/niXMAN/mingw-builds-binaries/releases/download/16.1.0-rt_v14-rev0/x86_64-16.1.0-release-posix-seh-ucrt-rt_v14-rev0.7z'
-            $subDir = 'mingw64'
-          } else {
-            $url = 'https://github.com/niXMAN/mingw-builds-binaries/releases/download/16.1.0-rt_v14-rev0/i686-16.1.0-release-posix-dwarf-ucrt-rt_v14-rev0.7z'
-            $subDir = 'mingw32'
-          }
-
-          $installDir = 'C:\mingw'
-          $binPath = Join-Path $installDir "$subDir\bin"
-          $gccExe = Join-Path $binPath 'gcc.exe'
-
-          # Use cached installation if available
-          if (Test-Path $gccExe) {
-            Write-Host "✅ MinGW found in cache: $binPath"
-            echo $binPath >> $env:GITHUB_PATH
-            & $gccExe --version
-            exit 0
-          }
-
-          # Download MinGW archive
-          $archive = Join-Path $env:RUNNER_TEMP 'mingw.7z'
-          Write-Host "📥 Downloading MinGW $arch from niXman releases..."
-          Invoke-WebRequest -Uri $url -OutFile $archive -UseBasicParsing
-          Write-Host "✅ Download complete ($('{0:N2}' -f ((Get-Item $archive).Length / 1MB)) MB)"
-
-          # Extract
-          Write-Host "📦 Extracting MinGW..."
-          New-Item -ItemType Directory -Path $installDir -Force | Out-Null
-          & 7z x $archive "-o$installDir" -y | Select-Object -Last 5
-          Write-Host "✅ Extraction complete"
-
-          # Free disk space: delete downloaded archive (~102MB)
-          Remove-Item $archive -Force -ErrorAction SilentlyContinue
-          Write-Host "🧹 Cleaned up download archive"
-
-          # Verify and configure PATH
-          if (Test-Path $gccExe) {
-            echo $binPath >> $env:GITHUB_PATH
-            Write-Host "✅ MinGW installed: $binPath"
-            & $gccExe --version
-          } else {
-            Write-Error "❌ GCC not found at: $gccExe"
-            Get-ChildItem $installDir -Directory -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "  $($_.Name)" }
-            exit 1
-          }
-
-      - name: 💾 Check disk space
-        shell: pwsh
-        run: |
-          $disk = Get-PSDrive -Name C
-          $freeGB = [math]::Round($disk.Free / 1GB, 2)
-          Write-Host "💾 C: drive free space: $freeGB GB"
-          if ($freeGB -lt 1) {
-            Write-Error "❌ Insufficient disk space: $freeGB GB free"
-            exit 1
-          }
-
-      - name: 🔨 Build Agent (${{ matrix.arch }})
-        run: |
-          cd agent
-          make
-
-      - name: 📤 Upload Artifact
-        uses: actions/upload-artifact@v7
-        with:
-          name: asset-agent-${{ matrix.arch }}
-          path: agent/asset-agent.exe
-          retention-days: 30
-
-  # ============================================
   # Windows 平台打包 (PyInstaller + Inno Setup)
   # ============================================
   build-windows:
     name: 🖥️ Windows 打包
-    needs: build-agent
     runs-on: windows-latest
     if: >
       github.event_name == 'push' ||
@@ -145,24 +46,6 @@ jobs:
     steps:
       - name: 📥 检出代码
         uses: actions/checkout@v7
-
-      - name: 📥 Download Agent x64
-        uses: actions/download-artifact@v7
-        with:
-          name: asset-agent-x64
-          path: static/agent/
-
-      - name: 📥 Download Agent x86
-        uses: actions/download-artifact@v7
-        with:
-          name: asset-agent-x86
-          path: static/agent/
-
-      - name: ✅ Verify Agent binaries
-        shell: bash
-        run: |
-          ls -la static/agent/
-          test -f static/agent/asset-agent.exe || exit 1
 
       - name: 🔖 提取版本号
         id: version
@@ -360,7 +243,6 @@ jobs:
   # ============================================
   build-docker:
     name: 🐳 Docker 构建
-    needs: build-agent
     runs-on: ubuntu-latest
     if: >
       github.event_name == 'push' ||
@@ -369,17 +251,6 @@ jobs:
     steps:
       - name: 📥 检出代码
         uses: actions/checkout@v7
-
-      - name: 📥 Download Agent x64
-        uses: actions/download-artifact@v7
-        with:
-          name: asset-agent-x64
-          path: static/agent/
-
-      - name: ✅ Verify Agent binary
-        run: |
-          ls -la static/agent/
-          test -f static/agent/asset-agent.exe || exit 1
 
       - name: 🔖 提取版本号
         id: version
@@ -450,7 +321,6 @@ jobs:
   # ============================================
   build-android:
     name: 📱 Android 打包
-    needs: build-agent
     runs-on: ubuntu-latest
     if: >
       github.event_name == 'push' ||
@@ -459,18 +329,6 @@ jobs:
     steps:
       - name: 📥 检出代码
         uses: actions/checkout@v7
-
-      - name: 📥 Download Agent x64
-        uses: actions/download-artifact@v7
-        with:
-          name: asset-agent-x64
-          path: static/agent/
-
-      - name: 📋 Copy Agent to Android assets
-        run: |
-          mkdir -p android/app/src/main/assets/agent
-          cp static/agent/asset-agent.exe android/app/src/main/assets/agent/
-          echo "✅ Agent binary copied to android/app/src/main/assets/agent/"
 
       - name: 🔖 提取版本号
         id: version
@@ -603,7 +461,7 @@ jobs:
   build-summary:
     name: 📊 构建总结
     runs-on: ubuntu-latest
-    needs: [build-agent, build-windows, build-docker, build-android]
+    needs: [build-windows, build-docker, build-android]
     if: always()
 
     steps:
@@ -613,16 +471,10 @@ jobs:
           echo "  行政后勤管理系统 - Build Summary"
           echo "========================================"
           echo ""
-          echo "Agent 构建:   ${{ needs.build-agent.result }}"
           echo "Windows 构建: ${{ needs.build-windows.result }}"
           echo "Docker 构建:  ${{ needs.build-docker.result }}"
           echo "Android 构建: ${{ needs.build-android.result }}"
           echo ""
-          if [ "${{ needs.build-agent.result }}" = "success" ]; then
-            echo "✅ Asset Agent 构建成功"
-          else
-            echo "❌ Asset Agent 构建失败或被跳过"
-          fi
           if [ "${{ needs.build-windows.result }}" = "success" ]; then
             echo "✅ Windows 版本构建成功"
           else

@@ -77,33 +77,6 @@ def get_database_path(db_name='data.db'):
     return os.path.join(data_dir, db_name)
 
 
-def is_android():
-    """判断当前是否运行在Android环境"""
-    return os.environ.get('ANDROID_ENV', 'false').lower() == 'true'
-
-
-def get_agent_binary_path():
-    """
-    获取 Agent 二进制文件路径（兼容 Windows 部署和安卓部署）
-    
-    在安卓环境：返回内部存储下的 agent 路径
-    （APK安装时已从assets解压到内部存储）
-    在Windows/Docker环境：返回 static/agent/asset-agent.exe
-    
-    Returns:
-        str: Agent二进制文件的绝对路径
-    """
-    if is_android():
-        # 安卓：从内部存储读取（APK安装时已从assets解压）
-        # Chaquopy 初始化时将 assets/agent/ 解压到内部存储
-        files_dir = get_files_dir()
-        return os.path.join(files_dir, 'agent', 'asset-agent.exe')
-    else:
-        # Windows/Docker：直接从 static 目录读取
-        return os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                            '..', 'static', 'agent', 'asset-agent.exe')
-
-
 # ==================== 环境配置 ====================
 
 def setup_android_env():

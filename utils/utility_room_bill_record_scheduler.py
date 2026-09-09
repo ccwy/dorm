@@ -1,6 +1,6 @@
 import schedule
 import time
-from datetime import datetime, timedelta
+from datetime import datetime
 from threading import Thread
 import logging
 
@@ -131,18 +131,6 @@ def start_scheduler(app):
                     schedule.every().day.at(MAINTENANCE_CLEANUP_TIME).do(lambda: execute_with_context(app, cleanup_maintenance_temp_files))
                     start_scheduler._maintenance_cleanup_scheduled = True
                     logging.info(f"维修临时文件定时清理任务已注册，将在每天{MAINTENANCE_CLEANUP_TIME}执行")
-                
-                # Agent设备离线判定任务（每60秒执行一次）
-                if not hasattr(start_scheduler, '_agent_offline_check_scheduled'):
-                    schedule.every(60).seconds.do(lambda: execute_with_context(app, check_agent_offline))
-                    start_scheduler._agent_offline_check_scheduled = True
-                    logging.info("Agent设备离线判定任务已注册，每60秒执行一次")
-
-                # 心跳日志清理任务（每天03:00执行一次）
-                if not hasattr(start_scheduler, '_heartbeat_log_cleanup_scheduled'):
-                    schedule.every().day.at("03:00").do(lambda: execute_with_context(app, cleanup_heartbeat_logs))
-                    start_scheduler._heartbeat_log_cleanup_scheduled = True
-                    logging.info("心跳日志定时清理任务已注册，将在每天03:00执行")
                 #else:
                 #    logging.info(f"未满足生成条件，当前日期={datetime.now().day}，任务日期：每月{current_generation_day}日的{FIXED_GENERATION_TIME}执行任务，每60秒检查一次")
                 
@@ -172,73 +160,6 @@ def cleanup_maintenance_temp_files():
     except Exception as e:
         logging.error(f"清理维修临时文件时发生错误: {str(e)}", exc_info=True)
         return False
-
-# 检查Agent设备离线状态
-def check_agent_offline():
-    """检查Agent设备心跳超时，将超时设备标记为offline"""
-    try:
-        from models.agent.agent_device import AgentDevice
-        from models.agent.agent_config import AgentConfig
-        from utils.db import db
-
-        # 从agent_config表读取离线阈值，默认360秒
-        threshold_str = AgentConfig.get_value('OFFLINE_THRESHOLD', '360')
-        try:
-            offline_threshold = int(threshold_str)
-        except (ValueError, TypeError):
-            offline_threshold = 360
-            logging.warning(f"OFFLINE_THRESHOLD配置值无效('{threshold_str}')，使用默认值360秒")
-
-        # 计算超时截止时间
-        cutoff_time = datetime.utcnow() - timedelta(seconds=offline_threshold)
-
-        # 查询所有在线但心跳超时的设备
-        offline_devices = AgentDevice.query.filter(
-            AgentDevice.status == 'online',
-            AgentDevice.last_heartbeat_at < cutoff_time
-        ).all()
-
-        if offline_devices:
-            for device in offline_devices:
-                device.status = 'offline'
-            db.session.commit()
-            logging.info(f"Agent设备离线判定: 已将 {len(offline_devices)} 台设备标记为offline（阈值{offline_threshold}秒）")
-        else:
-            logging.info("Agent设备离线判定: 所有在线设备心跳正常，无需标记离线")
-
-        return True
-    except Exception as e:
-        logging.error(f"Agent设备离线判定时发生错误: {str(e)}", exc_info=True)
-        return False
-
-# 清理过期的心跳日志
-def cleanup_heartbeat_logs():
-    """清理过期的心跳日志"""
-    try:
-        from models.agent.agent_config import AgentConfig
-        from models.agent.agent_heartbeat_log import AgentHeartbeatLog
-        from utils.db import db
-        from datetime import datetime, timedelta
-        
-        retention_days_str = AgentConfig.get_value('heartbeat_log_retention_days', '30')
-        try:
-            retention_days = int(retention_days_str)
-        except (ValueError, TypeError):
-            retention_days = 30
-        
-        cutoff_time = datetime.now() - timedelta(days=retention_days)
-        deleted = db.session.query(AgentHeartbeatLog).filter(
-            AgentHeartbeatLog.heartbeat_time < cutoff_time
-        ).delete()
-        db.session.commit()
-        if deleted > 0:
-            logging.info(f"已清理 {deleted} 条过期心跳日志（保留 {retention_days} 天）")
-    except Exception as e:
-        logging.error(f"清理心跳日志失败: {e}")
-        try:
-            db.session.rollback()
-        except:
-            pass
 
 # 初始化调度器
 def init_scheduler(app):

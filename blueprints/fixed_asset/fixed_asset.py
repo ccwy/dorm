@@ -133,19 +133,6 @@ def index():
         current_page = pagination.page
         page_range = generate_page_range(current_page, total_pages)
 
-        # 构建设备状态映射（asset_id -> {status, agent_id, hostname}）
-        from models.agent.agent_device import AgentDevice
-        device_status_map = {}
-        if assets:
-            asset_ids = [a.id for a in assets]
-            devices = AgentDevice.query.filter(AgentDevice.asset_id.in_(asset_ids)).all()
-            for d in devices:
-                device_status_map[d.asset_id] = {
-                    'status': d.status,
-                    'agent_id': d.agent_id,
-                    'hostname': d.hostname or ''
-                }
-
         # 记录访问日志
         log_operation(
             user_id=current_user.id,
@@ -180,8 +167,7 @@ def index():
             dept_owning=dept_owning,
             company=company,
             keyword=keyword,
-            room_id=room_id,
-            device_status_map=device_status_map
+            room_id=room_id
         )
     except Exception as e:
         log_operation(
@@ -211,8 +197,7 @@ def index():
             dept_using='',
             dept_owning='',
             keyword='',
-            room_id='',
-            device_status_map={}
+            room_id=''
         )
 
 
