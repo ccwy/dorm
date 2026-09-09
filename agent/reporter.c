@@ -236,6 +236,8 @@ static cJSON* system_info_to_json(const SystemInfo *info, const char *agent_id) 
 }
 
 /* ---- 获取当前时间戳字符串 ---- */
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-truncation"
 static void get_timestamp(char *buf, size_t bufsize) {
     SYSTEMTIME st;
     GetSystemTime(&st);
@@ -243,6 +245,7 @@ static void get_timestamp(char *buf, size_t bufsize) {
              (int)st.wYear, (int)st.wMonth, (int)st.wDay,
              (int)st.wHour, (int)st.wMinute, (int)st.wSecond);
 }
+#pragma GCC diagnostic pop
 
 /* ---- 创建Reporter实例 ---- */
 Reporter* reporter_create(const AgentConfig *config) {
