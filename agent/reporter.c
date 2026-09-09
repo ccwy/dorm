@@ -1,6 +1,7 @@
 /* reporter.c - HTTP通信实现（WinINet） */
 #include "reporter.h"
 #include "cJSON.h"
+#include <windows.h>
 #include <wininet.h>
 #include <stdio.h>
 #include <stdlib.h>
