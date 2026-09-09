@@ -97,6 +97,10 @@ jobs:
           & 7z x $archive "-o$installDir" -y | Select-Object -Last 5
           Write-Host "✅ Extraction complete"
 
+          # Free disk space: delete downloaded archive (~102MB)
+          Remove-Item $archive -Force -ErrorAction SilentlyContinue
+          Write-Host "🧹 Cleaned up download archive"
+
           # Verify and configure PATH
           if (Test-Path $gccExe) {
             echo $binPath >> $env:GITHUB_PATH
@@ -105,6 +109,17 @@ jobs:
           } else {
             Write-Error "❌ GCC not found at: $gccExe"
             Get-ChildItem $installDir -Directory -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "  $($_.Name)" }
+            exit 1
+          }
+
+      - name: 💾 Check disk space
+        shell: pwsh
+        run: |
+          $disk = Get-PSDrive -Name C
+          $freeGB = [math]::Round($disk.Free / 1GB, 2)
+          Write-Host "💾 C: drive free space: $freeGB GB"
+          if ($freeGB -lt 1) {
+            Write-Error "❌ Insufficient disk space: $freeGB GB free"
             exit 1
           }
 

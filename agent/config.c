@@ -43,32 +43,38 @@ static int local_config_path(char *buf, size_t bufsize) {
 }
 
 /* parse_config_from_json: 从cJSON对象解析配置 */
+/* safe_strncpy: strncpy with guaranteed null-termination */
+static void safe_strncpy(char *dst, const char *src, size_t bufsize) {
+    strncpy(dst, src, bufsize - 1);
+    dst[bufsize - 1] = '\0';
+}
+
 static void parse_config_from_json(cJSON *json, AgentConfig *config) {
     cJSON *item;
     if ((item = cJSON_GetObjectItem(json, "server_url")))
-        strncpy(config->server_url, item->valuestring, MAX_URL_LEN - 1);
+        safe_strncpy(config->server_url, item->valuestring, MAX_URL_LEN);
     if ((item = cJSON_GetObjectItem(json, "api_key")))
-        strncpy(config->api_key, item->valuestring, MAX_KEY_LEN - 1);
+        safe_strncpy(config->api_key, item->valuestring, MAX_KEY_LEN);
     if ((item = cJSON_GetObjectItem(json, "heartbeat_interval")))
         config->heartbeat_interval = item->valueint;
     if ((item = cJSON_GetObjectItem(json, "asset_number")))
-        strncpy(config->asset_number, item->valuestring, MAX_FIELD_LEN - 1);
+        safe_strncpy(config->asset_number, item->valuestring, MAX_FIELD_LEN);
     if ((item = cJSON_GetObjectItem(json, "device_fingerprint")))
-        strncpy(config->device_fingerprint, item->valuestring, MAX_FP_LEN - 1);
+        safe_strncpy(config->device_fingerprint, item->valuestring, MAX_FP_LEN);
     if ((item = cJSON_GetObjectItem(json, "uuid")))
-        strncpy(config->uuid, item->valuestring, MAX_UUID_LEN - 1);
+        safe_strncpy(config->uuid, item->valuestring, MAX_UUID_LEN);
     if ((item = cJSON_GetObjectItem(json, "agent_id")))
-        strncpy(config->agent_id, item->valuestring, MAX_ID_LEN - 1);
+        safe_strncpy(config->agent_id, item->valuestring, MAX_ID_LEN);
     if ((item = cJSON_GetObjectItem(json, "server_agent_id")))
-        strncpy(config->server_agent_id, item->valuestring, MAX_SERVER_ID_LEN - 1);
+        safe_strncpy(config->server_agent_id, item->valuestring, MAX_SERVER_ID_LEN);
     if ((item = cJSON_GetObjectItem(json, "server_url_override")))
-        strncpy(config->server_url_override, item->valuestring, MAX_URL_LEN - 1);
+        safe_strncpy(config->server_url_override, item->valuestring, MAX_URL_LEN);
     if ((item = cJSON_GetObjectItem(json, "location")))
-        strncpy(config->location, item->valuestring, MAX_FIELD_LEN - 1);
+        safe_strncpy(config->location, item->valuestring, MAX_FIELD_LEN);
     if ((item = cJSON_GetObjectItem(json, "department")))
-        strncpy(config->department, item->valuestring, MAX_FIELD_LEN - 1);
+        safe_strncpy(config->department, item->valuestring, MAX_FIELD_LEN);
     if ((item = cJSON_GetObjectItem(json, "responsible_person")))
-        strncpy(config->responsible_person, item->valuestring, MAX_FIELD_LEN - 1);
+        safe_strncpy(config->responsible_person, item->valuestring, MAX_FIELD_LEN);
     if ((item = cJSON_GetObjectItem(json, "allow_remote_stop")))
         config->allow_remote_stop = item->valueint ? 1 : 0;
 }
@@ -148,7 +154,7 @@ const char* EffectiveServerURL(const AgentConfig *config) {
 /* ApplyServerUpdate: 应用服务端下发的配置更新 */
 void ApplyServerUpdate(AgentConfig *config, const char *new_url, int new_interval) {
     log_write("收到服务端配置更新: server_url=%s", new_url);
-    strncpy(config->server_url_override, new_url, MAX_URL_LEN - 1);
+    safe_strncpy(config->server_url_override, new_url, MAX_URL_LEN);
     if (new_interval >= 30 && new_interval <= 600)
         config->heartbeat_interval = new_interval;
     SaveConfig(config);

@@ -7,6 +7,12 @@
 #include <stdlib.h>
 #include <string.h>
 
+/* safe_strncpy: strncpy with guaranteed null-termination */
+static void safe_strncpy(char *dst, const char *src, size_t bufsize) {
+    strncpy(dst, src, bufsize - 1);
+    dst[bufsize - 1] = '\0';
+}
+
 /* ---- SSL证书验证相关常量（兼容旧版SDK） ---- */
 #ifndef INTERNET_OPTION_SECURITY_FLAGS
 #define INTERNET_OPTION_SECURITY_FLAGS 31
@@ -68,9 +74,9 @@ static int parse_url(const char *url, ParsedUrl *pu) {
 
     /* 解析path */
     if (slash)
-        strncpy(pu->path, slash, sizeof(pu->path) - 1);
+        safe_strncpy(pu->path, slash, sizeof(pu->path));
     else
-        strncpy(pu->path, "/", sizeof(pu->path) - 1);
+        safe_strncpy(pu->path, "/", sizeof(pu->path));
     return 0;
 }
 
@@ -242,11 +248,11 @@ static void get_timestamp(char *buf, size_t bufsize) {
 Reporter* reporter_create(const AgentConfig *config) {
     Reporter *r = (Reporter*)calloc(1, sizeof(Reporter));
     if (!r) return NULL;
-    strncpy(r->server_url, EffectiveServerURL(config), MAX_URL_LEN - 1);
-    strncpy(r->api_key, config->api_key, MAX_KEY_LEN - 1);
-    strncpy(r->agent_id, config->agent_id, MAX_ID_LEN - 1);
-    strncpy(r->uuid, config->uuid, MAX_UUID_LEN - 1);
-    strncpy(r->server_agent_id, config->server_agent_id, MAX_SERVER_ID_LEN - 1);
+    safe_strncpy(r->server_url, EffectiveServerURL(config), MAX_URL_LEN);
+    safe_strncpy(r->api_key, config->api_key, MAX_KEY_LEN);
+    safe_strncpy(r->agent_id, config->agent_id, MAX_ID_LEN);
+    safe_strncpy(r->uuid, config->uuid, MAX_UUID_LEN);
+    safe_strncpy(r->server_agent_id, config->server_agent_id, MAX_SERVER_ID_LEN);
     return r;
 }
 
@@ -281,16 +287,16 @@ int reporter_register(Reporter *r, const SystemInfo *info, RegisterResult *resul
                 memset(result, 0, sizeof(RegisterResult));
                 cJSON *uuid_item = cJSON_GetObjectItem(data, "uuid");
                 if (uuid_item && uuid_item->valuestring && uuid_item->valuestring[0])
-                    strncpy(result->uuid, uuid_item->valuestring, MAX_UUID_LEN - 1);
+                    safe_strncpy(result->uuid, uuid_item->valuestring, MAX_UUID_LEN);
                 cJSON *agent_id_item = cJSON_GetObjectItem(data, "agent_id");
                 if (agent_id_item && agent_id_item->valuestring && agent_id_item->valuestring[0])
-                    strncpy(result->server_agent_id, agent_id_item->valuestring, MAX_SERVER_ID_LEN - 1);
+                    safe_strncpy(result->server_agent_id, agent_id_item->valuestring, MAX_SERVER_ID_LEN);
                 cJSON *interval_item = cJSON_GetObjectItem(data, "heartbeat_interval");
                 if (interval_item && interval_item->valueint > 0)
                     result->heartbeat_interval = interval_item->valueint;
                 cJSON *url_item = cJSON_GetObjectItem(data, "server_url");
                 if (url_item && url_item->valuestring && url_item->valuestring[0])
-                    strncpy(result->server_url, url_item->valuestring, MAX_URL_LEN - 1);
+                    safe_strncpy(result->server_url, url_item->valuestring, MAX_URL_LEN);
             }
             cJSON_Delete(resp_json);
         }
@@ -328,7 +334,7 @@ int reporter_heartbeat(Reporter *r, const char *info_hash, int migration_confirm
     free(body);
     /* 将响应复制到调用者提供的缓冲区 */
     if (ret == 0 && resp_buf && resp_bufsize > 0) {
-        strncpy(resp_buf, resp, resp_bufsize - 1);
+        safe_strncpy(resp_buf, resp, resp_bufsize);
         resp_buf[resp_bufsize - 1] = '\0';
     }
     return ret;
@@ -357,7 +363,7 @@ int reporter_heartbeat_with_info(Reporter *r, const SystemInfo *info, int migrat
     free(body);
     /* 将响应复制到调用者提供的缓冲区 */
     if (ret == 0 && resp_buf && resp_bufsize > 0) {
-        strncpy(resp_buf, resp, resp_bufsize - 1);
+        safe_strncpy(resp_buf, resp, resp_bufsize);
         resp_buf[resp_bufsize - 1] = '\0';
     }
     return ret;

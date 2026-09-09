@@ -6,10 +6,17 @@
 #include "fingerprint.h"
 #include <windows.h>
 #include <sddl.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <shellapi.h>
+
+/* safe_strncpy: strncpy with guaranteed null-termination */
+static void safe_strncpy(char *dst, const char *src, size_t bufsize) {
+    strncpy(dst, src, bufsize - 1);
+    dst[bufsize - 1] = '\0';
+}
 
 /* ================================================================
  *  日志实现
@@ -127,7 +134,7 @@ static DWORD WINAPI ipc_server_thread(LPVOID param) {
                 if (json) {
                     cJSON *cmd = cJSON_GetObjectItem(json, "command");
                     if (cmd && cmd->valuestring[0]) {
-                        strncpy(cmd_chan, cmd->valuestring, sizeof(cmd_chan) - 1);
+                        safe_strncpy(cmd_chan, cmd->valuestring, sizeof(cmd_chan));
                         /* 处理命令 */
                         if (strcmp(cmd_chan, "stop") == 0) {
                             log_write("收到IPC停止命令");
@@ -226,16 +233,16 @@ int execute_edit_info(void) {
     char department[MAX_FIELD_LEN] = {0};
     char responsible_person[MAX_FIELD_LEN] = {0};
 
-    strncpy(location, config->location, MAX_FIELD_LEN - 1);
-    strncpy(department, config->department, MAX_FIELD_LEN - 1);
-    strncpy(responsible_person, config->responsible_person, MAX_FIELD_LEN - 1);
+    safe_strncpy(location, config->location, MAX_FIELD_LEN);
+    safe_strncpy(department, config->department, MAX_FIELD_LEN);
+    safe_strncpy(responsible_person, config->responsible_person, MAX_FIELD_LEN);
 
     if (show_info_editor(config, location, MAX_FIELD_LEN,
                          department, MAX_FIELD_LEN,
                          responsible_person, MAX_FIELD_LEN)) {
-        strncpy(config->location, location, MAX_FIELD_LEN - 1);
-        strncpy(config->department, department, MAX_FIELD_LEN - 1);
-        strncpy(config->responsible_person, responsible_person, MAX_FIELD_LEN - 1);
+        safe_strncpy(config->location, location, MAX_FIELD_LEN);
+        safe_strncpy(config->department, department, MAX_FIELD_LEN);
+        safe_strncpy(config->responsible_person, responsible_person, MAX_FIELD_LEN);
         SaveConfig(config);
         printf("配置已更新\n");
     }
@@ -294,7 +301,7 @@ static void handle_heartbeat_response(Agent *a, const char *resp_json) {
                       EffectiveServerURL(a->config), new_url->valuestring);
 
             char old_url[MAX_URL_LEN];
-            strncpy(old_url, EffectiveServerURL(a->config), MAX_URL_LEN - 1);
+            safe_strncpy(old_url, EffectiveServerURL(a->config), MAX_URL_LEN);
 
             ApplyServerUpdate(a->config, new_url->valuestring,
                               new_interval ? new_interval->valueint : 0);
@@ -304,7 +311,7 @@ static void handle_heartbeat_response(Agent *a, const char *resp_json) {
             if (test_result < 0) {
                 /* 连接失败，服务器不可达 */
                 log_write("新服务器连接失败(结果=%d)，回退到旧地址", test_result);
-                strncpy(a->config->server_url_override, old_url, MAX_URL_LEN - 1);
+                safe_strncpy(a->config->server_url_override, old_url, MAX_URL_LEN);
                 SaveConfig(a->config);
                 a->migration_fail_count++;
             } else {
@@ -397,7 +404,7 @@ static void handle_heartbeat_response(Agent *a, const char *resp_json) {
         sf_item = cJSON_GetObjectItem(sync_fields, "location");
         if (sf_item && cJSON_IsString(sf_item) && sf_item->valuestring[0]) {
             if (strcmp(a->config->location, sf_item->valuestring) != 0) {
-                strncpy(a->config->location, sf_item->valuestring, MAX_FIELD_LEN - 1);
+                safe_strncpy(a->config->location, sf_item->valuestring, MAX_FIELD_LEN);
                 a->config->location[MAX_FIELD_LEN - 1] = '\0';
                 changed = 1;
             }
@@ -406,7 +413,7 @@ static void handle_heartbeat_response(Agent *a, const char *resp_json) {
         sf_item = cJSON_GetObjectItem(sync_fields, "department");
         if (sf_item && cJSON_IsString(sf_item) && sf_item->valuestring[0]) {
             if (strcmp(a->config->department, sf_item->valuestring) != 0) {
-                strncpy(a->config->department, sf_item->valuestring, MAX_FIELD_LEN - 1);
+                safe_strncpy(a->config->department, sf_item->valuestring, MAX_FIELD_LEN);
                 a->config->department[MAX_FIELD_LEN - 1] = '\0';
                 changed = 1;
             }
@@ -415,7 +422,7 @@ static void handle_heartbeat_response(Agent *a, const char *resp_json) {
         sf_item = cJSON_GetObjectItem(sync_fields, "responsible_person");
         if (sf_item && cJSON_IsString(sf_item) && sf_item->valuestring[0]) {
             if (strcmp(a->config->responsible_person, sf_item->valuestring) != 0) {
-                strncpy(a->config->responsible_person, sf_item->valuestring, MAX_FIELD_LEN - 1);
+                safe_strncpy(a->config->responsible_person, sf_item->valuestring, MAX_FIELD_LEN);
                 a->config->responsible_person[MAX_FIELD_LEN - 1] = '\0';
                 changed = 1;
             }
@@ -466,11 +473,11 @@ void agent_run(Agent *a) {
     SystemInfo *info = collector_collect();
     if (info) {
         /* 填充配置中的手动字段到SystemInfo */
-        strncpy(info->device_fingerprint, a->config->device_fingerprint, MAX_FP_LEN - 1);
-        strncpy(info->asset_number, a->config->asset_number, MAX_FIELD_LEN - 1);
-        strncpy(info->location, a->config->location, MAX_FIELD_LEN - 1);
-        strncpy(info->department, a->config->department, MAX_FIELD_LEN - 1);
-        strncpy(info->responsible_person, a->config->responsible_person, MAX_FIELD_LEN - 1);
+        safe_strncpy(info->device_fingerprint, a->config->device_fingerprint, MAX_FP_LEN);
+        safe_strncpy(info->asset_number, a->config->asset_number, MAX_FIELD_LEN);
+        safe_strncpy(info->location, a->config->location, MAX_FIELD_LEN);
+        safe_strncpy(info->department, a->config->department, MAX_FIELD_LEN);
+        safe_strncpy(info->responsible_person, a->config->responsible_person, MAX_FIELD_LEN);
 
         RegisterResult reg_result = {0};
         if (reporter_register(a->reporter, info, &reg_result) != 0) {
@@ -480,14 +487,14 @@ void agent_run(Agent *a) {
             /* 保存服务端返回的uuid、agent_id、heartbeat_interval到配置 */
             int config_changed = 0;
             if (reg_result.uuid[0]) {
-                strncpy(a->config->uuid, reg_result.uuid, MAX_UUID_LEN - 1);
-                strncpy(a->reporter->uuid, reg_result.uuid, MAX_UUID_LEN - 1);
+                safe_strncpy(a->config->uuid, reg_result.uuid, MAX_UUID_LEN);
+                safe_strncpy(a->reporter->uuid, reg_result.uuid, MAX_UUID_LEN);
                 config_changed = 1;
                 log_write("收到服务端UUID: %s", reg_result.uuid);
             }
             if (reg_result.server_agent_id[0]) {
-                strncpy(a->config->server_agent_id, reg_result.server_agent_id, MAX_SERVER_ID_LEN - 1);
-                strncpy(a->reporter->server_agent_id, reg_result.server_agent_id, MAX_SERVER_ID_LEN - 1);
+                safe_strncpy(a->config->server_agent_id, reg_result.server_agent_id, MAX_SERVER_ID_LEN);
+                safe_strncpy(a->reporter->server_agent_id, reg_result.server_agent_id, MAX_SERVER_ID_LEN);
                 config_changed = 1;
                 log_write("收到服务端agent_id: %s", reg_result.server_agent_id);
             }
@@ -499,7 +506,7 @@ void agent_run(Agent *a) {
                 log_write("服务端心跳间隔%d秒超出范围(30-600)，忽略", reg_result.heartbeat_interval);
             }
             if (reg_result.server_url[0]) {
-                strncpy(a->config->server_url_override, reg_result.server_url, MAX_URL_LEN - 1);
+                safe_strncpy(a->config->server_url_override, reg_result.server_url, MAX_URL_LEN);
                 config_changed = 1;
                 log_write("收到服务端URL覆盖: %s", reg_result.server_url);
             }
@@ -529,11 +536,11 @@ void agent_run(Agent *a) {
         if (!current_info) continue;
 
         /* 填充配置字段 */
-        strncpy(current_info->device_fingerprint, a->config->device_fingerprint, MAX_FP_LEN - 1);
-        strncpy(current_info->asset_number, a->config->asset_number, MAX_FIELD_LEN - 1);
-        strncpy(current_info->location, a->config->location, MAX_FIELD_LEN - 1);
-        strncpy(current_info->department, a->config->department, MAX_FIELD_LEN - 1);
-        strncpy(current_info->responsible_person, a->config->responsible_person, MAX_FIELD_LEN - 1);
+        safe_strncpy(current_info->device_fingerprint, a->config->device_fingerprint, MAX_FP_LEN);
+        safe_strncpy(current_info->asset_number, a->config->asset_number, MAX_FIELD_LEN);
+        safe_strncpy(current_info->location, a->config->location, MAX_FIELD_LEN);
+        safe_strncpy(current_info->department, a->config->department, MAX_FIELD_LEN);
+        safe_strncpy(current_info->responsible_person, a->config->responsible_person, MAX_FIELD_LEN);
 
         /* 信息变更检测（使用info_hash比较） */
         compute_info_hash(current_info, a->info_hash, sizeof(a->info_hash));
@@ -570,11 +577,11 @@ void agent_run(Agent *a) {
                 SystemInfo *reg_info = collector_collect();
                 if (reg_info) {
                     /* 填充配置字段 */
-                    strncpy(reg_info->device_fingerprint, a->config->device_fingerprint, MAX_FP_LEN - 1);
-                    strncpy(reg_info->asset_number, a->config->asset_number, MAX_FIELD_LEN - 1);
-                    strncpy(reg_info->location, a->config->location, MAX_FIELD_LEN - 1);
-                    strncpy(reg_info->department, a->config->department, MAX_FIELD_LEN - 1);
-                    strncpy(reg_info->responsible_person, a->config->responsible_person, MAX_FIELD_LEN - 1);
+                    safe_strncpy(reg_info->device_fingerprint, a->config->device_fingerprint, MAX_FP_LEN);
+                    safe_strncpy(reg_info->asset_number, a->config->asset_number, MAX_FIELD_LEN);
+                    safe_strncpy(reg_info->location, a->config->location, MAX_FIELD_LEN);
+                    safe_strncpy(reg_info->department, a->config->department, MAX_FIELD_LEN);
+                    safe_strncpy(reg_info->responsible_person, a->config->responsible_person, MAX_FIELD_LEN);
 
                     RegisterResult reg_result = {0};
                     if (reporter_register(a->reporter, reg_info, &reg_result) != 0) {
@@ -583,14 +590,14 @@ void agent_run(Agent *a) {
                         log_write("401触发重新注册成功");
                         int config_changed = 0;
                         if (reg_result.uuid[0]) {
-                            strncpy(a->config->uuid, reg_result.uuid, MAX_UUID_LEN - 1);
-                            strncpy(a->reporter->uuid, reg_result.uuid, MAX_UUID_LEN - 1);
+                            safe_strncpy(a->config->uuid, reg_result.uuid, MAX_UUID_LEN);
+                            safe_strncpy(a->reporter->uuid, reg_result.uuid, MAX_UUID_LEN);
                             config_changed = 1;
                             log_write("收到新UUID: %s", reg_result.uuid);
                         }
                         if (reg_result.server_agent_id[0]) {
-                            strncpy(a->config->server_agent_id, reg_result.server_agent_id, MAX_SERVER_ID_LEN - 1);
-                            strncpy(a->reporter->server_agent_id, reg_result.server_agent_id, MAX_SERVER_ID_LEN - 1);
+                            safe_strncpy(a->config->server_agent_id, reg_result.server_agent_id, MAX_SERVER_ID_LEN);
+                            safe_strncpy(a->reporter->server_agent_id, reg_result.server_agent_id, MAX_SERVER_ID_LEN);
                             config_changed = 1;
                             log_write("收到新agent_id: %s", reg_result.server_agent_id);
                         }
@@ -602,7 +609,7 @@ void agent_run(Agent *a) {
                             log_write("服务端心跳间隔%d秒超出范围(30-600)，忽略", reg_result.heartbeat_interval);
                         }
                         if (reg_result.server_url[0]) {
-                            strncpy(a->config->server_url_override, reg_result.server_url, MAX_URL_LEN - 1);
+                            safe_strncpy(a->config->server_url_override, reg_result.server_url, MAX_URL_LEN);
                             config_changed = 1;
                             log_write("收到服务端URL覆盖: %s", reg_result.server_url);
                         }

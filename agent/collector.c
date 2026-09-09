@@ -9,6 +9,12 @@
 #include <stdlib.h>
 #include <string.h>
 
+/* safe_strncpy: strncpy with guaranteed null-termination */
+static void safe_strncpy(char *dst, const char *src, size_t bufsize) {
+    strncpy(dst, src, bufsize - 1);
+    dst[bufsize - 1] = '\0';
+}
+
 #ifndef AGENT_VERSION
 #define AGENT_VERSION "1.0.0"
 #endif
@@ -38,21 +44,21 @@ int wide_to_utf8(const wchar_t *wstr, char *buf, size_t bufsize) {
 static void map_os_name(DWORD major, DWORD minor, DWORD build, char *buf, size_t bufsize) {
     if (major == 10) {
         if (build >= 22000)
-            strncpy(buf, "Windows 11", bufsize - 1);
+            safe_strncpy(buf, "Windows 11", bufsize);
         else
-            strncpy(buf, "Windows 10", bufsize - 1);
+            safe_strncpy(buf, "Windows 10", bufsize);
     } else if (major == 6 && minor == 3) {
-        strncpy(buf, "Windows 8.1", bufsize - 1);
+        safe_strncpy(buf, "Windows 8.1", bufsize);
     } else if (major == 6 && minor == 2) {
-        strncpy(buf, "Windows 8", bufsize - 1);
+        safe_strncpy(buf, "Windows 8", bufsize);
     } else if (major == 6 && minor == 1) {
-        strncpy(buf, "Windows 7", bufsize - 1);
+        safe_strncpy(buf, "Windows 7", bufsize);
     } else if (major == 6 && minor == 0) {
-        strncpy(buf, "Windows Vista", bufsize - 1);
+        safe_strncpy(buf, "Windows Vista", bufsize);
     } else if (major == 5 && minor == 1) {
-        strncpy(buf, "Windows XP", bufsize - 1);
+        safe_strncpy(buf, "Windows XP", bufsize);
     } else if (major == 5 && minor == 0) {
-        strncpy(buf, "Windows 2000", bufsize - 1);
+        safe_strncpy(buf, "Windows 2000", bufsize);
     } else {
         snprintf(buf, bufsize, "Windows %lu.%lu", major, minor);
     }
@@ -65,7 +71,7 @@ static void collect_hostname(SystemInfo *info) {
     if (GetComputerNameExW(ComputerNameDnsHostname, wbuf, &size))
         wide_to_utf8(wbuf, info->hostname, MAX_HOSTNAME_LEN);
     else
-        strncpy(info->hostname, "unknown", MAX_HOSTNAME_LEN - 1);
+        safe_strncpy(info->hostname, "unknown", MAX_HOSTNAME_LEN);
 }
 
 /* ---- 采集操作系统信息 ---- */
@@ -77,8 +83,8 @@ static void collect_os_info(SystemInfo *info) {
         snprintf(info->os_version, MAX_OS_VERSION_LEN, "%lu.%lu.%lu",
                  ovi.dwMajorVersion, ovi.dwMinorVersion, ovi.dwBuildNumber);
     } else {
-        strncpy(info->os_name, "Unknown", MAX_OS_NAME_LEN - 1);
-        strncpy(info->os_version, "0.0.0", MAX_OS_VERSION_LEN - 1);
+        safe_strncpy(info->os_name, "Unknown", MAX_OS_NAME_LEN);
+        safe_strncpy(info->os_version, "0.0.0", MAX_OS_VERSION_LEN);
     }
 }
 
@@ -88,19 +94,19 @@ static void collect_os_arch(SystemInfo *info) {
     GetNativeSystemInfo(&si);
     switch (si.wProcessorArchitecture) {
         case PROCESSOR_ARCHITECTURE_AMD64:
-            strncpy(info->os_arch, "x64", MAX_OS_ARCH_LEN - 1);
+            safe_strncpy(info->os_arch, "x64", MAX_OS_ARCH_LEN);
             break;
         case PROCESSOR_ARCHITECTURE_INTEL:
-            strncpy(info->os_arch, "x86", MAX_OS_ARCH_LEN - 1);
+            safe_strncpy(info->os_arch, "x86", MAX_OS_ARCH_LEN);
             break;
         case PROCESSOR_ARCHITECTURE_ARM64:
-            strncpy(info->os_arch, "ARM64", MAX_OS_ARCH_LEN - 1);
+            safe_strncpy(info->os_arch, "ARM64", MAX_OS_ARCH_LEN);
             break;
         case PROCESSOR_ARCHITECTURE_ARM:
-            strncpy(info->os_arch, "ARM", MAX_OS_ARCH_LEN - 1);
+            safe_strncpy(info->os_arch, "ARM", MAX_OS_ARCH_LEN);
             break;
         default:
-            strncpy(info->os_arch, "Unknown", MAX_OS_ARCH_LEN - 1);
+            safe_strncpy(info->os_arch, "Unknown", MAX_OS_ARCH_LEN);
             break;
     }
 }
@@ -120,7 +126,7 @@ static void collect_cpu_info(SystemInfo *info) {
         RegCloseKey(hKey);
     }
     if (info->cpu_model[0] == '\0')
-        strncpy(info->cpu_model, "Unknown", MAX_CPU_MODEL_LEN - 1);
+        safe_strncpy(info->cpu_model, "Unknown", MAX_CPU_MODEL_LEN);
 
     /* CPU核心数 */
     SYSTEM_INFO si;
@@ -142,7 +148,7 @@ static void collect_memory_info(SystemInfo *info) {
 static void collect_disks(SystemInfo *info) {
     wchar_t drives[256];
     DWORD len = GetLogicalDriveStringsW(sizeof(drives) / sizeof(wchar_t), drives);
-    if (len == 0) { strncpy(info->disks, "[]", MAX_DISKS_JSON_LEN - 1); return; }
+    if (len == 0) { safe_strncpy(info->disks, "[]", MAX_DISKS_JSON_LEN); return; }
 
     cJSON *arr = cJSON_CreateArray();
     wchar_t *p = drives;
@@ -172,7 +178,7 @@ static void collect_disks(SystemInfo *info) {
     char *json = cJSON_PrintUnformatted(arr);
     cJSON_Delete(arr);
     if (json) {
-        strncpy(info->disks, json, MAX_DISKS_JSON_LEN - 1);
+        safe_strncpy(info->disks, json, MAX_DISKS_JSON_LEN);
         free(json);
     }
 }
@@ -183,9 +189,9 @@ static void collect_network_info(SystemInfo *info) {
     ULONG bufLen = 0;
     GetAdaptersInfo(NULL, &bufLen);
     if (bufLen == 0) {
-        strncpy(info->mac_address, "unknown", MAX_MAC_LEN - 1);
-        strncpy(info->ip_address, "unknown", MAX_IP_LEN - 1);
-        strncpy(info->network_interfaces, "[]", MAX_IFACES_JSON_LEN - 1);
+        safe_strncpy(info->mac_address, "unknown", MAX_MAC_LEN);
+        safe_strncpy(info->ip_address, "unknown", MAX_IP_LEN);
+        safe_strncpy(info->network_interfaces, "[]", MAX_IFACES_JSON_LEN);
         return;
     }
 
@@ -212,15 +218,15 @@ static void collect_network_info(SystemInfo *info) {
 
             /* 取第一个非回环适配器的MAC和IP */
             if (!first_mac_set && adapter->AddressLength >= 6) {
-                strncpy(info->mac_address, mac_str, MAX_MAC_LEN - 1);
+                safe_strncpy(info->mac_address, mac_str, MAX_MAC_LEN);
                 first_mac_set = 1;
             }
 
             /* IP地址：取第一个有IP的适配器 */
             if (!first_ip_set && adapter->IpAddressList.IpAddress.String[0] &&
                 strcmp(adapter->IpAddressList.IpAddress.String, "0.0.0.0") != 0) {
-                strncpy(info->ip_address,
-                        adapter->IpAddressList.IpAddress.String, MAX_IP_LEN - 1);
+                safe_strncpy(info->ip_address,
+                        adapter->IpAddressList.IpAddress.String, MAX_IP_LEN);
                 first_ip_set = 1;
             }
 
@@ -245,14 +251,14 @@ static void collect_network_info(SystemInfo *info) {
     free(adapterInfo);
 
     if (!first_mac_set)
-        strncpy(info->mac_address, "unknown", MAX_MAC_LEN - 1);
+        safe_strncpy(info->mac_address, "unknown", MAX_MAC_LEN);
     if (!first_ip_set)
-        strncpy(info->ip_address, "unknown", MAX_IP_LEN - 1);
+        safe_strncpy(info->ip_address, "unknown", MAX_IP_LEN);
 
     char *json = cJSON_PrintUnformatted(ifaces);
     cJSON_Delete(ifaces);
     if (json) {
-        strncpy(info->network_interfaces, json, MAX_IFACES_JSON_LEN - 1);
+        safe_strncpy(info->network_interfaces, json, MAX_IFACES_JSON_LEN);
         free(json);
     }
 }
@@ -274,7 +280,7 @@ SystemInfo* collector_collect(void) {
     collect_logged_in_user(info->logged_in_user, MAX_USERNAME_LEN);
 
     /* 编译时版本号 */
-    strncpy(info->agent_version, AGENT_VERSION, sizeof(info->agent_version) - 1);
+    safe_strncpy(info->agent_version, AGENT_VERSION, sizeof(info->agent_version));
 
     return info;
 }

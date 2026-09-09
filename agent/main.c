@@ -6,8 +6,15 @@
 #include "collector.h"
 #include "reporter.h"
 #include <windows.h>
+#include <shellapi.h>
 #include <stdio.h>
 #include <string.h>
+
+/* safe_strncpy: strncpy with guaranteed null-termination */
+static void safe_strncpy(char *dst, const char *src, size_t bufsize) {
+    strncpy(dst, src, bufsize - 1);
+    dst[bufsize - 1] = '\0';
+}
 
 #define MUTEX_NAME L"Global\\AssetAgent_SingleInstance"
 
@@ -15,8 +22,7 @@
 #define AGENT_VERSION "1.0.0"
 #endif
 
-/* 前向声明（service.c中实现） */
-extern FILE *g_log_file;
+/* g_log_file 在 config.h 中声明，service.c 中定义 */
 
 static void print_usage(void) {
     printf("Asset Agent v%s\n", AGENT_VERSION);
@@ -94,8 +100,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
             CloseHandle(hMutex);
             return 0;
         }
-        strncpy(config->server_url, server_url, MAX_URL_LEN - 1);
-        strncpy(config->api_key, api_key, MAX_KEY_LEN - 1);
+        safe_strncpy(config->server_url, server_url, MAX_URL_LEN);
+        safe_strncpy(config->api_key, api_key, MAX_KEY_LEN);
         SaveConfig(config);
     }
 

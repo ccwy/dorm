@@ -6,10 +6,19 @@
 #include <stdio.h>
 #include <string.h>
 
-/* MinGW SDK may not define CALG_SHA_256 when targeting older Windows */
+/* MinGW SDK may not define these when targeting older Windows */
 #ifndef CALG_SHA_256
 #define CALG_SHA_256 0x0000800c
 #endif
+#ifndef PROV_RSA_AES
+#define PROV_RSA_AES 24
+#endif
+
+/* safe_strncpy: strncpy with guaranteed null-termination */
+static void safe_strncpy(char *dst, const char *src, size_t bufsize) {
+    strncpy(dst, src, bufsize - 1);
+    dst[bufsize - 1] = '\0';
+}
 
 /* get_disk_serial: 获取系统盘卷序列号
  * 使用 GetVolumeInformationW 获取C:卷序列号
@@ -19,8 +28,7 @@ void get_disk_serial(char *buf, size_t bufsize) {
     if (GetVolumeInformationW(L"C:\\", NULL, 0, &serial, NULL, NULL, NULL, 0)) {
         snprintf(buf, bufsize, "%08lX", serial);
     } else {
-        strncpy(buf, "unknown", bufsize - 1);
-        buf[bufsize - 1] = '\0';
+        safe_strncpy(buf, "unknown", bufsize);
     }
 }
 
@@ -31,13 +39,13 @@ static void get_primary_mac(char *buf, size_t bufsize) {
     ULONG bufLen = 0;
     GetAdaptersInfo(NULL, &bufLen);
     if (bufLen == 0) {
-        strncpy(buf, "unknown", bufsize - 1);
+        safe_strncpy(buf, "unknown", bufsize);
         return;
     }
 
     PIP_ADAPTER_INFO adapterInfo = (PIP_ADAPTER_INFO)malloc(bufLen);
     if (!adapterInfo) {
-        strncpy(buf, "unknown", bufsize - 1);
+        safe_strncpy(buf, "unknown", bufsize);
         return;
     }
 
@@ -55,7 +63,7 @@ static void get_primary_mac(char *buf, size_t bufsize) {
         }
     }
     free(adapterInfo);
-    strncpy(buf, "unknown", bufsize - 1);
+    safe_strncpy(buf, "unknown", bufsize);
 }
 
 /* fingerprint_generate: 生成设备指纹
@@ -80,7 +88,7 @@ void fingerprint_generate(char *buf, size_t bufsize) {
     if (GetComputerNameExW(ComputerNameDnsHostname, whostname, &hostsize))
         wide_to_utf8(whostname, hostname, sizeof(hostname));
     else
-        strncpy(hostname, "unknown", sizeof(hostname) - 1);
+        safe_strncpy(hostname, "unknown", sizeof(hostname));
 
     /* 获取主MAC地址 */
     get_primary_mac(mac_address, sizeof(mac_address));
