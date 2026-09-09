@@ -72,7 +72,11 @@ def check_agent_enabled():
         Response: Agent系统已禁用，返回403 JSON响应
     """
     from models.system_config.system_config import SystemConfig
-    enabled = SystemConfig.get_config_value('AGENT_ENABLED', default='true').lower() == 'true'
+    enabled = SystemConfig.get_config_value('AGENT_ENABLED', default='true')
+    if isinstance(enabled, bool):
+        enabled = enabled
+    else:
+        enabled = str(enabled).lower() == 'true'
     if not enabled:
         return jsonify({"success": False, "message": "Agent系统已禁用"}), 403
     return None
