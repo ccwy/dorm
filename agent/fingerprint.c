@@ -6,13 +6,18 @@
 #include <stdio.h>
 #include <string.h>
 
+/* MinGW SDK may not define CALG_SHA_256 when targeting older Windows */
+#ifndef CALG_SHA_256
+#define CALG_SHA_256 0x0000800c
+#endif
+
 /* get_disk_serial: 获取系统盘卷序列号
  * 使用 GetVolumeInformationW 获取C:卷序列号
  */
 void get_disk_serial(char *buf, size_t bufsize) {
     DWORD serial = 0;
     if (GetVolumeInformationW(L"C:\\", NULL, 0, &serial, NULL, NULL, NULL, 0)) {
-        snprintf(buf, bufsize, "%08X", serial);
+        snprintf(buf, bufsize, "%08lX", serial);
     } else {
         strncpy(buf, "unknown", bufsize - 1);
         buf[bufsize - 1] = '\0';
