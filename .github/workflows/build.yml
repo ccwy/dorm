@@ -51,10 +51,45 @@ jobs:
       - name: 📥 检出代码
         uses: actions/checkout@v7
 
-      - name: 🔧 Setup MinGW-w64
-        uses: egor-tensin/setup-mingw@v2
-        with:
-          platform: ${{ matrix.arch }}
+      - name: 🔧 Install MinGW-w64 (${{ matrix.arch }})
+        shell: pwsh
+        run: |
+          # MinGW v16.1.0+ post-install script attempts to remove libpthread.dll.a
+          # which no longer exists in newer builds, causing a non-zero exit code.
+          # The actual MinGW installation succeeds despite this error.
+          if ('${{ matrix.arch }}' -eq 'x86') {
+            choco uninstall mingw -y --no-progress 2>$null
+            choco install mingw -y --no-progress --x86 --allow-downgrade 2>$null
+          } else {
+            choco install mingw -y --no-progress --allow-downgrade 2>$null
+          }
+        continue-on-error: true
+
+      - name: 🔧 Configure MinGW-w64 (${{ matrix.arch }})
+        shell: pwsh
+        run: |
+          $mingwDir = if ('${{ matrix.arch }}' -eq 'x64') { 'mingw64' } else { 'mingw32' }
+          $installPaths = @(
+            "C:\ProgramData\mingw64\$mingwDir\bin"
+            "C:\ProgramData\chocolatey\lib\mingw\tools\install\$mingwDir\bin"
+          )
+
+          foreach ($path in $installPaths) {
+            if (Test-Path $path) {
+              echo $path >> $env:GITHUB_PATH
+              Write-Host "✅ MinGW found at: $path"
+
+              $gccExe = Join-Path $path 'gcc.exe'
+              if (Test-Path $gccExe) {
+                Write-Host "✅ GCC: $gccExe"
+                & $gccExe --version
+                exit 0
+              }
+            }
+          }
+
+          Write-Error "❌ MinGW/GCC not found after installation"
+          exit 1
 
       - name: 🔨 Build Agent (${{ matrix.arch }})
         run: |
