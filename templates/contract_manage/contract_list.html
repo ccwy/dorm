@@ -244,10 +244,10 @@
                                     </div>
                                 </td>
                                 <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-600">{{ contract.contract_name or '-' }}</td>
-                                <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-600">{{ contract.party_a_name }}</td>
-                                <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-600">{{ contract.party_b_name }}</td>
+                                <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-600">{% if contract.party_a_id %}<a href="{{ url_for('supplier.detail', id=contract.party_a_id) }}" class="text-blue-600 hover:text-blue-800 hover:underline">{{ contract.party_a_name }}</a>{% else %}{{ contract.party_a_name }}{% endif %}</td>
+                                <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-600">{% if contract.party_b_id %}<a href="{{ url_for('supplier.detail', id=contract.party_b_id) }}" class="text-blue-600 hover:text-blue-800 hover:underline">{{ contract.party_b_name }}</a>{% else %}{{ contract.party_b_name }}{% endif %}</td>
                                 <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-600">{{ contract.contract_type or '-' }}</td>
-                                <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-600">{{ contract.storage_location_name or '-' }}</td>
+                                <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-600">{% if contract.storage_location_id %}<a href="{{ url_for('storage_location.detail', id=contract.storage_location_id) }}" class="text-blue-600 hover:text-blue-800 hover:underline">{{ contract.storage_location_name or '-' }}</a>{% else %}{{ contract.storage_location_name or '-' }}{% endif %}</td>
                                 <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-600">
                                     {% if contract.contract_amount %}
                                     {{ '{:,.2f}'.format(contract.contract_amount) }}

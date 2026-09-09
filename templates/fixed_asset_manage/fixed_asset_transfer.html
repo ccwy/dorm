@@ -122,19 +122,19 @@
                     <tbody>
                         {% for item in asset.stock_items %}
                         <tr class="border-b border-gray-100 hover:bg-gray-50">
-                            <td class="px-3 py-2">
+                            <td class="px-3 py-2 whitespace-nowrap">
                                 <input type="radio" name="from_stock_item_id" value="{{ item.id }}"
                                        {% if loop.first %}checked{% endif %}
                                        data-quantity="{{ item.quantity }}"
                                        class="from-stock-radio">
                             </td>
-                            <td class="px-3 py-2 text-gray-800">{{ item.storage_location or '-' }}</td>
-                            <td class="px-3 py-2 text-gray-800">{{ item.room_display or '-' }}</td>
-                            <td class="px-3 py-2 text-gray-800">{{ item.company or '-' }}</td>
-                            <td class="px-3 py-2 text-gray-800">{{ item.department_using or '-' }}</td>
-                            <td class="px-3 py-2 text-gray-800">{{ item.department_owning or '-' }}</td>
-                            <td class="px-3 py-2 text-gray-800">{{ item.responsible_user_name or item.responsible_person or '-' }}</td>
-                            <td class="px-3 py-2 text-right font-medium text-gray-800">{{ item.quantity }}</td>
+                            <td class="px-3 py-2 whitespace-nowrap text-gray-800">{{ item.storage_location or '-' }}</td>
+                            <td class="px-3 py-2 whitespace-nowrap text-gray-800">{{ item.room_display or '-' }}</td>
+                            <td class="px-3 py-2 whitespace-nowrap text-gray-800">{{ item.company or '-' }}</td>
+                            <td class="px-3 py-2 whitespace-nowrap text-gray-800">{{ item.department_using or '-' }}</td>
+                            <td class="px-3 py-2 whitespace-nowrap text-gray-800">{{ item.department_owning or '-' }}</td>
+                            <td class="px-3 py-2 whitespace-nowrap text-gray-800">{{ item.responsible_user_name or item.responsible_person or '-' }}</td>
+                            <td class="px-3 py-2 whitespace-nowrap text-right font-medium text-gray-800">{{ item.quantity }}</td>
                         </tr>
                         {% endfor %}
                     </tbody>

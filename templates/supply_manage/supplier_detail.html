@@ -208,7 +208,10 @@
                                 <p class="text-sm text-gray-600 mt-1">{{ record.summary }}</p>
                                 {% endif %}
                                 {% if record.change_detail %}
-                                <p class="text-xs text-gray-400 mt-1">{{ record.change_detail }}</p>
+                                <details class="mt-1">
+                                    <summary class="text-xs text-blue-500 cursor-pointer hover:text-blue-700 select-none">查看详情</summary>
+                                    <div class="mt-1 text-xs text-gray-500 bg-gray-50 rounded p-2 border border-gray-100 overflow-x-auto change-detail-content" data-detail='{{ record.change_detail }}' data-type='{{ record.operation_type }}'></div>
+                                </details>
                                 {% endif %}
                             </div>
                         </div>
@@ -295,6 +298,63 @@
                 document.getElementById('toggleStatusForm').submit();
             }
         }
+
+        // 解析操作记录的change_detail JSON，渲染为可读表格
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        const fieldDisplayNames = {
+            'name': '供应商名称', 'short_name': '简称', 'contact_person': '联系人',
+            'contact_phone': '联系电话', 'email': '邮箱', 'address': '地址',
+            'status': '状态', 'handler_user_id': '跟进人', 'remark': '备注',
+            'tax_rate': '税率', 'credit_code': '统一社会信用代码',
+            'legal_representative': '法定代表人', 'field': '字段',
+            'old_value': '原值', 'new_value': '新值'
+        };
+
+        document.querySelectorAll('.change-detail-content').forEach(function(el) {
+            try {
+                const detail = JSON.parse(el.dataset.detail);
+                if (!detail) return;
+
+                let html = '';
+                // 编辑操作: change_detail是数组 [{'field': 'name', 'change': 'name: old → new'}]
+                if (Array.isArray(detail)) {
+                    html = '<table class="w-full text-xs border-collapse">';
+                    html += '<thead><tr class="border-b border-gray-200"><th class="text-left py-1 pr-2 text-gray-600">变更内容</th></tr></thead><tbody>';
+                    detail.forEach(function(item) {
+                        const changeText = item.change || '';
+                        html += '<tr class="border-b border-gray-100">';
+                        html += '<td class="py-1 text-gray-600">' + escapeHtml(changeText) + '</td>';
+                        html += '</tr>';
+                    });
+                    html += '</tbody></table>';
+                } else if (typeof detail === 'object') {
+                    // 其他操作: change_detail是对象，如状态变更 {'field': 'status', 'old_value': '启用', 'new_value': '停用'}
+                    html = '<table class="w-full text-xs border-collapse"><tbody>';
+                    for (const [key, value] of Object.entries(detail)) {
+                        const displayName = fieldDisplayNames[key] || key;
+                        html += '<tr class="border-b border-gray-100">';
+                        html += '<td class="py-1 pr-2 font-medium text-gray-700 whitespace-nowrap">' + escapeHtml(displayName) + '</td>';
+                        html += '<td class="py-1 text-gray-600">' + escapeHtml(String(value)) + '</td>';
+                        html += '</tr>';
+                    }
+                    html += '</tbody></table>';
+                }
+
+                if (html) {
+                    el.innerHTML = html;
+                } else {
+                    el.textContent = el.dataset.detail;
+                }
+            } catch (e) {
+                // JSON解析失败，显示原始文本
+                el.textContent = el.dataset.detail;
+            }
+        });
     </script>
 </body>
 </html>

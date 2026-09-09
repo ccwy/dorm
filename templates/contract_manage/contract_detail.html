@@ -162,7 +162,7 @@
                         </div>
                         <div>
                             <span class="text-sm text-gray-500">存放位置</span>
-                            <p class="font-medium text-gray-800">{{ contract.storage_location_name or '-' }}</p>
+                            <p class="font-medium text-gray-800">{% if contract.storage_location_id %}<a href="{{ url_for('storage_location.detail', id=contract.storage_location_id) }}" class="text-blue-600 hover:text-blue-800 hover:underline">{{ contract.storage_location_name or '-' }}</a>{% else %}{{ contract.storage_location_name or '-' }}{% endif %}</p>
                         </div>
                         <div>
                             <span class="text-sm text-gray-500">状态</span>
@@ -195,7 +195,7 @@
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         <div>
                             <span class="text-sm text-gray-500">甲方（我方）</span>
-                            <p class="font-medium text-gray-800">{{ contract.party_a.name if contract.party_a else '-' }}</p>
+                            <p class="font-medium text-gray-800">{% if contract.party_a %}<a href="{{ url_for('supplier.detail', id=contract.party_a_id) }}" class="text-blue-600 hover:text-blue-800 hover:underline">{{ contract.party_a.name }}</a>{% else %}-{% endif %}</p>
                             {% if contract.party_a_contact_person or contract.party_a_contact_phone %}
                             <p class="text-xs text-gray-400">联系人：{{ contract.party_a_contact_person or '-' }} {{ contract.party_a_contact_phone or '' }}</p>
                             {% endif %}
@@ -205,7 +205,7 @@
                         </div>
                         <div>
                             <span class="text-sm text-gray-500">乙方（对方）</span>
-                            <p class="font-medium text-gray-800">{{ contract.party_b.name if contract.party_b else '-' }}</p>
+                            <p class="font-medium text-gray-800">{% if contract.party_b %}<a href="{{ url_for('supplier.detail', id=contract.party_b_id) }}" class="text-blue-600 hover:text-blue-800 hover:underline">{{ contract.party_b.name }}</a>{% else %}-{% endif %}</p>
                             {% if contract.party_b_contact_person or contract.party_b_contact_phone %}
                             <p class="text-xs text-gray-400">联系人：{{ contract.party_b_contact_person or '-' }} {{ contract.party_b_contact_phone or '' }}</p>
                             {% endif %}

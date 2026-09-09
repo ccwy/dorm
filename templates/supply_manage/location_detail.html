@@ -172,16 +172,16 @@
                                 {% for detail in stock_details %}
                                 <tr class="hover:bg-gray-50 transition-colors">
                                     <td class="px-4 py-3 text-gray-500">{{ loop.index }}</td>
-                                    <td class="px-4 py-3 text-primary">
+                                    <td class="px-4 py-3 whitespace-nowrap text-primary">
                                         <a href="{{ url_for('supply_item.detail', id=detail.item_id) }}" class="hover:underline">{{ detail.item.item_number if detail.item and detail.item.item_number else '-' }}</a>
                                     </td>
-                                    <td class="px-4 py-3">
+                                    <td class="px-4 py-3 whitespace-nowrap">
                                         <a href="{{ url_for('supply_item.detail', id=detail.item_id) }}" class="text-primary hover:underline">
                                             {{ detail.item_name }}
                                         </a>
                                     </td>
-                                    <td class="px-4 py-3 text-gray-600">{{ detail.item.specification if detail.item and detail.item.specification else '-' }}</td>
-                                    <td class="px-4 py-3 font-medium text-gray-900">{{ detail.quantity }}</td>
+                                    <td class="px-4 py-3 whitespace-nowrap text-gray-600">{{ detail.item.specification if detail.item and detail.item.specification else '-' }}</td>
+                                    <td class="px-4 py-3 whitespace-nowrap font-medium text-gray-900">{{ detail.quantity }}</td>
                                 </tr>
                                 {% endfor %}
                             </tbody>
@@ -214,16 +214,16 @@
                                 {% for item in asset_stock_items %}
                                 <tr class="hover:bg-gray-50 transition-colors">
                                     <td class="px-4 py-3 text-gray-500">{{ loop.index }}</td>
-                                    <td class="px-4 py-3">
+                                    <td class="px-4 py-3 whitespace-nowrap">
                                         <a href="{{ url_for('fixed_asset.detail', id=item.asset_id) }}" class="text-primary hover:underline">
                                             {{ item.asset.asset_name if item.asset else '-' }}
                                         </a>
                                     </td>
-                                    <td class="px-4 py-3 text-gray-700">{{ item.asset.display_number if item.asset else '-' }}</td>
-                                    <td class="px-4 py-3 text-gray-700">{{ item.asset.asset_category if item.asset else '-' }}</td>
-                                    <td class="px-4 py-3 font-medium text-gray-900">{{ item.quantity }} {{ item.asset.unit if item.asset and item.asset.unit else '台' }}</td>
-                                    <td class="px-4 py-3 font-medium text-gray-900">{{ '%.2f'|format(item.asset.original_value|float) if item.asset and item.asset.original_value else '0.00' }}</td>
-                                    <td class="px-4 py-3">
+                                    <td class="px-4 py-3 whitespace-nowrap text-gray-700">{{ item.asset.display_number if item.asset else '-' }}</td>
+                                    <td class="px-4 py-3 whitespace-nowrap text-gray-700">{{ item.asset.asset_category if item.asset else '-' }}</td>
+                                    <td class="px-4 py-3 whitespace-nowrap font-medium text-gray-900">{{ item.quantity }} {{ item.asset.unit if item.asset and item.asset.unit else '台' }}</td>
+                                    <td class="px-4 py-3 whitespace-nowrap font-medium text-gray-900">{{ '%.2f'|format(item.asset.original_value|float) if item.asset and item.asset.original_value else '0.00' }}</td>
+                                    <td class="px-4 py-3 whitespace-nowrap">
                                         {% if item.asset %}
                                         <span class="px-2 py-0.5 rounded-full text-xs font-medium
                                             {% if item.asset.status == '在用' %}bg-green-100 text-green-800
@@ -272,17 +272,17 @@
                                 {% for contract in contracts %}
                                 <tr class="hover:bg-gray-50 transition-colors">
                                     <td class="px-4 py-3 text-gray-500">{{ loop.index }}</td>
-                                    <td class="px-4 py-3">
+                                    <td class="px-4 py-3 whitespace-nowrap">
                                         <a href="{{ url_for('contract.detail', id=contract.id) }}" class="text-primary hover:underline">
                                             {{ contract.contract_name }}
                                         </a>
                                     </td>
-                                    <td class="px-4 py-3 text-gray-700">{{ contract.contract_number or '-' }}</td>
-                                    <td class="px-4 py-3 text-gray-700">{{ contract.contract_type or '-' }}</td>
-                                    <td class="px-4 py-3 font-medium text-gray-900">{{ '%.2f'|format(contract.contract_amount|float) if contract.contract_amount else '0.00' }}</td>
-                                    <td class="px-4 py-3 text-gray-700">{{ contract.signing_date.strftime('%Y-%m-%d') if contract.signing_date else '-' }}</td>
-                                    <td class="px-4 py-3 text-gray-700">{{ contract.end_date.strftime('%Y-%m-%d') if contract.end_date else '-' }}</td>
-                                    <td class="px-4 py-3">
+                                    <td class="px-4 py-3 whitespace-nowrap text-gray-700">{{ contract.contract_number or '-' }}</td>
+                                    <td class="px-4 py-3 whitespace-nowrap text-gray-700">{{ contract.contract_type or '-' }}</td>
+                                    <td class="px-4 py-3 whitespace-nowrap font-medium text-gray-900">{{ '%.2f'|format(contract.contract_amount|float) if contract.contract_amount else '0.00' }}</td>
+                                    <td class="px-4 py-3 whitespace-nowrap text-gray-700">{{ contract.signing_date.strftime('%Y-%m-%d') if contract.signing_date else '-' }}</td>
+                                    <td class="px-4 py-3 whitespace-nowrap text-gray-700">{{ contract.end_date.strftime('%Y-%m-%d') if contract.end_date else '-' }}</td>
+                                    <td class="px-4 py-3 whitespace-nowrap">
                                         <span class="px-2 py-0.5 rounded-full text-xs font-medium
                                             {% if contract.status == '草稿' %}bg-gray-100 text-gray-800
                                             {% elif contract.status == '生效中' %}bg-green-100 text-green-800
