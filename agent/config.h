@@ -3,6 +3,7 @@
 #define CONFIG_H
 
 #include "cJSON.h"
+#include <stdio.h>
 
 #define MAX_URL_LEN      256
 #define MAX_KEY_LEN      64
