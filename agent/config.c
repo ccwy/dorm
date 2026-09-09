@@ -45,8 +45,7 @@ static int local_config_path(char *buf, size_t bufsize) {
 /* parse_config_from_json: 从cJSON对象解析配置 */
 /* safe_strncpy: strncpy with guaranteed null-termination */
 static void safe_strncpy(char *dst, const char *src, size_t bufsize) {
-    strncpy(dst, src, bufsize - 1);
-    dst[bufsize - 1] = '\0';
+    snprintf(dst, bufsize, "%s", src);
 }
 
 static void parse_config_from_json(cJSON *json, AgentConfig *config) {

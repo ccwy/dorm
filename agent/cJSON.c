@@ -39,6 +39,7 @@
 #endif
 
 #include "cJSON.h"
+#include <float.h>
 
 /* define our own boolean type */
 #define true ((int)1)

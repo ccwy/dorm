@@ -9,8 +9,7 @@
 
 /* safe_strncpy: strncpy with guaranteed null-termination */
 static void safe_strncpy(char *dst, const char *src, size_t bufsize) {
-    strncpy(dst, src, bufsize - 1);
-    dst[bufsize - 1] = '\0';
+    snprintf(dst, bufsize, "%s", src);
 }
 
 /* ---- SSL证书验证相关常量（兼容旧版SDK） ---- */
@@ -241,7 +240,8 @@ static void get_timestamp(char *buf, size_t bufsize) {
     SYSTEMTIME st;
     GetSystemTime(&st);
     snprintf(buf, bufsize, "%04d-%02d-%02dT%02d:%02d:%02dZ",
-             st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond);
+             (int)st.wYear, (int)st.wMonth, (int)st.wDay,
+             (int)st.wHour, (int)st.wMinute, (int)st.wSecond);
 }
 
 /* ---- 创建Reporter实例 ---- */

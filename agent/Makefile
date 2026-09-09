@@ -19,6 +19,10 @@ all: $(TARGET)
 $(TARGET): $(OBJECTS)
 	$(CC) $(LDFLAGS) -o $@ $^ $(LIBS)
 
+# cJSON is a third-party library — suppress its internal warnings
+cJSON.o: cJSON.c cJSON.h
+	$(CC) $(CFLAGS) -Wno-unused-variable -Wno-unused-but-set-variable -Wno-unused-function -c -o $@ $<
+
 %.o: %.c $(HEADERS)
 	$(CC) $(CFLAGS) -c -o $@ $<
 
