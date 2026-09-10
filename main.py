@@ -12,6 +12,49 @@ def _stamp(label):
     elapsed = time.perf_counter() - _startup_time
     logging.info(f"[启动计时] {label}: {elapsed:.3f}s")
 
+# ===== VAPID密钥自动检查 =====
+# 必须在config导入前执行，因为config.py从环境变量读取VAPID配置
+# 如果环境变量和持久化文件中都没有VAPID密钥，则自动生成并持久化
+from utils.generate_vapid_keys import ensure_vapid_keys
+ensure_vapid_keys()
+
+# ===== PWA图标检查 =====
+# 非打包环境下，如果PWA图标缺失则尝试自动生成（兜底机制）
+# 打包环境下图标已内嵌到可执行文件中，无需运行时生成
+def _ensure_pwa_icons():
+    """检查PWA图标是否存在，缺失时尝试自动生成（仅非打包环境）"""
+    if getattr(sys, 'frozen', False):
+        return  # 打包环境下图标已内嵌，跳过
+
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    pwa_dir = os.path.join(base_dir, 'static', 'images', 'pwa')
+
+    # 检查是否至少有一个PWA图标存在
+    if os.path.exists(pwa_dir):
+        icon_files = [f for f in os.listdir(pwa_dir) if f.startswith('icon-') and f.endswith('.png')]
+        if icon_files:
+            return  # 图标已存在，无需生成
+
+    # 图标缺失，尝试生成
+    print("[PWA] PWA图标缺失，尝试自动生成...")
+    script_path = os.path.join(base_dir, 'static', 'images', 'pwa', 'generate_pwa_icons.py')
+    if not os.path.exists(script_path):
+        print(f"[PWA] 图标生成脚本不存在: {script_path}")
+        return
+
+    try:
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("generate_pwa_icons", script_path)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        module.main()
+        print("[PWA] PWA图标自动生成完成")
+    except Exception as e:
+        print(f"[PWA] PWA图标自动生成失败（非致命错误）: {e}")
+        print("[PWA] PWA安装功能可能不可用，请手动运行: python static/images/pwa/generate_pwa_icons.py")
+
+_ensure_pwa_icons()
+
 # 导入配置类
 from config import Config, config
 _stamp("导入config")

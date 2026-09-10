@@ -1,6 +1,9 @@
 // PWA Service Worker - 仅用于推送通知，不使用离线缓存
 const CACHE_NAME = 'dorm-pwa-v1';
 
+// 从URL参数读取系统标题
+const swTitle = new URL(self.location.href).searchParams.get('title') || '宿舍管理系统';
+
 // 安装事件 - 立即激活
 self.addEventListener('install', (event) => {
     console.log('[SW] Service Worker 安装中...');
@@ -17,7 +20,7 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('push', (event) => {
     console.log('[SW] 收到推送通知');
     let data = {
-        title: '宿舍管理系统',
+        title: swTitle,
         body: '您有新的通知',
         icon: '/static/images/pwa/icon-192x192.png',
         url: '/'

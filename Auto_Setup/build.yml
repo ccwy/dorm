@@ -80,6 +80,11 @@ jobs:
           pip install -r requirements.txt
           pip install pyinstaller==6.16
 
+      - name: 🖼️ 生成PWA图标
+        run: |
+          python static/images/pwa/generate_pwa_icons.py
+        continue-on-error: true
+
       - name: 🔨 创建 data 目录
         run: |
           if (-not (Test-Path "data")) {

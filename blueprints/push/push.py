@@ -3,7 +3,7 @@ Web推送通知蓝图
 
 提供推送订阅管理API和测试推送功能。
 """
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, Response
 from flask_login import login_required, current_user
 from utils.db import db
 from models.push.push_subscription import PushSubscription
@@ -14,6 +14,38 @@ logger = logging.getLogger(__name__)
 
 # 创建推送通知蓝图
 push_bp = Blueprint('push', __name__, url_prefix='/push')
+
+
+@push_bp.route('/manifest.json')
+def manifest():
+    """动态生成PWA manifest.json，使用系统配置的标题"""
+    from utils.db_config import DatabaseConfig
+    config = DatabaseConfig.load_config()
+    system_title = config.get('SYSTEM_TITLE', '行政后勤管理系统')
+    short_name = system_title[:12] if len(system_title) > 12 else system_title
+
+    manifest_data = {
+        "name": system_title,
+        "short_name": short_name,
+        "description": system_title,
+        "start_url": "/",
+        "display": "standalone",
+        "background_color": "#ffffff",
+        "theme_color": "#3b82f6",
+        "orientation": "any",
+        "icons": [
+            {"src": "/static/images/pwa/icon-72x72.png", "sizes": "72x72", "type": "image/png"},
+            {"src": "/static/images/pwa/icon-96x96.png", "sizes": "96x96", "type": "image/png"},
+            {"src": "/static/images/pwa/icon-128x128.png", "sizes": "128x128", "type": "image/png"},
+            {"src": "/static/images/pwa/icon-144x144.png", "sizes": "144x144", "type": "image/png"},
+            {"src": "/static/images/pwa/icon-152x152.png", "sizes": "152x152", "type": "image/png"},
+            {"src": "/static/images/pwa/icon-192x192.png", "sizes": "192x192", "type": "image/png"},
+            {"src": "/static/images/pwa/icon-384x384.png", "sizes": "384x384", "type": "image/png"},
+            {"src": "/static/images/pwa/icon-512x512.png", "sizes": "512x512", "type": "image/png"}
+        ]
+    }
+    import json
+    return Response(json.dumps(manifest_data, ensure_ascii=False), mimetype='application/manifest+json')
 
 
 @push_bp.route('/subscribe', methods=['POST'])
@@ -122,11 +154,14 @@ def vapid_public_key():
 def test_push():
     """测试推送通知"""
     try:
+        from utils.db_config import DatabaseConfig
+        config = DatabaseConfig.load_config()
+        system_title = config.get('SYSTEM_TITLE', '行政后勤管理系统')
         user_id = current_user.id
         result = send_push_notification(
             user_id=user_id,
             title='推送通知测试',
-            body=f'这是一条来自宿舍管理系统的测试推送通知，发送给用户 {current_user.name}。',
+            body=f'这是一条来自{system_title}的测试推送通知，发送给用户 {current_user.name}。',
             url='/'
         )
 
