@@ -93,7 +93,7 @@
     // 检查VAPID公钥是否可用
     function checkVapidKey() {
         return fetch('/push/vapid-public-key', { credentials: 'include' })
-            .then(function(res) { return res.json(); })
+            .then(function(res) { if (!res.ok) return null; return res.json(); })
             .then(function(data) {
                 if (data.success && data.publicKey) {
                     return data.publicKey;
@@ -179,7 +179,7 @@
                             keys: subJson.keys
                         })
                     });
-                }).then(function(res) { return res.json(); }).then(function(data) {
+                }).then(function(res) { if (!res.ok) return null; return res.json(); }).then(function(data) {
                     if (data.success) {
                         updateBellUI(true);
                         showToast('推送通知已开启', 'success');

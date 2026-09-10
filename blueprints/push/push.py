@@ -135,14 +135,13 @@ def unsubscribe():
 
 
 @push_bp.route('/vapid-public-key', methods=['GET'])
-@login_required
 def vapid_public_key():
     """获取VAPID公钥"""
     try:
         from flask import current_app
         public_key = current_app.config.get('VAPID_PUBLIC_KEY', '')
         if not public_key:
-            return jsonify({'success': False, 'message': 'VAPID公钥未配置'}), 404
+            return jsonify({'success': False, 'message': 'VAPID公钥未配置'}), 503
         return jsonify({'success': True, 'publicKey': public_key})
     except Exception as e:
         logger.error(f"获取VAPID公钥失败: {e}")
