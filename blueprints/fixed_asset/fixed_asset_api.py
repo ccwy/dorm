@@ -103,6 +103,10 @@ def get_asset_list():
                 "responsible_user_id": asset.responsible_user_id,
                 "responsible_user_name": asset.responsible_user_name,
                 "asset_source": asset.asset_source,
+            }
+            asset_list.append(asset_data)
+
+        response = {
             "success": True,
             "data": asset_list,
             "pagination": {

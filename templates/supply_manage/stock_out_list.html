@@ -78,6 +78,16 @@
                         <i class="fa fa-trash mr-2"></i>批量删除
                     </button>
                     {% endif %}
+                    {% if approval_enabled and current_user.has_permission('supply.approve') %}
+                    <button id="batchApproveBtn" onclick="batchApproveStockOut()" class="btn-hover bg-green-600 text-white px-4 py-2 rounded-md flex items-center disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                        <i class="fa fa-check mr-2"></i>批量审核
+                    </button>
+                    {% endif %}
+                    {% if unapprove_enabled and current_user.has_permission('supply.unapprove') %}
+                    <button id="batchUnapproveBtn" onclick="batchUnapproveStockOut()" class="btn-hover bg-orange-500 text-white px-4 py-2 rounded-md flex items-center disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                        <i class="fa fa-undo mr-2"></i>批量反审核
+                    </button>
+                    {% endif %}
                     {% if current_user.has_permission('supply.import') %}
                     <button id="importBtn" class="btn-hover bg-info text-white px-4 py-2 rounded-md flex items-center cursor-pointer">
                         <i class="fa fa-upload mr-2"></i>导入
@@ -337,6 +347,16 @@
             <input type="hidden" name="selected_ids" id="batchDeleteIds">
         </form>
 
+        <!-- 批量审核隐藏表单 -->
+        <form id="batchApproveForm" method="post" action="{{ url_for('stock_out.batch_approve_stock_outs') }}" style="display:none;">
+            <input type="hidden" name="selected_ids" id="batchApproveIds">
+        </form>
+
+        <!-- 批量反审核隐藏表单 -->
+        <form id="batchUnapproveForm" method="post" action="{{ url_for('stock_out.batch_unapprove_stock_outs') }}" style="display:none;">
+            <input type="hidden" name="selected_ids" id="batchUnapproveIds">
+        </form>
+
         <!-- 审核/取消隐藏表单 -->
         <form id="approveForm" method="post" style="display:none;">
         </form>
@@ -363,6 +383,14 @@
             if (btn) {
                 btn.disabled = checked.length === 0;
             }
+            const approveBtn = document.getElementById('batchApproveBtn');
+            if (approveBtn) {
+                approveBtn.disabled = checked.length === 0;
+            }
+            const unapproveBtn = document.getElementById('batchUnapproveBtn');
+            if (unapproveBtn) {
+                unapproveBtn.disabled = checked.length === 0;
+            }
         }
 
         // 批量删除
@@ -373,6 +401,26 @@
             const ids = Array.from(checked).map(cb => cb.value).join(',');
             document.getElementById('batchDeleteIds').value = ids;
             document.getElementById('batchDeleteForm').submit();
+        }
+
+        // 批量审核出库单
+        function batchApproveStockOut() {
+            const checked = document.querySelectorAll('.stock-out-checkbox:checked');
+            if (checked.length === 0) return;
+            if (!confirm(`确认审核选中的 ${checked.length} 条出库单？审核后库存将相应减少。`)) return;
+            const ids = Array.from(checked).map(cb => cb.value).join(',');
+            document.getElementById('batchApproveIds').value = ids;
+            document.getElementById('batchApproveForm').submit();
+        }
+
+        // 批量反审核出库单
+        function batchUnapproveStockOut() {
+            const checked = document.querySelectorAll('.stock-out-checkbox:checked');
+            if (checked.length === 0) return;
+            if (!confirm(`确认反审核选中的 ${checked.length} 条出库单？反审核后库存将回滚，单据变为待审核状态，可重新编辑。`)) return;
+            const ids = Array.from(checked).map(cb => cb.value).join(',');
+            document.getElementById('batchUnapproveIds').value = ids;
+            document.getElementById('batchUnapproveForm').submit();
         }
 
         // 审核出库单

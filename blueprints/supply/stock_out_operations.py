@@ -549,6 +549,155 @@ def cancel_stock_out(id):
         return redirect(url_for('stock_out.detail_stock_out', id=id))
 
 
+# ========== 路由：批量审核出库单 ==========
+@stock_out_bp.route('/operations/batch-approve', methods=['POST'])
+@login_required
+@require_permission('supply.approve')
+def batch_approve_stock_outs():
+    """批量审核出库单（仅待审核状态可审核）"""
+    try:
+        # 检查系统配置是否允许审核
+        from models.system_config.system_config import SystemConfig
+        approval_enabled = SystemConfig.get_config_value('STOCK_OUT_APPROVAL_ENABLED', True)
+        if not approval_enabled:
+            flash('出库单审核功能已关闭，请联系管理员开启', 'warning')
+            return redirect(url_for('stock_out.list_stock_outs'))
+
+        selected_ids_str = request.form.get('selected_ids', '')
+        if not selected_ids_str:
+            flash('未选择要审核的出库单', 'warning')
+            return redirect(url_for('stock_out.list_stock_outs'))
+
+        ids = selected_ids_str.split(',')
+        success_count = 0
+        fail_count = 0
+        fail_messages = []
+
+        for id in ids:
+            stock_out = StockOut.query.get(int(id.strip()))
+            if stock_out and stock_out.status == '待审核':
+                try:
+                    result = StockOut.approve(id.strip(), current_user.id, None)
+                    if result is not None and not (isinstance(result, dict) and 'error' in result):
+                        success_count += 1
+                    else:
+                        fail_count += 1
+                        if isinstance(result, dict) and 'error' in result:
+                            fail_messages.append(f'{stock_out.stock_out_number}: {result.get("error", "审核失败")}')
+                        else:
+                            fail_messages.append(f'{stock_out.stock_out_number}: 审核失败')
+                except Exception as e:
+                    fail_count += 1
+                    fail_messages.append(f'{stock_out.stock_number}: {str(e)}')
+            else:
+                fail_count += 1
+                if stock_out:
+                    fail_messages.append(f'{stock_out.stock_out_number}: 状态不是待审核')
+
+        db.session.commit()
+
+        log_operation(
+            user_id=current_user.id,
+            module='stock_out',
+            operation_type='stock_out_batch_approve',
+            action=f"批量审核出库单: 成功{success_count}条, 失败{fail_count}条",
+            result="成功"
+        )
+
+        msg = f'批量审核完成: 成功{success_count}条, 失败{fail_count}条'
+        if fail_messages:
+            msg += '（' + '；'.join(fail_messages[:5]) + '）'
+        flash(msg, 'success' if fail_count == 0 else 'warning')
+        logging.info(f"批量审核出库单，成功{success_count}条, 失败{fail_count}条")
+        return redirect(url_for('stock_out.list_stock_outs'))
+
+    except Exception as e:
+        db.session.rollback()
+        log_operation(
+            user_id=current_user.id,
+            module='stock_out',
+            operation_type='stock_out_batch_approve',
+            action=f"批量审核出库单失败: {str(e)}",
+            result="失败"
+        )
+        flash(f'批量审核失败: {str(e)}', 'danger')
+        logging.error(f"批量审核出库单失败: {str(e)}\n{traceback.format_exc()}")
+        return redirect(url_for('stock_out.list_stock_outs'))
+
+
+# ========== 路由：批量反审核出库单 ==========
+@stock_out_bp.route('/operations/batch-unapprove', methods=['POST'])
+@login_required
+@require_permission('supply.unapprove')
+def batch_unapprove_stock_outs():
+    """批量反审核出库单（仅已审核状态可反审核，反审核后状态变为待审核，库存回滚）"""
+    try:
+        # 检查系统配置是否允许反审核
+        from models.system_config.system_config import SystemConfig
+        unapprove_enabled = SystemConfig.get_config_value('STOCK_OUT_UNAPPROVE_ENABLED', True)
+        if not unapprove_enabled:
+            flash('出库单反审核功能已关闭，请联系管理员开启', 'warning')
+            return redirect(url_for('stock_out.list_stock_outs'))
+
+        selected_ids_str = request.form.get('selected_ids', '')
+        if not selected_ids_str:
+            flash('未选择要反审核的出库单', 'warning')
+            return redirect(url_for('stock_out.list_stock_outs'))
+
+        ids = selected_ids_str.split(',')
+        success_count = 0
+        fail_count = 0
+        fail_messages = []
+
+        for id in ids:
+            stock_out = StockOut.query.get(int(id.strip()))
+            if stock_out and stock_out.status == '已审核':
+                try:
+                    result = StockOut.unapprove(id.strip(), current_user.id)
+                    if result is not None:
+                        success_count += 1
+                    else:
+                        fail_count += 1
+                        fail_messages.append(f'{stock_out.stock_out_number}: 反审核失败')
+                except Exception as e:
+                    fail_count += 1
+                    fail_messages.append(f'{stock_out.stock_out_number}: {str(e)}')
+            else:
+                fail_count += 1
+                if stock_out:
+                    fail_messages.append(f'{stock_out.stock_out_number}: 状态不是已审核')
+
+        db.session.commit()
+
+        log_operation(
+            user_id=current_user.id,
+            module='stock_out',
+            operation_type='stock_out_batch_unapprove',
+            action=f"批量反审核出库单: 成功{success_count}条, 失败{fail_count}条",
+            result="成功"
+        )
+
+        msg = f'批量反审核完成: 成功{success_count}条, 失败{fail_count}条'
+        if fail_messages:
+            msg += '（' + '；'.join(fail_messages[:5]) + '）'
+        flash(msg, 'success' if fail_count == 0 else 'warning')
+        logging.info(f"批量反审核出库单，成功{success_count}条, 失败{fail_count}条")
+        return redirect(url_for('stock_out.list_stock_outs'))
+
+    except Exception as e:
+        db.session.rollback()
+        log_operation(
+            user_id=current_user.id,
+            module='stock_out',
+            operation_type='stock_out_batch_unapprove',
+            action=f"批量反审核出库单失败: {str(e)}",
+            result="失败"
+        )
+        flash(f'批量反审核失败: {str(e)}', 'danger')
+        logging.error(f"批量反审核出库单失败: {str(e)}\n{traceback.format_exc()}")
+        return redirect(url_for('stock_out.list_stock_outs'))
+
+
 # ========== 路由：批量删除出库单 ==========
 @stock_out_bp.route('/operations/batch-delete', methods=['POST'])
 @login_required

@@ -184,6 +184,12 @@ def detail_inventory(id):
         result_filter = request.args.get('result_filter', '').strip()
         search = request.args.get('search', '').strip()
 
+        # 分页参数
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 20, type=int)
+        if per_page not in [20, 50, 100]:
+            per_page = 20
+
         # 获取盘点明细列表
         query = SupplyInventoryDetail.query.filter_by(
             inventory_id=id
@@ -208,9 +214,13 @@ def detail_inventory(id):
                 )
             )
 
-        details = query.all()
+        # 分页查询
+        total_count = query.count()
+        pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+        details = pagination.items
+        total_pages = pagination.pages
 
-        # 构建实时库存映射（用于判断账面为0的无效明细）
+        # 构建实时库存映射（仅当前页明细）
         stock_map = {}
         for detail in details:
             stock_detail = SupplyStockDetail.query.filter_by(
@@ -232,6 +242,16 @@ def detail_inventory(id):
         from models.system_config.system_config import SystemConfig
         inventory_unapprove_enabled = SystemConfig.get_config_value('supply_inventory_unapprove_enabled', True)
 
+        # 获取所有启用的物品（用于添加明细datalist）
+        all_items = SupplyItem.query.filter_by(status='启用', category='低值易耗品').order_by(SupplyItem.name).all()
+        # 获取所有低值易耗品类型的启用存放位置（用于添加明细datalist）
+        all_locations = StorageLocation.query.filter_by(
+            usage_type='低值易耗品', status='启用'
+        ).order_by(StorageLocation.name).all()
+
+        # 生成分页范围
+        page_range = generate_page_range(page, total_pages)
+
         return render_template(
             'supply_manage/inventory_detail.html',
             title=f"盘点详情 - {inventory.title}",
@@ -240,7 +260,14 @@ def detail_inventory(id):
             result_filter=result_filter,
             search=search,
             inventory_unapprove_enabled=inventory_unapprove_enabled,
-            stock_map=stock_map
+            stock_map=stock_map,
+            current_page=page,
+            per_page=per_page,
+            total_count=total_count,
+            total_pages=total_pages,
+            page_range=page_range,
+            all_items=all_items,
+            all_locations=all_locations
         )
     except Exception as e:
         log_operation(

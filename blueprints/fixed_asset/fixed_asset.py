@@ -351,6 +351,12 @@ def inventory_detail(id):
         responsible_filter = request.args.get('responsible_filter', '').strip()
         search = request.args.get('search', '').strip()
 
+        # 分页参数
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 20, type=int)
+        if per_page not in [20, 50, 100]:
+            per_page = 20
+
         # 获取盘点明细列表
         query = AssetInventoryDetail.query.filter_by(
             inventory_id=id
@@ -398,7 +404,12 @@ def inventory_detail(id):
                 )
             )
 
-        details = query.all()
+        # 分页查询
+        total_count = query.count()
+        pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+        details = pagination.items
+        total_pages = pagination.pages
+        page_range = generate_page_range(page, total_pages)
 
         # 获取下拉选项数据
         categories = [c[0] for c in db.session.query(FixedAsset.asset_category).distinct().order_by(FixedAsset.asset_category).all()]
@@ -415,6 +426,23 @@ def inventory_detail(id):
             AssetInventoryDetail.responsible_person.isnot(None),
             AssetInventoryDetail.responsible_person != ''
         ).distinct().order_by(AssetInventoryDetail.responsible_person).all()]
+
+        # 获取所有固定资产（用于添加明细的资产搜索datalist）
+        all_assets = FixedAsset.query.order_by(FixedAsset.asset_number).all()
+        # 获取所有固定资产类型的存放位置（用于添加明细的存放位置datalist）
+        all_locations = StorageLocation.query.filter_by(
+            usage_type='固定资产', status='启用'
+        ).order_by(StorageLocation.name).all()
+
+        # 构建实时库存映射（仅当前页明细）- 用于区分手动添加的无效明细
+        stock_map = {}
+        for detail in details:
+            if detail.stock_item_id:
+                from models.fixed_asset.asset_stock_item import AssetStockItem
+                stock_item = AssetStockItem.query.get(detail.stock_item_id)
+                stock_map[detail.stock_item_id] = stock_item.quantity if stock_item else 0
+            else:
+                stock_map[detail.stock_item_id] = 0
 
         log_operation(
             user_id=current_user.id,
@@ -440,7 +468,15 @@ def inventory_detail(id):
             companies=companies,
             departments=departments,
             responsible_persons=responsible_persons,
-            inventory_unapprove_enabled=SystemConfig.get_config_value('asset_inventory_unapprove_enabled', True)
+            all_assets=all_assets,
+            all_locations=all_locations,
+            stock_map=stock_map,
+            inventory_unapprove_enabled=SystemConfig.get_config_value('asset_inventory_unapprove_enabled', True),
+            current_page=page,
+            per_page=per_page,
+            total_count=total_count,
+            total_pages=total_pages,
+            page_range=page_range
         )
     except Exception as e:
         log_operation(

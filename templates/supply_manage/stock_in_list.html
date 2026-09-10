@@ -78,6 +78,16 @@
                         <i class="fa fa-trash mr-2"></i>批量删除
                     </button>
                     {% endif %}
+                    {% if approval_enabled and current_user.has_permission('supply.approve') %}
+                    <button id="batchApproveBtn" class="btn-hover bg-green-600 text-white px-4 py-2 rounded-md flex items-center disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                        <i class="fa fa-check mr-2"></i>批量审核
+                    </button>
+                    {% endif %}
+                    {% if unapprove_enabled and current_user.has_permission('supply.unapprove') %}
+                    <button id="batchUnapproveBtn" class="btn-hover bg-orange-500 text-white px-4 py-2 rounded-md flex items-center disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                        <i class="fa fa-undo mr-2"></i>批量反审核
+                    </button>
+                    {% endif %}
                     {% if current_user.has_permission('supply.import') %}
                     <button id="importBtn" class="btn-hover bg-info text-white px-4 py-2 rounded-md flex items-center cursor-pointer">
                         <i class="fa fa-upload mr-2"></i>导入
@@ -391,6 +401,16 @@
         <div id="batchDeleteIdsContainer"></div>
     </form>
 
+    <!-- 批量审核表单 -->
+    <form id="batchApproveForm" action="{{ url_for('stock_in.batch_approve_stock_ins') }}" method="post" class="hidden">
+        <div id="batchApproveIdsContainer"></div>
+    </form>
+
+    <!-- 批量反审核表单 -->
+    <form id="batchUnapproveForm" action="{{ url_for('stock_in.batch_unapprove_stock_ins') }}" method="post" class="hidden">
+        <div id="batchUnapproveIdsContainer"></div>
+    </form>
+
     <!-- 审核表单 -->
     <form id="approveForm" action="" method="post" class="hidden"></form>
     <!-- 反审核表单 -->
@@ -512,6 +532,16 @@
                 const anyChecked = Array.from(checkboxes).some(cb => cb.checked);
                 batchDeleteBtn.disabled = !anyChecked;
                 }
+                const batchApproveBtn = document.getElementById('batchApproveBtn');
+                if (batchApproveBtn) {
+                    const anyChecked = Array.from(checkboxes).some(cb => cb.checked);
+                    batchApproveBtn.disabled = !anyChecked;
+                }
+                const batchUnapproveBtn = document.getElementById('batchUnapproveBtn');
+                if (batchUnapproveBtn) {
+                    const anyChecked = Array.from(checkboxes).some(cb => cb.checked);
+                    batchUnapproveBtn.disabled = !anyChecked;
+                }
             }
 
             if (batchDeleteBtn) {
@@ -530,6 +560,58 @@
                             batchDeleteIdsContainer.appendChild(input);
                         });
                         batchDeleteForm.submit();
+                    }
+                }
+            });
+            }
+
+            // 批量审核相关逻辑
+            const batchApproveBtn = document.getElementById('batchApproveBtn');
+            const batchApproveForm = document.getElementById('batchApproveForm');
+            const batchApproveIdsContainer = document.getElementById('batchApproveIdsContainer');
+
+            if (batchApproveBtn) {
+            batchApproveBtn.addEventListener('click', function() {
+                if (!this.disabled) {
+                    const selectedIds = Array.from(checkboxes)
+                        .filter(cb => cb.checked)
+                        .map(cb => cb.value);
+                    if (confirm('确定要批量审核选中的 ' + selectedIds.length + ' 个入库单吗？审核后库存将相应增加。')) {
+                        batchApproveIdsContainer.innerHTML = '';
+                        selectedIds.forEach(id => {
+                            const input = document.createElement('input');
+                            input.type = 'hidden';
+                            input.name = 'stock_in_ids[]';
+                            input.value = id;
+                            batchApproveIdsContainer.appendChild(input);
+                        });
+                        batchApproveForm.submit();
+                    }
+                }
+            });
+            }
+
+            // 批量反审核相关逻辑
+            const batchUnapproveBtn = document.getElementById('batchUnapproveBtn');
+            const batchUnapproveForm = document.getElementById('batchUnapproveForm');
+            const batchUnapproveIdsContainer = document.getElementById('batchUnapproveIdsContainer');
+
+            if (batchUnapproveBtn) {
+            batchUnapproveBtn.addEventListener('click', function() {
+                if (!this.disabled) {
+                    const selectedIds = Array.from(checkboxes)
+                        .filter(cb => cb.checked)
+                        .map(cb => cb.value);
+                    if (confirm('确定要批量反审核选中的 ' + selectedIds.length + ' 个入库单吗？反审核后库存将回滚，单据变为待审核状态，可重新编辑。')) {
+                        batchUnapproveIdsContainer.innerHTML = '';
+                        selectedIds.forEach(id => {
+                            const input = document.createElement('input');
+                            input.type = 'hidden';
+                            input.name = 'stock_in_ids[]';
+                            input.value = id;
+                            batchUnapproveIdsContainer.appendChild(input);
+                        });
+                        batchUnapproveForm.submit();
                     }
                 }
             });

@@ -188,7 +188,7 @@
                                     <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase min-w-[160px]">物品 <span class="text-red-500">*</span></th>
                                     <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase min-w-[160px]">物品编号{% if not get_config_value('supply_auto_number', True) %} <span class="text-red-500">*</span>{% endif %}</th>
                                     <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase min-w-[160px]">规格型号</th>
-                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase min-w-[80px]">单位</th>
+                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase min-w-[80px]">单位 <span class="text-red-500">*</span></th>
                                     <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase min-w-[160px]">存放位置 <span class="text-red-500">*</span></th>
                                     <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase min-w-[80px]">数量 <span class="text-red-500">*</span></th>
                                     <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase min-w-[60px]">单价</th>
@@ -204,7 +204,7 @@
                                     <td class="px-3 py-2">
                                         <input type="text" data-name="item_name" class="detail-item-search w-full min-w-[120px] px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-primary/50" 
                                                list="item-datalist" placeholder="搜索物品名称" autocomplete="off" required data-row="{{ loop.index0 }}"
-                                               value="{% for item in items %}{% if item.id == d.item_id %}{{ item.name }}{% endif %}{% endfor %}">
+                                               value="{% for item in items %}{% if item.id == d.item_id %}{{ item.name }}{% if item.specification %} ({{ item.specification }}){% endif %} [{{ item.item_number or '' }}]{% endif %}{% endfor %}">
                                         <input type="hidden" data-name="item_id" class="detail-item-id" value="{{ d.item_id if d else '' }}" data-row="{{ loop.index0 }}">
                                     </td>
                                     <td class="px-3 py-2">
@@ -218,7 +218,7 @@
                                     </td>
                                     <td class="px-3 py-2">
                                         <input type="text" data-name="unit" value="{{ d.display_unit }}" 
-                                               class="detail-unit w-full px-2 py-1 text-sm border border-gray-300 rounded{% if d.item_id %} bg-gray-50{% endif %}"{% if d.item_id %} readonly{% else %} list="unit-datalist"{% endif %}>
+                                               class="detail-unit w-full px-2 py-1 text-sm border border-gray-300 rounded{% if d.item_id %} bg-gray-50{% endif %}"{% if d.item_id %} readonly{% else %} list="unit-datalist" required{% endif %}>
                                     </td>
                                     <td class="px-3 py-2">
                                         <input type="text" data-name="location_search" class="detail-location-search w-full min-w-[100px] px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-primary/50" 
@@ -283,7 +283,7 @@
     
     <datalist id="item-datalist">
         {% for item in items %}
-        <option value="{{ item.name }}">
+        <option value="{{ item.name }}{% if item.specification %} ({{ item.specification }}){% endif %} [{{ item.item_number or '' }}]">
         {% endfor %}
     </datalist>
 
@@ -310,10 +310,16 @@
                 item_number: '{{ item.item_number or "" }}',
                 specification: '{{ item.specification or "" }}',
                 unit: '{{ item.unit or "" }}',
-                unitPrice: {{ item.unit_price or 0 }}
+                unitPrice: {{ item.unit_price or 0 }},
+                displayLabel: '{{ item.name }}{% if item.specification %} ({{ item.specification }}){% endif %} [{{ item.item_number or "" }}]'
             },
             {% endfor %}
         };
+        // 物品显示标签到ID的映射（用于快速查找）
+        const itemLabelToId = {};
+        for (const [id, data] of Object.entries(itemsData)) {
+            itemLabelToId[data.displayLabel] = id;
+        }
 
         let rowIndex = {{ (stock_in.details|length if stock_in and stock_in.details else 0) }};
 
@@ -342,7 +348,7 @@
                 <td class="px-3 py-2">
                     <input type="text" data-name="unit" value="" 
                            class="detail-unit w-full px-2 py-1 text-sm border border-gray-300 rounded"
-                           list="unit-datalist">
+                           list="unit-datalist" required>
                 </td>
                 <td class="px-3 py-2">
                     <input type="text" data-name="location_search" class="detail-location-search w-full min-w-[100px] px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-primary/50" 
@@ -395,16 +401,15 @@
 
             if (itemSearch) {
                 function handleItemSelection() {
-                    const itemName = itemSearch.value.trim();
+                    const inputValue = itemSearch.value.trim();
                     const hiddenId = row.querySelector('.detail-item-id');
                     
-                    // 从itemsData中查找匹配的物品
+                    // 按显示标签精确匹配（包含规格和编号的唯一标识）
+                    // 只有从datalist选择完整标签时才匹配，手动输入同名不会误匹配
                     let foundItem = null;
-                    for (const [id, data] of Object.entries(itemsData)) {
-                        if (data.name === itemName) {
-                            foundItem = { id: id, ...data };
-                            break;
-                        }
+                    const matchedId = itemLabelToId[inputValue];
+                    if (matchedId) {
+                        foundItem = { id: matchedId, ...itemsData[matchedId] };
                     }
                     
                     if (foundItem) {
@@ -635,6 +640,21 @@
                 if (!valid) {
                     e.preventDefault();
                     alert('请选择或输入物品');
+                    return;
+                }
+
+                // 检查每行是否填写了单位
+                let unitValid = true;
+                rows.forEach(row => {
+                    const unitInput = row.querySelector('.detail-unit');
+                    const hasUnit = unitInput && unitInput.value.trim();
+                    if (!hasUnit) {
+                        unitValid = false;
+                    }
+                });
+                if (!unitValid) {
+                    e.preventDefault();
+                    alert('请填写单位');
                     return;
                 }
 

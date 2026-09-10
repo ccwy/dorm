@@ -127,13 +127,17 @@
 
         <!-- 完成盘点按钮 -->
         {% if inventory_record.status == '进行中' and current_user.has_permission('fixed_asset.inventory') %}
-        <div class="mb-6">
+        <div class="mb-6 flex gap-3">
             <form method="POST" action="{{ url_for('fixed_asset.complete_inventory', id=inventory_record.id) }}" 
                   onsubmit="return confirm('确定要完成此盘点吗？未盘点的资产将标记为异常。')">
                 <button type="submit" class="btn-hover bg-green-600 text-white px-4 py-2 rounded-md flex items-center">
                     <i class="fa fa-check-circle mr-2"></i>审核
                 </button>
             </form>
+            <button type="button" onclick="showAddDetailModal()"
+                    class="btn-hover bg-primary text-white px-4 py-2 rounded-md flex items-center">
+                <i class="fa fa-plus mr-2"></i>添加明细
+            </button>
         </div>
         {% endif %}
 
@@ -207,6 +211,8 @@
                         </button>
                     </div>
                     <a href="{{ url_for('fixed_asset.inventory_detail', id=inventory_record.id) }}" class="text-sm text-gray-500 hover:text-primary">重置</a>
+                    <input type="hidden" name="page" value="{{ current_page }}">
+                    <input type="hidden" name="per_page" value="{{ per_page }}">
                 </form>
             </div>
             {% if inventory_record.status == '进行中' %}
@@ -233,6 +239,7 @@
                                 <input type="checkbox" id="selectAll" onclick="toggleSelectAll(this)" class="form-checkbox h-4 w-4 text-primary rounded border-gray-300">
                             </th>
                             {% endif %}
+                            <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">序号</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">资产编号</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">资产名称</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">分类</th>
@@ -257,12 +264,15 @@
                     </thead>
                     <tbody class="bg-white divide-y divide-gray-200">
                         {% for detail in details %}
-                        <tr class="hover:bg-gray-50" id="detail-row-{{ detail.id }}">
+                        {% set current_stock = stock_map.get(detail.stock_item_id, 0) %}
+                        {% set is_invalid = (current_stock == 0 and (detail.actual_quantity is none or detail.actual_quantity == 0)) %}
+                        <tr class="hover:bg-gray-50 {% if is_invalid and inventory_record.status == '进行中' %}bg-red-50{% endif %}" id="detail-row-{{ detail.id }}">
                             {% if inventory_record.status == '进行中' %}
                             <td class="px-4 py-4 text-center">
                                 <input type="checkbox" name="detail_checkbox" value="{{ detail.id }}" class="detail-checkbox form-checkbox h-4 w-4 text-primary rounded border-gray-300">
                             </td>
                             {% endif %}
+                            <td class="px-4 py-4 text-center text-sm text-gray-600">{{ (current_page - 1) * per_page + loop.index }}</td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-primary">
                                 <a href="{{ url_for('fixed_asset.detail', id=detail.asset_id) }}">
                                     {{ detail.asset.display_number if detail.asset else '-' }}
@@ -373,13 +383,14 @@
                                         <i class="fa fa-exclamation-triangle mr-1"></i>无效
                                     </span>
                                     {% endif %}
+
                                 </div>
                             </td>
                             {% endif %}
                         </tr>
                         {% else %}
                         <tr>
-                            <td colspan="{{ 19 if inventory_record.status == '进行中' else 17 }}" class="px-6 py-10 text-center text-gray-500">
+                            <td colspan="{{ 20 if inventory_record.status == '进行中' else 18 }}" class="px-6 py-10 text-center text-gray-500">
                                 <i class="fa fa-list-alt text-4xl mb-2 block text-gray-300"></i>
                                 暂无盘点明细
                             </td>
@@ -388,6 +399,48 @@
                     </tbody>
                 </table>
             </div>
+            <!-- 分页 -->
+            {% if total_pages > 0 %}
+            <div class="px-6 py-4 bg-gray-50 border-t border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between mt-4 gap-4">
+                <div class="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                    <div class="text-sm text-gray-700">
+                        显示 <span class="font-medium">{{ (current_page - 1) * per_page + 1 }}</span> 到 <span class="font-medium">{{ (current_page - 1) * per_page + details|length }}</span> 条，共 <span class="font-medium">{{ total_count }}</span> 条记录
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <span class="text-sm text-gray-700">每页显示：</span>
+                        <select id="pageSizeSelect" class="px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
+                            <option value="20" {% if per_page == 20 %}selected{% endif %}>20条/页</option>
+                            <option value="50" {% if per_page == 50 %}selected{% endif %}>50条/页</option>
+                            <option value="100" {% if per_page == 100 %}selected{% endif %}>100条/页</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="flex space-x-1">
+                    {% if current_page > 1 %}
+                    <a href="{{ url_for('fixed_asset.inventory_detail', id=inventory_record.id, page=1, per_page=per_page, result_filter=result_filter, category_filter=category_filter, company_filter=company_filter, department_filter=department_filter, responsible_filter=responsible_filter, search=search) }}" class="px-3 py-1 border border-gray-300 rounded bg-white text-gray-500 hover:bg-gray-50 text-sm">首页</a>
+                    {% endif %}
+                    <button class="px-3 py-1 border border-gray-300 rounded bg-white text-gray-500 hover:bg-gray-50 {% if current_page == 1 %}opacity-50 cursor-not-allowed{% endif %}" 
+                            {% if current_page > 1 %}onclick="window.location.href='{{ url_for('fixed_asset.inventory_detail', id=inventory_record.id, page=current_page-1, per_page=per_page, result_filter=result_filter, category_filter=category_filter, company_filter=company_filter, department_filter=department_filter, responsible_filter=responsible_filter, search=search) }}'"{% endif %}>
+                        <i class="fa fa-chevron-left"></i>
+                    </button>
+                    {% for p in page_range %}
+                        {% if p == '...' %}
+                        <button class="px-3 py-1 border border-gray-300 rounded bg-white text-gray-700" disabled>...</button>
+                        {% else %}
+                        <button class="px-3 py-1 border {% if p == current_page %}border-primary bg-primary text-white{% else %}border-gray-300 bg-white text-gray-700 hover:bg-gray-50{% endif %} rounded"
+                                onclick="window.location.href='{{ url_for('fixed_asset.inventory_detail', id=inventory_record.id, page=p, per_page=per_page, result_filter=result_filter, category_filter=category_filter, company_filter=company_filter, department_filter=department_filter, responsible_filter=responsible_filter, search=search) }}'">{{ p }}</button>
+                        {% endif %}
+                    {% endfor %}
+                    <button class="px-3 py-1 border border-gray-300 rounded bg-white text-gray-500 hover:bg-gray-50 {% if current_page == total_pages %}opacity-50 cursor-not-allowed{% endif %}"
+                            {% if current_page < total_pages %}onclick="window.location.href='{{ url_for('fixed_asset.inventory_detail', id=inventory_record.id, page=current_page+1, per_page=per_page, result_filter=result_filter, category_filter=category_filter, company_filter=company_filter, department_filter=department_filter, responsible_filter=responsible_filter, search=search) }}'"{% endif %}>
+                        <i class="fa fa-chevron-right"></i>
+                    </button>
+                    {% if current_page < total_pages %}
+                    <a href="{{ url_for('fixed_asset.inventory_detail', id=inventory_record.id, page=total_pages, per_page=per_page, result_filter=result_filter, category_filter=category_filter, company_filter=company_filter, department_filter=department_filter, responsible_filter=responsible_filter, search=search) }}" class="px-3 py-1 border border-gray-300 rounded bg-white text-gray-500 hover:bg-gray-50 text-sm">末页</a>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
         </div>
     </main>
 
@@ -458,11 +511,79 @@
         </div>
     </div>
 
+    <!-- 添加盘点明细模态框 -->
+    <div id="addDetailModal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-lg mx-4">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h3 class="text-lg font-medium text-gray-800">
+                    <i class="fa fa-plus text-primary mr-2"></i>添加盘点明细
+                </h3>
+            </div>
+            <div class="px-6 py-4">
+                <input type="hidden" id="add_inventory_id" value="{{ inventory_record.id }}">
+
+                <!-- 资产选择 -->
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">资产 <span class="text-red-500">*</span></label>
+                    <input type="text" id="add_asset_search" placeholder="搜索资产编号/名称/规格..."
+                           class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                           list="asset-datalist" autocomplete="off">
+                    <input type="hidden" id="add_asset_id">
+                    <datalist id="asset-datalist">
+                        {% for asset in all_assets %}
+                        <option value="{{ asset.display_number or asset.asset_number or '' }} {{ asset.asset_name }}{% if asset.specification %} ({{ asset.specification }}){% endif %} [{{ asset.asset_category or '' }}]" data-id="{{ asset.id }}">
+                        {% endfor %}
+                    </datalist>
+                    <div id="add_selected_asset_info" class="mt-2 text-sm text-gray-600 hidden">
+                        <span class="text-primary font-medium" id="add_selected_asset_text"></span>
+                    </div>
+                </div>
+
+                <!-- 存放位置选择 -->
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">存放位置 <span class="text-red-500">*</span></label>
+                    <input type="text" id="add_location_search" placeholder="搜索或输入存放位置名称..."
+                           class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                           list="location-datalist" autocomplete="off" disabled>
+                    <input type="hidden" id="add_stock_item_id">
+                    <input type="hidden" id="add_location_id">
+                    <datalist id="location-datalist">
+                        {% for loc in all_locations %}
+                        <option value="{{ loc.display_name }}" data-id="{{ loc.id }}" data-type="storage_location">
+                        {% endfor %}
+                    </datalist>
+                    <div id="add_selected_location_info" class="mt-2 text-sm text-gray-600 hidden">
+                        <span class="text-primary font-medium" id="add_selected_location_text"></span>
+                    </div>
+                    <div id="add_location_stock_info" class="mt-1 text-sm text-gray-500 hidden">
+                        当前库存：<span id="add_location_stock_qty">-</span>
+                    </div>
+                </div>
+
+                <!-- 提示信息 -->
+                <div id="add_detail_message" class="hidden p-3 rounded-md text-sm mb-4"></div>
+            </div>
+            <div class="px-6 py-4 border-t border-gray-200 flex justify-end gap-3">
+                <button type="button" onclick="closeAddDetailModal()" class="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50">取消</button>
+                <button type="button" onclick="submitAddDetail()" id="addDetailSubmitBtn" class="btn-hover bg-primary text-white px-4 py-2 rounded-md flex items-center" disabled>
+                    <i class="fa fa-plus mr-2"></i>添加
+                </button>
+            </div>
+        </div>
+    </div>
+
     {% include 'footer.html' %}
 
     <script>
         // 资产数据缓存（从表格行中获取）
         var assetDataMap = {};
+
+        // 每页显示条数切换
+        document.getElementById('pageSizeSelect').addEventListener('change', function() {
+            var perPage = this.value;
+            var url = '{{ url_for("fixed_asset.inventory_detail", id=inventory_record.id, page=1, per_page="__PER_PAGE__", result_filter=result_filter, category_filter=category_filter, company_filter=company_filter, department_filter=department_filter, responsible_filter=responsible_filter, search=search) }}'.replace('__PER_PAGE__', perPage);
+            window.location.href = url;
+        });
         {% for detail in details %}
         assetDataMap[{{ detail.id }}] = {
             asset_number: "{{ detail.asset.display_number if detail.asset else '-' }}",
@@ -477,7 +598,8 @@
             storage_location: "{{ detail.storage_location or '-' }}",
             room_display: "{% if detail.stock_item and detail.stock_item.room %}{{ detail.stock_item.room.building }}{{ detail.stock_item.room.room_number }}{% else %}-{% endif %}",
             actual_quantity: {{ detail.actual_quantity if detail.actual_quantity is not none else 'null' }},
-            inventory_result: "{{ detail.inventory_result if detail.inventory_result else '未盘点' }}"
+            inventory_result: "{{ detail.inventory_result if detail.inventory_result else '未盘点' }}",
+            inventory_remark: "{{ detail.inventory_remark|replace('"', '\\"') if detail.inventory_remark else '' }}"
         };
         {% endfor %}
 
@@ -485,7 +607,6 @@
         function showCheckModal(detailId, inventoryId) {
             document.getElementById('modal_detail_id').value = detailId;
             document.getElementById('modal_inventory_id').value = inventoryId;
-            document.getElementById('inventory_remark').value = '';
 
             // 填充资产信息
             var data = assetDataMap[detailId];
@@ -500,6 +621,9 @@
                 document.getElementById('modal_dept_owning').textContent = data.dept_owning;
                 document.getElementById('modal_responsible').textContent = data.responsible;
                 document.getElementById('modal_room_display').textContent = data.room_display;
+
+                // 盘点备注：加载已有备注
+                document.getElementById('inventory_remark').value = data.inventory_remark || '';
 
                 // 实盘数量：优先使用已保存的actual_quantity，否则用账面数量
                 if (data.actual_quantity !== null && data.actual_quantity !== undefined) {
@@ -529,6 +653,7 @@
                 document.getElementById('modal_responsible').textContent = '-';
                 document.getElementById('modal_room_display').textContent = '-';
                 document.getElementById('actual_quantity').value = '';
+                document.getElementById('inventory_remark').value = '';
             }
 
             document.getElementById('checkModal').classList.remove('hidden');
@@ -651,6 +776,276 @@
             }
         });
         {% endif %}
+
+        // ========== 添加盘点明细相关（datalist模式，参考低值易耗品入库单） ==========
+        
+        // 资产数据映射（参考低值易耗品的itemsData模式）
+        var assetsData = {
+            {% for asset in all_assets %}
+            '{{ asset.id }}': {
+                id: {{ asset.id }},
+                name: '{{ asset.asset_name|replace("'", "\\'") }}',
+                asset_number: '{{ asset.asset_number or ""|replace("'", "\\'") }}',
+                display_number: '{{ asset.display_number or asset.asset_number or ""|replace("'", "\\'") }}',
+                specification: '{{ asset.specification or ""|replace("'", "\\'") }}',
+                asset_category: '{{ asset.asset_category or ""|replace("'", "\\'") }}',
+                quantity: {{ asset.quantity or 0 }},
+                unit: '{{ asset.unit or ""|replace("'", "\\'") }}',
+                displayLabel: '{{ asset.display_number or asset.asset_number or ""|replace("'", "\\'") }} {{ asset.asset_name|replace("'", "\\'") }}{% if asset.specification %} ({{ asset.specification|replace("'", "\\'") }}){% endif %} [{{ asset.asset_category or ""|replace("'", "\\'") }}]'
+            },
+            {% endfor %}
+        };
+        // 资产显示标签到ID的映射
+        var assetLabelToId = {};
+        for (var id in assetsData) {
+            assetLabelToId[assetsData[id].displayLabel] = id;
+        }
+
+        // 存放位置数据映射（name → {type, id, name, stock_item_id, quantity}）
+        var locationOptions = {};
+        // 初始化固定资产类型的存放位置（从模板预加载）
+        {% for loc in all_locations %}
+        locationOptions['{{ loc.display_name|replace("'", "\\'") }}'] = {
+            type: 'storage_location',
+            id: {{ loc.id }},
+            name: '{{ loc.display_name|replace("'", "\\'") }}',
+            stock_item_id: null,
+            location_id: {{ loc.id }},
+            quantity: 0
+        };
+        {% endfor %}
+
+        function showAddDetailModal() {
+            document.getElementById('addDetailModal').classList.remove('hidden');
+            // 重置表单
+            document.getElementById('add_asset_search').value = '';
+            document.getElementById('add_asset_id').value = '';
+            document.getElementById('add_location_search').value = '';
+            document.getElementById('add_location_search').disabled = true;
+            document.getElementById('add_stock_item_id').value = '';
+            document.getElementById('add_location_id').value = '';
+            document.getElementById('add_selected_asset_info').classList.add('hidden');
+            document.getElementById('add_selected_location_info').classList.add('hidden');
+            document.getElementById('add_location_stock_info').classList.add('hidden');
+            document.getElementById('add_detail_message').classList.add('hidden');
+            document.getElementById('addDetailSubmitBtn').disabled = true;
+        }
+
+        function closeAddDetailModal() {
+            document.getElementById('addDetailModal').classList.add('hidden');
+        }
+
+        // 点击模态框背景关闭
+        document.getElementById('addDetailModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeAddDetailModal();
+            }
+        });
+
+        // ========== 资产选择（datalist模式，参考低值易耗品入库单的物品选择） ==========
+        var assetSearchInput = document.getElementById('add_asset_search');
+        var assetIdInput = document.getElementById('add_asset_id');
+
+        function handleAssetSelection() {
+            var inputValue = assetSearchInput.value.trim();
+            // 按显示标签精确匹配
+            var matchedId = assetLabelToId[inputValue];
+            if (matchedId) {
+                var asset = assetsData[matchedId];
+                assetIdInput.value = matchedId;
+                // 显示选中资产信息
+                var infoEl = document.getElementById('add_selected_asset_info');
+                infoEl.classList.remove('hidden');
+                document.getElementById('add_selected_asset_text').textContent =
+                    asset.display_number + ' / ' + asset.name + (asset.specification ? ' / ' + asset.specification : '');
+                // 启用存放位置搜索并动态更新位置datalist
+                document.getElementById('add_location_search').disabled = false;
+                document.getElementById('add_location_search').value = '';
+                document.getElementById('add_stock_item_id').value = '';
+                document.getElementById('add_location_id').value = '';
+                document.getElementById('add_selected_location_info').classList.add('hidden');
+                document.getElementById('add_location_stock_info').classList.add('hidden');
+                // 加载该资产的库存位置并更新datalist
+                loadAssetStockLocations(matchedId);
+                validateAddDetailForm();
+            } else {
+                assetIdInput.value = '';
+                document.getElementById('add_selected_asset_info').classList.add('hidden');
+                document.getElementById('add_location_search').disabled = true;
+                document.getElementById('add_location_search').value = '';
+                document.getElementById('add_stock_item_id').value = '';
+                document.getElementById('add_location_id').value = '';
+                document.getElementById('add_selected_location_info').classList.add('hidden');
+                document.getElementById('add_location_stock_info').classList.add('hidden');
+                validateAddDetailForm();
+            }
+        }
+
+        assetSearchInput.addEventListener('input', handleAssetSelection);
+        assetSearchInput.addEventListener('change', handleAssetSelection);
+
+        // 加载资产的库存位置并更新位置datalist
+        function loadAssetStockLocations(assetId) {
+            var inventoryId = document.getElementById('add_inventory_id').value;
+            var url = '/fixed_asset/api/asset-stock-locations/' + assetId + '/' + inventoryId;
+            fetch(url)
+                .then(function(response) { return response.json(); })
+                .then(function(data) {
+                    if (data.success && data.locations) {
+                        // 将API返回的位置添加到locationOptions（不覆盖已有的StorageLocation）
+                        data.locations.forEach(function(loc) {
+                            if (!locationOptions[loc.name]) {
+                                locationOptions[loc.name] = {
+                                    type: loc.source,
+                                    id: loc.stock_item_id || loc.location_id,
+                                    name: loc.name,
+                                    stock_item_id: loc.stock_item_id || null,
+                                    location_id: loc.location_id || null,
+                                    quantity: loc.quantity || 0
+                                };
+                            } else {
+                                // 已存在同名位置，更新stock_item_id等信息
+                                locationOptions[loc.name].stock_item_id = loc.stock_item_id || null;
+                                locationOptions[loc.name].location_id = loc.location_id || null;
+                                locationOptions[loc.name].quantity = loc.quantity || 0;
+                                if (loc.stock_item_id) {
+                                    locationOptions[loc.name].type = 'stock_item';
+                                    locationOptions[loc.name].id = loc.stock_item_id;
+                                }
+                            }
+                        });
+                        // 重建datalist
+                        rebuildLocationDatalist();
+                    }
+                })
+                .catch(function(error) {
+                    console.error('加载资产库存位置失败:', error);
+                });
+        }
+
+        // 重建存放位置datalist
+        function rebuildLocationDatalist() {
+            var datalist = document.getElementById('location-datalist');
+            // 清空现有选项
+            datalist.innerHTML = '';
+            // 添加所有位置选项
+            for (var name in locationOptions) {
+                var option = document.createElement('option');
+                option.value = name;
+                datalist.appendChild(option);
+            }
+        }
+
+        // ========== 存放位置选择（datalist模式，参考低值易耗品入库单的存放位置选择） ==========
+        var locationSearchInput = document.getElementById('add_location_search');
+        var stockItemIdInput = document.getElementById('add_stock_item_id');
+        var locationIdInput = document.getElementById('add_location_id');
+
+        function handleLocationSelection() {
+            var inputVal = locationSearchInput.value.trim();
+            var locData = locationOptions[inputVal];
+            if (locData) {
+                // 匹配到位置
+                stockItemIdInput.value = locData.stock_item_id || '';
+                locationIdInput.value = locData.location_id || '';
+                // 显示选中位置信息
+                var infoEl = document.getElementById('add_selected_location_info');
+                infoEl.classList.remove('hidden');
+                document.getElementById('add_selected_location_text').textContent = locData.name;
+                // 显示库存信息
+                var stockInfo = document.getElementById('add_location_stock_info');
+                stockInfo.classList.remove('hidden');
+                document.getElementById('add_location_stock_qty').textContent = locData.quantity || 0;
+                validateAddDetailForm();
+            } else {
+                // 未匹配，清空ID
+                stockItemIdInput.value = '';
+                locationIdInput.value = '';
+                document.getElementById('add_selected_location_info').classList.add('hidden');
+                document.getElementById('add_location_stock_info').classList.add('hidden');
+                validateAddDetailForm();
+            }
+        }
+
+        locationSearchInput.addEventListener('input', handleLocationSelection);
+        locationSearchInput.addEventListener('change', handleLocationSelection);
+
+        // 验证表单
+        function validateAddDetailForm() {
+            var assetId = document.getElementById('add_asset_id').value;
+            var stockItemId = document.getElementById('add_stock_item_id').value;
+            var locationId = document.getElementById('add_location_id').value;
+            document.getElementById('addDetailSubmitBtn').disabled = !(assetId && (stockItemId || locationId));
+        }
+
+        // 提交添加明细
+        function submitAddDetail() {
+            var inventoryId = document.getElementById('add_inventory_id').value;
+            var assetId = document.getElementById('add_asset_id').value;
+            var stockItemId = document.getElementById('add_stock_item_id').value;
+            var locationId = document.getElementById('add_location_id').value;
+
+            if (!inventoryId || !assetId) {
+                alert('请选择资产');
+                return;
+            }
+            if (!stockItemId && !locationId) {
+                alert('请选择存放位置');
+                return;
+            }
+
+            var btn = document.getElementById('addDetailSubmitBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa fa-spinner fa-spin mr-2"></i>添加中...';
+
+            var formData = new FormData();
+            formData.append('inventory_id', inventoryId);
+            formData.append('asset_id', assetId);
+            if (stockItemId) {
+                formData.append('stock_item_id', stockItemId);
+            }
+            if (locationId) {
+                formData.append('location_id', locationId);
+            }
+
+            fetch('{{ url_for("fixed_asset.add_inventory_detail") }}', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(function(response) { return response.json(); })
+            .then(function(data) {
+                if (data.success) {
+                    closeAddDetailModal();
+                    location.reload();
+                } else {
+                    var msgEl = document.getElementById('add_detail_message');
+                    msgEl.classList.remove('hidden');
+                    msgEl.className = 'p-3 rounded-md text-sm mb-4 bg-red-100 text-red-800';
+                    msgEl.textContent = data.message || '添加失败';
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fa fa-plus mr-2"></i>添加';
+                }
+            })
+            .catch(function(error) {
+                var msgEl = document.getElementById('add_detail_message');
+                msgEl.classList.remove('hidden');
+                msgEl.className = 'p-3 rounded-md text-sm mb-4 bg-red-100 text-red-800';
+                msgEl.textContent = '请求出错: ' + error.message;
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa fa-plus mr-2"></i>添加';
+            });
+        }
+
+        // HTML转义工具函数
+        function escapeHtml(str) {
+            if (!str) return '';
+            var div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
     </script>
 </body>
 </html>

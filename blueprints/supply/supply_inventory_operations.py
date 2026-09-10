@@ -534,6 +534,159 @@ def batch_delete_details():
         return redirect(request.referrer or url_for('supply_inventory.list_inventories'))
 
 
+# ========== 路由：添加盘点明细 ==========
+@supply_inventory_bp.route('/operations/add-detail', methods=['POST'])
+@login_required
+@require_permission('supply.edit')
+def add_inventory_detail():
+    """手动添加盘点明细 - 用于添加回误删除的记录或手动添加新盘点项"""
+    try:
+        inventory_id = request.form.get('inventory_id', type=int)
+        item_id = request.form.get('item_id', type=int)
+        location_id = request.form.get('location_id', type=int)
+
+        # 参数校验
+        if not inventory_id or not item_id or not location_id:
+            return jsonify({'success': False, 'message': '缺少必要参数'}), 400
+
+        # 获取盘点主表
+        inventory = SupplyInventory.query.get(inventory_id)
+        if not inventory:
+            return jsonify({'success': False, 'message': '未找到对应的盘点单'}), 404
+
+        # 检查盘点状态
+        if inventory.status != '进行中':
+            return jsonify({'success': False, 'message': '仅进行中状态的盘点单可以添加明细'}), 400
+
+        # 检查是否已存在相同的物品+位置组合
+        existing = SupplyInventoryDetail.query.filter_by(
+            inventory_id=inventory_id,
+            item_id=item_id,
+            location_id=location_id
+        ).first()
+        if existing:
+            return jsonify({'success': False, 'message': '该物品在此位置已存在盘点明细，请勿重复添加'}), 400
+
+        # 获取物品信息
+        item = SupplyItem.query.get(item_id)
+        if not item:
+            return jsonify({'success': False, 'message': '未找到对应的物品'}), 404
+
+        # 获取存放位置信息
+        location = StorageLocation.query.get(location_id)
+        if not location:
+            return jsonify({'success': False, 'message': '未找到对应的存放位置'}), 404
+
+        # 获取当前库存数量作为系统数量
+        stock_detail = SupplyStockDetail.query.filter_by(
+            item_id=item_id,
+            location_id=location_id
+        ).first()
+        system_quantity = stock_detail.quantity if stock_detail else 0
+
+        # 创建盘点明细
+        detail = SupplyInventoryDetail(
+            inventory_id=inventory_id,
+            item_id=item_id,
+            location_id=location_id,
+            inventory_result='未盘点',
+            inventory_remark=None,
+            actual_quantity=None,
+            system_quantity=system_quantity,
+            unit_price=item.unit_price if item.unit_price else 0,
+            checked_by=None,
+            checked_at=None
+        )
+        db.session.add(detail)
+
+        # 更新盘点主表总数
+        inventory.total_count = (inventory.total_count or 0) + 1
+
+        db.session.commit()
+
+        # 记录操作日志
+        log_operation(
+            user_id=current_user.id,
+            module='supply_inventory',
+            operation_type='inventory_detail_add',
+            action=f"添加盘点明细: 盘点单 {inventory.inventory_number}，物品 {item.name}，位置 {location.name}",
+            result="成功"
+        )
+
+        logging.info(f"添加盘点明细成功，盘点单: {inventory.inventory_number}, 物品: {item.name}, 位置: {location.name}")
+
+        return jsonify({
+            'success': True,
+            'message': f'添加盘点明细成功: {item.name} - {location.name}',
+            'detail_id': detail.id,
+            'total_count': inventory.total_count
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        logging.error(f"添加盘点明细失败: {str(e)}\n{traceback.format_exc()}")
+        return jsonify({'success': False, 'message': f'添加盘点明细失败: {str(e)}'}), 500
+
+
+# ========== API：获取物品库存位置（用于添加盘点明细） ==========
+@supply_inventory_bp.route('/api/item-stock-locations/<int:item_id>/<int:inventory_id>', methods=['GET'])
+@login_required
+@require_permission('supply.view')
+def get_item_stock_locations_for_inventory(item_id, inventory_id):
+    """获取指定物品的库存位置列表，并标记哪些已在盘点明细中"""
+    try:
+        # 获取物品所有库存位置
+        stock_details = SupplyStockDetail.query.filter_by(item_id=item_id)\
+            .order_by(SupplyStockDetail.location_id).all()
+
+        # 获取该盘点单中已有的该物品明细（已占用的位置）
+        existing_details = SupplyInventoryDetail.query.filter_by(
+            inventory_id=inventory_id,
+            item_id=item_id
+        ).all()
+        existing_location_ids = {d.location_id for d in existing_details}
+
+        locations = []
+        for sd in stock_details:
+            locations.append({
+                'id': sd.location_id,
+                'name': sd.location_name,
+                'quantity': sd.quantity,
+                'already_in_inventory': sd.location_id in existing_location_ids
+            })
+
+        # 也获取所有启用的低值易耗品存放位置（允许添加0库存的位置）
+        all_locations = StorageLocation.query.filter_by(
+            status='启用', usage_type='低值易耗品'
+        ).order_by(StorageLocation.id).all()
+
+        all_location_ids = {loc.id for loc in all_locations}
+        stock_location_ids = {sd.location_id for sd in stock_details}
+
+        # 添加没有库存但可用的位置
+        for loc in all_locations:
+            if loc.id not in stock_location_ids and loc.id not in existing_location_ids:
+                locations.append({
+                    'id': loc.id,
+                    'name': loc.name,
+                    'quantity': 0,
+                    'already_in_inventory': False
+                })
+            elif loc.id not in stock_location_ids and loc.id in existing_location_ids:
+                # 没有库存但已在盘点中的位置也标记
+                locations.append({
+                    'id': loc.id,
+                    'name': loc.name,
+                    'quantity': 0,
+                    'already_in_inventory': True
+                })
+
+        return jsonify({'success': True, 'locations': locations})
+    except Exception as e:
+        logging.error(f"获取物品库存位置失败，物品ID: {item_id}, 错误: {str(e)}")
+        return jsonify({'success': False, 'locations': [], 'error': str(e)}), 500
+
+
 # ========== 工具函数 ==========
 def _parse_date(date_str):
     """将日期字符串转换为date对象，空字符串返回None"""

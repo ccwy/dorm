@@ -206,7 +206,7 @@
                                     <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase min-w-[160px]">物品 <span class="text-red-500">*</span></th>
                                     <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase min-w-[160px]">物品编号</th>
                                     <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase min-w-[160px]">规格型号</th>
-                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase min-w-[80px]">单位</th>
+                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase min-w-[80px]">单位 <span class="text-red-500">*</span></th>
                                     <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase min-w-[80px]">库存</th>
                                     <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase min-w-[180px]">存放位置 <span class="text-red-500">*</span></th>
                                     <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase min-w-[80px]">出库数量 <span class="text-red-500">*</span></th>
@@ -223,7 +223,7 @@
                                     <td class="px-3 py-2">
                                         <input type="text" data-name="item_name" class="detail-item-search w-full min-w-[120px] px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-primary/50" 
                                                list="item-datalist" placeholder="搜索物品名称" autocomplete="off" required data-row="{{ loop.index0 }}"
-                                               value="{% for item in items %}{% if item.id == d.item_id %}{{ item.name }}{% endif %}{% endfor %}">
+                                               value="{% for item in items %}{% if item.id == d.item_id %}{{ item.name }}{% if item.specification %} ({{ item.specification }}){% endif %} [{{ item.item_number or '' }}]{% endif %}{% endfor %}">
                                         <input type="hidden" data-name="item_id" class="detail-item-id" value="{{ d.item_id if d else '' }}" data-row="{{ loop.index0 }}">
                                     </td>
                                     <td class="px-3 py-2">
@@ -305,7 +305,7 @@
     
     <datalist id="item-datalist">
         {% for item in items %}
-        <option value="{{ item.name }}">
+        <option value="{{ item.name }}{% if item.specification %} ({{ item.specification }}){% endif %} [{{ item.item_number or '' }}]">
         {% endfor %}
     </datalist>
 
@@ -319,10 +319,16 @@
                 specification: '{{ item.specification or "" }}',
                 unit: '{{ item.unit or "" }}',
                 unitPrice: {{ item.unit_price or 0 }},
-                stock: {{ item.current_stock or 0 }}
+                stock: {{ item.current_stock or 0 }},
+                displayLabel: '{{ item.name }}{% if item.specification %} ({{ item.specification }}){% endif %} [{{ item.item_number or "" }}]'
             },
             {% endfor %}
         };
+        // 物品显示标签到ID的映射（用于快速查找）
+        const itemLabelToId = {};
+        for (const [id, data] of Object.entries(itemsData)) {
+            itemLabelToId[data.displayLabel] = id;
+        }
 
         // 物品库存位置缓存
         const itemLocationsCache = {};
@@ -441,16 +447,15 @@
 
             if (itemSearch) {
                 function handleItemSelection() {
-                    const itemName = itemSearch.value.trim();
+                    const inputValue = itemSearch.value.trim();
                     const hiddenId = row.querySelector('.detail-item-id');
                     
-                    // 从itemsData中查找匹配的物品
+                    // 按显示标签精确匹配（包含规格和编号的唯一标识）
+                    // 只有从datalist选择完整标签时才匹配，手动输入同名不会误匹配
                     let foundItem = null;
-                    for (const [id, data] of Object.entries(itemsData)) {
-                        if (data.name === itemName) {
-                            foundItem = { id: id, ...data };
-                            break;
-                        }
+                    const matchedId = itemLabelToId[inputValue];
+                    if (matchedId) {
+                        foundItem = { id: matchedId, ...itemsData[matchedId] };
                     }
                     
                     if (foundItem) {

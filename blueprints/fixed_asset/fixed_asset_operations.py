@@ -1903,6 +1903,235 @@ def batch_delete_inventory_details():
         return redirect(url_for('fixed_asset.inventory'))
 
 
+# ========== 路由：添加盘点明细 ==========
+@fixed_asset_bp.route('/operations/inventory/detail/add', methods=['POST'])
+@login_required
+@require_permission('fixed_asset.inventory')
+def add_inventory_detail():
+    """手动添加盘点明细 - 用于添加回误删除的记录或手动添加新盘点项"""
+    try:
+        inventory_id = request.form.get('inventory_id', type=int)
+        asset_id = request.form.get('asset_id', type=int)
+        stock_item_id = request.form.get('stock_item_id', type=int)
+        location_id = request.form.get('location_id', type=int)
+
+        # 参数校验：至少提供stock_item_id或location_id
+        if not inventory_id or not asset_id:
+            return jsonify({'success': False, 'message': '缺少必要参数'}), 400
+        if not stock_item_id and not location_id:
+            return jsonify({'success': False, 'message': '请选择存放位置'}), 400
+
+        # 获取盘点主表
+        inventory = AssetInventory.query.get(inventory_id)
+        if not inventory:
+            return jsonify({'success': False, 'message': '未找到对应的盘点单'}), 404
+
+        # 检查盘点状态
+        if inventory.status != '进行中':
+            return jsonify({'success': False, 'message': '仅进行中状态的盘点单可以添加明细'}), 400
+
+        # 获取资产信息
+        asset = FixedAsset.query.get(asset_id)
+        if not asset:
+            return jsonify({'success': False, 'message': '未找到对应的资产'}), 404
+
+        from models.fixed_asset.asset_stock_item import AssetStockItem
+
+        # 获取或创建库存明细
+        if stock_item_id:
+            # 通过stock_item_id直接获取
+            stock_item = AssetStockItem.query.get(stock_item_id)
+            if not stock_item:
+                return jsonify({'success': False, 'message': '未找到对应的库存明细'}), 404
+        elif location_id:
+            # 通过location_id（StorageLocation）获取或创建AssetStockItem
+            from models.supply.storage_location import StorageLocation
+            storage_loc = StorageLocation.query.get(location_id)
+            if not storage_loc:
+                return jsonify({'success': False, 'message': '未找到对应的存放位置'}), 404
+
+            # 查找该资产在该位置是否已有库存明细
+            stock_item = AssetStockItem.query.filter_by(
+                asset_id=asset_id,
+                storage_location=storage_loc.name
+            ).first()
+
+            if not stock_item:
+                # 创建新的库存明细记录（数量为0）
+                stock_item = AssetStockItem(
+                    asset_id=asset_id,
+                    storage_location=storage_loc.name,
+                    room_id=None,  # StorageLocation的room是字符串，不是外键
+                    company=asset.company,
+                    department_using_id=asset.department_using_id,
+                    department_owning_id=asset.department_owning_id,
+                    responsible_person=asset.responsible_person,
+                    responsible_user_id=asset.responsible_user_id,
+                    quantity=0,
+                    operator_user_id=current_user.id
+                )
+                db.session.add(stock_item)
+                db.session.flush()  # 获取id
+
+        # 检查是否已存在相同的资产+库存明细组合
+        existing = AssetInventoryDetail.query.filter_by(
+            inventory_id=inventory_id,
+            stock_item_id=stock_item.id
+        ).first()
+        if existing:
+            return jsonify({'success': False, 'message': '该资产在此位置已存在盘点明细，请勿重复添加'}), 400
+
+        # 创建盘点明细（冗余位置字段从AssetStockItem快照）
+        detail = AssetInventoryDetail(
+            inventory_id=inventory_id,
+            asset_id=asset_id,
+            stock_item_id=stock_item.id,
+            inventory_result='未盘点',
+            inventory_remark=None,
+            actual_quantity=None,
+            # 冗余位置字段
+            storage_location=stock_item.storage_location,
+            room_id=stock_item.room_id,
+            company=stock_item.company,
+            department_using_id=stock_item.department_using_id,
+            department_owning_id=stock_item.department_owning_id,
+            responsible_person=stock_item.responsible_person,
+        )
+        db.session.add(detail)
+
+        # 更新盘点主表总数
+        inventory.total_count = (inventory.total_count or 0) + 1
+
+        db.session.commit()
+
+        # 记录操作日志
+        log_operation(
+            user_id=current_user.id,
+            module='asset',
+            operation_type='inventory_detail_add',
+            action=f"添加盘点明细: 盘点单 {inventory.inventory_number}，资产 {asset.asset_name}({asset.display_number})",
+            result="成功"
+        )
+
+        logging.info(f"添加盘点明细成功，盘点单: {inventory.inventory_number}, 资产: {asset.asset_name}({asset.display_number})")
+
+        return jsonify({
+            'success': True,
+            'message': f'添加盘点明细成功: {asset.asset_name}({asset.display_number})',
+            'detail_id': detail.id,
+            'total_count': inventory.total_count
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        logging.error(f"添加盘点明细失败: {str(e)}\n{traceback.format_exc()}")
+        return jsonify({'success': False, 'message': f'添加盘点明细失败: {str(e)}'}), 500
+
+
+# ========== API：获取资产库存位置（用于添加盘点明细） ==========
+@fixed_asset_bp.route('/api/asset-stock-locations/<int:asset_id>/<int:inventory_id>', methods=['GET'])
+@login_required
+@require_permission('fixed_asset.view')
+def get_asset_stock_locations_for_inventory(asset_id, inventory_id):
+    """获取指定资产的可用存放位置列表（合并AssetStockItem和StorageLocation），支持搜索，过滤固定资产类型"""
+    try:
+        from models.fixed_asset.asset_stock_item import AssetStockItem
+        from models.supply.storage_location import StorageLocation
+
+        keyword = request.args.get('keyword', '').strip()
+
+        # 获取该盘点单中已有的该资产明细（已占用的stock_item_id）
+        existing_details = AssetInventoryDetail.query.filter_by(
+            inventory_id=inventory_id,
+            asset_id=asset_id
+        ).all()
+        existing_stock_item_ids = {d.stock_item_id for d in existing_details}
+
+        # 1. 获取该资产已有的库存明细（AssetStockItem）
+        stock_items = AssetStockItem.query.filter_by(asset_id=asset_id)\
+            .order_by(AssetStockItem.id).all()
+
+        # 构建stock_item的storage_location到stock_item的映射
+        stock_item_by_location_name = {}
+        for si in stock_items:
+            if si.storage_location:
+                stock_item_by_location_name[si.storage_location] = si
+
+        locations = []
+        stock_item_ids_added = set()
+
+        # 2. 先添加已有库存的位置（AssetStockItem记录）
+        for si in stock_items:
+            location_parts = []
+            if si.storage_location:
+                location_parts.append(si.storage_location)
+            if si.room:
+                location_parts.append(f"{si.room.building}{si.room.room_number}")
+            location_name = ' / '.join(location_parts) if location_parts else f'库存明细#{si.id}'
+
+            # 如果有搜索关键词，过滤
+            if keyword and keyword.lower() not in location_name.lower():
+                continue
+
+            locations.append({
+                'stock_item_id': si.id,
+                'location_id': None,
+                'name': location_name,
+                'quantity': si.quantity,
+                'already_in_inventory': si.id in existing_stock_item_ids,
+                'source': 'stock_item'
+            })
+            stock_item_ids_added.add(si.id)
+
+        # 3. 添加StorageLocation中固定资产类型的位置（允许添加0库存的位置）
+        location_query = StorageLocation.query.filter_by(
+            status='启用', usage_type='固定资产'
+        )
+        if keyword:
+            search_filter = f'%{keyword}%'
+            location_query = location_query.filter(
+                db.or_(
+                    StorageLocation.name.ilike(search_filter),
+                    StorageLocation.code.ilike(search_filter),
+                    StorageLocation.building.ilike(search_filter),
+                    StorageLocation.room.ilike(search_filter)
+                )
+            )
+        all_locations = location_query.order_by(StorageLocation.name).all()
+
+        for loc in all_locations:
+            # 检查该位置是否已有对应的AssetStockItem（通过名称匹配）
+            matching_si = stock_item_by_location_name.get(loc.name)
+
+            if matching_si:
+                # 已在步骤2中添加过，跳过
+                continue
+
+            # 构建位置显示名称
+            location_name = loc.display_name or loc.name
+
+            # 检查是否已在盘点中（通过storage_location名称匹配existing details）
+            already_in = False
+            for d in existing_details:
+                if d.storage_location == loc.name:
+                    already_in = True
+                    break
+
+            locations.append({
+                'stock_item_id': None,
+                'location_id': loc.id,
+                'name': location_name,
+                'quantity': 0,
+                'already_in_inventory': already_in,
+                'source': 'storage_location'
+            })
+
+        return jsonify({'success': True, 'locations': locations})
+    except Exception as e:
+        logging.error(f"获取资产库存位置失败，资产ID: {asset_id}, 错误: {str(e)}")
+        return jsonify({'success': False, 'locations': [], 'error': str(e)}), 500
+
+
 # ========== 路由：执行报废 ==========
 @fixed_asset_bp.route('/operations/scrap/<int:id>', methods=['POST'])
 @login_required

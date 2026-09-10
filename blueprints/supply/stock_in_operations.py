@@ -119,10 +119,17 @@ def create_stock_in():
 
             # 延迟创建：如果item_id为空但item_name有值，查找或创建物品
             if not item_id and item_name:
-                existing_item = SupplyItem.query.filter_by(name=item_name).first()
+                # 按名称+规格+单位联合查找，三者完全一致才视为同一个物品
+                spec_for_query = specification.strip() if specification and specification.strip() else None
+                unit_for_query = unit.strip() if unit and unit.strip() else None
+                existing_item = SupplyItem.query.filter_by(
+                    name=item_name,
+                    specification=spec_for_query,
+                    unit=unit_for_query
+                ).first()
                 if existing_item:
                     item_id = existing_item.id
-                    # 使用已有物品的规格/单位（如果表单未提供）
+                    # 补全表单未提供的字段
                     if not specification:
                         specification = existing_item.specification or ''
                     if not unit:
@@ -319,10 +326,17 @@ def update_stock_in(id):
 
             # 延迟创建：如果item_id为空但item_name有值，查找或创建物品
             if not item_id and item_name:
-                existing_item = SupplyItem.query.filter_by(name=item_name).first()
+                # 按名称+规格+单位联合查找，三者完全一致才视为同一个物品
+                spec_for_query = specification.strip() if specification and specification.strip() else None
+                unit_for_query = unit.strip() if unit and unit.strip() else None
+                existing_item = SupplyItem.query.filter_by(
+                    name=item_name,
+                    specification=spec_for_query,
+                    unit=unit_for_query
+                ).first()
                 if existing_item:
                     item_id = existing_item.id
-                    # 使用已有物品的规格/单位（如果表单未提供）
+                    # 补全表单未提供的字段
                     if not specification:
                         specification = existing_item.specification or ''
                     if not unit:
@@ -608,6 +622,150 @@ def cancel_stock_in(id):
         flash(f'取消入库单失败: {str(e)}', 'danger')
         logging.error(f"取消入库单失败，入库单ID: {id}, 错误: {str(e)}\n{traceback.format_exc()}")
         return redirect(url_for('stock_in.detail_stock_in', id=id))
+
+
+# ========== 路由：批量审核入库单 ==========
+@stock_in_bp.route('/operations/batch-approve', methods=['POST'])
+@login_required
+@require_permission('supply.approve')
+def batch_approve_stock_ins():
+    """批量审核入库单（仅待审核状态可审核）"""
+    try:
+        # 检查系统配置是否允许审核
+        from models.system_config.system_config import SystemConfig
+        approval_enabled = SystemConfig.get_config_value('STOCK_IN_APPROVAL_ENABLED', True)
+        if not approval_enabled:
+            flash('入库单审核功能已关闭，请联系管理员开启', 'warning')
+            return redirect(url_for('stock_in.list_stock_ins'))
+
+        ids = request.form.getlist('stock_in_ids[]')
+        if not ids:
+            flash('未选择要审核的入库单', 'warning')
+            return redirect(url_for('stock_in.list_stock_ins'))
+
+        success_count = 0
+        fail_count = 0
+        fail_messages = []
+
+        for id in ids:
+            stock_in = StockIn.query.get(int(id))
+            if stock_in and stock_in.status == '待审核':
+                try:
+                    result = StockIn.approve(id, current_user.id, None)
+                    if result is not None:
+                        success_count += 1
+                    else:
+                        fail_count += 1
+                        fail_messages.append(f'{stock_in.stock_in_number}: 审核失败')
+                except Exception as e:
+                    fail_count += 1
+                    fail_messages.append(f'{stock_in.stock_in_number}: {str(e)}')
+            else:
+                fail_count += 1
+                if stock_in:
+                    fail_messages.append(f'{stock_in.stock_in_number}: 状态不是待审核')
+
+        db.session.commit()
+
+        log_operation(
+            user_id=current_user.id,
+            module='stock_in',
+            operation_type='stock_in_batch_approve',
+            action=f"批量审核入库单: 成功{success_count}条, 失败{fail_count}条",
+            result="成功"
+        )
+
+        msg = f'批量审核完成: 成功{success_count}条, 失败{fail_count}条'
+        if fail_messages:
+            msg += '（' + '；'.join(fail_messages[:5]) + '）'
+        flash(msg, 'success' if fail_count == 0 else 'warning')
+        logging.info(f"批量审核入库单，成功{success_count}条, 失败{fail_count}条")
+        return redirect(url_for('stock_in.list_stock_ins'))
+
+    except Exception as e:
+        db.session.rollback()
+        log_operation(
+            user_id=current_user.id,
+            module='stock_in',
+            operation_type='stock_in_batch_approve',
+            action=f"批量审核入库单失败: {str(e)}",
+            result="失败"
+        )
+        flash(f'批量审核失败: {str(e)}', 'danger')
+        logging.error(f"批量审核入库单失败: {str(e)}\n{traceback.format_exc()}")
+        return redirect(url_for('stock_in.list_stock_ins'))
+
+
+# ========== 路由：批量反审核入库单 ==========
+@stock_in_bp.route('/operations/batch-unapprove', methods=['POST'])
+@login_required
+@require_permission('supply.unapprove')
+def batch_unapprove_stock_ins():
+    """批量反审核入库单（仅已审核状态可反审核，反审核后状态变为待审核，库存回滚）"""
+    try:
+        # 检查系统配置是否允许反审核
+        from models.system_config.system_config import SystemConfig
+        unapprove_enabled = SystemConfig.get_config_value('STOCK_IN_UNAPPROVE_ENABLED', True)
+        if not unapprove_enabled:
+            flash('入库单反审核功能已关闭，请联系管理员开启', 'warning')
+            return redirect(url_for('stock_in.list_stock_ins'))
+
+        ids = request.form.getlist('stock_in_ids[]')
+        if not ids:
+            flash('未选择要反审核的入库单', 'warning')
+            return redirect(url_for('stock_in.list_stock_ins'))
+
+        success_count = 0
+        fail_count = 0
+        fail_messages = []
+
+        for id in ids:
+            stock_in = StockIn.query.get(int(id))
+            if stock_in and stock_in.status == '已审核':
+                try:
+                    result = StockIn.unapprove(id, current_user.id)
+                    if result is not None:
+                        success_count += 1
+                    else:
+                        fail_count += 1
+                        fail_messages.append(f'{stock_in.stock_in_number}: 反审核失败')
+                except Exception as e:
+                    fail_count += 1
+                    fail_messages.append(f'{stock_in.stock_in_number}: {str(e)}')
+            else:
+                fail_count += 1
+                if stock_in:
+                    fail_messages.append(f'{stock_in.stock_in_number}: 状态不是已审核')
+
+        db.session.commit()
+
+        log_operation(
+            user_id=current_user.id,
+            module='stock_in',
+            operation_type='stock_in_batch_unapprove',
+            action=f"批量反审核入库单: 成功{success_count}条, 失败{fail_count}条",
+            result="成功"
+        )
+
+        msg = f'批量反审核完成: 成功{success_count}条, 失败{fail_count}条'
+        if fail_messages:
+            msg += '（' + '；'.join(fail_messages[:5]) + '）'
+        flash(msg, 'success' if fail_count == 0 else 'warning')
+        logging.info(f"批量反审核入库单，成功{success_count}条, 失败{fail_count}条")
+        return redirect(url_for('stock_in.list_stock_ins'))
+
+    except Exception as e:
+        db.session.rollback()
+        log_operation(
+            user_id=current_user.id,
+            module='stock_in',
+            operation_type='stock_in_batch_unapprove',
+            action=f"批量反审核入库单失败: {str(e)}",
+            result="失败"
+        )
+        flash(f'批量反审核失败: {str(e)}', 'danger')
+        logging.error(f"批量反审核入库单失败: {str(e)}\n{traceback.format_exc()}")
+        return redirect(url_for('stock_in.list_stock_ins'))
 
 
 # ========== 路由：批量删除入库单 ==========
