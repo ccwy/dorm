@@ -731,7 +731,7 @@ class SystemConfig(db.Model):
             },
             {
                 'config_key': 'supply_units',
-                'config_value': '个,件,箱,包,盒,瓶,支,本,张,套,台,把,条,块,卷,桶,袋,罐',
+                'config_value': '个,件,箱,包,盒,瓶,支,本,张,套,台,把,条,块,卷,桶,袋,罐,斤,公斤,G,KG,两,团',
                 'config_type': 'list',
                 'category': 'supply',
                 'description': '预设单位选项（逗号分隔）',
@@ -741,7 +741,7 @@ class SystemConfig(db.Model):
             },
             {
                 'config_key': 'supply_categories',
-                'config_value': '低值易耗品,固定资产,其他',
+                'config_value': '低值易耗品,固定资产',
                 'config_type': 'list',
                 'category': 'supply',
                 'description': '物品分类选项（逗号分隔，第一个为默认值）',
