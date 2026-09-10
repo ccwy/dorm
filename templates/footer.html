@@ -118,6 +118,112 @@
             pushBtn.classList.remove('text-primary');
             pushBtn.classList.add('text-gray-400');
         }
+        // 更新测试推送按钮可见性
+        var testBtn = document.getElementById('push-test-btn');
+        if (testBtn) {
+            testBtn.style.display = isSubscribed ? '' : 'none';
+        }
+    }
+
+    // 创建测试推送按钮（插入铃铛按钮后面）
+    function createTestPushButton() {
+        if (document.getElementById('push-test-btn')) return;
+        var testLink = document.createElement('a');
+        testLink.id = 'push-test-btn';
+        testLink.href = 'javascript:void(0)';
+        testLink.textContent = '测试推送';
+        testLink.style.cssText = 'font-size:11px;color:#6b7280;text-decoration:underline;cursor:pointer;display:none;margin-left:4px;white-space:nowrap;';
+        testLink.title = '点击发送测试推送通知并查看诊断信息';
+        pushBtn.parentNode.insertBefore(testLink, pushBtn.nextSibling);
+        testLink.addEventListener('click', function(e) {
+            e.preventDefault();
+            testPushNotification();
+        });
+    }
+    createTestPushButton();
+
+    // 测试推送通知并显示诊断结果
+    function testPushNotification() {
+        showToast('正在发送测试推送...', 'success');
+        fetch('/push/test', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include'
+        }).then(function(res) { return res.json(); }).then(function(data) {
+            showPushDiagnosticsDialog(data);
+        }).catch(function(err) {
+            showToast('测试推送请求失败: ' + err.message, 'error');
+        });
+    }
+
+    // 显示推送诊断弹窗
+    function showPushDiagnosticsDialog(data) {
+        // 移除已有弹窗
+        var existing = document.getElementById('push-diag-dialog');
+        if (existing) existing.remove();
+
+        var diag = data.diagnostics || {};
+        var success = data.success;
+
+        var overlay = document.createElement('div');
+        overlay.id = 'push-diag-dialog';
+        overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;' +
+            'background:rgba(0,0,0,0.5);z-index:10003;display:flex;align-items:center;justify-content:center;';
+
+        var dialog = document.createElement('div');
+        dialog.style.cssText = 'background:white;border-radius:12px;padding:24px;max-width:480px;' +
+            'width:90%;box-shadow:0 8px 24px rgba(0,0,0,0.2);font-size:14px;color:#333;';
+
+        var statusIcon = success ? '✅' : '❌';
+        var statusText = success ? '推送发送成功' : '推送发送失败';
+        var statusColor = success ? '#22c55e' : '#ef4444';
+
+        // 构建诊断项列表
+        var diagItems = '';
+        var items = [
+            { label: 'VAPID公钥已配置', value: diag.vapid_public_key_set, type: 'bool' },
+            { label: 'VAPID私钥已配置', value: diag.vapid_private_key_set, type: 'bool' },
+            { label: 'VAPID整体配置', value: diag.vapid_configured, type: 'bool' },
+            { label: '当前用户订阅数', value: diag.subscription_count, type: 'number' },
+            { label: '推送发送结果', value: diag.push_sent, type: 'bool' },
+        ];
+        if (diag.push_error) {
+            items.push({ label: '错误信息', value: diag.push_error, type: 'error' });
+        }
+
+        items.forEach(function(item) {
+            var valDisplay = '';
+            if (item.type === 'bool') {
+                valDisplay = item.value ? '<span style="color:#22c55e;font-weight:bold;">是</span>' : '<span style="color:#ef4444;font-weight:bold;">否</span>';
+            } else if (item.type === 'number') {
+                valDisplay = '<span style="font-weight:bold;">' + item.value + '</span>';
+            } else if (item.type === 'error') {
+                valDisplay = '<span style="color:#ef4444;">' + item.value + '</span>';
+            }
+            diagItems += '<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f3f4f6;">' +
+                '<span style="color:#6b7280;">' + item.label + '</span>' +
+                '<span>' + valDisplay + '</span></div>';
+        });
+
+        dialog.innerHTML =
+            '<h3 style="margin:0 0 12px;font-size:18px;font-weight:bold;color:#1f2937;">' + statusIcon + ' ' + statusText + '</h3>' +
+            '<div style="margin:0 0 16px;">' + diagItems + '</div>' +
+            '<div style="display:flex;justify-content:flex-end;">' +
+            '<button id="push-diag-close" style="padding:8px 20px;border:1px solid #d1d5db;border-radius:6px;' +
+            'background:white;cursor:pointer;font-size:14px;color:#374151;">关闭</button>' +
+            '</div>';
+
+        overlay.appendChild(dialog);
+        document.body.appendChild(overlay);
+
+        // 点击遮罩层关闭
+        overlay.addEventListener('click', function(e) {
+            if (e.target === overlay) overlay.remove();
+        });
+        // 关闭按钮
+        document.getElementById('push-diag-close').addEventListener('click', function() {
+            overlay.remove();
+        });
     }
 
     // 显示提示消息
@@ -144,7 +250,7 @@
         }, 3000);
     }
 
-    // 将showToast暴露为全局函数，供其他脚本块（如PWA注销功能）调用
+    // 将showToast暴露为全局函数，供其他脚本块调用
     window.showToast = showToast;
 
     // 订阅推送
@@ -276,129 +382,6 @@
         });
     });
 })();
-</script>
-
-<!-- PWA: 注销/卸载功能 -->
-<script>
-// 注销PWA服务：取消推送订阅 + 注销Service Worker + 清除缓存
-function unregisterPWA() {
-    // 第一步：取消推送订阅
-    navigator.serviceWorker.ready.then(function(registration) {
-        return registration.pushManager.getSubscription();
-    }).then(function(subscription) {
-        if (subscription) {
-            // 通知后端删除订阅记录
-            return fetch('/push/unsubscribe', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify({ endpoint: subscription.endpoint })
-            }).then(function() {
-                return subscription.unsubscribe();
-            });
-        }
-    }).then(function() {
-        // 第二步：注销Service Worker
-        return navigator.serviceWorker.getRegistration();
-    }).then(function(registration) {
-        if (registration) {
-            return registration.unregister();
-        }
-    }).then(function() {
-        // 第三步：清除SW缓存
-        if ('caches' in window) {
-            return caches.keys().then(function(names) {
-                return Promise.all(names.map(function(name) {
-                    return caches.delete(name);
-                }));
-            });
-        }
-    }).then(function() {
-        // 第四步：提示并刷新
-        showToast('已注销推送通知和Service Worker', 'success');
-        setTimeout(function() {
-            window.location.reload();
-        }, 1500);
-    }).catch(function(err) {
-        console.error('[PWA] 注销失败:', err);
-        showToast('注销失败: ' + err.message, 'error');
-    });
-}
-
-    // PWA注销按钮逻辑
-    var pwaUnregisterBtn = document.getElementById('pwa-unregister-btn');
-    if (pwaUnregisterBtn) {
-        // 检查是否应显示注销按钮（PWA已安装或SW已注册）
-        function checkPWAUnregisterBtn() {
-            var isStandalone = window.matchMedia('(display-mode: standalone)').matches
-                || window.navigator.standalone === true;
-            if (isStandalone) {
-                pwaUnregisterBtn.style.display = '';
-                return;
-            }
-            // 非独立模式时，检查SW是否已注册
-            if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.getRegistration().then(function(reg) {
-                    pwaUnregisterBtn.style.display = reg ? '' : 'none';
-                }).catch(function() {
-                    pwaUnregisterBtn.style.display = 'none';
-                });
-            }
-        }
-
-        // 页面加载时检查
-        window.addEventListener('load', checkPWAUnregisterBtn);
-
-        // 点击注销按钮：显示确认弹窗
-        pwaUnregisterBtn.addEventListener('click', function() {
-            showUnregisterConfirmDialog();
-        });
-    }
-
-    // 显示PWA注销确认弹窗
-    function showUnregisterConfirmDialog() {
-        // 如果已存在弹窗则不重复创建
-        if (document.getElementById('pwa-unregister-dialog')) return;
-
-        var overlay = document.createElement('div');
-        overlay.id = 'pwa-unregister-dialog';
-        overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;' +
-            'background:rgba(0,0,0,0.5);z-index:10002;display:flex;align-items:center;justify-content:center;';
-
-        var dialog = document.createElement('div');
-        dialog.style.cssText = 'background:white;border-radius:12px;padding:24px;max-width:420px;' +
-            'width:90%;box-shadow:0 8px 24px rgba(0,0,0,0.2);font-size:14px;color:#333;';
-
-        dialog.innerHTML =
-            '<h3 style="margin:0 0 12px;font-size:18px;font-weight:bold;color:#1f2937;">注销PWA服务</h3>' +
-            '<p style="margin:0 0 8px;line-height:1.6;">此操作将取消推送通知并注销Service Worker。</p>' +
-            '<p style="margin:0 0 16px;line-height:1.6;color:#6b7280;font-size:13px;">如需从桌面/主屏幕完全移除应用，请通过浏览器设置卸载。</p>' +
-            '<div style="display:flex;justify-content:flex-end;gap:10px;">' +
-            '<button id="pwa-unregister-cancel" style="padding:8px 20px;border:1px solid #d1d5db;border-radius:6px;' +
-            'background:white;cursor:pointer;font-size:14px;color:#374151;">取消</button>' +
-            '<button id="pwa-unregister-confirm" style="padding:8px 20px;border:none;border-radius:6px;' +
-            'background:#ef4444;color:white;cursor:pointer;font-size:14px;font-weight:bold;">确认注销</button>' +
-            '</div>';
-
-        overlay.appendChild(dialog);
-        document.body.appendChild(overlay);
-
-        // 点击遮罩层关闭
-        overlay.addEventListener('click', function(e) {
-            if (e.target === overlay) overlay.remove();
-        });
-
-        // 取消按钮
-        document.getElementById('pwa-unregister-cancel').addEventListener('click', function() {
-            overlay.remove();
-        });
-
-        // 确认注销按钮
-        document.getElementById('pwa-unregister-confirm').addEventListener('click', function() {
-            overlay.remove();
-            unregisterPWA();
-        });
-    }
 </script>
 
 <!-- PWA: 安装引导 -->

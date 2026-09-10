@@ -48,7 +48,7 @@ def send_push_notification(user_id, title, body, url=None):
     try:
         vapid_config = _get_vapid_config()
         if not vapid_config:
-            logger.debug("VAPID密钥未配置，跳过推送通知发送")
+            logger.warning("VAPID密钥未配置，跳过推送通知发送")
             return False
 
         from models.push.push_subscription import PushSubscription
@@ -86,15 +86,29 @@ def send_push_notification(user_id, title, body, url=None):
                 }
 
                 from pywebpush import webpush
+                # 诊断日志：记录VAPID私钥格式和endpoint域名
+                private_key = vapid_config['private_key']
+                logger.info(f"[Push诊断] VAPID私钥长度={len(private_key)}, 前20字符={private_key[:20]}")
+                try:
+                    from urllib.parse import urlparse
+                    endpoint_domain = urlparse(sub.endpoint).netloc
+                    logger.info(f"[Push诊断] endpoint域名={endpoint_domain}")
+                except Exception:
+                    logger.info(f"[Push诊断] endpoint解析失败: {sub.endpoint[:50]}")
+                # PEM格式私钥需要用Vapid.from_pem()构造实例，from_string()无法正确解析PEM
+                vapid_private_key = private_key
+                if '-----BEGIN' in private_key:
+                    from py_vapid import Vapid
+                    vapid_private_key = Vapid.from_pem(private_key.encode('utf-8'))
                 webpush(
                     subscription_info=subscription_info,
                     data=payload,
-                    vapid_private_key=vapid_config['private_key'],
+                    vapid_private_key=vapid_private_key,
                     vapid_claims=vapid_claims,
                     ttl=86400,  # 消息有效期24小时
                 )
                 success_count += 1
-                logger.debug(f"推送通知发送成功: 用户={user_id}, 端点={sub.endpoint[:50]}")
+                logger.info(f"推送通知发送成功: 用户={user_id}, 端点={sub.endpoint[:50]}")
 
             except Exception as e:
                 error_str = str(e)

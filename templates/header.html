@@ -126,10 +126,6 @@
           <button id="push-bell-btn" class="text-gray-700 hover:text-primary transition-colors relative" title="推送通知" style="display:none;">
             <i class="fa fa-bell-o"></i>
           </button>
-          <!-- PWA注销按钮：仅在PWA已安装或SW已注册时显示 -->
-          <button id="pwa-unregister-btn" class="text-gray-700 hover:text-red-500 transition-colors relative" title="注销PWA服务" style="display:none;">
-            <i class="fa fa-times-circle"></i>
-          </button>
           <div class="flex items-center space-x-2">
             <a href="{{ url_for('user.user_info') }}" class="flex items-center space-x-2 hover:opacity-80 transition-opacity">
               <img src="{{ url_for('static', filename='images/admin.jpg') }}" alt="用户头像" class="w-8 h-8 rounded-full object-cover">

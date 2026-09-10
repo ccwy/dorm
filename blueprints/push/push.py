@@ -276,33 +276,57 @@ def vapid_public_key():
 @push_bp.route('/test', methods=['POST'])
 @login_required
 def test_push():
-    """测试推送通知"""
+    """测试推送通知，返回详细诊断信息"""
+    from flask import current_app
+    from utils.db_config import DatabaseConfig
+    system_title = '宿舍管理系统'
     try:
-        from utils.db_config import DatabaseConfig
         config = DatabaseConfig.load_config()
-        system_title = config.get('SYSTEM_TITLE', '行政后勤管理系统')
-        user_id = current_user.id
+        system_title = config.get('SYSTEM_TITLE', '宿舍管理系统')
+    except Exception:
+        pass
+
+    diagnostics = {
+        'vapid_configured': False,
+        'vapid_private_key_set': False,
+        'vapid_public_key_set': False,
+        'subscription_count': 0,
+        'push_sent': False,
+        'push_error': None,
+    }
+
+    # 检查VAPID配置
+    private_key = current_app.config.get('VAPID_PRIVATE_KEY', '')
+    public_key = current_app.config.get('VAPID_PUBLIC_KEY', '')
+    diagnostics['vapid_private_key_set'] = bool(private_key)
+    diagnostics['vapid_public_key_set'] = bool(public_key)
+    diagnostics['vapid_configured'] = bool(private_key and public_key)
+
+    # 检查订阅
+    user_id = current_user.id
+    sub_count = PushSubscription.query.filter_by(user_id=user_id).count()
+    diagnostics['subscription_count'] = sub_count
+
+    if not diagnostics['vapid_configured']:
+        diagnostics['push_error'] = 'VAPID密钥未配置'
+        return jsonify({'success': False, 'diagnostics': diagnostics}), 200
+
+    if sub_count == 0:
+        diagnostics['push_error'] = '当前用户没有推送订阅'
+        return jsonify({'success': False, 'diagnostics': diagnostics}), 200
+
+    # 尝试发送
+    try:
         result = send_push_notification(
             user_id=user_id,
-            title='推送通知测试',
+            title=f'{system_title} - 测试通知',
             body=f'这是一条来自{system_title}的测试推送通知，发送给用户 {current_user.name}。',
             url='/'
         )
-
-        if result:
-            return jsonify({'success': True, 'message': '测试推送已发送'})
-        else:
-            # 检查是VAPID未配置还是没有订阅
-            from flask import current_app
-            if not current_app.config.get('VAPID_PRIVATE_KEY') or not current_app.config.get('VAPID_PUBLIC_KEY'):
-                return jsonify({'success': False, 'message': 'VAPID密钥未配置，推送功能不可用'}), 400
-
-            sub_count = PushSubscription.query.filter_by(user_id=user_id).count()
-            if sub_count == 0:
-                return jsonify({'success': False, 'message': '您还没有推送订阅，请先在浏览器中允许通知权限'}), 400
-
-            return jsonify({'success': False, 'message': '推送发送失败，请检查VAPID配置'}), 500
-
+        diagnostics['push_sent'] = result
+        if not result:
+            diagnostics['push_error'] = 'send_push_notification返回False（可能webpush调用失败，请检查服务器日志）'
     except Exception as e:
-        logger.error(f"测试推送通知失败: {e}")
-        return jsonify({'success': False, 'message': f'测试推送失败: {str(e)}'}), 500
+        diagnostics['push_error'] = str(e)
+
+    return jsonify({'success': diagnostics['push_sent'], 'diagnostics': diagnostics}), 200
