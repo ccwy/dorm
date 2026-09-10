@@ -11,6 +11,7 @@ from models.room.room import Room
 from models.room.room_bed import Bed  # 【新增】导入床位模型
 from models.role import Role  # 导入角色模型
 from utils.log import log_operation
+from utils.push_notification import send_push_notification
 from .dorm import dorm_bp  # 导入dorm蓝图
 
 # 导入需要的模型
@@ -237,6 +238,12 @@ def create_allocation():
             )
             db.session.commit()
             
+            # 推送通知用户
+            try:
+                send_push_notification(user_id, '宿舍分配通知', f'您已分配至{room_full_number}房间', '/dorm/query')
+            except Exception as e:
+                logging.error(f'推送通知失败: {e}')
+            
             message = f"宿舍分配成功：{user_name}（ID:{user_id}）已分配至{room_full_number}房间"
             if subsidies_disabled:
                 message += "，外宿补贴已自动禁用"
@@ -397,6 +404,11 @@ def add():
                 ip_address=request.headers.get('X-Real-IP', request.remote_addr)
             )
             db.session.commit()
+            # 推送通知用户
+            try:
+                send_push_notification(user_id, '宿舍分配通知', f'您已分配至{room_full_number}房间', '/dorm/query')
+            except Exception as e:
+                logging.error(f'推送通知失败: {e}')
             # 响应处理（AJAX/页面跳转）
             if is_ajax:
                 success_message = f"添加宿舍分配成功：{user_name}已分配至{room_full_number}房间"
@@ -598,6 +610,13 @@ def checkout():
                 
                 db.session.commit()
                 
+                # 推送通知用户
+                try:
+                    room_info_push = f"{current_dorm.room.building}{current_dorm.room.room_number}" if current_dorm.room else "未知房间"
+                    send_push_notification(user_id, '退宿通知', f'您已从{room_info_push}退宿', '/dorm/query')
+                except Exception as e:
+                    logging.error(f'推送通知失败: {e}')
+                
                 # 获取房间信息
                 room_info = f"{current_dorm.room.building}{current_dorm.room.room_number}" if current_dorm.room else "未知房间"
                 
@@ -701,6 +720,13 @@ def checkout():
                 )
                 
                 db.session.commit()
+                
+                # 推送通知用户
+                try:
+                    room_info_push = f"{current_dorm.room.building}{current_dorm.room.room_number}" if current_dorm.room else "未知房间"
+                    send_push_notification(user_id, '退宿通知', f'您已从{room_info_push}退宿', '/dorm/query')
+                except Exception as e:
+                    logging.error(f'推送通知失败: {e}')
                 
                 # 获取房间信息
                 room_info = f"{current_dorm.room.building}{current_dorm.room.room_number}" if current_dorm.room else "未知房间"
@@ -1194,6 +1220,12 @@ def swap():
             
             db.session.commit()
             
+            # 推送通知用户
+            try:
+                send_push_notification(user_id, '宿舍更换通知', f'您的宿舍已从{old_room_str}更换至{new_room_str}', '/dorm/query')
+            except Exception as e:
+                logging.error(f'推送通知失败: {e}')
+            
             # 使用flash消息并重定向
             flash(f"宿舍更换成功：{user_name}从{old_room_str}→{new_room_str}", 'success')
             logging.info(f"宿舍更换成功：{user_name}从{old_room_str}→{new_room_str}")
@@ -1546,6 +1578,11 @@ def change():
             ip_address=request.headers.get('X-Real-IP', request.remote_addr)
         )
         db.session.commit()
+        # 推送通知用户
+        try:
+            send_push_notification(user_id, '宿舍更换通知', f'您的宿舍已从{old_room_str}更换至{new_room_str}', '/dorm/query')
+        except Exception as e:
+            logging.error(f'推送通知失败: {e}')
         # 构建返回数据
         return jsonify({
             'success': True,
@@ -1670,6 +1707,15 @@ def exchange():
             ip_address=request.headers.get('X-Real-IP', request.remote_addr)
         )
         db.session.commit()       
+        # 推送通知两个用户
+        try:
+            send_push_notification(user1_id, '宿舍互换通知', f'您的宿舍已从{old_room1_str}更换至{new_room1_str}', '/dorm/query')
+        except Exception as e:
+            logging.error(f'推送通知失败(用户1): {e}')
+        try:
+            send_push_notification(user2_id, '宿舍互换通知', f'您的宿舍已从{old_room2_str}更换至{new_room2_str}', '/dorm/query')
+        except Exception as e:
+            logging.error(f'推送通知失败(用户2): {e}')
         # 构建返回数据
         return jsonify({
             'success': True,

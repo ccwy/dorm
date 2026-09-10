@@ -16,6 +16,7 @@ from flask_login import login_required, current_user
 from models.fee_subsidy.fee_subsidy_usage import FeeSubsidyUsage  # 导入费用补贴子表
 # 导入权限装饰器
 from utils.auth import require_permission
+from utils.push_notification import send_push_notification_to_users
 # 创建蓝图
 utility_room_bill_occupants_bp = Blueprint('utility_room_bill_occupants', __name__, url_prefix='/utility_room_bill_occupants')
 
@@ -311,6 +312,7 @@ def calculate_bill():
         # 再计算子表分摊
         updated_occupant = 0
         updated_room_count = 0  # 新增：统计处理的房间数量
+        all_occupants = []  # 收集所有住户用于推送通知
         for record in main_records:
             occupants, global_subsidy_balances = RoomUtilityOccupant.calculate_room_fee(
                 record.record_id,
@@ -318,8 +320,16 @@ def calculate_bill():
                 )  
             updated_occupant += len(occupants)
             updated_room_count += 1  # 每处理一个主表记录，视为处理一个房间
+            all_occupants.extend(occupants)
         
         db.session.commit()
+        # 推送通知相关用户
+        try:
+            all_user_ids = list(set([occ.user_id for occ in all_occupants if occ.user_id]))
+            if all_user_ids:
+                send_push_notification_to_users(all_user_ids, '水电费核算通知', f'{billing_period}账期费用已核算完成，请查看', '/utility_room_bill_occupants/api/fee_records')
+        except Exception as e:
+            logging.error(f'推送通知失败: {e}')
         # 记录成功日志
         log_operation(
             user_id=current_user.id,

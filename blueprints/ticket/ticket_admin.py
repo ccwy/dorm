@@ -12,6 +12,7 @@ import logging
 import os
 from utils.ticket_photo import ticket_photo_manager
 from utils.log import log_operation
+from utils.push_notification import send_push_notification
 
 # 创建管理端留言蓝图
 ticket_admin_bp = Blueprint('ticket_admin', __name__, url_prefix='/admin/ticket')
@@ -262,6 +263,17 @@ def add_ticket_reply(ticket_id):
         if ticket.status == '已关闭':
             ticket.update(status='处理中')
             ticket.closed_at = None
+        
+        # 通知留言提交用户
+        try:
+            send_push_notification(
+                user_id=ticket.user_id,
+                title='留言回复通知',
+                body=f'管理员回复了您的留言：{ticket.title}',
+                url=f'/user/ticket/detail/{ticket.id}'
+            )
+        except Exception as e:
+            logging.error(f'推送用户留言回复通知失败: {e}')
         
         # 检查是否需要回复并关闭
         if request.form.get('reply_and_close') == '1':
