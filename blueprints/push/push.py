@@ -8,6 +8,7 @@ from flask_login import login_required, current_user
 from utils.db import db
 from models.push.push_subscription import PushSubscription
 from utils.push_notification import send_push_notification
+import os
 import logging
 
 logger = logging.getLogger(__name__)
@@ -46,6 +47,25 @@ def manifest():
     }
     import json
     return Response(json.dumps(manifest_data, ensure_ascii=False), mimetype='application/manifest+json')
+
+
+@push_bp.route('/sw.js')
+def service_worker():
+    """提供Service Worker脚本，通过Service-Worker-Allowed头允许scope为/"""
+    from flask import current_app
+    import os
+
+    sw_path = os.path.join(current_app.root_path, 'static', 'js', 'sw.js')
+    try:
+        with open(sw_path, 'r', encoding='utf-8') as f:
+            sw_content = f.read()
+    except FileNotFoundError:
+        return Response('/* SW file not found */', mimetype='application/javascript', status=404)
+
+    response = Response(sw_content, mimetype='application/javascript')
+    response.headers['Service-Worker-Allowed'] = '/'
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    return response
 
 
 @push_bp.route('/subscribe', methods=['POST'])
@@ -134,6 +154,49 @@ def unsubscribe():
         return jsonify({'success': False, 'message': '删除推送订阅失败'}), 500
 
 
+def _recover_vapid_keys(app):
+    """尝试从持久化文件恢复VAPID密钥到Flask配置。
+    
+    当Flask配置中VAPID密钥为空时（如进程重启后env vars未继承），
+    从vapid_keys.json文件重新加载密钥，避免永久503。
+    
+    Returns:
+        bool: True表示恢复成功，False表示恢复失败
+    """
+    if app.config.get('VAPID_PUBLIC_KEY'):
+        return True  # 密钥已存在，无需恢复
+
+    try:
+        # 尝试从环境变量恢复（可能ensure_vapid_keys已设置但Flask config未更新）
+        env_public = os.environ.get('VAPID_PUBLIC_KEY', '')
+        env_private = os.environ.get('VAPID_PRIVATE_KEY', '')
+        if env_public and env_private:
+            app.config['VAPID_PUBLIC_KEY'] = env_public
+            app.config['VAPID_PRIVATE_KEY'] = env_private
+            app.config['VAPID_CLAIM_EMAIL'] = os.environ.get('VAPID_CLAIM_EMAIL', 'admin@dorm.local')
+            logger.info("[VAPID] 从环境变量恢复密钥到Flask配置成功")
+            return True
+
+        # 环境变量也为空，尝试从持久化文件恢复
+        from utils.generate_vapid_keys import ensure_vapid_keys
+        result = ensure_vapid_keys()
+        if result:
+            env_public = os.environ.get('VAPID_PUBLIC_KEY', '')
+            env_private = os.environ.get('VAPID_PRIVATE_KEY', '')
+            if env_public and env_private:
+                app.config['VAPID_PUBLIC_KEY'] = env_public
+                app.config['VAPID_PRIVATE_KEY'] = env_private
+                app.config['VAPID_CLAIM_EMAIL'] = os.environ.get('VAPID_CLAIM_EMAIL', 'admin@dorm.local')
+                logger.info("[VAPID] 从持久化文件恢复密钥到Flask配置成功")
+                return True
+
+        logger.warning("[VAPID] 密钥恢复失败：环境变量和持久化文件均无有效密钥")
+    except Exception as e:
+        logger.error(f"[VAPID] 密钥恢复异常: {e}")
+
+    return False
+
+
 @push_bp.route('/vapid-public-key', methods=['GET'])
 def vapid_public_key():
     """获取VAPID公钥"""
@@ -141,11 +204,73 @@ def vapid_public_key():
         from flask import current_app
         public_key = current_app.config.get('VAPID_PUBLIC_KEY', '')
         if not public_key:
-            return jsonify({'success': False, 'message': 'VAPID公钥未配置'}), 503
+            # 尝试运行时恢复密钥（从环境变量或持久化文件）
+            _recovered = _recover_vapid_keys(current_app)
+            if _recovered:
+                public_key = current_app.config.get('VAPID_PUBLIC_KEY', '')
+        if not public_key:
+            # 收集详细诊断信息，帮助前端和调试定位503原因
+            vapid_available = os.environ.get('VAPID_AVAILABLE', 'true')
+            vapid_private_key_set = bool(os.environ.get('VAPID_PRIVATE_KEY', ''))
+            vapid_public_key_env = bool(os.environ.get('VAPID_PUBLIC_KEY', ''))
+            app_private_key = bool(current_app.config.get('VAPID_PRIVATE_KEY', ''))
+            app_public_key = bool(current_app.config.get('VAPID_PUBLIC_KEY', ''))
+
+            # 检查 pywebpush 是否可导入
+            pywebpush_available = False
+            pywebpush_version = 'unknown'
+            try:
+                import pywebpush as _pw
+                pywebpush_available = True
+                pywebpush_version = getattr(_pw, '__version__', 'installed')
+            except ImportError:
+                pass
+
+            # 检查 cryptography 是否可用
+            crypto_available = False
+            try:
+                from cryptography.hazmat.primitives.asymmetric import ec  # noqa: F401
+                crypto_available = True
+            except ImportError:
+                pass
+
+            # 构建诊断信息
+            diagnostics = {
+                'vapid_available_env': vapid_available,
+                'env_private_key_set': vapid_private_key_set,
+                'env_public_key_set': vapid_public_key_env,
+                'app_private_key_set': app_private_key,
+                'app_public_key_set': app_public_key,
+                'pywebpush_available': pywebpush_available,
+                'pywebpush_version': pywebpush_version,
+                'crypto_available': crypto_available,
+            }
+
+            # 确定具体原因
+            if vapid_available == 'false':
+                reason = 'VAPID密钥生成失败（pywebpush或cryptography不可用），推送功能不可用'
+                suggestion = '请安装依赖：pip install pywebpush（或 pip install cryptography）'
+            elif not pywebpush_available and not crypto_available:
+                reason = 'pywebpush和cryptography均未安装，无法生成VAPID密钥'
+                suggestion = '请安装依赖：pip install pywebpush'
+            elif vapid_public_key_env and not app_public_key:
+                reason = '环境变量中存在VAPID公钥但未正确加载到Flask配置'
+                suggestion = '请检查config.py和main.py中的VAPID配置加载逻辑'
+            else:
+                reason = 'VAPID密钥未生成，推送功能不可用'
+                suggestion = '请检查服务端日志中的[VAPID]标记信息'
+
+            logger.warning(f"VAPID公钥为空，返回503: {reason}, diagnostics={diagnostics}")
+            return jsonify({
+                'success': False,
+                'message': reason,
+                'suggestion': suggestion,
+                'diagnostics': diagnostics,
+            }), 503
         return jsonify({'success': True, 'publicKey': public_key})
     except Exception as e:
         logger.error(f"获取VAPID公钥失败: {e}")
-        return jsonify({'success': False, 'message': '获取VAPID公钥失败'}), 500
+        return jsonify({'success': False, 'message': f'获取VAPID公钥失败: {str(e)}'}), 500
 
 
 @push_bp.route('/test', methods=['POST'])

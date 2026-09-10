@@ -130,6 +130,12 @@ def init_flask_app(progress_callback=None):
         print(f"开发环境数据库连接: {app.config['SQLALCHEMY_DATABASE_URI']}")
 
     app.config.from_object(current_config)
+    # 修复VAPID配置时序问题：Config类属性在定义时已求值，
+    # 如果config.py被其他模块提前导入，此时os.environ中可能还没有VAPID密钥。
+    # 显式从os.environ更新，确保即使Config类属性为空也能获取到正确的值。
+    app.config['VAPID_PRIVATE_KEY'] = os.environ.get('VAPID_PRIVATE_KEY', '')
+    app.config['VAPID_PUBLIC_KEY'] = os.environ.get('VAPID_PUBLIC_KEY', '')
+    app.config['VAPID_CLAIM_EMAIL'] = os.environ.get('VAPID_CLAIM_EMAIL', 'admin@dorm.local')
     app.secret_key = current_config.SECRET_KEY
     app.permanent_session_lifetime = current_config.PERMANENT_SESSION_LIFETIME
     print(f"会话超时时间: {app.permanent_session_lifetime}")

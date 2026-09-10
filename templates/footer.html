@@ -66,7 +66,7 @@
 (function() {
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', function() {
-            navigator.serviceWorker.register('/static/js/sw.js?title=' + encodeURIComponent('{{ system_title }}'))
+            navigator.serviceWorker.register('/push/sw.js?title=' + encodeURIComponent('{{ system_title }}'), {scope: '/'})
                 .then(function(registration) {
                     console.log('[PWA] Service Worker 注册成功，作用域: ', registration.scope);
                 })
@@ -162,7 +162,7 @@
                     return;
                 }
                 // 使用SW注册推送订阅
-                navigator.serviceWorker.ready.then(function(registration) {
+                swReadyWithTimeout(10000).then(function(registration) {
                     return registration.pushManager.subscribe({
                         userVisibleOnly: true,
                         applicationServerKey: urlBase64ToUint8Array(vapidKey)
@@ -196,7 +196,7 @@
 
     // 取消订阅推送
     function unsubscribePush() {
-        navigator.serviceWorker.ready.then(function(registration) {
+        swReadyWithTimeout(10000).then(function(registration) {
             return registration.pushManager.getSubscription();
         }).then(function(subscription) {
             if (!subscription) {
@@ -245,6 +245,16 @@
         }
     });
 
+    // 带超时的Service Worker ready等待
+    function swReadyWithTimeout(timeoutMs) {
+        return Promise.race([
+            navigator.serviceWorker.ready,
+            new Promise(function(_, reject) {
+                setTimeout(function() { reject(new Error('SW ready timeout')); }, timeoutMs);
+            })
+        ]);
+    }
+
     // 页面加载时初始化订阅状态
     window.addEventListener('load', function() {
         checkVapidKey().then(function(vapidKey) {
@@ -253,12 +263,14 @@
                 pushBtn.style.display = 'none';
                 return;
             }
-            // 检查当前订阅状态
-            navigator.serviceWorker.ready.then(function(registration) {
+            // 检查当前订阅状态（带5秒超时，避免SW未注册时永久挂起）
+            swReadyWithTimeout(5000).then(function(registration) {
                 return registration.pushManager.getSubscription();
             }).then(function(subscription) {
                 updateBellUI(!!subscription);
-            }).catch(function() {
+            }).catch(function(err) {
+                // 超时或SW未就绪，仍显示按钮（未订阅状态）
+                console.warn('[Push] SW未就绪，显示未订阅状态按钮:', err.message || err);
                 updateBellUI(false);
             });
         });

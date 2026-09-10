@@ -14,7 +14,7 @@ VAPID 密钥对生成脚本
     VAPID_CLAIM_EMAIL=mailto:your-email@example.com
 
 依赖：
-    pip install pywebpush
+    pip install pywebpush（或直接使用 cryptography 库）
 
 说明：
     - VAPID (Voluntary Application Server Identification) 用于标识推送通知的发送方
@@ -22,27 +22,163 @@ VAPID 密钥对生成脚本
     - 公钥会分发给客户端浏览器，用于订阅推送
     - 如果未配置 VAPID 密钥，推送功能将静默跳过（不影响主业务）
     - 每次运行会生成新的密钥对，旧密钥对应的订阅将失效
+    - 兼容 pywebpush 2.x（Vapid 类，优先）和 1.x（generate_vapid_key_pair，回退）
+    - 如果 pywebpush 不可用，回退到 cryptography 库直接生成
 """
 import sys
+import base64
+
+
+def _generate_keys_cryptography():
+    """使用 cryptography 库直接生成 VAPID 密钥对（不依赖 pywebpush）。
+
+    Returns:
+        dict: {'private_key': str(PEM), 'public_key': str(base64url)} 或 None
+    """
+    try:
+        from cryptography.hazmat.primitives.asymmetric import ec
+        from cryptography.hazmat.primitives import serialization
+
+        # 生成 P-256 (SECP256R1) 密钥对
+        private_key = ec.generate_private_key(ec.SECP256R1())
+
+        # 私钥导出为 PEM 格式
+        private_pem = private_key.private_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PrivateFormat.PKCS8,
+            encryption_algorithm=serialization.NoEncryption()
+        ).decode('utf-8')
+
+        # 公钥导出为未压缩点格式，再 base64url 编码（浏览器推送所需的格式）
+        public_key_raw = private_key.public_key().public_bytes(
+            encoding=serialization.Encoding.X962,
+            format=serialization.PublicFormat.UncompressedPoint
+        )
+        public_key_b64 = base64.urlsafe_b64encode(public_key_raw).decode('utf-8').rstrip('=')
+
+        return {
+            'private_key': private_pem,
+            'public_key': public_key_b64
+        }
+    except Exception as e:
+        print(f"[VAPID] cryptography 库生成密钥失败: {e}")
+        return None
+
+
+def _generate_keys_pywebpush_v1():
+    """使用 pywebpush 1.x 的 generate_vapid_key_pair() 生成密钥。
+
+    Returns:
+        dict: {'private_key': str, 'public_key': str} 或 None
+    """
+    try:
+        from pywebpush import generate_vapid_key_pair
+        key_pair = generate_vapid_key_pair()
+        private_key = key_pair.get('private_key', '')
+        public_key = key_pair.get('public_key', '')
+        if private_key and public_key:
+            return {
+                'private_key': private_key,
+                'public_key': public_key
+            }
+        print(f"[VAPID] pywebpush v1 generate_vapid_key_pair() 返回值为空: {key_pair}")
+        return None
+    except ImportError:
+        return None
+    except Exception as e:
+        print(f"[VAPID] pywebpush v1 generate_vapid_key_pair() 失败: {e}")
+        return None
+
+
+def _generate_keys_pywebpush_v2():
+    """使用 pywebpush 2.x 的 Vapid 类生成密钥。
+
+    Returns:
+        dict: {'private_key': str(PEM), 'public_key': str(base64url)} 或 None
+    """
+    try:
+        from pywebpush import Vapid
+        v = Vapid()
+        v.generate_keys()
+
+        # 获取私钥 PEM
+        private_pem_result = v.private_pem()
+        if isinstance(private_pem_result, bytes):
+            private_pem = private_pem_result.decode('utf-8')
+        elif isinstance(private_pem_result, str):
+            private_pem = private_pem_result
+        else:
+            private_pem = private_pem_result  # 可能已经是 str
+
+        # 获取公钥并转换为浏览器所需的 base64url 格式
+        pub_key_obj = v.public_key
+        if pub_key_obj is not None:
+            from cryptography.hazmat.primitives import serialization
+            public_key_raw = pub_key_obj.public_bytes(
+                encoding=serialization.Encoding.X962,
+                format=serialization.PublicFormat.UncompressedPoint
+            )
+            public_key_b64 = base64.urlsafe_b64encode(public_key_raw).decode('utf-8').rstrip('=')
+        else:
+            print("[VAPID] pywebpush v2 Vapid.public_key 为 None")
+            return None
+
+        if private_pem and public_key_b64:
+            return {
+                'private_key': private_pem,
+                'public_key': public_key_b64
+            }
+        print(f"[VAPID] pywebpush v2 Vapid 生成密钥为空")
+        return None
+    except ImportError:
+        return None
+    except Exception as e:
+        print(f"[VAPID] pywebpush v2 Vapid 生成密钥失败: {e}")
+        return None
+
+
+def generate_vapid_keypair():
+    """生成 VAPID 密钥对，按优先级尝试多种方法。
+
+    尝试顺序（v2优先，因为pywebpush 2.x是当前主流版本）：
+    1. pywebpush 2.x: Vapid 类（当前主流版本2.5.0+）
+    2. pywebpush 1.x: generate_vapid_key_pair()（旧版本兼容）
+    3. cryptography 库直接生成（回退方案）
+
+    Returns:
+        dict: {'private_key': str, 'public_key': str} 或 None
+    """
+    # 方法1: pywebpush 2.x（优先，当前主流版本）
+    result = _generate_keys_pywebpush_v2()
+    if result:
+        print("[VAPID] 使用 pywebpush v2 (Vapid 类) 生成密钥")
+        return result
+
+    # 方法2: pywebpush 1.x（旧版本兼容）
+    result = _generate_keys_pywebpush_v1()
+    if result:
+        print("[VAPID] 使用 pywebpush v1 (generate_vapid_key_pair) 生成密钥")
+        return result
+
+    # 方法3: cryptography 直接生成（回退）
+    result = _generate_keys_cryptography()
+    if result:
+        print("[VAPID] 使用 cryptography 库直接生成密钥（pywebpush 不可用）")
+        return result
+
+    print("[VAPID] 所有密钥生成方法均失败，请安装 pywebpush 或 cryptography")
+    return None
 
 
 def main():
-    try:
-        from pywebpush import generate_vapid_key_pair
-    except ImportError:
-        print("错误：pywebpush 未安装")
-        print("请先安装依赖：pip install pywebpush")
+    key_pair = generate_vapid_keypair()
+    if not key_pair:
+        print("错误：密钥生成失败")
+        print("请安装依赖：pip install pywebpush")
         sys.exit(1)
 
-    key_pair = generate_vapid_key_pair()
-
-    # generate_vapid_key_pair() 返回字典，包含 private_key 和 public_key
     private_key = key_pair.get('private_key', '')
     public_key = key_pair.get('public_key', '')
-
-    if not private_key or not public_key:
-        print("错误：密钥生成失败")
-        sys.exit(1)
 
     print("=" * 60)
     print("VAPID 密钥对已生成")
@@ -103,15 +239,24 @@ def ensure_vapid_keys():
     - 如果持久化文件存在，从中加载并设置环境变量
     - 如果都没有，自动生成新密钥对并持久化
 
+    密钥生成按优先级尝试多种方法：
+    1. pywebpush 2.x: Vapid 类（当前主流版本）
+    2. pywebpush 1.x: generate_vapid_key_pair()（旧版本兼容）
+    3. cryptography 库直接生成（回退方案）
+
     Returns:
         bool: True表示密钥已就绪（已存在或新生成），False表示生成失败
     """
     import os
     import json
 
+    # 确保VAPID_AVAILABLE默认为true（仅在明确失败时设为false）
+    os.environ.setdefault('VAPID_AVAILABLE', 'true')
+
     # 1. 检查环境变量是否已配置
     if os.environ.get('VAPID_PRIVATE_KEY') and os.environ.get('VAPID_PUBLIC_KEY'):
         print("[VAPID] 密钥已通过环境变量配置，跳过自动生成")
+        os.environ['VAPID_AVAILABLE'] = 'true'
         return True
 
     # 2. 检查持久化文件
@@ -128,52 +273,52 @@ def ensure_vapid_keys():
                 if keys.get('claim_email'):
                     os.environ['VAPID_CLAIM_EMAIL'] = keys['claim_email']
                 print(f"[VAPID] 从持久化文件加载密钥: {key_path}")
+                os.environ['VAPID_AVAILABLE'] = 'true'
                 return True
+            else:
+                print(f"[VAPID] 持久化文件中密钥为空，将重新生成: {key_path}")
         except Exception as e:
             print(f"[VAPID] 读取持久化密钥失败: {e}，将重新生成")
 
-    # 3. 自动生成新密钥对
-    try:
-        from pywebpush import generate_vapid_key_pair
-    except ImportError:
-        print("[VAPID] pywebpush 未安装，跳过VAPID密钥自动生成")
-        print("[VAPID] 推送通知功能将不可用，如需启用请安装：pip install pywebpush")
+    # 3. 自动生成新密钥对（使用兼容多版本的生成函数）
+    key_pair = generate_vapid_keypair()
+
+    if not key_pair:
+        print("[VAPID] 密钥生成失败，推送通知功能将不可用")
+        print("[VAPID] 请安装依赖：pip install pywebpush（或 pip install cryptography）")
+        os.environ['VAPID_AVAILABLE'] = 'false'
         return False
 
+    private_key = key_pair.get('private_key', '')
+    public_key = key_pair.get('public_key', '')
+
+    if not private_key or not public_key:
+        print("[VAPID] 密钥生成失败：返回值为空")
+        os.environ['VAPID_AVAILABLE'] = 'false'
+        return False
+
+    # 设置环境变量（必须在config.py导入后生效，此处设置供后续读取）
+    os.environ['VAPID_PRIVATE_KEY'] = private_key
+    os.environ['VAPID_PUBLIC_KEY'] = public_key
+    claim_email = os.environ.get('VAPID_CLAIM_EMAIL', 'admin@dorm.local')
+    os.environ['VAPID_CLAIM_EMAIL'] = claim_email
+    os.environ['VAPID_AVAILABLE'] = 'true'
+
+    # 持久化到文件
     try:
-        key_pair = generate_vapid_key_pair()
-        private_key = key_pair.get('private_key', '')
-        public_key = key_pair.get('public_key', '')
-
-        if not private_key or not public_key:
-            print("[VAPID] 密钥生成失败：返回值为空")
-            return False
-
-        # 设置环境变量（必须在config.py导入后生效，此处设置供后续读取）
-        os.environ['VAPID_PRIVATE_KEY'] = private_key
-        os.environ['VAPID_PUBLIC_KEY'] = public_key
-        claim_email = os.environ.get('VAPID_CLAIM_EMAIL', 'admin@dorm.local')
-        os.environ['VAPID_CLAIM_EMAIL'] = claim_email
-
-        # 持久化到文件
-        try:
-            keys_data = {
-                'private_key': private_key,
-                'public_key': public_key,
-                'claim_email': claim_email
-            }
-            with open(key_path, 'w', encoding='utf-8') as f:
-                json.dump(keys_data, f, indent=2, ensure_ascii=False)
-            print(f"[VAPID] 新密钥对已生成并持久化到: {key_path}")
-        except Exception as e:
-            print(f"[VAPID] 密钥持久化失败: {e}（密钥已设置到环境变量，但重启后需重新生成）")
-
-        print("[VAPID] 注意：新生成的密钥会使已有的推送订阅失效，用户需重新订阅")
-        return True
-
+        keys_data = {
+            'private_key': private_key,
+            'public_key': public_key,
+            'claim_email': claim_email
+        }
+        with open(key_path, 'w', encoding='utf-8') as f:
+            json.dump(keys_data, f, indent=2, ensure_ascii=False)
+        print(f"[VAPID] 新密钥对已生成并持久化到: {key_path}")
     except Exception as e:
-        print(f"[VAPID] 密钥生成异常: {e}")
-        return False
+        print(f"[VAPID] 密钥持久化失败: {e}（密钥已设置到环境变量，但重启后需重新生成）")
+
+    print("[VAPID] 注意：新生成的密钥会使已有的推送订阅失效，用户需重新订阅")
+    return True
 
 
 if __name__ == '__main__':
