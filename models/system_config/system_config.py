@@ -643,7 +643,7 @@ class SystemConfig(db.Model):
             },
             {
                 'config_key': 'asset_inventory_unapprove_enabled',
-                'config_value': 'true',
+                'config_value': 'True',
                 'config_type': 'bool',
                 'category': 'asset',
                 'description': '启用固定资产盘点反审核功能（允许已完成盘点单反审核回退到进行中）',
@@ -675,7 +675,7 @@ class SystemConfig(db.Model):
             },
             {
                 'config_key': 'STOCK_IN_APPROVAL_ENABLED',
-                'config_value': 'true',
+                'config_value': 'False',
                 'config_type': 'bool',
                 'category': 'supply',
                 'description': '入库单审核功能开关（关闭后保存即自动审核）',
@@ -684,7 +684,7 @@ class SystemConfig(db.Model):
             },
             {
                 'config_key': 'STOCK_OUT_APPROVAL_ENABLED',
-                'config_value': 'true',
+                'config_value': 'False',
                 'config_type': 'bool',
                 'category': 'supply',
                 'description': '出库单审核功能开关（关闭后保存即自动审核）',
@@ -693,7 +693,7 @@ class SystemConfig(db.Model):
             },
             {
                 'config_key': 'STOCK_IN_UNAPPROVE_ENABLED',
-                'config_value': 'true',
+                'config_value': 'True',
                 'config_type': 'bool',
                 'category': 'supply',
                 'description': '入库单反审核功能开关（关闭后已审核入库单不可反审核）',
@@ -702,7 +702,7 @@ class SystemConfig(db.Model):
             },
             {
                 'config_key': 'STOCK_OUT_UNAPPROVE_ENABLED',
-                'config_value': 'true',
+                'config_value': 'True',
                 'config_type': 'bool',
                 'category': 'supply',
                 'description': '出库单反审核功能开关（关闭后已审核出库单不可反审核）',
@@ -711,7 +711,7 @@ class SystemConfig(db.Model):
             },
             {
                 'config_key': 'supply_inventory_unapprove_enabled',
-                'config_value': 'true',
+                'config_value': 'True',
                 'config_type': 'bool',
                 'category': 'supply',
                 'description': '启用低值易耗品盘点反审核功能（允许已完成盘点单反审核回退到进行中）',
