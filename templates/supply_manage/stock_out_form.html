@@ -358,11 +358,40 @@
                 const option = document.createElement('option');
                 option.value = loc.id;
                 option.textContent = loc.name + ' (库存: ' + loc.quantity + ')';
+                option.dataset.quantity = loc.quantity;
                 if (selectedLocationId && loc.id == selectedLocationId) {
                     option.selected = true;
                 }
                 selectEl.appendChild(option);
             });
+        }
+
+        // 根据选中位置更新库存显示和出库数量限制
+        function updateStockDisplay(row) {
+            const locationSelect = row.querySelector('.detail-location-select');
+            const stockSpan = row.querySelector('.detail-stock');
+            const quantityInput = row.querySelector('.detail-quantity');
+            if (!locationSelect || !stockSpan || !quantityInput) return;
+
+            const selectedOption = locationSelect.options[locationSelect.selectedIndex];
+            if (selectedOption && selectedOption.value && selectedOption.dataset.quantity) {
+                const locationStock = parseInt(selectedOption.dataset.quantity) || 0;
+                stockSpan.textContent = locationStock;
+                quantityInput.max = locationStock;
+                quantityInput.title = '最大出库数量：' + locationStock;
+                // 重新验证当前输入的数量
+                const qty = parseInt(quantityInput.value) || 0;
+                if (locationStock > 0 && qty > locationStock) {
+                    quantityInput.classList.add('border-red-500');
+                    quantityInput.title = '出库数量不能超过该位置库存(' + locationStock + ')';
+                } else {
+                    quantityInput.classList.remove('border-red-500');
+                }
+            } else {
+                stockSpan.textContent = '-';
+                quantityInput.removeAttribute('max');
+                quantityInput.classList.remove('border-red-500');
+            }
         }
 
         let rowIndex = {{ (stock_out.details|length if stock_out and stock_out.details else 0) }};
@@ -476,8 +505,10 @@
                             fetchItemLocations(foundItem.id).then(locations => {
                                 if (locations.length > 0) {
                                     updateLocationSelect(locationSelect, locations, locations[0].id);
+                                    updateStockDisplay(row);
                                 } else {
                                     locationSelect.innerHTML = '<option value="">该物品暂无库存</option>';
+                                    row.querySelector('.detail-stock').textContent = '0';
                                 }
                             });
                         }
@@ -505,18 +536,26 @@
 
             if (quantityInput) {
                 quantityInput.addEventListener('input', function() {
-                    // 检查出库数量是否超过库存
+                    // 检查出库数量是否超过该位置库存
                     const stock = parseInt(row.querySelector('.detail-stock').textContent) || 0;
                     const qty = parseInt(this.value) || 0;
                     if (stock > 0 && qty > stock) {
                         this.classList.add('border-red-500');
-                        this.title = `出库数量不能超过库存(${stock})`;
+                        this.title = '出库数量不能超过该位置库存(' + stock + ')';
                     } else {
                         this.classList.remove('border-red-500');
                         this.title = '';
                     }
                     recalculateRow(row);
                     recalculateTotal();
+                });
+            }
+
+            // 存放位置变更时更新库存显示和出库数量限制
+            const locationSelect = row.querySelector('.detail-location-select');
+            if (locationSelect) {
+                locationSelect.addEventListener('change', function() {
+                    updateStockDisplay(row);
                 });
             }
 
@@ -645,6 +684,7 @@
                     fetchItemLocations(itemIdInput.value).then(locations => {
                         if (locations.length > 0) {
                             updateLocationSelect(locationSelect, locations, currentLocationId);
+                            updateStockDisplay(row);
                         }
                     });
                 }
@@ -666,8 +706,8 @@
                 // 检查每行是否选择了物品
                 let valid = true;
                 let locationValid = true;
-                let stockExceeded = false;
-                rows.forEach(row => {
+                let stockExceededItems = [];
+                rows.forEach((row, index) => {
                     const itemIdInput = row.querySelector('.detail-item-id');
                     if (!itemIdInput.value) {
                         valid = false;
@@ -676,11 +716,12 @@
                     if (locationSelect && !locationSelect.value) {
                         locationValid = false;
                     }
-                    // 检查出库数量是否超过库存
+                    // 检查出库数量是否超过该位置库存
                     const stock = parseInt(row.querySelector('.detail-stock').textContent) || 0;
                     const qty = parseInt(row.querySelector('.detail-quantity').value) || 0;
                     if (stock > 0 && qty > stock) {
-                        stockExceeded = true;
+                        const itemName = row.querySelector('.detail-item-search') ? row.querySelector('.detail-item-search').value : '第' + (index + 1) + '行';
+                        stockExceededItems.push(itemName + '（库存' + stock + '，出库' + qty + '）');
                     }
                 });
                 if (!valid) {
@@ -689,13 +730,9 @@
                 } else if (!locationValid) {
                     e.preventDefault();
                     alert('请为每条明细选择存放位置');
-                } else if (stockExceeded) {
-                    if (!confirm('部分物品出库数量超过库存，是否继续？')) {
-                        e.preventDefault();
-                    } else {
-                        // 收集明细数据并设置到items_json隐藏字段
-                        collectItemsJson();
-                    }
+                } else if (stockExceededItems.length > 0) {
+                    e.preventDefault();
+                    alert('以下物品出库数量超过该位置库存，请修改：\n' + stockExceededItems.join('\n'));
                 } else {
                     // 收集明细数据并设置到items_json隐藏字段
                     collectItemsJson();

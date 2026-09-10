@@ -220,7 +220,7 @@
                                 </td>
                                 <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-800 font-medium">{{ record.display_item_name }}</td>
                                 <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-600">{{ record.specification or '-' }}</td>
-                                <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-600">{{ record.display_location_name }}</td>
+                                <td class="px-4 py-4 whitespace-nowrap text-sm">{% if record.location_id %}<a href="{{ url_for('storage_location.detail', id=record.location_id) }}" class="text-primary hover:underline">{{ record.display_location_name }}</a>{% else %}<span class="text-gray-600">{{ record.display_location_name }}</span>{% endif %}</td>
                                 <td class="px-4 py-4 whitespace-nowrap text-sm text-right">
                                     {% if record.record_type in ['入库', '盘盈', '出库反审核', '盘亏反审核'] %}
                                     <span class="qty-positive">+{{ record.quantity }}</span>

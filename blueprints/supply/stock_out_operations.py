@@ -118,6 +118,11 @@ def create_stock_out():
             quantity = int(item_data.get('quantity', 0))
             unit_price = float(item_data.get('unit_price', 0))
             item_name = item_data.get('item_name', '')
+            # 当item_id有效时，从SupplyItem获取纯物品名称，避免存储前端datalist的完整显示标签（含规格和编号）
+            if item_id:
+                supply_item = SupplyItem.query.get(item_id)
+                if supply_item:
+                    item_name = supply_item.name
             specification = item_data.get('specification', '')
             location_name = item_data.get('location_name', '')
             unit = item_data.get('unit', '')
@@ -287,6 +292,11 @@ def update_stock_out(id):
             quantity = int(item_data.get('quantity', 0))
             unit_price = float(item_data.get('unit_price', 0))
             item_name = item_data.get('item_name', '')
+            # 当item_id有效时，从SupplyItem获取纯物品名称，避免存储前端datalist的完整显示标签（含规格和编号）
+            if item_id:
+                supply_item = SupplyItem.query.get(item_id)
+                if supply_item:
+                    item_name = supply_item.name
             specification = item_data.get('specification', '')
             location_name = item_data.get('location_name', '')
             unit = item_data.get('unit', '')

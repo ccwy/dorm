@@ -181,7 +181,7 @@
                                         </a>
                                     </td>
                                     <td class="px-4 py-3 whitespace-nowrap text-gray-600">{{ detail.item.specification if detail.item and detail.item.specification else '-' }}</td>
-                                    <td class="px-4 py-3 whitespace-nowrap font-medium text-gray-900">{{ detail.quantity }}</td>
+                                    <td class="px-4 py-3 whitespace-nowrap font-medium text-gray-900">{{ detail.quantity }} {{ detail.item.unit if detail.item and detail.item.unit else '' }}</td>
                                 </tr>
                                 {% endfor %}
                             </tbody>

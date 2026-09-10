@@ -250,7 +250,7 @@
                                 <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-600">{{ item.specification or '-' }}</td>
                                 <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-600">{{ item.brand or '-' }}</td>
                                 <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-600">{{ item.unit or '-' }}</td>
-                                <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-600">{{ item.supplier_name or '-' }}</td>
+                                <td class="px-4 py-4 whitespace-nowrap text-sm">{% if item.supplier_id %}<a href="{{ url_for('supplier.detail', id=item.supplier_id) }}" class="text-primary hover:underline">{{ item.supplier_name or '-' }}</a>{% else %}<span class="text-gray-600">{{ item.supplier_name or '-' }}</span>{% endif %}</td>
                                 <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-600">{% if item.unit_price %}¥{{ "%.2f"|format(item.unit_price) }}{% else %}-{% endif %}</td>
                                 <td class="px-4 py-4 whitespace-nowrap text-sm {% if item.is_low_stock %}text-red-600 font-semibold{% else %}text-gray-600{% endif %}">{{ item.current_stock|default(0) }}</td>
                                 <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-600">{{ item.min_stock|default(0) }}</td>

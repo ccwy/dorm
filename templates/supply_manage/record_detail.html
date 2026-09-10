@@ -127,11 +127,11 @@
                         </div>
                         <div class="flex items-center">
                             <span class="text-gray-500 text-sm w-24">物品名称：</span>
-                            <span class="text-gray-800 font-medium">{{ record.display_item_name }}</span>
+                            <span class="text-gray-800 font-medium">{% if record.item_id %}<a href="{{ url_for('supply_item.detail', id=record.item_id) }}" class="text-primary hover:underline">{{ record.display_item_name }}</a>{% else %}{{ record.display_item_name }}{% endif %}</span>
                         </div>
                         <div class="flex items-center">
                             <span class="text-gray-500 text-sm w-24">物品编号：</span>
-                            <span class="text-gray-800">{{ record.item_number or '-' }}</span>
+                            <span class="text-gray-800">{% if record.item_id %}<a href="{{ url_for('supply_item.detail', id=record.item_id) }}" class="text-primary hover:underline">{{ record.item_number or '-' }}</a>{% else %}{{ record.item_number or '-' }}{% endif %}</span>
                         </div>
                         <div class="flex items-center">
                             <span class="text-gray-500 text-sm w-24">规格：</span>
@@ -143,7 +143,7 @@
                         </div>
                         <div class="flex items-center">
                             <span class="text-gray-500 text-sm w-24">存放位置：</span>
-                            <span class="text-gray-800">{{ record.display_location_name }}</span>
+                            <span class="text-gray-800">{% if record.location_id %}<a href="{{ url_for('storage_location.detail', id=record.location_id) }}" class="text-primary hover:underline">{{ record.display_location_name }}</a>{% else %}{{ record.display_location_name }}{% endif %}</span>
                         </div>
                         <div class="flex items-center">
                             <span class="text-gray-500 text-sm w-24">数量：</span>

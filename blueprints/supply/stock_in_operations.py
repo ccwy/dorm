@@ -107,6 +107,11 @@ def create_stock_in():
             quantity = int(item_data.get('quantity', 0)) if isinstance(item_data, dict) else int(item_data.get('quantity', 0))
             unit_price = float(item_data.get('unit_price', 0)) if isinstance(item_data, dict) else float(item_data.get('unit_price', 0))
             item_name = item_data.get('item_name', '') if isinstance(item_data, dict) else ''
+            # 当item_id有效时，从SupplyItem获取纯物品名称，避免存储前端datalist的完整显示标签（含规格和编号）
+            if item_id:
+                supply_item = SupplyItem.query.get(item_id)
+                if supply_item:
+                    item_name = supply_item.name
             item_number = item_data.get('item_number', '') if isinstance(item_data, dict) else ''
             specification = item_data.get('specification', '') if isinstance(item_data, dict) else ''
             location_name = item_data.get('location_name', '') if isinstance(item_data, dict) else ''
@@ -314,6 +319,11 @@ def update_stock_in(id):
             quantity = int(item_data.get('quantity', 0))
             unit_price = float(item_data.get('unit_price', 0))
             item_name = item_data.get('item_name', '')
+            # 当item_id有效时，从SupplyItem获取纯物品名称，避免存储前端datalist的完整显示标签（含规格和编号）
+            if item_id:
+                supply_item = SupplyItem.query.get(item_id)
+                if supply_item:
+                    item_name = supply_item.name
             item_number = item_data.get('item_number', '')
             specification = item_data.get('specification', '')
             location_name = item_data.get('location_name', '')
