@@ -1,6 +1,7 @@
 from flask import Blueprint, request, render_template, redirect, url_for, flash, jsonify
 from models.todo.todo import Todo
 from models.todo.todo_progress import TodoProgress
+from models.user.user import User
 from models.system_config.system_config import SystemConfig
 from utils.db import db
 from utils.log import log_operation
@@ -163,6 +164,23 @@ def add():
             
             flash(f'待办事项创建成功，ID: {todo.id}', 'success')
             logging.info(f"待办事项创建成功，ID: {todo.id}")
+            
+            # 发送推送通知：通知负责人有新待办
+            try:
+                from utils.push_notification import send_push_notification
+                if assignee:
+                    # assignee字段存储的是用户名字符串，需要查找对应用户ID
+                    assignee_user = User.query.filter_by(name=assignee).first()
+                    if assignee_user:
+                        send_push_notification(
+                            user_id=assignee_user.id,
+                            title='新待办事项',
+                            body=f'新待办事项: {title}',
+                            url='/todo/'
+                        )
+            except Exception as push_err:
+                logging.warning(f"推送通知发送失败（不影响主流程）: {push_err}")
+            
             # 如果是连续保存，则重定向回添加页面
             if request.form.get('continuous') == 'true':
                 return redirect(url_for('todo.add'))
@@ -257,6 +275,9 @@ def edit(todo_id):
             # 获取表单中的分类值
             category = request.form.get('category')
             
+            # 记录旧状态（用于推送通知判断）
+            old_status = todo.status
+            
             # 更新待办事项
             todo.update(
                 title=title,
@@ -286,6 +307,20 @@ def edit(todo_id):
             
             flash(f'待办事项更新成功，ID: {todo.id}', 'success')
             logging.info(f"待办事项更新成功，ID: {todo.id}")
+            
+            # 发送推送通知：状态变更时通知创建人
+            try:
+                from utils.push_notification import send_push_notification
+                if status and status != old_status:
+                    send_push_notification(
+                        user_id=todo.created_by,
+                        title='待办事项状态更新',
+                        body=f'待办事项 {title} 状态更新为 {status}',
+                        url=f'/todo/detail/{todo_id}'
+                    )
+            except Exception as push_err:
+                logging.warning(f"推送通知发送失败（不影响主流程）: {push_err}")
+            
             return redirect(url_for('todo.index'))
         except Exception as e:
             logging.error(f"更新待办事项失败: {str(e)}")

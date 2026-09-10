@@ -123,8 +123,8 @@
       </nav>
       
       <div class="flex items-center space-x-3">
-          <button class="text-gray-700 hover:text-primary transition-colors">
-           <!-- 隐藏<i class="fa fa-bell-o"></i>-->
+          <button id="push-bell-btn" class="text-gray-700 hover:text-primary transition-colors relative" title="推送通知" style="display:none;">
+            <i class="fa fa-bell-o"></i>
           </button>
           <div class="flex items-center space-x-2">
             <a href="{{ url_for('user.user_info') }}" class="flex items-center space-x-2 hover:opacity-80 transition-opacity">

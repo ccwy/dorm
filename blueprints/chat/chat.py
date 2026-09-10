@@ -356,6 +356,20 @@ def send_message():
         # 获取会话中所有参与者（除了发送者自己）
         other_participants = [p for p in session.participants if p.id != current_user.id]
         
+        # 发送推送通知：通知其他参与者有新消息
+        try:
+            from utils.push_notification import send_push_notification_to_users
+            other_user_ids = [p.id for p in other_participants]
+            content_preview = content[:50] + ('...' if len(content) > 50 else '')
+            send_push_notification_to_users(
+                user_ids=other_user_ids,
+                title=f'{current_user.name}',
+                body=content_preview,
+                url=f'/chat'
+            )
+        except Exception as push_err:
+            logging.warning(f"聊天推送通知发送失败（不影响主流程）: {push_err}")
+        
         if other_participants:
             logging.info(f"更新 {len(other_participants)} 个接收者的会话隐藏状态")
             # 查询这些参与者的ChatParticipant记录并更新is_hidden状态

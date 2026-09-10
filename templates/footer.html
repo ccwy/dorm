@@ -61,3 +61,263 @@
         updateDateTime();
         setInterval(updateDateTime, 1000);
     </script>
+<!-- PWA: Service Worker 注册 -->
+<script>
+(function() {
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function() {
+            navigator.serviceWorker.register('/static/js/sw.js')
+                .then(function(registration) {
+                    console.log('[PWA] Service Worker 注册成功，作用域: ', registration.scope);
+                })
+                .catch(function(error) {
+                    console.log('[PWA] Service Worker 注册失败: ', error);
+                });
+        });
+    }
+})();
+</script>
+
+<!-- PWA: 推送通知订阅 -->
+<script>
+(function() {
+    // 仅对已登录用户启用推送功能
+    var pushBtn = document.getElementById('push-bell-btn');
+    if (!pushBtn) return;
+
+    // 检查浏览器是否支持推送通知
+    if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
+        return; // 不支持推送，保持按钮隐藏
+    }
+
+    // 检查VAPID公钥是否可用
+    function checkVapidKey() {
+        return fetch('/push/vapid-public-key', { credentials: 'include' })
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                if (data.success && data.publicKey) {
+                    return data.publicKey;
+                }
+                return null;
+            })
+            .catch(function() { return null; });
+    }
+
+    // 更新铃铛按钮状态
+    function updateBellUI(isSubscribed) {
+        pushBtn.style.display = '';
+        var icon = pushBtn.querySelector('i');
+        if (isSubscribed) {
+            icon.className = 'fa fa-bell';
+            pushBtn.title = '推送通知已开启，点击关闭';
+            pushBtn.classList.remove('text-gray-400');
+            pushBtn.classList.add('text-primary');
+        } else {
+            icon.className = 'fa fa-bell-o';
+            pushBtn.title = '推送通知未开启，点击开启';
+            pushBtn.classList.remove('text-primary');
+            pushBtn.classList.add('text-gray-400');
+        }
+    }
+
+    // 显示提示消息
+    function showToast(msg, type) {
+        var toast = document.createElement('div');
+        toast.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);' +
+            'padding:10px 24px;border-radius:6px;z-index:10001;font-size:14px;max-width:90vw;' +
+            'box-shadow:0 4px 12px rgba(0,0,0,0.15);transition:opacity 0.3s;';
+        if (type === 'error') {
+            toast.style.background = '#ef4444';
+            toast.style.color = 'white';
+        } else if (type === 'warn') {
+            toast.style.background = '#f97316';
+            toast.style.color = 'white';
+        } else {
+            toast.style.background = '#22c55e';
+            toast.style.color = 'white';
+        }
+        toast.textContent = msg;
+        document.body.appendChild(toast);
+        setTimeout(function() {
+            toast.style.opacity = '0';
+            setTimeout(function() { toast.remove(); }, 300);
+        }, 3000);
+    }
+
+    // 订阅推送
+    function subscribePush() {
+        // 先请求通知权限
+        Notification.requestPermission().then(function(permission) {
+            if (permission !== 'granted') {
+                showToast('通知权限被拒绝，请在浏览器设置中允许通知', 'warn');
+                return;
+            }
+            // 获取VAPID公钥
+            checkVapidKey().then(function(vapidKey) {
+                if (!vapidKey) {
+                    showToast('推送服务未配置，无法订阅', 'error');
+                    return;
+                }
+                // 使用SW注册推送订阅
+                navigator.serviceWorker.ready.then(function(registration) {
+                    return registration.pushManager.subscribe({
+                        userVisibleOnly: true,
+                        applicationServerKey: urlBase64ToUint8Array(vapidKey)
+                    });
+                }).then(function(subscription) {
+                    // 发送订阅到后端
+                    var subJson = subscription.toJSON();
+                    return fetch('/push/subscribe', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'include',
+                        body: JSON.stringify({
+                            endpoint: subJson.endpoint,
+                            keys: subJson.keys
+                        })
+                    });
+                }).then(function(res) { return res.json(); }).then(function(data) {
+                    if (data.success) {
+                        updateBellUI(true);
+                        showToast('推送通知已开启', 'success');
+                    } else {
+                        showToast(data.message || '订阅失败', 'error');
+                    }
+                }).catch(function(err) {
+                    console.error('[Push] 订阅失败:', err);
+                    showToast('推送订阅失败: ' + err.message, 'error');
+                });
+            });
+        });
+    }
+
+    // 取消订阅推送
+    function unsubscribePush() {
+        navigator.serviceWorker.ready.then(function(registration) {
+            return registration.pushManager.getSubscription();
+        }).then(function(subscription) {
+            if (!subscription) {
+                updateBellUI(false);
+                return;
+            }
+            // 先从后端删除
+            return fetch('/push/unsubscribe', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ endpoint: subscription.endpoint })
+            }).then(function() {
+                return subscription.unsubscribe();
+            }).then(function() {
+                updateBellUI(false);
+                showToast('推送通知已关闭', 'success');
+            });
+        }).catch(function(err) {
+            console.error('[Push] 取消订阅失败:', err);
+            showToast('取消订阅失败: ' + err.message, 'error');
+        });
+    }
+
+    // VAPID公钥格式转换
+    function urlBase64ToUint8Array(base64String) {
+        var padding = '='.repeat((4 - base64String.length % 4) % 4);
+        var base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+        var rawData = window.atob(base64);
+        var outputArray = new Uint8Array(rawData.length);
+        for (var i = 0; i < rawData.length; ++i) {
+            outputArray[i] = rawData.charCodeAt(i);
+        }
+        return outputArray;
+    }
+
+    // 点击铃铛按钮切换订阅状态
+    pushBtn.addEventListener('click', function() {
+        var icon = pushBtn.querySelector('i');
+        if (icon.classList.contains('fa-bell')) {
+            // 当前已订阅，执行取消
+            unsubscribePush();
+        } else {
+            // 当前未订阅，执行订阅
+            subscribePush();
+        }
+    });
+
+    // 页面加载时初始化订阅状态
+    window.addEventListener('load', function() {
+        checkVapidKey().then(function(vapidKey) {
+            if (!vapidKey) {
+                // VAPID未配置，隐藏按钮
+                pushBtn.style.display = 'none';
+                return;
+            }
+            // 检查当前订阅状态
+            navigator.serviceWorker.ready.then(function(registration) {
+                return registration.pushManager.getSubscription();
+            }).then(function(subscription) {
+                updateBellUI(!!subscription);
+            }).catch(function() {
+                updateBellUI(false);
+            });
+        });
+    });
+})();
+</script>
+
+<!-- PWA: 安装引导 -->
+<script>
+(function() {
+    let deferredPrompt = null;
+    const installBannerKey = 'pwa_install_dismissed';
+    
+    window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredPrompt = e;
+        
+        // 检查用户是否已关闭过安装提示
+        if (localStorage.getItem(installBannerKey)) {
+            return;
+        }
+        
+        showInstallBanner();
+    });
+    
+    function showInstallBanner() {
+        const banner = document.createElement('div');
+        banner.id = 'pwa-install-banner';
+        banner.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);' +
+            'background:#3b82f6;color:white;padding:12px 24px;border-radius:8px;' +
+            'box-shadow:0 4px 12px rgba(0,0,0,0.15);z-index:10000;display:flex;align-items:center;gap:12px;' +
+            'font-size:14px;max-width:90vw;';
+        banner.innerHTML = 
+            '<span>📦 将宿舍管理系统添加到主屏幕，获得更好体验</span>' +
+            '<button id="pwa-install-btn" style="background:white;color:#3b82f6;border:none;' +
+            'padding:6px 16px;border-radius:4px;cursor:pointer;font-weight:bold;white-space:nowrap;">安装</button>' +
+            '<button id="pwa-dismiss-btn" style="background:transparent;color:white;border:1px solid rgba(255,255,255,0.5);' +
+            'padding:6px 12px;border-radius:4px;cursor:pointer;white-space:nowrap;">稍后</button>';
+        
+        document.body.appendChild(banner);
+        
+        document.getElementById('pwa-install-btn').addEventListener('click', async () => {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                const { outcome } = await deferredPrompt.userChoice;
+                console.log('[PWA] 用户安装选择:', outcome);
+                deferredPrompt = null;
+            }
+            banner.remove();
+        });
+        
+        document.getElementById('pwa-dismiss-btn').addEventListener('click', () => {
+            localStorage.setItem(installBannerKey, 'true');
+            banner.remove();
+        });
+    }
+    
+    window.addEventListener('appinstalled', () => {
+        console.log('[PWA] 应用已安装');
+        deferredPrompt = null;
+        const banner = document.getElementById('pwa-install-banner');
+        if (banner) banner.remove();
+    });
+})();
+</script>

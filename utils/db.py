@@ -343,6 +343,9 @@ def init_db(app: Flask, force_recreate=False):
             import models.maintenance.maintenance_order  # 维修工单模型
             import models.maintenance.maintenance_reply  # 维修回复模型
 
+            # 推送订阅模型
+            from models.push.push_subscription import PushSubscription  # 推送订阅模型
+
             # 创建表结构
             if force_recreate or not _is_initialized:
                 logging.info("开始创建数据表结构...")

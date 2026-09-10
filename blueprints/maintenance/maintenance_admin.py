@@ -307,6 +307,19 @@ def assign_order(order_id):
         )
         
         logging.info(f"管理员[{user_id}]成功分配维修工单 {order_id} 给维修员 {staff_user.name}")
+        
+        # 发送推送通知：通知报修人工单已分配
+        try:
+            from utils.push_notification import send_push_notification
+            send_push_notification(
+                user_id=order.user_id,
+                title='维修工单分配通知',
+                body=f'您的维修工单 {order.order_no} 已分配给维修员 {staff_user.name}',
+                url=f'/admin/maintenance/detail/{order_id}'
+            )
+        except Exception as push_err:
+            logging.warning(f"推送通知发送失败（不影响主流程）: {push_err}")
+        
         # 记录操作日志
         log_operation(
             user_id=user_id,
@@ -382,6 +395,19 @@ def update_status(order_id):
         )
         
         logging.info(f"管理员[{user_id}]成功更新维修工单 {order_id} 状态: {old_status} -> {new_status}")
+        
+        # 发送推送通知：通知报修人工单状态变更
+        try:
+            from utils.push_notification import send_push_notification
+            send_push_notification(
+                user_id=order.user_id,
+                title='维修工单状态更新',
+                body=f'您的维修工单 {order.order_no} 状态已更新为 {new_status}',
+                url=f'/admin/maintenance/detail/{order_id}'
+            )
+        except Exception as push_err:
+            logging.warning(f"推送通知发送失败（不影响主流程）: {push_err}")
+        
         # 记录操作日志
         log_operation(
             user_id=user_id,
