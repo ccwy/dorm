@@ -90,40 +90,16 @@ def send_push_notification(user_id, title, body, url=None):
                 from pywebpush import webpush
                 from urllib.parse import urlparse
 
-                # 动态设置aud：使用应用实际访问域名
-                # VAPID协议要求aud声明推送服务的授权来源，应使用应用自身的域名
-                # 优先级：1.订阅记录中的域名 > 2.配置域名 > 3.请求上下文域名 > 4.endpoint回退
-                aud_set = False
-                if sub.subscribed_domain:
-                    # 最优先：使用订阅时保存的域名（用户订阅时页面的实际域名）
-                    vapid_claims['aud'] = f'https://{sub.subscribed_domain}'
-                    aud_set = True
-                if not aud_set and vapid_config.get('claim_domain'):
-                    # 其次：使用配置的域名
-                    vapid_claims['aud'] = f'https://{vapid_config["claim_domain"]}'
-                    aud_set = True
-                if not aud_set:
-                    # 再次：尝试从Flask请求上下文动态获取当前域名
-                    try:
-                        from flask import request
-                        if request and request.host:
-                            vapid_claims['aud'] = f'https://{request.host}'
-                            aud_set = True
-                    except RuntimeError:
-                        pass  # 没有请求上下文（如后台任务）
-                if not aud_set:
-                    # 最后回退：从endpoint提取推送服务origin
-                    parsed = urlparse(sub.endpoint)
-                    vapid_claims['aud'] = f'{parsed.scheme}://{parsed.netloc}'
+                # VAPID规范要求aud必须是推送服务（push service）的origin
+                # 例如FCM的aud应为https://fcm.googleapis.com，而非应用自身的域名
+                # 参考: https://datatracker.ietf.org/doc/html/draft-ietf-webpush-vapid-03
+                # FCM会校验aud是否匹配推送资源URL的origin，不匹配则返回403
+                parsed = urlparse(sub.endpoint)
+                vapid_claims['aud'] = f'{parsed.scheme}://{parsed.netloc}'
 
-                # 诊断日志：记录VAPID私钥格式和endpoint域名
+                # 诊断日志：记录endpoint域名和aud
                 private_key = vapid_config['private_key']
-                logger.info(f"[Push诊断] VAPID私钥长度={len(private_key)}, 前20字符={private_key[:20]}")
-                try:
-                    endpoint_domain = urlparse(sub.endpoint).netloc
-                    logger.info(f"[Push诊断] endpoint域名={endpoint_domain}, aud={vapid_claims.get('aud')}")
-                except Exception:
-                    logger.info(f"[Push诊断] endpoint解析失败: {sub.endpoint[:50]}")
+                logger.info(f"[Push诊断] endpoint域名={parsed.netloc}, aud={vapid_claims['aud']}")
                 # PEM格式私钥需要用Vapid.from_pem()构造实例，from_string()无法正确解析PEM
                 vapid_private_key = private_key
                 if '-----BEGIN' in private_key:
