@@ -1,0 +1,1 @@
+- [maintenance-property-alias](feedback_maintenance_property_alias.md) — SQLAlchemy @property aliases不可靠地解析在Jinja2模板中，应使用直接字段访问

@@ -1,0 +1,551 @@
+package com.dorm.management
+
+import android.content.Context
+import android.content.Intent
+import android.media.MediaScannerConnection
+import android.net.Uri
+import android.net.http.SslError
+import android.os.Build
+import android.os.Bundle
+import android.os.Environment
+import android.view.View
+import android.view.WindowManager
+import android.webkit.*
+import android.widget.Button
+import android.widget.LinearLayout
+import android.widget.ProgressBar
+import android.widget.TextView
+import android.util.Log
+import android.widget.Toast
+import androidx.appcompat.app.AppCompatActivity
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import android.animation.ObjectAnimator
+import android.view.animation.AnimationUtils
+import android.widget.ImageView
+import com.chaquo.python.PyObject
+import com.chaquo.python.Python
+import java.io.File
+import java.io.FileOutputStream
+import java.net.HttpURLConnection
+import java.net.URL
+import org.json.JSONObject
+import android.util.Base64
+
+class MainActivity : AppCompatActivity() {
+
+    companion object {
+        private const val TAG = "MainActivity"
+        private const val FLASK_PORT = 35168
+        private const val FLASK_HOST = "127.0.0.1"
+        private const val FLASK_BASE_URL = "http://$FLASK_HOST:$FLASK_PORT"
+        private const val MAX_SERVER_WAIT_SECONDS = 300  // MySQL数据库创建耗时较长，需要足够的等待时间
+    }
+
+    private lateinit var webView: WebView
+    private lateinit var errorView: LinearLayout
+    private lateinit var loadingOverlay: LinearLayout
+    private lateinit var loadingProgressBar: ProgressBar
+    private lateinit var loadingSpinner: ProgressBar
+    private lateinit var loadingStatus: TextView
+    private lateinit var loadingPercent: TextView
+    private lateinit var webProgress: ProgressBar
+    private lateinit var loadingIcon: ImageView
+    private var progressAnimator: ObjectAnimator? = null
+    private var python: Python? = null
+    private var isServerReady = false
+    private var systemTitle: String? = null
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        // 安装启动屏（Android 12+），提供从启动图标到应用内容的平滑过渡
+        // 不使用 setKeepOnScreenCondition，启动屏在 onCreate 完成后自然消失
+        // 这样加载覆盖层（进度条+旋转圈+状态文字）可以立即显示
+        installSplashScreen()
+        super.onCreate(savedInstanceState)
+
+        // 保持屏幕常亮
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+
+        setContentView(R.layout.activity_main)
+
+        // 初始化视图
+        webView = findViewById(R.id.webview)
+        errorView = findViewById(R.id.errorView)
+        loadingOverlay = findViewById(R.id.loadingOverlay)
+        loadingProgressBar = findViewById(R.id.loadingProgressBar)
+        loadingSpinner = findViewById(R.id.loadingSpinner)
+        loadingStatus = findViewById(R.id.loadingStatus)
+        loadingPercent = findViewById(R.id.loadingPercent)
+        webProgress = findViewById(R.id.webProgress)
+        loadingIcon = findViewById(R.id.loadingIcon)
+
+        // 启动图标脉冲动画（XML动画资源，缩放+透明度+微旋转组合）
+        val pulseAnim = AnimationUtils.loadAnimation(this, R.anim.loading_pulse)
+        loadingIcon.startAnimation(pulseAnim)
+
+        // 初始化重试按钮
+        val retryButton = errorView.findViewById<Button>(R.id.retryButton)
+        retryButton.setOnClickListener { retryLoadPage() }
+
+        // 从本地配置文件预加载系统标题（无需等Python初始化，立即显示正确标题）
+        loadCachedSystemTitle()
+
+        // Python 已在 DormApplication.onCreate() 中初始化
+        python = Python.getInstance()
+
+        // 更新加载状态
+        updateLoadingProgress(5, "正在初始化...")
+
+        // 启动 Flask 后台服务
+        startFlaskServer()
+
+        // 配置 WebView
+        configureWebView()
+
+        // 等待服务器就绪并加载页面
+        waitForServerAndLoad()
+    }
+
+    private fun loadCachedSystemTitle() {
+        """
+        从本地 db_config.json 预加载系统标题，无需等待 Python 初始化。
+        配置文件使用 base64 编码存储，需先解码再解析 JSON。
+        在 setContentView() 后立即调用，确保加载覆盖层第一时间显示正确标题。
+        首次安装时配置文件不存在，回退到 strings.xml 默认值。
+        """
+        try {
+            val dataDir = getExternalFilesDir(null)?.resolve("data")
+            val configFile = dataDir?.resolve("db_config.json")
+            if (configFile?.exists() == true) {
+                val encodedContent = configFile.readText().trim()
+                val decodedBytes = Base64.decode(encodedContent, Base64.DEFAULT)
+                val decodedContent = String(decodedBytes, Charsets.UTF_8)
+                val json = JSONObject(decodedContent)
+                val title = json.optString("SYSTEM_TITLE", "")
+                if (title.isNotEmpty()) {
+                    val loadingTitle = findViewById<TextView>(R.id.loadingTitle)
+                    loadingTitle.text = title
+                    setTitle(title)
+                    FlaskService.systemTitle = title
+                    systemTitle = title
+                    Log.i(TAG, "从缓存预加载系统标题: $title")
+                }
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "预加载系统标题失败，使用默认值: ${e.message}")
+        }
+    }
+
+    private fun updateLoadingProgress(progress: Int, status: String) {
+        runOnUiThread {
+            // 平滑动画填充进度条（对标Windows端 CSS transition: width 0.5s ease）
+            progressAnimator?.cancel()
+            progressAnimator = ObjectAnimator.ofInt(
+                loadingProgressBar, "progress",
+                loadingProgressBar.progress, progress
+            ).apply {
+                duration = 400
+                start()
+            }
+            loadingPercent.text = "$progress%"
+            loadingStatus.text = status
+        }
+    }
+
+    private fun startFlaskServer() {
+        val intent = Intent(this, FlaskService::class.java)
+        startForegroundService(intent)
+    }
+
+    private fun configureWebView() {
+        webView.settings.apply {
+            javaScriptEnabled = true
+            domStorageEnabled = true
+            databaseEnabled = true
+            useWideViewPort = true
+            loadWithOverviewMode = true
+            setSupportZoom(true)
+            builtInZoomControls = true
+            displayZoomControls = false
+            cacheMode = WebSettings.LOAD_DEFAULT
+            allowFileAccess = true
+            allowContentAccess = true
+            mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
+            userAgentString = userAgentString + " DormManagement/Android"
+        }
+
+        // WebViewClient — 仅允许加载本地 Flask 服务
+        webView.webViewClient = object : WebViewClient() {
+            override fun shouldOverrideUrlLoading(
+                view: WebView?, request: WebResourceRequest?
+            ): Boolean {
+                val url = request?.url?.toString() ?: return false
+                if (url.startsWith(FLASK_BASE_URL) ||
+                    url.startsWith("http://localhost:$FLASK_PORT")) {
+                    return false
+                }
+                // 外部链接用系统浏览器打开
+                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                startActivity(intent)
+                return true
+            }
+
+            override fun onPageFinished(view: WebView?, url: String?) {
+                super.onPageFinished(view, url)
+                // 页面加载完成，隐藏加载覆盖层
+                hideLoadingOverlay()
+            }
+
+            override fun onReceivedError(
+                view: WebView?, request: WebResourceRequest?,
+                error: WebResourceError?
+            ) {
+                super.onReceivedError(view, request, error)
+                if (request?.isForMainFrame == true) {
+                    showErrorPage("服务连接失败，请稍后重试")
+                }
+            }
+
+            override fun onReceivedSslError(
+                view: WebView?, handler: SslErrorHandler?, error: SslError?
+            ) {
+                // 本地 HTTP 不应有 SSL 错误，忽略
+                handler?.cancel()
+            }
+        }
+
+        // WebChromeClient — 文件选择和加载进度
+        webView.webChromeClient = DormWebChromeClient(this)
+
+        // 注册 JS Bridge
+        webView.addJavascriptInterface(JsBridgeInterface(this), "AndroidBridge")
+
+        // 文件下载处理 — 将下载文件保存到公共 Downloads 目录
+        webView.setDownloadListener { url, userAgent, contentDisposition, mimetype, contentLength ->
+            handleDownload(url, contentDisposition, mimetype)
+        }
+    }
+
+    /**
+     * 处理 WebView 中的文件下载请求
+     * 由于 Flask 服务运行在 localhost，系统 DownloadManager 无法访问，
+     * 改用直接 HTTP 请求下载文件并保存到应用外部存储专属目录
+     *
+     * 保存路径: getExternalFilesDir(DIRECTORY_DOWNLOADS)
+     * 即 /sdcard/Android/data/com.dorm.management/files/Download/
+     * 全版本（Android 8+）无需权限，文件管理器可访问
+     */
+    private fun handleDownload(url: String, contentDisposition: String, mimetype: String) {
+        // 从 Content-Disposition 解析文件名
+        val filename = parseContentDisposition(contentDisposition)
+            ?: Uri.parse(url)?.lastPathSegment
+            ?: "download_${System.currentTimeMillis()}"
+
+        runOnUiThread {
+            Toast.makeText(this, "正在下载: $filename", Toast.LENGTH_SHORT).show()
+        }
+
+        // 在后台线程执行下载
+        Thread {
+            try {
+                val connection = URL(url).openConnection() as java.net.HttpURLConnection
+                connection.requestMethod = "GET"
+                // 传递 Cookie 以通过登录验证
+                val cookie = CookieManager.getInstance().getCookie(url)
+                if (!cookie.isNullOrEmpty()) {
+                    connection.addRequestProperty("Cookie", cookie)
+                }
+                connection.connectTimeout = 30000
+                connection.readTimeout = 60000
+                connection.connect()
+
+                if (connection.responseCode != java.net.HttpURLConnection.HTTP_OK) {
+                    throw Exception("服务器返回 ${connection.responseCode}")
+                }
+
+                // 保存到应用外部存储专属目录（全版本无需权限）
+                val downloadsDir = getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)
+                    ?: File(filesDir, "Download")
+                if (!downloadsDir.exists()) downloadsDir.mkdirs()
+                val outputFile = File(downloadsDir, filename)
+
+                // 写入文件
+                connection.inputStream.use { input ->
+                    FileOutputStream(outputFile).use { output ->
+                        val buffer = ByteArray(8192)
+                        var bytesRead: Int
+                        while (input.read(buffer).also { bytesRead = it } != -1) {
+                            output.write(buffer, 0, bytesRead)
+                        }
+                    }
+                }
+                connection.disconnect()
+
+                // 通知媒体扫描器，使文件在文件管理器中可见
+                MediaScannerConnection.scanFile(
+                    this, arrayOf(outputFile.absolutePath), arrayOf(mimetype.ifEmpty { "*/*" }), null
+                )
+
+                val savePath = outputFile.absolutePath
+                runOnUiThread {
+                    Toast.makeText(this, "下载完成: $filename\n保存到 $savePath", Toast.LENGTH_LONG).show()
+                }
+            } catch (e: Exception) {
+                runOnUiThread {
+                    Toast.makeText(this, "下载失败: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            }
+        }.start()
+    }
+
+    /**
+     * 解析 Content-Disposition 头获取文件名
+     * 格式: attachment; filename="文件名.sql" 或 filename*=UTF-8''文件名
+     */
+    private fun parseContentDisposition(contentDisposition: String): String? {
+        if (contentDisposition.isBlank()) return null
+
+        // 尝试匹配 filename*=UTF-8''编码文件名
+        val utf8Pattern = Regex("""filename\*\s*=\s*UTF-8''(.+?)(?:;|$)""")
+        utf8Pattern.find(contentDisposition)?.let { match ->
+            return java.net.URLDecoder.decode(match.groupValues[1].trim(), "UTF-8")
+        }
+
+        // 尝试匹配 filename="文件名"
+        val quotedPattern = Regex("""filename\s*=\s*"(.+?)"(?:;|$)""")
+        quotedPattern.find(contentDisposition)?.let { match ->
+            return match.groupValues[1]
+        }
+
+        // 尝试匹配 filename=文件名（无引号）
+        val plainPattern = Regex("""filename\s*=\s*([^;]+)""")
+        plainPattern.find(contentDisposition)?.let { match ->
+            return match.groupValues[1].trim()
+        }
+
+        return null
+    }
+
+    private fun waitForServerAndLoad() {
+        Thread {
+            var retries = 0
+            val maxRetries = MAX_SERVER_WAIT_SECONDS * 2  // 500ms 间隔
+            var lastPythonPct = 0
+            var lastPythonMsg = ""
+
+            // 缓存 Python 模块对象，避免每轮循环重复 getModule 调用
+            var cachedAdapter: PyObject? = null
+            try {
+                val py = python
+                if (py != null) {
+                    cachedAdapter = py.getModule("utils.android_adapter")
+                    Log.d(TAG, "Python 模块缓存成功，开始轮询进度")
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "缓存 Python 模块失败，将在循环中重试: ${e.message}")
+            }
+
+            // 阶段1: 启动服务
+            updateLoadingProgress(5, "正在启动后端服务...")
+
+            while (retries < maxRetries) {
+                // 轮询 Python 启动进度（通过 Chaquopy 读取全局变量，安全无 lambda 回调风险）
+                try {
+                    if (cachedAdapter == null) {
+                        val py = python
+                        if (py != null) {
+                            cachedAdapter = py.getModule("utils.android_adapter")
+                            Log.d(TAG, "Python 模块缓存重试成功")
+                        }
+                    }
+                    if (cachedAdapter != null) {
+                        val progressStr = cachedAdapter.callAttr("get_progress")?.toString()
+                        if (progressStr != null && progressStr.contains("|")) {
+                            val parts = progressStr.split("|", limit = 2)
+                            val pct = parts[0].toIntOrNull() ?: 0
+                            val msg = if (parts.size > 1) parts[1] else ""
+                            // 仅在进度有变化时更新 UI 并记录日志
+                            if (pct != lastPythonPct || msg != lastPythonMsg) {
+                                Log.d(TAG, "Python 进度更新: $pct% - $msg")
+                                lastPythonPct = pct
+                                lastPythonMsg = msg
+                                updateLoadingProgress(pct, msg)
+                            }
+                        
+                        // 首次获取到 Python 进度后，读取系统标题并更新 UI
+                        if (systemTitle == null && cachedAdapter != null) {
+                            try {
+                                val title = cachedAdapter.callAttr("get_system_title")?.toString()
+                                if (!title.isNullOrEmpty()) {
+                                    systemTitle = title
+                                    runOnUiThread {
+                                        // 更新加载页标题
+                                        val loadingTitle = findViewById<TextView>(R.id.loadingTitle)
+                                        loadingTitle.text = title
+                                        // 更新 Activity 标题
+                                        setTitle(title)
+                                    }
+                                    // 同步标题到 FlaskService 通知
+                                    FlaskService.systemTitle = title
+                                    Log.i(TAG, "动态系统标题: $title")
+                                }
+                            } catch (e: Exception) {
+                                Log.w(TAG, "获取系统标题失败: ${e.message}")
+                            }
+                        }
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.w(TAG, "轮询 Python 进度失败: ${e.message}")
+                }
+
+                try {
+                    val url = URL("$FLASK_BASE_URL/login")
+                    val conn = url.openConnection() as HttpURLConnection
+                    conn.requestMethod = "GET"
+                    conn.connectTimeout = 2000
+                    conn.readTimeout = 2000
+                    val responseCode = conn.responseCode
+                    conn.disconnect()
+                    if (responseCode == 200) {
+                        isServerReady = true
+                        Log.i(TAG, "服务器已就绪，Python 最后进度: $lastPythonPct%")
+                        // 服务就绪，进度不低于Python当前进度，避免进度条倒退
+                        val readyPct = maxOf(lastPythonPct + 5, 95)
+                        updateLoadingProgress(readyPct, "服务已就绪，正在加载页面...")
+                        runOnUiThread {
+                            webView.loadUrl("$FLASK_BASE_URL/login")
+                        }
+                        return@Thread
+                    }
+                } catch (e: Exception) {
+                    // 服务器尚未就绪，继续等待
+                }
+
+                // 仅在 Python 未提供进度时，使用 Java 端估算进度作为补充
+                if (lastPythonPct == 0) {
+                    val estimatedProgress = 5 + (retries * 25 / maxRetries)
+                    if (retries % 4 == 0) {
+                        updateLoadingProgress(estimatedProgress, "正在启动后端服务...")
+                    }
+                }
+                retries++
+                Thread.sleep(500)
+            }
+            Log.e(TAG, "服务器启动超时（等待${MAX_SERVER_WAIT_SECONDS}秒）")
+            runOnUiThread { showErrorPage("服务器启动超时，如果是首次连接MySQL创建数据库，耗时可能较长，请点击重试或重启应用再试") }
+        }.start()
+    }
+
+    /**
+     * 由 DormWebChromeClient 调用，更新 WebView 页面加载进度
+     * 进度范围: 40% → 100% (服务就绪后)
+     */
+    fun updateWebProgress(newProgress: Int) {
+        runOnUiThread {
+            // 映射 WebView 进度 (0-100) 到总进度 (95-100)，平滑动画填充
+            // Python初始化已占0-90%，服务就绪95%，WebView加载填充最后5%
+            val totalProgress = 95 + (newProgress * 5 / 100)
+            progressAnimator?.cancel()
+            progressAnimator = ObjectAnimator.ofInt(
+                loadingProgressBar, "progress",
+                loadingProgressBar.progress, totalProgress
+            ).apply {
+                duration = 300
+                start()
+            }
+            loadingPercent.text = "$totalProgress%"
+
+            // WebView 顶部进度条
+            webProgress.progress = newProgress
+            if (newProgress > 0 && newProgress < 100) {
+                webProgress.visibility = View.VISIBLE
+            }
+
+            // 更新状态文字
+            when {
+                newProgress < 30 -> loadingStatus.text = "正在加载页面资源..."
+                newProgress < 70 -> loadingStatus.text = "正在渲染页面..."
+                newProgress < 100 -> loadingStatus.text = "即将完成..."
+            }
+
+            if (newProgress == 100) {
+                webProgress.visibility = View.GONE
+            }
+        }
+    }
+
+    private fun hideLoadingOverlay() {
+        runOnUiThread {
+            loadingIcon.clearAnimation()
+            loadingSpinner.visibility = View.GONE
+            progressAnimator?.cancel()
+            loadingOverlay.animate()
+                .alpha(0f)
+                .setDuration(300)
+                .withEndAction {
+                    loadingOverlay.visibility = View.GONE
+                }
+                .start()
+        }
+    }
+
+    private fun showErrorPage(message: String) {
+        runOnUiThread {
+            webView.loadUrl("about:blank")
+            loadingOverlay.visibility = View.GONE
+            val errorMessage = errorView.findViewById<TextView>(R.id.errorMessage)
+            errorMessage.text = message
+            errorView.visibility = View.VISIBLE
+        }
+    }
+
+    private fun retryLoadPage() {
+        runOnUiThread {
+            errorView.visibility = View.GONE
+            loadingOverlay.visibility = View.VISIBLE
+            loadingOverlay.alpha = 1f
+            loadingSpinner.visibility = View.VISIBLE
+            val retryAnim = AnimationUtils.loadAnimation(this, R.anim.loading_pulse)
+            loadingIcon.startAnimation(retryAnim)
+            updateLoadingProgress(5, "正在重新连接服务...")
+            isServerReady = false
+            waitForServerAndLoad()
+        }
+    }
+
+    @Suppress("DEPRECATION")
+    override fun onBackPressed() {
+        if (webView.canGoBack()) {
+            webView.goBack()
+        } else {
+            super.onBackPressed()
+        }
+    }
+
+    @Deprecated("Deprecated in API 30+, but required for file chooser compatibility")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+
+        // 处理文件选择结果
+        if (requestCode == DormWebChromeClient.REQUEST_FILE_CHOOSER) {
+            (webView.webChromeClient as? DormWebChromeClient)?.handleFileChooserResult(resultCode, data)
+        }
+    }
+
+    override fun onDestroy() {
+        // 停止启动图标动画和进度动画
+        try {
+            if (::loadingIcon.isInitialized) {
+                loadingIcon.clearAnimation()
+            }
+        } catch (e: Exception) {
+            // 忽略
+        }
+        progressAnimator?.cancel()
+        // 停止 Flask 服务
+        val intent = Intent(this, FlaskService::class.java)
+        stopService(intent)
+        webView.destroy()
+        super.onDestroy()
+    }
+}

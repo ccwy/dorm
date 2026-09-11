@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+{% include 'static.html' %}
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#165DFF',
+                        secondary: '#36CFC9',
+                        accent: '#722ED1',
+                        danger: '#F5222D',
+                        info: '#1890FF',
+                        warning: '#FAAD14'
+                    },
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .btn-hover {
+                transition: all 0.2s ease;
+            }
+            .btn-hover:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            }
+            .fade-in {
+                animation: fadeIn 0.5s ease-in;
+            }
+            @keyframes fadeIn {
+                from { opacity: 0; }
+                to { opacity: 1; }
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+{% include 'header.html' %}
+    <main class="container mx-auto px-4 py-6">
+        
+        <!-- 标题区 -->
+        <div class="mb-6 fade-in">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between">
+                <div class="flex items-center">
+                    <a href="{{ url_for('storage_location.index') }}" class="text-gray-600 hover:text-primary transition-colors mr-4">
+                        <i class="fa fa-arrow-left"></i>
+                    </a>
+                    <div>
+                        <h2 class="text-[clamp(1.5rem,3vw,2rem)] font-bold text-dark">{{ location.display_name }}</h2>
+                        <p class="text-gray-500 mt-1">存放位置详情</p>
+                    </div>
+                </div>
+                <div class="mt-3 md:mt-0 flex items-center gap-2">
+                    <span class="px-3 py-1 rounded-full text-sm font-medium {% if location.status == '启用' %}bg-green-100 text-green-800{% else %}bg-red-100 text-red-800{% endif %}">
+                        {{ location.display_status }}
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 消息提示区域 -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            <div class="flash-messages mb-6">
+              {% for category, message in messages %}
+                <div class="p-4 rounded-md mb-2 {% if category == 'success' %}bg-green-100 text-green-800{% elif category == 'error' or category == 'danger' %}bg-red-100 text-red-800{% elif category == 'warning' %}bg-yellow-100 text-yellow-800{% else %}bg-blue-100 text-blue-800{% endif %}">
+                  <button type="button" class="float-right ml-2 text-gray-500 hover:text-gray-700" onclick="this.parentElement.remove()">×</button>
+                  {{ message | safe }}
+                </div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        {% endwith %}
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- 左侧：详细信息 -->
+            <div class="lg:col-span-2 space-y-6">
+                
+                <!-- 基本信息 -->
+                <div class="bg-white rounded-lg shadow-sm p-6 fade-in">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4 pb-2 border-b border-gray-200">
+                        <i class="fa fa-info-circle mr-2 text-primary"></i>基本信息
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="flex items-center py-2">
+                            <span class="text-gray-500 w-24 text-sm">位置名称</span>
+                            <span class="text-gray-900 font-medium">{{ location.name }}</span>
+                        </div>
+                        <div class="flex items-center py-2">
+                            <span class="text-gray-500 w-24 text-sm">位置编码</span>
+                            <span class="text-gray-900">{{ location.code if location.code else '-' }}</span>
+                        </div>
+                        <div class="flex items-center py-2">
+                            <span class="text-gray-500 w-24 text-sm">状态</span>
+                            <span class="px-2 py-0.5 rounded-full text-xs font-medium {% if location.status == '启用' %}bg-green-100 text-green-800{% else %}bg-red-100 text-red-800{% endif %}">
+                                {{ location.display_status }}
+                            </span>
+                        </div>
+                        <div class="flex items-center py-2">
+                            <span class="text-gray-500 w-24 text-sm">使用类型</span>
+                            <span class="px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                                {{ location.display_usage_type if location.display_usage_type else '-' }}
+                            </span>
+                        </div>
+                        <div class="flex items-center py-2">
+                            <span class="text-gray-500 w-24 text-sm">经手人</span>
+                            <span class="text-gray-900 font-medium">{{ location.handler_name }}</span>
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- 位置信息 -->
+                <div class="bg-white rounded-lg shadow-sm p-6 fade-in">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4 pb-2 border-b border-gray-200">
+                        <i class="fa fa-map-marker mr-2 text-secondary"></i>位置信息
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="flex items-center py-2">
+                            <span class="text-gray-500 w-20 text-sm">楼栋</span>
+                            <span class="text-gray-900">{{ location.building if location.building else '-' }}</span>
+                        </div>
+                        <div class="flex items-center py-2">
+                            <span class="text-gray-500 w-20 text-sm">楼层</span>
+                            <span class="text-gray-900">{{ location.floor if location.floor else '-' }}</span>
+                        </div>
+                        <div class="flex items-center py-2">
+                            <span class="text-gray-500 w-20 text-sm">房间号</span>
+                            <span class="text-gray-900">{{ location.room if location.room else '-' }}</span>
+                        </div>
+                        <div class="flex items-center py-2">
+                            <span class="text-gray-500 w-20 text-sm">地址</span>
+                            <span class="text-gray-900">{{ location.address if location.address else '-' }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 库存明细 -->
+                <div class="bg-white rounded-lg shadow-sm p-6 fade-in">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4 pb-2 border-b border-gray-200">
+                        {% if location.usage_type == '固定资产' %}
+                        <i class="fa fa-building mr-2 text-accent"></i>资产明细
+                        <span class="text-sm font-normal text-gray-500 ml-2">（该位置存放的固定资产）</span>
+                        {% elif location.usage_type == '合同管理' %}
+                        <i class="fa fa-file-text mr-2 text-accent"></i>合同明细
+                        <span class="text-sm font-normal text-gray-500 ml-2">（该位置存放的合同）</span>
+                        {% else %}
+                        <i class="fa fa-cubes mr-2 text-accent"></i>库存明细
+                        <span class="text-sm font-normal text-gray-500 ml-2">（该位置存放的物品）</span>
+                        {% endif %}
+                    </h3>
+
+                    {% if location.usage_type == '低值易耗品' %}
+                    {# 低值易耗品库存明细 #}
+                    {% if stock_details %}
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead>
+                                <tr class="bg-gray-50">
+                                    <th class="px-4 py-3 text-left font-medium text-gray-600">序号</th>
+                                    <th class="px-4 py-3 text-left font-medium text-gray-600">物品编号</th>
+                                    <th class="px-4 py-3 text-left font-medium text-gray-600">物品名称</th>
+                                    <th class="px-4 py-3 text-left font-medium text-gray-600">规格</th>
+                                    <th class="px-4 py-3 text-left font-medium text-gray-600">库存数量</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-100">
+                                {% for detail in stock_details %}
+                                <tr class="hover:bg-gray-50 transition-colors">
+                                    <td class="px-4 py-3 text-gray-500">{{ loop.index }}</td>
+                                    <td class="px-4 py-3 whitespace-nowrap text-primary">
+                                        <a href="{{ url_for('supply_item.detail', id=detail.item_id) }}" class="hover:underline">{{ detail.item.item_number if detail.item and detail.item.item_number else '-' }}</a>
+                                    </td>
+                                    <td class="px-4 py-3 whitespace-nowrap">
+                                        <a href="{{ url_for('supply_item.detail', id=detail.item_id) }}" class="text-primary hover:underline">
+                                            {{ detail.item_name }}
+                                        </a>
+                                    </td>
+                                    <td class="px-4 py-3 whitespace-nowrap text-gray-600">{{ detail.item.specification if detail.item and detail.item.specification else '-' }}</td>
+                                    <td class="px-4 py-3 whitespace-nowrap font-medium text-gray-900">{{ detail.quantity }} {{ detail.item.unit if detail.item and detail.item.unit else '' }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-8 text-gray-400">
+                        <i class="fa fa-inbox text-4xl mb-3"></i>
+                        <p>暂无库存数据</p>
+                    </div>
+                    {% endif %}
+
+                    {% elif location.usage_type == '固定资产' %}
+                    {# 固定资产明细 #}
+                    {% if asset_stock_items %}
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead>
+                                <tr class="bg-gray-50">
+                                    <th class="px-4 py-3 text-left font-medium text-gray-600">序号</th>
+                                    <th class="px-4 py-3 text-left font-medium text-gray-600">资产名称</th>
+                                    <th class="px-4 py-3 text-left font-medium text-gray-600">资产编号</th>
+                                    <th class="px-4 py-3 text-left font-medium text-gray-600">资产分类</th>
+                                    <th class="px-4 py-3 text-left font-medium text-gray-600">数量</th>
+                                    <th class="px-4 py-3 text-left font-medium text-gray-600">原值（元）</th>
+                                    <th class="px-4 py-3 text-left font-medium text-gray-600">状态</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-100">
+                                {% for item in asset_stock_items %}
+                                <tr class="hover:bg-gray-50 transition-colors">
+                                    <td class="px-4 py-3 text-gray-500">{{ loop.index }}</td>
+                                    <td class="px-4 py-3 whitespace-nowrap">
+                                        <a href="{{ url_for('fixed_asset.detail', id=item.asset_id) }}" class="text-primary hover:underline">
+                                            {{ item.asset.asset_name if item.asset else '-' }}
+                                        </a>
+                                    </td>
+                                    <td class="px-4 py-3 whitespace-nowrap text-gray-700">{{ item.asset.display_number if item.asset else '-' }}</td>
+                                    <td class="px-4 py-3 whitespace-nowrap text-gray-700">{{ item.asset.asset_category if item.asset else '-' }}</td>
+                                    <td class="px-4 py-3 whitespace-nowrap font-medium text-gray-900">{{ item.quantity }} {{ item.asset.unit if item.asset and item.asset.unit else '台' }}</td>
+                                    <td class="px-4 py-3 whitespace-nowrap font-medium text-gray-900">{{ '%.2f'|format(item.asset.original_value|float) if item.asset and item.asset.original_value else '0.00' }}</td>
+                                    <td class="px-4 py-3 whitespace-nowrap">
+                                        {% if item.asset %}
+                                        <span class="px-2 py-0.5 rounded-full text-xs font-medium
+                                            {% if item.asset.status == '在用' %}bg-green-100 text-green-800
+                                            {% elif item.asset.status == '闲置' %}bg-gray-100 text-gray-800
+                                            {% elif item.asset.status == '维修中' %}bg-yellow-100 text-yellow-800
+                                            {% elif item.asset.status == '已报废' %}bg-red-100 text-red-800
+                                            {% elif item.asset.status == '已转移' %}bg-blue-100 text-blue-800
+                                            {% elif item.asset.status == '已出售' %}bg-purple-100 text-purple-800
+                                            {% else %}bg-gray-100 text-gray-800{% endif %}">
+                                            {{ item.asset.status }}
+                                        </span>
+                                        {% else %}
+                                        <span class="text-gray-400">-</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-8 text-gray-400">
+                        <i class="fa fa-inbox text-4xl mb-3"></i>
+                        <p>暂无固定资产数据</p>
+                    </div>
+                    {% endif %}
+
+                    {% elif location.usage_type == '合同管理' %}
+                    {# 合同明细 #}
+                    {% if contracts %}
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead>
+                                <tr class="bg-gray-50">
+                                    <th class="px-4 py-3 text-left font-medium text-gray-600">序号</th>
+                                    <th class="px-4 py-3 text-left font-medium text-gray-600">合同名称</th>
+                                    <th class="px-4 py-3 text-left font-medium text-gray-600">合同编号</th>
+                                    <th class="px-4 py-3 text-left font-medium text-gray-600">合同类型</th>
+                                    <th class="px-4 py-3 text-left font-medium text-gray-600">合同金额（元）</th>
+                                    <th class="px-4 py-3 text-left font-medium text-gray-600">签约日期</th>
+                                    <th class="px-4 py-3 text-left font-medium text-gray-600">到期日期</th>
+                                    <th class="px-4 py-3 text-left font-medium text-gray-600">状态</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-100">
+                                {% for contract in contracts %}
+                                <tr class="hover:bg-gray-50 transition-colors">
+                                    <td class="px-4 py-3 text-gray-500">{{ loop.index }}</td>
+                                    <td class="px-4 py-3 whitespace-nowrap">
+                                        <a href="{{ url_for('contract.detail', id=contract.id) }}" class="text-primary hover:underline">
+                                            {{ contract.contract_name }}
+                                        </a>
+                                    </td>
+                                    <td class="px-4 py-3 whitespace-nowrap text-gray-700">{{ contract.contract_number or '-' }}</td>
+                                    <td class="px-4 py-3 whitespace-nowrap text-gray-700">{{ contract.contract_type or '-' }}</td>
+                                    <td class="px-4 py-3 whitespace-nowrap font-medium text-gray-900">{{ '%.2f'|format(contract.contract_amount|float) if contract.contract_amount else '0.00' }}</td>
+                                    <td class="px-4 py-3 whitespace-nowrap text-gray-700">{{ contract.signing_date.strftime('%Y-%m-%d') if contract.signing_date else '-' }}</td>
+                                    <td class="px-4 py-3 whitespace-nowrap text-gray-700">{{ contract.end_date.strftime('%Y-%m-%d') if contract.end_date else '-' }}</td>
+                                    <td class="px-4 py-3 whitespace-nowrap">
+                                        <span class="px-2 py-0.5 rounded-full text-xs font-medium
+                                            {% if contract.status == '草稿' %}bg-gray-100 text-gray-800
+                                            {% elif contract.status == '生效中' %}bg-green-100 text-green-800
+                                            {% elif contract.status == '即将到期' %}bg-yellow-100 text-yellow-800
+                                            {% elif contract.status == '已到期' %}bg-red-100 text-red-800
+                                            {% elif contract.status == '已终止' %}bg-red-100 text-red-800
+                                            {% elif contract.status == '已归档' %}bg-blue-100 text-blue-800
+                                            {% else %}bg-gray-100 text-gray-800{% endif %}">
+                                            {{ contract.display_status }}
+                                        </span>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-8 text-gray-400">
+                        <i class="fa fa-inbox text-4xl mb-3"></i>
+                        <p>暂无合同数据</p>
+                    </div>
+                    {% endif %}
+
+                    {% endif %}
+                </div>
+
+                <!-- 备注 -->
+                {% if location.remark %}
+                <div class="bg-white rounded-lg shadow-sm p-6 fade-in">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4 pb-2 border-b border-gray-200">
+                        <i class="fa fa-sticky-note mr-2 text-warning"></i>备注信息
+                    </h3>
+                    <p class="text-gray-700 whitespace-pre-wrap">{{ location.remark }}</p>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- 右侧：快捷操作 -->
+            <div class="lg:col-span-1 space-y-6">
+                
+                <!-- 操作概要 -->
+                <div class="bg-white rounded-lg shadow-sm p-6 fade-in">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4 pb-2 border-b border-gray-200">
+                        <i class="fa fa-bolt mr-2 text-warning"></i>快捷操作
+                    </h3>
+                    <div class="space-y-3">
+                        {% if current_user.has_permission('storage_location.edit') %}
+                        <a href="{{ url_for('storage_location.edit_page', id=location.id) }}" 
+                           class="flex items-center px-4 py-2.5 bg-primary text-white rounded-md hover:bg-primary/90 btn-hover w-full">
+                            <i class="fa fa-edit mr-2"></i>编辑位置
+                        </a>
+                        {% endif %}
+                        {% if current_user.has_permission('storage_location.delete') %}
+                        <button type="button" onclick="deleteLocation()" 
+                                class="flex items-center px-4 py-2.5 bg-danger text-white rounded-md hover:bg-danger/90 btn-hover w-full">
+                            <i class="fa fa-trash mr-2"></i>删除位置
+                        </button>
+                        {% endif %}
+                        <a href="{{ url_for('storage_location.index') }}" 
+                           class="flex items-center px-4 py-2.5 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 btn-hover w-full">
+                            <i class="fa fa-list mr-2"></i>返回列表
+                        </a>
+                    </div>
+                </div>
+
+                <!-- 位置概要 -->
+                <div class="bg-white rounded-lg shadow-sm p-6 fade-in">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4 pb-2 border-b border-gray-200">
+                        <i class="fa fa-bar-chart mr-2 text-info"></i>位置概要
+                    </h3>
+                    <div class="space-y-4">
+                        {% if location.usage_type == '低值易耗品' %}
+                        <div class="flex justify-between items-center">
+                            <span class="text-gray-500 text-sm">存放物品种类</span>
+                            <span class="text-2xl font-bold text-primary">{{ stock_details|length }}</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-gray-500 text-sm">总库存数量</span>
+                            <span class="text-2xl font-bold text-secondary">{{ stock_details|map(attribute='quantity')|sum }}</span>
+                        </div>
+                        {% elif location.usage_type == '固定资产' %}
+                        <div class="flex justify-between items-center">
+                            <span class="text-gray-500 text-sm">资产种类</span>
+                            <span class="text-2xl font-bold text-primary">{{ asset_stock_items|length }}</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-gray-500 text-sm">资产总数量</span>
+                            <span class="text-2xl font-bold text-secondary">{{ asset_stock_items|map(attribute='quantity')|sum }}</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-gray-500 text-sm">资产总原值</span>
+                            <span class="text-2xl font-bold text-secondary">{{ '%.2f'|format(asset_stock_items|map(attribute='asset')|map(attribute='original_value')|map('float')|sum) }}</span>
+                        </div>
+                        {% elif location.usage_type == '合同管理' %}
+                        <div class="flex justify-between items-center">
+                            <span class="text-gray-500 text-sm">合同数量</span>
+                            <span class="text-2xl font-bold text-primary">{{ contracts|length }}</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-gray-500 text-sm">合同总金额</span>
+                            <span class="text-2xl font-bold text-secondary">{{ '%.2f'|format(contracts|map(attribute='contract_amount')|map('float')|sum) }}</span>
+                        </div>
+                        {% endif %}
+                        <div class="flex justify-between items-center">
+                            <span class="text-gray-500 text-sm">创建时间</span>
+                            <span class="text-sm text-gray-700">{{ location.created_at.strftime('%Y-%m-%d') if location.created_at else '-' }}</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-gray-500 text-sm">更新时间</span>
+                            <span class="text-sm text-gray-700">{{ location.updated_at.strftime('%Y-%m-%d') if location.updated_at else '-' }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- 删除表单（隐藏） -->
+    <form id="deleteForm" method="post" action="{{ url_for('storage_location.delete_storage_location', id=location.id) }}" style="display:none;"></form>
+
+    <!-- 页脚 -->
+    {% include 'footer.html' %}
+    
+    <script>
+        function deleteLocation() {
+            // 先检查该位置是否有关联数据
+            fetch('/api/storage-locations/check-usage/{{ location.id }}')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.has_usage) {
+                        alert('该存放位置下还有库存数据，无法删除。请先清空该位置的库存后再删除。');
+                        return;
+                    }
+                    if (confirm('确定要删除存放位置「{{ location.display_name }}」吗？此操作不可撤销。')) {
+                        document.getElementById('deleteForm').submit();
+                    }
+                })
+                .catch(error => {
+                    // API不可用时回退到普通确认
+                    if (confirm('确定要删除存放位置「{{ location.display_name }}」吗？此操作不可撤销。')) {
+                        document.getElementById('deleteForm').submit();
+                    }
+                });
+        }
+    </script>
+</body>
+</html>
