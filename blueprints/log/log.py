@@ -1,6 +1,7 @@
 from flask import Blueprint, render_template, request, flash, redirect, url_for, jsonify
 from datetime import datetime, timezone, timedelta
 from models.log.log import OperationLog  # 已扩展的模型
+from models.user.user import User  # 导入用户模型
 import logging
 from flask_login import login_required, current_user
 from utils.log import MODULE_MAP, OPERATION_TYPE_MAP  # 导入字典
@@ -74,6 +75,13 @@ def log():
     pagination = query.paginate(page=page, per_page=per_page, error_out=False)
     logs = pagination.items
     
+    # 批量查询用户名映射
+    user_ids = set(log_entry.user_id for log_entry in logs if log_entry.user_id)
+    user_map = {}
+    if user_ids:
+        users = User.query.filter(User.id.in_(user_ids)).all()
+        user_map = {user.id: user.name for user in users}
+
     # 处理日志数据，添加模块和操作类型的中文名称
     processed_logs = []
     for log_entry in logs:
@@ -88,6 +96,7 @@ def log():
             'id': log_entry.id,
             'operate_time': log_entry.operate_time,  # 使用与数据库模型一致的字段名
             'user_id': log_entry.user_id,
+            'username': user_map.get(log_entry.user_id, '未知用户') if log_entry.user_id else '系统',
             'module': module_name,  # 使用中文模块名称（根据utils/log.py中的映射）
             'operation_type': operation_name,  # 使用中文操作类型名称（根据utils/log.py中的映射）
             'action': log_entry.action,
