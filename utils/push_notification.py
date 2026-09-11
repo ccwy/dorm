@@ -111,6 +111,7 @@ def send_push_notification(user_id, title, body, url=None):
                     vapid_private_key=vapid_private_key,
                     vapid_claims=vapid_claims,
                     ttl=86400,  # 消息有效期24小时
+                    timeout=10,  # 单次推送请求超时10秒，避免反向代理504
                 )
                 success_count += 1
                 logger.info(f"推送通知发送成功: 用户={user_id}, 端点={sub.endpoint[:50]}")

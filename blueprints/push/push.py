@@ -295,6 +295,7 @@ def test_push():
         'vapid_private_key_set': False,
         'vapid_public_key_set': False,
         'subscription_count': 0,
+        'fcm_reachable': None,
         'push_sent': False,
         'push_error': None,
     }
@@ -310,6 +311,19 @@ def test_push():
     user_id = current_user.id
     sub_count = PushSubscription.query.filter_by(user_id=user_id).count()
     diagnostics['subscription_count'] = sub_count
+
+    # 检查FCM网络连通性（3秒超时，快速诊断）
+    try:
+        import socket
+        sock = socket.create_connection(('fcm.googleapis.com', 443), timeout=3)
+        sock.close()
+        diagnostics['fcm_reachable'] = True
+    except Exception as e:
+        diagnostics['fcm_reachable'] = False
+        diagnostics['push_error'] = f'服务器无法连接FCM(fcm.googleapis.com:443): {type(e).__name__} - 推送服务不可达'
+        logger.warning(f'[Push诊断] FCM连通性检查失败: {type(e).__name__}: {e}')
+        # FCM不可达时跳过推送测试，直接返回诊断结果
+        return jsonify({'success': False, 'diagnostics': diagnostics}), 200
 
     if not diagnostics['vapid_configured']:
         diagnostics['push_error'] = 'VAPID密钥未配置'
