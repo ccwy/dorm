@@ -1,0 +1,3 @@
+# 费用补贴管理蓝图包
+from .fee_subsidy import fee_subsidy_bp
+from .fee_subsidy_import_export import fee_subsidy_import_export_bp

@@ -1,0 +1,62 @@
+# Git 相关
+.git
+.gitignore
+.github
+
+# IDE 和开发工具
+.idea
+.vscode
+*.swp
+*.swo
+*~
+
+# Python 缓存
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info
+dist
+build
+*.egg
+
+# 虚拟环境
+venv
+env
+.venv
+
+# JoyCode 配置
+.joycode
+
+# 自动化脚本 (Docker 内不需要)
+Auto_Setup
+
+# 本地数据 (Docker 使用卷挂载)
+data/*.db
+data/backups
+data/photo
+data/file_sharing
+data/logs
+
+# 日志
+logs
+*.log
+
+# 系统文件
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# 文档
+*.md
+README*
+
+# 测试
+tests
+test_*.py
+
+# 临时文件
+*.tmp
+*.bak
+*.swp

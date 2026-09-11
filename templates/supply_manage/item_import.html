@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+{% include 'static.html' %}
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#165DFF',
+                        secondary: '#36CFC9',
+                        accent: '#722ED1',
+                        danger: '#F5222D',
+                        info: '#1890FF',
+                        warning: '#FAAD14'
+                    },
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .btn-hover {
+                transition: all 0.2s ease;
+            }
+            .btn-hover:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            }
+            .fade-in {
+                animation: fadeIn 0.5s ease-in;
+            }
+            @keyframes fadeIn {
+                from { opacity: 0; }
+                to { opacity: 1; }
+            }
+            .drop-zone {
+                border: 2px dashed #d1d5db;
+                transition: all 0.3s ease;
+            }
+            .drop-zone.dragover {
+                border-color: #165DFF;
+                background-color: #eff6ff;
+            }
+            .drop-zone:hover {
+                border-color: #9ca3af;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+{% include 'header.html' %}
+    <main class="container mx-auto px-4 py-6">
+        <!-- Flash消息 -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            <div class="flash-messages mb-6">
+              {% for category, message in messages %}
+                <div class="p-4 rounded-md mb-2 {% if category == 'success' %}bg-green-100 text-green-800{% elif category == 'error' or category == 'danger' %}bg-red-100 text-red-800{% elif category == 'warning' %}bg-yellow-100 text-yellow-800{% else %}bg-blue-100 text-blue-800{% endif %}">
+                  <button type="button" class="float-right ml-2 text-gray-500 hover:text-gray-700" onclick="this.parentElement.remove()">×</button>
+                  {{ message | safe }}
+                </div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        {% endwith %}
+
+        <div class="flex items-center mb-6 fade-in">
+            <a href="{{ url_for('supply_item.index') }}" class="text-primary hover:text-primary/80 mr-2">
+                <i class="fa fa-arrow-left"></i>
+            </a>
+            <h2 class="text-2xl font-semibold text-dark">{{ title }}</h2>
+        </div>
+
+        <div class="max-w-3xl mx-auto space-y-6">
+            <!-- 导入说明 -->
+            <div class="bg-white rounded-lg shadow-sm p-6">
+                <h3 class="text-lg font-medium text-gray-800 mb-4 pb-2 border-b border-gray-200">
+                    <i class="fa fa-info-circle text-primary mr-2"></i>导入说明
+                </h3>
+                <div class="space-y-3 text-sm text-gray-600">
+                    <p><i class="fa fa-check-circle text-green-500 mr-2"></i>支持 <strong>.xlsx</strong> 和 <strong>.xls</strong> 格式的Excel文件</p>
+                    <p><i class="fa fa-check-circle text-green-500 mr-2"></i>文件大小不超过 <strong>5MB</strong></p>
+                    <p><i class="fa fa-check-circle text-green-500 mr-2"></i>第一行为表头，数据从第二行开始</p>
+                    <p><i class="fa fa-check-circle text-green-500 mr-2"></i>必填字段：<strong>物品名称</strong></p>
+                    <p><i class="fa fa-check-circle text-green-500 mr-2"></i>可选字段：物品编号、分类、规格型号、单位、供应商、单价、参考价格、最低库存、最高库存、状态、备注</p>
+                    <p><i class="fa fa-exclamation-triangle text-orange-500 mr-2"></i>物品编号留空将自动生成</p>
+                </div>
+                <div class="mt-4">
+                    <a href="{{ url_for('supply_item_import_export.download_template') }}" class="inline-flex items-center px-4 py-2 bg-secondary text-white rounded-md hover:bg-secondary/90 btn-hover text-sm">
+                        <i class="fa fa-download mr-2"></i>下载导入模板
+                    </a>
+                </div>
+            </div>
+
+            <!-- 文件上传 -->
+            <div class="bg-white rounded-lg shadow-sm p-6">
+                <h3 class="text-lg font-medium text-gray-800 mb-4 pb-2 border-b border-gray-200">
+                    <i class="fa fa-upload text-secondary mr-2"></i>上传文件
+                </h3>
+                <form id="importForm" action="{{ url_for('supply_item_import_export.import_items') }}" method="post" enctype="multipart/form-data">
+                    <!-- 拖拽上传区域 -->
+                    <div id="dropZone" class="drop-zone rounded-lg p-8 text-center cursor-pointer mb-4" onclick="document.getElementById('fileInput').click()">
+                        <div id="dropContent">
+                            <i class="fa fa-cloud-upload text-4xl text-gray-400 mb-3"></i>
+                            <p class="text-gray-600 mb-2">将Excel文件拖拽到此处，或点击选择文件</p>
+                            <p class="text-xs text-gray-400">支持 .xlsx / .xls 格式，最大5MB</p>
+                        </div>
+                        <div id="fileInfo" class="hidden">
+                            <i class="fa fa-file-excel text-4xl text-green-500 mb-3"></i>
+                            <p id="fileName" class="text-gray-800 font-medium mb-1"></p>
+                            <p id="fileSize" class="text-sm text-gray-500"></p>
+                            <button type="button" onclick="event.stopPropagation(); clearFile()" class="mt-2 text-sm text-red-500 hover:text-red-700">
+                                <i class="fa fa-times mr-1"></i>移除文件
+                            </button>
+                        </div>
+                    </div>
+                    <input type="file" id="fileInput" name="file" accept=".xlsx,.xls" class="hidden" onchange="handleFileSelect(this)">
+
+                    <!-- 覆盖选项 -->
+                    <div class="flex items-center mb-4">
+                        <input type="checkbox" id="overwrite" name="overwrite" value="1" class="h-4 w-4 text-primary border-gray-300 rounded focus:ring-primary">
+                        <label for="overwrite" class="ml-2 text-sm text-gray-700">
+                            覆盖已存在的物品（按物品编号匹配）
+                        </label>
+                    </div>
+
+                    <!-- 提交按钮 -->
+                    <div class="flex justify-end gap-3">
+                        <a href="{{ url_for('supply_item.index') }}" class="px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 btn-hover">
+                            <i class="fa fa-times mr-2"></i>取消
+                        </a>
+                        <button type="submit" id="submitBtn" class="px-6 py-2 bg-primary text-white rounded-md hover:bg-primary/90 btn-hover disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                            <i class="fa fa-upload mr-2"></i>开始导入
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- 导入结果 -->
+            {% if import_result %}
+            <div class="bg-white rounded-lg shadow-sm p-6">
+                <h3 class="text-lg font-medium text-gray-800 mb-4 pb-2 border-b border-gray-200">
+                    <i class="fa fa-flag-checkered text-primary mr-2"></i>导入结果
+                </h3>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                    <div class="p-4 rounded-lg bg-green-50">
+                        <span class="text-sm text-green-600 block mb-1">成功导入</span>
+                        <p class="text-2xl font-bold text-green-700">{{ import_result.success | default(0) }}</p>
+                    </div>
+                    <div class="p-4 rounded-lg bg-red-50">
+                        <span class="text-sm text-red-600 block mb-1">导入失败</span>
+                        <p class="text-2xl font-bold text-red-700">{{ import_result.failed | default(0) }}</p>
+                    </div>
+                    <div class="p-4 rounded-lg bg-blue-50">
+                        <span class="text-sm text-blue-600 block mb-1">总计行数</span>
+                        <p class="text-2xl font-bold text-blue-700">{{ import_result.total | default(0) }}</p>
+                    </div>
+                </div>
+                {% if import_result.errors %}
+                <div class="mt-4">
+                    <h4 class="text-sm font-medium text-gray-700 mb-2">错误详情：</h4>
+                    <div class="bg-red-50 border border-red-200 rounded-md p-4 max-h-60 overflow-y-auto">
+                        <ul class="space-y-1 text-sm text-red-700">
+                            {% for error in import_result.errors %}
+                            <li><i class="fa fa-times-circle mr-1"></i>{{ error }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+                {% endif %}
+                {% if import_result.warnings %}
+                <div class="mt-4">
+                    <h4 class="text-sm font-medium text-gray-700 mb-2">警告信息：</h4>
+                    <div class="bg-yellow-50 border border-yellow-200 rounded-md p-4 max-h-60 overflow-y-auto">
+                        <ul class="space-y-1 text-sm text-yellow-700">
+                            {% for warning in import_result.warnings %}
+                            <li><i class="fa fa-exclamation-triangle mr-1"></i>{{ warning }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+                {% endif %}
+                <div class="mt-4 flex justify-end">
+                    <a href="{{ url_for('supply_item.index') }}" class="px-6 py-2 bg-primary text-white rounded-md hover:bg-primary/90 btn-hover">
+                        <i class="fa fa-list mr-2"></i>返回物料列表
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </main>
+
+    <!-- 页脚 -->
+    {% include 'footer.html' %}
+    
+    <script>
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        const submitBtn = document.getElementById('submitBtn');
+        const dropContent = document.getElementById('dropContent');
+        const fileInfo = document.getElementById('fileInfo');
+        const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+
+        // 拖拽事件
+        dropZone.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            dropZone.classList.add('dragover');
+        });
+
+        dropZone.addEventListener('dragleave', function(e) {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+        });
+
+        dropZone.addEventListener('drop', function(e) {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                fileInput.files = files;
+                handleFileSelect(fileInput);
+            }
+        });
+
+        function handleFileSelect(input) {
+            const file = input.files[0];
+            if (!file) return;
+
+            // 验证文件类型
+            const validTypes = [
+                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                'application/vnd.ms-excel'
+            ];
+            const validExtensions = ['.xlsx', '.xls'];
+            const fileExt = '.' + file.name.split('.').pop().toLowerCase();
+
+            if (!validExtensions.includes(fileExt)) {
+                alert('请上传Excel文件（.xlsx 或 .xls 格式）');
+                clearFile();
+                return;
+            }
+
+            // 验证文件大小
+            if (file.size > MAX_FILE_SIZE) {
+                alert('文件大小不能超过5MB');
+                clearFile();
+                return;
+            }
+
+            // 显示文件信息
+            document.getElementById('fileName').textContent = file.name;
+            document.getElementById('fileSize').textContent = formatFileSize(file.size);
+            dropContent.classList.add('hidden');
+            fileInfo.classList.remove('hidden');
+            submitBtn.disabled = false;
+        }
+
+        function clearFile() {
+            fileInput.value = '';
+            dropContent.classList.remove('hidden');
+            fileInfo.classList.add('hidden');
+            submitBtn.disabled = true;
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+    </script>
+</body>
+</html>
