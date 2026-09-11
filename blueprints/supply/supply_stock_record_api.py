@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, send_file, flash, redirect, url_for
 import logging
 from utils.db import db
 from flask_login import login_required, current_user
@@ -6,6 +6,9 @@ from utils.log import log_operation
 import traceback
 from utils.auth import require_permission
 from models.supply.supply_stock_record import SupplyStockRecord
+from utils.lazy_imports import pd
+import io
+from datetime import datetime
 
 supply_stock_record_api_bp = Blueprint('supply_stock_record_api', __name__, url_prefix='/api/supply-stock-records')
 
@@ -408,5 +411,135 @@ def get_supply_stock_record_statistics():
 @require_permission('supply.export')
 def export():
     """导出进出库记录数据为Excel"""
-    # 参照其他模块的 import_export 实现导出逻辑
-    pass
+    try:
+        logging.debug('开始执行进出库记录数据导出')
+
+        # 获取筛选参数（与列表页一致）
+        record_type = request.args.get('record_type', '').strip()
+        item_id = request.args.get('item_id', type=int)
+        location_id = request.args.get('location_id', type=int)
+        department_id = request.args.get('department_id', type=int)
+        recipient_user_id = request.args.get('recipient_user_id', type=int)
+        date_from = request.args.get('date_from', '').strip()
+        date_to = request.args.get('date_to', '').strip()
+        keyword = request.args.get('keyword', '').strip()
+
+        # 构建查询
+        query = SupplyStockRecord.query.order_by(SupplyStockRecord.id.desc())
+
+        if keyword:
+            search_filter = f'%{keyword}%'
+            query = query.filter(
+                db.or_(
+                    SupplyStockRecord.item_name.ilike(search_filter),
+                    SupplyStockRecord.source_number.ilike(search_filter),
+                    SupplyStockRecord.remark.ilike(search_filter)
+                )
+            )
+        if record_type:
+            query = query.filter(SupplyStockRecord.record_type == record_type)
+        if item_id:
+            query = query.filter(SupplyStockRecord.item_id == item_id)
+        if location_id:
+            query = query.filter(SupplyStockRecord.location_id == location_id)
+        if department_id:
+            query = query.filter(SupplyStockRecord.department_id == department_id)
+        if recipient_user_id:
+            query = query.filter(SupplyStockRecord.recipient_user_id == recipient_user_id)
+        if date_from:
+            try:
+                from datetime import datetime as dt
+                date_from_val = dt.strptime(date_from, '%Y-%m-%d')
+                query = query.filter(SupplyStockRecord.record_date >= date_from_val)
+            except ValueError:
+                pass
+        if date_to:
+            try:
+                from datetime import datetime as dt
+                date_to_val = dt.strptime(date_to, '%Y-%m-%d')
+                query = query.filter(SupplyStockRecord.record_date <= date_to_val)
+            except ValueError:
+                pass
+
+        records = query.all()
+        logging.debug(f'查询到{len(records)}条进出库记录数据')
+
+        if not records:
+            logging.info('没有可导出的进出库记录数据')
+            flash('没有可导出的进出库记录数据', 'info')
+            return redirect(url_for('supply_stock_record.list_records'))
+
+        # 准备导出数据
+        data = []
+        for r in records:
+            try:
+                # 变动数量带正负号
+                if r.record_type in ['入库', '盘盈', '出库反审核', '盘亏反审核']:
+                    qty_display = f'+{r.quantity}'
+                elif r.record_type in ['出库', '盘亏', '入库反审核', '盘盈反审核']:
+                    qty_display = f'-{r.quantity}'
+                else:
+                    qty_display = str(r.quantity)
+
+                data.append({
+                    '记录类型': r.record_type or '',
+                    '记录时间': r.record_date.strftime('%Y-%m-%d %H:%M') if r.record_date else '',
+                    '物品编号': r.item_number or '',
+                    '物品名称': r.display_item_name or '',
+                    '规格型号': r.specification or '',
+                    '存放位置': r.display_location_name or '',
+                    '变动数量': qty_display,
+                    '单位': r.unit or '',
+                    '单价': float(r.unit_price) if r.unit_price else 0,
+                    '总金额': float(r.total_price) if r.total_price else 0,
+                    '来源单号': r.source_number or '',
+                    '来源类型': r.source_type or '',
+                    '领用人': r.recipient_name if r.recipient_name != '无' else '',
+                    '领用部门': r.department_name if r.department_name != '无' else '',
+                    '操作人': r.operator_name or '',
+                    '备注': r.remark or '',
+                })
+            except Exception as e:
+                logging.error(f'处理进出库记录ID={r.id}时出错: {str(e)}', exc_info=True)
+                raise
+
+        logging.debug(f'数据准备完成，共{len(data)}条记录')
+
+        # 生成Excel
+        df = pd.DataFrame(data)
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            df.to_excel(writer, index=False, sheet_name='进出库记录')
+
+        output.seek(0)
+        filename = f"进出库记录导出_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+        logging.debug(f'Excel文件生成成功，文件名: {filename}')
+
+        # 记录操作日志
+        log_operation(
+            user_id=current_user.id,
+            module='supply_stock_record',
+            operation_type='batch_import_export',
+            action=f"导出进出库记录数据，共 {len(records)} 条记录",
+            result="成功"
+        )
+        logging.info(f'用户{current_user.id}成功导出进出库记录数据')
+
+        return send_file(
+            output,
+            download_name=filename,
+            as_attachment=True,
+            mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+
+    except Exception as e:
+        logging.error(f'导出进出库记录数据失败: {str(e)}', exc_info=True)
+        log_operation(
+            user_id=current_user.id,
+            module='supply_stock_record',
+            operation_type='batch_import_export',
+            action=f"尝试导出进出库记录数据失败: {str(e)}",
+            result="失败"
+        )
+        flash('导出失败，请联系管理员', 'danger')
+        return redirect(url_for('supply_stock_record.list_records'))

@@ -54,6 +54,7 @@ def export():
                     '邮箱': s.email or '',
                     '地址': s.address or '',
                     '状态': s.status or '启用',
+                    '税率': float(s.tax_rate) if s.tax_rate else '',
                     '备注': s.remark or '',
                     '创建时间': s.created_at.strftime('%Y-%m-%d %H:%M') if s.created_at else '',
                     '更新时间': s.updated_at.strftime('%Y-%m-%d %H:%M') if s.updated_at else '',
@@ -210,6 +211,16 @@ def import_suppliers():
                 if status not in ['启用', '停用']:
                     status = '启用'
 
+                # 税率（可选，数值）
+                tax_rate_val = row.get('税率')
+                tax_rate = None
+                if pd.notna(tax_rate_val) and str(tax_rate_val).strip():
+                    try:
+                        tax_rate = float(str(tax_rate_val).strip())
+                    except (ValueError, TypeError):
+                        error_records.append(f'第{row_num}行：税率格式无效，已忽略')
+                        tax_rate = None
+
                 # 备注（可选）
                 remark_val = row.get('备注')
                 remark = str(remark_val).strip() if pd.notna(remark_val) and str(remark_val).strip() else None
@@ -226,6 +237,7 @@ def import_suppliers():
                         existing.email = email or existing.email
                         existing.address = address or existing.address
                         existing.status = status
+                        existing.tax_rate = tax_rate if tax_rate is not None else existing.tax_rate
                         existing.remark = remark or existing.remark
                         existing.handler_user_id = current_user.id
                         success_count += 1
@@ -246,6 +258,7 @@ def import_suppliers():
                     address=address,
                     status=status,
                     handler_user_id=current_user.id,
+                    tax_rate=tax_rate,
                     remark=remark,
                     operator_user_id=current_user.id
                 )
@@ -325,6 +338,7 @@ def download_template():
             "邮箱": ["zhangsan@example.com", "lisi@example.com", "wangwu@example.com"],
             "地址": ["北京市朝阳区", "上海市浦东新区", "广州市天河区"],
             "状态": ["启用", "启用", "停用"],
+            "税率": [13, 6, 9],
             "备注": ["主要供应商", "备选供应商", ""],
         }
 

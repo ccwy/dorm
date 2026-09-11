@@ -258,9 +258,9 @@ def edit_stock_out(id):
     try:
         stock_out = StockOut.query.get_or_404(id)
 
-        # 仅待审核状态可编辑
-        if stock_out.status != '待审核':
-            flash('仅待审核状态的出库单可以编辑', 'warning')
+        # 仅待审核和已取消状态可编辑
+        if stock_out.status not in ('待审核', '已取消'):
+            flash('仅待审核和已取消状态的出库单可以编辑', 'warning')
             return redirect(url_for('stock_out.detail_stock_out', id=id))
 
         departments = Department.query.filter_by(status='正常').order_by(Department.id).all()
@@ -313,13 +313,24 @@ def detail_stock_out(id):
         approval_enabled = SystemConfig.get_config_value('STOCK_OUT_APPROVAL_ENABLED', True)
         unapprove_enabled = SystemConfig.get_config_value('STOCK_OUT_UNAPPROVE_ENABLED', True)
 
+        # 从session读取库存不足的明细信息（审核失败后标记异常行）
+        from flask import session
+        insufficient_items = session.pop(f'stock_out_insufficient_{id}', None)
+        # 构建库存不足明细的key集合，用于模板标记
+        insufficient_keys = set()
+        if insufficient_items:
+            for item in insufficient_items:
+                insufficient_keys.add(f"{item.get('item_id')}-{item.get('location_id')}")
+
         return render_template(
             'supply_manage/stock_out_detail.html',
             title=f"出库单详情 - {stock_out.stock_out_number}",
             stock_out=stock_out,
             details=details,
             approval_enabled=approval_enabled,
-            unapprove_enabled=unapprove_enabled
+            unapprove_enabled=unapprove_enabled,
+            insufficient_items=insufficient_items,
+            insufficient_keys=insufficient_keys
         )
     except Exception as e:
         log_operation(

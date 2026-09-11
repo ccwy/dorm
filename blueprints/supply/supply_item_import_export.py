@@ -304,8 +304,18 @@ def import_items():
                 if pd.notna(remark_val) and str(remark_val).strip():
                     remark = str(remark_val).strip()
 
-                # 检查名称是否重复（非编号覆盖场景）
-                existing = SupplyItem.query.filter_by(name=name).first()
+                # 检查名称+规格+单位组合是否重复（非编号覆盖场景）
+                # 三者一致才算重复，否则按新物品处理
+                existing = SupplyItem.query.filter_by(name=name)
+                if specification:
+                    existing = existing.filter_by(specification=specification)
+                else:
+                    existing = existing.filter(db.or_(SupplyItem.specification.is_(None), SupplyItem.specification == ''))
+                if unit:
+                    existing = existing.filter_by(unit=unit)
+                else:
+                    existing = existing.filter(db.or_(SupplyItem.unit.is_(None), SupplyItem.unit == ''))
+                existing = existing.first()
                 if existing:
                     if overwrite:
                         # 覆盖更新
@@ -324,7 +334,7 @@ def import_items():
                         success_count += 1
                         continue
                     else:
-                        error_records.append(f'第{row_num}行：物品名称"{name}"已存在')
+                        error_records.append(f'第{row_num}行：物品名称"{name}"、规格"{specification or ""}"、单位"{unit or ""}"的组合已存在')
                         fail_count += 1
                         continue
 

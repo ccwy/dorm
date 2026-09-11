@@ -245,9 +245,9 @@ def edit_stock_in(id):
     try:
         stock_in = StockIn.query.get_or_404(id)
 
-        # 仅待审核状态可编辑
-        if stock_in.status != '待审核':
-            flash('仅待审核状态的入库单可以编辑', 'warning')
+        # 仅待审核和已取消状态可编辑
+        if stock_in.status not in ('待审核', '已取消'):
+            flash('仅待审核和已取消状态的入库单可以编辑', 'warning')
             return redirect(url_for('stock_in.detail_stock_in', id=id))
 
         departments = Department.query.order_by(Department.id).all()

@@ -51,6 +51,11 @@ def add_supply_item():
             flash(f'物品编号"{item_number}"已存在', 'danger')
             return redirect(url_for('supply_item.add_page'))
 
+        # 检查名称+规格+单位组合是否重复
+        if SupplyItem.is_name_exists(name, specification=specification, unit=unit):
+            flash(f'物品名称"{name}"、规格"{specification or ""}"、单位"{unit or ""}"的组合已存在', 'danger')
+            return redirect(url_for('supply_item.add_page'))
+
         try:
             item = SupplyItem.create(
                 name=name, category=category, specification=specification,
@@ -125,6 +130,11 @@ def edit_supply_item(id):
         # 必填字段校验
         if not new_name:
             flash('物品名称不能为空', 'danger')
+            return redirect(url_for('supply_item.edit_page', id=id))
+
+        # 检查名称+规格+单位组合是否重复（排除自身）
+        if SupplyItem.is_name_exists(new_name, specification=new_specification, unit=new_unit, exclude_id=id):
+            flash(f'物品名称"{new_name}"、规格"{new_specification or ""}"、单位"{new_unit or ""}"的组合已存在', 'danger')
             return redirect(url_for('supply_item.edit_page', id=id))
 
         # 记录变更

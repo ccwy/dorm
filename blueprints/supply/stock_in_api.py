@@ -134,7 +134,7 @@ def get_stock_in_detail(id):
                 "item_name": d.item_name or d.display_item_name,
                 "specification": d.specification or '',
                 "location_id": d.location_id,
-                "location_name": d.location_name or d.display_location_name,
+                "location_name": d.display_location_name,
                 "unit": d.unit or '',
                 "quantity": d.quantity,
                 "unit_price": float(d.unit_price) if d.unit_price else 0,

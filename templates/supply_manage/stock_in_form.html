@@ -223,7 +223,7 @@
                                     <td class="px-3 py-2">
                                         <input type="text" data-name="location_search" class="detail-location-search w-full min-w-[100px] px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-primary/50" 
                                                placeholder="搜索或输入位置名称" autocomplete="off" required
-                                               value="{{ d.display_location_name if d.display_location_name != '未知' else '' }}"
+                                               value="{{ d.location_name if d.location_name and d.location_name != '未知' else '' }}"
                                                list="location-datalist">
                                         <input type="hidden" data-name="location_id" class="detail-location-id" value="{{ d.location_id if d.location_id else '' }}">
                                     </td>
@@ -320,6 +320,13 @@
         for (const [id, data] of Object.entries(itemsData)) {
             itemLabelToId[data.displayLabel] = id;
         }
+        // 物品编号到物品信息的映射（用于前端快速查重）
+        const itemNumberMap = {};
+        for (const [id, data] of Object.entries(itemsData)) {
+            if (data.item_number) {
+                itemNumberMap[data.item_number] = { id: id, name: data.name };
+            }
+        }
 
         let rowIndex = {{ (stock_in.details|length if stock_in and stock_in.details else 0) }};
 
@@ -394,10 +401,127 @@
             });
         }
 
+        // ========== 物品编号重复检查 ==========
+        // 检查某个物品编号是否与数据库中已有物品重复（AJAX）
+        function checkItemNumberAgainstDB(itemNumber, excludeItemId, callback) {
+            if (!itemNumber) { callback(false, null); return; }
+            // 先从前端缓存快速检查
+            if (itemNumberMap[itemNumber] && String(itemNumberMap[itemNumber].id) !== String(excludeItemId)) {
+                callback(true, itemNumberMap[itemNumber].name);
+                return;
+            }
+            // 再请求后端确认（防止缓存未覆盖的情况）
+            fetch(`{{ url_for('supply_item_api.check_item_number') }}?item_number=${encodeURIComponent(itemNumber)}&exclude_item_id=${excludeItemId || ''}`)
+                .then(r => r.json())
+                .then(data => {
+                    callback(data.exists, data.item_name || null);
+                })
+                .catch(() => {
+                    callback(false, null);
+                });
+        }
+
+        // 检查当前表单内所有行的物品编号是否有重复
+        function checkItemNumberDuplicatesInForm() {
+            const rows = document.querySelectorAll('#detailBody tr');
+            const numberToRows = {};
+            let hasDuplicate = false;
+
+            // 先清除所有重复警告样式
+            rows.forEach(row => {
+                const itemNumberInput = row.querySelector('.detail-item-number');
+                if (itemNumberInput) {
+                    itemNumberInput.classList.remove('border-red-500', 'ring-1', 'ring-red-500');
+                    const warnTip = row.querySelector('.item-number-duplicate-tip');
+                    if (warnTip) warnTip.remove();
+                }
+            });
+
+            // 收集每行的物品编号（仅对自定义输入的行，即item_id为空的行）
+            rows.forEach(row => {
+                const itemIdInput = row.querySelector('.detail-item-id');
+                const itemNumberInput = row.querySelector('.detail-item-number');
+                if (!itemNumberInput) return;
+                const num = itemNumberInput.value.trim();
+                const hasItemId = itemIdInput && itemIdInput.value;
+                // 已有物品的编号是只读的，不需要检查行间重复（它们本身在数据库中就是唯一的）
+                if (!num || hasItemId) return;
+                if (!numberToRows[num]) numberToRows[num] = [];
+                numberToRows[num].push(row);
+            });
+
+            // 标记重复
+            for (const [num, dupRows] of Object.entries(numberToRows)) {
+                if (dupRows.length > 1) {
+                    hasDuplicate = true;
+                    dupRows.forEach(row => {
+                        const itemNumberInput = row.querySelector('.detail-item-number');
+                        itemNumberInput.classList.add('border-red-500', 'ring-1', 'ring-red-500');
+                        showItemNumberWarning(row, '当前表单中存在重复的物品编号：' + num);
+                    });
+                }
+            }
+            return hasDuplicate;
+        }
+
+        // 显示物品编号重复警告提示
+        function showItemNumberWarning(row, message) {
+            // 移除已有提示
+            const existing = row.querySelector('.item-number-duplicate-tip');
+            if (existing) existing.remove();
+            const tip = document.createElement('div');
+            tip.className = 'item-number-duplicate-tip text-xs text-red-500 mt-1';
+            tip.textContent = message;
+            const itemNumberInput = row.querySelector('.detail-item-number');
+            if (itemNumberInput && itemNumberInput.parentElement) {
+                itemNumberInput.parentElement.appendChild(tip);
+            }
+        }
+
+        // 清除物品编号重复警告
+        function clearItemNumberWarning(row) {
+            const itemNumberInput = row.querySelector('.detail-item-number');
+            if (itemNumberInput) {
+                itemNumberInput.classList.remove('border-red-500', 'ring-1', 'ring-red-500');
+            }
+            const tip = row.querySelector('.item-number-duplicate-tip');
+            if (tip) tip.remove();
+        }
+
+        // 绑定物品编号输入框的blur检查事件（可重复调用，防止重复绑定）
+        function bindItemNumberBlurEvent(row, itemNumberInput) {
+            if (!itemNumberInput) return;
+            // 避免重复绑定：先移除旧监听器
+            itemNumberInput.removeEventListener('blur', itemNumberInput._duplicateCheckHandler);
+            itemNumberInput._duplicateCheckHandler = function() {
+                const num = this.value.trim();
+                clearItemNumberWarning(row);
+                if (!num) return;
+                const itemId = row.querySelector('.detail-item-id');
+                const excludeId = itemId ? itemId.value : '';
+                checkItemNumberAgainstDB(num, excludeId, function(exists, existingName) {
+                    if (exists) {
+                        itemNumberInput.classList.add('border-red-500', 'ring-1', 'ring-red-500');
+                        showItemNumberWarning(row, '物品编号"' + num + '"已被物品"' + existingName + '"使用，请更换编号');
+                    } else {
+                        // 数据库无重复，再检查表单内行间重复
+                        checkItemNumberDuplicatesInForm();
+                    }
+                });
+            };
+            itemNumberInput.addEventListener('blur', itemNumberInput._duplicateCheckHandler);
+        }
+
         function bindRowEvents(row) {
             const itemSearch = row.querySelector('.detail-item-search');
             const quantityInput = row.querySelector('.detail-quantity');
             const unitPriceInput = row.querySelector('.detail-unit-price');
+            const itemNumberInput = row.querySelector('.detail-item-number');
+
+            // 物品编号输入框失焦时检查数据库重复
+            if (itemNumberInput && !itemNumberInput.readOnly) {
+                bindItemNumberBlurEvent(row, itemNumberInput);
+            }
 
             if (itemSearch) {
                 function handleItemSelection() {
@@ -429,6 +553,8 @@
                         itemNumberInput.readOnly = true;
                         itemNumberInput.classList.add('bg-gray-50');
                         itemNumberInput.removeAttribute('required');
+                        // 已有物品的编号是只读的，清除重复警告
+                        clearItemNumberWarning(row);
                         row.querySelector('.detail-unit-price').value = foundItem.unitPrice || '';
                     } else {
                         hiddenId.value = '';
@@ -452,6 +578,9 @@
                         } else {
                             itemNumberInput.removeAttribute('required');
                         }
+                        // 自定义输入时，绑定物品编号blur检查事件
+                        clearItemNumberWarning(row);
+                        bindItemNumberBlurEvent(row, itemNumberInput);
                         row.querySelector('.detail-unit-price').value = 0;
                     }
                     recalculateRow(row);
@@ -692,6 +821,37 @@
                         alert('自动编号已关闭，自定义新物品必须填写物品编号');
                         return;
                     }
+                }
+
+                // 检查自定义物品编号是否与数据库或表单内其他行重复
+                let hasItemNumberDuplicate = false;
+                const itemNumberSet = new Set();
+                rows.forEach(row => {
+                    const itemIdInput = row.querySelector('.detail-item-id');
+                    const itemNumberInput = row.querySelector('.detail-item-number');
+                    const hasItemId = itemIdInput && itemIdInput.value;
+                    const num = itemNumberInput ? itemNumberInput.value.trim() : '';
+                    // 仅检查自定义输入的物品编号（item_id为空且编号非空）
+                    if (!hasItemId && num) {
+                        // 检查是否与前端缓存中的已有物品编号重复
+                        if (itemNumberMap[num]) {
+                            hasItemNumberDuplicate = true;
+                            itemNumberInput.classList.add('border-red-500', 'ring-1', 'ring-red-500');
+                            showItemNumberWarning(row, '物品编号"' + num + '"已被物品"' + itemNumberMap[num].name + '"使用，请更换编号');
+                        }
+                        // 检查表单内行间重复
+                        if (itemNumberSet.has(num)) {
+                            hasItemNumberDuplicate = true;
+                            itemNumberInput.classList.add('border-red-500', 'ring-1', 'ring-red-500');
+                            showItemNumberWarning(row, '当前表单中存在重复的物品编号：' + num);
+                        }
+                        itemNumberSet.add(num);
+                    }
+                });
+                if (hasItemNumberDuplicate) {
+                    e.preventDefault();
+                    alert('物品编号存在重复，请修改后再提交');
+                    return;
                 }
 
                 // 收集明细数据并设置到items_json隐藏字段

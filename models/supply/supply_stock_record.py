@@ -90,7 +90,7 @@ class SupplyStockRecord(db.Model):
             from models.supply.storage_location import StorageLocation
             location = StorageLocation.query.get(self.location_id)
             if location:
-                return location.display_name if hasattr(location, 'display_name') else location.name
+                return location.name
         return self.location_name or '未知'
 
     @property

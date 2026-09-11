@@ -197,8 +197,15 @@ class StockOut(db.Model):
                 location_id=detail.location_id
             ).first()
             if not stock_detail or stock_detail.quantity < detail.quantity:
+                # 获取物品编号
+                from models.supply.supply_item import SupplyItem
+                item = SupplyItem.query.get(detail.item_id)
+                item_number = item.item_number if item and item.item_number else '-'
                 insufficient_items.append({
+                    'item_id': detail.item_id,
+                    'item_number': item_number,
                     'item_name': detail.item_name,
+                    'location_id': detail.location_id,
                     'location_name': detail.location_name,
                     'available': stock_detail.quantity if stock_detail else 0,
                     'required': detail.quantity

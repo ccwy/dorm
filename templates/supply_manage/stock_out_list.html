@@ -97,8 +97,8 @@
                         <i class="fa fa-undo mr-2"></i>批量反审核
                     </button>
                     {% endif %}
-                    {% if current_user.has_permission('supply.import') %}
-                    <button id="importBtn" class="btn-hover bg-info text-white px-4 py-2 rounded-md flex items-center cursor-pointer">
+                    {% if approval_enabled and current_user.has_permission('supply.import') %}
+                    <button type="button" id="importBtn" class="btn-hover bg-info text-white px-4 py-2 rounded-md flex items-center">
                         <i class="fa fa-upload mr-2"></i>导入
                     </button>
                     {% endif %}
@@ -275,6 +275,17 @@
                                         <i class="fa fa-undo mr-1"></i>反审核
                                     </button>
                                     {% endif %}
+                                    {% if stock_out.status == '已取消' and current_user.has_permission('supply.edit') %}
+                                    <button onclick="window.location.href='{{ url_for('stock_out.edit_stock_out', id=stock_out.id) }}'" class="btn-effect bg-amber-500 text-white px-2 py-1 rounded-md text-sm flex items-center">
+                                        <i class="fa fa-pencil mr-1"></i>编辑
+                                    </button>
+                                    {% endif %}
+                                    {% if stock_out.status == '已取消' and current_user.has_permission('supply.delete') %}
+                                    <button type="button" class="btn-effect bg-red-500 text-white px-2 py-1 rounded-md text-sm flex items-center"
+                                        onclick="deleteStockOut({{ stock_out.id }})">
+                                        <i class="fa fa-trash mr-1"></i>删除
+                                    </button>
+                                    {% endif %}
                                 </div>
                             </td>
                         </tr>
@@ -307,7 +318,7 @@
                                                 <td class="py-2 px-4 font-medium text-primary">{% if d.item_id %}<a href="{{ url_for('supply_item.detail', id=d.item_id) }}" class="hover:underline" onclick="event.stopPropagation()">{{ d.item_name or '未知' }}</a>{% else %}<span class="text-gray-800">{{ d.item_name or '未知' }}</span>{% endif %}</td>
                                                 <td class="py-2 px-4 text-gray-600">{{ d.specification or '-' }}</td>
                                                 <td class="py-2 px-4 text-gray-600">{{ d.unit or '-' }}</td>
-                                                <td class="py-2 px-4 text-primary">{% if d.location_id %}<a href="{{ url_for('storage_location.detail', id=d.location_id) }}" class="hover:underline" onclick="event.stopPropagation()">{{ d.location_name or '未知' }}</a>{% else %}<span class="text-gray-600">{{ d.location_name or '未知' }}</span>{% endif %}</td>
+                                                <td class="py-2 px-4 text-primary">{% if d.location_id %}<a href="{{ url_for('storage_location.detail', id=d.location_id) }}" class="hover:underline" onclick="event.stopPropagation()">{{ d.display_location_name }}</a>{% else %}<span class="text-gray-600">{{ d.display_location_name }}</span>{% endif %}</td>
                                                 <td class="py-2 px-4 text-right font-medium text-gray-800">{{ d.quantity }}</td>
                                                 <td class="py-2 px-4 text-right text-gray-800">¥{{ "%.2f"|format(d.unit_price or 0) }}</td>
                                                 <td class="py-2 px-4 text-right font-medium text-primary">¥{{ "%.2f"|format(d.quantity * d.unit_price if d.quantity and d.unit_price else 0) }}</td>
@@ -373,33 +384,6 @@
             {% endif %}
         </div>
 
-        <!-- 导入模态框 -->
-        <div id="importModal" class="fixed inset-0 bg-gray-600/50 hidden z-50 flex items-center justify-center">
-            <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md mx-4">
-                <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-lg font-semibold text-gray-800">导入出库单</h3>
-                    <button type="button" onclick="closeImportModal()" class="text-gray-400 hover:text-gray-600">
-                        <i class="fa fa-times"></i>
-                    </button>
-                </div>
-                <form method="post" action="{{ url_for('stock_out_import_export.import_stock_outs') }}" enctype="multipart/form-data" id="importForm">
-                    <div class="mb-4">
-                        <label class="block text-sm font-medium text-gray-700 mb-2">选择Excel文件</label>
-                        <input type="file" name="file" accept=".xlsx,.xls" class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-medium file:bg-primary file:text-white hover:file:bg-primary/90" required>
-                    </div>
-                    <div class="mb-4">
-                        <a href="{{ url_for('stock_out_import_export.download_template') }}" class="text-primary hover:text-primary/80 text-sm">
-                            <i class="fa fa-download mr-1"></i>下载导入模板
-                        </a>
-                    </div>
-                    <div class="flex justify-end gap-3">
-                        <button type="button" onclick="closeImportModal()" class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 text-sm">取消</button>
-                        <button type="submit" class="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90 text-sm">开始导入</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-
         <!-- 批量删除隐藏表单 -->
         <form id="batchDeleteForm" method="post" action="{{ url_for('stock_out.batch_delete_stock_outs') }}" style="display:none;">
             <input type="hidden" name="selected_ids" id="batchDeleteIds">
@@ -423,6 +407,73 @@
         <form id="cancelForm" method="post" style="display:none;">
         </form>
     </main>
+
+    <!-- 导入数据模态框 -->
+    <div id="importModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-lg shadow-lg max-w-md w-full mx-4">
+            <div class="p-6 border-b border-gray-200">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-lg font-semibold text-gray-800">导入出库单数据</h3>
+                    <button id="closeImportModal" class="text-gray-500 hover:text-gray-700">
+                        <i class="fa fa-times"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="p-6">
+                <!-- 初始状态内容 -->
+                <div id="importInitialContent">
+                    <p class="text-gray-600 mb-4">请上传Excel格式的出库单数据文件，支持.xlsx和.xls格式（最大10MB）。</p>
+                    
+                    <div class="mb-4">
+                        <a href="{{ url_for('stock_out_import_export.download_template') }}" class="text-primary hover:text-primary/80 flex items-center">
+                            <i class="fa fa-file-excel-o mr-2"></i>
+                            下载导入模板
+                        </a>
+                    </div>
+                    
+                    <form id="importForm" action="{{ url_for('stock_out_import_export.import_stock_outs') }}" method="post" enctype="multipart/form-data">
+                        <div class="mb-4">
+                            <label for="importFile" class="block text-sm font-medium text-gray-700 mb-1">选择文件</label>
+                            <input type="file" id="importFile" name="file" accept=".xlsx,.xls" 
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                        </div>
+                        
+                        <div class="mb-6">
+                            <label class="inline-flex items-center">
+                                <input type="checkbox" name="override" value="1" class="form-checkbox text-primary">
+                                <span class="ml-2 text-gray-700">覆盖已有数据</span>
+                            </label>
+                        </div>
+                        
+                        <div class="flex justify-end gap-3">
+                            <button type="button" id="cancelImport" class="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50">
+                                取消
+                            </button>
+                            <button type="submit" class="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90">
+                                确认导入
+                            </button>
+                        </div>
+                    </form>
+                </div>
+                
+                <!-- 加载状态内容 - 默认隐藏 -->
+                <div id="importLoadingContent" class="hidden text-center py-8">
+                    <div class="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mb-4"></div>
+                    <p class="text-gray-700">正在导入数据，请稍候...</p>
+                    <p class="text-gray-500 text-sm mt-2">文件越大，导入时间可能越长</p>
+                </div>
+                
+                <!-- 成功状态内容 - 默认隐藏 -->
+                <div id="importSuccessContent" class="hidden text-center py-8">
+                    <div class="inline-block text-green-500 mb-4">
+                        <i class="fa fa-check-circle text-4xl"></i>
+                    </div>
+                    <p class="text-gray-700 font-medium">导入完成！</p>
+                    <p class="text-gray-500 text-sm mt-2">正在返回出库单列表...</p>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- 页脚 -->
     {% include 'footer.html' %}
@@ -530,17 +581,7 @@
 
         // 导出
         function exportStockOut() {
-            const params = new URLSearchParams(window.location.search);
-            params.set('export', '1');
-            window.location.href = "{{ url_for('stock_out.list_stock_outs') }}?" + params.toString();
-        }
-
-        // 打开/关闭导入模态框
-        function openImportModal() {
-            document.getElementById('importModal').classList.remove('hidden');
-        }
-        function closeImportModal() {
-            document.getElementById('importModal').classList.add('hidden');
+            window.location.href = "{{ url_for('stock_out_import_export.export') }}";
         }
 
         // 切换每页条数
@@ -567,13 +608,82 @@
             }
         })();
 
-        // 导入按钮事件
-        const importBtn = document.getElementById('importBtn');
-        if (importBtn) {
-            importBtn.addEventListener('click', function() {
-                openImportModal();
-            });
-        }
+        // 导入模态框相关逻辑
+        (function() {
+            const importBtnEl = document.getElementById('importBtn');
+            const importModal = document.getElementById('importModal');
+            const closeImportModal = document.getElementById('closeImportModal');
+            const cancelImport = document.getElementById('cancelImport');
+            const importForm = document.getElementById('importForm');
+            const importInitialContent = document.getElementById('importInitialContent');
+            const importLoadingContent = document.getElementById('importLoadingContent');
+            const importSuccessContent = document.getElementById('importSuccessContent');
+            
+            // 打开模态框
+            if (importBtnEl) {
+                importBtnEl.addEventListener('click', function() {
+                    importModal.classList.remove('hidden');
+                    // 显示初始内容，隐藏其他状态
+                    importInitialContent.classList.remove('hidden');
+                    importLoadingContent.classList.add('hidden');
+                    importSuccessContent.classList.add('hidden');
+                    // 重置文件选择
+                    const fileInput = document.getElementById('importFile');
+                    if (fileInput) fileInput.value = '';
+                    // 阻止页面滚动
+                    document.body.style.overflow = 'hidden';
+                });
+            }
+            
+            // 关闭模态框的函数
+            function closeImportModalFn() {
+                importModal.classList.add('hidden');
+                // 恢复页面滚动
+                document.body.style.overflow = '';
+            }
+            
+            // 关闭模态框事件
+            if (closeImportModal) {
+                closeImportModal.addEventListener('click', closeImportModalFn);
+            }
+            if (cancelImport) {
+                cancelImport.addEventListener('click', closeImportModalFn);
+            }
+            
+            // 点击模态框外部关闭
+            if (importModal) {
+                importModal.addEventListener('click', function(e) {
+                    if (e.target === importModal) {
+                        closeImportModalFn();
+                    }
+                });
+            }
+            
+            // 处理表单提交
+            if (importForm) {
+                importForm.addEventListener('submit', function(e) {
+                    // 验证是否选择了文件
+                    const fileInput = document.getElementById('importFile');
+                    if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
+                        alert('请选择要导入的文件');
+                        e.preventDefault();
+                        return;
+                    }
+                    
+                    // 显示加载状态，隐藏初始内容
+                    importInitialContent.classList.add('hidden');
+                    importLoadingContent.classList.remove('hidden');
+                    
+                    // 禁用提交按钮防止重复提交
+                    const submitButton = this.querySelector('button[type="submit"]');
+                    submitButton.disabled = true;
+                    submitButton.textContent = '正在导入...';
+                    
+                    // 不阻止默认提交行为，表单会正常提交到后端
+                    // 后端处理完成后会重定向回列表页
+                });
+            }
+        })();
 
         // 导出按钮事件
         const exportBtn = document.getElementById('exportBtn');

@@ -154,6 +154,7 @@
                             {% else %}
                             <span class="text-lg font-medium">{{ record.quantity }}</span>
                             {% endif %}
+                            {% if record.unit %}<span class="text-gray-500 text-sm ml-1">{{ record.unit }}</span>{% endif %}
                         </div>
                         <div class="flex items-center">
                             <span class="text-gray-500 text-sm w-24">单价：</span>

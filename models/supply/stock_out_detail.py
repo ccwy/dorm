@@ -99,7 +99,7 @@ class StockOutDetail(db.Model):
         from models.supply.storage_location import StorageLocation
         location = StorageLocation.query.get(self.location_id)
         if location:
-            return location.display_name if hasattr(location, 'display_name') else location.name
+            return location.name
         return self.location_name or '未知'
 
     @classmethod
@@ -108,6 +108,12 @@ class StockOutDetail(db.Model):
                remark=None, operator_user_id=None):
         """创建出库明细"""
         from decimal import Decimal
+        # 当location_id有效时，强制使用数据库中的干净name，避免前端传入display_name等脏数据
+        if location_id:
+            from models.supply.storage_location import StorageLocation
+            loc = StorageLocation.query.get(location_id)
+            if loc:
+                location_name = loc.name
         total_price = Decimal(str(quantity)) * Decimal(str(unit_price))
         detail = cls(
             stock_out_id=stock_out_id,

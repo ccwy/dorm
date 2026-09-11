@@ -1,4 +1,4 @@
-from flask import render_template, request, flash, redirect, url_for, jsonify
+from flask import render_template, request, flash, redirect, url_for, jsonify, session
 from flask_login import login_required, current_user
 from utils.db import db
 from models.supply.stock_out import StockOut
@@ -131,6 +131,13 @@ def create_stock_out():
             if not item_id or not location_id or quantity <= 0:
                 continue
 
+            # 当location_id有效时，强制使用数据库中的干净name，避免前端传入display_name等脏数据
+            if location_id:
+                from models.supply.storage_location import StorageLocation
+                loc_obj = StorageLocation.query.get(location_id)
+                if loc_obj:
+                    location_name = loc_obj.name
+
             StockOutDetail.create(
                 stock_out_id=stock_out.id,
                 item_id=item_id,
@@ -200,10 +207,15 @@ def update_stock_out(id):
     try:
         stock_out = StockOut.query.get_or_404(id)
 
-        # 仅待审核状态可编辑
-        if stock_out.status != '待审核':
-            flash('仅待审核状态的出库单可以编辑', 'warning')
+        # 仅待审核和已取消状态可编辑
+        if stock_out.status not in ('待审核', '已取消'):
+            flash('仅待审核和已取消状态的出库单可以编辑', 'warning')
             return redirect(url_for('stock_out.detail_stock_out', id=id))
+
+        # 如果是已取消状态，编辑后恢复为待审核
+        was_cancelled = stock_out.status == '已取消'
+        if was_cancelled:
+            stock_out.status = '待审核'
 
         # 收集主表数据
         stock_out_type = request.form.get('stock_out_type', '').strip()
@@ -305,6 +317,13 @@ def update_stock_out(id):
             if not item_id or not location_id or quantity <= 0:
                 continue
 
+            # 当location_id有效时，强制使用数据库中的干净name，避免前端传入display_name等脏数据
+            if location_id:
+                from models.supply.storage_location import StorageLocation
+                loc_obj = StorageLocation.query.get(location_id)
+                if loc_obj:
+                    location_name = loc_obj.name
+
             StockOutDetail.create(
                 stock_out_id=id,
                 item_id=item_id,
@@ -372,9 +391,9 @@ def delete_stock_out(id):
         stock_out = StockOut.query.get_or_404(id)
         stock_out_number = stock_out.stock_out_number
 
-        # 仅待审核状态可删除
-        if stock_out.status != '待审核':
-            flash('仅待审核状态的出库单可以删除', 'danger')
+        # 仅待审核和已取消状态可删除
+        if stock_out.status not in ('待审核', '已取消'):
+            flash('仅待审核和已取消状态的出库单可以删除', 'danger')
             return redirect(url_for('stock_out.detail_stock_out', id=id))
 
         # 记录操作日志
@@ -431,10 +450,17 @@ def approve_stock_out(id):
             error_msg = result.get('error', '库存不足')
             detail_msgs = []
             for item in insufficient_items:
+                item_number = item.get('item_number', '-')
+                item_name = item.get('item_name', '未知')
+                location_name = item.get('location_name', '未知位置')
+                available = item.get('available', 0)
+                required = item.get('required', 0)
                 detail_msgs.append(
-                    f"{item.get('item_name', '未知')}（{item.get('location_name', '未知位置')}）"
-                    f"：库存{item.get('available', 0)}，需要{item.get('required', 0)}"
+                    f"[{item_number}] {item_name}（{location_name}）"
+                    f"：库存{available}，需要{required}"
                 )
+            # 将库存不足明细存入session，供详情页标记异常行
+            session[f'stock_out_insufficient_{id}'] = insufficient_items
             flash(f'{error_msg}：' + '；'.join(detail_msgs), 'danger')
             logging.warning(f"审核出库单库存不足，出库单ID: {id}, 单号: {stock_out.stock_out_number}")
             return redirect(url_for('stock_out.detail_stock_out', id=id))
@@ -593,7 +619,14 @@ def batch_approve_stock_outs():
                     else:
                         fail_count += 1
                         if isinstance(result, dict) and 'error' in result:
-                            fail_messages.append(f'{stock_out.stock_out_number}: {result.get("error", "审核失败")}')
+                            insufficient = result.get('details', [])
+                            insuff_msg_parts = []
+                            for it in insufficient[:3]:
+                                it_num = it.get('item_number', '-')
+                                it_name = it.get('item_name', '未知')
+                                insuff_msg_parts.append(f"[{it_num}]{it_name}")
+                            insuff_summary = ','.join(insuff_msg_parts) if insuff_msg_parts else result.get('error', '审核失败')
+                            fail_messages.append(f'{stock_out.stock_out_number}: {result.get("error", "审核失败")}({insuff_summary})')
                         else:
                             fail_messages.append(f'{stock_out.stock_out_number}: 审核失败')
                 except Exception as e:

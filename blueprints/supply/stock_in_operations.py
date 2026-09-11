@@ -122,6 +122,12 @@ def create_stock_in():
             if (not item_id and not item_name) or (not location_id and not location_name) or quantity <= 0:
                 continue
 
+            # 当location_id有效时，强制使用数据库中的干净name，避免前端传入display_name等脏数据
+            if location_id:
+                loc_obj = StorageLocation.query.get(location_id)
+                if loc_obj:
+                    location_name = loc_obj.name
+
             # 延迟创建：如果item_id为空但item_name有值，查找或创建物品
             if not item_id and item_name:
                 # 按名称+规格+单位联合查找，三者完全一致才视为同一个物品
@@ -140,9 +146,17 @@ def create_stock_in():
                     if not unit:
                         unit = existing_item.unit or ''
                 else:
+                    # 创建新物品前，检查item_number是否与已有物品重复
+                    item_number_value = item_number.strip() if item_number and item_number.strip() else None
+                    if item_number_value:
+                        dup_item = SupplyItem.query.filter_by(item_number=item_number_value).first()
+                        if dup_item:
+                            db.session.rollback()
+                            flash(f'物品编号"{item_number_value}"已被物品"{dup_item.name}"使用，请更换编号', 'danger')
+                            return redirect(url_for('stock_in.add_stock_in'))
                     new_item = SupplyItem.create(
                         name=item_name,
-                        item_number=item_number.strip() if item_number and item_number.strip() else None,
+                        item_number=item_number_value,
                         category='低值易耗品',
                         specification=specification if specification else None,
                         unit=unit if unit else None,
@@ -237,10 +251,15 @@ def update_stock_in(id):
     try:
         stock_in = StockIn.query.get_or_404(id)
 
-        # 仅待审核状态可编辑
-        if stock_in.status != '待审核':
-            flash('仅待审核状态的入库单可以编辑', 'warning')
+        # 仅待审核和已取消状态可编辑
+        if stock_in.status not in ('待审核', '已取消'):
+            flash('仅待审核和已取消状态的入库单可以编辑', 'warning')
             return redirect(url_for('stock_in.detail_stock_in', id=id))
+
+        # 如果是已取消状态，编辑后恢复为待审核
+        was_cancelled = stock_in.status == '已取消'
+        if was_cancelled:
+            stock_in.status = '待审核'
 
         # 收集主表数据
         stock_in_type = request.form.get('stock_in_type', '').strip()
@@ -334,6 +353,12 @@ def update_stock_in(id):
             if (not item_id and not item_name) or (not location_id and not location_name) or quantity <= 0:
                 continue
 
+            # 当location_id有效时，强制使用数据库中的干净name，避免前端传入display_name等脏数据
+            if location_id:
+                loc_obj = StorageLocation.query.get(location_id)
+                if loc_obj:
+                    location_name = loc_obj.name
+
             # 延迟创建：如果item_id为空但item_name有值，查找或创建物品
             if not item_id and item_name:
                 # 按名称+规格+单位联合查找，三者完全一致才视为同一个物品
@@ -352,9 +377,17 @@ def update_stock_in(id):
                     if not unit:
                         unit = existing_item.unit or ''
                 else:
+                    # 创建新物品前，检查item_number是否与已有物品重复
+                    item_number_value = item_number.strip() if item_number and item_number.strip() else None
+                    if item_number_value:
+                        dup_item = SupplyItem.query.filter_by(item_number=item_number_value).first()
+                        if dup_item:
+                            db.session.rollback()
+                            flash(f'物品编号"{item_number_value}"已被物品"{dup_item.name}"使用，请更换编号', 'danger')
+                            return redirect(url_for('stock_in.edit_stock_in', id=id))
                     new_item = SupplyItem.create(
                         name=item_name,
-                        item_number=item_number.strip() if item_number and item_number.strip() else None,
+                        item_number=item_number_value,
                         category='低值易耗品',
                         specification=specification if specification else None,
                         unit=unit if unit else None,
@@ -447,9 +480,9 @@ def delete_stock_in(id):
         stock_in = StockIn.query.get_or_404(id)
         stock_in_number = stock_in.stock_in_number
 
-        # 仅待审核状态可删除
-        if stock_in.status != '待审核':
-            flash('仅待审核状态的入库单可以删除', 'danger')
+        # 仅待审核和已取消状态可删除
+        if stock_in.status not in ('待审核', '已取消'):
+            flash('仅待审核和已取消状态的入库单可以删除', 'danger')
             return redirect(url_for('stock_in.detail_stock_in', id=id))
 
         # 记录操作日志

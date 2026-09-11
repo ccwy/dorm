@@ -134,7 +134,7 @@ def get_stock_out_detail(id):
                 "specification": d.specification or '',
                 "unit": d.unit or '',
                 "location_id": d.location_id,
-                "location_name": d.location_name or '',
+                "location_name": d.display_location_name,
                 "quantity": d.quantity,
                 "unit_price": float(d.unit_price) if d.unit_price else 0,
                 "total_price": float(d.total_price) if d.total_price else 0,

@@ -96,6 +96,18 @@
                         </button>
                     </form>
                     {% endif %}
+                    {% if stock_in.status == '已取消' and current_user.has_permission('supply.edit') %}
+                    <a href="{{ url_for('stock_in.edit_stock_in', id=stock_in.id) }}" class="px-2 py-1 sm:px-4 sm:py-2 bg-primary text-white rounded-md hover:bg-primary/90 btn-hover text-xs sm:text-sm">
+                        <i class="fa fa-edit mr-0.5 sm:mr-1"></i>编辑
+                    </a>
+                    {% endif %}
+                    {% if stock_in.status == '已取消' and current_user.has_permission('supply.delete') %}
+                    <form method="post" action="{{ url_for('stock_in.delete_stock_in', id=stock_in.id) }}" class="inline" onsubmit="return confirm('确认删除此入库单？此操作不可恢复！')">
+                        <button type="submit" class="px-2 py-1 sm:px-4 sm:py-2 bg-danger text-white rounded-md hover:bg-red-700 btn-hover text-xs sm:text-sm">
+                            <i class="fa fa-trash mr-0.5 sm:mr-1"></i>删除
+                        </button>
+                    </form>
+                    {% endif %}
                     <a href="{{ url_for('stock_in.list_stock_ins') }}" class="px-2 py-1 sm:px-4 sm:py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 btn-hover text-xs sm:text-sm">
                         <i class="fa fa-list mr-0.5 sm:mr-1"></i>返回列表
                     </a>

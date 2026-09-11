@@ -229,6 +229,7 @@
                                     {% else %}
                                     <span>{{ record.quantity }}</span>
                                     {% endif %}
+                                    <span class="text-gray-500 text-xs ml-1">{{ record.unit or '' }}</span>
                                 </td>
                                 <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-600 text-right">{{ '¥%.2f'|format(record.unit_price) if record.unit_price else '-' }}</td>
                                 <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-800 text-right font-medium">{{ '¥%.2f'|format(record.total_price) if record.total_price else '-' }}</td>

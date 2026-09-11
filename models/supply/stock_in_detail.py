@@ -101,7 +101,7 @@ class StockInDetail(db.Model):
         from models.supply.storage_location import StorageLocation
         location = StorageLocation.query.get(self.location_id)
         if location:
-            return location.display_name if hasattr(location, 'display_name') else location.name
+            return location.name
         return self.location_name or '未知'
 
     @classmethod
@@ -121,6 +121,12 @@ class StockInDetail(db.Model):
             loc = StorageLocation.query.get(location_id)
             if loc:
                 location_name = loc.display_name if hasattr(loc, 'display_name') else loc.name
+        # 当location_id有效时，强制使用数据库中的干净name，避免前端传入display_name等脏数据
+        elif location_id:
+            from models.supply.storage_location import StorageLocation
+            loc = StorageLocation.query.get(location_id)
+            if loc:
+                location_name = loc.name
         total_price = Decimal(str(quantity)) * Decimal(str(unit_price))
         detail = cls(
             stock_in_id=stock_in_id,

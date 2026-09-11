@@ -214,6 +214,31 @@ def get_low_stock_items():
         }), 500
 
 
+# ========== 检查物品编号是否重复 ==========
+@supply_item_api_bp.route('/check-item-number', methods=['GET'])
+@login_required
+def check_item_number():
+    """检查物品编号是否已存在，供前端实时校验使用"""
+    try:
+        item_number = request.args.get('item_number', '').strip()
+        exclude_item_id = request.args.get('exclude_item_id', type=int)
+
+        if not item_number:
+            return jsonify({"exists": False, "item_name": None})
+
+        query = SupplyItem.query.filter_by(item_number=item_number)
+        if exclude_item_id:
+            query = query.filter(SupplyItem.id != exclude_item_id)
+
+        existing = query.first()
+        if existing:
+            return jsonify({"exists": True, "item_name": existing.name})
+        return jsonify({"exists": False, "item_name": None})
+    except Exception as e:
+        logging.error(f"API检查物品编号失败: {str(e)}")
+        return jsonify({"exists": False, "item_name": None})
+
+
 # ========== 获取物品名称列表JSON ==========
 @supply_item_api_bp.route('/names', methods=['GET'])
 @login_required

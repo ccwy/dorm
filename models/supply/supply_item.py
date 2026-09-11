@@ -152,9 +152,19 @@ class SupplyItem(db.Model):
         return f'{prefix}{seq:04d}'
 
     @classmethod
-    def is_name_exists(cls, name, exclude_id=None):
-        """检查物品名称是否已存在"""
+    def is_name_exists(cls, name, specification=None, unit=None, exclude_id=None):
+        """检查物品名称+规格+单位组合是否已存在（三者一致才算重复）"""
         query = cls.query.filter_by(name=name)
+        # 规格匹配：都为空或都相同
+        if specification:
+            query = query.filter_by(specification=specification)
+        else:
+            query = query.filter(db.or_(cls.specification.is_(None), cls.specification == ''))
+        # 单位匹配：都为空或都相同
+        if unit:
+            query = query.filter_by(unit=unit)
+        else:
+            query = query.filter(db.or_(cls.unit.is_(None), cls.unit == ''))
         if exclude_id:
             query = query.filter(cls.id != exclude_id)
         return query.first() is not None
