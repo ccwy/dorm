@@ -136,6 +136,7 @@ def init_flask_app(progress_callback=None):
     app.config['VAPID_PRIVATE_KEY'] = os.environ.get('VAPID_PRIVATE_KEY', '')
     app.config['VAPID_PUBLIC_KEY'] = os.environ.get('VAPID_PUBLIC_KEY', '')
     app.config['VAPID_CLAIM_EMAIL'] = os.environ.get('VAPID_CLAIM_EMAIL', 'admin@dorm.local')
+    app.config['VAPID_CLAIM_DOMAIN'] = os.environ.get('VAPID_CLAIM_DOMAIN', '')
     app.secret_key = current_config.SECRET_KEY
     app.permanent_session_lifetime = current_config.PERMANENT_SESSION_LIFETIME
     print(f"会话超时时间: {app.permanent_session_lifetime}")

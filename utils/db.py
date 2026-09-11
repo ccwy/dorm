@@ -254,6 +254,7 @@ def _force_create_mysql_database(app, db_uri):
         logging.error(traceback.format_exc())
         return False
 
+
 def init_db(app: Flask, force_recreate=False):
     """初始化数据库（完全基于连接字符串判断数据库类型）"""
     global _is_initialized
@@ -351,6 +352,7 @@ def init_db(app: Flask, force_recreate=False):
                 logging.info("开始创建数据表结构...")
                 db.create_all()
                 logging.info("数据表结构创建完成")
+
 
                 # 初始化角色和权限数据（必须在create_admin_user之前）
                 init_roles_and_permissions()

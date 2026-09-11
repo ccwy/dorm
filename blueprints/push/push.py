@@ -81,6 +81,8 @@ def subscribe():
         keys = data.get('keys', {})
         p256dh = keys.get('p256dh', '').strip()
         auth_key = keys.get('auth', '').strip()
+        # 获取订阅时的页面域名（优先使用前端传递，回退到request.host）
+        subscribed_domain = data.get('subscribedDomain', '').strip() or request.host
 
         if not endpoint or not p256dh or not auth_key:
             return jsonify({'success': False, 'message': '缺少必要的订阅参数'}), 400
@@ -94,20 +96,22 @@ def subscribe():
         ).first()
 
         if existing:
-            # 更新密钥
+            # 更新密钥和域名
             existing.p256dh = p256dh
             existing.auth = auth_key
-            logger.info(f"用户 {user_id} 更新推送订阅: {endpoint[:50]}")
+            existing.subscribed_domain = subscribed_domain
+            logger.info(f"用户 {user_id} 更新推送订阅: {endpoint[:50]}, domain={subscribed_domain}")
         else:
             # 创建新订阅
             subscription = PushSubscription(
                 user_id=user_id,
                 endpoint=endpoint,
                 p256dh=p256dh,
-                auth=auth_key
+                auth=auth_key,
+                subscribed_domain=subscribed_domain
             )
             db.session.add(subscription)
-            logger.info(f"用户 {user_id} 新增推送订阅: {endpoint[:50]}")
+            logger.info(f"用户 {user_id} 新增推送订阅: {endpoint[:50]}, domain={subscribed_domain}")
 
         db.session.commit()
         return jsonify({'success': True})
@@ -267,7 +271,7 @@ def vapid_public_key():
                 'suggestion': suggestion,
                 'diagnostics': diagnostics,
             }), 503
-        return jsonify({'success': True, 'publicKey': public_key})
+        return jsonify({'success': True, 'publicKey': public_key, 'currentDomain': request.host})
     except Exception as e:
         logger.error(f"获取VAPID公钥失败: {e}")
         return jsonify({'success': False, 'message': f'获取VAPID公钥失败: {str(e)}'}), 500

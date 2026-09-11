@@ -140,30 +140,30 @@ def _generate_keys_pywebpush_v2():
 def generate_vapid_keypair():
     """生成 VAPID 密钥对，按优先级尝试多种方法。
 
-    尝试顺序（v2优先，因为pywebpush 2.x是当前主流版本）：
-    1. pywebpush 2.x: Vapid 类（当前主流版本2.5.0+）
-    2. pywebpush 1.x: generate_vapid_key_pair()（旧版本兼容）
-    3. cryptography 库直接生成（回退方案）
+    尝试顺序（优先使用cryptography直接生成，避免pywebpush内部使用ec.SECP256R1类引用触发CryptographyDeprecationWarning）：
+    1. cryptography 库直接生成（避免CryptographyDeprecationWarning）
+    2. pywebpush 2.x: Vapid 类（当前主流版本2.5.0+）
+    3. pywebpush 1.x: generate_vapid_key_pair()（旧版本兼容）
 
     Returns:
         dict: {'private_key': str, 'public_key': str} 或 None
     """
-    # 方法1: pywebpush 2.x（优先，当前主流版本）
+    # 方法1: cryptography 直接生成（优先，避免pywebpush触发的CryptographyDeprecationWarning）
+    result = _generate_keys_cryptography()
+    if result:
+        print("[VAPID] 使用 cryptography 库直接生成密钥")
+        return result
+
+    # 方法2: pywebpush 2.x（当前主流版本）
     result = _generate_keys_pywebpush_v2()
     if result:
         print("[VAPID] 使用 pywebpush v2 (Vapid 类) 生成密钥")
         return result
 
-    # 方法2: pywebpush 1.x（旧版本兼容）
+    # 方法3: pywebpush 1.x（旧版本兼容）
     result = _generate_keys_pywebpush_v1()
     if result:
         print("[VAPID] 使用 pywebpush v1 (generate_vapid_key_pair) 生成密钥")
-        return result
-
-    # 方法3: cryptography 直接生成（回退）
-    result = _generate_keys_cryptography()
-    if result:
-        print("[VAPID] 使用 cryptography 库直接生成密钥（pywebpush 不可用）")
         return result
 
     print("[VAPID] 所有密钥生成方法均失败，请安装 pywebpush 或 cryptography")
@@ -240,9 +240,9 @@ def ensure_vapid_keys():
     - 如果都没有，自动生成新密钥对并持久化
 
     密钥生成按优先级尝试多种方法：
-    1. pywebpush 2.x: Vapid 类（当前主流版本）
-    2. pywebpush 1.x: generate_vapid_key_pair()（旧版本兼容）
-    3. cryptography 库直接生成（回退方案）
+    1. cryptography 库直接生成（避免CryptographyDeprecationWarning）
+    2. pywebpush 2.x: Vapid 类（当前主流版本）
+    3. pywebpush 1.x: generate_vapid_key_pair()（旧版本兼容）
 
     Returns:
         bool: True表示密钥已就绪（已存在或新生成），False表示生成失败
@@ -263,11 +263,17 @@ def ensure_vapid_keys():
     key_path = _get_vapid_key_path()
     if os.path.exists(key_path):
         try:
+            file_size = os.path.getsize(key_path)
+            print(f"[VAPID] 持久化文件存在: {key_path} (大小: {file_size} 字节)")
             with open(key_path, 'r', encoding='utf-8') as f:
                 keys = json.load(f)
             private_key = keys.get('private_key', '')
             public_key = keys.get('public_key', '')
             if private_key and public_key:
+                # 脱敏日志：仅显示密钥前8位
+                pk_preview = private_key[:8] + '...' if len(private_key) > 8 else '***'
+                pub_preview = public_key[:8] + '...' if len(public_key) > 8 else '***'
+                print(f"[VAPID] 持久化文件加载成功: private_key={pk_preview}, public_key={pub_preview}")
                 os.environ['VAPID_PRIVATE_KEY'] = private_key
                 os.environ['VAPID_PUBLIC_KEY'] = public_key
                 if keys.get('claim_email'):
@@ -277,8 +283,11 @@ def ensure_vapid_keys():
                 return True
             else:
                 print(f"[VAPID] 持久化文件中密钥为空，将重新生成: {key_path}")
+                print(f"[VAPID] 文件内容: private_key={'有值' if private_key else '空'}, public_key={'有值' if public_key else '空'}")
+        except json.JSONDecodeError as e:
+            print(f"[VAPID] 持久化文件JSON解析失败: {e}，文件路径: {key_path}，将重新生成")
         except Exception as e:
-            print(f"[VAPID] 读取持久化密钥失败: {e}，将重新生成")
+            print(f"[VAPID] 读取持久化密钥失败: {type(e).__name__}: {e}，文件路径: {key_path}，将重新生成")
 
     # 3. 自动生成新密钥对（使用兼容多版本的生成函数）
     key_pair = generate_vapid_keypair()

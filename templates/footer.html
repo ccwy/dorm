@@ -274,7 +274,7 @@
                         applicationServerKey: urlBase64ToUint8Array(vapidKey)
                     });
                 }).then(function(subscription) {
-                    // 发送订阅到后端
+                    // 发送订阅到后端（附带当前页面域名，确保推送时aud域名正确）
                     var subJson = subscription.toJSON();
                     return fetch('/push/subscribe', {
                         method: 'POST',
@@ -282,7 +282,8 @@
                         credentials: 'include',
                         body: JSON.stringify({
                             endpoint: subJson.endpoint,
-                            keys: subJson.keys
+                            keys: subJson.keys,
+                            subscribedDomain: location.host
                         })
                     });
                 }).then(function(res) { if (!res.ok) return null; return res.json(); }).then(function(data) {
