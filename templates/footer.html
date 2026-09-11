@@ -93,14 +93,36 @@
     // 检查VAPID公钥是否可用
     function checkVapidKey() {
         return fetch('/push/vapid-public-key', { credentials: 'include' })
-            .then(function(res) { if (!res.ok) return null; return res.json(); })
+            .then(function(res) {
+                if (!res.ok) {
+                    // 尝试读取错误详情
+                    return res.json().then(function(data) {
+                        console.warn('[Push] VAPID公钥请求失败:', res.status, data.message || data.reason || '未知原因');
+                        if (data.diagnostics) {
+                            console.warn('[Push] VAPID诊断信息:', JSON.stringify(data.diagnostics));
+                        }
+                        if (data.suggestion) {
+                            console.warn('[Push] 建议:', data.suggestion);
+                        }
+                        return null;
+                    }).catch(function() {
+                        console.warn('[Push] VAPID公钥请求失败: HTTP', res.status);
+                        return null;
+                    });
+                }
+                return res.json();
+            })
             .then(function(data) {
-                if (data.success && data.publicKey) {
+                if (data && data.success && data.publicKey) {
+                    console.log('[Push] VAPID公钥获取成功');
                     return data.publicKey;
                 }
                 return null;
             })
-            .catch(function() { return null; });
+            .catch(function(err) {
+                console.error('[Push] 获取VAPID公钥网络错误:', err);
+                return null;
+            });
     }
 
     // 更新铃铛按钮状态
@@ -255,8 +277,10 @@
 
     // 订阅推送
     function subscribePush() {
+        console.log('[Push] 开始订阅流程...');
         // 先请求通知权限
         Notification.requestPermission().then(function(permission) {
+            console.log('[Push] 通知权限结果:', permission);
             if (permission !== 'granted') {
                 showToast('通知权限被拒绝，请在浏览器设置中允许通知', 'warn');
                 return;
@@ -267,13 +291,16 @@
                     showToast('推送服务未配置，无法订阅', 'error');
                     return;
                 }
+                console.log('[Push] VAPID公钥获取成功，准备订阅...');
                 // 使用SW注册推送订阅
                 swReadyWithTimeout(10000).then(function(registration) {
+                    console.log('[Push] SW已就绪，调用pushManager.subscribe...');
                     return registration.pushManager.subscribe({
                         userVisibleOnly: true,
                         applicationServerKey: urlBase64ToUint8Array(vapidKey)
                     });
                 }).then(function(subscription) {
+                    console.log('[Push] 浏览器订阅成功，发送到后端...');
                     // 发送订阅到后端（附带当前页面域名，确保推送时aud域名正确）
                     var subJson = subscription.toJSON();
                     return fetch('/push/subscribe', {
@@ -286,7 +313,22 @@
                             subscribedDomain: location.host
                         })
                     });
-                }).then(function(res) { if (!res.ok) return null; return res.json(); }).then(function(data) {
+                }).then(function(res) {
+                    console.log('[Push] 后端响应状态:', res.status);
+                    if (!res.ok) {
+                        // 尝试读取错误信息
+                        return res.text().then(function(text) {
+                            console.error('[Push] 后端返回错误:', res.status, text);
+                            showToast('订阅保存失败（服务器错误 ' + res.status + '）', 'error');
+                            return null;
+                        }).catch(function() {
+                            showToast('订阅保存失败（服务器错误 ' + res.status + '）', 'error');
+                            return null;
+                        });
+                    }
+                    return res.json();
+                }).then(function(data) {
+                    if (!data) return; // 已经显示过错误
                     if (data.success) {
                         updateBellUI(true);
                         showToast('推送通知已开启', 'success');
@@ -295,22 +337,29 @@
                     }
                 }).catch(function(err) {
                     console.error('[Push] 订阅失败:', err);
-                    showToast('推送订阅失败: ' + err.message, 'error');
+                    showToast('推送订阅失败: ' + (err.message || err), 'error');
                 });
             });
+        }).catch(function(err) {
+            console.error('[Push] 请求通知权限失败:', err);
+            showToast('请求通知权限失败: ' + (err.message || err), 'error');
         });
     }
 
     // 取消订阅推送
     function unsubscribePush() {
+        console.log('[Push] 开始取消订阅流程...');
         swReadyWithTimeout(10000).then(function(registration) {
+            console.log('[Push] SW已就绪，获取订阅对象...');
             return registration.pushManager.getSubscription();
         }).then(function(subscription) {
             if (!subscription) {
+                console.log('[Push] 无活跃订阅，直接更新UI');
                 updateBellUI(false);
                 return;
             }
             // 先从后端删除
+            console.log('[Push] 向后端发送取消订阅请求...');
             return fetch('/push/unsubscribe', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -319,12 +368,13 @@
             }).then(function() {
                 return subscription.unsubscribe();
             }).then(function() {
+                console.log('[Push] 取消订阅成功');
                 updateBellUI(false);
                 showToast('推送通知已关闭', 'success');
             });
         }).catch(function(err) {
             console.error('[Push] 取消订阅失败:', err);
-            showToast('取消订阅失败: ' + err.message, 'error');
+            showToast('取消订阅失败: ' + (err.message || err), 'error');
         });
     }
 
@@ -342,6 +392,22 @@
 
     // 点击铃铛按钮切换订阅状态
     pushBtn.addEventListener('click', function() {
+        // VAPID不可用状态：点击显示诊断信息
+        if (pushBtn.dataset.vapidUnavailable === 'true') {
+            showToast('推送服务未配置，请检查服务端VAPID密钥是否正确生成', 'warn');
+            // 尝试重新检查VAPID密钥
+            checkVapidKey().then(function(vapidKey) {
+                if (vapidKey) {
+                    console.log('[Push] VAPID公钥重新获取成功，刷新页面状态');
+                    delete pushBtn.dataset.vapidUnavailable;
+                    updateBellUI(false);
+                    showToast('推送服务已就绪，请再次点击铃铛开启通知', 'success');
+                } else {
+                    console.warn('[Push] VAPID公钥仍然不可用');
+                }
+            });
+            return;
+        }
         var icon = pushBtn.querySelector('i');
         if (icon.classList.contains('fa-bell')) {
             // 当前已订阅，执行取消
@@ -366,10 +432,19 @@
     window.addEventListener('load', function() {
         checkVapidKey().then(function(vapidKey) {
             if (!vapidKey) {
-                // VAPID未配置，隐藏按钮
-                pushBtn.style.display = 'none';
+                // VAPID未配置，显示按钮但标记为不可用状态
+                console.warn('[Push] VAPID公钥不可用，推送功能暂不可用');
+                pushBtn.style.display = '';
+                var icon = pushBtn.querySelector('i');
+                icon.className = 'fa fa-bell-slash';
+                pushBtn.title = '推送服务未配置，点击查看详情';
+                pushBtn.classList.remove('text-primary');
+                pushBtn.classList.add('text-gray-400');
+                pushBtn.dataset.vapidUnavailable = 'true';
                 return;
             }
+            // VAPID可用，移除不可用标记
+            delete pushBtn.dataset.vapidUnavailable;
             // 检查当前订阅状态（带5秒超时，避免SW未注册时永久挂起）
             swReadyWithTimeout(5000).then(function(registration) {
                 return registration.pushManager.getSubscription();
@@ -380,6 +455,16 @@
                 console.warn('[Push] SW未就绪，显示未订阅状态按钮:', err.message || err);
                 updateBellUI(false);
             });
+        }).catch(function(err) {
+            // checkVapidKey本身失败（网络错误等）
+            console.error('[Push] 检查VAPID公钥失败:', err);
+            pushBtn.style.display = '';
+            var icon = pushBtn.querySelector('i');
+            icon.className = 'fa fa-bell-slash';
+            pushBtn.title = '推送服务检查失败，点击重试';
+            pushBtn.classList.remove('text-primary');
+            pushBtn.classList.add('text-gray-400');
+            pushBtn.dataset.vapidUnavailable = 'true';
         });
     });
 })();

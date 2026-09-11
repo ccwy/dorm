@@ -118,7 +118,7 @@ def subscribe():
 
     except Exception as e:
         db.session.rollback()
-        logger.error(f"保存推送订阅失败: {e}")
+        logger.error(f"保存推送订阅失败: {e}", exc_info=True)
         return jsonify({'success': False, 'message': '保存推送订阅失败'}), 500
 
 
