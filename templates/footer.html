@@ -61,15 +61,3 @@
         updateDateTime();
         setInterval(updateDateTime, 1000);
     </script>
-    <!-- PWA Service Worker 注册 -->
-    <script>
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', function() {
-                navigator.serviceWorker.register('/sw.js', { scope: '/' }).then(function(reg) {
-                    console.log('[PWA] Service Worker 注册成功，作用域: ', reg.scope);
-                }).catch(function(error) {
-                    console.log('[PWA] Service Worker 注册失败: ', error);
-                });
-            });
-        }
-    </script>
