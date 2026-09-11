@@ -7,7 +7,6 @@ from utils.log import MODULE_MAP, OPERATION_TYPE_MAP  # 导入字典
 from utils.log import log_operation
 
 from utils.auth import require_permission
-from models.user.user import User
 
 # 创建蓝图（原有内容不变）
 log_bp = Blueprint('log', __name__, url_prefix='/log')
@@ -76,11 +75,6 @@ def log():
     logs = pagination.items
     
     # 处理日志数据，添加模块和操作类型的中文名称
-    # 批量查询用户姓名映射
-    user_ids = [log_entry.user_id for log_entry in logs if log_entry.user_id]
-    users = User.query.filter(User.id.in_(user_ids)).all() if user_ids else []
-    user_map = {user.id: user.name for user in users}
-    
     processed_logs = []
     for log_entry in logs:
         # 获取模块中文名称
@@ -94,7 +88,6 @@ def log():
             'id': log_entry.id,
             'operate_time': log_entry.operate_time,  # 使用与数据库模型一致的字段名
             'user_id': log_entry.user_id,
-            'user_name': user_map.get(log_entry.user_id, '未知用户') if log_entry.user_id else '系统',
             'module': module_name,  # 使用中文模块名称（根据utils/log.py中的映射）
             'operation_type': operation_name,  # 使用中文操作类型名称（根据utils/log.py中的映射）
             'action': log_entry.action,

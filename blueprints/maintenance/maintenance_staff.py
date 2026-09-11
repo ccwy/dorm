@@ -302,19 +302,6 @@ def staff_start_work(order_id):
         )
         
         logging.info(f"维修员 {user_id} 开始处理维修工单 {order_id}")
-        
-        # 发送推送通知：通知报修人工单状态变更
-        try:
-            from utils.push_notification import send_push_notification
-            send_push_notification(
-                user_id=order.user_id,
-                title='维修工单状态更新',
-                body=f'您的维修工单 {order.order_no} 状态已更新为 处理中',
-                url=f'/admin/maintenance/detail/{order_id}'
-            )
-        except Exception as push_err:
-            logging.warning(f"推送通知发送失败（不影响主流程）: {push_err}")
-        
         # 记录操作日志
         log_operation(
             user_id=user_id,
@@ -399,19 +386,6 @@ def staff_complete_order(order_id):
         )
         
         logging.info(f"维修员 {user_id} 成功完成并关闭维修工单 {order_id}")
-        
-        # 发送推送通知：通知报修人工单已完成
-        try:
-            from utils.push_notification import send_push_notification
-            send_push_notification(
-                user_id=order.user_id,
-                title='维修工单完成通知',
-                body=f'您的维修工单 {order.order_no} 已完成并关闭',
-                url=f'/admin/maintenance/detail/{order_id}'
-            )
-        except Exception as push_err:
-            logging.warning(f"推送通知发送失败（不影响主流程）: {push_err}")
-        
         # 记录操作日志
         log_operation(
             user_id=user_id,

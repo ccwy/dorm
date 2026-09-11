@@ -254,7 +254,6 @@ def _force_create_mysql_database(app, db_uri):
         logging.error(traceback.format_exc())
         return False
 
-
 def init_db(app: Flask, force_recreate=False):
     """初始化数据库（完全基于连接字符串判断数据库类型）"""
     global _is_initialized
@@ -344,15 +343,11 @@ def init_db(app: Flask, force_recreate=False):
             import models.maintenance.maintenance_order  # 维修工单模型
             import models.maintenance.maintenance_reply  # 维修回复模型
 
-            # 推送订阅模型
-            from models.push.push_subscription import PushSubscription  # 推送订阅模型
-
             # 创建表结构
             if force_recreate or not _is_initialized:
                 logging.info("开始创建数据表结构...")
                 db.create_all()
                 logging.info("数据表结构创建完成")
-
 
                 # 初始化角色和权限数据（必须在create_admin_user之前）
                 init_roles_and_permissions()

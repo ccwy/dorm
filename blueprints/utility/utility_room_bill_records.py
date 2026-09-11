@@ -309,7 +309,7 @@ def get_records_by_period():
         )
         
         return jsonify({'error': f'查询失败: {str(e)}'}), 500
-# 一键核算房间费用
+# 一键一键核算接口（仅保留核算功能，保持改动原有标识）
 @utility_room_bill_records_bp.route('/fee_bill', methods=['POST'])  # 保持原有路由
 @login_required
 @require_permission('utility.calculate')
@@ -371,7 +371,6 @@ def create_record():  # 保持原有接口名称
             main_records=main_records
         )
         db.session.commit()
-        
         
         # 4. 记录操作日志并返回结果
         log_operation(

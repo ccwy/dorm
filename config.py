@@ -97,18 +97,6 @@ class Config:
     API_BASE_URL = ""  # 基础API地址
     API_TIMEOUT = 10  # API调用超时时间（秒）
 
-    # Web推送通知VAPID密钥配置
-    # 生成方式：
-    #   方法1：使用pywebpush自带的工具
-    #     python -c "from pywebpush import generate_vapid_key_pair; print(generate_vapid_key_pair())"
-    #   方法2：使用web-push命令行工具
-    #     npx web-push generate-vapid-keys
-    # 将生成的公钥和私钥分别填入下方配置项，也可通过环境变量覆盖
-    VAPID_PRIVATE_KEY = os.environ.get('VAPID_PRIVATE_KEY', '')
-    VAPID_PUBLIC_KEY = os.environ.get('VAPID_PUBLIC_KEY', '')
-    VAPID_CLAIM_EMAIL = os.environ.get('VAPID_CLAIM_EMAIL', 'admin@dorm.local')
-    VAPID_CLAIM_DOMAIN = os.environ.get('VAPID_CLAIM_DOMAIN', '')  # 可选配置，用于覆盖自动检测的aud域名
-
 #生产环境
 class ProductionConfig(Config):
     db_config = _shared_db_config  # 使用共享配置，避免重复load_config调用

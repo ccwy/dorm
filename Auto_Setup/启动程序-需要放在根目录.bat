@@ -1,111 +1,93 @@
 @echo off
 setlocal enabledelayedexpansion
 
-:: ï¿½ï¿½Ä¿ï¿½ï¿½Ä¿Â¼
+:: ÏîÄ¿¸ùÄ¿Â¼
 cd /d "%~dp0"
 set "PROJECT_DIR=%cd%"
 
-:: ï¿½Ð»ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿Ä¿Â¼
-echo [%date% %time:~0,8%] ï¿½Ð»ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿Ä¿Â¼...
+:: ÇÐ»»µ½ÏîÄ¿Ä¿Â¼
+echo [%date% %time:~0,8%] ÇÐ»»µ½ÏîÄ¿Ä¿Â¼...
 cd /d "%PROJECT_DIR%"
 if %errorlevel% neq 0 (
-    echo [%date% %time:~0,8%] ï¿½ï¿½ï¿½ï¿½ï¿½Þ·ï¿½ï¿½Ð»ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿Ä¿Â¼ %PROJECT_DIR%
+    echo [%date% %time:~0,8%] ´íÎó£ºÎÞ·¨ÇÐ»»µ½ÏîÄ¿Ä¿Â¼ %PROJECT_DIR%
     pause
     exit /b 1
 )
 
-:: ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½Ê±ï¿½ï¿½
+:: ÏÔÊ¾Æô¶¯ÐÅÏ¢ºÍÊ±¼ä
 cls
 echo ==============================================
-echo ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ÏµÍ³ - Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Å±ï¿½
-echo ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½: %date% %time:~0,8%
-echo ï¿½ï¿½Ä¿Â·ï¿½ï¿½: %PROJECT_DIR%
+echo ËÞÉá¹ÜÀíÏµÍ³ - Ò»¼üÆô¶¯½Å±¾
+echo Æô¶¯Ê±¼ä: %date% %time:~0,8%
+echo ÏîÄ¿Â·¾¶: %PROJECT_DIR%
 echo ==============================================
 echo.
 
-:: ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½Ä¼ï¿½ï¿½ï¿½
+:: ÇåÀíÁÙÊ±ÎÄ¼þ¼Ð
 echo.
-echo [%date% %time:~0,8%] ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½Ä¼ï¿½...
+echo [%date% %time:~0,8%] ¿ªÊ¼ÇåÀíÁÙÊ±ÎÄ¼þ...
 if exist "%PROJECT_DIR%\build" (
     rmdir /s /q "%PROJECT_DIR%\build"
-    echo [%date% %time:~0,8%] ï¿½ï¿½É¾ï¿½ï¿½buildï¿½Ä¼ï¿½ï¿½ï¿½
+    echo [%date% %time:~0,8%] ÒÑÉ¾³ýbuildÎÄ¼þ¼Ð
 )
 if exist "%PROJECT_DIR%\__pycache__" (
     rmdir /s /q "%PROJECT_DIR%\__pycache__"
-    echo [%date% %time:~0,8%] ï¿½ï¿½É¾ï¿½ï¿½__pycache__ï¿½Ä¼ï¿½ï¿½ï¿½
+    echo [%date% %time:~0,8%] ÒÑÉ¾³ý__pycache__ÎÄ¼þ¼Ð
 )
 if exist "%PROJECT_DIR%\dist" (
     rmdir /s /q "%PROJECT_DIR%\dist"
-    echo [%date% %time:~0,8%] ï¿½ï¿½É¾ï¿½ï¿½distï¿½Ä¼ï¿½ï¿½ï¿½
+    echo [%date% %time:~0,8%] ÒÑÉ¾³ýdistÎÄ¼þ¼Ð
 )
 for /d /r "%PROJECT_DIR%" %%d in (__pycache__) do (
     if exist "%%d" (
         rmdir /s /q "%%d"
-        echo [%date% %time:~0,8%] ï¿½ï¿½É¾ï¿½ï¿½%%d
+        echo [%date% %time:~0,8%] ÒÑÉ¾³ý%%d
     )
 )
 if exist "%PROJECT_DIR%\data" (
     rmdir /s /q "%PROJECT_DIR%\data"
-    echo [%date% %time:~0,8%] ï¿½ï¿½É¾ï¿½ï¿½dataï¿½Ä¼ï¿½ï¿½ï¿½
+    echo [%date% %time:~0,8%] ÒÑÉ¾³ýdataÎÄ¼þ¼Ð
 )
 
-:: ï¿½ï¿½ï¿½Pythonï¿½Ç·ï¿½×°
-echo [%date% %time:~0,8%] ï¿½ï¿½ï¿½Pythonï¿½Ç·ï¿½×°...
+:: ¼ì²éPythonÊÇ·ñ°²×°
+echo [%date% %time:~0,8%] ¼ì²éPythonÊÇ·ñ°²×°...
 python --version >nul 2>&1
 if %errorlevel% neq 0 (
-    echo [%date% %time:~0,8%] ï¿½ï¿½ï¿½ï¿½Î´ï¿½Òµï¿½Pythonï¿½ï¿½ï¿½ï¿½È·ï¿½ï¿½Pythonï¿½ï¿½ï¿½ï¿½È·ï¿½ï¿½×°ï¿½ï¿½ï¿½ï¿½ï¿½Óµï¿½ÏµÍ³PATHï¿½ï¿½
+    echo [%date% %time:~0,8%] ´íÎó£ºÎ´ÕÒµ½Python£¬ÇëÈ·±£PythonÒÑÕýÈ·°²×°²¢Ìí¼Óµ½ÏµÍ³PATH¡£
     pause
     exit /b 1
 ) else (
-    echo [%date% %time:~0,8%] Pythonï¿½Ñ°ï¿½×°ï¿½ï¿½ï¿½ï¿½ï¿½Ô¶ï¿½Ö´ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½...
+    echo [%date% %time:~0,8%] PythonÒÑ°²×°£¬½«×Ô¶¯Ö´ÐÐÏÂÒ»²½...
 )
 
-:: ï¿½ï¿½ï¿½requirements.txtï¿½Ç·ï¿½ï¿½ï¿½ï¿½
+:: ¼ì²érequirements.txtÊÇ·ñ´æÔÚ
 echo.
-echo [%date% %time:~0,8%] ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½...
+echo [%date% %time:~0,8%] ¼ì²éÏîÄ¿ÒÀÀµ...
 if not exist "%PROJECT_DIR%\requirements.txt" (
-    echo [%date% %time:~0,8%] ï¿½ï¿½ï¿½æ£ºÎ´ï¿½Òµï¿½requirements.txtï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½é¡£
+    echo [%date% %time:~0,8%] ¾¯¸æ£ºÎ´ÕÒµ½requirements.txtÎÄ¼þ£¬Ìø¹ýÒÀÀµ¼ì²é¡£
 ) else (
-    :: ï¿½ï¿½×°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Òªï¿½ï¿½
-    echo [%date% %time:~0,8%] ï¿½ï¿½ï¿½Ú°ï¿½×°ï¿½ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½...
+    :: °²×°ÒÀÀµ£¨Èç¹ûÐèÒª£©
+    echo [%date% %time:~0,8%] ÕýÔÚ°²×°ÏîÄ¿ÒÀÀµ...
     pip install -r "%PROJECT_DIR%\requirements.txt"
     if %errorlevel% neq 0 (
-        echo [%date% %time:~0,8%] ï¿½ï¿½ï¿½æ£ºï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×°ï¿½ï¿½ï¿½ï¿½ï¿½Ð³ï¿½ï¿½Ö´ï¿½ï¿½ó£¬µï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ó¦ï¿½Ã¡ï¿½
+        echo [%date% %time:~0,8%] ¾¯¸æ£ºÒÀÀµ°²×°¹ý³ÌÖÐ³öÏÖ´íÎó£¬µ«½«¼ÌÐøÆô¶¯Ó¦ÓÃ¡£
     ) else (
-        echo [%date% %time:~0,8%] ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×°ï¿½ï¿½É¡ï¿½
-    )
-
-    :: ç”ŸæˆPWAå›¾æ ‡ï¼ˆå¹‚ç­‰æ“ä½œï¼Œé‡å¤è¿è¡Œæ— å‰¯ä½œç”¨ï¼‰
-    echo [%date% %time:~0,8%] æ­£åœ¨æ£€æŸ¥PWAå›¾æ ‡...
-    python "%PROJECT_DIR%\static\images\pwa\generate_pwa_icons.py"
-    if %errorlevel% equ 0 (
-        echo [%date% %time:~0,8%] PWAå›¾æ ‡æ£€æŸ¥å®Œæˆ
-    ) else (
-        echo [%date% %time:~0,8%] PWAå›¾æ ‡ç”Ÿæˆå¤±è´¥ï¼ˆéžè‡´å‘½é”™è¯¯ï¼Œåº”ç”¨ä»å¯æ­£å¸¸è¿è¡Œï¼‰
-    )
-
-    :: æ£€æŸ¥VAPIDå¯†é’¥ï¼ˆå¦‚æœªé…ç½®åˆ™è‡ªåŠ¨ç”Ÿæˆå¹¶æŒä¹…åŒ–åˆ°dataç›®å½•ï¼‰
-    echo [%date% %time:~0,8%] æ­£åœ¨æ£€æŸ¥VAPIDæŽ¨é€å¯†é’¥...
-    python -c "from utils.generate_vapid_keys import ensure_vapid_keys; ensure_vapid_keys()"
-    if %errorlevel% equ 0 (
-        echo [%date% %time:~0,8%] VAPIDå¯†é’¥æ£€æŸ¥å®Œæˆ
-    ) else (
-        echo [%date% %time:~0,8%] VAPIDå¯†é’¥æ£€æŸ¥å¤±è´¥ï¼ˆæŽ¨é€é€šçŸ¥åŠŸèƒ½å¯èƒ½ä¸å¯ç”¨ï¼‰
+        echo [%date% %time:~0,8%] ÒÀÀµ°²×°Íê³É¡£
     )
 )
 
 
-:: å¯åŠ¨åº”ç”¨ç¨‹åº ï¿½ï¿½ï¿½ï¿½Ó¦ï¿½Ã³ï¿½ï¿½ï¿½Ö¸ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä£Ê½ï¿½ï¿½ï¿½ï¿½
+:: Æô¶¯Ó¦ÓÃ³ÌÐò£¬Ö¸¶¨¿ª·¢Ä£Ê½ÅäÖÃ
 echo.
 echo [%date% %time:~0,8%] ==============================================
-echo [%date% %time:~0,8%] ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ó¦ï¿½Ã³ï¿½ï¿½ï¿½...
-echo [%date% %time:~0,8%] ï¿½ï¿½Ctrl+Cï¿½ï¿½Í£Ö¹Ó¦ï¿½Ã³ï¿½ï¿½ï¿½
+echo [%date% %time:~0,8%] ÕýÔÚÆô¶¯Ó¦ÓÃ³ÌÐò...
+echo [%date% %time:~0,8%] °´Ctrl+C¿ÉÍ£Ö¹Ó¦ÓÃ³ÌÐò
 echo [%date% %time:~0,8%] ==============================================
 echo.
 
 python "%PROJECT_DIR%\main.py"
 
-echo ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ë³ï¿½...
+echo °´ÈÎÒâ¼üÍË³ö...
 pause >nul
 exit /b %errorlevel%
 

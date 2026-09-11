@@ -13,7 +13,6 @@ from utils.log import log_operation
 from sqlalchemy.orm import joinedload
 from datetime import datetime
 import logging
-from utils.push_notification import send_push_notification, send_push_notification_to_users
 
 
 # 创建用户端维修蓝图
@@ -36,22 +35,6 @@ def auto_assign_order(order):
     """自动分配维修工单"""
     auto_assign_enabled = SystemConfig.get_config_value('MAINTENANCE_AUTO_ASSIGN_ENABLED', True)
     if not auto_assign_enabled:
-        # 通知管理员有新工单待分配
-        try:
-            admin_users = User.query.join(Role, User.role_id == Role.id).filter(
-                Role.code.in_(['super_admin', 'admin']),
-                User.is_active == True
-            ).all()
-            admin_ids = [admin.id for admin in admin_users]
-            if admin_ids:
-                send_push_notification_to_users(
-                    user_ids=admin_ids,
-                    title='新维修工单',
-                    body=f'有新的维修工单 {order.order_no} 待分配',
-                    url=f'/admin/maintenance/detail/{order.id}'
-                )
-        except Exception as e:
-            logging.error(f'推送管理员通知失败: {e}')
         return
     
     # 查询所有活跃维修员
@@ -61,22 +44,6 @@ def auto_assign_order(order):
     ).all()
     
     if not staff_users:
-        # 通知管理员无可用维修员
-        try:
-            admin_users = User.query.join(Role, User.role_id == Role.id).filter(
-                Role.code.in_(['super_admin', 'admin']),
-                User.is_active == True
-            ).all()
-            admin_ids = [admin.id for admin in admin_users]
-            if admin_ids:
-                send_push_notification_to_users(
-                    user_ids=admin_ids,
-                    title='维修工单待分配',
-                    body=f'维修工单 {order.order_no} 无可用维修员，请手动分配',
-                    url=f'/admin/maintenance/detail/{order.id}'
-                )
-        except Exception as e:
-            logging.error(f'推送管理员通知失败: {e}')
         return
     
     # 统计每个维修员处理中的工单数，选择最少的
@@ -99,16 +66,6 @@ def auto_assign_order(order):
             assigned_by_user=current_user,
             assignment_type='auto'
         )
-        # 通知被分配的维修员
-        try:
-            send_push_notification(
-                user_id=selected_staff.id,
-                title='新维修任务',
-                body=f'您被分配了新的维修工单 {order.order_no}',
-                url=f'/staff/maintenance/detail/{order.id}'
-            )
-        except Exception as e:
-            logging.error(f'推送维修员通知失败: {e}')
 
 
 # 用户维修工单列表

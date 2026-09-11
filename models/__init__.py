@@ -11,4 +11,3 @@ from .supply import Supplier, SupplierOperationRecord, SupplyItem, StorageLocati
 from .role import Role, RolePermission  # 角色权限模型
 from .contract import Contract, ContractOperationRecord
 from .maintenance import MaintenanceOrder, MaintenanceReply
-from .push import PushSubscription

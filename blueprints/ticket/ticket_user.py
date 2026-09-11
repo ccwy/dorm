@@ -10,8 +10,6 @@ from datetime import datetime
 import logging
 import os
 from utils.log import log_operation
-from models.role import Role
-from utils.push_notification import send_push_notification_to_users
 
 
 # 创建用户端留言蓝图
@@ -104,23 +102,6 @@ def create_ticket():
             module="ticket",
             operation_type="create"
         )
-        
-        # 通知管理员有新留言
-        try:
-            admin_users = User.query.join(Role, User.role_id == Role.id).filter(
-                Role.code.in_(['super_admin', 'admin']),
-                User.is_active == True
-            ).all()
-            admin_ids = [admin.id for admin in admin_users if admin.id != user_id]
-            if admin_ids:
-                send_push_notification_to_users(
-                    user_ids=admin_ids,
-                    title='新留言通知',
-                    body=f'用户提交了新留言：{ticket.title}',
-                    url=f'/admin/ticket/detail/{ticket.id}'
-                )
-        except Exception as e:
-            logging.error(f'推送管理员留言通知失败: {e}')
         
         flash('留言创建成功', 'success')
         return redirect(url_for('ticket_user.user_ticket_list'))
@@ -238,23 +219,6 @@ def add_ticket_reply(ticket_id):
             logging.debug(f"用户 {user_id} 回复已关闭留言 {ticket_id}，自动重开留言状态")
             ticket.update(status='处理中')
             ticket.closed_at = None
-        
-        # 通知管理员有新回复
-        try:
-            admin_users = User.query.join(Role, User.role_id == Role.id).filter(
-                Role.code.in_(['super_admin', 'admin']),
-                User.is_active == True
-            ).all()
-            admin_ids = [admin.id for admin in admin_users if admin.id != user_id]
-            if admin_ids:
-                send_push_notification_to_users(
-                    user_ids=admin_ids,
-                    title='留言回复通知',
-                    body=f'用户回复了留言：{ticket.title}',
-                    url=f'/admin/ticket/detail/{ticket.id}'
-                )
-        except Exception as e:
-            logging.error(f'推送管理员回复通知失败: {e}')
         
         flash(f'回复添加成功，标题：{ticket.title}', 'success')
         return redirect(url_for('ticket_user.ticket_detail', ticket_id=ticket_id))

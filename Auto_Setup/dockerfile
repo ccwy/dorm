@@ -13,12 +13,6 @@ ENV DOCKER_ENV=true \
     SERVER_PORT=35168 \
     TZ=Asia/Shanghai  
 
-# VAPID推送通知配置（部署时需设置）
-# ENV VAPID_PRIVATE_KEY=your_private_key \
-#     VAPID_PUBLIC_KEY=your_public_key \
-#     VAPID_CLAIM_EMAIL=admin@yourdomain.com \
-#     VAPID_CLAIM_DOMAIN=yourdomain.com
-
 # 安装系统依赖
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
@@ -38,10 +32,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # 复制项目文件
 COPY . .
-
-# 构建时生成PWA图标（确保图标包含在镜像中）
-# 脚本会优先尝试SVG(需cairosvg)，回退到ICO；cairosvg未安装时自动使用ICO回退
-RUN python static/images/pwa/generate_pwa_icons.py || true
 
 # 创建外部数据目录
 RUN mkdir -p /data && \
