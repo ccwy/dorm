@@ -23,6 +23,7 @@ def _get_vapid_config():
             'private_key': private_key,
             'public_key': public_key,
             'claim_email': claim_email,
+            'claim_domain': current_app.config.get('VAPID_CLAIM_DOMAIN', ''),
         }
     except Exception:
         return None
@@ -71,6 +72,7 @@ def send_push_notification(user_id, title, body, url=None):
         vapid_claims = {
             'sub': f'mailto:{vapid_config["claim_email"]}',
         }
+        # aud域名将在循环内根据每个订阅的endpoint动态设置
 
         success_count = 0
         failed_subscriptions = []
@@ -86,13 +88,21 @@ def send_push_notification(user_id, title, body, url=None):
                 }
 
                 from pywebpush import webpush
+                from urllib.parse import urlparse
+
+                # 动态设置aud：从订阅endpoint提取推送服务origin
+                if vapid_config.get('claim_domain'):
+                    vapid_claims['aud'] = f'https://{vapid_config["claim_domain"]}'
+                else:
+                    parsed = urlparse(sub.endpoint)
+                    vapid_claims['aud'] = f'{parsed.scheme}://{parsed.netloc}'
+
                 # 诊断日志：记录VAPID私钥格式和endpoint域名
                 private_key = vapid_config['private_key']
                 logger.info(f"[Push诊断] VAPID私钥长度={len(private_key)}, 前20字符={private_key[:20]}")
                 try:
-                    from urllib.parse import urlparse
                     endpoint_domain = urlparse(sub.endpoint).netloc
-                    logger.info(f"[Push诊断] endpoint域名={endpoint_domain}")
+                    logger.info(f"[Push诊断] endpoint域名={endpoint_domain}, aud={vapid_claims.get('aud')}")
                 except Exception:
                     logger.info(f"[Push诊断] endpoint解析失败: {sub.endpoint[:50]}")
                 # PEM格式私钥需要用Vapid.from_pem()构造实例，from_string()无法正确解析PEM

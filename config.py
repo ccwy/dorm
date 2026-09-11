@@ -107,6 +107,7 @@ class Config:
     VAPID_PRIVATE_KEY = os.environ.get('VAPID_PRIVATE_KEY', '')
     VAPID_PUBLIC_KEY = os.environ.get('VAPID_PUBLIC_KEY', '')
     VAPID_CLAIM_EMAIL = os.environ.get('VAPID_CLAIM_EMAIL', 'admin@dorm.local')
+    VAPID_CLAIM_DOMAIN = os.environ.get('VAPID_CLAIM_DOMAIN', '')  # 可选配置，用于覆盖自动检测的aud域名
 
 #生产环境
 class ProductionConfig(Config):
