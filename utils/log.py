@@ -310,7 +310,12 @@ def get_log_directory():
     return log_dir
 
 # 设置文件日志
-def setup_file_logging():
+def setup_file_logging(debug=False):
+    """初始化日志系统
+    
+    :param debug: 是否开启调试模式，由config.py中的DEBUG配置控制。
+                  True时日志级别为DEBUG（记录所有日志），False时为INFO（生产环境默认）
+    """
     # 获取日志目录
     log_dir = get_log_directory()
     
@@ -318,9 +323,12 @@ def setup_file_logging():
     app_log_path = os.path.join(log_dir, 'app.log')
     error_log_path = os.path.join(log_dir, 'error.log')
     
+    # 根据debug模式决定日志级别
+    log_level = logging.DEBUG if debug else logging.INFO
+    
     # 获取根日志记录器
     root_logger = logging.getLogger()
-    root_logger.setLevel(logging.DEBUG)
+    root_logger.setLevel(log_level)
     
     # 清除现有处理器
     for handler in root_logger.handlers[:]:
@@ -336,8 +344,8 @@ def setup_file_logging():
     app_handler = RotatingFileHandler(
         app_log_path, maxBytes=10*1024*1024, backupCount=5, encoding='utf-8'
     )
-    # 设置日志处理器级别
-    app_handler.setLevel(logging.DEBUG)  # 修改为DEBUG级别，记录所有日志
+    # 文件日志级别由debug配置控制
+    app_handler.setLevel(log_level)
     app_handler.setFormatter(formatter)
     root_logger.addHandler(app_handler)
     
@@ -351,16 +359,17 @@ def setup_file_logging():
     
     # 创建控制台处理器
     console_handler = logging.StreamHandler()
-    console_handler.setLevel(logging.DEBUG)  # 修改为DEBUG级别，在控制台显示所有日志
+    console_handler.setLevel(log_level)  # 控制台级别由debug配置控制
     console_handler.setFormatter(formatter)
     root_logger.addHandler(console_handler)
     
     # 设置根日志记录器级别
-    root_logger.setLevel(logging.DEBUG)  # 确保根日志级别也是DEBUG
+    root_logger.setLevel(log_level)
 
     # 记录日志初始化信息
     logging.info(f"日志系统初始化完成 - 全部日志: {app_log_path}")
     logging.info(f"日志系统初始化完成 - 错误日志: {error_log_path}")
+    logging.info(f"日志级别: {logging.getLevelName(log_level)} (调试模式: {'开启' if debug else '关闭'})")
     
     return root_logger
 

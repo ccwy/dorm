@@ -133,7 +133,7 @@ class DevelopmentConfig(Config):
         server_mode = db_config.get('SERVER_MODE', '客户端')
         SERVER_HOST = '0.0.0.0' if server_mode == '服务端' else '127.0.0.1'
     SERVER_PORT = int(db_config.get('SERVER_PORT', 35168))
-    DEBUG = False
+    DEBUG = True
     SYSTEM_TITLE = "行政后勤管理系统（开发模式）"
     DEV_AUTO_LOGIN = False  # 开发模式自动登录为admin账号
 

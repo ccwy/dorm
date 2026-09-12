@@ -285,6 +285,36 @@ class SystemConfig(db.Model):
                 'is_editable': True,
                 'sort_order': 160
             },
+            # 供应商管理功能开关
+            {
+                'config_key': 'FEATURE_SUPPLIER_MANAGE_ENABLED',
+                'config_value': 'true',
+                'config_type': 'bool',
+                'category': 'system.feature',
+                'description': '供应商管理功能开关',
+                'is_editable': True,
+                'sort_order': 170
+            },
+            # 存放位置管理功能开关
+            {
+                'config_key': 'FEATURE_STORAGE_LOCATION_MANAGE_ENABLED',
+                'config_value': 'true',
+                'config_type': 'bool',
+                'category': 'system.feature',
+                'description': '存放位置管理功能开关',
+                'is_editable': True,
+                'sort_order': 180
+            },
+            # 基础物料资料管理功能开关
+            {
+                'config_key': 'FEATURE_MATERIAL_MANAGE_ENABLED',
+                'config_value': 'true',
+                'config_type': 'bool',
+                'category': 'system.feature',
+                'description': '基础物料资料管理功能开关',
+                'is_editable': True,
+                'sort_order': 190
+            },
             
             # 3. 用户管理配置 (category: user)
             {

@@ -109,7 +109,7 @@ def init_flask_app(progress_callback=None):
         progress_callback(10, "正在加载核心模块...")
     
     from utils.log import setup_file_logging
-    logger = setup_file_logging()
+    logger = setup_file_logging(debug=current_config.DEBUG)
     _stamp("初始化日志系统")
 
     from models.user.user import User

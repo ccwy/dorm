@@ -80,7 +80,7 @@
         {% endwith %}
 
         <!-- 卡片容器：flex居中布局 -->
-        <div class="flex flex-wrap justify-center gap-6">
+        <div class="flex flex-wrap justify-start gap-6">
             <!-- 用户管理 -->
             {% if get_config_value('FEATURE_USER_MANAGE_ENABLED', True) and current_user.has_permission('user.view') %}
             <div class="bg-white rounded-xl p-6 card-shadow btn-hover nav-card">
@@ -240,7 +240,7 @@
             {% endif %}
 
             <!-- 供应商管理 -->
-            {% if get_config_value('FEATURE_SUPPLY_MANAGE_ENABLED', True) and current_user.has_permission('supplier.view') %}
+            {% if get_config_value('FEATURE_SUPPLIER_MANAGE_ENABLED', True) and current_user.has_permission('supplier.view') %}
             <div class="bg-white rounded-xl p-6 card-shadow btn-hover nav-card">
                 <a href="{{ url_for('supplier.index') }}" class="flex flex-col items-center text-center">
                     <div class="w-16 h-16 bg-blue-500/10 rounded-full flex items-center justify-center mb-4">
@@ -253,7 +253,7 @@
             {% endif %}
 
             <!-- 存放位置管理 -->
-            {% if get_config_value('FEATURE_SUPPLY_MANAGE_ENABLED', True) and current_user.has_permission('storage_location.view') %}
+            {% if get_config_value('FEATURE_STORAGE_LOCATION_MANAGE_ENABLED', True) and current_user.has_permission('storage_location.view') %}
             <div class="bg-white rounded-xl p-6 card-shadow btn-hover nav-card">
                 <a href="{{ url_for('storage_location.index') }}" class="flex flex-col items-center text-center">
                     <div class="w-16 h-16 bg-amber-500/10 rounded-full flex items-center justify-center mb-4">
@@ -266,7 +266,7 @@
             {% endif %}
 
             <!-- 基础物品资料管理 -->
-            {% if get_config_value('FEATURE_SUPPLY_MANAGE_ENABLED', True) and current_user.has_permission('supply_item.view') %}
+            {% if get_config_value('FEATURE_MATERIAL_MANAGE_ENABLED', True) and current_user.has_permission('supply_item.view') %}
             <div class="bg-white rounded-xl p-6 card-shadow btn-hover nav-card">
                 <a href="{{ url_for('supply_item.index') }}" class="flex flex-col items-center text-center">
                     <div class="w-16 h-16 bg-emerald-500/10 rounded-full flex items-center justify-center mb-4">
