@@ -44,7 +44,6 @@ additional_hidden_imports = [
     'flask',
     'flask_sqlalchemy',
     'flask_login',
-    'flask_wtf',
     'jinja2',
     'werkzeug',
     'schedule',
@@ -98,6 +97,9 @@ a = Analysis(
         'py_compile', 'compileall',  # 编译工具
         'cProfile', 'profile', 'pstats',  # 性能分析工具
         'zipimport',  # ZIP导入
+        'flask_wtf',  # 未使用的Flask扩展
+        'flask_migrate',  # 未使用的Flask迁移工具
+        'dotenv',  # python-dotenv模块，项目未使用
     ],
     hookspath=[],
     hooksconfig={},
