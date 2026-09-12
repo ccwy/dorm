@@ -8,21 +8,14 @@ from datetime import datetime, date
 
 def _get_waitress_threads():
     """
-    根据运行环境和CPU核心数自适应waitress线程数
-    - Android: max(2, cpu_count * 2)，但不超过8（资源相对受限）
-    - 其他环境: max(4, cpu_count * 2)，但不超过16
+    根据CPU核心数自适应waitress线程数（I/O密集型，线程数=核心数×2）
     """
     try:
         cpu_count = os.cpu_count() or 2
     except NotImplementedError:
         cpu_count = 2
     
-    if os.environ.get('ANDROID_ENV', 'false').lower() == 'true':
-        # 安卓端也自适应CPU，上限8线程（4核设备=8线程，8核设备=8线程）
-        return max(2, min(cpu_count * 2, 8))
-    
-    # waitress处理I/O请求，线程数可以多于CPU核心数
-    return max(4, min(cpu_count * 2, 16))
+    return max(2, cpu_count * 2)
 
 
 # ===== 启动计时 profiling =====
