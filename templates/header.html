@@ -80,19 +80,19 @@
         <a href="{{ url_for('maintenance_admin.admin_order_list') }}" 
            class="nav-item nav-maintenance text-gray-700 hover:text-primary transition-colors py-1 border-b-2 
            {% if request.endpoint and 'maintenance' in request.endpoint %}border-primary text-primary{% else %}border-transparent{% endif %}">
-            <i class="fa fa-wrench mr-1"></i>维修
+            <i class="fa fa-wrench mr-2"></i>维修
         </a>
         {% elif current_user.has_permission('maintenance.handle') %}
         <a href="{{ url_for('maintenance_staff.staff_order_list') }}" 
            class="nav-item nav-maintenance text-gray-700 hover:text-primary transition-colors py-1 border-b-2 
            {% if request.endpoint and 'maintenance' in request.endpoint %}border-primary text-primary{% else %}border-transparent{% endif %}">
-            <i class="fa fa-wrench mr-1"></i>维修
+            <i class="fa fa-wrench mr-2"></i>维修
         </a>
         {% elif current_user.has_permission('maintenance.create') %}
         <a href="{{ url_for('maintenance_user.user_order_list') }}" 
            class="nav-item nav-maintenance text-gray-700 hover:text-primary transition-colors py-1 border-b-2 
            {% if request.endpoint and 'maintenance' in request.endpoint %}border-primary text-primary{% else %}border-transparent{% endif %}">
-            <i class="fa fa-wrench mr-1"></i>维修
+            <i class="fa fa-wrench mr-2"></i>维修
         </a>
         {% endif %}
         {% endif %}

@@ -170,8 +170,8 @@ def login():
             user.last_login_at = datetime.now()
             db.session.commit()
             
-            logging.info(f"登录成功，欢迎使用")
-            flash('登录成功，欢迎使用系统', 'success')
+            logging.info(f"{user.name}登录成功，欢迎使用本系统")
+            flash(f'{user.name}登录成功，欢迎使用', 'success')
             # 根据用户角色决定重定向目标
             if current_user.role_id and current_user.user_role and current_user.user_role.code != 'user':
                 if current_user.user_role.code == 'maintenance_staff':
