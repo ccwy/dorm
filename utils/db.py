@@ -162,6 +162,7 @@ def set_mysql_charset(dbapi_connection, connection_record):
 def register_db_listeners():
     """注册数据库监听器"""
     db_uri = current_app.config.get('SQLALCHEMY_DATABASE_URI', '')
+    
     if 'sqlite' in db_uri:
         current_app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
             'poolclass': QueuePool,  # 使用队列连接池，支持多线程并发
