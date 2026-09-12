@@ -1,6 +1,6 @@
 
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy.pool import StaticPool
+from sqlalchemy.pool import QueuePool
 from sqlalchemy import event
 from flask import Flask
 import traceback
@@ -141,9 +141,16 @@ def init_roles_and_permissions():
         logging.error(f"初始化角色权限失败: {str(e)}")
 
 def set_sqlite_pragma(dbapi_connection, connection_record):
-    """SQLite启用外键约束"""
+    """SQLite启用外键约束及性能优化"""
     cursor = dbapi_connection.cursor()
     cursor.execute("PRAGMA foreign_keys=ON")
+    cursor.execute("PRAGMA journal_mode=WAL")       # WAL模式，读写并发
+    cursor.execute("PRAGMA cache_size=-64000")       # 64MB页缓存
+    cursor.execute("PRAGMA synchronous=NORMAL")     # WAL下安全，减少fsync
+    cursor.execute("PRAGMA busy_timeout=5000")      # 写锁争用等待5秒，防止超时
+    cursor.execute("PRAGMA temp_store=MEMORY")      # 临时表存内存，减少IO
+    cursor.execute("PRAGMA mmap_size=268435456")    # 256MB内存映射，加速读取
+    cursor.execute("PRAGMA wal_autocheckpoint=1000") # WAL每1000页自动checkpoint
     cursor.close()
 
 def set_mysql_charset(dbapi_connection, connection_record):
@@ -157,8 +164,14 @@ def register_db_listeners():
     db_uri = current_app.config.get('SQLALCHEMY_DATABASE_URI', '')
     if 'sqlite' in db_uri:
         current_app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
-            'poolclass': StaticPool,  # 使用静态连接池
+            'poolclass': QueuePool,  # 使用队列连接池，支持多线程并发
+            'pool_size': 3,  # SQLite写锁串行，3连接足够
+            'max_overflow': 6,  # 最大9连接
+            'pool_timeout': 30,  # 获取连接超时时间（秒）
+            'pool_use_lifo': True,  # LIFO回收连接，提升连接局部性，减少冷连接和PRAGMA重执行
             'connect_args': {'check_same_thread': False}  # 允许跨线程使用连接
+            # 移除 pool_recycle（SQLite无连接超时概念）
+            # 移除 pool_pre_ping（SQLite是文件不是网络socket，增加开销）
         }
         @event.listens_for(db.engine, 'connect')
         def handle_connect(dbapi_connection, connection_record):
@@ -166,9 +179,29 @@ def register_db_listeners():
             set_sqlite_pragma(dbapi_connection, connection_record)
             
     elif 'mysql' in db_uri:
+        # MySQL连接池配置（与SQLite类似的连接池参数）
+        current_app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+            'pool_size': 10,           # MySQL连接池保持的连接数
+            'max_overflow': 20,        # 超出pool_size后最多可创建的连接数
+            'pool_timeout': 30,        # 获取连接超时时间（秒）
+            'pool_recycle': 3600,      # 连接回收时间（秒），MySQL默认8小时断开
+            'pool_pre_ping': True,     # 使用前检测连接是否有效
+            'pool_use_lifo': True,     # LIFO回收连接，提升连接局部性
+            'connect_args': {
+                'isolation_level': 'READ COMMITTED',  # 减少锁争用
+                'read_timeout': 30,    # 读超时30秒，防止慢查询阻塞
+                'write_timeout': 30,   # 写超时30秒，防止写操作阻塞
+            }
+        }
         @event.listens_for(db.engine, 'connect')
         def handle_connect(dbapi_connection, connection_record):
+            logging.debug("获取MySQL数据库连接")
             set_mysql_charset(dbapi_connection, connection_record)
+
+    # 记录连接池配置
+    engine_options = current_app.config.get('SQLALCHEMY_ENGINE_OPTIONS', {})
+    if engine_options:
+        logging.info(f"数据库连接池配置: {engine_options}")
     
 def _parse_mysql_config_from_uri(db_uri):
     """从连接字符串中解析MySQL配置（避免依赖USE_MYSQL）"""

@@ -420,38 +420,46 @@ def get_batch_user_rooms():
                 "success": False,
                 "message": "请提供有效的user_ids列表"
             }), 400
+        
         # 获取房间类型映射
         room_type_mapping = get_room_type_mapping()
+        
+        # 批量查询：一次JOIN获取所有活跃住宿记录及房间信息
+        active_dorms = Dorm.query.filter(
+            Dorm.user_id.in_(user_ids),
+            Dorm.status == 'active'
+        ).join(Room, Dorm.room_id == Room.id).all()
+        
+        # 构建user_id到dorm的映射
+        dorm_map = {dorm.user_id: dorm for dorm in active_dorms}
+        
+        # 批量查询有房间的用户信息
+        assigned_user_ids = list(dorm_map.keys())
+        assigned_users = User.query.filter(User.id.in_(assigned_user_ids)).all() if assigned_user_ids else []
+        user_map = {user.id: user for user in assigned_users}
+        
         results = []
         for user_id in user_ids:
-            # 匹配Dorm模型的status字段
-            active_dorm = Dorm.query.filter(
-                Dorm.user_id == user_id,
-                Dorm.status == 'active'
-            ).first()
-            
-            if active_dorm:
-                room = Room.query.get(active_dorm.room_id)
-                # 补充用户基本信息（基于User模型）
-                user = User.query.get(user_id)
-                user_info = {
-                    "id": user.id,
-                    "name": user.name,
-                    "student_id": user.student_id,
-                    "gender": user.gender
-                } if user else None
+            if user_id in dorm_map:
+                dorm = dorm_map[user_id]
+                room = dorm.room  # 已通过JOIN加载
+                user = user_map.get(user_id)
                 
                 # 处理入住日期时间
                 check_in_date = "未记录"
                 days_stayed = "未记录"
-                if active_dorm.check_in_date is not None and isinstance(active_dorm.check_in_date, datetime):
-                    check_in_date = active_dorm.check_in_date.strftime('%Y-%m-%d %H:%M')  # 增加时间显示
-                    # 转换为date类型计算天数差
-                    days_stayed = (datetime.today().date() - active_dorm.check_in_date.date()).days
+                if dorm.check_in_date is not None and isinstance(dorm.check_in_date, datetime):
+                    check_in_date = dorm.check_in_date.strftime('%Y-%m-%d %H:%M')
+                    days_stayed = (datetime.today().date() - dorm.check_in_date.date()).days
                 
                 results.append({
                     "user_id": user_id,
-                    "user_info": user_info,  # 新增：用户基本信息
+                    "user_info": {
+                        "id": user.id,
+                        "name": user.name,
+                        "student_id": user.student_id,
+                        "gender": user.gender
+                    } if user else None,
                     "has_room": True,
                     "room_id": room.id if room else None,
                     "building": room.building if room else None,

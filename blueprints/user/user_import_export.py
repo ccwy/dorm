@@ -25,6 +25,214 @@ from utils.auth import require_permission
 # 创建导入导出蓝图
 user_import_export_bp = Blueprint('user_import_export', __name__, url_prefix='/user/import-export')
 
+
+# ------------------------------
+# 公共辅助函数
+# ------------------------------
+
+def _validate_uploaded_file(operation_label='操作'):
+    """检查文件上传，返回 (file, error_response) 元组。error_response 为 None 时表示校验通过。"""
+    if 'file' not in request.files:
+        flash('未找到上传文件', 'danger')
+        logging.error(f"{operation_label}，未找到上传文件")
+        return None, redirect(url_for('user.manage'))
+    
+    file = request.files['file']
+    if file.filename == '' or not (file.filename.endswith('.xlsx') or file.filename.endswith('.xls')):
+        flash('请上传有效的Excel文件（.xlsx或.xls）', 'danger')
+        logging.error(f"{operation_label}，上传文件格式无效")
+        return None, redirect(url_for('user.manage'))
+    
+    return file, None
+
+
+def _read_excel_with_dtype(file_bytes):
+    """读取Excel并构建dtype字典，返回 (df, excel_columns, display_to_field) 元组。"""
+    importable_fields = get_importable_fields()
+    display_to_field = {v: k for k, v in importable_fields.items()}
+    
+    # 首先读取第一行获取列名
+    temp_df = pd.read_excel(file_bytes, nrows=1)
+    file_bytes.seek(0)  # 重置文件指针
+    
+    # 构建dtype字典，将特定字段设置为字符串类型
+    str_columns = []
+    for col in temp_df.columns:
+        if col in display_to_field and display_to_field[col] in ['phone', 'id_card', 'emergency_phone']:
+            str_columns.append(col)
+    
+    # 读取整个Excel，将特定列设为字符串类型
+    dtype_dict = {col: str for col in str_columns}
+    df = pd.read_excel(file_bytes, dtype=dtype_dict)
+    excel_columns = df.columns.tolist()
+    
+    # 重新获取映射（确保与实际列一致）
+    importable_fields = get_importable_fields()
+    display_to_field = {v: k for k, v in importable_fields.items()}
+    
+    return df, excel_columns, display_to_field
+
+
+def _batch_parse_hire_dates(df):
+    """批量解析入职日期，返回 parsed_hire_dates。失败时抛出异常由调用方处理。"""
+    hire_date_values = df.get('入职日期', pd.Series([None] * len(df)))
+    parsed_hire_dates = excel_date_utils.parse_excel_date(hire_date_values, field_name='入职日期')
+    logging.info("日期时间解析成功")
+    return parsed_hire_dates
+
+
+def _process_field_value(field_name, value, parsed_hire_dates, row_idx):
+    """统一处理日期/字符串/布尔字段转换，返回处理后的值或 None（表示跳过）。"""
+    # 日期字段
+    if field_name == 'hire_date':
+        parsed_date = parsed_hire_dates[row_idx]
+        return parsed_date if parsed_date else None
+    
+    # 字符串数字字段（Excel中纯数字会被pandas读取为float，需先转int再转str）
+    if field_name in ['phone', 'id_card', 'emergency_phone']:
+        if isinstance(value, (int, float)):
+            return str(int(value))
+        return str(value).strip()
+    
+    # 密码字段 - 确保转为字符串（Excel中纯数字密码会被pandas读取为float）
+    if field_name == 'password':
+        if isinstance(value, (int, float)):
+            return str(int(value))
+        return str(value).strip()
+    
+    # 布尔字段
+    if field_name in ['is_active', 'is_banned']:
+        if isinstance(value, str):
+            stripped = value.strip().lower()
+            if stripped in ['true', '是', '1']:
+                return True
+            elif stripped in ['false', '否', '0']:
+                return False
+            else:
+                return None  # 无效值，跳过
+        return value
+    
+    # 通用字符串处理
+    if isinstance(value, str):
+        return value.strip()
+    
+    return value
+
+
+def _sync_company_department(user_data, operation_label='操作', row_label=''):
+    """当 company 有值但 department 为空时，将 company 赋给 department。"""
+    company_val = user_data.get('company')
+    dept_val = user_data.get('department')
+    if company_val and not dept_val:
+        user_data['department'] = company_val
+        logging.info(f"{operation_label}，{row_label}用户有公司'{company_val}'但无部门，自动将公司名设为部门")
+
+
+def _build_department_cache(include_no_company_suffix=False):
+    """预加载部门缓存字典，返回缓存dict。
+
+    参数:
+        include_no_company_suffix: 是否额外缓存无公司后缀的版本（如 "技术部_"），
+                                   import_users 需要此选项以匹配无公司后缀的查询。
+    """
+    from models.department.department import Department
+    dept_records = Department.query.all()
+    department_cache = {}
+    for dept in dept_records:
+        key = f"{dept.name}_{dept.company or ''}"
+        department_cache[key] = (dept.id, dept.company)
+        if include_no_company_suffix:
+            department_cache[f"{dept.name}_"] = (dept.id, dept.company)
+    return department_cache
+
+
+def _commit_batch_result(result, current_user, operation_type, summary_template,
+                         is_create=False, change_detail_fn=None):
+    """合并的结果提交函数：flush → auto_complete_info → 创建操作记录 → commit → 日志记录 → flash消息
+
+    参数:
+        result: batch_create_users/batch_update_users 的返回结果
+        current_user: 当前登录用户
+        operation_type: 操作类型 ('import' / 'batch_update')
+        summary_template: 操作记录摘要模板，如 '批量导入新增用户：{name}'
+        is_create: 是否为创建操作（需要add_all+flush分配ID）
+        change_detail_fn: 可选，生成change_detail的函数，接收user返回dict；
+                          默认返回 {'name': user.name, 'student_id': user.student_id}
+
+    返回:
+        True(成功提交) / False(没有成功记录) / None(提交失败，已回滚)
+    """
+    if not result['success']:
+        return False
+    
+    try:
+        if is_create:
+            db.session.add_all(result['success'])
+        db.session.flush()
+        
+        # 批量补全信息
+        for user in result['success']:
+            user.auto_complete_info()
+        
+        # 批量创建操作记录
+        from models.user.user_operation_record import UserOperationRecord
+        for user in result['success']:
+            detail = change_detail_fn(user) if change_detail_fn else {
+                'name': user.name,
+                'student_id': user.student_id
+            }
+            UserOperationRecord.create_record(
+                target_user_id=user.id,
+                operation_type=operation_type,
+                operator_id=current_user.id,
+                operator_name=current_user.name,
+                change_detail=detail,
+                summary=summary_template.format(name=user.name)
+            )
+        
+        # 一次性提交所有变更
+        db.session.commit()
+        
+        success_count = len(result['success'])
+        failed_count = len(result['failed'])
+        skipped_count = result.get('skipped', 0)
+        
+        log_operation(
+            user_id=current_user.id,
+            module='user',
+            operation_type='batch_import_export',
+            action=f"{operation_type}用户数据，成功{success_count}条" + (f"，跳过{skipped_count}条（无变化）" if skipped_count else "") + (f"，失败{failed_count}条" if failed_count else ""),
+            result="成功"
+        )
+        
+        # flash消息
+        parts = [f'成功{operation_type}{success_count}条']
+        if skipped_count:
+            parts.append(f'跳过{skipped_count}条（无变化）')
+        if failed_count > 0:
+            parts.append(f'失败{failed_count}条')
+        msg = '，'.join(parts)
+        flash(msg, 'success')
+        if failed_count > 0:
+            flash('查看日志了解失败详情', 'warning')
+        
+        logging.info(f"{operation_type}用户数据操作，成功{success_count}条记录")
+        return True
+        
+    except Exception as e:
+        db.session.rollback()
+        log_operation(
+            user_id=current_user.id,
+            module='user',
+            operation_type='batch_import_export',
+            action=f"尝试{operation_type}用户数据失败: {str(e)}",
+            result="失败"
+        )
+        flash(f'数据提交失败: {str(e)}', 'danger')
+        logging.error(f"{operation_type}用户数据操作，提交数据库失败: {str(e)}")
+        return None
+
+
 @user_import_export_bp.route('/export', methods=['GET'])
 @login_required
 @require_permission('user.export')
@@ -126,47 +334,25 @@ def import_users():
     """从Excel导入用户数据"""
     try:
         # 检查文件
-        if 'file' not in request.files:
-            flash('未找到上传文件', 'danger')
-            logging.error("导入用户数据操作，未找到上传文件")
-            return redirect(url_for('user.manage'))
-        
-        file = request.files['file']
-        if file.filename == '' or not (file.filename.endswith('.xlsx') or file.filename.endswith('.xls')):
-            flash('请上传有效的Excel文件（.xlsx或.xls）', 'danger')
-            logging.error("导入用户数据操作，上传文件格式无效")
-            return redirect(url_for('user.manage'))
+        file, error_response = _validate_uploaded_file('导入用户数据操作')
+        if error_response:
+            return error_response
         
         # 读取Excel
         file_content = file.read()
         file_bytes = BytesIO(file_content)
         file_bytes.seek(0)
         
-        # 指定需要作为字符串读取的列（防止pandas自动转换为数字）
-        # 首先读取第一行获取列名
-        temp_df = pd.read_excel(file_bytes, nrows=1)
-        file_bytes.seek(0)  # 重置文件指针
-        
-        # 构建dtype字典，将特定字段设置为字符串类型
-        display_to_field = {v: k for k, v in get_importable_fields().items()}
-        str_columns = []
-        for col in temp_df.columns:
-            if col in display_to_field and display_to_field[col] in ['phone', 'id_card', 'emergency_phone']:
-                str_columns.append(col)
-        
-        # 读取整个Excel，将特定列设为字符串类型
-        dtype_dict = {col: str for col in str_columns}
-        df = pd.read_excel(file_bytes, dtype=dtype_dict)
-        excel_columns = df.columns.tolist()
-        importable_fields = get_importable_fields()
-        display_to_field = {v: k for k, v in importable_fields.items()}
+        # 读取Excel并构建dtype字典
+        df, excel_columns, display_to_field = _read_excel_with_dtype(file_bytes)
         logging.info('开始导入用户')
         
         # 检查必要字段（显示名）
         required_display = ['姓名', '性别']
         if not all(req in excel_columns for req in required_display):
             missing = [req for req in required_display if req not in excel_columns]
-            flash(f'Excel缺少必要列：{", ".join(missing)}', 'danger')
+            msg = f'Excel缺少必要列：{", ".join(missing)}'
+            flash(msg, 'danger')
             logging.error(f"导入用户数据操作，Excel缺少必要列：{', '.join(missing)}")
             return redirect(url_for('user.manage'))
         
@@ -198,14 +384,11 @@ def import_users():
         default_role_id = default_role.id if default_role else None
         
         # 提取所有入职时间值进行批量解析
-        hire_date_values = df.get('入职日期', pd.Series([None] * len(df)))  # 获取入职日期列或创建空Series
         try:
-            # 使用excel_date_utils批量解析入职日期
-            parsed_hire_dates = excel_date_utils.parse_excel_date(hire_date_values, field_name='入职日期')
-            logging.info("日期时间解析成功")
+            parsed_hire_dates = _batch_parse_hire_dates(df)
         except Exception as e:
-            # 捕获任何批量处理过程中可能出现的异常
-            flash(f'批量解析入职日期失败：{str(e)}', 'danger')
+            msg = f'批量解析入职日期失败：{str(e)}'
+            flash(msg, 'danger')
             logging.error(f'批量解析入职日期失败：{str(e)}')
             return redirect(url_for('user.manage'))
 
@@ -279,7 +462,8 @@ def import_users():
             
             # 处理密码（只获取明文，不生成哈希，由模型处理）
             if '密码' in excel_columns and not pd.isna(row['密码']):
-                password = str(row['密码']).strip()
+                pwd_val = row['密码']
+                password = str(int(pwd_val)) if isinstance(pwd_val, (int, float)) else str(pwd_val).strip()
             else:
                 password = SystemConfig.get_config_value('USER_DEFAULT_PASSWORD', '123456')
             
@@ -323,30 +507,10 @@ def import_users():
                 if display_name in excel_columns and not pd.isna(row[display_name]):
                     value = row[display_name]
                     
-                    if isinstance(value, str):
-                        value = value.strip()
-                    
-                    # 处理日期字段
-                    if field_name in ['hire_date']:
-                        parsed_date = parsed_hire_dates[row_num]  # 使用批量解析的结果
-                        if parsed_date:
-                            user_data[field_name] = parsed_date
-                    # 处理需要作为字符串的数字字段
-                    elif field_name in ['phone', 'id_card', 'emergency_phone']:
-                        # 直接转换为字符串并去除首尾空格
-                        value = str(value).strip()
-                        user_data[field_name] = value
-                    # 处理布尔字段
-                    elif field_name in ['is_active', 'is_banned']:
-                        # 处理字符串形式的布尔值
-                        if isinstance(value, str):
-                            value = value.strip().lower()
-                            if value in ['true', '是', '1']:
-                                user_data[field_name] = True
-                            elif value in ['false', '否', '0']:
-                                user_data[field_name] = False
-                    elif field_name not in user_data:  # 不覆盖已设置的字段
-                        user_data[field_name] = value
+                    # 使用公共函数统一处理字段值转换
+                    processed = _process_field_value(field_name, value, parsed_hire_dates, row_num)
+                    if processed is not None:
+                        user_data[field_name] = processed
                 
                 # 只在Excel中没有提供布尔字段时使用默认值
                 if field_name == 'is_active' and '是否激活账号' not in excel_columns and 'is_active' not in user_data:
@@ -357,18 +521,21 @@ def import_users():
                     logging.info(f"导入用户数据操作，第{current_row}行：Excel中未提供'是否允许登录'字段，已设置为默认值")
             
             # 同步公司和部门到部门管理模块
-            # 当有公司但无部门时，将公司名作为部门名自动创建，确保部门不会为空
-            company_val = user_data.get('company')
-            dept_val = user_data.get('department')
-            if company_val and not dept_val:
-                user_data['department'] = company_val
-                logging.info(f"导入用户数据操作，第{current_row}行：用户有公司'{company_val}'但无部门，自动将公司名设为部门")
+            _sync_company_department(user_data, '导入用户数据操作', f'第{current_row}行：')
             
             user_data_list.append(user_data)
         logging.info(f"导入用户数据操作，准备导入 {len(user_data_list)} 条记录")
         
-        # 调用模型方法批量创建用户对象（不提交事务）
-        import_result = User.batch_create_users(user_data_list)
+        # 预加载部门缓存，避免循环内DB查询
+        department_cache = _build_department_cache(include_no_company_suffix=True)
+
+        # 调用模型方法批量创建用户对象（不提交事务），传递查重集合和部门缓存
+        import_result = User.batch_create_users(
+            user_data_list,
+            existing_student_ids=existing_ids,      # 已在第180行查询
+            existing_usernames=existing_usernames,    # 已在第182行查询
+            department_cache=department_cache
+        )
         logging.info(f"导入用户数据操作，调用模型方法批量创建用户对象，返回结果：{import_result}")
         
         # 处理结果
@@ -385,64 +552,17 @@ def import_users():
             logging.info(f"导入用户数据操作，成功导入{len(import_result['success'])}条记录")    
         
         # 如果有成功的用户对象，统一提交事务
-        if import_result['success']:
-            try:
-                # 添加所有成功的用户到会话
-                db.session.add_all(import_result['success'])
-                # 统一提交事务
-                db.session.commit()
-                logging.info(f"导入用户数据操作，提交数据库成功")
-                success_count = len(import_result['success'])
-                
-                # 记录批量导入操作
-                from models.user.user_operation_record import UserOperationRecord
-                for new_user in import_result['success']:
-                    UserOperationRecord.create_record(
-                        target_user_id=new_user.id,
-                        operation_type='import',
-                        operator_id=current_user.id,
-                        operator_name=current_user.name,
-                        change_detail={
-                            'name': new_user.name,
-                            'student_id': new_user.student_id,
-                            'category': new_user.category
-                        },
-                        summary=f'批量导入新增用户：{new_user.name}'
-                    )
-                db.session.commit()
-                
-                log_operation(
-                    user_id=current_user.id,
-                    module='user',
-                    operation_type='batch_import_export',
-                    action=f"导入用户数据,成功导入{success_count}条记录",
-                    result="成功"
-                )
-                flash(f'成功导入 {success_count} 条数据', 'success')
-                logging.info(f"导入用户数据操作，成功导入{success_count}条记录")
-
-                # 自动补全信息
-                logging.info(f"导入用户数据成功，开始自动补全信息")
-                for user in import_result['success']:
-                    user.auto_complete_info()  # 调用模型自动补全方法
-                logging.info(f"导入用户数据成功，自动补全信息成功")
-                # 一次性提交补充信息
-                db.session.commit()
-
-            except Exception as e:
-                # 事务回滚
-                db.session.rollback()
-                log_operation(
-                    user_id=current_user.id,
-                    module='user',
-                    operation_type='batch_import_export',
-                    action=f"尝试导入用户数据失败: {str(e)}",
-                    result="失败"
-                )
-                flash(f'数据提交失败: {str(e)}', 'danger')
-                logging.error(f"导入用户数据操作，提交数据库失败: {str(e)}")
-                return redirect(url_for('user.manage'))
-        else:
+        commit_result = _commit_batch_result(
+            import_result, current_user,
+            operation_type='导入',
+            summary_template='批量导入新增用户：{name}',
+            is_create=True,
+            change_detail_fn=lambda u: {'name': u.name, 'student_id': u.student_id, 'category': u.category}
+        )
+        
+        if commit_result is None:
+            return redirect(url_for('user.manage'))
+        if commit_result is False:
             flash('没有可导入的有效数据', 'warning')
         
         return redirect(url_for('user.manage'))
@@ -457,7 +577,8 @@ def import_users():
             action=f"尝试导入用户数据失败: {str(e)}",
             result="失败"
         )
-        flash(f'导入失败: {str(e)}', 'danger')
+        msg = f'导入失败: {str(e)}'
+        flash(msg, 'danger')
         logging.error(f"导入用户数据操作，导入失败: {str(e)}", exc_info=True)
         return redirect(url_for('user.manage'))
     
@@ -594,47 +715,24 @@ def update_users():
     """批量更新用户数据（基于用户ID）"""
     try:
         # 检查文件
-        if 'file' not in request.files:
-            flash('未找到上传文件', 'danger')
-            logging.error("批量更新用户数据操作，未找到上传文件")
-            return redirect(url_for('user.manage'))
-        
-        file = request.files['file']
-        if file.filename == '' or not (file.filename.endswith('.xlsx') or file.filename.endswith('.xls')):
-            flash('请上传有效的Excel文件（.xlsx或.xls）', 'danger')
-            logging.error("批量更新用户数据操作，上传文件格式无效")
-            return redirect(url_for('user.manage'))
+        file, error_response = _validate_uploaded_file('批量更新用户数据操作')
+        if error_response:
+            return error_response
         
         # 读取Excel
         file_content = file.read()
         file_bytes = BytesIO(file_content)
         file_bytes.seek(0)
         
-        # 指定需要作为字符串读取的列（防止pandas自动转换为数字）
-        # 首先读取第一行获取列名
-        temp_df = pd.read_excel(file_bytes, nrows=1)
-        file_bytes.seek(0)  # 重置文件指针
-        
-        # 构建dtype字典，将特定字段设置为字符串类型
-        importable_fields = get_importable_fields()
-        display_to_field = {v: k for k, v in importable_fields.items()}
-        str_columns = []
-        for col in temp_df.columns:
-            if col in display_to_field and display_to_field[col] in ['phone', 'id_card', 'emergency_phone']:
-                str_columns.append(col)
-        
-        # 读取整个Excel，将特定列设为字符串类型
-        dtype_dict = {col: str for col in str_columns}
-        df = pd.read_excel(file_bytes, dtype=dtype_dict)
-        excel_columns = df.columns.tolist()
-        importable_fields = get_importable_fields()
-        display_to_field = {v: k for k, v in importable_fields.items()}
+        # 读取Excel并构建dtype字典
+        df, excel_columns, display_to_field = _read_excel_with_dtype(file_bytes)
         
         # 检查必要字段（用户ID和姓名）
         required_display = ['用户ID', '姓名']
         if not all(req in excel_columns for req in required_display):
             missing = [req for req in required_display if req not in excel_columns]
-            flash(f'Excel缺少必要列：{" ".join(missing)}', 'danger')
+            msg = f'Excel缺少必要列：{" ".join(missing)}'
+            flash(msg, 'danger')
             logging.error(f"批量更新用户数据操作，Excel缺少必要列：{', '.join(missing)}")
             return redirect(url_for('user.manage'))
         
@@ -652,14 +750,15 @@ def update_users():
         username_to_id = {user.username: user.id for user in existing_users if user.username}
         student_id_to_id = {user.student_id: user.id for user in existing_users if user.student_id}
         
+        # 预加载部门缓存，避免批量更新时循环内DB查询
+        department_cache = _build_department_cache()
+        
         # 提取所有入职时间值进行批量解析
-        hire_date_values = df.get('入职日期', pd.Series([None] * len(df)))  # 获取入职日期列或创建空Series
         try:
-            # 使用excel_date_utils批量解析入职日期
-            parsed_hire_dates = excel_date_utils.parse_excel_date(hire_date_values, field_name='入职日期')
+            parsed_hire_dates = _batch_parse_hire_dates(df)
         except Exception as e:
-            # 捕获任何批量处理过程中可能出现的异常
-            flash(f'批量解析入职日期失败：{str(e)}', 'danger')
+            msg = f'批量解析入职日期失败：{str(e)}'
+            flash(msg, 'danger')
             logging.error(f'批量解析入职日期失败：{str(e)}')
             return redirect(url_for('user.manage'))
         
@@ -721,109 +820,43 @@ def update_users():
                     field_name = display_to_field[col]
                     value = row[col]
                     if pd.notna(value):
-                        # 日期字段处理
-                        if field_name == 'hire_date':
-                            parsed_date = parsed_hire_dates[idx]  # 使用批量解析的结果
-                            if parsed_date:
-                                value = parsed_date
-                            else:
-                                continue
-                        # 处理需要作为字符串的数字字段
-                        elif field_name in ['phone', 'id_card', 'emergency_phone']:
-                            # 直接转换为字符串并去除首尾空格
-                            value = str(value).strip()
-                        # 布尔字段处理
-                        elif field_name in ['is_active', 'is_banned'] and isinstance(value, str):
-                            if value.strip() in ['是', 'true', 'True', '1']:
-                                value = True
-                            elif value.strip() in ['否', 'false', 'False', '0']:
-                                value = False
-                            else:
-                                logging.warning(f"批量更新用户数据操作，第{idx+2}行：布尔字段{field_name}值无效，原值：{value}，已忽略该字段")
-                                continue
-                        # 字符串字段处理
-                        elif isinstance(value, str):
-                            value = value.strip()
-                        
-                        user_data[field_name] = value
+                        # 使用公共函数统一处理字段值转换
+                        processed = _process_field_value(field_name, value, parsed_hire_dates, idx)
+                        if processed is not None:
+                            user_data[field_name] = processed
             
             # 同步公司和部门到部门管理模块
-            # 当有公司但无部门时，将公司名作为部门名自动创建，确保部门不会为空
-            company_val = user_data.get('company')
-            dept_val = user_data.get('department')
-            if company_val and not dept_val:
-                user_data['department'] = company_val
-                logging.info(f"批量更新用户数据操作，第{idx+2}行：用户有公司'{company_val}'但无部门，自动将公司名设为部门")
+            _sync_company_department(user_data, '批量更新用户数据操作', f'第{idx+2}行：')
             
             if user_data:
                 user_data_list.append(user_data)
         
         if not user_data_list:
-            flash('Excel中没有可更新的有效数据', 'warning')
+            msg = 'Excel中没有可更新的有效数据'
+            flash(msg, 'warning')
             logging.warning("批量更新用户数据操作，Excel中没有可更新的有效数据")
             return redirect(url_for('user.manage'))
         
         try:
             # 调用模型的批量更新方法
-            update_result = User.batch_update_users(user_data_list)
+            update_result = User.batch_update_users(user_data_list, department_cache=department_cache)
             
-            # 先提交事务，确保更新成功
-            db.session.commit()
-            
-            # 自动补全信息 - 在事务提交后进行，减少数据库负载
-            logging.info(f"批量更新用户数据成功，开始自动补全信息")
-            
-            # 获取成功更新的用户ID
-            success_user_ids = [user.id for user in update_result['success']]
-            # 事务提交后重新查询用户对象，确保与session关联
-            success_users = User.query.filter(User.id.in_(success_user_ids)).all()
-            
-            # 为每个用户调用自动补全方法
-            for user in success_users:
-                user.auto_complete_info()  # 调用模型自动补全方法          
-            # 提交自动补全的变更
-            db.session.commit()
-            logging.info(f"批量更新用户数据成功，自动补全信息成功")
-            
-            # 日志记录
-            success_count = len(update_result['success'])
-            failed_count = len(update_result['failed'])
-            
-            # 记录批量更新操作
-            from models.user.user_operation_record import UserOperationRecord
-            for updated_user in update_result['success']:
-                UserOperationRecord.create_record(
-                    target_user_id=updated_user.id,
-                    operation_type='batch_update',
-                    operator_id=current_user.id,
-                    operator_name=current_user.name,
-                    change_detail={
-                        'name': updated_user.name,
-                        'student_id': updated_user.student_id
-                    },
-                    summary=f'批量更新用户：{updated_user.name}'
-                )
-            db.session.commit()
-            
-            log_operation(
-                user_id=current_user.id,
-                module='user',
-                operation_type='batch_import_export',
-                action=f"批量更新用户数据，成功{success_count}条，失败{failed_count}条",
-                result="成功"
+            # 合并提交结果
+            commit_result = _commit_batch_result(
+                update_result, current_user,
+                operation_type='批量更新',
+                summary_template='批量更新用户：{name}',
+                is_create=False
             )
             
-            logging.info(f"批量更新用户数据操作，成功更新{success_count}条记录，失败{failed_count}条记录")
-            
-            # 显示成功消息
-            flash(f'批量更新成功！成功更新{success_count}条记录，失败{failed_count}条记录', 'success')
+            if commit_result is None:
+                return redirect(url_for('user.manage'))
             
             # 如果有失败记录，显示失败详情
-            if failed_count > 0:
-                flash('查看日志了解失败详情', 'warning')
+            if update_result['failed']:
                 for fail in update_result['failed']:
                     logging.error(f"批量更新用户失败，行号：{fail['row']}，错误：{', '.join(fail['errors'])}")
-            
+        
         except Exception as e:
             # 事务回滚
             db.session.rollback()
@@ -834,7 +867,8 @@ def update_users():
                 action=f"尝试批量更新用户数据失败: {str(e)}",
                 result="失败"
             )
-            flash(f'数据提交失败: {str(e)}', 'danger')
+            msg = f'数据提交失败: {str(e)}'
+            flash(msg, 'danger')
             logging.error(f"批量更新用户数据操作，提交数据库失败: {str(e)}")
             return redirect(url_for('user.manage'))
         
@@ -850,7 +884,8 @@ def update_users():
             action=f"尝试批量更新用户数据失败: {str(e)}",
             result="失败"
         )
-        flash(f'更新失败: {str(e)}', 'danger')
+        msg = f'更新失败: {str(e)}'
+        flash(msg, 'danger')
         logging.error(f"批量更新用户数据操作，更新失败: {str(e)}", exc_info=True)
         return redirect(url_for('user.manage'))
 

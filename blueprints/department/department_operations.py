@@ -47,6 +47,7 @@ def add_department():
                 flash(f'已存在部门"{name}"（未指定公司）', 'danger')
             return redirect(url_for('department.add_page'))
         department = Department.create(name=name, description=description, company=company, created_date=created_date, status=status)
+        db.session.commit()
 
         # 记录操作日志
         log_operation(

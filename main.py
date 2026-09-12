@@ -5,6 +5,25 @@ import logging
 import time
 from datetime import datetime, date
 
+
+def _get_waitress_threads():
+    """
+    根据运行环境和CPU核心数自适应waitress线程数
+    - Android: 2线程（资源受限）
+    - 其他环境: max(4, cpu_count * 2)，但不超过16
+    """
+    try:
+        cpu_count = os.cpu_count() or 2
+    except NotImplementedError:
+        cpu_count = 2
+    
+    if os.environ.get('ANDROID_ENV', 'false').lower() == 'true':
+        return 2
+    
+    # waitress处理I/O请求，线程数可以多于CPU核心数
+    return max(4, min(cpu_count * 2, 16))
+
+
 # ===== 启动计时 profiling =====
 _startup_time = time.perf_counter()
 def _stamp(label):
@@ -298,6 +317,23 @@ def init_flask_app(progress_callback=None):
     setup_session_timeout_handler(app)
     _stamp("初始化会话超时")
 
+    # 初始化内存缓存
+    from utils.memory_cache import cache
+    app.cache = cache
+    # 注册进程池退出清理（在应用退出时关闭进程池/线程池）
+    import atexit
+    from utils.process_pool import shutdown_executor
+    atexit.register(shutdown_executor)
+    # 注册周期性清理过期缓存（每10分钟）
+    import schedule as schedule_lib
+    def _cleanup_cache():
+        try:
+            cache.cleanup_expired()
+        except Exception as e:
+            logging.debug(f"缓存清理异常: {e}")
+    schedule_lib.every(10).minutes.do(_cleanup_cache)
+    _stamp("初始化内存缓存")
+
     _scheduler_initialized = False
     def _init_scheduler():
         nonlocal _scheduler_initialized
@@ -340,7 +376,20 @@ def init_flask_app(progress_callback=None):
     def run_server():
         _stamp("Flask应用初始化完成，准备启动服务器")
         from waitress import serve
-        serve(app, host=current_config.SERVER_HOST, port=current_config.SERVER_PORT)
+        waitress_threads = _get_waitress_threads()
+        logging.info(f"waitress启动，线程数: {waitress_threads}")
+        serve(
+            app,
+            host=current_config.SERVER_HOST,
+            port=current_config.SERVER_PORT,
+            threads=waitress_threads,
+            connection_limit=waitress_threads * 2,
+            recv_bytes=65536,          # 64KB 接收缓冲区，提升大请求处理
+            inbuf_overflow=1048576,    # 1MB 输入缓冲溢出，适配Excel导入
+            outbuf_overflow=1048576,   # 1MB 输出缓冲溢出，适配Excel导出
+            cleanup_interval=30,
+            asyncore_use_poll=True
+        )
         logging.info(f"服务器已启动，监听 {current_config.SERVER_HOST}:{current_config.SERVER_PORT}")
         logging.info("服务器启动完成")
 

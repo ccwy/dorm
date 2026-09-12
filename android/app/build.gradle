@@ -76,9 +76,7 @@ chaquopy {
             // Flask 全家桶
             install "Flask==2.3.3"
             install "Flask-SQLAlchemy==3.1.1"
-            install "Flask-WTF==1.2.1"
             install "Flask-Login==0.6.3"
-            install "Flask-Migrate==4.0.5"
 
             // 数据处理（版本对齐 Chaquopy pypi-13.1 仓库 cp312 预编译包）
             install "openpyxl==3.1.2"
@@ -87,7 +85,6 @@ chaquopy {
             install "xlsxwriter==3.2.5"
 
             // 工具库
-            install "python-dotenv==1.0.0"
             install "PyMySQL==1.1.0"
             install "cryptography==42.0.8"
             install "schedule==1.2.0"

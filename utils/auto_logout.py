@@ -2,7 +2,6 @@ import logging
 import os
 import sys
 import shutil
-import logging
 
 from flask import current_app, make_response, has_request_context
 
@@ -11,40 +10,14 @@ from utils.system_detector import is_docker
 # 导入我们的安全Cookie管理模块
 from utils.cookie_secure import cookie_secure
 
+
 def get_force_relogin_file_path():
     """
-    根据当前环境获取强制重新登录标志文件的正确路径
-    统一处理Docker、打包和开发环境
+    [已弃用] 保留此函数以兼容旧调用，强制重新登录已改为内存信号机制
+    不再使用文件标志，统一使用 current_app.config['FORCE_RELOGIN']
     """
-    # 优先检查Docker环境
-    if is_docker():
-        # Docker环境 - 使用外部数据卷路径
-        return os.path.join('/data', 'force_relogin.flag')
-    
-    # 检查是否为Android环境
-    if os.environ.get('ANDROID_ENV', 'false').lower() == 'true':
-        # Android环境 - 使用 APP_DATA_DIR
-        return os.path.join(os.environ.get('APP_DATA_DIR', '/data'), 'force_relogin.flag')
-    
-    # 检查是否为打包环境
-    if getattr(sys, 'frozen', False):
-        # 打包环境 - 配置文件始终存储在应用程序所在目录
-        app_dir = os.path.dirname(sys.executable)
-        data_dir = os.path.join(app_dir, 'data')
-    else:
-        # 开发环境 - 使用项目根目录
-        app_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-        data_dir = os.path.join(app_dir, 'data')
-    
-    # 确保data目录存在
-    if not os.path.exists(data_dir):
-        try:
-            os.makedirs(data_dir)
-            logging.info(f"已创建data目录: {data_dir}")
-        except Exception as dir_e:
-            logging.warning(f"创建data目录失败: {str(dir_e)}")
-    
-    return os.path.join(data_dir, 'force_relogin.flag')
+    logging.warning("get_force_relogin_file_path() 已弃用，请使用 current_app.config['FORCE_RELOGIN']")
+    return None
 
 def auto_logout_on_startup():
     """
@@ -127,16 +100,9 @@ def auto_logout_on_startup():
             current_app.is_authenticated = False
             logging.debug("已设置应用认证状态为未登录")
         
-        # 额外添加一个文件标志，用于跨进程通信
-        # 使用统一的路径处理函数
-        force_relogin_file = get_force_relogin_file_path()
-        
-        try:
-            with open(force_relogin_file, 'w') as f:
-                f.write('1')
-            logging.info(f"已创建强制重新登录文件标志: {force_relogin_file}")
-        except Exception as inner_e:
-            logging.warning(f"创建强制重新登录文件标志失败: {str(inner_e)}")
+        # 额外添加内存标志，用于跨请求通信（替代文件标志，更高效可靠）
+        current_app.config['FORCE_RELOGIN'] = True
+        logging.info("已设置强制重新登录内存标志")
         
         logging.info("自动退出登录机制执行成功，已清除所有可能的残留登录状态")
         
@@ -147,32 +113,23 @@ def auto_logout_on_startup():
 
 def check_force_relogin_flag():
     """
-    检查是否存在强制重新登录标志文件
-    用于在任何上下文中都能检查登录状态
+    检查是否存在强制重新登录标志（内存信号）
+    使用 current_app.config 替代文件标志，更高效可靠
     """
-    # 使用统一的路径处理函数
-    force_relogin_file = get_force_relogin_file_path()
-    
-    if os.path.exists(force_relogin_file):
-        try:
-            with open(force_relogin_file, 'r') as f:
-                content = f.read().strip()
-            return content == '1'
-        except Exception:
-            return False
-    return False
+    try:
+        return current_app.config.get('FORCE_RELOGIN', False)
+    except RuntimeError:
+        # 无应用上下文时返回False
+        return False
 
 
 def clear_force_relogin_flag():
     """
-    清除强制重新登录标志文件
+    清除强制重新登录标志（内存信号）
+    使用 current_app.config 替代文件标志
     """
-    # 使用统一的路径处理函数
-    force_relogin_file = get_force_relogin_file_path()
-    
-    if os.path.exists(force_relogin_file):
-        try:
-            os.remove(force_relogin_file)
-            logging.info(f"已清除强制重新登录文件标志: {force_relogin_file}")
-        except Exception as e:
-            logging.warning(f"清除强制重新登录文件标志失败: {str(e)}")
+    try:
+        current_app.config['FORCE_RELOGIN'] = False
+        logging.info("已清除强制重新登录内存标志")
+    except RuntimeError:
+        logging.warning("无应用上下文，无法清除强制重新登录标志")

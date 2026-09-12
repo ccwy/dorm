@@ -110,7 +110,7 @@ class Department(db.Model):
         """创建部门"""
         department = cls(name=name, description=description, company=company, created_date=created_date, status=status)
         db.session.add(department)
-        db.session.commit()
+        db.session.flush()  # 仅分配ID，不提交事务；由调用方决定何时commit
         return department
 
     @classmethod

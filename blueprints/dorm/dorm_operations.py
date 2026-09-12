@@ -3,6 +3,7 @@ from flask_login import login_required, current_user
 import logging
 from datetime import datetime  # 保留datetime导入
 from sqlalchemy import func  # 关键修复：导入func
+from sqlalchemy.orm import joinedload, load_only
 from utils.db import db
 from models.dorm.dorm import Dorm
 from models.user.user import User
@@ -455,11 +456,44 @@ def add():
         ~User.id.in_(
             db.session.query(Dorm.user_id).filter(Dorm.status == 'active')
         )
+    ).options(
+        joinedload(User.dept),
+        load_only(User.id, User.name, User.gender, User.department_id, User.position, User.age, User.birth_date, User.id_card)
     )
     if super_admin_role:
         users_query = users_query.filter(User.role_id != super_admin_role.id)
     users = users_query.all()
-    available_rooms = Room.query.filter_by(status='available').all()
+    available_rooms = Room.query.filter_by(status='available').options(
+        load_only(Room.id, Room.building, Room.room_number, Room.gender_restriction, Room.room_type, Room.room_level, Room.capacity, Room.current_occupancy, Room.average_age, Room.status)
+    ).all()
+
+    # 构建筛选选项（替代模板中Jinja2迭代）
+    # User.department是@property，需通过Department模型查询
+    departments = db.session.query(Department.name).filter(
+        Department.id.in_(
+            db.session.query(User.department_id).filter(
+                User.status == '在职',
+                User.department_id.isnot(None)
+            ).distinct()
+        )
+    ).order_by(Department.name).all()
+    department_list = [d[0] for d in departments if d[0]]
+
+    buildings = db.session.query(Room.building).filter_by(
+        status='available'
+    ).distinct().order_by(Room.building).all()
+    building_list = [b[0] for b in buildings if b[0]]
+
+    room_types = db.session.query(Room.room_type).filter_by(
+        status='available'
+    ).distinct().order_by(Room.room_type).all()
+    room_type_list = [rt[0] for rt in room_types if rt[0]]
+
+    room_levels = db.session.query(Room.room_level).filter_by(
+        status='available'
+    ).distinct().order_by(Room.room_level).all()
+    room_level_list = [rl[0] for rl in room_levels if rl[0]]
+
     # 记录访问日志
     log_operation(
             user_id=current_user.id,
@@ -472,7 +506,11 @@ def add():
         'dorm_manage/dorm_add.html',
         title="添加宿舍分配",
         users=users,
-        available_rooms=available_rooms
+        available_rooms=available_rooms,
+        department_list=department_list,
+        building_list=building_list,
+        room_type_list=room_type_list,
+        room_level_list=room_level_list
     )
 
 # --------------------------

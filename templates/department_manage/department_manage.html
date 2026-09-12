@@ -166,6 +166,7 @@
                                         <input type="checkbox" id="selectAll" class="form-checkbox text-primary">
                                     </div>
                                 </th>
+                                <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">序号</th>
                                 <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">部门名称</th>
                                 <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">所属公司</th>
                                 <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">描述</th>
@@ -179,6 +180,9 @@
                             <tr>
                                 <td class="px-4 py-4 whitespace-nowrap">
                                     <input type="checkbox" class="form-checkbox text-primary dept-checkbox" value="{{ dept.id }}">
+                                </td>
+                                <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+                                    {{ (current_page - 1) * per_page + loop.index }}
                                 </td>
                                 <td class="px-4 py-4 whitespace-nowrap">
                                     <span class="font-medium text-gray-900">{{ dept.name }}</span>
@@ -221,7 +225,7 @@
                             </tr>
                             {% else %}
                             <tr>
-                                <td colspan="7" class="px-6 py-4 text-center text-gray-500">没有找到匹配的部门数据</td>
+                                <td colspan="8" class="px-6 py-4 text-center text-gray-500">没有找到匹配的部门数据</td>
                             </tr>
                             {% endfor %}
                         </tbody>

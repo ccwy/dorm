@@ -215,6 +215,7 @@ def import_departments():
 
                 # 创建部门
                 Department.create(name=name, description=description, company=company, created_date=created_date, status=status)
+                db.session.commit()
                 success_count += 1
 
             except Exception as e:

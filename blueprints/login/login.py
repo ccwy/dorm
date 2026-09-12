@@ -29,18 +29,18 @@ def login():
     from models.system_config.system_config import SystemConfig
     phone_idcard_login_enabled = SystemConfig.get_config('FEATURE_PHONE_IDCARD_LOGIN_ENABLED', True)
     
-    # 检查全局强制重新登录标志（双重保障）
+    # 检查全局强制重新登录标志（内存信号机制）
     force_relogin = False
     
-    # 检查应用配置中的标志
+    # 检查应用配置中的标志（已从文件信号改为内存信号）
     if current_app.config.get('FORCE_RELOGIN', False):
         force_relogin = True
-        current_app.config['FORCE_RELOGIN'] = False  # 立即重置配置标志
+        current_app.config['FORCE_RELOGIN'] = False  # 立即重置标志
     
-    # 检查文件系统中的标志文件
-    if check_force_relogin_flag():
+    # 兼容旧调用：check_force_relogin_flag 现在也检查 current_app.config
+    if not force_relogin and check_force_relogin_flag():
         force_relogin = True
-        clear_force_relogin_flag()  # 立即清除文件标志
+        clear_force_relogin_flag()
     
     if force_relogin:
         print('检测到强制重新登录标志，强制清除所有用户认证状态')

@@ -303,7 +303,7 @@ class DatabaseConfig:
     def _get_mysql_uri(config):
         """生成MySQL连接字符串（含连接超时设置，避免不可用时长时间阻塞）"""
         connect_timeout = config.get('MYSQL_CONNECT_TIMEOUT', 3)
-        return f"mysql+pymysql://{config['MYSQL_USER']}:{config['MYSQL_PASSWORD']}@{config['MYSQL_HOST']}:{config['MYSQL_PORT']}/{config['MYSQL_DB']}?charset=utf8mb4&connect_timeout={connect_timeout}"
+        return f"mysql+pymysql://{config['MYSQL_USER']}:{config['MYSQL_PASSWORD']}@{config['MYSQL_HOST']}:{config['MYSQL_PORT']}/{config['MYSQL_DB']}?connect_timeout={connect_timeout}"
     
     @staticmethod
     def _get_sqlite_uri(config):

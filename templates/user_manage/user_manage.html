@@ -326,55 +326,71 @@
 
     <!-- 导入和更新用户模态框 -->
     <div id="importModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
-        <div class="bg-white rounded-lg p-6 w-full max-w-md">
-            <h3 class="text-lg font-semibold mb-4">用户数据操作</h3>
-            <p class="text-gray-600 mb-4">请选择操作类型和Excel文件，支持.xlsx格式</p>
-            
-            <!-- 操作类型选择 -->
-            <div class="mb-4">
-                <label class="block text-sm font-medium text-gray-700 mb-2">操作类型</label>
-                <div class="flex space-x-4">
-                    <label class="inline-flex items-center">
-                        <input type="radio" name="operationType" value="import" class="form-radio text-primary focus:ring-primary" checked>
-                        <span class="ml-2">批量导入用户</span>
-                    </label>
-                    <label class="inline-flex items-center">
-                        <input type="radio" name="operationType" value="update" class="form-radio text-primary focus:ring-primary">
-                        <span class="ml-2">批量更新用户</span>
-                    </label>
+        <div class="bg-white rounded-lg shadow-lg max-w-md w-full mx-4">
+            <!-- 头部：标题 + X关闭按钮 -->
+            <div class="p-6 border-b border-gray-200">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-lg font-semibold text-gray-800">用户数据操作</h3>
+                    <button id="closeModal" class="text-gray-500 hover:text-gray-700">
+                        <i class="fa fa-times"></i>
+                    </button>
                 </div>
             </div>
-            
-            <!-- 下载模板链接 -->
-            <div class="mb-4 p-3 bg-blue-50 rounded-md flex items-center">
-                <i class="fa fa-file-text-o text-blue-500 mr-2"></i>
-                <a href="{{ url_for('user_import_export.import_template') }}" class="text-blue-600 hover:text-blue-800 font-medium whitespace-nowrap">
-                    下载模板
-                </a>
-                <span class="text-gray-500 text-sm ml-2">（按模板格式填写，更新用户时必须包含用户ID列）</span>
-            </div>
-            
-            <!-- 导入区域 -->
-            <div class="border-2 border-dashed border-gray-300 rounded-md p-6 text-center mb-4">
-                <i class="fa fa-file-excel-o text-4xl text-green-500 mb-2"></i>
-                <p class="text-gray-500 mb-2">拖放文件到此处或点击上传</p>
-                <input type="file" id="fileUpload" name="file" accept=".xlsx, .xls" class="hidden" required>
-                <button type="button" onclick="document.getElementById('fileUpload').click()" class="text-primary hover:text-primary/80">选择文件</button>
-                <div id="fileName" class="mt-2 text-sm text-gray-600"></div>
-            </div>
-            
-            <!-- 状态提示 -->
-            <div id="importStatus" class="hidden mb-4 p-3 rounded-md flex items-center">
-                <i class="fa fa-spinner fa-spin text-blue-500 mr-3"></i>
-                <span id="statusMessage">正在导入数据，请稍候...</span>
-            </div>
-            
-            <!-- 结果提示 -->
-            <div id="importResult" class="hidden mb-4 p-3 rounded-md"></div>
-            
-            <div class="flex justify-end gap-3">
-                <button type="button" id="cancelImportBtn" class="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50">取消</button>
-                <button type="button" id="confirmImportBtn" class="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600">导入</button>
+            <div class="p-6">
+                <!-- 初始状态内容 -->
+                <div id="importInitialContent">
+                    <p class="text-gray-600 mb-4">请选择操作类型和Excel文件，支持.xlsx和.xls格式（最大10MB）。</p>
+                    
+                    <!-- 操作类型选择 -->
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">操作类型</label>
+                        <div class="flex space-x-4">
+                            <label class="inline-flex items-center">
+                                <input type="radio" name="operationType" value="import" class="form-radio text-primary focus:ring-primary" checked>
+                                <span class="ml-2">批量导入用户</span>
+                            </label>
+                            <label class="inline-flex items-center">
+                                <input type="radio" name="operationType" value="update" class="form-radio text-primary focus:ring-primary">
+                                <span class="ml-2">批量更新用户</span>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <!-- 下载模板链接 -->
+                    <div class="mb-4">
+                        <a href="{{ url_for('user_import_export.import_template') }}" class="text-primary hover:text-primary/80 flex items-center">
+                            <i class="fa fa-file-excel-o mr-2"></i>下载导入模板
+                        </a>
+                        <p class="text-gray-500 text-sm mt-1">（更新用户时必须包含用户ID列）</p>
+                    </div>
+                    
+                    <form id="importForm" method="post" enctype="multipart/form-data">
+                        <div class="mb-4">
+                            <label for="importFile" class="block text-sm font-medium text-gray-700 mb-1">选择文件</label>
+                            <input type="file" id="importFile" name="file" accept=".xlsx,.xls" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50" required>
+                        </div>
+                        <div class="flex justify-end gap-3">
+                            <button type="button" id="cancelImport" class="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50">取消</button>
+                            <button type="submit" id="submitImport" class="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90">确认导入</button>
+                        </div>
+                    </form>
+                </div>
+                
+                <!-- 加载状态内容 - 默认隐藏 -->
+                <div id="importLoadingContent" class="hidden text-center py-8">
+                    <div class="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mb-4"></div>
+                    <p class="text-gray-700">正在处理数据，请稍候...</p>
+                    <p class="text-gray-500 text-sm mt-2">文件越大，处理时间可能越长</p>
+                </div>
+                
+                <!-- 成功状态内容 - 默认隐藏 -->
+                <div id="importSuccessContent" class="hidden text-center py-8">
+                    <div class="inline-block text-green-500 mb-4">
+                        <i class="fa fa-check-circle text-4xl"></i>
+                    </div>
+                    <p class="text-gray-700 font-medium">操作完成！</p>
+                    <p class="text-gray-500 text-sm mt-2">正在返回用户列表...</p>
+                </div>
             </div>
         </div>
     </div>
@@ -422,120 +438,76 @@
                 }
             });
 
-            // 导入相关元素
-            const importModal = document.getElementById('importModal');
+            // 导入模态框相关逻辑
             const importBtn = document.getElementById('importBtn');
-            const cancelImportBtn = document.getElementById('cancelImportBtn');
-            const fileUpload = document.getElementById('fileUpload');
-            const fileName = document.getElementById('fileName');
-            const confirmImportBtn = document.getElementById('confirmImportBtn');
-            const importStatus = document.getElementById('importStatus');
-            const statusMessage = document.getElementById('statusMessage');
-            const importResult = document.getElementById('importResult');
+            const importModal = document.getElementById('importModal');
+            const closeModal = document.getElementById('closeModal');
+            const cancelImport = document.getElementById('cancelImport');
+            const importForm = document.getElementById('importForm');
+            const importInitialContent = document.getElementById('importInitialContent');
+            const importLoadingContent = document.getElementById('importLoadingContent');
+            const importSuccessContent = document.getElementById('importSuccessContent');
 
             // 打开模态框
-            importBtn.addEventListener('click', function() {
-                importModal.classList.remove('hidden');
-                resetImportForm();
-            });
-            
-            // 关闭模态框
-            cancelImportBtn.addEventListener('click', function() {
-                importModal.classList.add('hidden');
-                resetImportForm();
-            });
-            
-            // 重置表单状态
-            function resetImportForm() {
-                fileUpload.value = '';
-                fileName.textContent = '';
-                importStatus.classList.add('hidden');
-                importResult.classList.add('hidden');
-                confirmImportBtn.disabled = false;
-            }
-            
-            // 显示选择的文件名
-            fileUpload.addEventListener('change', function() {
-                if (this.files && this.files.length > 0) {
-                    fileName.textContent = this.files[0].name;
-                } else {
-                    fileName.textContent = '';
-                }
-            });
-            // 确认导入
-            confirmImportBtn.addEventListener('click', function() {
-                // 验证文件
-                if (!fileUpload.files || fileUpload.files.length === 0) {
-                    alert('请选择要导入的Excel文件');
-                    return;
-                }
-                
-                const file = fileUpload.files[0];
-                if (!file.name.endsWith('.xlsx') && !file.name.endsWith('.xls')) {
-                    alert('请上传.xlsx或.xls格式的Excel文件');
-                    return;
-                }
-                
-                // 显示加载状态
-                importStatus.classList.remove('hidden');
-                confirmImportBtn.disabled = true;
-                cancelImportBtn.disabled = true;
-                
-                // 创建表单数据
-                const formData = new FormData();
-                formData.append('file', file);
-                
-                // 获取操作类型
-                const operationType = document.querySelector('input[name="operationType"]:checked').value;
-                // 选择对应的API端点
-                const apiEndpoint = operationType === 'import' 
-                    ? "{{ url_for('user_import_export.import_users') }}" 
-                    : "{{ url_for('user_import_export.update_users') }}";
-                
-                // 异步上传（解决504超时问题的核心）
-                fetch(apiEndpoint, {
-                    method: 'POST',
-                    body: formData,
-                    credentials: 'same-origin',
-                    // 延长超时时间
-                    timeout: 1000000 // 10分钟
-                })
-                .then(response => {
-                    // 检查响应状态
-                    if (!response.ok) {
-                        throw new Error(response.status === 504 ? '操作超时，请尝试分批处理' : '操作失败');
-                    }
-                    // 无论返回什么都视为成功，因为后端已经处理了所有逻辑
-                    // 导入成功
-                    importStatus.classList.add('hidden');
-                    importResult.classList.remove('hidden');
-                    importResult.className = 'mb-4 p-3 bg-green-50 text-green-800 rounded-md';
-                    importResult.innerHTML = `<i class="fa fa-check-circle mr-2"></i>${operationType === 'import' ? '导入' : '更新'}成功！`;
-                    
-                    // 2秒后刷新页面
-                    setTimeout(() => {
-                        window.location.reload();
-                    }, 2000);
-                })
-                .catch(error => {
-                    // 显示错误
-                    importStatus.classList.add('hidden');
-                    importResult.classList.remove('hidden');
-                    importResult.className = 'mb-4 p-3 bg-red-50 text-red-800 rounded-md';
-                    importResult.innerHTML = `<i class="fa fa-exclamation-circle mr-2"></i>${error.message}`;
-                    
-                    // 重新启用取消按钮
-                    cancelImportBtn.disabled = false;
+            if (importBtn) {
+                importBtn.addEventListener('click', function() {
+                    importModal.classList.remove('hidden');
+                    importInitialContent.classList.remove('hidden');
+                    importLoadingContent.classList.add('hidden');
+                    importSuccessContent.classList.add('hidden');
+                    document.body.style.overflow = 'hidden';
                 });
-            });
-            
-            // 点击外部关闭
-            importModal.addEventListener('click', function(e) {
-                if (e.target === importModal) {
-                    importModal.classList.add('hidden');
-                    resetImportForm();
-                }
-            });
+            }
+
+            // 关闭模态框的函数
+            function closeImportModal() {
+                importModal.classList.add('hidden');
+                document.body.style.overflow = '';
+            }
+            if (closeModal) {
+                closeModal.addEventListener('click', closeImportModal);
+            }
+            if (cancelImport) {
+                cancelImport.addEventListener('click', closeImportModal);
+            }
+
+            // 点击模态框外部关闭
+            if (importModal) {
+                importModal.addEventListener('click', function(e) {
+                    if (e.target === importModal) {
+                        closeImportModal();
+                    }
+                });
+            }
+
+            // 处理表单提交 - 传统表单提交方式（参考房间管理）
+            if (importForm) {
+                importForm.addEventListener('submit', function(e) {
+                    const fileInput = document.getElementById('importFile');
+                    if (!fileInput.files || fileInput.files.length === 0) {
+                        alert('请选择要导入的文件');
+                        e.preventDefault();
+                        return;
+                    }
+                    
+                    // 根据操作类型设置表单action
+                    const operationType = document.querySelector('input[name="operationType"]:checked').value;
+                    this.action = operationType === 'import' 
+                        ? "{{ url_for('user_import_export.import_users') }}" 
+                        : "{{ url_for('user_import_export.update_users') }}";
+                    
+                    // 显示加载状态，隐藏初始内容
+                    importInitialContent.classList.add('hidden');
+                    importLoadingContent.classList.remove('hidden');
+                    
+                    // 禁用提交按钮防止重复提交
+                    const submitButton = this.querySelector('button[type="submit"]');
+                    submitButton.disabled = true;
+                    submitButton.textContent = '正在处理...';
+                    
+                    // 不阻止默认提交行为，表单正常提交到后端，后端重定向
+                });
+            }
             // 公司、部门、性别和状态筛选框选择即生效
             const companyFilter = document.getElementById('companyFilter');
             const departmentFilter = document.getElementById('departmentFilter');

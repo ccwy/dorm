@@ -437,7 +437,7 @@ class User(UserMixin, db.Model):
             return {'success': False, 'message': error_msg}
 
     @classmethod
-    def batch_create_users(cls, user_data_list):
+    def batch_create_users(cls, user_data_list, existing_student_ids=None, existing_usernames=None, department_cache=None):
         """
         批量创建用户对象（不提交事务）
         仅创建用户对象并进行基础验证，不处理数据库事务
@@ -445,19 +445,43 @@ class User(UserMixin, db.Model):
         
         参数:
             user_data_list: 包含用户数据的字典列表
+            existing_student_ids: 外部传入的已有工号集合，避免重复查询
+            existing_usernames: 外部传入的已有用户名集合，避免重复查询
+            department_cache: 外部传入的部门缓存字典，避免循环内DB查询
             
         返回:
             字典，包含'success'（用户对象列表）和'failed'（错误信息列表）
         """
         result = {
             'success': [],
-            'failed': []
+            'failed': [],
+            'skipped': 0
         }
         logging.info(f"开始批量创建用户，共{len(user_data_list)}条数据")
-        # 收集现有工号和用户名用于查重
-        existing_student_ids = {user.student_id for user in cls.query.with_entities(cls.student_id).all()}
-        existing_usernames = {user.username for user in cls.query.with_entities(cls.username).all()}
-        
+
+        # 使用外部传入的查重集合，避免重复查询
+        existing_sids = existing_student_ids if existing_student_ids is not None else {user.student_id for user in cls.query.with_entities(cls.student_id).all()}
+        existing_unames = existing_usernames if existing_usernames is not None else {user.username for user in cls.query.with_entities(cls.username).all()}
+
+        # 并行计算密码哈希（pbkdf2释放GIL，多线程有效）
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+        passwords = [ud.get('password', '123456') for ud in user_data_list]
+        password_hashes = {}
+        try:
+            with ThreadPoolExecutor(max_workers=min(4, len(passwords))) as executor:
+                futures = {executor.submit(generate_password_hash, pwd): i for i, pwd in enumerate(passwords)}
+                for future in as_completed(futures):
+                    idx = futures[future]
+                    password_hashes[idx] = future.result()
+            logging.info(f"批量密码哈希计算完成，共{len(password_hashes)}条")
+        except Exception as e:
+            logging.error(f"并行计算密码哈希失败，回退到逐条计算: {str(e)}")
+            password_hashes = {}
+
+        # 使用外部传入的部门缓存，避免循环内DB查询
+        # 缓存格式: {cache_key: (dept_id, dept_company)}
+        dept_cache = department_cache if department_cache is not None else {}
+
         # 用于检查同批次数据中的重复
         batch_student_ids = set()
         batch_usernames = set()
@@ -474,7 +498,7 @@ class User(UserMixin, db.Model):
                     logging.error(f"导入用户数据操作，第{row_num}行：缺少必填字段{field}，已跳过")
             
             # 检查工号唯一性（数据库中已存在）
-            if user_data.get('student_id') in existing_student_ids:
+            if user_data.get('student_id') in existing_sids:
                 errors.append(f"工号已存在: {user_data.get('student_id')}")
                 logging.error(f"导入用户数据操作，第{row_num}行：工号已存在，已跳过")
             
@@ -484,7 +508,7 @@ class User(UserMixin, db.Model):
                 logging.error(f"导入用户数据操作，第{row_num}行：工号重复，已跳过")
             
             # 检查用户名唯一性（数据库中已存在）
-            if user_data.get('username') in existing_usernames:
+            if user_data.get('username') in existing_unames:
                 errors.append(f"用户名已存在: {user_data.get('username')}")
                 logging.error(f"导入用户数据操作，第{row_num}行：用户名已存在，已跳过")
             
@@ -503,14 +527,8 @@ class User(UserMixin, db.Model):
                 continue
             logging.info(f"第{row_num}行必填字段验证通过，开始创建用户对象")
             try:
-                # 获取部门ID并同步公司字段
-                _dept_id = _get_department_id(user_data.get('department'), user_data.get('company'))
-                # 确保公司字段与部门管理模块同步：优先使用部门的company
-                if _dept_id:
-                    _dept = Department.query.get(_dept_id)
-                    _synced_company = _dept.company if _dept else user_data.get('company')
-                else:
-                    _synced_company = user_data.get('company')
+                # 获取部门ID并同步公司字段（使用缓存避免循环内DB查询）
+                _dept_id, _synced_company = _get_cached_dept_info(user_data.get('department'), user_data.get('company'), dept_cache)
                 # 创建用户对象但不保存
                 user = cls(
                     student_id=user_data['student_id'],
@@ -539,8 +557,11 @@ class User(UserMixin, db.Model):
                     updated_at=user_data.get('updated_at', datetime.now())
                     # 不处理住宿相关字段，因为用户不会上传
                 )
-                # 调用模型的set_password方法处理密码（核心修改点）
-                user.set_password(user_data['password'])
+                # 使用预计算的密码哈希，回退到逐条计算
+                if idx in password_hashes:
+                    user.password_hash = password_hashes[idx]
+                else:
+                    user.set_password(user_data['password'])
                 # 添加到成功列表
                 result['success'].append(user)
                 # 更新批次内查重集合
@@ -558,7 +579,7 @@ class User(UserMixin, db.Model):
         return result
 
     @classmethod
-    def batch_update_users(cls, user_data_list):
+    def batch_update_users(cls, user_data_list, department_cache=None):
         """
         批量更新用户对象（不提交事务）
         根据用户ID查找并更新用户
@@ -566,17 +587,27 @@ class User(UserMixin, db.Model):
         
         参数:
             user_data_list: 包含用户数据的字典列表，每条数据必须包含id作为唯一标识
+            department_cache: 外部传入的部门缓存字典，避免循环内DB查询
             
         返回:
             字典，包含'success'（成功更新的用户对象列表）和'failed'（错误信息列表）
         """
         result = {
             'success': [],
-            'failed': []
+            'failed': [],
+            'skipped': 0
         }
         logging.info(f"开始批量更新用户对象，共{len(user_data_list)}条数据")
         # 跟踪已处理的用户ID，避免同批次重复更新
         processed_ids = set()
+        # skipped 计数已放入 result['skipped']
+        
+        # 使用外部传入的部门缓存，避免循环内DB查询
+        # 缓存格式: {cache_key: (dept_id, dept_company)}
+        dept_cache = department_cache if department_cache is not None else {}
+        
+        # 收集需要密码哈希的 (user, password) 元组，循环后并行计算
+        password_tasks = []
         
         for idx, user_data in enumerate(user_data_list):
             row_num = idx + 2  # 行号从2开始（Excel表头占1行）
@@ -632,43 +663,65 @@ class User(UserMixin, db.Model):
                     continue
                 
                 # 更新用户字段（company由下方部门同步逻辑单独处理）
+                # 脏检查：仅当字段值实际变化时才setattr，跳过无变化字段
                 fields_to_update = ['name', 'gender', 'category', 'id_card', 'id_address', 
                                    'lodging_address', 'phone', 
                                    'position', 'marital_status', 'ethnicity', 'emergency_contact', 
                                    'emergency_phone', 'remarks', 'status', 'hire_date', 'role_id', 
                                    'is_active', 'is_banned', 'username', 'student_id']
                 
+                is_dirty = False  # 标记当前记录是否有字段变化
                 for field in fields_to_update:
                     if field in user_data and user_data[field] is not None:
                         value = user_data[field]
-                        setattr(user, field, value)
+                        if _is_field_changed(user, field, value):
+                            setattr(user, field, value)
+                            is_dirty = True
                 
-                # 单独处理department → department_id的转换，并同步公司字段
-                if 'department' in user_data and user_data['department'] is not None:
-                    user.department_id = _get_department_id(user_data['department'], user_data.get('company'))
-                    # 确保公司字段与部门管理模块同步：优先使用部门的company
-                    if user.department_id:
-                        _dept = Department.query.get(user.department_id)
-                        if _dept:
-                            user.company = _dept.company
+                # 单独处理department → department_id的转换，并同步公司字段（使用缓存避免循环内DB查询）
+                if 'department' in user_data and user_data['department']:  # 同时排除None和空字符串
+                    _dept_id, _synced_company = _get_cached_dept_info(user_data['department'], user_data.get('company'), dept_cache)
+                    if _is_field_changed(user, 'department_id', _dept_id):
+                        user.department_id = _dept_id
+                        is_dirty = True
+                    if _synced_company is not None:
+                        if _is_field_changed(user, 'company', _synced_company):
+                            user.company = _synced_company
+                            is_dirty = True
                     elif 'company' in user_data and user_data['company'] is not None:
-                        user.company = user_data['company']
-                elif 'company' in user_data and user_data['company'] is not None:
-                    # 仅更新公司时，也尝试同步部门的公司
-                    if user.department_id:
-                        _dept = Department.query.get(user.department_id)
-                        if _dept:
-                            user.company = _dept.company
-                        else:
+                        if _is_field_changed(user, 'company', user_data['company']):
                             user.company = user_data['company']
+                            is_dirty = True
+                elif 'company' in user_data and user_data['company'] is not None:
+                    if user.department_id:
+                        _dept_id, _synced_company = _get_cached_dept_info(None, user_data.get('company'), dept_cache)
+                        if _synced_company is not None:
+                            if _is_field_changed(user, 'company', _synced_company):
+                                user.company = _synced_company
+                                is_dirty = True
+                        else:
+                            if _is_field_changed(user, 'company', user_data['company']):
+                                user.company = user_data['company']
+                                is_dirty = True
                     else:
-                        user.company = user_data['company']
+                        if _is_field_changed(user, 'company', user_data['company']):
+                            user.company = user_data['company']
+                            is_dirty = True
                 
-                # 单独处理密码（如果提供了新密码）
+                # 收集密码哈希任务（循环后并行计算）
+                # 脏检查：用check_password验证密码是否相同，相同则跳过
                 if 'password' in user_data and user_data['password']:
-                    user.set_password(user_data['password'])
+                    if not user.check_password(user_data['password']):
+                        password_tasks.append((user, user_data['password']))
+                        is_dirty = True
                 
-                # 更新更新时间
+                # 整条记录无变化则跳过，不计入更新计数
+                if not is_dirty:
+                    result['skipped'] += 1
+                    logging.info(f"批量更新用户操作，第{row_num}行：用户数据无变化，已跳过，用户ID：{user_id}")
+                    continue
+                
+                # 仅在有脏字段时更新更新时间
                 user.updated_at = datetime.now()
                 
                 # 添加到成功列表
@@ -682,6 +735,11 @@ class User(UserMixin, db.Model):
                     'data': {k: v for k, v in user_data.items() if k != 'password'},
                     'errors': [f'更新用户对象失败: {str(e)}']
                 })
+        
+        # 并行计算密码哈希（pbkdf2释放GIL，多线程有效）
+        _parallel_hash_passwords(password_tasks)
+        
+        logging.info(f"批量更新用户对象完成，更新{len(result['success'])}条，跳过{result['skipped']}条（无变化），失败{len(result['failed'])}条")
         
         return result
 
@@ -702,4 +760,108 @@ def _get_department_id(dept_name, company=None):
     # 不存在则创建
     dept = Department.create(name=dept_name, company=company, status='正常')
     return dept.id
+
+
+def _get_cached_dept_info(dept_name, company, dept_cache):
+    """返回 (dept_id, dept_company)，避免循环内DB查询
+
+    参数:
+        dept_name: 部门名称（可为None）
+        company: 公司名称（可为None）
+        dept_cache: 部门缓存字典，格式 {cache_key: (dept_id, dept_company)}
+
+    缓存未命中时调用 _get_department_id() 并将结果写入缓存。
+    """
+    cache_key = f"{dept_name}_{company or ''}"
+    if cache_key in dept_cache:
+        return dept_cache[cache_key]
+    # 缓存未命中，查询数据库
+    dept_id = _get_department_id(dept_name, company)
+    if dept_id:
+        dept = Department.query.get(dept_id)
+        dept_company = dept.company if dept else company
+    else:
+        dept_company = company
+    dept_cache[cache_key] = (dept_id, dept_company)
+    return (dept_id, dept_company)
+
+
+def _parallel_hash_passwords(password_tasks):
+    """并行计算密码哈希，接收 [(user, password)] 列表
+
+    使用 ThreadPoolExecutor(max_workers=min(4, len)) 并行计算
+    generate_password_hash，失败回退逐条计算。
+    """
+    if not password_tasks:
+        return
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    try:
+        with ThreadPoolExecutor(max_workers=min(4, len(password_tasks))) as executor:
+            futures = {executor.submit(generate_password_hash, pwd): (user, pwd)
+                      for user, pwd in password_tasks}
+            for future in as_completed(futures):
+                user, original_pwd = futures[future]
+                try:
+                    user.password_hash = future.result()
+                except Exception as e:
+                    logging.warning(f"并行密码哈希失败，回退逐条计算: {e}")
+                    user.set_password(original_pwd)
+        logging.info(f"批量更新密码哈希计算完成，共{len(password_tasks)}条")
+    except Exception as e:
+        logging.warning(f"ThreadPoolExecutor创建失败，回退逐条计算: {e}")
+        for user, pwd in password_tasks:
+            user.set_password(pwd)
+
+
+def _is_field_changed(user, field, new_value):
+    """判断字段值是否实际发生变化，处理类型对齐后比较
+
+    参数:
+        user: User模型实例
+        field: 字段名（字符串）
+        new_value: 新值（Excel经_process_field_value处理后的值）
+
+    返回:
+        True表示值有变化，False表示无变化
+    """
+    old_value = getattr(user, field, None)
+
+    # 布尔字段：将新值转为布尔后比较
+    if field in ('is_active', 'is_banned'):
+        new_bool = bool(new_value) if new_value is not None else None
+        return old_value != new_bool
+
+    # 整数字段：将新值转为int后比较
+    if field == 'role_id':
+        try:
+            new_int = int(new_value) if new_value is not None else None
+        except (ValueError, TypeError):
+            return old_value != new_value
+        return old_value != new_int
+
+    if field == 'department_id':
+        try:
+            new_int = int(new_value) if new_value is not None else None
+        except (ValueError, TypeError):
+            return old_value != new_value
+        return old_value != new_int
+
+    # 日期字段：统一转为date比较，避免datetime vs date误判
+    if field == 'hire_date':
+        if old_value is None and new_value is None:
+            return False
+        if old_value is None or new_value is None:
+            return True
+        old_date = old_value.date() if hasattr(old_value, 'date') and callable(old_value.date) else old_value
+        new_date = new_value.date() if hasattr(new_value, 'date') and callable(new_value.date) else new_value
+        return old_date != new_date
+
+    # 字符串字段：先区分None，再strip后比较
+    if old_value is None and new_value is None:
+        return False
+    if old_value is None or new_value is None:
+        return True  # None与任何非None值都视为不同
+    old_str = str(old_value).strip()
+    new_str = str(new_value).strip()
+    return old_str != new_str
 
