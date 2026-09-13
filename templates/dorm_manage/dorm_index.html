@@ -108,18 +108,6 @@
             </div>
             {% endif %}
 
-            <!-- 办理退宿 
-            <div class="bg-white rounded-xl p-6 shadow-sm card-hover text-center">
-                <div class="w-16 h-16 bg-danger/10 rounded-full flex items-center justify-center mb-4 mx-auto">
-                    <i class="fa fa-sign-out text-2xl text-danger"></i>
-                </div>
-                <h3 class="text-lg font-medium text-dark mb-2">办理退宿</h3>
-                <p class="text-gray-500 text-sm mb-4">为用户办理退宿手续</p>
-                <button onclick="window.location.href='{{ url_for('dorm.dorm_gameout') }}'" 
-                        class="px-4 py-2 bg-danger text-white rounded-md hover:bg-danger/90">
-                    办理退宿
-                </button>
-            </div>-->
              <!-- 住宿详情查询 -->
              {% if current_user.has_permission('dorm.view') %}
             <div class="bg-white rounded-xl p-6 shadow-sm card-hover text-center">

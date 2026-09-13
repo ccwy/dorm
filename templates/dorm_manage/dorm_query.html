@@ -395,10 +395,10 @@
                                     <td class="px-6 py-3 whitespace-nowrap font-medium">{{ resident.current_stay_days }}天</td>
                                     <td class="px-6 py-3 whitespace-nowrap">{{ resident.total_stay_days }}天</td>
                                     <td class="px-6 py-3 whitespace-nowrap">
-                                        <button onclick="window.location.href='{{ url_for('dorm.swap', user_id=resident.id) }}'" class="text-accent hover:text-accent/80 text-sm action-btn">
+                                        <button onclick="window.location.href='{{ url_for('dorm.swap', user_id=resident.id, next=url_for('dorm.dorm_query')) }}'" class="text-accent hover:text-accent/80 text-sm action-btn">
                                             <i class="fa fa-exchange mr-1"></i>更换
                                         </button>
-                                        <button onclick="window.location.href='{{ url_for('dorm.checkout', user_id=resident.id) }}'" class="text-red-500 hover:text-red-700 text-sm ml-2 action-btn">
+                                        <button onclick="window.location.href='{{ url_for('dorm.checkout', user_id=resident.id, next=url_for('dorm.dorm_query')) }}'" class="text-red-500 hover:text-red-700 text-sm ml-2 action-btn">
                                             <i class="fa fa-sign-out mr-1"></i>退宿
                                         </button>
                                     </td>

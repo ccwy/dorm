@@ -211,7 +211,7 @@
                                     <div class="text-xs text-gray-500">已住{{ latest_dorm.stay_days if latest_dorm.stay_days else 0 }}天</div>
                                 </div>
                                 {% elif user.status == '在职' %}
-                                <a href="{{ url_for('dorm.create_allocation', user_id=user.id) }}" 
+                                <a href="{{ url_for('dorm.create_allocation', user_id=user.id, next=url_for('user.manage')) }}" 
                                    class="text-primary hover:text-primary/80 text-sm font-medium">
                                     <i class="fa fa-bed mr-1"></i>分配
                                 </a>

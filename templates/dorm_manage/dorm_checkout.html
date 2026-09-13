@@ -23,7 +23,7 @@
     {% include 'header.html' %}
     <main class="container mx-auto px-4 py-6">
         <div class="flex items-center mb-6">
-            <button onclick="window.location.href='{{ url_for('dorm.manage') }}'" class="text-primary hover:text-primary/80 mr-2">
+            <button type="button" onclick="window.history.back()" class="text-primary hover:text-primary/80 mr-2">
                 <i class="fa fa-arrow-left"></i>
             </button>
             <h2 class="text-2xl font-semibold text-gray-800">{{ title }}</h2>
@@ -55,6 +55,7 @@
             {% else %}
                 <form method="POST" action="{{ url_for('dorm.checkout') }}">
                     <input type="hidden" name="user_id" value="{{ request.args.get('user_id') or (current_dorm.user.id if current_dorm and current_dorm.user else '') }}">
+                    <input type="hidden" name="next" value="{{ next_url or '' }}">
                     
                     <!-- 用于接收从模态框选择的房间ID -->
                     <input type="hidden" name="new_room_id" id="selected_room_id" value="{{ request.form.new_room_id if request.method == 'POST' else '' }}">

@@ -35,7 +35,7 @@
     <main class="container mx-auto px-4 py-6">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-4">
             <div class="flex items-center">
-                <button onclick="window.location.href='{{ url_for('room.manage') }}'" class="text-primary hover:text-primary/80 mr-2">
+                <button type="button" onclick="window.history.back()" class="text-primary hover:text-primary/80 mr-2">
                     <i class="fa fa-arrow-left"></i>
                 </button>
                 <h2 class="text-2xl font-semibold text-dark">{{ title }} (ID:{{ room.id }})</h2>
@@ -358,7 +358,7 @@
                                         <td class="px-6 py-4 whitespace-nowrap">{{ resident.dorm.check_in_date.strftime('%Y-%m-%d') }}</td>
                                         <td class="px-6 py-4 whitespace-nowrap">{{ resident.dorm.stay_days }}天</td>
                                         <td class="px-6 py-4 whitespace-nowrap">
-                                            <a href="{{ url_for('dorm.checkout', user_id=resident.user.id) }}" class="text-red-500 hover:text-red-700 text-sm ml-2 action-btn">
+                                            <a href="{{ url_for('dorm.checkout', user_id=resident.user.id, next=url_for('room.view', id=room.id)) }}" class="text-red-500 hover:text-red-700 text-sm ml-2 action-btn">
                                                 退宿<i class="fa fa-sign-out mr-1"></i>
                                             </a>
                                         </td>

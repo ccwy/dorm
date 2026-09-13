@@ -40,6 +40,8 @@ def create_allocation():
     if request.method == 'GET':
         # 从URL获取用户ID
         user_id = request.args.get('user_id', type=int)
+        # 获取来源页面URL，用于分配成功后跳转回来源页面
+        next_url = request.args.get('next', '')
         
         if not user_id:
             flash('用户ID不能为空', 'danger')
@@ -115,7 +117,8 @@ def create_allocation():
                               building_list=building_list,
                               room_type_list=room_type_list,
                               room_level_list=room_level_list,
-                              datetime=datetime
+                              datetime=datetime,
+                              next_url=next_url
                               )
                               
     
@@ -247,6 +250,10 @@ def create_allocation():
             if subsidies_disabled:
                 logging_message += "，外宿补贴已自动禁用"
             logging.info(logging_message)
+            # 优先跳转回来源页面，否则默认跳转到宿舍查询页面
+            next_url = request.form.get('next', '')
+            if next_url:
+                return redirect(next_url)
             return redirect(url_for('dorm.dorm_query'))
             
         except ValueError as e:
@@ -645,6 +652,10 @@ def checkout():
                     success_message += f"，并自动禁用了{len(user_subsidies)}条住宿补贴"
                 flash(success_message, 'success')
                 logging.info(f"用户{user_name}自离退宿，仅办理退宿，不创建费用和抄表记录")
+                # 优先跳转回来源页面，否则默认跳转到宿舍查询页面
+                next_url = request.form.get('next', '')
+                if next_url:
+                    return redirect(next_url)
                 return redirect(url_for('dorm.dorm_query'))
             else:
                 # 离职退宿或在职退宿：执行完整的退宿流程（包括抄表和费用计算）
@@ -757,6 +768,10 @@ def checkout():
                     # 使用flash消息并重定向
                     flash(success_message, 'success')
                     logging.info(success_message)
+                    # 优先跳转回来源页面，否则默认跳转到宿舍查询页面
+                    next_url = request.form.get('next', '')
+                    if next_url:
+                        return redirect(next_url)
                     return redirect(url_for('dorm.dorm_query'))
             
         except ValueError as e:
@@ -800,6 +815,8 @@ def checkout():
     
     # 从URL参数获取user_id
     user_id = request.args.get('user_id', type=int)
+    # 获取来源页面URL，用于退宿成功后跳转回来源页面
+    next_url = request.args.get('next', '')
     
     # 初始化变量
     user = None
@@ -829,7 +846,8 @@ def checkout():
                     transfer_records=[],
                     error_message=error_message,
                     datetime=datetime,
-                    user_id=user_id
+                    user_id=user_id,
+                    next_url=next_url
                 )
             
             # 查询用户的当前住宿记录
@@ -851,7 +869,8 @@ def checkout():
                     transfer_records=[],
                     error_message=error_message,
                     datetime=datetime,
-                    user_id=user_id
+                    user_id=user_id,
+                    next_url=next_url
                 )
             
             # 查询当前房间信息
@@ -869,7 +888,8 @@ def checkout():
                     transfer_records=[],
                     error_message=error_message,
                     datetime=datetime,
-                    user_id=user_id
+                    user_id=user_id,
+                    next_url=next_url
                 )
             
             # 获取上次抄表记录值
@@ -1014,131 +1034,10 @@ def checkout():
         user_id=user_id,
         last_water_reading=last_water_reading,
         last_electric_reading=last_electric_reading,
-        utility_records=utility_records
+        utility_records=utility_records,
+        next_url=next_url
     )
 
-
-    
-# 退宿办理
-@dorm_bp.route('dorm_gameout', methods=['GET'])
-@login_required
-@require_permission('dorm.checkout')
-def dorm_gameout():
-    """退宿办理页面 - 返回过滤后的活跃用户数据，支持搜索和筛选"""
-    # 记录访问日志
-    log_operation(
-            user_id=current_user.id,
-            module='dorm',
-            operation_type='records',
-            action="访问办理退宿页面",
-            result="成功"
-    )
-    
-    # 获取请求参数
-    search_keyword = request.args.get('search_keyword', '').strip()
-    department = request.args.get('department', '')
-    building = request.args.get('building', '')
-    gender = request.args.get('gender', '')
-    page = request.args.get('page', 1, type=int)
-    page_size = request.args.get('page_size', 20, type=int)
-    
-    # 查询活跃的住宿记录
-    query = Dorm.query.filter_by(status='active')
-    
-    # 加入用户信息的关联查询
-    query = query.join(User).join(Room)
-    
-    # 按姓名和房间号搜索
-    if search_keyword:
-        query = query.filter(
-            db.or_(
-                User.name.ilike(f'%{search_keyword}%'),
-                db.func.concat(Room.building, Room.room_number).ilike(f'%{search_keyword}%')
-            )
-        )
-    
-    # 按部门筛选
-    if department:
-        query = query.join(Department, User.department_id == Department.id).filter(Department.name == department)
-    
-    # 按楼栋筛选
-    if building:
-        query = query.filter(Room.building == building)
-    
-    # 按性别筛选
-    if gender:
-        query = query.filter(User.gender == gender)
-    
-    # 按房间ID顺序排序
-    query = query.order_by(Room.id.asc())
-    
-    # 计算总数
-    total_count = query.count()
-    
-    # 分页
-    pagination = query.paginate(page=page, per_page=page_size, error_out=False)
-    dorm_records = pagination.items
-    
-    # 获取所有部门选项
-    departments = [d.name for d in Department.query.filter_by(status='正常').order_by(Department.name).all()]
-    
-    # 获取所有楼栋选项
-    buildings = db.session.query(Room.building).distinct().order_by(Room.building).all()
-    buildings = [bld[0] for bld in buildings]
-    
-    # 处理数据
-    residents_data = []
-    for dorm in dorm_records:
-        # 获取用户信息
-        user = dorm.user
-        # 获取房间信息
-        room = dorm.room
-        
-        # 计算住宿天数
-        today = datetime.now()
-        stay_days = (today - dorm.check_in_date).days if dorm.check_in_date else 0
-        
-        # 构建用户数据
-        residents_data.append({
-            'user_id': user.id,
-            'name': user.name,
-            'gender': user.gender,
-            'age': user.get_age() if user.birth_date else None,
-            'department': user.department,
-            'position': user.position,
-            'building': room.building,
-            'room_number': room.room_number,
-            'room_id': room.id,
-            'check_in_date': dorm.check_in_date.strftime('%Y-%m-%d') if dorm.check_in_date else '',
-            'stay_days': stay_days
-        })
-    
-    # 构建分页信息
-    pagination_info = {
-        'total_count': total_count,
-        'page_size': page_size,
-        'current_page': page,
-        'total_pages': pagination.pages
-    }
-    
-    # 构建筛选信息
-    filter_info = {
-        'search_keyword': search_keyword,
-        'department': department,
-        'building': building,
-        'gender': gender
-    }
-    
-    # 渲染模板并传递数据
-    return render_template(
-        'dorm_manage/dorm_gameout.html',
-        title="办理退宿",
-        residents_data=residents_data,
-        departments=departments,
-        buildings=buildings,
-        pagination_info=pagination_info,
-        filter_info=filter_info
-    )
 
 
 
@@ -1235,6 +1134,10 @@ def swap():
             # 使用flash消息并重定向
             flash(f"宿舍更换成功：{user_name}从{old_room_str}→{new_room_str}", 'success')
             logging.info(f"宿舍更换成功：{user_name}从{old_room_str}→{new_room_str}")
+            # 优先跳转回来源页面，否则默认跳转到宿舍查询页面
+            next_url = request.form.get('next', '')
+            if next_url:
+                return redirect(next_url)
             return redirect(url_for('dorm.dorm_query'))
             
         except ValueError as e:
@@ -1278,6 +1181,8 @@ def swap():
     
     # 从URL参数获取user_id
     user_id = request.args.get('user_id', type=int)
+    # 获取来源页面URL，用于退宿成功后跳转回来源页面
+    next_url = request.args.get('next', '')
     
     # 初始化变量
     user = None
@@ -1303,7 +1208,8 @@ def swap():
                     current_room=None,
                     roommates=[],
                     available_rooms=[],
-                    error_message=error_message
+                    error_message=error_message,
+                    next_url=next_url
                 )
             
             # 查询用户的当前住宿记录
@@ -1323,7 +1229,8 @@ def swap():
                     current_room=None,
                     roommates=[],
                     available_rooms=[],
-                    error_message=error_message
+                    error_message=error_message,
+                    next_url=next_url
                 )
             
             # 查询当前房间信息
@@ -1339,7 +1246,8 @@ def swap():
                     current_room=None,
                     roommates=[],
                     available_rooms=[],
-                    error_message=error_message
+                    error_message=error_message,
+                    next_url=next_url
                 )
             
             # 查询室友信息
@@ -1464,7 +1372,8 @@ def swap():
         transfer_records=transfer_records,  # 传递换宿记录
         default_datetime=default_datetime,  # 传递默认日期时间
         datetime=datetime,  # 传递datetime模块给模板使用
-        utility_records=utility_records  # 传递用户水电费记录
+        utility_records=utility_records,  # 传递用户水电费记录
+        next_url=next_url  # 传递来源页面URL
     )
 
 # 单人更换宿舍页面（GET）
