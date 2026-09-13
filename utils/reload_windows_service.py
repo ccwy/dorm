@@ -289,9 +289,13 @@ def reload_service():
             
             # 终止WebView2子进程（客户端模式下os._exit不会自动终止子进程）
             try:
+                startupinfo_hide = subprocess.STARTUPINFO()
+                startupinfo_hide.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+                startupinfo_hide.wShowWindow = 0  # SW_HIDE
                 subprocess.run(
                     ['taskkill', '/F', '/IM', 'msedgewebview2.exe'],
-                    capture_output=True, timeout=5
+                    capture_output=True, timeout=5,
+                    startupinfo=startupinfo_hide
                 )
                 logging.info("已终止WebView2子进程")
             except Exception as e:
@@ -303,6 +307,7 @@ def reload_service():
                     # 使用subprocess.STARTUPINFO隐藏CMD窗口
                     startupinfo = subprocess.STARTUPINFO()
                     startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+                    startupinfo.wShowWindow = 0  # SW_HIDE，彻底隐藏窗口
                     
                     subprocess.Popen(
                         ['cmd.exe', '/c', script_path],
