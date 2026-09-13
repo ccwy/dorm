@@ -28,6 +28,9 @@ taskkill /F /IM %APP_NAME% >nul 2>&1
 taskkill /F /IM python.exe /FI "WINDOWTITLE eq *{APP_TITLE}*" >nul 2>&1
 taskkill /F /IM pythonw.exe /FI "WINDOWTITLE eq *{APP_TITLE}*" >nul 2>&1
 
+:: 关闭WebView2子进程（客户端模式使用WebView2，os._exit不会自动终止子进程）
+taskkill /F /IM msedgewebview2.exe >nul 2>&1
+
 :: 检查是否还有残留进程
 tasklist | findstr /i "%APP_NAME% python.exe pythonw.exe" >nul
 if %errorlevel% equ 0 (
@@ -49,9 +52,9 @@ if exist "%CD%\\%APP_NAME%" (
 )
 
 :: 执行完毕后自动删除当前批处理脚本
-start /b cmd /c del "%~f0" ^>nul 2^>&1
-
-exit /b 0'''
+:: 使用 (goto) 技巧让cmd.exe脱离脚本上下文并释放文件句柄，然后del才能删除已解锁的文件
+:: 直接用 start /b cmd /c del 会失败，因为父cmd.exe仍持有文件锁
+(goto) 2>nul & del "%~f0"'''
 
 def get_environment():
     """获取当前运行环境"""
@@ -283,6 +286,16 @@ def reload_service():
                 time.sleep(0.5)  # 给窗口关闭一点时间
             except Exception as e:
                 logging.warning(f"关闭WebView窗口过程出错: {str(e)}")
+            
+            # 终止WebView2子进程（客户端模式下os._exit不会自动终止子进程）
+            try:
+                subprocess.run(
+                    ['taskkill', '/F', '/IM', 'msedgewebview2.exe'],
+                    capture_output=True, timeout=5
+                )
+                logging.info("已终止WebView2子进程")
+            except Exception as e:
+                logging.warning(f"终止WebView2子进程失败（可忽略）: {e}")
             
             # 直接使用Python内置的方式隐藏窗口启动批处理（仅Windows系统）
             if os.name == 'nt':
