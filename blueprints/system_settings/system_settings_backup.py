@@ -1,6 +1,7 @@
-from flask import  request, jsonify, current_app
-from flask_login import login_required, current_user
+from flask import  request, jsonify, current_app, session
+from flask_login import login_required, current_user, logout_user
 from utils.auth import require_permission
+from utils.cookie_secure import invalidate_all_sessions
 import os
 import logging
 from datetime import datetime 
@@ -123,33 +124,44 @@ def list_backups():
         
         backup_files = []
         for filename in os.listdir(backup_dir):
-            # 基础过滤：只处理备份文件
-            if not (filename.startswith('BACKUP_') and filename.endswith('.sql')):
+            is_universal = filename.startswith('UNIVERSAL_BACKUP_') and (filename.endswith('.json') or filename.endswith('.json.gz'))
+            is_regular = filename.startswith('BACKUP_') and filename.endswith('.sql')
+            
+            # 基础过滤：只处理备份文件（常规备份或通用备份）
+            if not (is_regular or is_universal):
                 continue
             
-            # 核心筛选逻辑：根据当前数据库类型过滤
-            if current_db_type == 'SQLITE':
-                # SQLite环境：排除所有MySQL备份
+            # 通用备份不过滤数据库类型（支持跨数据库恢复）
+            if is_universal:
+                file_db_type = "universal"
                 if 'MYSQL' in filename:
-                    logging.debug(f"过滤MySQL备份文件: {filename}")
-                    continue
-            elif current_db_type == 'MYSQL':
-                # MySQL环境：排除所有SQLite备份
-                if 'SQLITE' in filename:
-                    logging.debug(f"过滤SQLite备份文件: {filename}")
-                    continue
-            # 未知类型：不过滤（兼容处理）
+                    file_db_type = "universal (mysql)"
+                elif 'SQLITE' in filename:
+                    file_db_type = "universal (sqlite)"
+            else:
+                # 核心筛选逻辑：根据当前数据库类型过滤常规备份
+                if current_db_type == 'SQLITE':
+                    # SQLite环境：排除所有MySQL备份
+                    if 'MYSQL' in filename:
+                        logging.debug(f"过滤MySQL备份文件: {filename}")
+                        continue
+                elif current_db_type == 'MYSQL':
+                    # MySQL环境：排除所有SQLite备份
+                    if 'SQLITE' in filename:
+                        logging.debug(f"过滤SQLite备份文件: {filename}")
+                        continue
+                # 未知类型：不过滤（兼容处理）
+                
+                # 提取文件中的数据库类型（用于前端显示）
+                file_db_type = "unknown"
+                if 'MYSQL' in filename:
+                    file_db_type = "mysql"
+                elif 'SQLITE' in filename:
+                    file_db_type = "sqlite"
             
             # 收集符合条件的文件信息
             file_path = os.path.join(backup_dir, filename)
             file_stats = os.stat(file_path)
-            
-            # 提取文件中的数据库类型（用于前端显示）
-            file_db_type = "unknown"
-            if 'mysql' in filename:
-                file_db_type = "mysql"
-            elif 'sqlite' in filename:
-                file_db_type = "sqlite"
             
             backup_files.append({
                 "filename": filename,
@@ -157,7 +169,8 @@ def list_backups():
                 "size": file_stats.st_size,
                 # 修复这里的datetime调用方式
                 "created_at": datetime.fromtimestamp(file_stats.st_ctime).strftime('%Y-%m-%d %H:%M:%S'),
-                "path": file_path
+                "path": file_path,
+                "is_universal": is_universal  # 标识是否为通用备份
             })
         
         # 按创建时间排序，最新的在前
@@ -317,7 +330,7 @@ def clear_all_backups():
                     "message": "备份目录不存在，无法清空备份"
                 }), 400
             
-            backup_files = [f for f in os.listdir(backup_dir) if f.startswith('BACKUP_') and f.endswith('.sql')]
+            backup_files = [f for f in os.listdir(backup_dir) if (f.startswith('BACKUP_') and f.endswith('.sql')) or (f.startswith('UNIVERSAL_BACKUP_') and (f.endswith('.json') or f.endswith('.json.gz')))]
             
             if not backup_files:
                 return jsonify({
@@ -393,8 +406,14 @@ def restore_backup(filename):
                 "message": "备份文件不存在或不是有效的SQL备份文件"
             }), 404
         
-        # 保存当前管理员ID
+        # 保存当前管理员ID，然后立即退出登录
+        # 恢复是破坏性操作，先作废会话再执行，避免after_request钩子访问已detach的ORM对象
         current_admin_id = current_user.id
+        logout_user()
+        session.clear()
+        # 更新全局会话版本号，使所有浏览器中的旧cookie自动失效
+        invalidate_all_sessions()
+        logging.info("[恢复] 已在恢复前退出登录并使所有旧session失效")
         
         # 获取当前数据库类型
         current_db_type = get_db_type_identifier()
@@ -470,13 +489,14 @@ def restore_backup(filename):
         
         return jsonify({
             "success": True,
-            "message": f"已成功从{db_type}备份 {filename} 恢复数据，请刷新网页",
-            "temp_backup": temp_backup_name
+            "message": f"已成功从{db_type}备份 {filename} 恢复数据，请重新登录",
+            "temp_backup": temp_backup_name,
+            "need_relogin": True
         })
     except Exception as e:
         logging.error(f"恢复备份失败: {str(e)}")
         log_operation(
-            user_id=current_user.id if current_user.is_authenticated else 0,
+            user_id=current_admin_id,
             action=f"从备份恢复数据失败: {str(e)}",
             module="system",
             operation_type="restore_backup",
@@ -543,8 +563,14 @@ def restore_from_upload():
         file_path = os.path.join(backup_dir, filename)
         backup_file.save(file_path)
         
-        # 保存当前管理员ID
+        # 保存当前管理员ID，然后立即退出登录
+        # 恢复是破坏性操作，先作废会话再执行，避免after_request钩子访问已detach的ORM对象
         current_admin_id = current_user.id
+        logout_user()
+        session.clear()
+        # 更新全局会话版本号，使所有浏览器中的旧cookie自动失效
+        invalidate_all_sessions()
+        logging.info("[恢复] 已在恢复前退出登录并使所有旧session失效")
         
         # 创建恢复前的临时备份（SQL脚本格式）
         temp_backup_name = f"pre_restore_upload_{timestamp}.sql"
@@ -609,14 +635,15 @@ def restore_from_upload():
         
         return jsonify({
             "success": True,
-            "message": f"已成功从上传的{db_type}文件 {backup_file.filename} 恢复数据，请刷新网页",
+            "message": f"已成功从上传的{db_type}文件 {backup_file.filename} 恢复数据，请重新登录",
             "temp_backup": temp_backup_name,
-            "saved_file": filename
+            "saved_file": filename,
+            "need_relogin": True
         })
     except Exception as e:
         logging.error(f"从上传文件恢复备份失败: {str(e)}")
         log_operation(
-            user_id=current_user.id if current_user.is_authenticated else 0,
+            user_id=current_admin_id,
             action=f"从上传文件恢复数据失败: {str(e)}",
             module="system",
             operation_type="restore_backup",
@@ -645,28 +672,31 @@ def download_backup(filename):
         file_path = os.path.join(backup_dir, filename)
         
         # 验证文件合法性
+        is_universal = filename.startswith('UNIVERSAL_BACKUP_') and (filename.endswith('.json') or filename.endswith('.json.gz'))
+        is_regular = filename.startswith('BACKUP_') and filename.endswith('.sql')
+        
         if (not os.path.exists(file_path) or 
             not os.path.isfile(file_path) or 
-            not filename.startswith('BACKUP_') or 
-            not filename.endswith('.sql')):
+            not (is_regular or is_universal)):
             return jsonify({
                 "success": False,
                 "message": "备份文件不存在或不是有效的备份文件"
             }), 404
         
-        # 验证备份文件类型与当前数据库类型匹配
-        current_db_type = get_db_type_identifier()
-        file_db_type = "unknown"
-        if "mysql" in filename:
-            file_db_type = "mysql"
-        elif "sqlite" in filename:
-            file_db_type = "sqlite"
-            
-        if file_db_type != current_db_type and file_db_type != "unknown":
-            return jsonify({
-                "success": False,
-                "message": f"备份文件类型不匹配，当前为{current_db_type}数据库，备份文件为{file_db_type}数据库"
-            }), 400
+        # 验证备份文件类型与当前数据库类型匹配（仅普通备份需要校验）
+        if is_regular:
+            current_db_type = get_db_type_identifier()
+            file_db_type = "unknown"
+            if "mysql" in filename:
+                file_db_type = "mysql"
+            elif "sqlite" in filename:
+                file_db_type = "sqlite"
+                
+            if file_db_type != current_db_type and file_db_type != "unknown":
+                return jsonify({
+                    "success": False,
+                    "message": f"备份文件类型不匹配，当前为{current_db_type}数据库，备份文件为{file_db_type}数据库"
+                }), 400
         
         # 记录下载日志
         log_operation(
@@ -701,71 +731,4 @@ def download_backup(filename):
         }), 500
 
 
-@system_config_bp.route('/api/backup/create-and-download', methods=['POST'])
-@login_required
-def create_and_download_backup():
-    """创建直接下载备份文件（不存储到服务器）"""
-    try:
-        # 获取数据库类型标识
-        db_type = get_db_type_identifier()
-        
-        # 创建数据库备份（使用无参数方法）
-        backup_content = DatabaseBackupManager.create_database_backup()
-        if backup_content is None:
-            raise Exception("数据库备份操作失败")
-        
-        # 创建时间戳用于文件名
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        backup_filename = f"BACKUP_{db_type}_{timestamp}.sql"
-        
-        # 记录操作日志
-        log_operation(
-            user_id=current_user.id,
-            action=f"创建并下载{db_type}数据库备份",
-            module="system",
-            operation_type="create_and_download_backup",
-            result="成功"
-        )
-        
-        # 直接从内存提供下载，不保存到服务器
-        from flask import send_file, make_response
-        import io
-        
-        # 创建内存中的文件对象，根据内容类型进行处理
-        if isinstance(backup_content, str):
-            # 如果是字符串，转换为字节
-            backup_file = io.BytesIO(backup_content.encode('utf-8'))
-            content_length = len(backup_content.encode('utf-8'))
-        else:
-            # 如果已经是字节，直接使用
-            backup_file = io.BytesIO(backup_content)
-            content_length = len(backup_content)
-        
-        backup_file.seek(0)
-        
-        # 创建响应
-        response = make_response(send_file(
-            backup_file,
-            as_attachment=True,
-            download_name=backup_filename,
-            mimetype='application/sql'
-        ))
-        
-        # 设置内容长度
-        response.headers['Content-Length'] = content_length
-        
-        return response
-        
-    except Exception as e:
-        logging.error(f"创建并下载备份失败: {str(e)}")
-        log_operation(
-            user_id=current_user.id if current_user.is_authenticated else 0,
-            action=f"创建并下载系统备份失败, {str(e)}",
-            module="system.backup",
-            operation_type="create_and_download_backup",
-            result="失败"
-        )
-        return jsonify({
-            "success": False,
-            "message": f"创建并下载备份失败: {str(e)}"
-        }), 500
+

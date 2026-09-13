@@ -32,16 +32,6 @@ class Config:
     SESSION_COOKIE_NAME = 'CRspli9ois'
     PERMANENT_SESSION_LIFETIME = timedelta(hours=12)
     
-    # Cookie安全配置
-    # 这些配置会被cookie_secure模块用来设置Cookie的默认参数
-    # 注意：具体项目中可能需要根据实际域名和环境调整这些设置
-    COOKIE_DOMAIN = None  # Cookie域名，默认为None（当前域名）
-    COOKIE_SECURE = None  # 是否仅通过HTTPS传输，默认None表示根据环境自动决定
-    COOKIE_PATH = '/'  # Cookie路径，默认为根路径
-    COOKIE_HTTPONLY = True  # 是否仅HTTP可用，默认为True（防止XSS攻击）
-    COOKIE_SAMESITE = 'Lax'  # SameSite策略，默认为'Lax'（防止CSRF攻击）
-    COOKIE_MAX_AGE = 24 * 60 * 60  # Cookie最大存活时间（秒），默认为24小时
-    
     # 会话不活动超时设置
     # 用户在这段时间内没有任何操作将被自动退出登录
     SESSION_INACTIVITY_TIMEOUT = 3 * 60 * 60  # 3小时不活动自动退出

@@ -75,7 +75,7 @@ def init_flask_app(progress_callback=None):
     Args:
         progress_callback: 可选回调函数，接受(progress_pct: int, message: str)参数
     Returns:
-        tuple: (app, process_cleaner, run_server)
+        tuple: (app, run_server)
     """
     # 延迟导入重型模块，加速启动
     from flask import Flask, redirect, url_for, render_template, current_app, Blueprint, jsonify
@@ -100,8 +100,12 @@ def init_flask_app(progress_callback=None):
         print(f"开发环境数据库连接: {app.config['SQLALCHEMY_DATABASE_URI']}")
 
     app.config.from_object(current_config)
-    app.secret_key = current_config.SECRET_KEY
+    # 每次启动生成随机SECRET_KEY，使所有旧session cookie自动失效
+    # Flask用SECRET_KEY签名session cookie，换密钥后旧cookie签名验证失败→用户自动未登录
+    import secrets
+    app.secret_key = secrets.token_hex(32)
     app.permanent_session_lifetime = current_config.PERMANENT_SESSION_LIFETIME
+    
     print(f"会话超时时间: {app.permanent_session_lifetime}")
     
     # 阶段2：加载核心模块
@@ -273,9 +277,7 @@ def init_flask_app(progress_callback=None):
     logging.getLogger('werkzeug').setLevel(logging.DEBUG)
     logging.getLogger('flask').setLevel(logging.DEBUG)
 
-    from utils.process_cleaner import ProcessCleaner
-    process_cleaner = ProcessCleaner()
-    _stamp("创建进程清理实例")
+    _stamp("创建Flask应用实例")
 
     _backup_initialized = False
     def _init_backup_thread():
@@ -386,7 +388,7 @@ def init_flask_app(progress_callback=None):
         logging.info(f"服务器已启动，监听 {current_config.SERVER_HOST}:{current_config.SERVER_PORT}")
         logging.info("服务器启动完成")
 
-    return app, process_cleaner, run_server
+    return app, run_server
 
 
 def _wait_for_server(port, timeout=30, interval=0.5):
@@ -408,8 +410,7 @@ def _wait_for_server(port, timeout=30, interval=0.5):
 
 def run_server():
     """Docker入口函数：初始化Flask应用并直接启动服务器"""
-    app, process_cleaner, _run_server = init_flask_app()
-    process_cleaner.register_signal_handlers()
+    app, _run_server = init_flask_app()
     _run_server()
 
 
@@ -501,7 +502,7 @@ if __name__ == '__main__':
         # 2. 配置 Android 环境
         setup_android_env()
         # 3. 初始化 Flask 应用
-        app, process_cleaner, run_server = init_flask_app()
+        app, run_server = init_flask_app()
         # 4. 启动 waitress 服务器（后台线程）
         server_thread = threading.Thread(target=run_server, daemon=True)
         server_thread.start()
@@ -536,7 +537,7 @@ if __name__ == '__main__':
         system_title = config_data.get('SYSTEM_TITLE', '行政后勤管理系统') + " - 服务端"
         splash = SplashScreen(system_title, window_handle_callback=_set_main_window_handle)
         
-        (app, process_cleaner, run_server), init_error = splash.run_with_init(
+        (app, run_server), init_error = splash.run_with_init(
             lambda: init_flask_app(progress_callback=splash.update_progress)
         )
         
@@ -549,13 +550,6 @@ if __name__ == '__main__':
         
         time.sleep(1)
         
-        process_cleaner.set_resources(
-            app=app,
-            server_thread=server_thread,
-            webview_ref=None
-        )
-        process_cleaner.register_signal_handlers()
-        
         gui_thread = threading.Thread(
             target=lambda: run_server_gui(on_exit_callback=None, window_handle_callback=_set_main_window_handle),
             daemon=False
@@ -564,6 +558,8 @@ if __name__ == '__main__':
         
         gui_thread.join()
         
+        # GUI窗口关闭后退出进程
+        os._exit(0)
     elif server_mode == "客户端" and current_config.USE_DESKTOP_VIEW:
         import webview
         
@@ -600,9 +596,8 @@ if __name__ == '__main__':
                     except Exception:
                         pass
                 
-                app, process_cleaner, run_server = init_flask_app(progress_callback)
+                app, run_server = init_flask_app(progress_callback)
                 resources['app'] = app
-                resources['process_cleaner'] = process_cleaner
                 
                 progress_callback(80, "正在启动服务器...")
                 server_thread = threading.Thread(target=run_server, daemon=True)
@@ -623,15 +618,8 @@ if __name__ == '__main__':
                 
                 # 后初始化步骤（失败不影响核心功能）
                 try:
-                    with app.app_context():
-                        from utils.auto_logout import auto_logout_on_startup
-                        auto_logout_on_startup()
-                    from utils.webview_injector import start_delayed_injection
-                    start_delayed_injection()
-                    process_cleaner.set_resources(
-                        app=app, server_thread=server_thread, webview_ref=window
-                    )
-                    process_cleaner.register_signal_handlers()
+                    # 每次启动已生成随机SECRET_KEY，旧session自动失效，无需额外操作
+                    logging.info("[启动] SECRET_KEY已随机生成，所有旧session自动失效")
                 except Exception as post_e:
                     logging.warning(f"后初始化步骤失败（不影响核心功能）: {post_e}")
                 
@@ -645,28 +633,13 @@ if __name__ == '__main__':
         
         webview.start(func=background_init, args=(window,), debug=current_config.DEBUG)
         
-        logging.info("WebView窗口已关闭，开始执行彻底的资源清理...")
-        
-        if init_completed.is_set():
-            process_cleaner = resources.get('process_cleaner')
-            server_thread = resources.get('server_thread')
-            
-            if process_cleaner:
-                process_cleaner.cleanup_all_resources(signal_received=0)
-            
-            if server_thread and server_thread.is_alive():
-                os._exit(0)
-        else:
-            logging.info("初始化未完成即关闭窗口，直接退出")
-            os._exit(0)
+        logging.info("WebView窗口已关闭，退出进程")
+        os._exit(0)
     
     else:
         logging.info("以开发模式启动")
         
-        app, process_cleaner, run_server = init_flask_app()
-        
-        process_cleaner.set_resources(app=app)
-        process_cleaner.register_signal_handlers()
+        app, run_server = init_flask_app()
         
         app.run(
             host=current_config.SERVER_HOST,

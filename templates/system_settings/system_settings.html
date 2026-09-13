@@ -138,13 +138,15 @@
                         <button id="createBackupBtn" class="btn-primary flex items-center">
                             <i class="fa fa-plus mr-2"></i>创建新备份
                         </button>
-                        <button id="createAndDownloadBtn" class="btn-primary flex items-center bg-purple-600">
-                            <i class="fa fa-download mr-2"></i>创建并下载
-                        </button>
                         <button id="restoreFromFileBtn" class="btn-primary flex items-center bg-blue-600">
                             <i class="fa fa-upload mr-2"></i>恢复备份
                         </button>
-                        <input type="file" id="backupFileInput" accept=".sql" class="hidden" />
+                        <input type="file" id="backupFileInput" accept=".sql,.json,.json.gz" class="hidden" />
+                        <!-- 通用备份按钮 -->
+                        <div class="w-full border-t border-gray-300 my-2 sm:w-auto sm:border-t-0 sm:my-0"></div>
+                        <button id="createUniversalBackupBtn" class="btn-primary flex items-center bg-teal-600" title="创建跨数据库兼容的JSON格式备份">
+                            <i class="fa fa-exchange mr-2"></i>通用备份
+                        </button>
                         {% if current_user.has_permission('system_settings.manage') %}
                         <button id="deleteSelectedBtn" class="btn-secondary flex items-center" disabled>
                             <i class="fa fa-trash mr-2"></i>批量删除选中
@@ -294,9 +296,100 @@
             if (el) el.addEventListener(event, handler);
         }
 
+        // 清除所有cookie并跳转到登录页
+        // 用于数据库恢复等场景，确保旧cookie不再有效
+        function clearCookiesAndRedirectToLogin() {
+            // 清除当前域名下所有cookie
+            document.cookie.split(';').forEach(function(c) {
+                var name = c.trim().split('=')[0];
+                // 清除根路径和当前路径下的cookie
+                document.cookie = name + '=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/';
+                document.cookie = name + '=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=' + window.location.pathname;
+            });
+            // 跳转到登录页
+            window.location.href = '/login';
+        }
+
         // DOM 加载完成后初始化
         document.addEventListener('DOMContentLoaded', function() {
-            // 加载模块列表
+            // 通用备份：创建JSON格式备份（跨数据库兼容）
+        function createUniversalBackup() {
+            showLoadingBackup();
+            
+            fetch('/system/api/universal-backup/create', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => response.json().catch(() => {
+                throw new Error('创建通用备份失败: 无法解析响应');
+            }).then(data => {
+                if (!response.ok) {
+                    throw new Error(data && data.message ? `创建通用备份失败: ${data.message}` : `创建通用备份失败: HTTP ${response.status}`);
+                }
+                return data;
+            }))
+            .then(data => {
+                if (data.success) {
+                    showToast('通用备份创建成功: ' + data.backup_file, 'success');
+                    loadBackupList(1, pageSize);
+                } else {
+                    showToast('创建通用备份失败: ' + (data.message || '未知错误'), 'error');
+                }
+            })
+            .catch(error => {
+                console.error('创建通用备份错误:', error);
+                showToast(error.message, 'error');
+            });
+        }
+
+
+
+
+        function uploadAndRestoreUniversalBackup(file) {
+            showLoadingBackup();
+            
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            fetch('/system/api/universal-backup/restore', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => response.json().catch(() => {
+                throw new Error('通用恢复失败: 无法解析响应');
+            }).then(data => {
+                if (!response.ok) {
+                    throw new Error(data && data.message ? `通用恢复失败: ${data.message}` : `通用恢复失败: HTTP ${response.status}`);
+                }
+                return data;
+            }))
+            .then(data => {
+                if (data.success) {
+                    const info = data.backup_info || {};
+                    if (data.need_relogin) {
+                        showToast(`通用恢复成功！来源: ${info.source_db_type || '未知'}，共 ${info.total_tables || 0} 张表，${info.total_rows || 0} 行数据。即将跳转登录页...`, 'success');
+                        setTimeout(() => { clearCookiesAndRedirectToLogin(); }, 2000);
+                    } else {
+                        showToast(`通用恢复成功！来源: ${info.source_db_type || '未知'}，共 ${info.total_tables || 0} 张表，${info.total_rows || 0} 行数据。请刷新网页。`, 'success');
+                        loadBackupList();
+                    }
+                } else {
+                    showToast('通用恢复失败: ' + data.message, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('通用恢复错误:', error);
+                showToast(error.message, 'error');
+            });
+        }
+
+        // 加载模块列表
             loadModules();
 
             // 绑定按钮事件
@@ -304,7 +397,6 @@
             safeAddListener('initializeModuleBtn', 'click', showInitializeModuleConfirm);
             safeAddListener('initializeAllBtn', 'click', showInitializeAllConfirm);
             safeAddListener('createBackupBtn', 'click', createBackup);
-            safeAddListener('createAndDownloadBtn', 'click', createAndDownloadBackup);
             safeAddListener('restoreFromFileBtn', 'click', selectBackupFile);
             document.getElementById('backupFileInput').addEventListener('change', handleBackupFileSelect);
             safeAddListener('initializeDbBtn', 'click', showInitializeDbConfirm);
@@ -318,48 +410,21 @@
             document.getElementById('viewStorageInfoBtn').addEventListener('click', toggleStorageInfo);
             document.getElementById('closeStorageInfoBtn').addEventListener('click', toggleStorageInfo);
             
+            // 通用备份按钮事件
+            safeAddListener('createUniversalBackupBtn', 'click', createUniversalBackup);
+            
             // 对话框事件
             document.getElementById('dialogCancelBtn').addEventListener('click', hideConfirmDialog);
             document.getElementById('dialogConfirmBtn').addEventListener('click', executeConfirmedAction);
         });
 
-        // 新增：创建并下载备份
-        function createAndDownloadBackup() {
-            showLoadingBackup();
-            
-            // 分两步操作：先创建备份保存到服务器，再通过下载端点下载
-            // 这样WebView的DownloadListener可以正常拦截GET请求的下载
-            // 直接用fetch+blob方式在Android WebView中无法触发DownloadListener
-            fetch('/system/api/backup/create', {
-                method: 'POST',
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest'
-                }
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success && data.backup_file) {
-                    // 备份创建成功，使用下载端点下载文件
-                    downloadBackup(data.backup_file);
-                    showToast('备份创建成功，开始下载: ' + data.backup_file, 'success');
-                    loadBackupList();
-                } else {
-                    showToast('创建备份失败: ' + (data.message || '未知错误'), 'error');
-                    loadBackupList();
-                }
-            })
-            .catch(error => {
-                console.error('创建备份错误:', error);
-                showToast('创建备份失败: ' + error.message, 'error');
-                loadBackupList();
-            });
-        }
-
         // 新增：下载备份文件
         function downloadBackup(filename) {
+            const downloadUrl = `/system/api/backup/download/${filename}`;
+            
             // 创建一个隐藏的链接用于文件下载
             const a = document.createElement('a');
-            a.href = `/system/api/backup/download/${filename}`;
+            a.href = downloadUrl;
             a.download = filename;
             a.style.display = 'none';
             document.body.appendChild(a);
@@ -721,25 +786,40 @@
             document.getElementById('backupFileInput').click();
         }
 
-        // 处理选择的备份文件
+        // 处理选择的备份文件（自动识别普通备份和通用备份）
         function handleBackupFileSelect(event) {
             const file = event.target.files[0];
             if (!file) return;
             
-            // 验证文件类型
-            if (!file.name.endsWith('.sql')) {
-                showToast('请选择SQL格式的备份文件', 'error');
+            // 根据文件扩展名判断备份类型
+            const fileName = file.name.toLowerCase();
+            const isUniversal = fileName.endsWith('.json') || fileName.endsWith('.json.gz');
+            const isRegular = fileName.endsWith('.sql');
+            
+            if (!isUniversal && !isRegular) {
+                showToast('请选择SQL备份文件（.sql）或通用备份文件（.json / .json.gz）', 'error');
                 event.target.value = '';
                 return;
             }
             
-            currentRestoreFile = file;
-            showConfirmDialog(
-                '恢复备份',
-                `确定要从文件 "${file.name}" 恢复数据吗？这将完全覆盖当前系统数据，请确保已创建备份。`,
-                () => uploadAndRestoreBackup(file),
-                true // 显示强制确认选项
-            );
+            if (isUniversal) {
+                // 通用备份恢复
+                showConfirmDialog(
+                    '通用恢复',
+                    `确定要从通用备份文件 "${file.name}" 恢复数据吗？\n\n通用恢复支持跨数据库类型（SQLite ↔ MySQL），将完全覆盖当前系统数据，请谨慎操作。`,
+                    () => uploadAndRestoreUniversalBackup(file),
+                    true
+                );
+            } else {
+                // 普通备份恢复
+                currentRestoreFile = file;
+                showConfirmDialog(
+                    '恢复备份',
+                    `确定要从文件 "${file.name}" 恢复数据吗？这将完全覆盖当前系统数据，请确保已创建备份。`,
+                    () => uploadAndRestoreBackup(file),
+                    true
+                );
+            }
             
             // 清除文件选择，允许重复选择同一文件
             event.target.value = '';
@@ -775,14 +855,96 @@
             })
             .then(data => {
                 if (data.success) {
-                    showToast('备份恢复成功，系统将重启生效', 'success');
-                    loadBackupList();
+                    if (data.need_relogin) {
+                        showToast('备份恢复成功，即将跳转登录页...', 'success');
+                        setTimeout(() => { clearCookiesAndRedirectToLogin(); }, 2000);
+                    } else {
+                        showToast('备份恢复成功，系统将重启生效', 'success');
+                        loadBackupList();
+                    }
                 } else {
                     showToast('恢复备份失败: ' + data.message, 'error');
                 }
             })
             .catch(error => {
                 console.error('恢复备份错误:', error);
+                showToast(error.message, 'error');
+            });
+        }
+
+        // 通用备份：创建JSON格式备份（跨数据库兼容）
+        function createUniversalBackup() {
+            showLoadingBackup();
+            
+            fetch('/system/api/universal-backup/create', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => response.json().catch(() => {
+                throw new Error('创建通用备份失败: 无法解析响应');
+            }).then(data => {
+                if (!response.ok) {
+                    throw new Error(data && data.message ? `创建通用备份失败: ${data.message}` : `创建通用备份失败: HTTP ${response.status}`);
+                }
+                return data;
+            }))
+            .then(data => {
+                if (data.success) {
+                    showToast('通用备份创建成功: ' + data.backup_file, 'success');
+                    loadBackupList(1, pageSize);
+                } else {
+                    showToast('创建通用备份失败: ' + (data.message || '未知错误'), 'error');
+                }
+            })
+            .catch(error => {
+                console.error('创建通用备份错误:', error);
+                showToast(error.message, 'error');
+            });
+        }
+
+
+
+
+        function uploadAndRestoreUniversalBackup(file) {
+            showLoadingBackup();
+            
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            fetch('/system/api/universal-backup/restore', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => response.json().catch(() => {
+                throw new Error('通用恢复失败: 无法解析响应');
+            }).then(data => {
+                if (!response.ok) {
+                    throw new Error(data && data.message ? `通用恢复失败: ${data.message}` : `通用恢复失败: HTTP ${response.status}`);
+                }
+                return data;
+            }))
+            .then(data => {
+                if (data.success) {
+                    const info = data.backup_info || {};
+                    if (data.need_relogin) {
+                        showToast(`通用恢复成功！来源: ${info.source_db_type || '未知'}，共 ${info.total_tables || 0} 张表，${info.total_rows || 0} 行数据。即将跳转登录页...`, 'success');
+                        setTimeout(() => { clearCookiesAndRedirectToLogin(); }, 2000);
+                    } else {
+                        showToast(`通用恢复成功！来源: ${info.source_db_type || '未知'}，共 ${info.total_tables || 0} 张表，${info.total_rows || 0} 行数据。请刷新网页。`, 'success');
+                        loadBackupList();
+                    }
+                } else {
+                    showToast('通用恢复失败: ' + data.message, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('通用恢复错误:', error);
                 showToast(error.message, 'error');
             });
         }
@@ -1410,13 +1572,17 @@
             
             backupListEl.innerHTML = '';
             files.forEach(file => {
+                const isUniversal = file.is_universal || file.filename.startsWith('UNIVERSAL_BACKUP_');
+                const dbTypeBadge = isUniversal 
+                    ? `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-teal-100 text-teal-800 ml-2">通用</span>` 
+                    : (file.db_type ? `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 ml-2">${file.db_type.toUpperCase()}</span>` : '');
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td class="px-4 py-3 whitespace-nowrap">
                         <input type="checkbox" class="backup-checkbox w-4 h-4 text-primary" data-filename="${file.filename}">
                     </td>
                     <td class="px-4 py-3 whitespace-nowrap">
-                        <div class="text-sm font-medium text-gray-900">${file.filename}</div>
+                        <div class="text-sm font-medium text-gray-900">${file.filename}${dbTypeBadge}</div>
                     </td>
                     <td class="px-4 py-3 whitespace-nowrap">
                         <div class="text-sm text-gray-500">${file.created_at}</div>
@@ -1428,7 +1594,7 @@
                         <button class="text-green-600 hover:text-green-800 mr-4 download-backup" data-filename="${file.filename}">
                             下载
                         </button>
-                        <button class="text-primary hover:text-primary/80 mr-4 restore-backup" data-filename="${file.filename}">
+                        <button class="text-primary hover:text-primary/80 mr-4 restore-backup" data-filename="${file.filename}" data-universal="${isUniversal}">
                             恢复
                         </button>
                         ${hasManagePermission ? `<button class="text-red-500 hover:text-red-700 delete-backup" data-filename="${file.filename}">
@@ -1468,7 +1634,12 @@
             document.querySelectorAll('.restore-backup').forEach(btn => {
                 btn.addEventListener('click', function() {
                     const filename = this.getAttribute('data-filename');
-                    showRestoreBackupConfirm(filename);
+                    const isUniversal = this.getAttribute('data-universal') === 'true';
+                    if (isUniversal) {
+                        showRestoreUniversalBackupConfirm(filename);
+                    } else {
+                        showRestoreBackupConfirm(filename);
+                    }
                 });
             });
             
@@ -1560,6 +1731,56 @@
             );
         }
 
+        // 显示通用备份恢复确认对话框
+        function showRestoreUniversalBackupConfirm(filename) {
+            currentRestoreFile = filename;
+            showConfirmDialog(
+                '通用恢复',
+                `确定要从通用备份文件 "${filename}" 恢复数据吗？\n\n通用恢复支持跨数据库类型（SQLite ↔ MySQL），将完全覆盖当前系统数据，请谨慎操作。`,
+                () => restoreUniversalBackupFromFile(filename),
+                true // 显示强制确认选项
+            );
+        }
+
+        // 从通用备份文件恢复
+        function restoreUniversalBackupFromFile(filename) {
+            showLoadingBackup();
+            
+            fetch(`/system/api/universal-backup/restore/${encodeURIComponent(filename)}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => response.json().catch(() => {
+                throw new Error('通用恢复失败: 无法解析响应');
+            }).then(data => {
+                if (!response.ok) {
+                    throw new Error(data && data.message ? `通用恢复失败: ${data.message}` : `通用恢复失败: HTTP ${response.status}`);
+                }
+                return data;
+            }))
+            .then(data => {
+                if (data.success) {
+                    const info = data.backup_info || {};
+                    if (data.need_relogin) {
+                        showToast(`通用恢复成功！来源: ${info.source_db_type || '未知'}，共 ${info.total_tables || 0} 张表，${info.total_rows || 0} 行数据。即将跳转登录页...`, 'success');
+                        setTimeout(() => { clearCookiesAndRedirectToLogin(); }, 2000);
+                    } else {
+                        showToast(`通用恢复成功！来源: ${info.source_db_type || '未知'}，共 ${info.total_tables || 0} 张表，${info.total_rows || 0} 行数据。请刷新网页。`, 'success');
+                        loadBackupList();
+                    }
+                } else {
+                    showToast('通用恢复失败: ' + data.message, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('通用恢复错误:', error);
+                showToast(error.message, 'error');
+            });
+        }
+
         // 恢复备份
         function restoreBackup(filename) {
             showLoadingBackup();
@@ -1587,8 +1808,13 @@
             })
             .then(data => {
                 if (data.success) {
-                    showToast('备份恢复成功，系统将重启生效', 'success');
-                    loadBackupList();
+                    if (data.need_relogin) {
+                        showToast('备份恢复成功，即将跳转登录页...', 'success');
+                        setTimeout(() => { clearCookiesAndRedirectToLogin(); }, 2000);
+                    } else {
+                        showToast('备份恢复成功，系统将重启生效', 'success');
+                        loadBackupList();
+                    }
                 } else {
                     const errorMessage = data.message || '恢复备份失败';
                     showToast('恢复备份失败: ' + errorMessage, 'error');

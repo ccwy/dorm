@@ -324,7 +324,7 @@ def start_flask_server():
 
     # 3. 导入并启动 Flask（传递进度回调，Python 端更新全局变量，Java 端轮询读取）
     from main import init_flask_app
-    app, process_cleaner, run_server = init_flask_app(progress_callback=_android_progress_callback)
+    app, run_server = init_flask_app(progress_callback=_android_progress_callback)
 
     logger.info("Android 端 Flask 应用初始化完成")
 

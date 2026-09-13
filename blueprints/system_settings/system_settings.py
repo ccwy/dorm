@@ -43,6 +43,7 @@ MODULES = [
 
 from . import system_settings_backup  # 数据备份模块
 from . import system_settings_initialize  # 数据初始化模块
+from . import system_settings_universal_backup  # 通用备份恢复模块
 
 @system_config_bp.route('/api/by_configs_key/<string:key>', methods=['GET'])
 @login_required

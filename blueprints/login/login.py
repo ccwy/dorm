@@ -7,9 +7,8 @@ from utils.log import log_operation
 # 导入数据库和用户模型（使用提供的User模型）
 from utils.db import db
 from models.user.user import User  # 直接使用User模型
-from utils.auto_logout import check_force_relogin_flag, clear_force_relogin_flag
 # 导入我们新的安全Cookie管理模块
-from utils.cookie_secure import cookie_secure
+from utils.cookie_secure import setup_secure_user_session, logout_user_securely
 
 # 创建蓝图
 login_bp = Blueprint('login', __name__, url_prefix='/login')
@@ -28,33 +27,6 @@ def login():
     # 获取手机号身份证号登录开关配置
     from models.system_config.system_config import SystemConfig
     phone_idcard_login_enabled = SystemConfig.get_config('FEATURE_PHONE_IDCARD_LOGIN_ENABLED', True)
-    
-    # 检查全局强制重新登录标志（内存信号机制）
-    force_relogin = False
-    
-    # 检查应用配置中的标志（已从文件信号改为内存信号）
-    if current_app.config.get('FORCE_RELOGIN', False):
-        force_relogin = True
-        current_app.config['FORCE_RELOGIN'] = False  # 立即重置标志
-    
-    # 兼容旧调用：check_force_relogin_flag 现在也检查 current_app.config
-    if not force_relogin and check_force_relogin_flag():
-        force_relogin = True
-        clear_force_relogin_flag()
-    
-    if force_relogin:
-        print('检测到强制重新登录标志，强制清除所有用户认证状态')
-        # 即使已登录也要强制退出
-        if current_user.is_authenticated:
-            # 执行登出操作
-            logout_user()
-            # 彻底清除所有会话数据
-            session.clear()
-            session.modified = True
-            # 清除所有cookie
-            for key in list(request.cookies.keys()):
-                response.set_cookie(key, '', expires=0, path='/', domain=None, secure=False, httponly=True)
-            print('已强制清除用户认证状态、会话数据和cookie')
     
     # 如果用户已登录，直接跳转到主页
     if current_user.is_authenticated:
@@ -155,7 +127,7 @@ def login():
                 return response
             
             # 使用安全Cookie管理模块设置用户会话，传入响应对象
-            response = cookie_secure.setup_secure_user_session(user, remember=True, response=response)
+            response = setup_secure_user_session(user, remember=True, response=response)
             
             # 记录访问日志
             log_operation(
@@ -209,7 +181,7 @@ def logout():
         response = redirect(url_for('login.login'))
         
         # 使用安全Cookie管理模块处理登出流程
-        response = cookie_secure.logout_user_securely(response)
+        response = logout_user_securely(response)
         # 记录访问日志
         log_operation(
                 user_id=user_id,

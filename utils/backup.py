@@ -453,7 +453,7 @@ class DatabaseBackupManager:
             file_path = os.path.join(backup_dir, filename)
             
             # 验证文件名是否为备份文件，统一检查逻辑
-            if not os.path.exists(file_path) or not (filename.startswith('BACKUP_') or filename.startswith('backup_')):
+            if not os.path.exists(file_path) or not (filename.startswith('BACKUP_') or filename.startswith('backup_') or filename.startswith('UNIVERSAL_BACKUP_')):
                 logging.error(f"备份文件不存在或不合法: {filename}")
                 return False
             
