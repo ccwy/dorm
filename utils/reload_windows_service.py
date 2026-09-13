@@ -225,8 +225,8 @@ def reload_service():
             
             # 主动释放单实例互斥体，避免新进程启动时检测到残留互斥体
             try:
-                from main import release_single_instance_mutex
-                release_single_instance_mutex()
+                from utils.single_instance import single_instance
+                single_instance.release_mutex()
                 logging.info("已释放单实例互斥体")
             except Exception as e:
                 logging.warning(f"释放单实例互斥体失败: {e}")
@@ -307,8 +307,8 @@ def reload_service():
             
             # 主动释放单实例互斥体，避免新进程启动时检测到残留互斥体
             try:
-                from main import release_single_instance_mutex
-                release_single_instance_mutex()
+                from utils.single_instance import single_instance
+                single_instance.release_mutex()
                 logging.info("已释放单实例互斥体")
             except Exception as e:
                 logging.warning(f"释放单实例互斥体失败: {e}")
@@ -332,8 +332,8 @@ def reload_service():
     
     # 设置重启标志，防止WebView窗口关闭时主线程执行os._exit(0)
     try:
-        from main import set_restarting_flag
-        set_restarting_flag()
+        from utils.single_instance import single_instance
+        single_instance.set_restarting()
     except Exception as e:
         logging.warning(f"设置重启标志失败: {e}")
     

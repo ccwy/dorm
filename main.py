@@ -27,6 +27,7 @@ def _stamp(label):
 
 # 导入配置类
 from config import Config, config
+from utils.single_instance import single_instance
 _stamp("导入config")
 # 从外部配置获取数据库连接
 from utils.db_config import DatabaseConfig
@@ -414,126 +415,7 @@ def run_server():
     _run_server()
 
 
-# ===== 单实例控制 =====
-_single_instance_mutex = None
-_main_window_handle = None
-_is_restarting = False  # 重启标志，防止WebView窗口关闭时触发os._exit(0)
-
-
-def release_single_instance_mutex():
-    """主动释放单实例互斥体，供重启流程调用
-    
-    在进程退出前释放互斥体，避免新进程启动时检测到残留互斥体
-    导致误判为"已有实例运行"而退出。
-    """
-    global _single_instance_mutex
-    if _single_instance_mutex:
-        try:
-            import ctypes
-            kernel32 = ctypes.windll.kernel32
-            kernel32.ReleaseMutex(_single_instance_mutex)
-            kernel32.CloseHandle(_single_instance_mutex)
-            logging.info("已主动释放单实例互斥体")
-        except Exception as e:
-            logging.warning(f"释放单实例互斥体失败: {e}")
-        finally:
-            _single_instance_mutex = None
-
-
-def set_restarting_flag():
-    """设置重启标志，防止WebView窗口关闭时触发os._exit(0)
-    
-    当重启流程关闭WebView窗口时，webview.start()会返回，
-    主线程会执行os._exit(0)终止整个进程，导致重启线程
-    还没来得及启动新进程就被杀死。设置此标志后，主线程
-    会等待重启线程完成进程终止，而不是自行退出。
-    """
-    global _is_restarting
-    _is_restarting = True
-    logging.info("已设置重启标志，主线程将在窗口关闭后等待重启线程完成")
-
-
-def _check_single_instance():
-    """Windows单实例检测：已有实例运行时激活其窗口并退出当前进程
-    
-    重启场景特殊处理：当检测到 --restarted 参数时，说明当前进程是
-    由重启流程启动的新进程，此时旧进程的互斥体可能尚未被 Windows
-    内核完全清理，需要重试等待而非立即退出。
-    """
-    global _single_instance_mutex
-    import ctypes
-    kernel32 = ctypes.windll.kernel32
-
-    # 创建命名互斥体
-    mutex_name = "Local\\DormManagement_SingleInstance"
-
-    # 如果是重启操作，使用重试机制等待旧进程互斥体释放
-    if '--restarted' in sys.argv:
-        logging.info("检测到重启操作(--restarted)，等待旧实例互斥体释放")
-        for attempt in range(10):
-            mutex = kernel32.CreateMutexW(None, False, mutex_name)
-            if kernel32.GetLastError() != 183:  # 不是 ERROR_ALREADY_EXISTS
-                _single_instance_mutex = mutex
-                _start_activate_watcher()
-                logging.info(f"重启操作：成功获取单实例互斥体（第{attempt + 1}次尝试）")
-                return
-            # 互斥体仍被旧进程持有，关闭本次获取的句柄后重试
-            kernel32.CloseHandle(mutex)
-            logging.info(f"等待旧实例互斥体释放... ({attempt + 1}/10)")
-            time.sleep(1)
-
-        # 超时后强制继续启动（互斥体可能是残留的，旧进程已退出）
-        logging.warning("重启操作：互斥体等待超时，强制继续启动")
-        mutex = kernel32.CreateMutexW(None, False, mutex_name)
-        _single_instance_mutex = mutex
-        _start_activate_watcher()
-        return
-
-    # 正常启动的单实例检测逻辑
-    mutex = kernel32.CreateMutexW(None, False, mutex_name)
-    if kernel32.GetLastError() == 183:  # ERROR_ALREADY_EXISTS
-        # 已有实例运行，发送激活信号
-        event_name = "Local\\DormManagement_ActivateEvent"
-        event_handle = kernel32.OpenEventW(0x1F0003, False, event_name)
-        if event_handle:
-            kernel32.SetEvent(event_handle)
-            kernel32.CloseHandle(event_handle)
-        time.sleep(0.5)
-        sys.exit(0)
-
-    # 保存互斥体句柄，防止被GC回收
-    _single_instance_mutex = mutex
-    _start_activate_watcher()
-
-
-def _start_activate_watcher():
-    """后台线程监听激活事件，收到信号时将已有窗口带到前台"""
-    import ctypes
-
-    def watcher():
-        kernel32 = ctypes.windll.kernel32
-        user32 = ctypes.windll.user32
-        event_name = "Local\\DormManagement_ActivateEvent"
-        event_handle = kernel32.CreateEventW(None, True, False, event_name)
-        if not event_handle:
-            return
-        while True:
-            # 无限等待激活信号
-            kernel32.WaitForSingleObject(event_handle, 0xFFFFFFFF)
-            kernel32.ResetEvent(event_handle)
-            hwnd = _main_window_handle
-            if hwnd:
-                # SW_RESTORE = 9，恢复最小化/隐藏的窗口
-                user32.ShowWindow(hwnd, 9)
-                user32.SetForegroundWindow(hwnd)
-
-    threading.Thread(target=watcher, daemon=True).start()
-
-
-def _set_main_window_handle(hwnd):
-    """设置主窗口句柄，供单实例激活使用"""
-    global _main_window_handle
-    _main_window_handle = hwnd
+# 单实例控制已拆分到 utils/single_instance.py
 
 
 # 主程序入口
@@ -591,7 +473,7 @@ if __name__ == '__main__':
     
     # 单实例检测（仅Windows桌面模式）
     if current_config.USE_DESKTOP_VIEW and sys.platform == 'win32':
-        _check_single_instance()
+        single_instance.check_and_acquire()
     
     if server_mode == "服务端" and current_config.USE_DESKTOP_VIEW:
         logging.info("以服务端模式启动，显示启动闪屏")
@@ -599,7 +481,7 @@ if __name__ == '__main__':
         from utils.server_gui import SplashScreen, run_server_gui
         
         system_title = config_data.get('SYSTEM_TITLE', '行政后勤管理系统') + " - 服务端"
-        splash = SplashScreen(system_title, window_handle_callback=_set_main_window_handle)
+        splash = SplashScreen(system_title, window_handle_callback=single_instance.set_window_handle)
         
         (app, run_server), init_error = splash.run_with_init(
             lambda: init_flask_app(progress_callback=splash.update_progress)
@@ -615,7 +497,7 @@ if __name__ == '__main__':
         time.sleep(1)
         
         gui_thread = threading.Thread(
-            target=lambda: run_server_gui(on_exit_callback=None, window_handle_callback=_set_main_window_handle),
+            target=lambda: run_server_gui(on_exit_callback=None, window_handle_callback=single_instance.set_window_handle),
             daemon=False
         )
         gui_thread.start()
@@ -623,7 +505,7 @@ if __name__ == '__main__':
         gui_thread.join()
         
         # GUI窗口关闭后退出进程（重启时等待重启线程完成）
-        if _is_restarting:
+        if single_instance.is_restarting():
             logging.info("重启进行中，主线程等待重启线程终止进程...")
             threading.Event().wait()
         else:
@@ -653,7 +535,7 @@ if __name__ == '__main__':
                 # 设置窗口句柄供单实例激活使用
                 try:
                     if hasattr(window, 'hwnd') and window.hwnd:
-                        _set_main_window_handle(window.hwnd)
+                        single_instance.set_window_handle(window.hwnd)
                 except Exception:
                     pass
                 
@@ -702,7 +584,7 @@ if __name__ == '__main__':
         webview.start(func=background_init, args=(window,), debug=current_config.DEBUG)
         
         logging.info("WebView窗口已关闭，退出进程")
-        if _is_restarting:
+        if single_instance.is_restarting():
             logging.info("重启进行中，主线程等待重启线程终止进程...")
             threading.Event().wait()
         else:
