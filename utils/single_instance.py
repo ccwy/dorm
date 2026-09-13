@@ -7,10 +7,13 @@ Windows单实例控制模块
 - 后台线程监听激活事件，收到信号时将窗口带到前台
 - 重启标志管理：防止WebView窗口关闭时主线程提前退出
 
+注意：本模块仅适用于 Windows 平台。在非 Windows 平台上，
+所有方法为空操作（no-op），不会产生任何副作用。
+
 使用方式：
     from utils.single_instance import single_instance
 
-    # 启动时检测
+    # 启动时检测（仅Windows桌面模式调用）
     single_instance.check_and_acquire()
 
     # 设置窗口句柄（供激活事件使用）
@@ -29,6 +32,8 @@ import sys
 import time
 import logging
 import threading
+
+_IS_WINDOWS = sys.platform == 'win32'
 
 
 class SingleInstanceManager:
@@ -59,7 +64,12 @@ class SingleInstanceManager:
         重启场景特殊处理：当检测到 --restarted 参数时，说明当前进程是
         由重启流程启动的新进程，此时旧进程的互斥体可能尚未被 Windows
         内核完全清理，需要重试等待而非立即退出。
+
+        非Windows平台：空操作，直接返回。
         """
+        if not _IS_WINDOWS:
+            return
+
         import ctypes
         kernel32 = ctypes.windll.kernel32
 
@@ -105,18 +115,21 @@ class SingleInstanceManager:
 
         在进程退出前释放互斥体，避免新进程启动时检测到残留互斥体
         导致误判为"已有实例运行"而退出。
+
+        非Windows平台：空操作，直接返回。
         """
-        if self._mutex:
-            try:
-                import ctypes
-                kernel32 = ctypes.windll.kernel32
-                kernel32.ReleaseMutex(self._mutex)
-                kernel32.CloseHandle(self._mutex)
-                logging.info("已主动释放单实例互斥体")
-            except Exception as e:
-                logging.warning(f"释放单实例互斥体失败: {e}")
-            finally:
-                self._mutex = None
+        if not _IS_WINDOWS or not self._mutex:
+            return
+        try:
+            import ctypes
+            kernel32 = ctypes.windll.kernel32
+            kernel32.ReleaseMutex(self._mutex)
+            kernel32.CloseHandle(self._mutex)
+            logging.info("已主动释放单实例互斥体")
+        except Exception as e:
+            logging.warning(f"释放单实例互斥体失败: {e}")
+        finally:
+            self._mutex = None
 
     def set_restarting(self):
         """设置重启标志，防止WebView窗口关闭时触发os._exit(0)
@@ -138,7 +151,13 @@ class SingleInstanceManager:
         self._window_handle = hwnd
 
     def _start_activate_watcher(self):
-        """后台线程监听激活事件，收到信号时将已有窗口带到前台"""
+        """后台线程监听激活事件，收到信号时将已有窗口带到前台
+
+        非Windows平台：空操作，直接返回。
+        """
+        if not _IS_WINDOWS:
+            return
+
         import ctypes
 
         def watcher():

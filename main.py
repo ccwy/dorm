@@ -27,7 +27,6 @@ def _stamp(label):
 
 # 导入配置类
 from config import Config, config
-from utils.single_instance import single_instance
 _stamp("导入config")
 # 从外部配置获取数据库连接
 from utils.db_config import DatabaseConfig
@@ -473,6 +472,7 @@ if __name__ == '__main__':
     
     # 单实例检测（仅Windows桌面模式）
     if current_config.USE_DESKTOP_VIEW and sys.platform == 'win32':
+        from utils.single_instance import single_instance
         single_instance.check_and_acquire()
     
     if server_mode == "服务端" and current_config.USE_DESKTOP_VIEW:
