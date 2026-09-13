@@ -417,16 +417,79 @@ def run_server():
 # ===== 单实例控制 =====
 _single_instance_mutex = None
 _main_window_handle = None
+_is_restarting = False  # 重启标志，防止WebView窗口关闭时触发os._exit(0)
+
+
+def release_single_instance_mutex():
+    """主动释放单实例互斥体，供重启流程调用
+    
+    在进程退出前释放互斥体，避免新进程启动时检测到残留互斥体
+    导致误判为"已有实例运行"而退出。
+    """
+    global _single_instance_mutex
+    if _single_instance_mutex:
+        try:
+            import ctypes
+            kernel32 = ctypes.windll.kernel32
+            kernel32.ReleaseMutex(_single_instance_mutex)
+            kernel32.CloseHandle(_single_instance_mutex)
+            logging.info("已主动释放单实例互斥体")
+        except Exception as e:
+            logging.warning(f"释放单实例互斥体失败: {e}")
+        finally:
+            _single_instance_mutex = None
+
+
+def set_restarting_flag():
+    """设置重启标志，防止WebView窗口关闭时触发os._exit(0)
+    
+    当重启流程关闭WebView窗口时，webview.start()会返回，
+    主线程会执行os._exit(0)终止整个进程，导致重启线程
+    还没来得及启动新进程就被杀死。设置此标志后，主线程
+    会等待重启线程完成进程终止，而不是自行退出。
+    """
+    global _is_restarting
+    _is_restarting = True
+    logging.info("已设置重启标志，主线程将在窗口关闭后等待重启线程完成")
 
 
 def _check_single_instance():
-    """Windows单实例检测：已有实例运行时激活其窗口并退出当前进程"""
+    """Windows单实例检测：已有实例运行时激活其窗口并退出当前进程
+    
+    重启场景特殊处理：当检测到 --restarted 参数时，说明当前进程是
+    由重启流程启动的新进程，此时旧进程的互斥体可能尚未被 Windows
+    内核完全清理，需要重试等待而非立即退出。
+    """
     global _single_instance_mutex
     import ctypes
     kernel32 = ctypes.windll.kernel32
 
     # 创建命名互斥体
     mutex_name = "Local\\DormManagement_SingleInstance"
+
+    # 如果是重启操作，使用重试机制等待旧进程互斥体释放
+    if '--restarted' in sys.argv:
+        logging.info("检测到重启操作(--restarted)，等待旧实例互斥体释放")
+        for attempt in range(10):
+            mutex = kernel32.CreateMutexW(None, False, mutex_name)
+            if kernel32.GetLastError() != 183:  # 不是 ERROR_ALREADY_EXISTS
+                _single_instance_mutex = mutex
+                _start_activate_watcher()
+                logging.info(f"重启操作：成功获取单实例互斥体（第{attempt + 1}次尝试）")
+                return
+            # 互斥体仍被旧进程持有，关闭本次获取的句柄后重试
+            kernel32.CloseHandle(mutex)
+            logging.info(f"等待旧实例互斥体释放... ({attempt + 1}/10)")
+            time.sleep(1)
+
+        # 超时后强制继续启动（互斥体可能是残留的，旧进程已退出）
+        logging.warning("重启操作：互斥体等待超时，强制继续启动")
+        mutex = kernel32.CreateMutexW(None, False, mutex_name)
+        _single_instance_mutex = mutex
+        _start_activate_watcher()
+        return
+
+    # 正常启动的单实例检测逻辑
     mutex = kernel32.CreateMutexW(None, False, mutex_name)
     if kernel32.GetLastError() == 183:  # ERROR_ALREADY_EXISTS
         # 已有实例运行，发送激活信号
@@ -480,6 +543,7 @@ if __name__ == '__main__':
     parser.add_argument('--uninstall', action='store_true', help='执行卸载清理操作')
     parser.add_argument('--no-reload', action='store_true', help='禁用自动重载')
     parser.add_argument('--config', type=str, help='指定配置环境')
+    parser.add_argument('--restarted', action='store_true', help='标识重启操作（内部使用）')
     args = parser.parse_args()
     logging.info("解析命令行参数")
     from utils.system_detector import is_win7, is_android
@@ -558,8 +622,12 @@ if __name__ == '__main__':
         
         gui_thread.join()
         
-        # GUI窗口关闭后退出进程
-        os._exit(0)
+        # GUI窗口关闭后退出进程（重启时等待重启线程完成）
+        if _is_restarting:
+            logging.info("重启进行中，主线程等待重启线程终止进程...")
+            threading.Event().wait()
+        else:
+            os._exit(0)
     elif server_mode == "客户端" and current_config.USE_DESKTOP_VIEW:
         import webview
         
@@ -634,7 +702,11 @@ if __name__ == '__main__':
         webview.start(func=background_init, args=(window,), debug=current_config.DEBUG)
         
         logging.info("WebView窗口已关闭，退出进程")
-        os._exit(0)
+        if _is_restarting:
+            logging.info("重启进行中，主线程等待重启线程终止进程...")
+            threading.Event().wait()
+        else:
+            os._exit(0)
     
     else:
         logging.info("以开发模式启动")

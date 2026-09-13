@@ -16,6 +16,7 @@ from ctypes import wintypes
 # 因此，关闭 WebView 窗口必须使用 Windows API (ctypes) 而非 webview.windows.destroy()
 
 # 批处理脚本内容模板 - 打包环境使用，包含自动删除功能
+# 注意：taskkill后添加timeout等待旧进程互斥体释放，start命令添加--restarted参数
 batch_script_template = '''@echo off
 setlocal enabledelayedexpansion
 
@@ -33,20 +34,22 @@ if %errorlevel% equ 0 (
     taskkill /F /IM %APP_NAME% /T >nul 2>&1
 )
 
+:: 等待旧进程完全退出和Windows内核对象（互斥体等）清理
+timeout /t 3 /nobreak >nul
+
 :: 切换到data目录的上一层目录
 cd /d "%~dp0.."
 
-:: 启动新的程序实例（仅打包环境）
+:: 启动新的程序实例，添加 --restarted 参数标识重启操作
 :: 设置PYINSTALLER_RESET_ENVIRONMENT=1，确保新进程作为独立实例启动
-:: PyInstaller 6.10.0+ 要求重启时设置此变量，否则新进程会被误判为子进程
 set PYINSTALLER_RESET_ENVIRONMENT=1
 
-if exist "%CD%\%APP_NAME%" (
-    start "" /b "%CD%\%APP_NAME%"
+if exist "%CD%\\%APP_NAME%" (
+    start "" /b "%CD%\\%APP_NAME%" --restarted
 )
 
 :: 执行完毕后自动删除当前批处理脚本
-start /b cmd /c "del "%0" >nul 2>&1"
+start /b cmd /c del "%~f0" ^>nul 2^>&1
 
 exit /b 0'''
 
@@ -176,6 +179,9 @@ def reload_service():
                 restart_cmd.remove('--no-reload')
             if 'development' not in restart_cmd and '--config=development' not in restart_cmd:
                 restart_cmd.append('--config=development')
+            # 标识重启操作，供单实例检测使用
+            if '--restarted' not in restart_cmd:
+                restart_cmd.append('--restarted')
             
             # 清除Werkzeug调试器环境变量
             if 'WERKZEUG_RUN_MAIN' in os.environ:
@@ -216,6 +222,15 @@ def reload_service():
             
             # 开发环境进程终止逻辑
             logging.info(f"开发模式下终止旧进程 | 进程ID: {current_pid}")
+            
+            # 主动释放单实例互斥体，避免新进程启动时检测到残留互斥体
+            try:
+                from main import release_single_instance_mutex
+                release_single_instance_mutex()
+                logging.info("已释放单实例互斥体")
+            except Exception as e:
+                logging.warning(f"释放单实例互斥体失败: {e}")
+            
             try:
                 # 先尝试优雅终止
                 os.kill(current_pid, 15)  # SIGTERM
@@ -290,6 +305,14 @@ def reload_service():
             
             logging.info("正在退出当前进程...")
             
+            # 主动释放单实例互斥体，避免新进程启动时检测到残留互斥体
+            try:
+                from main import release_single_instance_mutex
+                release_single_instance_mutex()
+                logging.info("已释放单实例互斥体")
+            except Exception as e:
+                logging.warning(f"释放单实例互斥体失败: {e}")
+            
             # 立即强制退出当前进程
             os._exit(0)
         except Exception as e:
@@ -306,6 +329,13 @@ def reload_service():
         else:
             logging.info("检测到开发环境，使用开发模式重启")
             _reload_development()
+    
+    # 设置重启标志，防止WebView窗口关闭时主线程执行os._exit(0)
+    try:
+        from main import set_restarting_flag
+        set_restarting_flag()
+    except Exception as e:
+        logging.warning(f"设置重启标志失败: {e}")
     
     # 使用非守护线程执行重启
     threading.Thread(target=_trigger_restart, daemon=False).start()
