@@ -130,7 +130,7 @@ def init_flask_app(progress_callback=None):
         utility_room_bill_records_bp, utility_room_bill_occupants_bp, utility_room_bill_checkout_bp,
         fee_subsidy_bp, fee_subsidy_import_export_bp,
         utility_user_records_detail_bp,
-        file_sharing_bp, ticket_user_bp, ticket_admin_bp, todo_bp, other_bp, chat_bp,
+        file_sharing_bp, ticket_user_bp, ticket_admin_bp, todo_bp, chat_bp,
         fixed_asset_bp, fixed_asset_api_bp, fixed_asset_import_export_bp,
         department_bp, department_api_bp, department_import_export_bp,
         supplier_bp, supplier_api_bp, supplier_import_export_bp,
@@ -172,7 +172,6 @@ def init_flask_app(progress_callback=None):
     app.register_blueprint(ticket_user_bp)# 注册留言管理蓝图
     app.register_blueprint(ticket_admin_bp)
     app.register_blueprint(todo_bp)# 注册待办事项蓝图
-    app.register_blueprint(other_bp)# 注册其他功能入口蓝图
     app.register_blueprint(chat_bp)# 注册聊天功能蓝图
     app.register_blueprint(fixed_asset_bp)
     app.register_blueprint(fixed_asset_api_bp)

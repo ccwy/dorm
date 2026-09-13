@@ -8,7 +8,7 @@ class MaintenanceReply(db.Model):
     
     id = db.Column(db.Integer, primary_key=True)
     order_id = db.Column(db.Integer, db.ForeignKey('maintenance_orders.id'), nullable=False, comment='工单ID')
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, comment='回复用户ID')
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True, comment='回复用户ID')
     content = db.Column(db.Text, nullable=False, comment='回复内容')
     reply_type = db.Column(db.String(50), default='reply', comment='回复类型：reply/assignment/status_change')
     assignment_type = db.Column(db.String(20), nullable=True, comment='分配方式：auto/manual（仅assignment类型回复使用）')
@@ -80,7 +80,18 @@ class MaintenanceReply(db.Model):
         """回复者姓名"""
         if self.user:
             return self.user.name
-        return '未知'
+        return '用户已删除'
+
+    @property
+    def role_label(self):
+        """回复者角色标签：提交人/维修员/管理员"""
+        if not self.user_id:
+            return ''
+        if self.order and self.user_id == self.order.user_id:
+            return '提交人'
+        if self.order and self.user_id == self.order.assigned_to:
+            return '维修员'
+        return '管理员'
     
     @property
     def old_status(self):

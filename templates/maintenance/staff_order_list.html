@@ -54,7 +54,7 @@
         <div class="mb-6 fade-in">
             <div class="flex items-center justify-between">
                 <div class="flex items-center">
-                    <button onclick="window.location.href = '{{ url_for('index') }}'" class="text-gray-600 hover:text-primary transition-colors mr-4">
+                    <button "button" onclick="window.history.back()" class="text-gray-600 hover:text-primary transition-colors mr-4">
                         <i class="fa fa-arrow-left"></i>
                     </button>
                     <div>
@@ -147,6 +147,7 @@
                             <th class="px-4 py-3 text-left text-gray-600 font-medium">房间</th>
                             <th class="px-4 py-3 text-left text-gray-600 font-medium">优先级</th>
                             <th class="px-4 py-3 text-left text-gray-600 font-medium">状态</th>
+                            <th class="px-4 py-3 text-left text-gray-600 font-medium">提交人</th>
                             <th class="px-4 py-3 text-left text-gray-600 font-medium">创建时间</th>
                             <th class="px-4 py-3 text-left text-gray-600 font-medium">操作</th>
                         </tr>
@@ -160,7 +161,7 @@
                             </td>
                             <td class="px-4 py-3 whitespace-nowrap text-gray-800 max-w-[200px] truncate">{{ order.title }}</td>
                             <td class="px-4 py-3 whitespace-nowrap text-gray-600">{{ order.maintenance_type }}</td>
-                            <td class="px-4 py-3 whitespace-nowrap text-gray-600">{{ order.room_number }}</td>
+                            <td class="px-4 py-3 whitespace-nowrap text-gray-600">{{ order.room_number if order.room_number else '-'}}</td>
                             <td class="px-4 py-3 whitespace-nowrap">
                                 {% set priority_colors = {'低': 'bg-gray-100 text-gray-800', '一般': 'bg-blue-100 text-blue-800', '高': 'bg-orange-100 text-orange-800', '紧急': 'bg-red-100 text-red-800'} %}
                                 <span class="status-badge {{ priority_colors.get(order.priority, 'bg-gray-100 text-gray-800') }}">{{ order.priority }}</span>
@@ -169,6 +170,7 @@
                                 {% set status_colors = {'处理中': 'bg-blue-100 text-blue-800', '已解决': 'bg-green-100 text-green-800', '已关闭': 'bg-gray-100 text-gray-800'} %}
                                 <span class="status-badge {{ status_colors.get(order.status, 'bg-gray-100 text-gray-800') }}">{{ order.status }}</span>
                             </td>
+                            <td class="px-4 py-3 whitespace-nowrap text-gray-600">{{ order.creator_name }}</td>
                             <td class="px-4 py-3 whitespace-nowrap text-gray-500 text-xs">{{ order.created_at.strftime('%Y-%m-%d %H:%M') if order.created_at else '' }}</td>
                             <td class="px-4 py-3">
                                 <a href="{{ url_for('maintenance_staff.staff_order_detail', order_id=order.id) }}" class="btn-effect inline-flex items-center px-3 py-1.5 bg-primary text-white rounded text-xs hover:bg-primary/90 transition-colors">

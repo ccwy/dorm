@@ -8,7 +8,7 @@ class MaintenanceOrder(db.Model):
     
     id = db.Column(db.Integer, primary_key=True)
     order_no = db.Column(db.String(50), unique=True, nullable=False, comment='工单编号（如 WX20250101001）')
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, comment='报修人ID')
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True, comment='报修人ID')
     room_id = db.Column(db.Integer, db.ForeignKey('rooms.id'), nullable=True, comment='房间ID')
     room_number = db.Column(db.String(50), nullable=False, comment='房间号（冗余存储）')
     title = db.Column(db.String(255), nullable=False, comment='工单标题（自动取描述前20字）')
@@ -189,13 +189,15 @@ class MaintenanceOrder(db.Model):
         """提交人姓名"""
         if self.user:
             return self.user.name
-        return '未知'
-    
+        return '用户已删除'
+
     @property
     def assigned_to_name(self):
         """维修员姓名"""
         if self.assigned_user:
             return self.assigned_user.name
+        if self.assigned_to:
+            return '用户已删除'
         return ''
     
     @property
@@ -204,43 +206,77 @@ class MaintenanceOrder(db.Model):
         return self.completed_at
     
     def get_timeline(self):
-        """生成状态时间线数据"""
-        status_flow = ['待处理', '处理中', '已解决', '已关闭']
+        """生成状态时间线数据（支持重新开启后的历史记录追加）"""
+        from models.maintenance.maintenance_reply import MaintenanceReply
+
+        # 查询所有状态变更和分配回复，按时间升序
+        event_replies = MaintenanceReply.query.filter(
+            MaintenanceReply.order_id == self.id,
+            MaintenanceReply.reply_type.in_(['status_change', 'assignment'])
+        ).order_by(MaintenanceReply.created_at.asc()).all()
+
         timeline = []
-        
-        # 状态对应的时间字段
-        time_map = {
-            '待处理': self.created_at,
-            '处理中': self.assigned_at or self.updated_at,
-            '已解决': self.completed_at,
-            '已关闭': self.closed_at
-        }
-        
-        current_idx = status_flow.index(self.status) if self.status in status_flow else 0
-        
-        for i, status in enumerate(status_flow):
-            event = {
-                'status': status,
-                'time': '',
-                'description': '',
-                'is_current': i == current_idx,
-                'is_completed': i < current_idx
-            }
-            
-            time_value = time_map.get(status)
-            if time_value:
-                event['time'] = time_value.strftime('%Y-%m-%d %H:%M')
-                # 添加描述
-                if status == '待处理':
-                    event['description'] = '工单已提交'
-                elif status == '处理中':
-                    if self.assigned_user:
-                        event['description'] = f'已分配给 {self.assigned_user.name}'
-                elif status == '已解决':
-                    event['description'] = '维修完成'
-                elif status == '已关闭':
-                    event['description'] = '工单已关闭'
-            
-            timeline.append(event)
-        
+
+        # 初始创建事件
+        timeline.append({
+            'status': '待处理',
+            'time': self.created_at.strftime('%Y-%m-%d %H:%M') if self.created_at else '',
+            'description': '工单已提交',
+            'is_current': False,
+            'is_completed': True
+        })
+
+        # 从回复构建时间线
+        current_status = '待处理'
+        for reply in event_replies:
+            if reply.reply_type == 'assignment':
+                # 分配维修员事件
+                assign_label = '自动分配' if (reply.assignment_type or 'manual') == 'auto' else '手动分配'
+                description = f'已分配维修员【{reply.assigned_name or ""}】（{assign_label}）'
+                timeline.append({
+                    'status': current_status,
+                    'time': reply.created_at.strftime('%Y-%m-%d %H:%M') if reply.created_at else '',
+                    'description': description,
+                    'is_current': False,
+                    'is_completed': True
+                })
+            elif reply.reply_type == 'status_change':
+                new_status = reply.new_status
+                old_status = reply.old_status
+
+                # 判断是否为重新开启（从已关闭状态回退）
+                is_reopen = (old_status == '已关闭' and new_status in ('待处理', '处理中'))
+
+                description = ''
+                if is_reopen:
+                    description = f'工单重新开启（由【{old_status}】变更为【{new_status}】）'
+                elif new_status == '处理中':
+                    description = '开始处理'
+                elif new_status == '已解决':
+                    description = '维修完成'
+                elif new_status == '已关闭':
+                    description = '工单已关闭'
+                else:
+                    description = f'状态由【{old_status}】变更为【{new_status}】'
+
+                current_status = new_status
+                timeline.append({
+                    'status': new_status,
+                    'time': reply.created_at.strftime('%Y-%m-%d %H:%M') if reply.created_at else '',
+                    'description': description,
+                    'is_current': False,
+                    'is_completed': True
+                })
+
+        # 标记当前状态：找到最后一个匹配当前状态的条目
+        current_idx = -1
+        for i in range(len(timeline) - 1, -1, -1):
+            if timeline[i]['status'] == self.status:
+                current_idx = i
+                break
+
+        for i, event in enumerate(timeline):
+            event['is_current'] = (i == current_idx)
+            event['is_completed'] = (i < current_idx)
+
         return timeline

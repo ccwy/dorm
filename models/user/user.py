@@ -372,6 +372,27 @@ class User(UserMixin, db.Model):
             # 5.5 删除用户相关的留言和照片
             tickets = Ticket.query.filter_by(user_id=self.id).all()
             
+            # 5.5.1 将维修工单的报修人置为NULL（保留维修记录）
+            from models.maintenance.maintenance_order import MaintenanceOrder
+            from models.maintenance.maintenance_reply import MaintenanceReply
+            maintenance_orders = MaintenanceOrder.query.filter_by(user_id=self.id).all()
+            if maintenance_orders:
+                for order in maintenance_orders:
+                    order.user_id = None
+                deleted_records.append(f"维修工单报修人置空 {len(maintenance_orders)} 条")
+            # 将维修工单的分配维修员置为NULL
+            assigned_orders = MaintenanceOrder.query.filter_by(assigned_to=self.id).all()
+            if assigned_orders:
+                for order in assigned_orders:
+                    order.assigned_to = None
+                deleted_records.append(f"维修工单维修员置空 {len(assigned_orders)} 条")
+            # 将维修回复的用户置为NULL
+            maintenance_replies = MaintenanceReply.query.filter_by(user_id=self.id).all()
+            if maintenance_replies:
+                for reply in maintenance_replies:
+                    reply.user_id = None
+                deleted_records.append(f"维修回复用户置空 {len(maintenance_replies)} 条")
+            
             # 5.6.1 删除用户发送的聊天消息
             message_records = ChatMessage.query.filter_by(sender_id=self.id).all()
             if message_records:

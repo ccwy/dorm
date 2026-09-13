@@ -28,8 +28,8 @@ from .utility import (
 from .fee_subsidy import fee_subsidy_bp, fee_subsidy_import_export_bp  # 补贴蓝图（含导入导出）
 
 
-# 文件共享与其他功能
-from .other import file_sharing_bp, other_bp
+# 文件共享
+from .file_sharing import file_sharing_bp
 
 # 留言管理相关
 from .ticket import ticket_user_bp, ticket_admin_bp  # 留言蓝图

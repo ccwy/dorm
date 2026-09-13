@@ -155,7 +155,7 @@
                         </div>
                         <div>
                             <label class="text-sm text-gray-500">房间信息</label>
-                            <p class="font-medium text-gray-800">{{ order.room_number }}</p>
+                            <p class="font-medium text-gray-800">{{ order.room_number if order.room_number else '-'}}</p>
                         </div>
                         <div>
                             <label class="text-sm text-gray-500">优先级</label>
@@ -168,7 +168,7 @@
                         </div>
                         <div>
                             <label class="text-sm text-gray-500">提交人</label>
-                            <p class="font-medium text-gray-800">{{ order.user.name if order.user else '未知' }}</p>
+                            <p class="font-medium text-gray-800">{{ order.creator_name }}</p>
                         </div>
                         <div>
                             <label class="text-sm text-gray-500">分配方式</label>
@@ -238,6 +238,9 @@
                             <div class="flex items-center justify-between mb-2">
                                 <div class="flex items-center">
                                     <span class="font-medium text-gray-800">{{ reply.author_name }}</span>
+                                    {% if reply.role_label %}
+                                    <span class="ml-1 text-xs px-1.5 py-0.5 rounded {% if reply.role_label == '提交人' %}bg-blue-100 text-blue-700{% elif reply.role_label == '维修员' %}bg-green-100 text-green-700{% else %}bg-orange-100 text-orange-700{% endif %}">{{ reply.role_label }}</span>
+                                    {% endif %}
                                     {% if reply.reply_type == 'status_change' %}
                                     <span class="ml-2 text-xs bg-purple-100 text-purple-800 px-2 py-0.5 rounded-full">状态变更</span>
                                     {% elif reply.reply_type == 'assignment' %}

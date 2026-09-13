@@ -21,11 +21,18 @@
            <i class="fa fa-home mr-2"></i>首页
         </a>
         {% if current_user.role_id %}
-        {% if get_config_value('FEATURE_USER_MANAGE_ENABLED', True) and current_user.has_permission('user.view') %}
+        {% if get_config_value('FEATURE_USER_MANAGE_ENABLED', True) %}
+        {% if current_user.has_permission('user.view') %}
         <a href="{{ url_for('user.manage') }}" 
            class="nav-item nav-user text-gray-700 hover:text-primary transition-colors py-1 border-b-2 {% if request.endpoint == 'user.manage' %}border-primary text-primary{% else %}border-transparent{% endif %}">
            <i class="fa fa-users mr-2"></i>用户
         </a>
+        {% else %}
+        <a href="{{ url_for('user.user_info') }}" 
+           class="nav-item nav-user text-gray-700 hover:text-primary transition-colors py-1 border-b-2 {% if request.endpoint == 'user.user_info' %}border-primary text-primary{% else %}border-transparent{% endif %}">
+           <i class="fa fa-user mr-2"></i>个人信息
+        </a>
+        {% endif %}
         {% endif %}
         <!-- 隐藏不显示
         {% if current_user.has_permission('room.view') %}
@@ -40,14 +47,14 @@
            class="nav-item nav-dorm text-gray-700 hover:text-primary transition-colors py-1 border-b-2 {% if request.endpoint == 'dorm.manage' %}border-primary text-primary{% else %}border-transparent{% endif %}">
            <i class="fa fa-building mr-2"></i>宿舍
         </a>
-        <!-- 隐藏不显示
         {% endif %}
-        {% if current_user.has_permission('utility.view') %}
+        {% if get_config_value('FEATURE_UTILITY_BILL_ENABLED', True) and current_user.has_permission('utility.view') %}
         <a href="{{ url_for('utility_index.utility_index') }}" 
-           class="nav-item nav-utility text-gray-700 hover:text-primary transition-colors py-1 border-b-2 {% if request.endpoint == 'utility_index.utility_index' %}border-primary text-primary{% else %}border-transparent{% endif %}">
+           class="nav-item nav-utility text-gray-700 hover:text-primary transition-colors py-1 border-b-2 {% if request.endpoint and 'utility' in request.endpoint %}border-primary text-primary{% else %}border-transparent{% endif %}">
            <i class="fa fa-bolt mr-2"></i>水电
         </a>
         {% endif %}
+        <!-- 隐藏不显示
         {% if current_user.has_permission('fee_subsidy.view') %}
         <a href="{{ url_for('fee_subsidy.fee_subsidy_index') }}" 
            class="nav-item nav-subsidy text-gray-700 hover:text-primary transition-colors py-1 border-b-2 {% if request.endpoint == 'fee_subsidy.fee_subsidy_index' %}border-primary text-primary{% else %}border-transparent{% endif %}">
@@ -97,10 +104,6 @@
         {% endif %}
         {% endif %}
 
-        <a href="{{ url_for('other.index') }}" 
-           class="nav-item nav-other text-gray-700 hover:text-primary transition-colors py-1 border-b-2 {% if request.endpoint == 'other.index' %}border-primary text-primary{% else %}border-transparent{% endif %}">
-           <i class="fa fa-th-large mr-2"></i>其他
-        </a>
         {% if current_user.has_any_permission('system_settings') %}
         <a href="{{ url_for('system_settings.settings') }}" 
            class="nav-item nav-settings text-gray-700 hover:text-primary transition-colors py-1 border-b-2 {% if request.endpoint == 'system_settings.settings' %}border-primary text-primary{% else %}border-transparent{% endif %}">
@@ -113,11 +116,6 @@
            <i class="fa fa-file-text-o mr-2"></i>日志
         </a>
         {% endif %}
-        {% else %}        
-        <a href="{{ url_for('other.index') }}" 
-           class="nav-item nav-other text-gray-700 hover:text-primary transition-colors py-1 border-b-2 {% if request.endpoint == 'other.index' %}border-primary text-primary{% else %}border-transparent{% endif %}">
-           <i class="fa fa-th-large mr-2"></i>其他
-        </a>
         {% endif %}
 
       </nav>
@@ -190,11 +188,6 @@ nav a i {
   /* 文件图标 - 青色 */
   .nav-item.nav-file i {
     color: #06b6d4;
-  }
-  
-  /* 其他功能图标 - 蓝紫色 */
-  .nav-item.nav-other i {
-    color: #8b5cf6;
   }
   
   /* 设置图标 - 灰色 */

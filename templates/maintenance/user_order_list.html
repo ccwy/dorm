@@ -59,7 +59,7 @@
         <div class="mb-6 fade-in">
             <div class="flex flex-col md:flex-row md:items-center md:justify-between">
                 <div class="flex items-center">
-                    <button onclick="window.location.href = '{{ url_for('index') }}'" class="text-gray-600 hover:text-primary transition-colors mr-4">
+                    <button "button" onclick="window.history.back()" class="text-gray-600 hover:text-primary transition-colors mr-4">
                         <i class="fa fa-arrow-left"></i>
                     </button>
                     <div>
@@ -135,6 +135,7 @@
                             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">房间</th>
                             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">优先级</th>
                             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">状态</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">维修人员</th>
                             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">创建时间</th>
                             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">操作</th>
                         </tr>
@@ -148,7 +149,7 @@
                                         <a href="{{ url_for('maintenance_user.user_order_detail', order_id=order.id) }}" class="text-primary hover:text-primary/80 transition-colors hover:underline">{{ order.title }}</a>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{{ order.maintenance_type }}</td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{{ order.room_number or '-' }}</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{{ order.room_number if order.room_number else '-'}}</td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm">
                                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
                                             {% if order.priority == '低' %}bg-gray-100 text-gray-800
@@ -169,6 +170,7 @@
                                             {{ order.status }}
                                         </span>
                                     </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{% if order.assigned_to_name %}{{ order.assigned_to_name }}{% else %}<span class="text-gray-400">未分配</span>{% endif %}</td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{{ order.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm">
                                         <a href="{{ url_for('maintenance_user.user_order_detail', order_id=order.id) }}" class="btn-effect bg-blue-500 text-white px-2 py-1 rounded-md text-sm inline-flex items-center">

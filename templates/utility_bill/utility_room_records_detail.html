@@ -91,9 +91,9 @@
     <!-- 页面标题和返回按钮 -->
     <div class="mb-8 fade-in">
       <div class="flex items-center mb-4">
-        <button onclick="window.location.href='{{ url_for('utility_index.utility_calculate_fees') }}'" class="text-gray-600 hover:text-primary transition-all-300 mr-4">
+        <button type="button" onclick="window.history.back()" class="text-gray-600 hover:text-primary transition-colors mr-4">
           <i class="fa fa-arrow-left"></i>
-       </button>
+        </button>
         <h2 class="text-[clamp(1.1rem,2vw,1.5rem)] font-semibold text-gray-800">{{ title }}<span id="record-id-display" class="text-gray-500 ml-2 text-base"></span></h2>
       </div>
       <p class="text-gray-500">查看房间的水电费明细及住宿人员信息</p>

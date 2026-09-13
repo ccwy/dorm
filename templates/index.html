@@ -82,7 +82,8 @@
         <!-- 卡片容器：flex居中布局 -->
         <div class="flex flex-wrap justify-start gap-6">
             <!-- 用户管理 -->
-            {% if get_config_value('FEATURE_USER_MANAGE_ENABLED', True) and current_user.has_permission('user.view') %}
+            {% if get_config_value('FEATURE_USER_MANAGE_ENABLED', True) %}
+            {% if current_user.has_permission('user.view') %}
             <div class="bg-white rounded-xl p-6 card-shadow btn-hover nav-card">
                 <a href="{{ url_for('user.manage') }}" class="flex flex-col items-center text-center">
                     <div class="w-16 h-16 bg-secondary/10 rounded-full flex items-center justify-center mb-4">
@@ -92,6 +93,17 @@
                     <p class="text-gray-500 text-sm">管理住宿用户基本信息</p>
                 </a>
             </div>
+            {% else %}
+            <div class="bg-white rounded-xl p-6 card-shadow btn-hover nav-card">
+                <a href="{{ url_for('user.user_info') }}" class="flex flex-col items-center text-center">
+                    <div class="w-16 h-16 bg-secondary/10 rounded-full flex items-center justify-center mb-4">
+                        <i class="fa fa-user text-xl md:text-2xl text-secondary"></i>
+                    </div>
+                    <h3 class="text-base md:text-lg font-medium text-dark mb-2">个人信息</h3>
+                    <p class="text-gray-500 text-sm">查看和管理个人信息</p>
+                </a>
+            </div>
+            {% endif %}
             {% endif %}
 
             <!-- 房间管理 -->

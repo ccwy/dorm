@@ -667,7 +667,7 @@ def get_storage_info():
     """获取系统存储信息，包括数据目录路径、环境类型和子目录信息"""
     try:
         import platform
-        from blueprints.other.file_sharing import get_base_data_path, get_supported_roots
+        from blueprints.file_sharing.file_sharing import get_base_data_path, get_supported_roots
         
         # 判断运行环境
         is_docker = os.environ.get('DOCKER_ENV', 'false').lower() == 'true'

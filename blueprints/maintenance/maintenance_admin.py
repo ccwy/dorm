@@ -467,7 +467,8 @@ def batch_assign():
         user_id = int(str(user_id))
         
         # 获取工单ID列表
-        order_ids = request.form.getlist('order_ids[]')
+        order_ids_raw = request.form.get('order_ids', '')
+        order_ids = [x.strip() for x in order_ids_raw.split(',') if x.strip()] if order_ids_raw else []
         assigned_to = request.form.get('assigned_to', '').strip()
         
         if not order_ids:
@@ -718,7 +719,8 @@ def batch_delete():
         user_id = int(str(user_id))
         
         # 获取工单ID列表
-        order_ids = request.form.getlist('order_ids[]')
+        order_ids_raw = request.form.get('order_ids', '')
+        order_ids = [x.strip() for x in order_ids_raw.split(',') if x.strip()] if order_ids_raw else []
         
         if not order_ids:
             flash('请选择要删除的维修工单', 'error')

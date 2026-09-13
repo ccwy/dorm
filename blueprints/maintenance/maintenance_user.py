@@ -398,7 +398,15 @@ def user_add_reply(order_id):
         # 用户回复自动重开工单
         if order.status == '已关闭':
             logging.debug(f"用户 {user_id} 回复已关闭工单 {order_id}，自动重开工单状态")
+            old_status = order.status
             order.update(status='处理中')
+            # 创建状态变更通知回复
+            MaintenanceReply.create_status_change_reply(
+                order_id=order_id,
+                old_status=old_status,
+                new_status='处理中',
+                user=current_user
+            )
         
         # 记录操作日志
         log_operation(
