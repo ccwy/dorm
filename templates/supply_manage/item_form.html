@@ -149,10 +149,13 @@
 
                         <!-- 单位 -->
                         <div>
-                            <label for="unit" class="block text-sm font-medium text-gray-700 mb-1">单位</label>
+                            <label for="unit" class="block text-sm font-medium text-gray-700 mb-1">
+                                单位 <span class="text-red-500">*</span>
+                            </label>
                             <input type="text" id="unit" name="unit" 
-                                   value="{{ (item.unit or '') if item else '' }}"
+                                   value="{{ (item.unit or '') if item else (supply_units[0] if supply_units else '') }}"
                                    list="unitList"
+                                   required
                                    class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
                                    placeholder="请输入单位">
                             <datalist id="unitList">
@@ -309,6 +312,13 @@
                     e.preventDefault();
                     alert('请输入物品名称');
                     document.getElementById('name').focus();
+                    return;
+                }
+                const unit = document.getElementById('unit').value.trim();
+                if (!unit) {
+                    e.preventDefault();
+                    alert('请输入单位');
+                    document.getElementById('unit').focus();
                     return;
                 }
             });

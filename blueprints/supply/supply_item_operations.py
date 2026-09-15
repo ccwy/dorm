@@ -42,6 +42,10 @@ def add_supply_item():
             flash('物品名称不能为空', 'danger')
             return redirect(url_for('supply_item.add_page'))
 
+        if not unit:
+            flash('单位不能为空', 'danger')
+            return redirect(url_for('supply_item.add_page'))
+
         # 状态值校验
         if status not in ['启用', '停用']:
             status = '启用'
@@ -130,6 +134,10 @@ def edit_supply_item(id):
         # 必填字段校验
         if not new_name:
             flash('物品名称不能为空', 'danger')
+            return redirect(url_for('supply_item.edit_page', id=id))
+
+        if not new_unit:
+            flash('单位不能为空', 'danger')
             return redirect(url_for('supply_item.edit_page', id=id))
 
         # 检查名称+规格+单位组合是否重复（排除自身）
