@@ -43,10 +43,10 @@ def login():
             admin_user = User.query.filter_by(username='admin').first()
             if admin_user:
                 print(f'[开发模式] 自动登录为admin账号: {admin_user.name}')
-                login_user(admin_user, remember=True)
-                session['login_time'] = datetime.now().isoformat()
-                session['last_activity_time'] = datetime.now().isoformat()
-                session.modified = True
+                
+                # 使用安全Cookie管理模块设置用户会话
+                setup_secure_user_session(admin_user, remember=True)
+                
                 log_operation(
                     user_id=admin_user.id,
                     module='login',
@@ -57,7 +57,28 @@ def login():
                 admin_user.last_login_at = datetime.now()
                 db.session.commit()
                 flash(f'开发模式自动登录为: {admin_user.name}', 'success')
-                return redirect(url_for('index'))
+
+                # 根据用户角色决定重定向目标
+                if admin_user.role_id and admin_user.user_role and admin_user.user_role.code != 'user':
+                    if admin_user.user_role.code == 'maintenance_staff':
+                        target_url = url_for('maintenance_staff.staff_order_list')
+                    else:
+                        target_url = url_for('index')
+                else:
+                    target_url = url_for('user.user_info')
+
+                # 使用JS重定向代替HTTP 302重定向
+                # 原因：pywebview/WebView2在初始页面加载时不持久化302响应中的Set-Cookie
+                # 返回200响应让浏览器先存储session cookie，再通过JS导航到目标页面
+                js_redirect_html = f'''<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>登录成功</title></head>
+<body>
+<p>登录成功，正在跳转...</p>
+<script>window.location.href = "{target_url}";</script>
+</body>
+</html>'''
+                return make_response(js_redirect_html)
             else:
                 print('[开发模式] 未找到admin账号，跳过自动登录')
         except Exception as e:

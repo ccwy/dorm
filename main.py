@@ -272,10 +272,8 @@ def init_flask_app(progress_callback=None):
 
     @login_manager.user_loader
     def load_user(user_id):
-        return db.session.get(User, int(user_id))
-
-    logging.getLogger('werkzeug').setLevel(logging.DEBUG)
-    logging.getLogger('flask').setLevel(logging.DEBUG)
+        user = db.session.get(User, int(user_id))
+        return user
 
     _stamp("创建Flask应用实例")
 

@@ -298,59 +298,9 @@
                 </table>
             </div>
             
-            <!-- 分页控制和统计信息 - 完全重设计，确保所有元素在中大屏幕上显示在一行 -->
+            <!-- 分页控件 -->
             {% if pagination %}
-            <div class="mt-6">
-                <!-- 统一的flex容器，中大屏幕显示为一行，小屏幕垂直堆叠并居中 -->
-                <div class="flex flex-col sm:flex-row flex-wrap items-center justify-center sm:justify-between gap-2 w-full text-sm">
-                    <!-- 左侧：统计信息 -->
-                    <div class="text-gray-600 whitespace-nowrap">
-                        共 {{ pagination.total_items }} 个项目，当前显示第 {{ (pagination.current_page - 1) * pagination.per_page + 1 }}-{{ [pagination.current_page * pagination.per_page, pagination.total_items]|min }} 个
-                    </div>
-                    
-                    <!-- 右侧：每页显示筛选、页码信息和翻页按钮 - 在小屏幕上居中显示 -->
-                    <div class="flex flex-wrap items-center justify-center gap-3">
-                        <!-- 每页显示筛选 -->
-                        <div class="flex items-center whitespace-nowrap">
-                            <form id="per-page-form" method="get" action="{{ url_for('file_sharing.file_sharing') }}">
-                                <input type="hidden" name="path" value="{{ current_path|replace('\\', '/') }}">
-                                {% if search_query %}
-                                <input type="hidden" name="search" value="{{ search_query }}">
-                                {% endif %}
-                                <label for="per_page" class="text-sm text-gray-600 mr-2">每页显示：</label>
-                                <select id="per_page" name="per_page" class="text-sm border border-gray-300 rounded-md p-1 focus:outline-none focus:ring-2 focus:ring-blue-500" onchange="this.form.submit()">
-                            <option value="10" {% if pagination.per_page == 10 %}selected{% endif %}>10条</option>
-                            <option value="20" {% if pagination.per_page == 20 %}selected{% endif %}>20条</option>
-                            <option value="50" {% if pagination.per_page == 50 %}selected{% endif %}>50条</option>
-                            <option value="100" {% if pagination.per_page == 100 %}selected{% endif %}>100条</option>
-                        </select>
-                        <input type="hidden" name="root" value="{{ current_root_type }}">
-                            </form>
-                        </div>
-                        
-                        <!-- 页码信息 - 移动到每页显示筛选的后面 -->
-                        <div class="text-gray-600 whitespace-nowrap">
-                            第 {{ pagination.current_page }}页 / 共{{ pagination.total_pages }} 页
-                        </div>
-                        
-                        <!-- 翻页按钮 -->
-                        <div class="flex flex-wrap items-center space-x-2 sm:flex-nowrap">
-                            {% set encoded_path = current_path|replace('\\', '/') %}
-                            <a href="{{ url_for('file_sharing.file_sharing', path=encoded_path, search=search_query, page=pagination.prev_page, per_page=pagination.per_page, root=current_root_type) }}" 
-                               class="px-3 py-2 text-sm border border-gray-300 rounded-md flex items-center {% if not pagination.has_prev %}opacity-50 cursor-not-allowed{% endif %}" 
-                               {% if not pagination.has_prev %}onclick="return false;"{% endif %}>
-                                <i class="fa fa-chevron-left mr-1"></i> 上一页
-                            </a>
-                            
-                            <a href="{{ url_for('file_sharing.file_sharing', path=encoded_path, search=search_query, page=pagination.next_page, per_page=pagination.per_page, root=current_root_type) }}" 
-                               class="px-3 py-2 text-sm border border-gray-300 rounded-md flex items-center {% if not pagination.has_next %}opacity-50 cursor-not-allowed{% endif %}" 
-                               {% if not pagination.has_next %}onclick="return false;"{% endif %}>
-                                下一页 <i class="fa fa-chevron-right ml-1"></i>
-                            </a>
-                        </div>
-                    </div>
-                </div>
-            </div>
+            <div id="pagination-container"></div>
             {% endif %}
         </div>
     </main>
@@ -484,6 +434,19 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
+            // 分页初始化
+            {% if pagination %}
+            new PaginationManager('pagination-container', {
+                mode: 'server',
+                total: {{ pagination.total }},
+                currentPage: {{ pagination.current_page }},
+                totalPages: {{ pagination.total_pages }},
+                pageSize: {{ pagination.per_page }},
+                pageSizeOptions: [10, 20, 50, 100],
+                urlTemplate: PaginationManager.buildUrlTemplate()
+            });
+            {% endif %}
+
             // 全局变量
             let selectedFilePaths = [];
             let currentRenameItem = null;

@@ -6,6 +6,7 @@ from models.supply.storage_location import StorageLocation
 from flask_login import login_required, current_user
 from utils.log import log_operation
 from utils.auth import require_permission
+from utils.pagination import get_pagination_params, build_pagination_params
 import logging
 import io
 import traceback
@@ -21,28 +22,6 @@ supply_stock_detail_bp = Blueprint(
     static_folder='../../static',
     static_url_path='/supply-stock-detail/static'
 )
-
-# 分页工具函数
-def generate_page_range(current_page, total_pages, show_pages=5):
-    if total_pages <= show_pages:
-        return list(range(1, total_pages + 1))
-    half = show_pages // 2
-    start = max(1, current_page - half)
-    end = min(total_pages, start + show_pages - 1)
-    if end - start < show_pages - 1:
-        start = max(1, end - show_pages + 1)
-    page_range = []
-    if start > 1:
-        page_range.append(1)
-        if start > 2:
-            page_range.append('...')
-    page_range.extend(range(start, end + 1))
-    if end < total_pages:
-        if end < total_pages - 1:
-            page_range.append('...')
-        page_range.append(total_pages)
-    return page_range
-
 
 # 库存明细列表页（支持按物品/位置/低库存筛选）
 @supply_stock_detail_bp.route('/', methods=['GET'])
@@ -114,10 +93,6 @@ def list_stock_details():
         # 分页查询物品
         pagination = item_query.paginate(page=page, per_page=per_page, error_out=False)
         paginated_items = pagination.items
-        total_count = pagination.total
-        total_pages = pagination.pages
-        current_page = pagination.page
-        page_range = generate_page_range(current_page, total_pages)
 
         # 为每个物品获取位置明细
         item_stock_list = []
@@ -155,12 +130,8 @@ def list_stock_details():
             title="库存明细",
             # 物品分组汇总数据
             item_stock_list=item_stock_list,
-            total_count=total_count,
             # 分页参数
-            current_page=current_page,
-            per_page=per_page,
-            total_pages=total_pages,
-            page_range=page_range,
+            **get_pagination_params(pagination),
             # 筛选配置
             items=items,
             locations=locations,
@@ -185,12 +156,8 @@ def list_stock_details():
             'supply_manage/stock_detail_list.html',
             title="库存明细",
             item_stock_list=[],
-            total_count=0,
-            current_page=1,
-            per_page=20,
-            total_pages=0,
-            page_range=[],
-            items=[],
+            **build_pagination_params(total=0, current_page=1, per_page=20, total_pages=0),
+
             locations=[],
             current_item_id=None,
             current_location_id=None,
@@ -224,8 +191,6 @@ def by_item(item_id):
         start = (page - 1) * per_page
         end = start + per_page
         paginated_details = stock_details[start:end]
-        total_pages = (total_count + per_page - 1) // per_page if total_count > 0 else 0
-        page_range = generate_page_range(page, total_pages)
 
         log_operation(
             user_id=current_user.id,
@@ -241,11 +206,7 @@ def by_item(item_id):
             title=f"物品库存 - {item.name}",
             item=item,
             stock_details=paginated_details,
-            total_count=total_count,
-            current_page=page,
-            per_page=per_page,
-            total_pages=total_pages,
-            page_range=page_range
+            **build_pagination_params(total=total_count, current_page=page, per_page=per_page),
         )
     except Exception as e:
         log_operation(
@@ -284,8 +245,6 @@ def by_location(location_id):
         start = (page - 1) * per_page
         end = start + per_page
         paginated_details = stock_details[start:end]
-        total_pages = (total_count + per_page - 1) // per_page if total_count > 0 else 0
-        page_range = generate_page_range(page, total_pages)
 
         log_operation(
             user_id=current_user.id,
@@ -301,11 +260,7 @@ def by_location(location_id):
             title=f"位置库存 - {location.display_name if hasattr(location, 'display_name') else location.name}",
             location=location,
             stock_details=paginated_details,
-            total_count=total_count,
-            current_page=page,
-            per_page=per_page,
-            total_pages=total_pages,
-            page_range=page_range
+            **build_pagination_params(total=total_count, current_page=page, per_page=per_page),
         )
     except Exception as e:
         log_operation(
@@ -345,8 +300,6 @@ def low_stock():
         start = (page - 1) * per_page
         end = start + per_page
         paginated_items = low_stock_items[start:end]
-        total_pages = (total_count + per_page - 1) // per_page if total_count > 0 else 0
-        page_range = generate_page_range(page, total_pages)
 
         log_operation(
             user_id=current_user.id,
@@ -361,12 +314,8 @@ def low_stock():
             'supply_manage/stock_detail_low_stock.html',
             title="低库存预警",
             low_stock_items=paginated_items,
-            total_count=total_count,
-            current_page=page,
-            per_page=per_page,
-            total_pages=total_pages,
-            page_range=page_range,
-            low_stock_alert_enabled=low_stock_alert_enabled
+            **build_pagination_params(total=total_count, current_page=page, per_page=per_page),
+
         )
     except Exception as e:
         log_operation(
@@ -382,11 +331,7 @@ def low_stock():
             'supply_manage/stock_detail_low_stock.html',
             title="低库存预警",
             low_stock_items=[],
-            total_count=0,
-            current_page=1,
-            per_page=20,
-            total_pages=0,
-            page_range=[]
+            **build_pagination_params(total=0, current_page=1, per_page=20, total_pages=0),
         )
 
 

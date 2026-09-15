@@ -8,6 +8,7 @@ from models.user.user import User
 from models.department.department import Department
 from utils.log import log_operation
 from utils.auth import require_permission, PERMISSIONS
+from utils.pagination import get_pagination_params
 import logging
 
 # 定义蓝图
@@ -56,28 +57,6 @@ def role_list():
                 'created_at': role.created_at.strftime('%Y-%m-%d %H:%M') if role.created_at else ''
             })
 
-        # 分页工具
-        def generate_page_range(current_page, total_pages, show_pages=5):
-            if total_pages <= show_pages:
-                return list(range(1, total_pages + 1))
-            half = show_pages // 2
-            start = max(1, current_page - half)
-            end = min(total_pages, start + show_pages - 1)
-            if end - start < show_pages - 1:
-                start = max(1, end - show_pages + 1)
-            page_range = []
-            if start > 1:
-                page_range.append(1)
-                if start > 2:
-                    page_range.append('...')
-            page_range.extend(range(start, end + 1))
-            if end < total_pages:
-                if end < total_pages - 1:
-                    page_range.append('...')
-                page_range.append(total_pages)
-            return page_range
-
-        page_range = generate_page_range(page, roles_pagination.pages)
 
         log_operation(
             user_id=current_user.id,
@@ -90,10 +69,7 @@ def role_list():
             'role_manage/role_list.html',
             title='角色管理',
             roles=role_list_data,
-            pagination=roles_pagination,
-            page=page,
-            per_page=per_page,
-            page_range=page_range
+            **get_pagination_params(roles_pagination),
         )
     except Exception as e:
         logging.error(f"访问角色列表页失败: {str(e)}")
@@ -168,28 +144,6 @@ def role_detail(id):
         # 获取所有角色（用于导航）
         all_roles = Role.query.order_by(Role.sort_order.asc(), Role.id.asc()).all()
 
-        # 分页工具
-        def generate_page_range(current_page, total_pages, show_pages=5):
-            if total_pages <= show_pages:
-                return list(range(1, total_pages + 1))
-            half = show_pages // 2
-            start = max(1, current_page - half)
-            end = min(total_pages, start + show_pages - 1)
-            if end - start < show_pages - 1:
-                start = max(1, end - show_pages + 1)
-            page_range = []
-            if start > 1:
-                page_range.append(1)
-                if start > 2:
-                    page_range.append('...')
-            page_range.extend(range(start, end + 1))
-            if end < total_pages:
-                if end < total_pages - 1:
-                    page_range.append('...')
-                page_range.append(total_pages)
-            return page_range
-
-        page_range = generate_page_range(page, users_pagination.pages)
 
         # 构建权限信息（按模块分组）
         permission_codes = set(role.get_permission_codes())
@@ -219,8 +173,7 @@ def role_detail(id):
             title=f'角色详情 - {role.name}',
             role=role,
             users=users_pagination.items,
-            pagination=users_pagination,
-            page_range=page_range,
+            **get_pagination_params(users_pagination),
             all_roles=all_roles,
             permissions_info=permissions_info,
             keyword=keyword,

@@ -258,20 +258,7 @@
             </div>
 
             <!-- 分页控件 -->
-            <div class="flex justify-between items-center mt-6">
-                <div class="text-sm text-gray-500">
-                    共 <span id="totalCount" class="font-medium text-primary">0</span> 条记录
-                </div>
-                <div class="flex space-x-2">
-                    <button id="prevPage" class="px-3 py-1 border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50" disabled>
-                        <i class="fa fa-chevron-left"></i>
-                    </button>
-                    <button id="currentPageBtn" class="px-3 py-1 bg-primary text-white rounded-md">1</button>
-                    <button id="nextPage" class="px-3 py-1 border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50" disabled>
-                        <i class="fa fa-chevron-right"></i>
-                    </button>
-                </div>
-            </div>
+            <div id="pagination-container"></div>
         </div>
     </main>
 
@@ -283,13 +270,27 @@
         // 全局变量
         let operationLogs = [];
         let filteredLogs = [];
-        let currentPage = 1;
-        const pageSize = 15;
-        let totalPages = 1;
         let totalRecordsCount = 0;
+        let recordsPm = null;
 
         // 页面加载初始化
         document.addEventListener('DOMContentLoaded', () => {
+            // 初始化分页组件
+            recordsPm = new PaginationManager({
+                container: '#pagination-container',
+                mode: 'client',
+                total: 0,
+                currentPage: 1,
+                totalPages: 1,
+                pageSize: 15,
+                pageSizeOptions: [15, 30, 50, 100],
+                onPageChange: function(page) {
+                    renderLogs();
+                },
+                onPageSizeChange: function(size) {
+                    renderLogs();
+                }
+            });
             
             // 绑定事件处理
             document.getElementById('searchBtn').addEventListener('click', handleSearch);
@@ -302,28 +303,12 @@
             document.getElementById('retryBtn').addEventListener('click', fetchOperationLogs);
             document.getElementById('exportBtn').addEventListener('click', exportLogs);
             
-            // 分页按钮事件
-            document.getElementById('prevPage').addEventListener('click', () => {
-                if (currentPage > 1) {
-                    currentPage--;
-                    renderLogs();
-                }
-            });
-            
-            document.getElementById('nextPage').addEventListener('click', () => {
-                if (currentPage < totalPages) {
-                    currentPage++;
-                    renderLogs();
-                }
-            });
-            
             // 初始加载数据
             fetchOperationLogs();
         });
 
         // 搜索处理函数
         function handleSearch() {
-            currentPage = 1;
             // 显示加载状态前先固定页面高度，防止闪烁
             document.body.style.minHeight = `${document.body.offsetHeight}px`;
             filterLogs().then(() => {
@@ -482,7 +467,11 @@
             });
             
             // 更新分页和渲染
-            totalPages = Math.ceil(filteredLogs.length / pageSize);
+            recordsPm.update({
+                total: filteredLogs.length,
+                currentPage: 1,
+                totalPages: Math.ceil(filteredLogs.length / recordsPm.getState().pageSize)
+            });
             renderLogs();
             
             // 状态显示
@@ -506,7 +495,7 @@
             });
             
             // 更新总记录数显示
-            document.getElementById('totalCount').textContent = String(filteredLogs.length);
+            // (PaginationManager 已处理总记录数显示)
             
             // 控制状态行显示
             if (filteredLogs.length > 0) {
@@ -520,15 +509,15 @@
             
             if (filteredLogs.length === 0) return;
             
+            // 从 PaginationManager 获取分页状态
+            const pmState = recordsPm.getState();
+            const currentPage = pmState.currentPage;
+            const pageSize = pmState.pageSize;
+            
             // 计算分页
             const startIndex = (currentPage - 1) * pageSize;
             const endIndex = Math.min(startIndex + pageSize, filteredLogs.length);
             const currentPageData = filteredLogs.slice(startIndex, endIndex);
-            
-            // 更新分页按钮状态
-            document.getElementById('prevPage').disabled = currentPage <= 1;
-            document.getElementById('nextPage').disabled = currentPage >= totalPages;
-            document.getElementById('currentPageBtn').textContent = currentPage;
             
             // 使用文档片段减少DOM重绘
             const fragment = document.createDocumentFragment();
@@ -618,7 +607,6 @@
             document.getElementById('filterResult').value = '';
             document.getElementById('dateRange').value = '';
             
-            currentPage = 1;
             // 固定页面高度防止闪烁
             document.body.style.minHeight = `${document.body.offsetHeight}px`;
             filterLogs().then(() => {

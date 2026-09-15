@@ -242,37 +242,7 @@
       <!-- 分页 -->
       <div class="px-6 py-4 bg-white border-t border-gray-200">
         <!-- 统一分页控件 - 适配所有屏幕尺寸 -->
-        <div class="flex flex-wrap items-center justify-between gap-2">
-          <!-- 左侧：总数和记录范围信息 -->
-          <div class="flex-1 min-w-[250px]">
-            <p class="text-sm text-gray-600 truncate">
-              显示第 <span id="startItem" class="font-medium">0</span> 条到第 <span id="endItem" class="font-medium">0</span> 条，共 <span id="totalItems" class="font-medium">0</span> 条结果
-            </p>
-          </div>
-          
-          <!-- 中间：页面显示条数筛选框和页码信息 -->
-          <div id="paginationInfo" class="text-center text-sm text-gray-500 whitespace-nowrap">
-            <select id="pageSizeSelect" class="mr-2 text-sm border border-gray-300 rounded-md px-2 py-1 focus:outline-none focus:ring-2 focus:ring-primary/50">
-              <option value="10">10条/页</option>
-              <option value="20">20条/页</option>
-              <option value="50">50条/页</option>
-              <option value="100">100条/页</option>
-            </select>
-            第 <span id="currentPage" class="font-medium text-primary">1</span> 页，共 <span id="totalPages" class="font-medium text-primary">0</span> 页
-          </div>
-          
-          <!-- 右侧：上下页按钮 -->
-          <div class="flex whitespace-nowrap">
-            <button id="prevPage" class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-l-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed mr-1" disabled>
-              <i class="fa fa-chevron-left text-xs mr-1"></i>
-              上一页
-            </button>
-            <button id="nextPage" class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-r-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
-              下一页
-              <i class="fa fa-chevron-right text-xs ml-1"></i>
-            </button>
-          </div>
-        </div>
+        <div id="pagination-container"></div>
       </div>
     </div>
   </main>
@@ -354,6 +324,27 @@
   <script>
     // 页面加载完成后初始化
     document.addEventListener('DOMContentLoaded', function() {
+      // 分页触发标志
+      let _paginationTriggeredSearch = false;
+
+      // 初始化分页管理器
+      const checkoutPm = new PaginationManager('pagination-container', {
+        mode: 'client',
+        total: 0,
+        currentPage: 1,
+        pageSize: 10,
+        pageSizeOptions: [10, 20, 50, 100],
+        onPageChange: (page) => {
+          _paginationTriggeredSearch = true;
+          searchBtn.click();
+        },
+        onPageSizeChange: (newPageSize) => {
+          checkoutPm.update({currentPage: 1});
+          _paginationTriggeredSearch = true;
+          searchBtn.click();
+        }
+      });
+
       // 获取DOM元素
       const confirmDeleteModal = document.getElementById('confirmDeleteModal');
       const createRecordModal = document.getElementById('createRecordModal');
@@ -382,29 +373,6 @@
       const electricReadingInput = document.getElementById('electricReading');
       const waterReadingInput = document.getElementById('waterReading');
       const calculateFeeCheckbox = document.getElementById('calculateFee');
-      
-      // 分页相关元素
-      const prevPageBtn = document.getElementById('prevPage');
-      const nextPageBtn = document.getElementById('nextPage');
-      const currentPageEl = document.getElementById('currentPage');
-      const totalPagesEl = document.getElementById('totalPages');
-      const totalItemsEl = document.getElementById('totalItems');
-      const startItemEl = document.getElementById('startItem');
-      const endItemEl = document.getElementById('endItem');
-      
-      // 分页参数
-      let currentPage = 1;
-      let pageSize = 10; // 每页显示10条记录
-      let totalItems = 0;
-      let totalPages = 0;
-      const pageSizeSelect = document.getElementById('pageSizeSelect');
-      
-      // 页面显示条数改变事件
-      pageSizeSelect.addEventListener('change', function() {
-        pageSize = parseInt(this.value);
-        currentPage = 1; // 重置为第一页
-        searchBtn.click(); // 重新调用搜索接口获取新一页数据
-      });
       
       // 当前选中的账期
       let currentBillPeriod = '';
@@ -544,8 +512,11 @@
       
       // 筛选按钮事件
       searchBtn.addEventListener('click', function() {
-        // 重置为第一页
-        currentPage = 1;
+        // 如果不是分页触发的搜索，重置为第一页
+        if (!_paginationTriggeredSearch) {
+          checkoutPm.update({currentPage: 1});
+        }
+        _paginationTriggeredSearch = false;
         // 清空ID映射表
         subRecordIdMap.clear();
         
@@ -574,14 +545,12 @@
               </tr>
         `;
         
-        // 重置分页状态
-        updatePaginationUI(0, 0);
-        
         // 构建搜索参数，包括分页参数
+        const pmState = checkoutPm.getState();
         const searchParams = { 
           bill_period: currentBillPeriod,
-          page: currentPage,
-          per_page: pageSize
+          page: pmState.currentPage,
+          per_page: pmState.pageSize
         };
         
         // 添加部门筛选参数
@@ -627,11 +596,14 @@
             
             // 使用后端返回的分页信息
             const pagination = data.data.pagination || {};
-            totalItems = pagination.total || 0;
-            totalPages = pagination.pages || 0;
             
-            // 更新分页UI
-            updatePaginationUI(totalItems, totalPages);
+            // 更新分页管理器
+            checkoutPm.update({
+              total: pagination.total || 0,
+              currentPage: pagination.page || 1,
+              totalPages: pagination.pages || 0,
+              pageSize: pmState.pageSize
+            });
             
             if (filteredResidents.length === 0) {
               // 没有找到数据 - 显示新增按钮
@@ -697,7 +669,7 @@
           const row = rowElements[index]; // 使用预先创建的行元素
           const residentData = resident;
           // 计算全局行号
-          const rowIndex = (currentPage - 1) * pageSize + index + 1;
+          const rowIndex = (checkoutPm.getState().currentPage - 1) * checkoutPm.getState().pageSize + index + 1;
           
           // 调用接口获取详细费用数据
           fetch('/utility_room_bill_checkout/checkout_query', {
@@ -1026,50 +998,6 @@
         });
       }
       
-      // 更新分页UI
-      function updatePaginationUI(totalItemsCount, totalPagesCount) {
-        // 设置总数和总页数
-        totalItems = totalItemsCount;
-        totalPages = totalPagesCount;
-        
-        // 计算当前页的记录范围
-        const startItem = totalItems > 0 ? (currentPage - 1) * pageSize + 1 : 0;
-        const endItem = Math.min(startItem + pageSize - 1, totalItems);
-        
-        // 更新总数和记录范围显示
-        totalItemsEl.textContent = totalItems;
-        startItemEl.textContent = startItem;
-        endItemEl.textContent = endItem;
-        
-        // 更新页码信息
-        currentPageEl.textContent = currentPage;
-        totalPagesEl.textContent = totalPages;
-        
-        // 更新上一页/下一页按钮状态
-        const hasPrevious = currentPage > 1;
-        const hasNext = currentPage < totalPages;
-        
-        prevPageBtn.disabled = !hasPrevious;
-        nextPageBtn.disabled = !hasNext;
-      }
-      
-      // 上一页按钮事件
-        prevPageBtn.addEventListener('click', () => {
-          if (currentPage > 1) {
-            currentPage--;
-            searchBtn.click(); // 重新调用搜索接口获取新一页数据
-          }
-        });
-        
-        // 下一页按钮事件
-        nextPageBtn.addEventListener('click', () => {
-          if (currentPage < totalPages) {
-            currentPage++;
-            searchBtn.click(); // 重新调用搜索接口获取新一页数据
-          }
-        });
-      
-
       
       document.getElementById('refreshBtn').addEventListener('click', function() {
         // 添加刷新动画

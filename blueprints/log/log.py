@@ -8,6 +8,7 @@ from utils.log import MODULE_MAP, OPERATION_TYPE_MAP  # 导入字典
 from utils.log import log_operation
 
 from utils.auth import require_permission
+from utils.pagination import get_pagination_params
 
 # 创建蓝图（原有内容不变）
 log_bp = Blueprint('log', __name__, url_prefix='/log')
@@ -117,7 +118,7 @@ def log():
     return render_template('log/log.html',
                            title="系统日志",
                            logs=processed_logs,
-                           pagination=pagination,
+                           **get_pagination_params(pagination),
                            MODULE_MAP=MODULE_MAP,
                            OPERATION_TYPE_MAP=OPERATION_TYPE_MAP,
                            # 当前筛选参数
@@ -125,7 +126,6 @@ def log():
                            end_time=end_time,
                            user_id=user_id,
                            module=module,
-                           operation_type=operation_type,
-                           per_page=per_page
+                           operation_type=operation_type
                            )
 

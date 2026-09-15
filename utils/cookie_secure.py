@@ -17,7 +17,10 @@ def setup_secure_user_session(user, remember=True, response=None):
     """
     from datetime import datetime
     
-    login_user(user, remember=remember)
+    login_result = login_user(user, remember=remember)
+    
+    if not login_result:
+        logging.error(f"login_user返回False! user.id={user.id}, is_active={user.is_active}")
     
     current_time = datetime.now().isoformat()
     session['login_time'] = current_time

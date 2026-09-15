@@ -275,36 +275,8 @@
             </div>
 
             <!-- 分页 -->
-            {% if pagination and pagination.total > 0 %}
-            <div class="px-4 py-3 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-3">
-                <div class="text-sm text-gray-500">
-                    共 {{ pagination.total }} 条记录，第 {{ pagination.page }}/{{ pagination.pages }} 页
-                    <select id="perPageSelect" class="ml-2 px-2 py-1 border border-gray-300 rounded text-sm" onchange="changePerPage(this.value)">
-                        <option value="20" {{ 'selected' if pagination.per_page == 20 }}>20条/页</option>
-                        <option value="50" {{ 'selected' if pagination.per_page == 50 }}>50条/页</option>
-                        <option value="100" {{ 'selected' if pagination.per_page == 100 }}>100条/页</option>
-                    </select>
-                </div>
-                {% if pagination.pages > 1 %}
-                <div class="flex space-x-1">
-                    {% if pagination.has_prev %}
-                    <a href="{{ url_for('maintenance_admin.admin_order_list', page=1, **request.args) }}" class="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-50">首页</a>
-                    <a href="{{ url_for('maintenance_admin.admin_order_list', page=pagination.prev_num, **request.args) }}" class="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-50">上一页</a>
-                    {% endif %}
-                    {% for p in generate_page_range(pagination.page, pagination.pages) %}
-                    {% if p == '...' %}
-                    <span class="px-3 py-1 text-gray-400">...</span>
-                    {% else %}
-                    <a href="{{ url_for('maintenance_admin.admin_order_list', page=p, **request.args) }}" class="px-3 py-1 border {{ 'border-primary bg-primary text-white' if p == pagination.page else 'border-gray-300 hover:bg-gray-50' }} rounded text-sm">{{ p }}</a>
-                    {% endif %}
-                    {% endfor %}
-                    {% if pagination.has_next %}
-                    <a href="{{ url_for('maintenance_admin.admin_order_list', page=pagination.next_num, **request.args) }}" class="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-50">下一页</a>
-                    <a href="{{ url_for('maintenance_admin.admin_order_list', page=pagination.pages, **request.args) }}" class="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-50">末页</a>
-                    {% endif %}
-                </div>
-                {% endif %}
-            </div>
+            {% if total > 0 %}
+            <div id="pagination-container"></div>
             {% endif %}
         </div>
     </main>
@@ -498,13 +470,18 @@
             document.getElementById('batchDeleteModal').classList.add('hidden');
         }
 
-        // 每页显示数切换
-        function changePerPage(value) {
-            const url = new URL(window.location.href);
-            url.searchParams.set('per_page', value);
-            url.searchParams.set('page', '1');
-            window.location.href = url.toString();
-        }
+        // 分页初始化
+        {% if total > 0 %}
+        new PaginationManager('pagination-container', {
+            mode: 'server',
+            total: {{ total }},
+            currentPage: {{ current_page }},
+            totalPages: {{ total_pages }},
+            pageSize: {{ pagination.per_page }},
+            pageSizeOptions: [20, 50, 100],
+            urlTemplate: PaginationManager.buildUrlTemplate()
+        });
+        {% endif %}
 
         // 点击模态框背景关闭
         document.querySelectorAll('[id$="Modal"]').forEach(modal => {

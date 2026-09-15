@@ -8,6 +8,7 @@ from models.system_config.system_config import SystemConfig
 from models.department.department import Department
 from models.room.room import Room
 from models.user.user import User
+from utils.pagination import get_pagination_params
 from models.supply.supplier import Supplier
 from models.supply.storage_location import StorageLocation
 from models.supply.supply_item import SupplyItem
@@ -30,27 +31,6 @@ fixed_asset_bp = Blueprint(
     static_folder='../../static',
     static_url_path='/fixed_asset/static'
 )
-
-# 分页工具函数
-def generate_page_range(current_page, total_pages, show_pages=5):
-    if total_pages <= show_pages:
-        return list(range(1, total_pages + 1))
-    half = show_pages // 2
-    start = max(1, current_page - half)
-    end = min(total_pages, start + show_pages - 1)
-    if end - start < show_pages - 1:
-        start = max(1, end - show_pages + 1)
-    page_range = []
-    if start > 1:
-        page_range.append(1)
-        if start > 2:
-            page_range.append('...')
-    page_range.extend(range(start, end + 1))
-    if end < total_pages:
-        if end < total_pages - 1:
-            page_range.append('...')
-        page_range.append(total_pages)
-    return page_range
 
 # 导入操作模块
 from . import fixed_asset_operations
@@ -128,10 +108,6 @@ def index():
         # 分页查询
         pagination = query.paginate(page=page, per_page=per_page, error_out=False)
         assets = pagination.items
-        total_count = pagination.total
-        total_pages = pagination.pages
-        current_page = pagination.page
-        page_range = generate_page_range(current_page, total_pages)
 
         # 记录访问日志
         log_operation(
@@ -148,12 +124,8 @@ def index():
             title="固定资产管理",
             # 资产数据
             assets=assets,
-            total_count=total_count,
             # 分页参数
-            current_page=current_page,
-            per_page=per_page,
-            total_pages=total_pages,
-            page_range=page_range,
+            **get_pagination_params(pagination),
             # 筛选配置
             categories=categories,
             statuses=statuses,
@@ -183,11 +155,10 @@ def index():
             'fixed_asset_manage/fixed_asset_manage.html',
             title="固定资产管理",
             assets=[],
-            total_count=0,
+            total=0,
             current_page=1,
             per_page=20,
             total_pages=0,
-            page_range=[],
             categories=[],
             statuses=[],
             departments=[],
@@ -284,10 +255,6 @@ def inventory():
         # 分页查询
         pagination = query.paginate(page=page, per_page=per_page, error_out=False)
         inventories = pagination.items
-        total_count = pagination.total
-        total_pages = pagination.pages
-        current_page = pagination.page
-        page_range = generate_page_range(current_page, total_pages)
 
         log_operation(
             user_id=current_user.id,
@@ -302,11 +269,7 @@ def inventory():
             'fixed_asset_manage/fixed_asset_inventory.html',
             title="资产盘点管理",
             inventories=inventories,
-            total_count=total_count,
-            current_page=current_page,
-            per_page=per_page,
-            total_pages=total_pages,
-            page_range=page_range,
+            **get_pagination_params(pagination),
             # 筛选条件回显
             inventory_status=inventory_status,
             search=search
@@ -325,11 +288,10 @@ def inventory():
             'fixed_asset_manage/fixed_asset_inventory.html',
             title="资产盘点管理",
             inventories=[],
-            total_count=0,
+            total=0,
             current_page=1,
             per_page=20,
             total_pages=0,
-            page_range=[],
             inventory_status='',
             search=''
         )
@@ -408,8 +370,6 @@ def inventory_detail(id):
         total_count = query.count()
         pagination = query.paginate(page=page, per_page=per_page, error_out=False)
         details = pagination.items
-        total_pages = pagination.pages
-        page_range = generate_page_range(page, total_pages)
 
         # 获取下拉选项数据
         categories = [c[0] for c in db.session.query(FixedAsset.asset_category).distinct().order_by(FixedAsset.asset_category).all()]
@@ -474,9 +434,8 @@ def inventory_detail(id):
             inventory_unapprove_enabled=SystemConfig.get_config_value('asset_inventory_unapprove_enabled', True),
             current_page=page,
             per_page=per_page,
-            total_count=total_count,
-            total_pages=total_pages,
-            page_range=page_range
+            total=total_count,
+            total_pages=pagination.pages
         )
     except Exception as e:
         log_operation(

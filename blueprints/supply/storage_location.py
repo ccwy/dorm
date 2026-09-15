@@ -4,6 +4,7 @@ from models.supply.storage_location import StorageLocation
 from flask_login import login_required, current_user
 from utils.log import log_operation
 from utils.auth import require_permission
+from utils.pagination import get_pagination_params
 import logging
 
 # 定义蓝图
@@ -29,27 +30,6 @@ def get_usage_types():
     except Exception:
         usage_types = ['低值易耗品', '固定资产', '合同管理']
     return usage_types
-
-# 分页工具函数
-def generate_page_range(current_page, total_pages, show_pages=5):
-    if total_pages <= show_pages:
-        return list(range(1, total_pages + 1))
-    half = show_pages // 2
-    start = max(1, current_page - half)
-    end = min(total_pages, start + show_pages - 1)
-    if end - start < show_pages - 1:
-        start = max(1, end - show_pages + 1)
-    page_range = []
-    if start > 1:
-        page_range.append(1)
-        if start > 2:
-            page_range.append('...')
-    page_range.extend(range(start, end + 1))
-    if end < total_pages:
-        if end < total_pages - 1:
-            page_range.append('...')
-        page_range.append(total_pages)
-    return page_range
 
 # 导入操作模块
 from . import storage_location_operations
@@ -100,10 +80,6 @@ def index():
         # 分页查询
         pagination = query.paginate(page=page, per_page=per_page, error_out=False)
         locations = pagination.items
-        total_count = pagination.total
-        total_pages = pagination.pages
-        current_page = pagination.page
-        page_range = generate_page_range(current_page, total_pages)
 
         # 记录访问日志
         log_operation(
@@ -120,12 +96,8 @@ def index():
             title="存放位置管理",
             # 存放位置数据
             locations=locations,
-            total_count=total_count,
             # 分页参数
-            current_page=current_page,
-            per_page=per_page,
-            total_pages=total_pages,
-            page_range=page_range,
+            **get_pagination_params(pagination),
             # 筛选配置
             statuses=statuses,
             usage_types=usage_types,
@@ -148,11 +120,10 @@ def index():
             'supply_manage/location_list.html',
             title="存放位置管理",
             locations=[],
-            total_count=0,
+            total=0,
             current_page=1,
             per_page=20,
             total_pages=0,
-            page_range=[],
             companies=[],
             statuses=['启用', '停用'],
             usage_types=get_usage_types(),

@@ -191,15 +191,6 @@
         <div class="bg-white rounded-lg shadow-sm overflow-hidden">
             <div class="flex justify-between items-center p-6 border-b border-gray-200">
                 <h3 class="text-lg font-medium">账单记录列表</h3>
-                <div class="flex items-center">
-                    <label for="perPage" class="text-sm text-gray-500 mr-2">每页记录数:</label>
-                    <select id="perPage" class="px-2 py-1 border border-gray-300 rounded-md text-sm">
-                        <option value="10">10</option>
-                        <option value="20" selected>20</option>
-                        <option value="50">50</option>
-                        <option value="100">100</option>
-                    </select>
-                </div>
             </div>
 
             <!-- 加载状态 -->
@@ -250,24 +241,7 @@
             </div>
 
             <!-- 分页 -->
-            <div id="pagination" class="px-6 py-4 border-t border-gray-200 flex flex-col sm:flex-row justify-between items-center hidden">
-                <div class="text-sm text-gray-500 mb-2 sm:mb-0">
-                    显示 <span id="startRecord">0</span> 到 <span id="endRecord">0</span> 条，共 <span id="totalRecords">0</span> 条
-                </div>
-                <div class="flex items-center space-x-4 w-full sm:w-auto">
-                    <div class="text-sm text-gray-500">
-                        第 <span id="currentPageDisplay">1</span> 页，共 <span id="totalPagesDisplay">0</span> 页
-                    </div>
-                    <div class="flex space-x-2">
-                        <button id="prevPage" class="px-3 py-1 border border-gray-300 rounded-md text-sm hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
-                            上一页
-                        </button>
-                        <button id="nextPage" class="px-3 py-1 border border-gray-300 rounded-md text-sm hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
-                            下一页
-                        </button>
-                    </div>
-                </div>
-            </div>
+            <div id="pagination-container"></div>
         </div>
     </main>
 
@@ -331,10 +305,8 @@
         // 全局变量
         let currentBillingPeriod = '';
         let currentBuilding = '';
-        let currentPage = 1;
-        let perPage = 20;
-        let totalRecords = 0;
         let recordsData = [];
+        let feePm = null; // PaginationManager instance
         let actionType = '';
         // 新增：系统配置变量
         let showMeterReduction = true; // 是否显示用量减免相关列
@@ -353,8 +325,7 @@
 
         // 房间号搜索处理函数
         const handleRoomNumberSearch = debounce(() => {
-            currentPage = 1; // 搜索时重置到第一页
-            loadRecords();
+            loadRecords(1, feePm.getState().pageSize); // 搜索时重置到第一页
         }, 500);
 
         // DOM 元素
@@ -382,13 +353,6 @@
         const emptyState = document.getElementById('emptyState');
         const tableContainer = document.getElementById('tableContainer');
         const recordsTableBody = document.getElementById('recordsTableBody');
-        const pagination = document.getElementById('pagination');
-        const startRecord = document.getElementById('startRecord');
-        const endRecord = document.getElementById('endRecord');
-        const totalRecordsEl = document.getElementById('totalRecords');
-        const prevPageBtn = document.getElementById('prevPage');
-        const nextPageBtn = document.getElementById('nextPage');
-        const perPageSelect = document.getElementById('perPage');
         const toggleAllDetails = document.getElementById('toggleAllDetails');
         
         // 模态框元素
@@ -413,6 +377,21 @@
 
         // 页面加载完成后初始化
         document.addEventListener('DOMContentLoaded', () => {
+            // 初始化分页管理器
+            feePm = new PaginationManager('pagination-container', {
+                mode: 'client',
+                total: 0,
+                currentPage: 1,
+                pageSize: 20,
+                pageSizeOptions: [10, 20, 50, 100],
+                onPageChange: (page) => {
+                    loadRecords(page, feePm.getState().pageSize);
+                },
+                onPageSizeChange: (pageSize) => {
+                    loadRecords(1, pageSize);
+                }
+            });
+
             // 先获取系统配置，再初始化页面
             loadSystemConfigs().then(() => {
                 initPage();
@@ -516,17 +495,15 @@
             // 账期选择变化
             billingPeriodSelect.addEventListener('change', (e) => {
                 currentBillingPeriod = e.target.value;
-                currentPage = 1;  // 重置为第一页
                 updateActionButtons();
-                loadRecords();  // 自动加载数据
+                loadRecords(1, feePm.getState().pageSize);  // 重置为第一页
             });
 
             // 楼栋选择变化
             buildingFilter.addEventListener('change', (e) => {
                 currentBuilding = e.target.value;
-                currentPage = 1;  // 重置为第一页
                 if (currentBillingPeriod) {
-                    loadRecords();
+                    loadRecords(1, feePm.getState().pageSize);  // 重置为第一页
                 }
             });
 
@@ -538,8 +515,7 @@
                 roomNumberFilter.addEventListener('keypress', function(e) {
                     if (e.key === 'Enter') {
                         e.preventDefault(); // 阻止默认行为
-                        currentPage = 1; // 搜索时重置到第一页
-                        loadRecords(); // 直接调用加载记录函数
+                        loadRecords(1, feePm.getState().pageSize); // 搜索时重置到第一页
                     }
                 });
             }
@@ -623,27 +599,6 @@
                 createEmptyPeriod(newPeriod);
             });
 
-            // 分页相关
-            perPageSelect.addEventListener('change', (e) => {
-                perPage = parseInt(e.target.value);
-                currentPage = 1;
-                loadRecords();
-            });
-
-            prevPageBtn.addEventListener('click', () => {
-                if (currentPage > 1) {
-                    currentPage--;
-                    loadRecords();
-                }
-            });
-
-            nextPageBtn.addEventListener('click', () => {
-                if (currentPage < Math.ceil(totalRecords / perPage)) {
-                    currentPage++;
-                    loadRecords();
-                }
-            });
-
             // 展开/折叠所有记录详情
             toggleAllDetails.addEventListener('click', toggleAllRecordDetails);
 
@@ -719,7 +674,7 @@
                     billingPeriodSelect.value = period;
                     currentBillingPeriod = period;
                     updateActionButtons();
-                    loadRecords();
+                    loadRecords(1, feePm.getState().pageSize);
                 }
             } catch (error) {
                 console.error('生成空账期失败:', error);
@@ -801,7 +756,7 @@
         }
 
         // 加载账单记录
-        async function loadRecords() {
+        async function loadRecords(page, pageSize) {
             if (!currentBillingPeriod) {
                 showToast('请先选择账期', 'warning');
                 return;
@@ -811,7 +766,7 @@
 
             try {
                 // 构建查询参数
-                let queryParams = `billing_period=${currentBillingPeriod}&page=${currentPage}&per_page=${perPage}`;
+                let queryParams = `billing_period=${currentBillingPeriod}&page=${page}&per_page=${pageSize}`;
                 if (currentBuilding) {
                     queryParams += `&building=${currentBuilding}`;
                 }
@@ -838,7 +793,6 @@
                 
                 // 更新数据（包含子表抄表记录）
                 recordsData = recordsResult.data;
-                totalRecords = recordsResult.pagination.total;
                 
                 // 预加载房间信息到缓存
                 if (recordsData.length > 0) {
@@ -855,11 +809,16 @@
                 updatePeriodInfo(periodInfoResult.data);
                 updateStats(periodInfoResult.data);
                 renderTable();
-                updatePagination();
+                feePm.update({
+                    total: recordsResult.pagination.total,
+                    currentPage: page,
+                    totalPages: recordsResult.pagination.pages,
+                    pageSize: pageSize
+                });
                 
                 // 显示表格，隐藏空状态
                 tableContainer.classList.remove('hidden');
-                pagination.classList.remove('hidden');
+                document.getElementById('pagination-container').classList.remove('hidden');
                 emptyState.classList.add('hidden');
             } catch (error) {
                 showToast('加载记录失败: ' + error.message, 'error');
@@ -867,7 +826,7 @@
                 
                 // 显示空状态
                 tableContainer.classList.add('hidden');
-                pagination.classList.add('hidden');
+                document.getElementById('pagination-container').classList.add('hidden');
                 emptyState.classList.remove('hidden');
             } finally {
                 hideLoading();
@@ -908,7 +867,7 @@
                 }
                 
                 showToast(`费用核算完成，共更新${result.updated_count}条主表记录`, 'success');
-                loadRecords(); // 重新加载记录
+                loadRecords(feePm.getState().currentPage, feePm.getState().pageSize); // 重新加载记录
             } catch (error) {
                 showToast('核算失败: ' + error.message, 'error');
                 console.error('核算失败:', error);
@@ -952,7 +911,7 @@
                 
                 showToast(`成功清空${period}账期的主表数据，共处理${result.cleared_count}条记录`, 'success');
                 // 重新加载数据
-                loadRecords();
+                loadRecords(feePm.getState().currentPage, feePm.getState().pageSize);
             } catch (error) {
                 console.error('清空当期期数据失败:', error);
                 showToast('清空失败: ' + (error.message || '网络错误'), 'error');
@@ -1015,7 +974,7 @@
                 
                 showToast(`成功删除${period}账期的所有记录，共${deleteResult.deleted_ids.length}条`, 'success');
                 // 重新加载数据
-                loadRecords();
+                loadRecords(feePm.getState().currentPage, feePm.getState().pageSize);
             } catch (error) {
                 console.error('批量删除请求失败:', error);
                 showToast('删除失败: ' + (error.message || '网络错误'), 'error');
@@ -1058,7 +1017,7 @@
                 if (data.success) {
                     showToast('删除成功', 'success');
                     // 重新加载数据确保一致性
-                    loadRecords();
+                    loadRecords(feePm.getState().currentPage, feePm.getState().pageSize);
                 } else {
                     showToast('删除失败: ' + (data.error || '未知错误'), 'error');
                 }
@@ -1113,7 +1072,7 @@
             
             recordsData.forEach((record, index) => {
                 // 计算序号，考虑分页因素
-                const serialNumber = index + 1 + (currentPage - 1) * perPage;
+                const serialNumber = index + 1 + (feePm.getState().currentPage - 1) * feePm.getState().pageSize;
                 
                 // 获取房间信息
                 const roomInfo = roomInfoCache.get(record.room_id) || {
@@ -1312,22 +1271,6 @@
                 toggleAllDetails.classList.remove('fa-chevron-up');
                 toggleAllDetails.classList.add('fa-chevron-down');
             }
-        }
-
-        // 更新分页
-        function updatePagination() {
-            const start = (currentPage - 1) * perPage + 1;
-            const end = Math.min(currentPage * perPage, totalRecords);
-            const totalPages = Math.ceil(totalRecords / perPage);
-            
-            startRecord.textContent = start;
-            endRecord.textContent = end;
-            totalRecordsEl.textContent = totalRecords;
-            currentPageDisplay.textContent = currentPage;
-            totalPagesDisplay.textContent = totalPages;
-            
-            prevPageBtn.disabled = currentPage <= 1;
-            nextPageBtn.disabled = currentPage >= totalPages;
         }
 
         // 显示加载状态

@@ -134,7 +134,7 @@
             <div class="px-6 py-4 border-b border-gray-200 flex flex-wrap items-center justify-between gap-2">
                 <h3 class="text-lg font-medium text-gray-800 flex items-center">
                     <i class="fa fa-users text-primary mr-2"></i>关联用户
-                    <span class="ml-2 text-sm text-gray-400">({{ pagination.total }}人)</span>
+                    <span class="ml-2 text-sm text-gray-400">({{ total }}人)</span>
                 </h3>
                 <div class="flex items-center gap-2">
                     {% if current_user.has_permission('role.edit') %}
@@ -259,32 +259,7 @@
             </div>
 
             <!-- 分页 -->
-            {% if pagination and pagination.total > 0 %}
-            <div class="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
-                <p class="text-sm text-gray-500">共 {{ pagination.total }} 条记录，第 {{ pagination.page }}/{{ pagination.pages }} 页</p>
-                {% if pagination.pages > 1 %}
-                <div class="flex space-x-1">
-                    {% if pagination.has_prev %}
-                    <a href="{{ url_for('role.role_detail', id=role.id, page=1, keyword=keyword, company=filter_company, department=filter_department) }}" class="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200">首页</a>
-                    <a href="{{ url_for('role.role_detail', id=role.id, page=pagination.prev_num, keyword=keyword, company=filter_company, department=filter_department) }}" class="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200">上一页</a>
-                    {% endif %}
-                    {% for p in page_range %}
-                        {% if p == '...' %}
-                        <span class="px-2 py-1 text-sm text-gray-400">...</span>
-                        {% elif p == pagination.page %}
-                        <span class="px-3 py-1 text-sm bg-primary text-white rounded">{{ p }}</span>
-                        {% else %}
-                        <a href="{{ url_for('role.role_detail', id=role.id, page=p, keyword=keyword, company=filter_company, department=filter_department) }}" class="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200">{{ p }}</a>
-                        {% endif %}
-                    {% endfor %}
-                    {% if pagination.has_next %}
-                    <a href="{{ url_for('role.role_detail', id=role.id, page=pagination.next_num, keyword=keyword, company=filter_company, department=filter_department) }}" class="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200">下一页</a>
-                    <a href="{{ url_for('role.role_detail', id=role.id, page=pagination.pages, keyword=keyword, company=filter_company, department=filter_department) }}" class="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200">末页</a>
-                    {% endif %}
-                </div>
-                {% endif %}
-            </div>
-            {% endif %}
+            <div id="pagination-container"></div>
         </div>
     </main>
 
@@ -314,10 +289,7 @@
                 </div>
             </div>
             <!-- 搜索分页 -->
-            <div id="searchPagination" class="hidden px-6 py-3 border-t border-gray-100 flex items-center justify-between">
-                <p id="searchPageInfo" class="text-sm text-gray-500"></p>
-                <div id="searchPageButtons" class="flex space-x-1"></div>
-            </div>
+            <div id="user-search-pagination"></div>
             <!-- 底部操作 -->
             <div class="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
                 <span id="addSelectedCount" class="text-sm text-gray-500">已选 0 人</span>
@@ -342,6 +314,17 @@
     </div>
 
     <script>
+        // 初始化分页组件
+        new PaginationManager('pagination-container', {
+            mode: 'server',
+            urlTemplate: PaginationManager.buildUrlTemplate(),
+            currentPage: {{ current_page }},
+            totalPages: {{ total_pages }},
+            total: {{ total }},
+            pageSize: {{ per_page }},
+            pageSizeOptions: [20, 50, 100]
+        });
+
         const roleId = {{ role.id }};
         const isSuperAdminRole = {{ 'true' if role.code == 'super_admin' else 'false' }};
         let removeUserId = null;
@@ -358,19 +341,22 @@
 
         function closeAddUserModal() {
             document.getElementById('addUserModal').classList.add('hidden');
+            // 销毁搜索分页组件
+            if (userSearchPm) {
+                userSearchPm.destroy();
+                userSearchPm = null;
+            }
         }
 
         // 搜索用户
         let searchCurrentPage = 1;
+        let userSearchPm = null;
 
         function searchUsers(page) {
             if (page === undefined) page = 1;
             searchCurrentPage = page;
             const keyword = document.getElementById('searchKeyword').value.trim();
             const resultsDiv = document.getElementById('searchResults');
-            const paginationDiv = document.getElementById('searchPagination');
-            const pageInfo = document.getElementById('searchPageInfo');
-            const pageButtons = document.getElementById('searchPageButtons');
 
             fetch(`{{ url_for('role.api_search_users') }}?role_id=${roleId}&keyword=${encodeURIComponent(keyword)}&page=${page}&per_page=10`)
                 .then(response => response.json())
@@ -398,55 +384,43 @@
                         });
                         resultsDiv.innerHTML = html;
 
-                        // 渲染分页
-                        if (data.pages > 1) {
-                            paginationDiv.classList.remove('hidden');
-                            pageInfo.textContent = `共 ${data.total} 条记录，第 ${data.current_page}/${data.pages} 页`;
-
-                            let btns = '';
-                            if (data.current_page > 1) {
-                                btns += `<button type="button" onclick="searchUsers(${data.current_page - 1})" class="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200">上一页</button>`;
-                            }
-                            // 页码按钮
-                            const showPages = 5;
-                            let start = Math.max(1, data.current_page - Math.floor(showPages / 2));
-                            let end = Math.min(data.pages, start + showPages - 1);
-                            if (end - start < showPages - 1) {
-                                start = Math.max(1, end - showPages + 1);
-                            }
-                            if (start > 1) {
-                                btns += `<button type="button" onclick="searchUsers(1)" class="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200">1</button>`;
-                                if (start > 2) btns += `<span class="px-2 py-1 text-sm text-gray-400">...</span>`;
-                            }
-                            for (let p = start; p <= end; p++) {
-                                if (p === data.current_page) {
-                                    btns += `<span class="px-3 py-1 text-sm bg-primary text-white rounded">${p}</span>`;
-                                } else {
-                                    btns += `<button type="button" onclick="searchUsers(${p})" class="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200">${p}</button>`;
+                        // 更新或初始化分页
+                        if (!userSearchPm) {
+                            userSearchPm = new PaginationManager({
+                                container: '#user-search-pagination',
+                                mode: 'client',
+                                total: data.total,
+                                currentPage: data.current_page,
+                                totalPages: data.pages,
+                                pageSize: data.per_page || 10,
+                                onPageChange: function(page) {
+                                    searchUsers(page);
                                 }
-                            }
-                            if (end < data.pages) {
-                                if (end < data.pages - 1) btns += `<span class="px-2 py-1 text-sm text-gray-400">...</span>`;
-                                btns += `<button type="button" onclick="searchUsers(${data.pages})" class="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200">${data.pages}</button>`;
-                            }
-                            if (data.current_page < data.pages) {
-                                btns += `<button type="button" onclick="searchUsers(${data.current_page + 1})" class="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200">下一页</button>`;
-                            }
-                            pageButtons.innerHTML = btns;
+                            });
                         } else {
-                            paginationDiv.classList.add('hidden');
+                            userSearchPm.update({
+                                total: data.total,
+                                currentPage: data.current_page,
+                                totalPages: data.pages
+                            });
                         }
                     } else if (data.success) {
                         resultsDiv.innerHTML = '<p class="text-gray-400 text-center py-8">未找到匹配的用户</p>';
-                        paginationDiv.classList.add('hidden');
+                        if (userSearchPm) {
+                            userSearchPm.update({ total: 0, currentPage: 1, totalPages: 1 });
+                        }
                     } else {
                         resultsDiv.innerHTML = `<p class="text-red-500 text-center py-8">${data.message}</p>`;
-                        paginationDiv.classList.add('hidden');
+                        if (userSearchPm) {
+                            userSearchPm.update({ total: 0, currentPage: 1, totalPages: 1 });
+                        }
                     }
                 })
                 .catch(err => {
                     resultsDiv.innerHTML = '<p class="text-red-500 text-center py-8">搜索失败，请重试</p>';
-                    paginationDiv.classList.add('hidden');
+                    if (userSearchPm) {
+                        userSearchPm.update({ total: 0, currentPage: 1, totalPages: 1 });
+                    }
                 });
         }
 

@@ -6,6 +6,7 @@ from utils.db import db
 from utils.log import log_operation
 from flask_login import login_required, current_user
 from utils.auth import require_permission
+from utils.pagination import get_pagination_params
 import logging
 from datetime import datetime
 
@@ -83,9 +84,7 @@ def index():
     return render_template('todo_manage/todo_index.html',
                            title="待办事项管理",
                            todos=todos,
-                           pagination=pagination,
-                           page=page,
-                           per_page=per_page,
+                           **get_pagination_params(pagination),
                            search=search,
                            status=status,
                            status_options=status_options,

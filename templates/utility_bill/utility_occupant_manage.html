@@ -40,10 +40,6 @@
       .transition-all-300 {
         transition: all 300ms ease-in-out;
       }
-      .page-disabled {
-        pointer-events: none;
-        opacity: 0.5;
-      }
     }
   </style>
   
@@ -66,23 +62,8 @@
         margin-bottom: 0.5rem;
       }
       
-      .pagination-container {
-        flex-direction: column;
-        align-items: center;
-        gap: 1rem !important;
-      }
-      
       .stats-info {
         text-align: center;
-        width: 100%;
-      }
-      
-      .pagination-controls {
-        flex-direction: row;
-        align-items: center;
-        justify-content: center;
-        gap: 0.5rem !important;
-        flex-wrap: wrap;
         width: 100%;
       }
     }
@@ -283,40 +264,8 @@
         </table>
       </div>
       
-      <!-- 分页控件 - 重构为新的布局 -->
-      <div class="px-6 py-4 bg-gray-50 border-t border-gray-200">
-        <div class="pagination-container flex flex-col sm:flex-row items-center justify-between gap-4">
-          <!-- 统计信息 -->
-          <div class="stats-info text-sm text-gray-700">
-            显示第 <span id="currentPage" class="font-medium">1</span> 到 <span id="lastItemOnPage" class="font-medium">0</span> 条，共 <span id="totalItems" class="font-medium">0</span> 条记录
-          </div>
-          
-          <!-- 分页控制 -->
-          <div class="pagination-controls flex items-center gap-3">
-            <!-- 新增：每页显示条数选择框 -->
-            <div class="flex items-center gap-2">
-              <label for="pageSize" class="text-sm text-gray-700">每页显示:</label>
-              <select id="pageSize" name="pageSize" 
-                      class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all-300 text-sm">
-                <option value="10">10条</option>
-                <option value="20" selected>20条</option>
-                <option value="50">50条</option>
-                <option value="100">100条</option>
-              </select>
-            </div>
-            
-            <span class="text-sm text-gray-700">第 <span id="pageInfoDisplay" class="font-medium">1/1</span> 页</span>
-            <div class="flex space-x-2">
-              <button id="prevPage" class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 transition-colors">
-                <i class="fa fa-chevron-left mr-1"></i> 上一页
-              </button>
-              <button id="nextPage" class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 transition-colors">
-                下一页 <i class="fa fa-chevron-right ml-1"></i>
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
+      <!-- 分页控件 -->
+      <div id="pagination-container"></div>
       </div>
     </div>
   </main>
@@ -332,10 +281,12 @@
 
     // 全局变量增加房间信息缓存，避免重复请求
     let currentPage = 1;
-    let totalPages = 1;
     let perPage = 20; // 修改：将pageSize重命名为perPage，与后端保持一致
     // 新增：是否启用减免金额计算的配置变量
     let feeUserFeeEnabled = true;
+    
+    // 分页管理器
+    let feePm = null;
     
     // 工具函数：安全格式化费用，确保是数字类型
     function formatFee(fee) {
@@ -350,6 +301,28 @@
         loadBillingPeriods();
       });
       
+      // 初始化分页管理器
+      feePm = new PaginationManager('pagination-container', {
+        mode: 'client',
+        total: 0,
+        currentPage: 1,
+        totalPages: 1,
+        pageSize: 20,
+        pageSizeOptions: [10, 20, 50, 100],
+        onPageChange: function(page, pageSize) {
+          currentPage = page;
+          perPage = pageSize;
+          fetchFeeRecords();
+          scrollToTableTop();
+        },
+        onPageSizeChange: function(pageSize) {
+          currentPage = 1;
+          perPage = pageSize;
+          fetchFeeRecords();
+          scrollToTableTop();
+        }
+      });
+      
       // DOM元素获取和事件绑定
       const billingPeriodSelect = document.getElementById('billingPeriod');
       const filterForm = document.getElementById('filterForm');
@@ -357,10 +330,7 @@
       const exportBtn = document.getElementById('exportBtn');
       const calculateBtn = document.getElementById('calculateBtn');
       const clearCurrentBtn = document.getElementById('clearCurrentBtn');
-      const prevPageBtn = document.getElementById('prevPage');
-      const nextPageBtn = document.getElementById('nextPage');
       const searchInput = document.getElementById('searchInput');
-      const perPageSelect = document.getElementById('pageSize'); // 修改：获取每页显示条数选择框，保持ID为pageSize但变量名改为perPageSelect
       
       // 账期选择变化事件 - 自动加载数据
       billingPeriodSelect.addEventListener('change', function() {
@@ -391,15 +361,6 @@
         }
       });
       
-      // 修改：每页显示条数变化事件
-      if (perPageSelect) {
-        perPageSelect.addEventListener('change', function() {
-          perPage = parseInt(this.value);
-          currentPage = 1; // 重置为第一页
-          fetchFeeRecords();
-        });
-      }
-      
       // 刷新按钮 - 实现真正的页面刷新
       const refreshBtn = document.getElementById('refreshBtn');
       refreshBtn.addEventListener('click', function() {
@@ -417,27 +378,6 @@
       // 删除当前账单
       clearCurrentBtn.addEventListener('click', clearCurrentBill);
       
-      // 分页按钮事件（上一页）- 确保阻止默认行为
-      prevPageBtn.addEventListener('click', function(e) {
-        e.preventDefault();
-        if (currentPage > 1) {
-          currentPage--;
-          fetchFeeRecords();
-          // 滚动到表格顶部
-          scrollToTableTop();
-        }
-      });
-      
-      // 分页按钮事件（下一页）- 确保阻止默认行为
-      nextPageBtn.addEventListener('click', function(e) {
-        e.preventDefault();
-        if (currentPage < totalPages) {
-          currentPage++;
-          fetchFeeRecords();
-          // 滚动到表格顶部
-          scrollToTableTop();
-        }
-      });
     });
     
     // 新增：加载系统配置（控制减免金额显示）
@@ -561,11 +501,11 @@
             // 直接渲染表格
             renderFeeRecords(data.data);
             // 更新分页状态（使用后端返回的分页数据）
-            updatePagination(data.pagination || {
-              page: 1,
-              pages: 1,
-              total: data.data.length,
-              per_page: perPage
+            feePm.update({
+              total: (data.pagination && data.pagination.total) || data.data.length,
+              currentPage: (data.pagination && data.pagination.page) || 1,
+              totalPages: (data.pagination && data.pagination.pages) || 1,
+              pageSize: perPage
             });
           } else {
             tableBody.innerHTML = `<tr><td colspan="13" class="px-6 py-8 text-center text-danger"><i class="fa fa-exclamation-circle mr-2"></i>${data.message}</td></tr>`;
@@ -728,51 +668,7 @@
       updateFeeColumnsVisibility();
     }
     
-    // 更新分页状态 - 重构为新的分页控件
-    function updatePagination(pagination) {
-      // 确保分页数据有效
-      if (!pagination) pagination = { page: 1, pages: 1, total: 0, per_page: perPage }; // 修改：将pageSize改为perPage
-      
-      currentPage = pagination.page || 1;
-      totalPages = pagination.pages || 1;
-      
-      // 确保总页数至少为1
-      if (totalPages < 1) totalPages = 1;
-      
-      // 更新统计信息
-      document.getElementById('currentPage').textContent = currentPage;
-      document.getElementById('totalItems').textContent = pagination.total || 0;
-      
-      const lastItem = Math.min(currentPage * (pagination.per_page || perPage), pagination.total || 0); // 修改：将pageSize改为perPage
-      document.getElementById('lastItemOnPage').textContent = lastItem > 0 ? lastItem : 0;
-      
-      // 更新页码显示
-      document.getElementById('pageInfoDisplay').textContent = `${currentPage}/${totalPages}`;
-      
-      // 更新分页按钮状态
-      const prevBtn = document.getElementById('prevPage');
-      const nextBtn = document.getElementById('nextPage');
-      
-      // 上一页按钮状态
-      if (currentPage <= 1) {
-        prevBtn.classList.add('page-disabled');
-      } else {
-        prevBtn.classList.remove('page-disabled');
-      }
-      
-      // 下一页按钮状态
-      if (currentPage >= totalPages) {
-        nextBtn.classList.add('page-disabled');
-      } else {
-        nextBtn.classList.remove('page-disabled');
-      }
-      
-      // 新增：更新每页显示条数选择框的值
-      const pageSizeSelect = document.getElementById('pageSize');
-      if (pageSizeSelect && pageSizeSelect.value != perPage) {
-        pageSizeSelect.value = perPage;
-      }
-    }
+
     
     
     // 核算账单

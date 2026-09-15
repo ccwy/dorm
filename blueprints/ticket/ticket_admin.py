@@ -8,6 +8,7 @@ from flask_login import login_required, current_user
 from sqlalchemy import or_
 from datetime import datetime
 from utils.auth import require_permission
+from utils.pagination import get_pagination_params
 import logging
 import os
 from utils.ticket_photo import ticket_photo_manager
@@ -93,9 +94,7 @@ def admin_ticket_list():
         return render_template('ticket_manage/admin_ticket_list.html', 
                               title="留言管理列表",
                               tickets=tickets, 
-                              pagination=pagination, 
-                              page=page, 
-                              per_page=per_page,
+                              **get_pagination_params(pagination),
                               search_query=search, 
                               status_filter=status, 
                               category_filter=category,

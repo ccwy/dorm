@@ -240,27 +240,7 @@
                         </div>
                         
                         <!-- 分页控制 -->
-                        <div id="pagination" class="mt-4 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
-                            <div class="text-sm text-gray-500">
-                                显示 <span id="showingFrom">0</span>-<span id="showingTo">0</span> 条，共 <span id="totalRooms">0</span> 条
-                            </div>
-                            <div class="flex flex-wrap items-center gap-4">
-                                <span id="pageInfo" class="text-sm text-gray-700">第 <span id="currentPage">1</span>/<span id="totalPages">0</span> 页</span>
-                                <select id="pageSizeSelect" class="border border-gray-300 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
-                                    <option value="10">10条/页</option>
-                                    <option value="20">20条/页</option>
-                                    <option value="50">50条/页</option>
-                                    <option value="100">100条/页</option>
-                                </select>
-                                <button id="prevPage" class="px-3 py-1 border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
-                                    <i class="fa fa-chevron-left"></i> 上一页
-                                </button>
-                                
-                                <button id="nextPage" class="px-3 py-1 border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
-                                    下一页 <i class="fa fa-chevron-right"></i>
-                                </button>
-                            </div>
-                        </div>
+                        <div id="pagination-container"></div>
                     </div>
                     
                     <!-- 房间当前用户信息 -->
@@ -326,10 +306,6 @@
 
     <script>
         $(document).ready(function() {
-            // 当前页码和每页显示数量
-            let currentPage = 1;
-            let perPage = 10;
-            
             // 筛选和搜索元素
             const roomLevelFilter = $('#roomLevelFilter');
             const roomTypeFilter = $('#roomTypeFilter');
@@ -337,15 +313,8 @@
             const roomNumberSearch = $('#roomNumberSearch');
             const refreshRooms = $('#refreshRooms');
             
-            // 分页相关元素
+            // 列表元素
             const roomList = $('#roomList');
-            const prevPage = $('#prevPage');
-            const nextPage = $('#nextPage');
-            const currentPageEl = $('#currentPage');
-            const totalPagesEl = $('#totalPages');
-            const showingFrom = $('#showingFrom');
-            const showingTo = $('#showingTo');
-            const totalRooms = $('#totalRooms');
             
             // 其他元素
             const selectedRoomId = $('#selected_room_id');
@@ -359,24 +328,20 @@
             
             // 监听筛选条件变化，自动刷新列表
             roomLevelFilter.on('change', function() {
-                currentPage = 1;
-                loadRooms();
+                loadRooms(1);
             });
             
             roomTypeFilter.on('change', function() {
-                currentPage = 1;
-                loadRooms();
+                loadRooms(1);
             });
             
             buildingFilter.on('change', function() {
-                currentPage = 1;
-                loadRooms();
+                loadRooms(1);
             });
             
             roomNumberSearch.on('keypress', function(e) {
                 if (e.which === 13) { // Enter键
-                    currentPage = 1;
-                    loadRooms();
+                    loadRooms(1);
                 }
             });
             
@@ -384,16 +349,24 @@
             const userId = '{{ request.args.get('user_id') or (current_dorm.user.id if current_dorm and current_dorm.user else '') }}';
             const userGender = '{{ user.gender }}';
             
+            // 初始化分页管理器
+            const pm = new PaginationManager('pagination-container', {
+                mode: 'client',
+                total: 0,
+                currentPage: 1,
+                totalPages: 1,
+                pageSize: 10,
+                pageSizeOptions: [10, 20, 50, 100],
+                onPageChange: function(page, pageSize) {
+                    loadRooms(page, pageSize);
+                },
+                onPageSizeChange: function(pageSize) {
+                    loadRooms(1, pageSize);
+                }
+            });
+            
             // 初始化加载房间列表
             loadRooms();
-            
-            // 监听每页显示条数变化
-            const pageSizeSelect = $('#pageSizeSelect');
-            pageSizeSelect.on('change', function() {
-                perPage = parseInt($(this).val());
-                currentPage = 1; // 重置为第1页
-                loadRooms();
-            });
             
             // 加载房间当前用户信息
             function loadRoomOccupants(roomId, roomNumber) {
@@ -455,32 +428,15 @@
                     roomTypeFilter.val('');
                     buildingFilter.val('');
                     roomNumberSearch.val('');
-                    currentPage = 1;
-                    loadRooms();
-                }
-            });
-            
-            // 上一页
-            prevPage.on('click', function(e) {
-                e.preventDefault();
-                if (currentPage > 1) {
-                    currentPage--;
-                    loadRooms();
-                }
-            });
-            
-            // 下一页
-            nextPage.on('click', function(e) {
-                e.preventDefault();
-                const totalPages = parseInt(totalPagesEl.text());
-                if (currentPage < totalPages) {
-                    currentPage++;
-                    loadRooms();
+                    loadRooms(1);
                 }
             });
             
             // 加载房间列表
-            function loadRooms() {
+            function loadRooms(page, pageSize) {
+                page = page || pm.getState().currentPage;
+                pageSize = pageSize || pm.getState().pageSize;
+                
                 // 构建筛选参数
                 const filters = {
                     gender: userGender !== '-' ? userGender : '',
@@ -489,8 +445,8 @@
                     room_type: roomTypeFilter.val(),
                     building: buildingFilter.val(),
                     room_number: roomNumberSearch.val(),
-                    page: currentPage,
-                    per_page: perPage
+                    page: page,
+                    per_page: pageSize
                 };
                 
                 // 发送AJAX请求获取房间列表
@@ -506,7 +462,12 @@
                             
                             // 更新分页信息
                             if (response.data.pagination) {
-                                updatePagination(response.data.pagination.total, response.data.pagination.page, response.data.pagination.pages);
+                                pm.update({
+                                    total: response.data.pagination.total,
+                                    currentPage: response.data.pagination.page,
+                                    totalPages: response.data.pagination.pages,
+                                    pageSize: pageSize
+                                });
                             }
                         } else {
                             console.error('响应结构不正确:', response);
@@ -629,25 +590,7 @@
                     }
                 }
             }
-            
-            // 更新分页信息
-            function updatePagination(total, page, pages) {
-                // 更新总数和显示范围
-                totalRooms.text(total);
-                const from = (page - 1) * perPage + 1;
-                const to = Math.min(page * perPage, total);
-                showingFrom.text(from);
-                showingTo.text(to);
-                
-                // 更新页码信息
-                currentPage = page;
-                currentPageEl.text(page);
-                totalPagesEl.text(pages);
-                
-                // 更新上一页/下一页按钮状态
-                prevPage.prop('disabled', page === 1);
-                nextPage.prop('disabled', page === pages);
-            }
+
         });
     </script>
 

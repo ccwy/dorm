@@ -11,6 +11,7 @@ import logging
 from sqlalchemy import func  # 新增：导入聚合函数
 # 导入require_permission装饰器
 from utils.auth import require_permission
+from utils.pagination import get_pagination_params, build_pagination_params
 
 # 定义dorm蓝图
 dorm_bp = Blueprint(
@@ -523,9 +524,6 @@ def dorm_query():
         ).all()
         building_list = [b[0] for b in buildings]
         
-        # 生成页码范围
-        from blueprints.room import generate_page_range
-        page_range = generate_page_range(page, pagination.pages)
         
         # 判断是否为空状态（没有任何筛选条件且没有数据）
         is_empty_state = len(residents_data) == 0 and not any([search_query, department_filter, gender_filter, building_filter])
@@ -535,15 +533,13 @@ def dorm_query():
             'dorm_manage/dorm_query.html',
             title="在住人员查询",
             residents=residents_data,
-            pagination=pagination,
-            page_range=page_range,
+            **get_pagination_params(pagination),
             departments=department_list,
             buildings=building_list,
             search_query=search_query,
             department_filter=department_filter,
             gender_filter=gender_filter,
             building_filter=building_filter,
-            per_page=per_page,
             today=today,
             is_empty_state=is_empty_state
         )
@@ -563,7 +559,7 @@ def dorm_query():
             'dorm_manage/dorm_query.html',
             title="在住人员查询",
             residents=[],
-            pagination=None,
+            **build_pagination_params(total=0, current_page=1, per_page=20, total_pages=0),
             departments=[],
             buildings=[],
             search_query='',

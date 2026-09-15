@@ -192,37 +192,9 @@
                 </div>
                 
                 <!-- 分页 -->
-                <div class="px-6 py-4 bg-gray-50 border-t border-gray-200 flex flex-wrap items-center justify-between md:justify-between justify-center mt-4">
-                    <div class="text-sm text-gray-700 flex flex-wrap items-center justify-center space-x-4">
-                        <!-- 统计信息 -->
-                        <span class="md:mb-0 mb-2">显示 {% if pagination.items %} {{ (pagination.page - 1) * pagination.per_page + 1 }} {% else %} 0 {% endif %} 到 {% if pagination.items %} {{ ((pagination.page - 1) * pagination.per_page) + pagination.items|length }} {% else %} 0 {% endif %} 条，共 {{ pagination.total }} 条记录</span>
-                        
-                        <!-- 页码和每页显示在小屏幕上各自一行 -->
-                        <div class="flex flex-wrap items-center">
-                            <span class="block w-full md:w-auto mb-2 md:mb-0 md:mr-4">第 {{ pagination.page }} 页/共 {{ pagination.pages }} 页</span>
-                            <div class="flex items-center">
-                                <label for="logPerPage" class="mr-1 text-sm text-gray-700">每页显示：</label>
-                                <select id="logPerPage" class="px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm">
-                                    <option value="10" {% if per_page == 10 %}selected{% endif %}>10条</option>
-                                    <option value="20" {% if per_page == 20 %}selected{% endif %}>20条</option>
-                                    <option value="50" {% if per_page == 50 %}selected{% endif %}>50条</option>
-                                    <option value="100" {% if per_page == 100 %}selected{% endif %}>100条</option>
-                                    <option value="200" {% if per_page == 200 %}selected{% endif %}>200条</option>
-                                    <option value="500" {% if per_page == 500 %}selected{% endif %}>500条</option>
-                                    <option value="1000" {% if per_page == 1000 %}selected{% endif %}>1000条</option>
-                                </select>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="flex flex-wrap md:justify-start justify-center items-center space-x-1 mt-2">
-                        <a href="{{ url_for('log.log', page=pagination.prev_num, start_time=start_time, end_time=end_time, user_id=user_id, module=module, operation_type=operation_type, per_page=per_page) }}" class="px-3 py-1 border border-gray-300 rounded bg-white text-gray-500 hover:bg-gray-50 {% if not pagination.has_prev %}opacity-50 cursor-not-allowed{% endif %}">
-                            上一页
-                        </a>
-                        <a href="{{ url_for('log.log', page=pagination.next_num, start_time=start_time, end_time=end_time, user_id=user_id, module=module, operation_type=operation_type, per_page=per_page) }}" class="px-3 py-1 border border-gray-300 rounded bg-white text-gray-500 hover:bg-gray-50 {% if not pagination.has_next %}opacity-50 cursor-not-allowed{% endif %}">
-                            下一页
-                        </a>
-                    </div>
-                </div>
+                {% if total > 0 %}
+                <div id="pagination-container"></div>
+                {% endif %}
             </div>
         </div>
     </main>
@@ -238,7 +210,7 @@
         const userId = document.getElementById('logUserId').value;
         const module = document.getElementById('logModule').value;
         const operationType = document.getElementById('logOpType').value;
-        const perPage = document.getElementById('logPerPage').value;
+        const perPage = '{{ per_page }}';
         
         // 构建查询URL
         const url = new URL('{{ url_for('log.log') }}', window.location.origin);
@@ -282,13 +254,20 @@
         });
     }
     
-    // 为每页显示条数下拉框添加变化事件
-    const logPerPage = document.getElementById('logPerPage');
-    if (logPerPage) {
-        logPerPage.addEventListener('change', function() {
-            document.getElementById('searchButton').click();
-        });
-    }
+    // 分页初始化
+    {% if total > 0 %}
+    new PaginationManager('pagination-container', {
+        mode: 'server',
+        total: {{ total }},
+        currentPage: {{ current_page }},
+        totalPages: {{ total_pages }},
+        pageSize: {{ per_page }},
+        pageSizeOptions: [10, 20, 50, 100, 200, 500, 1000],
+        urlTemplate: PaginationManager.buildUrlTemplate()
+    });
+    {% endif %}
+    
+    // 为模块和操作类型下拉框添加变化事件，实现自动筛选
     </script>
 </body>
 </html>

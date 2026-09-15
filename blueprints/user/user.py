@@ -7,6 +7,7 @@ from models.system_config.system_config import SystemConfig  # 导入系统配�
 from models.department.department import Department
 from config import Config
 from flask_login import login_required, current_user
+from utils.pagination import get_pagination_params
 from utils.log import log_operation
 from sqlalchemy import or_
 from datetime import datetime, date
@@ -119,10 +120,9 @@ def manage():
             'user_manage/user_manage.html',
             title=f"用户管理",
             users=users,
-            pagination=pagination,  # 传递分页对象
-            total=pagination.total,
+            # 分页参数
+            **get_pagination_params(pagination),
             page=page,
-            per_page=per_page,
             search_query=search_query,
             company_filter=company,
             department_filter=department,

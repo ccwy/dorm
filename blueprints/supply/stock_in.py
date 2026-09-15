@@ -8,6 +8,7 @@ from models.supply.storage_location import StorageLocation
 from models.department.department import Department
 from models.user.user import User
 from flask_login import login_required, current_user
+from utils.pagination import get_pagination_params
 from utils.log import log_operation
 from utils.auth import require_permission
 import logging
@@ -21,27 +22,6 @@ stock_in_bp = Blueprint(
     static_folder='../../static',
     static_url_path='/stock-in/static'
 )
-
-# 分页工具函数
-def generate_page_range(current_page, total_pages, show_pages=5):
-    if total_pages <= show_pages:
-        return list(range(1, total_pages + 1))
-    half = show_pages // 2
-    start = max(1, current_page - half)
-    end = min(total_pages, start + show_pages - 1)
-    if end - start < show_pages - 1:
-        start = max(1, end - show_pages + 1)
-    page_range = []
-    if start > 1:
-        page_range.append(1)
-        if start > 2:
-            page_range.append('...')
-    page_range.extend(range(start, end + 1))
-    if end < total_pages:
-        if end < total_pages - 1:
-            page_range.append('...')
-        page_range.append(total_pages)
-    return page_range
 
 # 导入操作模块
 from . import stock_in_operations
@@ -121,10 +101,6 @@ def list_stock_ins():
         # 分页查询
         pagination = query.paginate(page=page, per_page=per_page, error_out=False)
         stock_ins = pagination.items
-        total_count = pagination.total
-        total_pages = pagination.pages
-        current_page = pagination.page
-        page_range = generate_page_range(current_page, total_pages)
 
         # 记录访问日志
         log_operation(
@@ -146,12 +122,8 @@ def list_stock_ins():
             title="入库管理",
             # 入库单数据
             stock_ins=stock_ins,
-            total_count=total_count,
             # 分页参数
-            current_page=current_page,
-            per_page=per_page,
-            total_pages=total_pages,
-            page_range=page_range,
+            **get_pagination_params(pagination),
             # 筛选配置
             statuses=statuses,
             stock_in_types=stock_in_types,
@@ -180,11 +152,10 @@ def list_stock_ins():
             'supply_manage/stock_in_list.html',
             title="入库管理",
             stock_ins=[],
-            total_count=0,
+            total=0,
             current_page=1,
             per_page=20,
             total_pages=0,
-            page_range=[],
             statuses=['待审核', '已审核', '已取消'],
             stock_in_types=[],
             suppliers=[],

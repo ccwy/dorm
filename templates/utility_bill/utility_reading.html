@@ -330,55 +330,7 @@
                     
                     <!-- 分页控件 -->
                     {% if pagination %}
-                    <div class="px-6 py-4 bg-gray-50 border-t border-gray-200 mt-4">
-                        <!-- 分页控制 - 在同一行显示所有元素 -->
-                        <div class="flex flex-wrap items-center justify-between gap-3">
-                            <!-- 统计信息 -->
-                            <div class="text-xs text-gray-700">
-                                显示第 {% if pagination.total > 0 %}{{ (pagination.page - 1) * pagination.per_page + 1 }}{% else %}0{% endif %} 到 {% if pagination.total > 0 %}{{ [pagination.page * pagination.per_page, pagination.total]|min }}{% else %}0{% endif %} 条，共 {{ pagination.total }} 条记录
-                            </div>
-                            <!-- 页码信息 - 靠右对齐 -->
-                            <div class="text-xs text-gray-700 ml-auto">
-                                第{{ pagination.page }}页/共{{ pagination.pages }}页
-                            </div>
-                            
-                            <!-- 分页按钮 -->
-                            <div class="flex items-center space-x-3">
-                                <!-- 每页显示条数选择 -->
-                                <div class="flex items-center">
-                                    <span class="text-sm text-gray-700 mr-2">每页显示：</span>
-                                    <select id="pageSizeSelect" class="text-sm border border-gray-300 rounded-md px-2 py-1 focus:outline-none focus:ring-2 focus:ring-primary/50">
-                                        {% for size in [10, 20, 50, 100] %}
-                                        <option value="{{ size }}" {% if size == pagination.per_page %}selected{% endif %}>{{ size }}</option>
-                                        {% endfor %}
-                                    </select>
-                                </div>
-                                
-                                <!-- 上一页/下一页按钮 -->
-                                <div class="flex space-x-1">
-                                    <a href="{% if pagination.has_prev %}{{ url_for('utility_room_meter.utility_reading', page=pagination.prev_num, building=building_filter, search_room=search_room, per_page=pagination.per_page) }}{% else %}#{% endif %}" class="px-3 py-1 border border-gray-300 rounded bg-white text-gray-500 hover:bg-gray-50 {{ 'opacity-50 cursor-not-allowed' if not pagination.has_prev or pagination.total == 0 else '' }}" {% if not pagination.has_prev or pagination.total == 0 %}onclick="return false;"{% endif %}>
-                                        <i class="fa fa-chevron-left"></i>
-                                        <span class="hidden sm:inline ml-1">上一页</span>
-                                    </a>
-                                    <a href="{% if pagination.has_next %}{{ url_for('utility_room_meter.utility_reading', page=pagination.next_num, building_filter=building_filter, search_room=search_room, per_page=pagination.per_page) }}{% else %}#{% endif %}" class="px-3 py-1 border border-gray-300 rounded bg-white text-gray-700 hover:bg-gray-50 {{ 'opacity-50 cursor-not-allowed' if not pagination.has_next or pagination.total == 0 else '' }}" {% if not pagination.has_next or pagination.total == 0 %}onclick="return false;"{% endif %}>
-                                        <span class="hidden sm:inline mr-1">下一页</span>
-                                        <i class="fa fa-chevron-right"></i>
-                                    </a>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <script>
-                        // 处理每页显示条数变化
-                        document.getElementById('pageSizeSelect').addEventListener('change', function() {
-                            const pageSize = this.value;
-                            const currentUrl = new URL(window.location);
-                            currentUrl.searchParams.set('per_page', pageSize);
-                            currentUrl.searchParams.set('page', 1); // 重置到第一页
-                            window.location.href = currentUrl.toString();
-                        });
-                    </script>
+                    <div id="pagination-container"></div>
                     {% endif %}
                     
                     <!-- 空房间状态提示卡片 -->
@@ -562,6 +514,19 @@
      <!-- 简单的JS来处理表具更换开关的视觉效果 -->
      <script>
          document.addEventListener('DOMContentLoaded', function() {
+             // 分页初始化
+             {% if pagination %}
+             new PaginationManager('pagination-container', {
+                 mode: 'server',
+                 total: {{ pagination.total }},
+                 currentPage: {{ pagination.page }},
+                 totalPages: {{ pagination.pages }},
+                 pageSize: {{ pagination.per_page }},
+                 pageSizeOptions: [10, 20, 50, 100],
+                 urlTemplate: PaginationManager.buildUrlTemplate()
+             });
+             {% endif %}
+
              // 表具更换开关的视觉效果
              document.querySelectorAll('.switch-checkbox').forEach(checkbox => {
                  checkbox.addEventListener('change', function() {

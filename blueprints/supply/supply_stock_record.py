@@ -8,6 +8,7 @@ from models.user.user import User
 from flask_login import login_required, current_user
 from utils.log import log_operation
 from utils.auth import require_permission
+from utils.pagination import get_pagination_params
 import logging
 
 # 定义蓝图
@@ -19,28 +20,6 @@ supply_stock_record_bp = Blueprint(
     static_folder='../../static',
     static_url_path='/supply-stock-record/static'
 )
-
-# 分页工具函数
-def generate_page_range(current_page, total_pages, show_pages=5):
-    if total_pages <= show_pages:
-        return list(range(1, total_pages + 1))
-    half = show_pages // 2
-    start = max(1, current_page - half)
-    end = min(total_pages, start + show_pages - 1)
-    if end - start < show_pages - 1:
-        start = max(1, end - show_pages + 1)
-    page_range = []
-    if start > 1:
-        page_range.append(1)
-        if start > 2:
-            page_range.append('...')
-    page_range.extend(range(start, end + 1))
-    if end < total_pages:
-        if end < total_pages - 1:
-            page_range.append('...')
-        page_range.append(total_pages)
-    return page_range
-
 
 # 进出库记录列表页（支持筛选+分页）
 @supply_stock_record_bp.route('/', methods=['GET'])
@@ -116,11 +95,7 @@ def list_records():
         # 分页查询
         pagination = query.paginate(page=page, per_page=per_page, error_out=False)
         records = pagination.items
-        total_count = pagination.total
-        total_pages = pagination.pages
-        current_page = pagination.page
-        page_range = generate_page_range(current_page, total_pages)
-
+    
         # 记录访问日志
         log_operation(
             user_id=current_user.id,
@@ -135,11 +110,7 @@ def list_records():
             'supply_manage/record_list.html',
             title="进出库记录",
             records=records,
-            total_count=total_count,
-            current_page=current_page,
-            per_page=per_page,
-            total_pages=total_pages,
-            page_range=page_range,
+            **get_pagination_params(pagination),
             record_types=record_types,
             items=items,
             locations=locations,
@@ -168,11 +139,10 @@ def list_records():
             'supply_manage/record_list.html',
             title="进出库记录",
             records=[],
-            total_count=0,
+            total=0,
             current_page=1,
             per_page=20,
             total_pages=0,
-            page_range=[],
             record_types=['入库', '出库', '盘盈', '盘亏'],
             items=[],
             locations=[],

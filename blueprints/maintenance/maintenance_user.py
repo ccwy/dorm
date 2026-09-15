@@ -8,6 +8,7 @@ from models.room.room import Room
 from models.system_config.system_config import SystemConfig
 from utils.maintenance_photo import MaintenancePhotoManager
 from flask_login import login_required, current_user
+from utils.pagination import get_pagination_params
 from utils.auth import require_permission
 from utils.log import log_operation
 from sqlalchemy.orm import joinedload
@@ -17,18 +18,6 @@ import logging
 
 # 创建用户端维修蓝图
 maintenance_user_bp = Blueprint('maintenance_user', __name__, url_prefix='/user/maintenance')
-
-
-def generate_page_range(current_page, total_pages, show_pages=5):
-    """生成分页页码范围"""
-    if total_pages <= show_pages:
-        return list(range(1, total_pages + 1))
-    half = show_pages // 2
-    start = max(1, current_page - half)
-    end = min(total_pages, start + show_pages - 1)
-    if end - start + 1 < show_pages:
-        start = max(1, end - show_pages + 1)
-    return list(range(start, end + 1))
 
 
 def auto_assign_order(order):
@@ -127,8 +116,6 @@ def user_order_list():
         # 状态列表
         status_list = ['待处理', '处理中', '已解决', '已关闭']
         
-        # 分页范围
-        page_range = generate_page_range(page, pagination.pages)
         
         # 记录操作日志
         log_operation(
@@ -141,8 +128,7 @@ def user_order_list():
         logging.info(f"用户 [{user_id}] 成功访问维修工单列表")
         return render_template('maintenance/user_order_list.html',
                               title="我的维修工单",
-                              orders=orders, pagination=pagination, page=page, per_page=per_page,
-                              page_range=page_range,
+                              orders=orders, **get_pagination_params(pagination),
                               status_filter=status, search_query=search,
                               status_list=status_list, maintenance_types=maintenance_types)
     except Exception as e:

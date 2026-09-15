@@ -11,6 +11,7 @@ from utils.auth import require_permission
 from models.utility.utility_room_bill_record import RoomUtilityRecord
 from models.room.room_facility import RoomFacility  # 新增：导入房间设施模型
 from utils.room_photo import RoomPhotoManager
+from utils.pagination import get_pagination_params
 
 # 定义蓝图
 room_bp = Blueprint(
@@ -44,27 +45,6 @@ def get_enum_chinese_mapping(enum_class):
             mapping[item.value] = f"未知({item.value})"
     return mapping
 
-# 分页工具函数
-def generate_page_range(current_page, total_pages, show_pages=5):
-    if total_pages <= show_pages:
-        return list(range(1, total_pages + 1))
-    half = show_pages // 2
-    start = max(1, current_page - half)
-    end = min(total_pages, start + show_pages - 1)
-    if end - start < show_pages - 1:
-        start = max(1, end - show_pages + 1)
-    page_range = []
-    if start > 1:
-        page_range.append(1)
-        if start > 2:
-            page_range.append('...')
-    page_range.extend(range(start, end + 1))
-    if end < total_pages:
-        if end < total_pages - 1:
-            page_range.append('...')
-        page_range.append(total_pages)
-    return page_range
-    
 # 导入其他操作模块
 from . import room_operations
 
@@ -130,10 +110,6 @@ def manage():
         # 分页查询
         pagination = query.paginate(page=page, per_page=page_size, error_out=False)
         rooms = pagination.items
-        total_rooms = pagination.total
-        total_pages = pagination.pages
-        current_page = pagination.page
-        page_range = generate_page_range(current_page, total_pages)
         
         # 统计数据
         available_rooms = Room.query.filter_by(status=RoomStatus.AVAILABLE.value).count()
@@ -159,16 +135,12 @@ def manage():
             gender_mapping=gender_mapping,
             # 房间数据
             rooms=rooms,
-            total_rooms=total_rooms,
             available_rooms=available_rooms,
             full_rooms=full_rooms,
             maintenance_rooms=maintenance_rooms,
             # 分页参数
             search=search,
-            current_page=current_page,
-            page_size=page_size,
-            total_pages=total_pages,
-            page_range=page_range,
+            **get_pagination_params(pagination, per_page_override=page_size),
             # 反向映射（用于筛选框回显）
             
             # 性别限制直接使用中文，无需反向映射
@@ -203,15 +175,12 @@ def manage():
             level_mapping={},
             status_mapping={},
             gender_mapping={},
-            total_rooms=0,
+            total=0,
             available_rooms=0,
             full_rooms=0,
             maintenance_rooms=0,
             search=search,
-            current_page=1,
-            page_size=page_size,
-            total_pages=0,
-            page_range=[],
+            **build_pagination_params(total=0, current_page=1, per_page=page_size, total_pages=0),
             reverse_type={},
             reverse_gender={},
             reverse_status={},

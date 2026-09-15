@@ -8,6 +8,7 @@ from models.supply.storage_location import StorageLocation
 from models.supply.supply_stock_detail import SupplyStockDetail
 from models.user.user import User
 from flask_login import login_required, current_user
+from utils.pagination import get_pagination_params
 from utils.log import log_operation
 from utils.auth import require_permission
 import logging
@@ -21,27 +22,6 @@ supply_inventory_bp = Blueprint(
     static_folder='../../static',
     static_url_path='/supply-inventory/static'
 )
-
-# 分页工具函数
-def generate_page_range(current_page, total_pages, show_pages=5):
-    if total_pages <= show_pages:
-        return list(range(1, total_pages + 1))
-    half = show_pages // 2
-    start = max(1, current_page - half)
-    end = min(total_pages, start + show_pages - 1)
-    if end - start < show_pages - 1:
-        start = max(1, end - show_pages + 1)
-    page_range = []
-    if start > 1:
-        page_range.append(1)
-        if start > 2:
-            page_range.append('...')
-    page_range.extend(range(start, end + 1))
-    if end < total_pages:
-        if end < total_pages - 1:
-            page_range.append('...')
-        page_range.append(total_pages)
-    return page_range
 
 # 导入操作模块
 from . import supply_inventory_operations
@@ -83,10 +63,6 @@ def list_inventories():
         # 分页查询
         pagination = query.paginate(page=page, per_page=per_page, error_out=False)
         inventories = pagination.items
-        total_count = pagination.total
-        total_pages = pagination.pages
-        current_page = pagination.page
-        page_range = generate_page_range(current_page, total_pages)
 
         # 记录访问日志
         log_operation(
@@ -106,11 +82,7 @@ def list_inventories():
             'supply_manage/inventory_list.html',
             title="盘点管理",
             inventories=inventories,
-            total_count=total_count,
-            current_page=current_page,
-            per_page=per_page,
-            total_pages=total_pages,
-            page_range=page_range,
+            **get_pagination_params(pagination),
             current_status=status,
             keyword=keyword,
             inventory_unapprove_enabled=inventory_unapprove_enabled
@@ -129,11 +101,10 @@ def list_inventories():
             'supply_manage/inventory_list.html',
             title="盘点管理",
             inventories=[],
-            total_count=0,
+            total=0,
             current_page=1,
             per_page=20,
             total_pages=0,
-            page_range=[],
             current_status='',
             keyword='',
             inventory_unapprove_enabled=True
@@ -218,7 +189,6 @@ def detail_inventory(id):
         total_count = query.count()
         pagination = query.paginate(page=page, per_page=per_page, error_out=False)
         details = pagination.items
-        total_pages = pagination.pages
 
         # 构建实时库存映射（仅当前页明细）
         stock_map = {}
@@ -249,8 +219,6 @@ def detail_inventory(id):
             usage_type='低值易耗品', status='启用'
         ).order_by(StorageLocation.name).all()
 
-        # 生成分页范围
-        page_range = generate_page_range(page, total_pages)
 
         return render_template(
             'supply_manage/inventory_detail.html',
@@ -263,9 +231,8 @@ def detail_inventory(id):
             stock_map=stock_map,
             current_page=page,
             per_page=per_page,
-            total_count=total_count,
-            total_pages=total_pages,
-            page_range=page_range,
+            total=total_count,
+            total_pages=pagination.pages,
             all_items=all_items,
             all_locations=all_locations
         )

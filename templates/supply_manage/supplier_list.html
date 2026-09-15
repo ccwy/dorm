@@ -224,47 +224,7 @@
                 </div>
                 
                 <!-- 分页 -->
-                {% if total_pages > 0 %}
-                <div class="px-6 py-4 bg-gray-50 border-t border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between mt-4 gap-4">
-                    <div class="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-                        <div class="text-sm text-gray-700">
-                            显示 <span class="font-medium">{{ (current_page - 1) * per_page + 1 }}</span> 到 <span class="font-medium">{{ (current_page - 1) * per_page + suppliers|length }}</span> 条，共 <span class="font-medium">{{ total_count }}</span> 条记录
-                        </div>
-                        <div class="flex items-center space-x-2">
-                            <span class="text-sm text-gray-700">每页显示：</span>
-                            <select id="pageSizeSelect" class="px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
-                                <option value="20" {% if per_page == 20 %}selected{% endif %}>20条/页</option>
-                                <option value="50" {% if per_page == 50 %}selected{% endif %}>50条/页</option>
-                                <option value="100" {% if per_page == 100 %}selected{% endif %}>100条/页</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="flex space-x-1">
-                        {% if current_page > 1 %}
-                        <a href="{{ url_for('supplier.index', page=1, per_page=per_page, status=current_status, keyword=keyword) }}" class="px-3 py-1 border border-gray-300 rounded bg-white text-gray-500 hover:bg-gray-50 text-sm">首页</a>
-                        {% endif %}
-                        <button class="px-3 py-1 border border-gray-300 rounded bg-white text-gray-500 hover:bg-gray-50 {% if current_page == 1 %}opacity-50 cursor-not-allowed{% endif %}" 
-                                {% if current_page > 1 %}onclick="window.location.href='{{ url_for('supplier.index', page=current_page-1, per_page=per_page, status=current_status, keyword=keyword) }}'"{% endif %}>
-                            <i class="fa fa-chevron-left"></i>
-                        </button>
-                        {% for p in page_range %}
-                            {% if p == '...' %}
-                            <button class="px-3 py-1 border border-gray-300 rounded bg-white text-gray-700" disabled>...</button>
-                            {% else %}
-                            <button class="px-3 py-1 border {% if p == current_page %}border-primary bg-primary text-white{% else %}border-gray-300 bg-white text-gray-700 hover:bg-gray-50{% endif %} rounded"
-                                    onclick="window.location.href='{{ url_for('supplier.index', page=p, per_page=per_page, status=current_status, keyword=keyword) }}'">{{ p }}</button>
-                            {% endif %}
-                        {% endfor %}
-                        <button class="px-3 py-1 border border-gray-300 rounded bg-white text-gray-500 hover:bg-gray-50 {% if current_page == total_pages %}opacity-50 cursor-not-allowed{% endif %}"
-                                {% if current_page < total_pages %}onclick="window.location.href='{{ url_for('supplier.index', page=current_page+1, per_page=per_page, status=current_status, keyword=keyword) }}'"{% endif %}>
-                            <i class="fa fa-chevron-right"></i>
-                        </button>
-                        {% if current_page < total_pages %}
-                        <a href="{{ url_for('supplier.index', page=total_pages, per_page=per_page, status=current_status, keyword=keyword) }}" class="px-3 py-1 border border-gray-300 rounded bg-white text-gray-500 hover:bg-gray-50 text-sm">末页</a>
-                        {% endif %}
-                    </div>
-                </div>
-                {% endif %}
+                <div id="pagination-container"></div>
             </div>
         </div>
     </main>
@@ -470,16 +430,16 @@
                 searchTimeout = setTimeout(function() { searchForm.submit(); }, 500);
             });
 
-            // 页面大小选择器
-            const pageSizeSelect = document.getElementById('pageSizeSelect');
-            if (pageSizeSelect) {
-                pageSizeSelect.addEventListener('change', function() {
-                    const urlParams = new URLSearchParams(window.location.search);
-                    urlParams.set('page', '1');
-                    urlParams.set('per_page', this.value);
-                    window.location.search = urlParams.toString();
-                });
-            }
+            // 统一分页组件初始化
+            new PaginationManager('pagination-container', {
+                mode: 'server',
+                urlTemplate: PaginationManager.buildUrlTemplate(),
+                currentPage: {{ current_page }},
+                totalPages: {{ total_pages }},
+                total: {{ total }},
+                pageSize: {{ per_page }},
+                pageSizeOptions: [20, 50, 100]
+            });
         });
     </script>
 </body>

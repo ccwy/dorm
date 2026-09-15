@@ -148,39 +148,21 @@
             </div>
 
             <!-- 分页 -->
-            {% if total_pages > 0 %}
-            <div class="px-6 py-4 bg-gray-50 border-t border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between mt-4 gap-4">
-                <div class="text-sm text-gray-700">
-                    共 <span class="font-medium">{{ total_count }}</span> 条记录
-                </div>
-                <div class="flex space-x-1">
-                    {% if current_page > 1 %}
-                    <a href="{{ url_for('supply_stock_detail.by_location', location_id=location.id, page=1, per_page=per_page) }}" class="px-3 py-1 border border-gray-300 rounded bg-white text-gray-500 hover:bg-gray-50 text-sm">首页</a>
-                    {% endif %}
-                    <button class="px-3 py-1 border border-gray-300 rounded bg-white text-gray-500 hover:bg-gray-50 {% if current_page == 1 %}opacity-50 cursor-not-allowed{% endif %}" 
-                            {% if current_page > 1 %}onclick="window.location.href='{{ url_for('supply_stock_detail.by_location', location_id=location.id, page=current_page-1, per_page=per_page) }}'"{% endif %}>
-                        <i class="fa fa-chevron-left"></i>
-                    </button>
-                    {% for p in page_range %}
-                        {% if p == '...' %}
-                        <button class="px-3 py-1 border border-gray-300 rounded bg-white text-gray-700" disabled>...</button>
-                        {% else %}
-                        <button class="px-3 py-1 border {% if p == current_page %}border-primary bg-primary text-white{% else %}border-gray-300 bg-white text-gray-700 hover:bg-gray-50{% endif %} rounded"
-                                onclick="window.location.href='{{ url_for('supply_stock_detail.by_location', location_id=location.id, page=p, per_page=per_page) }}'">{{ p }}</button>
-                        {% endif %}
-                    {% endfor %}
-                    <button class="px-3 py-1 border border-gray-300 rounded bg-white text-gray-500 hover:bg-gray-50 {% if current_page == total_pages %}opacity-50 cursor-not-allowed{% endif %}"
-                            {% if current_page < total_pages %}onclick="window.location.href='{{ url_for('supply_stock_detail.by_location', location_id=location.id, page=current_page+1, per_page=per_page) }}'"{% endif %}>
-                        <i class="fa fa-chevron-right"></i>
-                    </button>
-                    {% if current_page < total_pages %}
-                    <a href="{{ url_for('supply_stock_detail.by_location', location_id=location.id, page=total_pages, per_page=per_page) }}" class="px-3 py-1 border border-gray-300 rounded bg-white text-gray-500 hover:bg-gray-50 text-sm">末页</a>
-                    {% endif %}
-                </div>
-            </div>
-            {% endif %}
+            <div id="pagination-container"></div>
         </div>
     </main>
+    <script>
+        // 统一分页组件初始化
+        new PaginationManager('pagination-container', {
+            mode: 'server',
+            urlTemplate: PaginationManager.buildUrlTemplate(),
+            currentPage: {{ current_page }},
+            totalPages: {{ total_pages }},
+            total: {{ total }},
+            pageSize: {{ per_page }},
+            pageSizeOptions: [20, 50, 100]
+        });
+    </script>
     {% include 'footer.html' %}
 </body>
 </html>

@@ -4,6 +4,7 @@ from models.department.department import Department
 from flask_login import login_required, current_user
 from utils.log import log_operation
 from utils.auth import require_permission
+from utils.pagination import get_pagination_params
 import logging
 
 # 定义蓝图
@@ -15,27 +16,6 @@ department_bp = Blueprint(
     static_folder='../../static',
     static_url_path='/department/static'
 )
-
-# 分页工具函数
-def generate_page_range(current_page, total_pages, show_pages=5):
-    if total_pages <= show_pages:
-        return list(range(1, total_pages + 1))
-    half = show_pages // 2
-    start = max(1, current_page - half)
-    end = min(total_pages, start + show_pages - 1)
-    if end - start < show_pages - 1:
-        start = max(1, end - show_pages + 1)
-    page_range = []
-    if start > 1:
-        page_range.append(1)
-        if start > 2:
-            page_range.append('...')
-    page_range.extend(range(start, end + 1))
-    if end < total_pages:
-        if end < total_pages - 1:
-            page_range.append('...')
-        page_range.append(total_pages)
-    return page_range
 
 # 导入操作模块
 from . import department_operations
@@ -87,12 +67,7 @@ def index():
         # 分页查询
         pagination = query.paginate(page=page, per_page=per_page, error_out=False)
         departments = pagination.items
-        total_count = pagination.total
-        total_pages = pagination.pages
-        current_page = pagination.page
-        page_range = generate_page_range(current_page, total_pages)
 
-        # 记录访问日志
         log_operation(
             user_id=current_user.id,
             module='department',
@@ -107,12 +82,8 @@ def index():
             title="部门管理",
             # 部门数据
             departments=departments,
-            total_count=total_count,
             # 分页参数
-            current_page=current_page,
-            per_page=per_page,
-            total_pages=total_pages,
-            page_range=page_range,
+            **get_pagination_params(pagination),
             # 筛选配置
             companies=companies,
             statuses=statuses,
@@ -135,11 +106,10 @@ def index():
             'department_manage/department_manage.html',
             title="部门管理",
             departments=[],
-            total_count=0,
+            total=0,
             current_page=1,
             per_page=20,
             total_pages=0,
-            page_range=[],
             companies=[],
             statuses=['正常', '停用'],
             current_company='',

@@ -5,6 +5,7 @@ from datetime import datetime
 from flask import Blueprint, render_template, request, redirect, url_for, flash, send_from_directory, jsonify, send_file
 from flask_login import login_required, current_user
 from utils.auth import require_permission
+from utils.pagination import build_pagination_params
 import logging
 import sys
 import shutil
@@ -203,10 +204,7 @@ def paginate_items(items, page, per_page):
     
     return {
         'items': paginated_items,
-        'total_items': total_items,
-        'total_pages': total_pages,
-        'current_page': page,
-        'per_page': per_page,
+        **build_pagination_params(total=total_items, current_page=page, per_page=per_page, total_pages=total_pages),
         'has_prev': page > 1,
         'has_next': page < total_pages,
         'prev_page': page - 1 if page > 1 else None,

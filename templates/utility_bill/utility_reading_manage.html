@@ -257,9 +257,7 @@
         <div class="bg-white rounded-lg shadow-sm overflow-hidden card-shadow mb-6">
             <!-- 表格工具栏 -->
             <div class="flex flex-wrap justify-between items-center p-4 border-b border-gray-200">
-                <div class="text-sm text-gray-500">
-                    共 <span class="font-medium text-primary">0</span> 条记录
-                </div>
+                <div></div>
                 <div class="flex items-center space-x-3 mt-2 sm:mt-0">
                     {% if current_user.has_permission('utility.delete') %}
                     <button type="button" id="deleteBillingPeriod" class="px-3 py-2 border border-danger/30 text-danger rounded-md hover:bg-danger/5 transition-bg flex items-center whitespace-nowrap text-sm">
@@ -269,17 +267,6 @@
                         <i class="fa fa-trash-o mr-1.5"></i>批量删除
                     </button>
                     {% endif %}
-                    <div class="relative">
-                        <select id="pageSizeSelect" class="pl-3 pr-8 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-bg custom-select">
-                            <option value="10">10条/页</option>
-                            <option value="20">20条/页</option>
-                            <option value="50">50条/页</option>
-                            <option value="100">100条/页</option>
-                        </select>
-                        <div class="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
-                            <i class="fa fa-chevron-down text-gray-400 text-xs"></i>
-                        </div>
-                    </div>
                 </div>
             </div>
 
@@ -320,29 +307,7 @@
             </div>
 
             <!-- 分页 -->
-            <div class="px-4 py-3 flex flex-col sm:flex-row items-center justify-between border-t border-gray-200 sm:px-6">
-                <!-- 统计信息和页码信息 -->
-                <div class="w-full flex justify-between items-center mb-2 sm:mb-0">
-                    <div>
-                        <p class="text-sm text-gray-700">
-                            显示第 <span class="font-medium">0</span> 到 <span class="font-medium">0</span> 条，共 <span class="font-medium">0</span> 条记录
-                        </p>
-                    </div>
-                    <div>
-                        <span class="text-sm text-gray-700" id="pageInfoDisplay">第 1 页 / 共 0 页</span>
-                    </div>
-                </div>
-                
-                <!-- 分页按钮 - 在中大屏幕上位于右侧，小屏幕上居中 -->
-                <div class="w-full flex sm:justify-end justify-center space-x-2">
-                    <button class="px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 pagination-prev opacity-50 cursor-not-allowed">
-                        上一页
-                    </button>
-                    <button class="px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 pagination-next opacity-50 cursor-not-allowed">
-                        下一页
-                    </button>
-                </div>
-            </div>
+            <div id="pagination-container"></div>
         </div>
     </main>
 
@@ -476,10 +441,23 @@
         document.addEventListener('DOMContentLoaded', function() {
             // 记录需要删除的ID
             let deleteId = null;
-            let currentPage = 1;
-            let pageSize = 10;
             let hasPeriods = false; // 标记是否有周期数据
             let selectedImportFile = null; // 选中的导入文件
+
+            // 初始化分页管理器
+            const readingPm = new PaginationManager('pagination-container', {
+                mode: 'client',
+                total: 0,
+                currentPage: 1,
+                pageSize: 10,
+                pageSizeOptions: [10, 20, 50, 100],
+                onPageChange: (page) => {
+                    loadRecords(page, readingPm.getState().pageSize);
+                },
+                onPageSizeChange: (pageSize) => {
+                    loadRecords(1, pageSize);
+                }
+            });
             // 权限标志
             const canEdit = {{ 'true' if current_user.has_permission('utility.edit') else 'false' }};
             const canDelete = {{ 'true' if current_user.has_permission('utility.delete') else 'false' }};
@@ -503,12 +481,7 @@
             const currentBillingPeriodEl = document.getElementById('currentBillingPeriod');
             const addReadingBtn = document.getElementById('addReadingBtn');
             const searchInput = document.getElementById('searchInput');
-            const pageSizeSelect = document.getElementById('pageSizeSelect');
-            const paginationPrev = document.querySelector('.pagination-prev');
-            const paginationNext = document.querySelector('.pagination-next');
             const recordsTableBody = document.getElementById('recordsTableBody');
-            const totalRecordsEl = document.querySelector('.text-gray-500 .font-medium.text-primary');
-            const paginationInfoEls = document.querySelectorAll('.text-gray-700 .font-medium');
             
             // 导入导出相关元素
             const exportBtn = document.getElementById('exportBtn');
@@ -534,7 +507,7 @@
                     const firstPeriodOption = billingPeriodSelect.options[1];
                     if (firstPeriodOption && !firstPeriodOption.disabled) {
                         billingPeriodSelect.value = firstPeriodOption.value;
-                        loadRecords(); // 加载选中周期的数据
+                        loadRecords(1, readingPm.getState().pageSize); // 加载选中周期的数据
                     } else {
                         // 没有可用周期，显示空状态
                         showNoPeriodsState();
@@ -604,7 +577,7 @@
             }
             
             // 加载记录数据
-            function loadRecords() {
+            function loadRecords(page, pageSize) {
                 // 显示加载状态
                 recordsTableBody.innerHTML = `
                     <tr>
@@ -616,7 +589,7 @@
                 
                 // 构建查询参数
                 const params = new URLSearchParams();
-                params.append('page', currentPage);
+                params.append('page', page);
                 params.append('per_page', pageSize);
                 
                 const billingPeriod = billingPeriodSelect.value;
@@ -670,7 +643,12 @@
                 .then(data => {
                     if (data.success) {
                         renderRecords(data.data.records);
-                        updatePagination(data.data);
+                        readingPm.update({
+                            total: data.data.pagination.total,
+                            currentPage: data.data.pagination.page,
+                            totalPages: data.data.pagination.pages,
+                            pageSize: pageSize
+                        });
                     } else {
                         showToast(data.message, 'error');
                         recordsTableBody.innerHTML = `
@@ -794,29 +772,6 @@
                 updateBatchDeleteStatus();
             }
             
-            // 分页更新
-            function updatePagination(paginationData) {
-                totalRecordsEl.textContent = paginationData.pagination.total;
-                
-                paginationInfoEls[0].textContent = ((paginationData.pagination.page - 1) * paginationData.pagination.per_page) + 1;
-                paginationInfoEls[1].textContent = Math.min(paginationData.pagination.page * paginationData.pagination.per_page, paginationData.pagination.total);
-                paginationInfoEls[2].textContent = paginationData.pagination.total;
-                
-                currentPage = paginationData.pagination.page;
-                const totalPages = paginationData.pagination.pages;
-                
-                // 更新当前页码和总页数显示
-                document.getElementById('pageInfoDisplay').textContent = `第 ${currentPage} 页 / 共 ${totalPages} 页`;
-                
-                // 更新上一页按钮状态
-                paginationPrev.classList.toggle('opacity-50', currentPage === 1);
-                paginationPrev.classList.toggle('cursor-not-allowed', currentPage === 1);
-                
-                // 更新下一页按钮状态
-                paginationNext.classList.toggle('opacity-50', currentPage >= totalPages);
-                paginationNext.classList.toggle('cursor-not-allowed', currentPage >= totalPages);
-            }
-            
             // 绑定记录相关事件
             function bindRecordEvents() {
                 document.querySelectorAll('.delete-btn').forEach(btn => {
@@ -930,7 +885,7 @@
                     if (data.success) {
                         showToast('删除成功', 'success');
                         closeDeleteModal();
-                        loadRecords();
+                        loadRecords(readingPm.getState().currentPage, readingPm.getState().pageSize);
                     } else {
                         showToast(data.message, 'error');
                     }
@@ -961,7 +916,7 @@
                         showToast(`成功删除 ${data.data.deleted_count} 条记录`, 'success');
                         closeDeleteModal();
                         selectAllCheckbox.checked = false;
-                        loadRecords();
+                        loadRecords(readingPm.getState().currentPage, readingPm.getState().pageSize);
                     } else {
                         showToast(data.message, 'error');
                     }
@@ -983,27 +938,23 @@
             // 搜索框回车事件
             searchInput.addEventListener('keypress', function(e) {
                 if (e.key === 'Enter') {
-                    currentPage = 1;
-                    loadRecords();
+                    loadRecords(1, readingPm.getState().pageSize);
                 }
             });
             
             // 账单周期选择变化事件
             billingPeriodSelect.addEventListener('change', function() {
-                currentPage = 1;
-                loadRecords();
+                loadRecords(1, readingPm.getState().pageSize);
             });
 
             // 楼栋选择变化事件
             buildingFilter.addEventListener('change', function() {
-                currentPage = 1;
-                loadRecords();
+                loadRecords(1, readingPm.getState().pageSize);
             });
             
             // 抄表类型选择变化事件
             readingTypeFilter.addEventListener('change', function() {
-                currentPage = 1;
-                loadRecords();
+                loadRecords(1, readingPm.getState().pageSize);
             });
             
             // 添加抄表按钮事件
@@ -1016,34 +967,6 @@
                 if (e.target === this) {
                     closeDeleteModal();
                 }
-            });
-            
-            // 移除旧的分页页码按钮事件监听器相关代码，现在只需要上一页和下一页
-            
-            // 上一页按钮事件
-            paginationPrev.addEventListener('click', function(e) {
-                e.preventDefault();
-                if (currentPage > 1) {
-                    currentPage--;
-                    loadRecords();
-                }
-            });
-            
-            // 下一页按钮事件
-            paginationNext.addEventListener('click', function(e) {
-                e.preventDefault();
-                const totalPages = Math.ceil(parseInt(totalRecordsEl.textContent) / pageSize);
-                if (currentPage < totalPages) {
-                    currentPage++;
-                    loadRecords();
-                }
-            });
-            
-            // 每页条数选择事件
-            pageSizeSelect.addEventListener('change', function() {
-                pageSize = parseInt(this.value);
-                currentPage = 1;
-                loadRecords();
             });
             
             // 打开删除账期模态框
@@ -1117,8 +1040,7 @@
                             } else {
                                 billingPeriodSelect.value = '';
                             }
-                            currentPage = 1;
-                            loadRecords();
+                            loadRecords(1, readingPm.getState().pageSize);
                         });
                     } else {
                         showToast(data.message, 'error');

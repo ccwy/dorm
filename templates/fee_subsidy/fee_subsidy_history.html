@@ -239,38 +239,7 @@
             </div>
             
             <!-- 分页控件 -->
-            <div class="px-4 py-3 bg-gray-50 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between">
-                <div class="flex items-center mb-3 sm:mb-0">
-                    <span class="text-sm text-gray-700 mr-3">
-                        显示 <span id="currentRange" class="font-medium">0-0</span> 条，共 <span id="totalItems" class="font-medium">0</span> 条记录
-                    </span>
-                    <div class="flex items-center border rounded-md">
-                        <label for="pageSize" class="text-sm text-gray-700 px-2">每页显示:</label>
-                        <select id="pageSize" class="text-sm border-0 focus:ring-0 py-1 px-2">
-                            <option value="10">10</option>
-                            <option value="20">20</option>
-                            <option value="50">50</option>
-                            <option value="100">100</option>
-                        </select>
-                    </div>
-                </div>
-                
-                <div class="flex items-center">
-                    <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
-                        <button id="prevPage" class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
-                            <span class="sr-only">上一页</span>
-                            <i class="fa fa-chevron-left text-xs"></i>
-                        </button>
-                        <span id="paginationNumbers" class="flex">
-                            <!-- 页码将通过JavaScript动态生成 -->
-                        </span>
-                        <button id="nextPage" class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
-                            <span class="sr-only">下一页</span>
-                            <i class="fa fa-chevron-right text-xs"></i>
-                        </button>
-                    </nav>
-                </div>
-            </div>
+            <div id="pagination-container"></div>
         </div>
     </main>
     
@@ -305,12 +274,34 @@
         // 全局变量
         let currentPage = 1;
         let pageSize = 10;
-        let totalPages = 1;
         let totalItems = 0;
         let isLoading = false; // 防止重复提交
         
+        // 分页管理器
+        let pm = null;
+        
         // 页面加载完成后初始化
         document.addEventListener('DOMContentLoaded', function() {
+            // 初始化分页管理器
+            pm = new PaginationManager('pagination-container', {
+                mode: 'client',
+                total: 0,
+                currentPage: 1,
+                totalPages: 1,
+                pageSize: 10,
+                pageSizeOptions: [10, 20, 50, 100],
+                onPageChange: function(page, pSize) {
+                    currentPage = page;
+                    pageSize = pSize;
+                    loadHistoryData();
+                },
+                onPageSizeChange: function(pSize) {
+                    currentPage = 1;
+                    pageSize = pSize;
+                    loadHistoryData();
+                }
+            });
+            
             // 绑定事件监听器
             bindEventListeners();
             
@@ -431,31 +422,6 @@
                 }, 60000);
             });
             }
-            
-            // 页码大小选择
-            document.getElementById('pageSize').addEventListener('change', function() {
-                if (isLoading) return;
-                
-                pageSize = parseInt(this.value);
-                currentPage = 1; // 重置为第一页
-                loadHistoryData();
-            });
-            
-            // 上一页按钮
-            document.getElementById('prevPage').addEventListener('click', function() {
-                if (isLoading || currentPage <= 1) return;
-                
-                currentPage--;
-                loadHistoryData();
-            });
-            
-            // 下一页按钮
-            document.getElementById('nextPage').addEventListener('click', function() {
-                if (isLoading || currentPage >= totalPages) return;
-                
-                currentPage++;
-                loadHistoryData();
-            });
             
             // 筛选器变更事件 - 自动刷新
             document.getElementById('billingPeriod').addEventListener('change', function() {
@@ -631,18 +597,19 @@
                     throw new Error(result.message || '加载数据失败');
                 }
                 
-                // 更新总数和总页数
+                // 更新总数
                 totalItems = result.data.total;
-                totalPages = result.data.pages;
                 
                 // 渲染表格
                 renderHistoryTable(result.data.records);
                 
                 // 更新分页
-                updatePagination();
-                
-                // 更新统计信息
-                updateStatistics();
+                pm.update({
+                    total: result.data.total,
+                    currentPage: result.data.page,
+                    totalPages: result.data.pages,
+                    pageSize: pageSize
+                });
                 
             } catch (error) {
                 console.error('加载数据失败:', error);
@@ -745,62 +712,7 @@
             });
         }
         
-        // 更新分页控件
-        function updatePagination() {
-            const paginationNumbers = document.getElementById('paginationNumbers');
-            paginationNumbers.innerHTML = '';
-            
-            totalPages = Math.max(totalPages, 1);
-            
-            // 更新上一页/下一页按钮状态
-            const prevBtn = document.getElementById('prevPage');
-            const nextBtn = document.getElementById('nextPage');
-            
-            prevBtn.disabled = currentPage === 1;
-            prevBtn.classList.toggle('opacity-50', currentPage === 1);
-            prevBtn.classList.toggle('cursor-not-allowed', currentPage === 1);
-            
-            nextBtn.disabled = currentPage === totalPages;
-            nextBtn.classList.toggle('opacity-50', currentPage === totalPages);
-            nextBtn.classList.toggle('cursor-not-allowed', currentPage === totalPages);
-            
-            // 生成页码
-            let startPage = Math.max(1, currentPage - 3);
-            let endPage = Math.min(totalPages, startPage + 6);
-            
-            if (endPage - startPage < 6 && startPage > 1) {
-                startPage = Math.max(1, endPage - 6);
-            }
-            
-            // 添加页码按钮
-            for (let i = startPage; i <= endPage; i++) {
-                const pageBtn = document.createElement('button');
-                pageBtn.type = 'button';
-                pageBtn.className = `relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
-                    i === currentPage 
-                        ? 'z-10 bg-primary text-white border-primary' 
-                        : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
-                }`;
-                pageBtn.textContent = i;
-                pageBtn.addEventListener('click', () => {
-                    if (!isLoading && currentPage !== i) {
-                        currentPage = i;
-                        loadHistoryData();
-                    }
-                });
-                
-                paginationNumbers.appendChild(pageBtn);
-            }
-        }
-        
-        // 更新统计信息
-        function updateStatistics() {
-            const start = totalItems > 0 ? (currentPage - 1) * pageSize + 1 : 0;
-            const end = Math.min(currentPage * pageSize, totalItems);
-            
-            document.getElementById('currentRange').textContent = `${start}-${end}`;
-            document.getElementById('totalItems').textContent = totalItems;
-        }
+
         
         // 查看详情
         function viewDetail(id) {

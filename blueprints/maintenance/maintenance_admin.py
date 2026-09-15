@@ -8,6 +8,7 @@ from utils.maintenance_photo import MaintenancePhotoManager
 from flask_login import login_required, current_user
 from sqlalchemy import or_
 from sqlalchemy.orm import joinedload
+from utils.pagination import get_pagination_params
 from datetime import datetime
 from utils.auth import require_permission
 from utils.log import log_operation
@@ -16,18 +17,6 @@ import logging
 
 # 创建管理端维修蓝图
 maintenance_admin_bp = Blueprint('maintenance_admin', __name__, url_prefix='/admin/maintenance')
-
-
-def generate_page_range(current_page, total_pages, show_pages=5):
-    """生成分页页码范围"""
-    if total_pages <= show_pages:
-        return list(range(1, total_pages + 1))
-    half = show_pages // 2
-    start = max(1, current_page - half)
-    end = min(total_pages, start + show_pages - 1)
-    if end - start + 1 < show_pages:
-        start = max(1, end - show_pages + 1)
-    return list(range(start, end + 1))
 
 
 def get_maintenance_staff_list():
@@ -149,8 +138,6 @@ def admin_order_list():
         # 获取维修员列表
         staff_list = get_maintenance_staff_list()
         
-        # 分页范围
-        page_range = generate_page_range(page, pagination.pages)
         
         # 记录操作日志
         log_operation(
@@ -163,8 +150,7 @@ def admin_order_list():
         logging.info(f"管理员 [{user_id}] 成功访问维修工单管理列表")
         return render_template('maintenance/admin_order_list.html',
                               title="维修工单管理",
-                              orders=orders, pagination=pagination, page=page, per_page=per_page,
-                              page_range=page_range,
+                              orders=orders, **get_pagination_params(pagination),
                               search_query=search, status_filter=status,
                               maintenance_type_filter=maintenance_type,
                               priority_filter=priority, assigned_to_filter=assigned_to,

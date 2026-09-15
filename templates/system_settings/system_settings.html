@@ -221,28 +221,7 @@
                     </div>
                     
                     <!-- 分页控件 -->
-                    <div id="backupPagination" class="flex flex-wrap justify-between items-center mt-4 hidden">
-                        <div class="text-sm text-gray-500">
-                            <span id="recordRange">1 到 0</span> 条，共 <span id="totalBackups">0</span> 条记录，当前第 <span id="currentPage">1</span>/<span id="totalPages">1</span> 页
-                        </div>
-                        <div class="flex flex-wrap items-center gap-2 sm:gap-2">
-                            <div class="flex items-center space-x-1">
-                                <span class="text-sm text-gray-500">每页显示：</span>
-                                <select id="pageSizeSelect" class="px-2 py-1 rounded border border-gray-300 text-sm">
-                                    <option value="5">5</option>
-                                    <option value="10" selected>10</option>
-                                    <option value="20">20</option>
-                                    <option value="50">50</option>
-                                </select>
-                            </div>
-                            <button id="prevPageBtn" class="px-3 py-1 rounded border border-gray-300 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
-                                上一页
-                            </button>
-                            <button id="nextPageBtn" class="px-3 py-1 rounded border border-gray-300 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
-                                下一页
-                            </button>
-                        </div>
-                    </div>
+                    <div id="pagination-container"></div>
                 </div>
             </div>
         </div>
@@ -334,7 +313,7 @@
             .then(data => {
                 if (data.success) {
                     showToast('通用备份创建成功: ' + data.backup_file, 'success');
-                    loadBackupList(1, pageSize);
+                    loadBackupList(1);;
                 } else {
                     showToast('创建通用备份失败: ' + (data.message || '未知错误'), 'error');
                 }
@@ -894,7 +873,7 @@
             .then(data => {
                 if (data.success) {
                     showToast('通用备份创建成功: ' + data.backup_file, 'success');
-                    loadBackupList(1, pageSize);
+                    loadBackupList(1);;
                 } else {
                     showToast('创建通用备份失败: ' + (data.message || '未知错误'), 'error');
                 }
@@ -1460,16 +1439,19 @@
         }
 
         // 分页相关变量
-        let currentPage = 1;
-        let pageSize = 10;
         let totalBackups = 0;
-        let totalPages = 1;
+        let backupPm = null;
         backupFiles = [];
         
         // 加载备份列表（支持分页）
-        function loadBackupList(pageNum = 1, pageSizeNum = 10) {
-            currentPage = pageNum;
-            pageSize = pageSizeNum;
+        function loadBackupList(pageNum, pageSizeNum) {
+            // 从 PaginationManager 获取默认值
+            if (typeof pageNum === 'undefined') {
+                pageNum = backupPm ? backupPm.getState().currentPage : 1;
+            }
+            if (typeof pageSizeNum === 'undefined') {
+                pageSizeNum = backupPm ? backupPm.getState().pageSize : 10;
+            }
             
             const backupListEl = document.getElementById('backupList');
             backupListEl.innerHTML = `
@@ -1482,8 +1464,8 @@
             
             // 构建带分页参数的URL
             const url = new URL('/system/api/backup/list', window.location.origin);
-            url.searchParams.append('page', currentPage);
-            url.searchParams.append('pageSize', pageSize);
+            url.searchParams.append('page', pageNum);
+            url.searchParams.append('pageSize', pageSizeNum);
             
             fetch(url)
                 .then(response => {
@@ -1504,28 +1486,31 @@
                     if (data.success) {
                         backupFiles = data.data;
                         totalBackups = data.total;
-                        totalPages = data.totalPages;
                         
-                        // 更新分页信息
-                        document.getElementById('totalBackups').textContent = totalBackups;
-                        document.getElementById('currentPage').textContent = currentPage;
-                        document.getElementById('totalPages').textContent = totalPages;
-                        
-                        // 更新当前页记录范围
-                        const startRecord = (currentPage - 1) * pageSize + 1;
-                        const endRecord = Math.min(currentPage * pageSize, totalBackups);
-                        document.getElementById('recordRange').textContent = `${startRecord} 到 ${endRecord}`;
-                        
-                        // 更新分页按钮状态
-                        document.getElementById('prevPageBtn').disabled = currentPage <= 1;
-                        document.getElementById('nextPageBtn').disabled = currentPage >= totalPages;
-                        
-                        // 显示或隐藏分页控件
-                        const paginationEl = document.getElementById('backupPagination');
-                        if (totalBackups > 0) {
-                            paginationEl.classList.remove('hidden');
+                        // 初始化或更新分页组件
+                        if (!backupPm) {
+                            backupPm = new PaginationManager({
+                                container: '#pagination-container',
+                                mode: 'client',
+                                total: data.total,
+                                currentPage: pageNum,
+                                totalPages: data.totalPages,
+                                pageSize: pageSizeNum,
+                                pageSizeOptions: [5, 10, 20, 50],
+                                onPageChange: function(page) {
+                                    loadBackupList(page, backupPm.getState().pageSize);
+                                },
+                                onPageSizeChange: function(size) {
+                                    loadBackupList(1, size);
+                                }
+                            });
                         } else {
-                            paginationEl.classList.add('hidden');
+                            backupPm.update({
+                                total: data.total,
+                                currentPage: pageNum,
+                                totalPages: data.totalPages,
+                                pageSize: pageSizeNum
+                            });
                         }
                         
                         // 渲染当前页的备份列表
@@ -1613,23 +1598,7 @@
                 });
             });
             
-            // 绑定分页控件事件
-            document.getElementById('prevPageBtn').addEventListener('click', function() {
-                if (currentPage > 1) {
-                    loadBackupList(currentPage - 1, pageSize);
-                }
-            });
-            
-            document.getElementById('nextPageBtn').addEventListener('click', function() {
-                if (currentPage < totalPages) {
-                    loadBackupList(currentPage + 1, pageSize);
-                }
-            });
-            
-            document.getElementById('pageSizeSelect').addEventListener('change', function() {
-                const newPageSize = parseInt(this.value, 10);
-                loadBackupList(1, newPageSize); // 更改每页条数时重置为第1页
-            });
+            // 分页控件事件已由 PaginationManager 管理
             
             document.querySelectorAll('.restore-backup').forEach(btn => {
                 btn.addEventListener('click', function() {
@@ -1696,7 +1665,7 @@
             .then(data => {
                 if (data.success) {
                     showToast('备份创建成功: ' + data.backup_file, 'success');
-                    loadBackupList(1, pageSize); // 创建新备份后，显示第一页以看到最新创建的备份
+                    loadBackupList(1);; // 创建新备份后，显示第一页以看到最新创建的备份
                 } else {
                     const errorMessage = data.message || '创建备份失败';
                     showToast('创建备份失败: ' + errorMessage, 'error');
@@ -1862,10 +1831,11 @@
                 if (data.success) {
                     showToast('备份文件已成功删除', 'success');
                     // 如果当前页没有数据了，返回上一页
-                    if (backupFiles.length === 1 && currentPage > 1) {
-                        loadBackupList(currentPage - 1, pageSize);
+                    const pmState = backupPm ? backupPm.getState() : { currentPage: 1, pageSize: 10 };
+                    if (backupFiles.length === 1 && pmState.currentPage > 1) {
+                        loadBackupList(pmState.currentPage - 1, pmState.pageSize);
                     } else {
-                        loadBackupList(currentPage, pageSize);
+                        loadBackupList(pmState.currentPage, pmState.pageSize);
                     }
                 } else {
                     const errorMessage = data.message || '删除备份失败';
@@ -1958,10 +1928,11 @@
                         if (data.success) {
                             showToast(`成功删除${data.success_count}个备份文件`, 'success');
                             // 如果删除后当前页没有数据了，返回上一页
-                            if (backupFiles.length === data.success_count && currentPage > 1) {
-                                loadBackupList(currentPage - 1, pageSize);
+                            const pmState = backupPm ? backupPm.getState() : { currentPage: 1, pageSize: 10 };
+                            if (backupFiles.length === data.success_count && pmState.currentPage > 1) {
+                                loadBackupList(pmState.currentPage - 1, pmState.pageSize);
                             } else {
-                                loadBackupList(currentPage, pageSize);
+                                loadBackupList(pmState.currentPage, pmState.pageSize);
                             }
                         } else {
                             showToast('批量删除备份失败: ' + data.message, 'error');
@@ -2008,7 +1979,7 @@
                     .then(data => {
                         if (data.success) {
                             showToast(`成功清空${data.deleted_count}个备份文件`, 'success');
-                            loadBackupList(1, pageSize); // 清空所有备份后，显示第一页
+                            loadBackupList(1);; // 清空所有备份后，显示第一页
                         } else {
                             showToast('清空所有备份失败: ' + data.message, 'error');
                         }

@@ -257,16 +257,7 @@
       <!-- 表格工具栏 -->
       <div class="p-4 border-b border-gray-100 flex flex-wrap justify-between items-center whitespace-nowrap">
         <div class="text-sm text-gray-500">
-          共 <span class="text-primary font-medium">{{ total_count }}</span> 条记录
-        </div>
-        <div class="flex items-center space-x-2">
-          <label for="pageSize" class="text-sm text-gray-500">每页显示:</label>
-          <select id="pageSize" class="text-sm px-2 py-1 border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-primary appearance-none">
-            <option value="10" {% if page_size == 10 %}selected{% endif %}>10条</option>
-            <option value="20" {% if page_size == 20 %}selected{% endif %}>20条</option>
-            <option value="50" {% if page_size == 50 %}selected{% endif %}>50条</option>
-            <option value="100" {% if page_size == 100 %}selected{% endif %}>100条</option>
-          </select>
+          共 <span class="text-primary font-medium">{{ total }}</span> 条记录
         </div>
       </div>
 
@@ -291,7 +282,7 @@
               <!-- 表格数据行 -->
             {% for user in users %}
             <tr class="table-row-hover">
-              <td class="px-6 py-4 border-b border-gray-100 text-gray-600">{{ loop.index + (current_page - 1) * page_size }}</td>
+              <td class="px-6 py-4 border-b border-gray-100 text-gray-600">{{ loop.index + (current_page - 1) * per_page }}</td>
               <td class="px-6 py-4 border-b border-gray-100 text-gray-700">
                 <a href="{{ url_for('utility_index.utility_room_records_detail', record_id=user.record_id) }}" class="text-primary hover:underline">{{ user.billing_period }}</a>
               </td>
@@ -377,24 +368,9 @@
       </div>
 
       <!-- 分页 -->
-      <div class="px-6 py-4 border-t border-gray-100 flex flex-col sm:flex-row justify-between items-center">
-        <div class="text-sm text-gray-500 mb-4 sm:mb-0">
-          显示 {{ (current_page - 1) * page_size + 1 }}-{{ [current_page * page_size, total_count]|min }} 条，共 {{ total_count }} 条
-        </div>
-        <div class="flex items-center space-x-2">
-          <button class="px-3 h-8 flex items-center justify-center rounded border border-gray-300 bg-white text-gray-700 hover:border-primary hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed" {% if current_page == 1 %}disabled{% endif %}>
-            <i class="fa fa-angle-left mr-1"></i>
-            上一页
-          </button>
-          <span class="px-3 py-2 text-sm font-medium text-gray-700">
-            第 {{ current_page }} / {{ total_pages }} 页
-          </span>
-          <button class="px-3 h-8 flex items-center justify-center rounded border border-gray-300 bg-white text-gray-700 hover:border-primary hover:text-primary" {% if current_page == total_pages %}disabled{% endif %}>
-            下一页
-            <i class="fa fa-angle-right ml-1"></i>
-          </button>
-        </div>
-      </div>
+      {% if total_count > 0 %}
+      <div id="pagination-container"></div>
+      {% endif %}
     </div>
   </main>
 
@@ -489,7 +465,7 @@
       const department = document.getElementById('department').value;
       const type = document.getElementById('type').value;
       const search = document.getElementById('search').value;
-      const pageSize = document.getElementById('pageSize').value;
+      const pageSize = new URLSearchParams(window.location.search).get('pageSize') || '{{ per_page }}';
       
       // 构建查询参数
       let queryParams = new URLSearchParams();
@@ -583,14 +559,18 @@
       });
     };
     
-    // 每页显示数量改变事件
-    document.getElementById('pageSize').addEventListener('change', function() {
-      // 获取当前的查询参数
-      const url = new URL(window.location);
-      url.searchParams.set('pageSize', this.value);
-      url.searchParams.set('page', 1); // 重置为第一页
-      window.location.href = url.toString();
+    // 分页初始化
+    {% if total_count > 0 %}
+    new PaginationManager('pagination-container', {
+        mode: 'server',
+        total: {{ total }},
+        currentPage: {{ current_page }},
+        totalPages: {{ total_pages }},
+        pageSize: {{ per_page }},
+        pageSizeOptions: [10, 20, 50, 100],
+        urlTemplate: PaginationManager.buildUrlTemplate()
     });
+    {% endif %}
   </script>
 </body>
 </html>

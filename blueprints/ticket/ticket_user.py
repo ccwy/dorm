@@ -6,6 +6,7 @@ from models.user.user import User
 from models.system_config.system_config import SystemConfig
 from flask_login import login_required, current_user
 from utils.auth import require_permission
+from utils.pagination import get_pagination_params
 from datetime import datetime
 import logging
 import os
@@ -53,7 +54,7 @@ def user_ticket_list():
         )
         logging.info(f"用户 [{user_id}] 成功访问留言列表")
         return render_template('ticket_manage/user_ticket_list.html', title="留言列表", 
-                              tickets=tickets, pagination=pagination, page=page, per_page=per_page,
+                              tickets=tickets, **get_pagination_params(pagination),
                               message_categories=message_categories)
     except Exception as e:
         logging.error(f"获取用户留言列表失败: {str(e)}")
