@@ -372,6 +372,8 @@ jobs:
 
       - name: 🤖 设置 Android SDK
         uses: android-actions/setup-android@v4
+        with:
+          packages: 'platform-tools'
 
       - name: 📦 安装 Android SDK 组件
         run: |
