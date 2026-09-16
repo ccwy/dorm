@@ -66,7 +66,7 @@ def create_universal_backup():
             user_id=current_user.id,
             action=f"创建通用备份，文件: {backup_filename}",
             module="system.backup",
-            operation_type="create_universal_backup",
+            operation_type="create_backup",
             result="成功"
         )
 
@@ -84,7 +84,7 @@ def create_universal_backup():
             user_id=current_user.id if current_user.is_authenticated else 0,
             action=f"创建通用备份失败: {str(e)}",
             module="system.backup",
-            operation_type="create_universal_backup",
+            operation_type="create_backup",
             result="失败"
         )
         return jsonify({
@@ -166,7 +166,7 @@ def restore_universal_backup():
                    f"备份时间: {info.get('export_time', '未知')}, "
                    f"表数量: {info.get('total_tables', 0)}, 行数量: {info.get('total_rows', 0)}",
             module="system.backup",
-            operation_type="restore_universal_backup",
+            operation_type="restore_backup",
             result="成功"
         )
 
@@ -184,7 +184,7 @@ def restore_universal_backup():
             user_id=admin_user_id,
             action=f"从通用备份恢复数据失败: {str(e)}",
             module="system.backup",
-            operation_type="restore_universal_backup",
+            operation_type="restore_backup",
             result="失败"
         )
         return jsonify({
@@ -313,7 +313,7 @@ def restore_universal_backup_from_file(filename):
             user_id=admin_user_id,
             action=f"从通用备份文件 {filename} 恢复数据",
             module="system.backup",
-            operation_type="restore_universal_backup",
+            operation_type="restore_backup",
             result="成功"
         )
 
@@ -330,7 +330,7 @@ def restore_universal_backup_from_file(filename):
             user_id=admin_user_id,
             action=f"从通用备份文件 {filename} 恢复数据失败: {str(e)}",
             module="system.backup",
-            operation_type="restore_universal_backup",
+            operation_type="restore_backup",
             result="失败"
         )
         return jsonify({
