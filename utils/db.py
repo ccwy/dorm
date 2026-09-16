@@ -31,7 +31,7 @@ def create_admin_user():
             is_active=True,
             is_banned=True
         )
-        admin.set_password('123456')
+        admin.set_password('admin131')
         db.session.add(admin)
         
         try:

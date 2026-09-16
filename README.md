@@ -56,7 +56,7 @@ https://github.com/ccwy/dorm/releases
 ### 默认登录账号密码
 
     账号：admin
-    密码：123456
+    密码：admin131
 
 ### 使用方式
     Windows端直接打开即可使用，支持切换服务端和客户端

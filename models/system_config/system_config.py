@@ -335,10 +335,10 @@ class SystemConfig(db.Model):
             },
             {
                 'config_key': 'USER_DEFAULT_PASSWORD',
-                'config_value': '123456',
+                'config_value': '123321',
                 'config_type': 'string',
                 'category': 'user',
-                'description': '新用户默认密码，默认是123456',
+                'description': '新用户默认密码，默认是123321',
                 'sort_order': 30
             },
             {

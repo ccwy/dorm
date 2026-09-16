@@ -95,7 +95,7 @@ def add():
                 selected_role = default_role
         
        # 从系统配置获取默认密码
-        password = request.form.get('password', '').strip() or SystemConfig.get_config_value('USER_DEFAULT_PASSWORD', '123456')
+        password = request.form.get('password', '').strip() or SystemConfig.get_config_value('USER_DEFAULT_PASSWORD', '123321')
        
         ethnicity = request.form.get('ethnicity', '').strip()  # 民族字段
         marital_status = request.form.get('marital_status', '').strip() #婚姻状态

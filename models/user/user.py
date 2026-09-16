@@ -486,7 +486,7 @@ class User(UserMixin, db.Model):
 
         # 并行计算密码哈希（pbkdf2释放GIL，多线程有效）
         from concurrent.futures import ThreadPoolExecutor, as_completed
-        passwords = [ud.get('password', '123456') for ud in user_data_list]
+        passwords = [ud.get('password', '123321') for ud in user_data_list]
         password_hashes = {}
         try:
             with ThreadPoolExecutor(max_workers=min(4, len(passwords))) as executor:

@@ -465,7 +465,7 @@ def import_users():
                 pwd_val = row['密码']
                 password = str(int(pwd_val)) if isinstance(pwd_val, (int, float)) else str(pwd_val).strip()
             else:
-                password = SystemConfig.get_config_value('USER_DEFAULT_PASSWORD', '123456')
+                password = SystemConfig.get_config_value('USER_DEFAULT_PASSWORD', '123321')
             
             # 基础用户数据（不包含password_hash，改为传递password）
             user_data = {
@@ -618,7 +618,7 @@ def import_template():
                 "角色": "普通用户",
                 "是否激活账号": "是",
                 "是否允许登录": "否",
-                "密码": "123456"  # 默认密码
+                "密码": "123321"  # 默认密码
             },
             {
                 "姓名": "李四",
