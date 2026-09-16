@@ -11,7 +11,7 @@ MODULE_MAP = {
     'room': '房间管理',
     'dorm': '宿舍管理',
     'system': '系统设置',
-    'backup': '日志管理',
+    'backup': '备份管理',
     'user': '用户管理',
     'utility': '水电费管理',
     'login': '登录',
