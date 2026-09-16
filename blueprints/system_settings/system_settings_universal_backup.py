@@ -65,7 +65,7 @@ def create_universal_backup():
         log_operation(
             user_id=current_user.id,
             action=f"创建通用备份，文件: {backup_filename}",
-            module="system.backup",
+            module="backup",
             operation_type="create_backup",
             result="成功"
         )
@@ -83,7 +83,7 @@ def create_universal_backup():
         log_operation(
             user_id=current_user.id if current_user.is_authenticated else 0,
             action=f"创建通用备份失败: {str(e)}",
-            module="system.backup",
+            module="backup",
             operation_type="create_backup",
             result="失败"
         )
@@ -183,7 +183,7 @@ def restore_universal_backup():
         log_operation(
             user_id=admin_user_id,
             action=f"从通用备份恢复数据失败: {str(e)}",
-            module="system.backup",
+            module="backup",
             operation_type="restore_backup",
             result="失败"
         )
@@ -312,7 +312,7 @@ def restore_universal_backup_from_file(filename):
         log_operation(
             user_id=admin_user_id,
             action=f"从通用备份文件 {filename} 恢复数据",
-            module="system.backup",
+            module="backup",
             operation_type="restore_backup",
             result="成功"
         )
@@ -329,7 +329,7 @@ def restore_universal_backup_from_file(filename):
         log_operation(
             user_id=admin_user_id,
             action=f"从通用备份文件 {filename} 恢复数据失败: {str(e)}",
-            module="system.backup",
+            module="backup",
             operation_type="restore_backup",
             result="失败"
         )

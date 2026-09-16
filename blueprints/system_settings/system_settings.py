@@ -633,15 +633,7 @@ def get_database_info():
             db_info["file_path"] = parsed_url.database
             db_info["host"] = "本地文件系统"
             db_info["port"] = "N/A"
-        
-        log_operation(
-            user_id=current_user.id,
-            action="查询当前数据库信息",
-            module="system",
-            operation_type="system_api",
-            result="成功"
-        )
-        
+
         return jsonify({
             "success": True,
             "data": db_info
@@ -649,13 +641,6 @@ def get_database_info():
         
     except Exception as e:
         logging.error(f"获取数据库信息失败: {str(e)}")
-        log_operation(
-            user_id=current_user.id if current_user.is_authenticated else 0,
-            action=f"查询数据库信息失败: {str(e)}",
-            module="system",
-            operation_type="system_api",
-            result="失败"
-        )
         return jsonify({
             "success": False,
             "message": f"获取数据库信息失败: {str(e)}"

@@ -73,7 +73,7 @@ def create_backup():
         log_operation(
             user_id=current_user.id,
             action=f"创建{db_type}数据库备份，备份文件: {backup_filename}",
-            module="system",
+            module="backup",
             operation_type="create_backup",
             result=f"成功"
         )
@@ -89,7 +89,7 @@ def create_backup():
         log_operation(
             user_id=current_user.id if current_user.is_authenticated else 0,
             action=f"创建系统备份失败, {str(e)}",
-            module="system.backup",
+            module="backup",
             operation_type="create_backup",
             result="失败"
         )
@@ -185,14 +185,7 @@ def list_backups():
         # 修改从本地配置文件获取BACKUP_RETENTION_COUNT值
         config_data = DatabaseConfig.load_config()
         retention_count = config_data.get('BACKUP_RETENTION_COUNT', 30)
-        
-        log_operation(
-            user_id=current_user.id,
-            action=f"获取备份文件列表，当前数据库类型: {current_db_type}, 共筛选出{total}个有效备份",
-            module="system",
-            operation_type="list_backups",
-            result="成功"
-        )
+
         logging.info("获取备份列表成功")
         return jsonify({
             "success": True,
@@ -206,13 +199,6 @@ def list_backups():
         })
     except Exception as e:
         logging.error(f"获取备份列表失败: {str(e)}")
-        log_operation(
-            user_id=current_user.id if current_user.is_authenticated else 0,
-            action=f"获取备份文件列表失败， {str(e)}",
-            module="system",
-            operation_type="list_backups",
-            result="失败"
-        )
         return jsonify({
             "success": False,
             "message": f"获取备份列表失败: {str(e)}"
@@ -235,7 +221,7 @@ def delete_backup(filename):
         log_operation(
             user_id=current_user.id,
             action=f"删除系统备份，删除文件: {filename}",
-            module="system",
+            module="backup",
             operation_type="delete_backup",
             result="成功"
         )
@@ -249,7 +235,7 @@ def delete_backup(filename):
         log_operation(
             user_id=current_user.id if current_user.is_authenticated else 0,
             action=f"删除系统备份失败: {str(e)}",
-            module="system",
+            module="backup",
             operation_type="delete_backup",
             result="失败"
         )
@@ -284,7 +270,7 @@ def delete_backup_batch():
             log_operation(
                 user_id=current_user.id,
                 action=f"批量删除备份文件，成功删除{success_count}个，失败{len(failed_files)}个",
-                module="system",
+                module="backup",
                 operation_type="delete_backup",
                 result="成功" if success_count > 0 else "失败"
             )
@@ -300,7 +286,7 @@ def delete_backup_batch():
             log_operation(
                 user_id=current_user.id if current_user.is_authenticated else 0,
                 action=f"批量删除备份失败: {str(e)}",
-                module="system",
+                module="backup",
                 operation_type="delete_backup",
                 result="失败"
             )
@@ -352,7 +338,7 @@ def clear_all_backups():
             log_operation(
                 user_id=current_user.id,
                 action=f"清空所有备份文件，共删除{deleted_count}个，失败{len(failed_files)}个",
-                module="system",
+                module="backup",
                 operation_type="delete_backup",
                 result="成功" if deleted_count > 0 else "失败"
             )
@@ -368,7 +354,7 @@ def clear_all_backups():
             log_operation(
                 user_id=current_user.id if current_user.is_authenticated else 0,
                 action=f"清空所有备份失败: {str(e)}",
-                module="system",
+                module="backup",
                 operation_type="delete_backup",
                 result="失败"
             )
@@ -482,7 +468,7 @@ def restore_backup(filename):
         log_operation(
             user_id=current_admin_id,
             action=f"已成功从{db_type}备份 {filename} 恢复数据",
-            module="system",
+            module="backup",
             operation_type="restore_backup",
             result="成功"
         )
@@ -498,7 +484,7 @@ def restore_backup(filename):
         log_operation(
             user_id=current_admin_id,
             action=f"从备份恢复数据失败: {str(e)}",
-            module="system",
+            module="backup",
             operation_type="restore_backup",
             result="失败"
         )
@@ -628,7 +614,7 @@ def restore_from_upload():
         log_operation(
             user_id=current_admin_id,
             action=f"已成功从上传的{db_type}文件 {backup_file.filename} 恢复数据",
-            module="system",
+            module="backup",
             operation_type="restore_backup",
             result="成功"
         )
@@ -645,7 +631,7 @@ def restore_from_upload():
         log_operation(
             user_id=current_admin_id,
             action=f"从上传文件恢复数据失败: {str(e)}",
-            module="system",
+            module="backup",
             operation_type="restore_backup",
             result="失败"
         )
@@ -702,7 +688,7 @@ def download_backup(filename):
         log_operation(
             user_id=current_user.id,
             action=f"下载备份文件: {filename}",
-            module="system",
+            module="backup",
             operation_type="download_backup",
             result="成功"
         )
@@ -721,7 +707,7 @@ def download_backup(filename):
         log_operation(
             user_id=current_user.id if current_user.is_authenticated else 0,
             action=f"下载备份文件失败: {str(e)}",
-            module="system",
+            module="backup",
             operation_type="download_backup",
             result="失败"
         )
