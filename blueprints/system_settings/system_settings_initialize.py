@@ -1,4 +1,4 @@
-from flask import request, jsonify, current_app
+from flask import request, jsonify, current_app, session
 from flask_login import login_required, current_user
 from utils.db import db, init_db  # 导入init_db用于数据库初始化
 from sqlalchemy import text
@@ -26,6 +26,7 @@ def initialize_database():
     try:
         # 清除会话（强制重新登录）
         from flask_login import logout_user
+        session.clear()
         logout_user()
         logging.info("已清除登录信息，用户已退出登录")
 

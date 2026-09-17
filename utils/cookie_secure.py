@@ -40,8 +40,11 @@ def logout_user_securely(response=None):
     if response is None:
         response = make_response()
     
-    logout_user()
+    # 先清除自定义会话数据，再调用logout_user()
+    # 这样logout_user()设置的session['_remember']='clear'标记不会被session.clear()清除
+    # 确保after_request处理器能正确删除remember cookie
     session.clear()
+    logout_user()
     session.modified = True
     
     # 防止缓存

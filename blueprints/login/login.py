@@ -37,32 +37,6 @@ def login():
             return redirect(url_for('maintenance_staff.staff_order_list'))
         return redirect(url_for('index'))
     
-    # 开发模式自动登录：DEV_AUTO_LOGIN开关开启时，直接以admin账号登录
-    if current_app.config.get('DEV_AUTO_LOGIN', False):
-        try:
-            admin_user = User.query.filter_by(username='admin').first()
-            if admin_user:
-                print(f'[开发模式] 自动登录为admin账号: {admin_user.name}')
-                login_user(admin_user, remember=True)
-                session['login_time'] = datetime.now().isoformat()
-                session['last_activity_time'] = datetime.now().isoformat()
-                session.modified = True
-                log_operation(
-                    user_id=admin_user.id,
-                    module='login',
-                    operation_type='login',
-                    action=f"{admin_user.name}开发模式自动登录",
-                    result="成功"
-                )
-                admin_user.last_login_at = datetime.now()
-                db.session.commit()
-                flash(f'开发模式自动登录为: {admin_user.name}', 'success')
-                return redirect(url_for('index'))
-            else:
-                print('[开发模式] 未找到admin账号，跳过自动登录')
-        except Exception as e:
-            print(f'[开发模式] 自动登录失败: {str(e)}')
-            logging.error(f'开发模式自动登录失败: {str(e)}')
     
     if request.method == 'POST':
         username = request.form.get('username', '').strip()

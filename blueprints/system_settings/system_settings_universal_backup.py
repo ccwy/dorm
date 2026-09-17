@@ -110,8 +110,8 @@ def restore_universal_backup():
         # 在恢复前保存当前用户ID，然后立即退出登录
         # 恢复是破坏性操作，先作废会话再执行，避免after_request钩子访问已detach的ORM对象
         admin_user_id = current_user.id
-        logout_user()
         session.clear()
+        logout_user()
         # 更新全局会话版本号，使所有浏览器中的旧cookie自动失效
         invalidate_all_sessions()
         logging.info("[通用恢复] 已在恢复前退出登录并使所有旧session失效")
@@ -249,8 +249,8 @@ def restore_universal_backup_from_file(filename):
         # 在恢复前保存当前用户ID，然后立即退出登录
         # 恢复是破坏性操作，先作废会话再执行，避免after_request钩子访问已detach的ORM对象
         admin_user_id = current_user.id
-        logout_user()
         session.clear()
+        logout_user()
         # 更新全局会话版本号，使所有浏览器中的旧cookie自动失效
         invalidate_all_sessions()
         logging.info("[通用恢复] 已在恢复前退出登录并使所有旧session失效")

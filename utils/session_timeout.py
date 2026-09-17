@@ -32,8 +32,9 @@ def setup_session_timeout_handler(app):
 
             if (current_time - last_activity_time).total_seconds() > timeout_seconds:
                 logging.info(f"用户 {current_user.username} 因超过{timeout_seconds // 60}分钟不活动而自动退出")
-                logout_user()
+                # 先清除会话再调用logout_user()，确保remember cookie被正确删除
                 session.clear()
+                logout_user()
                 session.modified = True
                 flash('您因长时间未操作而自动退出登录', 'info')
                 return redirect(url_for('login.login'))
