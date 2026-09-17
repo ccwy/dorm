@@ -269,6 +269,7 @@ def init_flask_app(progress_callback=None):
     login_manager.login_view = 'login.login'
     login_manager.login_message = '请先登录以访问此页面'
     login_manager.login_message_category = 'info'
+    login_manager.remember_cookie_duration = current_config.REMEMBER_COOKIE_DURATION
 
     @login_manager.user_loader
     def load_user(user_id):

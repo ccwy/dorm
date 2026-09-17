@@ -19,6 +19,12 @@ def setup_secure_user_session(user, remember=True, response=None):
     
     login_user(user, remember=remember)
     
+    # 显式控制session.permanent：
+    # - 勾选"记住我"：session.permanent=True，cookie带Max-Age（PERMANENT_SESSION_LIFETIME），
+    #   同时Flask-Login设置remember cookie（REMEMBER_COOKIE_DURATION=30天）
+    # - 未勾选：session.permanent=False，cookie为浏览器会话级，关闭浏览器即失效
+    session.permanent = remember
+    
     current_time = datetime.now().isoformat()
     session['login_time'] = current_time
     session['last_activity_time'] = current_time

@@ -183,7 +183,8 @@
                         </div>
                     </div>
                     
-                    <!-- 记住密码选项 -->
+                    <!-- 记住密码选项（仅Docker/服务端模式下显示，WebView/Android下无效） -->
+                    {% if show_remember_me %}
                     <div class="flex items-center justify-between">
                         <div class="flex items-center">
                             <input type="checkbox" id="remember" name="remember" 
@@ -192,6 +193,7 @@
                             <label for="remember" class="ml-3 block text-sm text-gray-700">记住我 30 天</label>
                         </div>
                     </div>
+                    {% endif %}
                     
                     <!-- 登录按钮 -->
                     <button type="submit" 

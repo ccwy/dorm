@@ -35,6 +35,7 @@ class Config:
     # 会话不活动超时设置
     # 用户在这段时间内没有任何操作将被自动退出登录
     SESSION_INACTIVITY_TIMEOUT = 3 * 60 * 60  # 3小时不活动自动退出
+    REMEMBER_COOKIE_DURATION = timedelta(days=30)  # "记住我"Cookie有效期30天
     
     # 基础目录
     BASE_DIR = os.path.abspath(os.path.dirname(__file__))

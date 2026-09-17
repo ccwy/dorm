@@ -2,6 +2,7 @@ from flask import Blueprint, render_template, redirect, url_for, request, sessio
 from flask_login import current_user, logout_user, login_user
 from sqlalchemy.exc import SQLAlchemyError
 import logging
+import os
 from datetime import datetime
 from utils.log import log_operation
 # 导入数据库和用户模型（使用提供的User模型）
@@ -9,6 +10,7 @@ from utils.db import db
 from models.user.user import User  # 直接使用User模型
 # 导入我们新的安全Cookie管理模块
 from utils.cookie_secure import setup_secure_user_session, logout_user_securely
+from utils.db_config import DatabaseConfig
 
 # 创建蓝图
 login_bp = Blueprint('login', __name__, url_prefix='/login')
@@ -28,6 +30,12 @@ def login():
     from models.system_config.system_config import SystemConfig
     phone_idcard_login_enabled = SystemConfig.get_config('FEATURE_PHONE_IDCARD_LOGIN_ENABLED', True)
     
+    # 判断是否显示"记住我30天"选项：仅在Docker环境和服务端模式下显示
+    # WebView/Android环境下Cookie行为不受浏览器控制，此选项无效
+    is_docker = os.environ.get('DOCKER_ENV', 'false').lower() == 'true'
+    server_mode = DatabaseConfig.load_config().get('SERVER_MODE', '客户端')
+    show_remember_me = is_docker or server_mode == '服务端'
+    
     # 如果用户已登录，直接跳转到主页
     if current_user.is_authenticated:
         print('用户仍处于认证状态，重定向到主页')
@@ -45,13 +53,13 @@ def login():
         if not username:
             flash('请输入用户名', 'danger')
             logging.error("登录失败，请输入用户名")
-            response.set_data(render_template('login/login.html',title=f"登录",phone_idcard_login_enabled=phone_idcard_login_enabled))
+            response.set_data(render_template('login/login.html',title=f"登录",phone_idcard_login_enabled=phone_idcard_login_enabled,show_remember_me=show_remember_me))
             return response
         
         if not password:
             flash('请输入密码', 'danger')
             logging.error("登录失败，请输入密码")
-            response.set_data(render_template('login/login.html',title=f"登录",phone_idcard_login_enabled=phone_idcard_login_enabled))
+            response.set_data(render_template('login/login.html',title=f"登录",phone_idcard_login_enabled=phone_idcard_login_enabled,show_remember_me=show_remember_me))
             return response
         
         try:
@@ -69,39 +77,42 @@ def login():
             if not user:
                 flash('用户名或密码错误', 'danger')
                 logging.error("用户名或密码错误")
-                response.set_data(render_template('login/login.html',title=f"登录",phone_idcard_login_enabled=phone_idcard_login_enabled))
+                response.set_data(render_template('login/login.html',title=f"登录",phone_idcard_login_enabled=phone_idcard_login_enabled,show_remember_me=show_remember_me))
                 return response
             
             # 3. 验证账号是否激活
             if not user.is_active:
                 flash('账号未激活', 'danger')
                 logging.error("账号未激活")
-                response.set_data(render_template('login/login.html',title=f"登录",phone_idcard_login_enabled=phone_idcard_login_enabled))
+                response.set_data(render_template('login/login.html',title=f"登录",phone_idcard_login_enabled=phone_idcard_login_enabled,show_remember_me=show_remember_me))
                 return response
                 
             # 3. 验证账号状态（是否在职）
             if not user.is_active or not user.is_status:
                 flash('账号已被停用', 'danger')
                 logging.error("账号已被停用")
-                response.set_data(render_template('login/login.html',title=f"登录",phone_idcard_login_enabled=phone_idcard_login_enabled))
+                response.set_data(render_template('login/login.html',title=f"登录",phone_idcard_login_enabled=phone_idcard_login_enabled,show_remember_me=show_remember_me))
                 return response
             
             # 4. 验证是否被禁止登录
             if not user.is_banned:
                 flash('您的账号已被禁止登录', 'danger')
                 logging.error(f"您的账号已被禁止登录")
-                response.set_data(render_template('login/login.html',title=f"登录",phone_idcard_login_enabled=phone_idcard_login_enabled))
+                response.set_data(render_template('login/login.html',title=f"登录",phone_idcard_login_enabled=phone_idcard_login_enabled,show_remember_me=show_remember_me))
                 return response
             
             # 5. 验证密码（使用模型自带的check_password方法）
             if not user.check_password(password):
                 flash('用户名或密码错误', 'danger')
                 logging.error("用户名或密码错误")
-                response.set_data(render_template('login/login.html',title=f"登录",phone_idcard_login_enabled=phone_idcard_login_enabled))
+                response.set_data(render_template('login/login.html',title=f"登录",phone_idcard_login_enabled=phone_idcard_login_enabled,show_remember_me=show_remember_me))
                 return response
             
             # 使用安全Cookie管理模块设置用户会话，传入响应对象
-            response = setup_secure_user_session(user, remember=True, response=response)
+            # 根据前端"记住我 30 天"勾选框决定是否启用remember cookie
+            # WebView/Android环境下remember cookie无效，始终设为False
+            remember_me = bool(request.form.get('remember')) if show_remember_me else False
+            response = setup_secure_user_session(user, remember=remember_me, response=response)
             
             # 记录访问日志
             log_operation(
@@ -138,11 +149,11 @@ def login():
             flash('登录失败：数据库错误', 'danger')
             # 生产环境建议记录日志
             logging.error(f"登录失败: {str(e)}")
-            response.set_data(render_template('login/login.html',title=f"登录",phone_idcard_login_enabled=phone_idcard_login_enabled))
+            response.set_data(render_template('login/login.html',title=f"登录",phone_idcard_login_enabled=phone_idcard_login_enabled,show_remember_me=show_remember_me))
             return response
     
     # 如果是GET请求，渲染登录页面
-    response.set_data(render_template('login/login.html',title=f"登录",phone_idcard_login_enabled=phone_idcard_login_enabled))
+    response.set_data(render_template('login/login.html',title=f"登录",phone_idcard_login_enabled=phone_idcard_login_enabled,show_remember_me=show_remember_me))
     return response
 
 @login_bp.route('/logout')
