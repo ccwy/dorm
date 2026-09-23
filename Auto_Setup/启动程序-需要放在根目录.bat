@@ -1,94 +1,93 @@
-ï»¿@echo off
-chcp 65001 > nul
+@echo off
 setlocal enabledelayedexpansion
 
-:: é¡¹ç›®æ ¹ç›®å½•
+:: ÏîÄ¿¸ùÄ¿Â¼
 cd /d "%~dp0"
 set "PROJECT_DIR=%cd%"
 
-:: åˆ‡æ¢åˆ°é¡¹ç›®ç›®å½•
-echo [%date% %time:~0,8%] åˆ‡æ¢åˆ°é¡¹ç›®ç›®å½•...
+:: ÇÐ»»µ½ÏîÄ¿Ä¿Â¼
+echo [%date% %time:~0,8%] ÇÐ»»µ½ÏîÄ¿Ä¿Â¼...
 cd /d "%PROJECT_DIR%"
 if %errorlevel% neq 0 (
-    echo [%date% %time:~0,8%] é”™è¯¯ï¼šæ— æ³•åˆ‡æ¢åˆ°é¡¹ç›®ç›®å½• %PROJECT_DIR%
+    echo [%date% %time:~0,8%] ´íÎó£ºÎÞ·¨ÇÐ»»µ½ÏîÄ¿Ä¿Â¼ %PROJECT_DIR%
     pause
     exit /b 1
 )
 
-:: æ˜¾ç¤ºå¯åŠ¨ä¿¡æ¯å’Œæ—¶é—´
+:: ÏÔÊ¾Æô¶¯ÐÅÏ¢ºÍÊ±¼ä
 cls
 echo ==============================================
-echo å®¿èˆç®¡ç†ç³»ç»Ÿ - ä¸€é”®å¯åŠ¨è„šæœ¬
-echo å¯åŠ¨æ—¶é—´: %date% %time:~0,8%
-echo é¡¹ç›®è·¯å¾„: %PROJECT_DIR%
+echo ËÞÉá¹ÜÀíÏµÍ³ - Ò»¼üÆô¶¯½Å±¾
+echo Æô¶¯Ê±¼ä: %date% %time:~0,8%
+echo ÏîÄ¿Â·¾¶: %PROJECT_DIR%
 echo ==============================================
 echo.
 
-:: æ¸…ç†ä¸´æ—¶æ–‡ä»¶å¤¹
+:: ÇåÀíÁÙÊ±ÎÄ¼þ¼Ð
 echo.
-echo [%date% %time:~0,8%] å¼€å§‹æ¸…ç†ä¸´æ—¶æ–‡ä»¶...
+echo [%date% %time:~0,8%] ¿ªÊ¼ÇåÀíÁÙÊ±ÎÄ¼þ...
 if exist "%PROJECT_DIR%\build" (
     rmdir /s /q "%PROJECT_DIR%\build"
-    echo [%date% %time:~0,8%] å·²åˆ é™¤buildæ–‡ä»¶å¤¹
+    echo [%date% %time:~0,8%] ÒÑÉ¾³ýbuildÎÄ¼þ¼Ð
 )
 if exist "%PROJECT_DIR%\__pycache__" (
     rmdir /s /q "%PROJECT_DIR%\__pycache__"
-    echo [%date% %time:~0,8%] å·²åˆ é™¤__pycache__æ–‡ä»¶å¤¹
+    echo [%date% %time:~0,8%] ÒÑÉ¾³ý__pycache__ÎÄ¼þ¼Ð
 )
 if exist "%PROJECT_DIR%\dist" (
     rmdir /s /q "%PROJECT_DIR%\dist"
-    echo [%date% %time:~0,8%] å·²åˆ é™¤distæ–‡ä»¶å¤¹
+    echo [%date% %time:~0,8%] ÒÑÉ¾³ýdistÎÄ¼þ¼Ð
 )
 for /d /r "%PROJECT_DIR%" %%d in (__pycache__) do (
     if exist "%%d" (
         rmdir /s /q "%%d"
-        echo [%date% %time:~0,8%] å·²åˆ é™¤%%d
+        echo [%date% %time:~0,8%] ÒÑÉ¾³ý%%d
     )
 )
 if exist "%PROJECT_DIR%\data" (
     rmdir /s /q "%PROJECT_DIR%\data"
-    echo [%date% %time:~0,8%] å·²åˆ é™¤dataæ–‡ä»¶å¤¹
+    echo [%date% %time:~0,8%] ÒÑÉ¾³ýdataÎÄ¼þ¼Ð
 )
 
-:: æ£€æŸ¥Pythonæ˜¯å¦å®‰è£…
-echo [%date% %time:~0,8%] æ£€æŸ¥Pythonæ˜¯å¦å®‰è£…...
+:: ¼ì²éPythonÊÇ·ñ°²×°
+echo [%date% %time:~0,8%] ¼ì²éPythonÊÇ·ñ°²×°...
 python --version >nul 2>&1
 if %errorlevel% neq 0 (
-    echo [%date% %time:~0,8%] é”™è¯¯ï¼šæœªæ‰¾åˆ°Pythonï¼Œè¯·ç¡®ä¿Pythonå·²æ­£ç¡®å®‰è£…å¹¶æ·»åŠ åˆ°ç³»ç»ŸPATHã€‚
+    echo [%date% %time:~0,8%] ´íÎó£ºÎ´ÕÒµ½Python£¬ÇëÈ·±£PythonÒÑÕýÈ·°²×°²¢Ìí¼Óµ½ÏµÍ³PATH¡£
     pause
     exit /b 1
 ) else (
-    echo [%date% %time:~0,8%] Pythonå·²å®‰è£…ï¼Œå°†è‡ªåŠ¨æ‰§è¡Œä¸‹ä¸€æ­¥...
+    echo [%date% %time:~0,8%] PythonÒÑ°²×°£¬½«×Ô¶¯Ö´ÐÐÏÂÒ»²½...
 )
 
-:: æ£€æŸ¥requirements.txtæ˜¯å¦å­˜åœ¨
+:: ¼ì²érequirements.txtÊÇ·ñ´æÔÚ
 echo.
-echo [%date% %time:~0,8%] æ£€æŸ¥é¡¹ç›®ä¾èµ–...
+echo [%date% %time:~0,8%] ¼ì²éÏîÄ¿ÒÀÀµ...
 if not exist "%PROJECT_DIR%\requirements.txt" (
-    echo [%date% %time:~0,8%] è­¦å‘Šï¼šæœªæ‰¾åˆ°requirements.txtæ–‡ä»¶ï¼Œè·³è¿‡ä¾èµ–æ£€æŸ¥ã€‚
+    echo [%date% %time:~0,8%] ¾¯¸æ£ºÎ´ÕÒµ½requirements.txtÎÄ¼þ£¬Ìø¹ýÒÀÀµ¼ì²é¡£
 ) else (
-    :: å®‰è£…ä¾èµ–ï¼ˆå¦‚æžœéœ€è¦ï¼‰
-    echo [%date% %time:~0,8%] æ­£åœ¨å®‰è£…é¡¹ç›®ä¾èµ–...
+    :: °²×°ÒÀÀµ£¨Èç¹ûÐèÒª£©
+    echo [%date% %time:~0,8%] ÕýÔÚ°²×°ÏîÄ¿ÒÀÀµ...
     pip install -r "%PROJECT_DIR%\requirements.txt"
     if %errorlevel% neq 0 (
-        echo [%date% %time:~0,8%] è­¦å‘Šï¼šä¾èµ–å®‰è£…è¿‡ç¨‹ä¸­å‡ºçŽ°é”™è¯¯ï¼Œä½†å°†ç»§ç»­å¯åŠ¨åº”ç”¨ã€‚
+        echo [%date% %time:~0,8%] ¾¯¸æ£ºÒÀÀµ°²×°¹ý³ÌÖÐ³öÏÖ´íÎó£¬µ«½«¼ÌÐøÆô¶¯Ó¦ÓÃ¡£
     ) else (
-        echo [%date% %time:~0,8%] ä¾èµ–å®‰è£…å®Œæˆã€‚
+        echo [%date% %time:~0,8%] ÒÀÀµ°²×°Íê³É¡£
     )
 )
 
 
-:: å¯åŠ¨åº”ç”¨ç¨‹åºï¼ŒæŒ‡å®šå¼€å‘æ¨¡å¼é…ç½®
+:: Æô¶¯Ó¦ÓÃ³ÌÐò£¬Ö¸¶¨¿ª·¢Ä£Ê½ÅäÖÃ
 echo.
 echo [%date% %time:~0,8%] ==============================================
-echo [%date% %time:~0,8%] æ­£åœ¨å¯åŠ¨åº”ç”¨ç¨‹åº...
-echo [%date% %time:~0,8%] æŒ‰Ctrl+Cå¯åœæ­¢åº”ç”¨ç¨‹åº
+echo [%date% %time:~0,8%] ÕýÔÚÆô¶¯Ó¦ÓÃ³ÌÐò...
+echo [%date% %time:~0,8%] °´Ctrl+C¿ÉÍ£Ö¹Ó¦ÓÃ³ÌÐò
 echo [%date% %time:~0,8%] ==============================================
 echo.
 
 python "%PROJECT_DIR%\main.py"
 
-echo æŒ‰ä»»æ„é”®é€€å‡º...
+echo °´ÈÎÒâ¼üÍË³ö...
 pause >nul
 exit /b %errorlevel%
 
