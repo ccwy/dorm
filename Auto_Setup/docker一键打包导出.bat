@@ -1,162 +1,163 @@
-@echo off
+ï»¿@echo off
+chcp 65001 > nul
 setlocal enabledelayedexpansion
 
-:: ÅäÖÃ²ÎÊı
+:: é…ç½®å‚æ•°
 set "DOCKER_PATH=C:\Program Files\Docker\Docker\Docker Desktop.exe"
 cd /d "%~dp0.."
-set "PROJECT_DIR=%cd%"  :: ÏîÄ¿¸ùÄ¿Â¼
-set "DOCKERFILE_DIR=%PROJECT_DIR%\Auto_Setup"  :: DockerfileËùÔÚÄ¿Â¼
-set "DOCKERDATA_DIR=%PROJECT_DIR%\data"  :: Êı¾İÄ¿Â¼
-set "DOCKERSAVE_DIR=%DOCKERFILE_DIR%\Output"  :: ±£´æÄ¿Â¼
-set "OUTPUT_TAR=%DOCKERSAVE_DIR%\docker_dorm-system_v1.0.tar"  :: ÍêÕûµÄÊä³öÎÄ¼şÂ·¾¶
+set "PROJECT_DIR=%cd%"  :: é¡¹ç›®æ ¹ç›®å½•
+set "DOCKERFILE_DIR=%PROJECT_DIR%\Auto_Setup"  :: Dockerfileæ‰€åœ¨ç›®å½•
+set "DOCKERDATA_DIR=%PROJECT_DIR%\data"  :: æ•°æ®ç›®å½•
+set "DOCKERSAVE_DIR=%DOCKERFILE_DIR%\Output"  :: ä¿å­˜ç›®å½•
+set "OUTPUT_TAR=%DOCKERSAVE_DIR%\docker_dorm-system_v1.0.tar"  :: å®Œæ•´çš„è¾“å‡ºæ–‡ä»¶è·¯å¾„
 set "IMAGE_NAME=dorm-management-system:latest"
 
-:: µÈ´ıÅäÖÃ - ×î¶àµÈ´ı5·ÖÖÓ(30´Î*5Ãë)
+:: ç­‰å¾…é…ç½® - æœ€å¤šç­‰å¾…5åˆ†é’Ÿ(30æ¬¡*5ç§’)
 set "MAX_WAIT_SECONDS=300"
 set "CHECK_INTERVAL=5"
 set "ELAPSED_SECONDS=0"
 
-:: ÏÔÊ¾¿ªÊ¼ĞÅÏ¢
+:: æ˜¾ç¤ºå¼€å§‹ä¿¡æ¯
 echo ==============================================
-echo ¿ªÊ¼Ö´ĞĞDocker¾µÏñ¹¹½¨Óë´ò°üÁ÷³Ì
-echo ¿ªÊ¼Ê±¼ä: %date% %time:~0,8%
-echo ÏîÄ¿Â·¾¶: %PROJECT_DIR%
-echo DockerfileÂ·¾¶: %DOCKERFILE_DIR%
-echo Êä³öÎÄ¼ş: %OUTPUT_TAR%
+echo å¼€å§‹æ‰§è¡ŒDockeré•œåƒæ„å»ºä¸æ‰“åŒ…æµç¨‹
+echo å¼€å§‹æ—¶é—´: %date% %time:~0,8%
+echo é¡¹ç›®è·¯å¾„: %PROJECT_DIR%
+echo Dockerfileè·¯å¾„: %DOCKERFILE_DIR%
+echo è¾“å‡ºæ–‡ä»¶: %OUTPUT_TAR%
 echo ==============================================
 echo.
 
-:: ¼ì²éDockerÊÇ·ñÒÑ°²×°
+:: æ£€æŸ¥Dockeræ˜¯å¦å·²å®‰è£…
 if not exist "%DOCKER_PATH%" (
-    echo [%date% %time:~0,8%] ´íÎó£ºÎ´ÕÒµ½Docker Desktop£¬Çë¼ì²é°²×°Â·¾¶
+    echo [%date% %time:~0,8%] é”™è¯¯ï¼šæœªæ‰¾åˆ°Docker Desktopï¼Œè¯·æ£€æŸ¥å®‰è£…è·¯å¾„
     pause
     exit /b 1
 )
 
-:: ¼ì²éDockerfileÊÇ·ñ´æÔÚ
+:: æ£€æŸ¥Dockerfileæ˜¯å¦å­˜åœ¨
 if not exist "%DOCKERFILE_DIR%\dockerfile" (
-    echo [%date% %time:~0,8%] ´íÎó£ºÔÚ %DOCKERFILE_DIR% ÖĞÎ´ÕÒµ½dockerfile
+    echo [%date% %time:~0,8%] é”™è¯¯ï¼šåœ¨ %DOCKERFILE_DIR% ä¸­æœªæ‰¾åˆ°dockerfile
     pause
     exit /b 1
 )
 
 
-:: Æô¶¯Docker Desktop
-echo [%date% %time:~0,8%] Æô¶¯Docker Desktop...
+:: å¯åŠ¨Docker Desktop
+echo [%date% %time:~0,8%] å¯åŠ¨Docker Desktop...
 start "" "%DOCKER_PATH%"
 
-:: µÈ´ıDockerÆô¶¯£¨¶¯Ì¬¼ì²â¶ø·Ç¹Ì¶¨µÈ´ı£©
-echo [%date% %time:~0,8%] µÈ´ıDocker·şÎñÆô¶¯...
+:: ç­‰å¾…Dockerå¯åŠ¨ï¼ˆåŠ¨æ€æ£€æµ‹è€Œéå›ºå®šç­‰å¾…ï¼‰
+echo [%date% %time:~0,8%] ç­‰å¾…DockeræœåŠ¡å¯åŠ¨...
 :WAIT_FOR_DOCKER
-:: ¼ì²éDocker·şÎñÊÇ·ñ¿ÉÓÃ
+:: æ£€æŸ¥DockeræœåŠ¡æ˜¯å¦å¯ç”¨
 docker info >nul 2>&1
 if %errorlevel% equ 0 (
-    echo [%date% %time:~0,8%] Docker·şÎñÒÑ³É¹¦Æô¶¯
+    echo [%date% %time:~0,8%] DockeræœåŠ¡å·²æˆåŠŸå¯åŠ¨
     goto DOCKER_READY
 )
 
-:: ¼ì²éÊÇ·ñ³¬Ê±
+:: æ£€æŸ¥æ˜¯å¦è¶…æ—¶
 if !ELAPSED_SECONDS! geq !MAX_WAIT_SECONDS! (
-    echo [%date% %time:~0,8%] ´íÎó£ºµÈ´ıDockerÆô¶¯³¬Ê±£¨³¬¹ı!MAX_WAIT_SECONDS!Ãë£©
+    echo [%date% %time:~0,8%] é”™è¯¯ï¼šç­‰å¾…Dockerå¯åŠ¨è¶…æ—¶ï¼ˆè¶…è¿‡!MAX_WAIT_SECONDS!ç§’ï¼‰
     pause
     exit /b 1
 )
 
-:: Î´³¬Ê±Ôò¼ÌĞøµÈ´ı
-echo [%date% %time:~0,8%] DockerÉĞÎ´Æô¶¯£¬ÒÑµÈ´ı!ELAPSED_SECONDS!Ãë£¬½«ÔÚ!CHECK_INTERVAL!ÃëºóÔÙ´Î¼ì²é...
+:: æœªè¶…æ—¶åˆ™ç»§ç»­ç­‰å¾…
+echo [%date% %time:~0,8%] Dockerå°šæœªå¯åŠ¨ï¼Œå·²ç­‰å¾…!ELAPSED_SECONDS!ç§’ï¼Œå°†åœ¨!CHECK_INTERVAL!ç§’åå†æ¬¡æ£€æŸ¥...
 timeout /t !CHECK_INTERVAL! /nobreak >nul
 set /a ELAPSED_SECONDS+=!CHECK_INTERVAL!
 goto WAIT_FOR_DOCKER
 
 :DOCKER_READY
 
-:: ÇĞ»»µ½ÏîÄ¿Ä¿Â¼
+:: åˆ‡æ¢åˆ°é¡¹ç›®ç›®å½•
 echo.
-echo [%date% %time:~0,8%] ÇĞ»»µ½ÏîÄ¿Ä¿Â¼: %PROJECT_DIR%
+echo [%date% %time:~0,8%] åˆ‡æ¢åˆ°é¡¹ç›®ç›®å½•: %PROJECT_DIR%
 cd /d "%PROJECT_DIR%"
 if %errorlevel% neq 0 (
-    echo [%date% %time:~0,8%] ´íÎó£ºÎŞ·¨ÇĞ»»µ½ÏîÄ¿Ä¿Â¼
+    echo [%date% %time:~0,8%] é”™è¯¯ï¼šæ— æ³•åˆ‡æ¢åˆ°é¡¹ç›®ç›®å½•
     pause
     exit /b 1
 )
 
-:: °²×°Ç°ÇåÀíÁÙÊ±ÎÄ¼ş¼Ğ
+:: å®‰è£…å‰æ¸…ç†ä¸´æ—¶æ–‡ä»¶å¤¹
 echo.
-echo [%date% %time:~0,8%] ¿ªÊ¼ÇåÀíÁÙÊ±ÎÄ¼ş...
+echo [%date% %time:~0,8%] å¼€å§‹æ¸…ç†ä¸´æ—¶æ–‡ä»¶...
 if exist "%PROJECT_DIR%\build" (
     rmdir /s /q "%PROJECT_DIR%\build"
-    echo [%date% %time:~0,8%] ÒÑÉ¾³ıbuildÎÄ¼ş¼Ğ
+    echo [%date% %time:~0,8%] å·²åˆ é™¤buildæ–‡ä»¶å¤¹
 )
 if exist "%PROJECT_DIR%\__pycache__" (
     rmdir /s /q "%PROJECT_DIR%\__pycache__"
-    echo [%date% %time:~0,8%] ÒÑÉ¾³ı__pycache__ÎÄ¼ş¼Ğ
+    echo [%date% %time:~0,8%] å·²åˆ é™¤__pycache__æ–‡ä»¶å¤¹
 )
 if exist "%PROJECT_DIR%\dist" (
     rmdir /s /q "%PROJECT_DIR%\dist"
-    echo [%date% %time:~0,8%] ÒÑÉ¾³ıdistÎÄ¼ş¼Ğ
+    echo [%date% %time:~0,8%] å·²åˆ é™¤distæ–‡ä»¶å¤¹
 )
 for /d /r "%PROJECT_DIR%" %%d in (__pycache__) do (
     if exist "%%d" (
         rmdir /s /q "%%d"
-        echo [%date% %time:~0,8%] ÒÑÉ¾³ı%%d
+        echo [%date% %time:~0,8%] å·²åˆ é™¤%%d
     )
 )
 if exist "%PROJECT_DIR%\data" (
     rmdir /s /q "%PROJECT_DIR%\data"
-    echo [%date% %time:~0,8%] ÒÑÉ¾³ıdataÎÄ¼ş¼Ğ
+    echo [%date% %time:~0,8%] å·²åˆ é™¤dataæ–‡ä»¶å¤¹
 )
 
-echo [%date% %time:~0,8%] ÒÑÇåÀíÁÙÊ±ÎÄ¼ş...
+echo [%date% %time:~0,8%] å·²æ¸…ç†ä¸´æ—¶æ–‡ä»¶...
 
-:: ´´½¨Êı¾İÄ¿Â¼£¨Èç¹û²»´æÔÚ£©
+:: åˆ›å»ºæ•°æ®ç›®å½•ï¼ˆå¦‚æœä¸å­˜åœ¨ï¼‰
 if not exist "%DOCKERDATA_DIR%" (
     mkdir "%DOCKERDATA_DIR%"
-    echo [%date% %time:~0,8%] ÒÑ´´½¨Êı¾İÄ¿Â¼£º%DOCKERDATA_DIR%
+    echo [%date% %time:~0,8%] å·²åˆ›å»ºæ•°æ®ç›®å½•ï¼š%DOCKERDATA_DIR%
 )
 
-:: ´´½¨±£´æÄ¿Â¼£¨Èç¹û²»´æÔÚ£©
+:: åˆ›å»ºä¿å­˜ç›®å½•ï¼ˆå¦‚æœä¸å­˜åœ¨ï¼‰
 if not exist "%DOCKERSAVE_DIR%" (
     mkdir "%DOCKERSAVE_DIR%"
-    echo [%date% %time:~0,8%] ÒÑ´´½¨Êä³öÄ¿Â¼£º%DOCKERSAVE_DIR%
+    echo [%date% %time:~0,8%] å·²åˆ›å»ºè¾“å‡ºç›®å½•ï¼š%DOCKERSAVE_DIR%
 )
 
-:: Ö´ĞĞDockerÃüÁî
+:: æ‰§è¡ŒDockerå‘½ä»¤
 echo.
-echo [%date% %time:~0,8%] ¿ªÊ¼É¾³ıÏÖÓĞÈİÆ÷£¨Èç¹û´æÔÚ£©...
+echo [%date% %time:~0,8%] å¼€å§‹åˆ é™¤ç°æœ‰å®¹å™¨ï¼ˆå¦‚æœå­˜åœ¨ï¼‰...
 docker rm -f dorm-system
-:: ºöÂÔÈİÆ÷²»´æÔÚµÄ´íÎó£¬¼ÌĞøÖ´ĞĞ
+:: å¿½ç•¥å®¹å™¨ä¸å­˜åœ¨çš„é”™è¯¯ï¼Œç»§ç»­æ‰§è¡Œ
 if %errorlevel% equ 1 (
-    echo [%date% %time:~0,8%] ÌáÊ¾£ºdorm-systemÈİÆ÷²»´æÔÚ£¬Ìø¹ıÉ¾³ı²½Öè
+    echo [%date% %time:~0,8%] æç¤ºï¼šdorm-systemå®¹å™¨ä¸å­˜åœ¨ï¼Œè·³è¿‡åˆ é™¤æ­¥éª¤
 )
 
 echo.
-echo [%date% %time:~0,8%] ¿ªÊ¼¹¹½¨Docker¾µÏñ...
-:: Ê¹ÓÃ-f²ÎÊıÖ¸¶¨DockerfileµÄ¾ßÌåÂ·¾¶
+echo [%date% %time:~0,8%] å¼€å§‹æ„å»ºDockeré•œåƒ...
+:: ä½¿ç”¨-få‚æ•°æŒ‡å®šDockerfileçš„å…·ä½“è·¯å¾„
 docker build -t %IMAGE_NAME% -f "%DOCKERFILE_DIR%\dockerfile" .
 if %errorlevel% neq 0 (
-    echo [%date% %time:~0,8%] ´íÎó£ºDocker¾µÏñ¹¹½¨Ê§°Ü
+    echo [%date% %time:~0,8%] é”™è¯¯ï¼šDockeré•œåƒæ„å»ºå¤±è´¥
     pause
     exit /b 1
 ) else (
-	echo [%date% %time:~0,8%] ¹¹½¨Docker¾µÏñ³É¹¦...
+	echo [%date% %time:~0,8%] æ„å»ºDockeré•œåƒæˆåŠŸ...
 )
 
 echo.
-echo [%date% %time:~0,8%] ¿ªÊ¼µ¼³öDocker¾µÏñ...
-:: ĞŞÕı£º-oºóÃæÖ¸¶¨¾ßÌåµÄtarÎÄ¼şÃû£¬¶ø·ÇÄ¿Â¼
+echo [%date% %time:~0,8%] å¼€å§‹å¯¼å‡ºDockeré•œåƒ...
+:: ä¿®æ­£ï¼š-oåé¢æŒ‡å®šå…·ä½“çš„taræ–‡ä»¶åï¼Œè€Œéç›®å½•
 docker save -o "%OUTPUT_TAR%" %IMAGE_NAME%
 if %errorlevel% neq 0 (
-    echo [%date% %time:~0,8%] ´íÎó£ºDocker¾µÏñµ¼³öÊ§°Ü
+    echo [%date% %time:~0,8%] é”™è¯¯ï¼šDockeré•œåƒå¯¼å‡ºå¤±è´¥
     pause
     exit /b 1
 )
 
-:: Íê³ÉÌáÊ¾
+:: å®Œæˆæç¤º
 echo.
 echo ==============================================
-echo [%date% %time:~0,8%] ËùÓĞ²Ù×÷ÒÑ³É¹¦Íê³É£¡
-echo [%date% %time:~0,8%] Docker¾µÏñÒÑµ¼³öÖÁ£º%OUTPUT_TAR%
-echo Íê³ÉÊ±¼ä: %date% %time:~0,8%
+echo [%date% %time:~0,8%] æ‰€æœ‰æ“ä½œå·²æˆåŠŸå®Œæˆï¼
+echo [%date% %time:~0,8%] Dockeré•œåƒå·²å¯¼å‡ºè‡³ï¼š%OUTPUT_TAR%
+echo å®Œæˆæ—¶é—´: %date% %time:~0,8%
 echo ==============================================
 
 pause

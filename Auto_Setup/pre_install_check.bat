@@ -1,4 +1,4 @@
-@echo off
+﻿@echo off
 chcp 65001 > nul
 
 REM 注意：WebView2检测已移至安装程序主脚本中执行
@@ -132,6 +132,18 @@ if exist "%TEMP_DIR%" (
     echo 系统临时目录中的相关文件已清理
 ) else (
     echo 没有发现系统临时目录中的相关文件
+)
+
+REM 清理PyInstaller运行时临时目录（单文件模式残留）
+echo 检查PyInstaller运行时临时目录...
+set "PYINSTALLER_TEMP_DIR=%TEMP%\dorm_mgmt_v1.0"
+if exist "%PYINSTALLER_TEMP_DIR%" (
+    echo 发现PyInstaller运行时临时目录，正在清理...
+    timeout /t 1 >nul
+    rmdir /s /q "%PYINSTALLER_TEMP_DIR%" >nul 2>&1
+    echo PyInstaller运行时临时目录已清理
+) else (
+    echo 没有发现PyInstaller运行时临时目录
 )
 
 REM 清理注册表中的残留

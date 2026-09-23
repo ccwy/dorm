@@ -427,22 +427,12 @@ def run_server():
 if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser(description='行政后勤管理系统')
-    parser.add_argument('--uninstall', action='store_true', help='执行卸载清理操作')
     parser.add_argument('--no-reload', action='store_true', help='禁用自动重载')
     parser.add_argument('--config', type=str, help='指定配置环境')
     parser.add_argument('--restarted', action='store_true', help='标识重启操作（内部使用）')
     args = parser.parse_args()
     logging.info("解析命令行参数")
     from utils.system_detector import is_win7, is_android
-    
-    if args.uninstall:
-        is_docker = os.environ.get('DOCKER_ENV', 'false').lower() == 'true'
-        if is_docker or is_android():
-            logging.warning("在 Docker/Android 环境中，不执行卸载操作。")
-        else:
-            from utils.uninstall_handler import handle_uninstall
-            handle_uninstall()
-    logging.info("处理卸载参数")
     
     # Android 环境检测 - 必须在所有其他分支之前
     if is_android():

@@ -1,4 +1,4 @@
-@echo off
+﻿@echo off
 chcp 65001 > nul
 
 REM WebView2安装检测脚本

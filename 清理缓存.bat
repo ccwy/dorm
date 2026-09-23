@@ -1,59 +1,60 @@
-@echo off
+ï»¿@echo off
+chcp 65001 > nul
 setlocal enabledelayedexpansion
 
-:: ÏîÄ¿¸ùÄ¿Â¼
+:: é¡¹ç›®æ ¹ç›®å½•
 cd /d "%~dp0"
 set "PROJECT_DIR=%cd%"
 
-:: ÇĞ»»µ½ÏîÄ¿Ä¿Â¼
-echo [%date% %time:~0,8%] ÇĞ»»µ½ÏîÄ¿Ä¿Â¼...
+:: åˆ‡æ¢åˆ°é¡¹ç›®ç›®å½•
+echo [%date% %time:~0,8%] åˆ‡æ¢åˆ°é¡¹ç›®ç›®å½•...
 cd /d "%PROJECT_DIR%"
 if %errorlevel% neq 0 (
-    echo [%date% %time:~0,8%] ´íÎó£ºÎŞ·¨ÇĞ»»µ½ÏîÄ¿Ä¿Â¼ %PROJECT_DIR%
+    echo [%date% %time:~0,8%] é”™è¯¯ï¼šæ— æ³•åˆ‡æ¢åˆ°é¡¹ç›®ç›®å½• %PROJECT_DIR%
     pause
     exit /b 1
 )
 
-:: ÏÔÊ¾Æô¶¯ĞÅÏ¢ºÍÊ±¼ä
+:: æ˜¾ç¤ºå¯åŠ¨ä¿¡æ¯å’Œæ—¶é—´
 cls
 echo ==============================================
-echo ËŞÉá¹ÜÀíÏµÍ³ - ÇåÀí»º´æ½Å±¾
-echo Æô¶¯Ê±¼ä: %date% %time:~0,8%
-echo ÏîÄ¿Â·¾¶: %PROJECT_DIR%
+echo å®¿èˆç®¡ç†ç³»ç»Ÿ - æ¸…ç†ç¼“å­˜è„šæœ¬
+echo å¯åŠ¨æ—¶é—´: %date% %time:~0,8%
+echo é¡¹ç›®è·¯å¾„: %PROJECT_DIR%
 echo ==============================================
 echo.
 
-:: ¿ªÊ¼Ç°ÇåÀíÁÙÊ±ÎÄ¼ş¼Ğ
+:: å¼€å§‹å‰æ¸…ç†ä¸´æ—¶æ–‡ä»¶å¤¹
 echo.
-echo [%date% %time:~0,8%] ¿ªÊ¼ÇåÀíÁÙÊ±ÎÄ¼ş...
+echo [%date% %time:~0,8%] å¼€å§‹æ¸…ç†ä¸´æ—¶æ–‡ä»¶...
 if exist "%PROJECT_DIR%\build" (
     rmdir /s /q "%PROJECT_DIR%\build"
-    echo [%date% %time:~0,8%] ÒÑÉ¾³ıbuildÎÄ¼ş¼Ğ
+    echo [%date% %time:~0,8%] å·²åˆ é™¤buildæ–‡ä»¶å¤¹
 )
 if exist "%PROJECT_DIR%\__pycache__" (
     rmdir /s /q "%PROJECT_DIR%\__pycache__"
-    echo [%date% %time:~0,8%] ÒÑÉ¾³ı__pycache__ÎÄ¼ş¼Ğ
+    echo [%date% %time:~0,8%] å·²åˆ é™¤__pycache__æ–‡ä»¶å¤¹
 )
 if exist "%PROJECT_DIR%\dist" (
     rmdir /s /q "%PROJECT_DIR%\dist"
-    echo [%date% %time:~0,8%] ÒÑÉ¾³ıdistÎÄ¼ş¼Ğ
+    echo [%date% %time:~0,8%] å·²åˆ é™¤distæ–‡ä»¶å¤¹
 )
 for /d /r "%PROJECT_DIR%" %%d in (__pycache__) do (
     if exist "%%d" (
         rmdir /s /q "%%d"
-        echo [%date% %time:~0,8%] ÒÑÉ¾³ı%%d
+        echo [%date% %time:~0,8%] å·²åˆ é™¤%%d
     )
 )
 if exist "%PROJECT_DIR%\data" (
     rmdir /s /q "%PROJECT_DIR%\data"
-    echo [%date% %time:~0,8%] ÒÑÉ¾³ıdataÎÄ¼ş¼Ğ
+    echo [%date% %time:~0,8%] å·²åˆ é™¤dataæ–‡ä»¶å¤¹
 )
 
-:: Æô¶¯Ó¦ÓÃ³ÌĞò£¬Ö¸¶¨¿ª·¢Ä£Ê½ÅäÖÃ
+:: å¯åŠ¨åº”ç”¨ç¨‹åºï¼ŒæŒ‡å®šå¼€å‘æ¨¡å¼é…ç½®
 echo.
 echo [%date% %time:~0,8%] ==============================================
-echo [%date% %time:~0,8%] ÇåÎú»º´æÎÄ¼şÍê³É...
-echo [%date% %time:~0,8%] °´Ctrl+C¿ÉÍ£Ö¹Ó¦ÓÃ³ÌĞò
+echo [%date% %time:~0,8%] æ¸…æ™°ç¼“å­˜æ–‡ä»¶å®Œæˆ...
+echo [%date% %time:~0,8%] æŒ‰Ctrl+Cå¯åœæ­¢åº”ç”¨ç¨‹åº
 echo [%date% %time:~0,8%] ==============================================
 echo.
 

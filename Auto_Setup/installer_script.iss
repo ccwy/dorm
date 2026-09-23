@@ -129,30 +129,21 @@ Type: filesandordirs; Name: "{group}"
 ; 删除桌面快捷方式
 Type: files; Name: "{commondesktop}\行政后勤管理系统.lnk"
 
-; 清除可能的临时文件和日志文件
-Type: files; Name: "{localappdata}\dorm_mgmt_system_dorm_mgmt_v1.0\*.log"
-
 ; 清理WebView2缓存和cookie
 Type: filesandordirs; Name: "{app}\WebView2"
-Type: filesandordirs; Name: "{localappdata}\Microsoft\Edge\User Data\Default\WebView2"
 Type: filesandordirs; Name: "{localappdata}\Microsoft\Edge WebView2\"
-Type: filesandordirs; Name: "{tmp}\WebView2"
 
 ; 清理webview相关数据
-Type: filesandordirs; Name: "{localappdata}\dorm_mgmt_system_dorm_mgmt_v1.0\webview"
 Type: filesandordirs; Name: "{app}\webview"
 
-; 增强WebView2和cookie清理
-Type: filesandordirs; Name: "{localappdata}\Microsoft\Edge\User Data\Default\Cookies"
-Type: filesandordirs; Name: "{localappdata}\Microsoft\Edge\User Data\Default\Cache"
-Type: filesandordirs; Name: "{localappdata}\Microsoft\Edge\User Data\Default\Storage"
-Type: filesandordirs; Name: "{localappdata}\Microsoft\Edge\User Data\Default\IndexedDB"
+; 清理PyInstaller运行时临时目录（runtime_tmpdir=dorm_mgmt_v1.0）
+; PyInstaller在 %TEMP%\dorm_mgmt_v1.0\_MEIxxxxxx 下解压运行时文件
+; 正常退出时自动清理，崩溃或强制终止时残留
+Type: filesandordirs; Name: "{tmp}\dorm_mgmt_v1.0"
+Type: filesandordirs; Name: "{localappdata}\Temp\dorm_mgmt_v1.0"
 
 ; 清理应用程序数据目录
-Type: filesandordirs; Name: "{localappdata}\dorm_mgmt_system_dorm_mgmt_v1.0"
 Type: filesandordirs; Name: "{localappdata}\行政后勤管理系统"
-Type: filesandordirs; Name: "{localappdata}\行政后勤管理系统"
-Type: filesandordirs; Name: "{userdocs}\dorm_mgmt_system_dorm_mgmt_v1.0"
 
 [Tasks]
 ; 添加可选的清理任务
@@ -196,23 +187,15 @@ Root: HKCU; Subkey: "Software\Dormitory Management System"; ValueType: none; Fla
 ; 使用PowerShell命令尝试以管理员权限清理，以避免安装时的权限错误
 
 [UninstallRun]
-; 运行程序的卸载参数以执行自定义清理
-Filename: "{app}\行政后勤管理系统.exe"; Parameters: "--uninstall"; RunOnceId: "UninstallApp";
 ; 清理Flask-Login remember cookie和自定义会话cookie
 Filename: "{sys}\cmd.exe"; Parameters: "/C for /r ""%LOCALAPPDATA%\Microsoft\Windows\INetCookies"" %f in (*) do del /f /q ""%f"" >nul 2>&1"; Flags: runhidden; RunOnceId: "CleanupCookies1"
 Filename: "{sys}\cmd.exe"; Parameters: "/C for /r ""%APPDATA%\Microsoft\Windows\Cookies"" %f in (*) do del /f /q ""%f"" >nul 2>&1"; Flags: runhidden; RunOnceId: "CleanupCookies2"
 Filename: "{sys}\cmd.exe"; Parameters: "/C del /f /q ""%LOCALAPPDATA%\Microsoft\Windows\WebCache\WebCacheV01.dat"" >nul 2>&1"; Flags: runhidden; RunOnceId: "CleanupWebCache"
-; 清理应用程序独特临时目录
-Filename: "{sys}\cmd.exe"; Parameters: "/C if exist ""%TEMP%\dorm_mgmt_system_dorm_mgmt_v1.0"" rd /s /q ""%TEMP%\dorm_mgmt_system_dorm_mgmt_v1.0"" >nul 2>&1"; Flags: runhidden; RunOnceId: "CleanupDormTemp1"
-Filename: "{sys}\cmd.exe"; Parameters: "/C if exist ""%TMP%\dorm_mgmt_system_dorm_mgmt_v1.0"" rd /s /q ""%TMP%\dorm_mgmt_system_dorm_mgmt_v1.0"" >nul 2>&1"; Flags: runhidden; RunOnceId: "CleanupDormTemp2"
-Filename: "{sys}\cmd.exe"; Parameters: "/C if exist ""%TEMP%\dorm_mgmt_system_dorm_mgmt_v1.0_runtime"" rd /s /q ""%TEMP%\dorm_mgmt_system_dorm_mgmt_v1.0_runtime"" >nul 2>&1"; Flags: runhidden; RunOnceId: "CleanupDormRuntimeTemp1"
-Filename: "{sys}\cmd.exe"; Parameters: "/C if exist ""%TMP%\dorm_mgmt_system_dorm_mgmt_v1.0_runtime"" rd /s /q ""%TMP%\dorm_mgmt_system_dorm_mgmt_v1.0_runtime"" >nul 2>&1"; Flags: runhidden; RunOnceId: "CleanupDormRuntimeTemp2"
-Filename: "{sys}\cmd.exe"; Parameters: "/C if exist ""%LOCALAPPDATA%\Temp\dorm_mgmt_system_dorm_mgmt_v1.0"" rd /s /q ""%LOCALAPPDATA%\Temp\dorm_mgmt_system_dorm_mgmt_v1.0"" >nul 2>&1"; Flags: runhidden; RunOnceId: "CleanupDormTemp3"
-Filename: "{sys}\cmd.exe"; Parameters: "/C if exist ""%LOCALAPPDATA%\Cache\dorm_mgmt_system_dorm_mgmt_v1.0"" rd /s /q ""%LOCALAPPDATA%\Cache\dorm_mgmt_system_dorm_mgmt_v1.0"" >nul 2>&1"; Flags: runhidden; RunOnceId: "CleanupDormTemp4"
-Filename: "{sys}\cmd.exe"; Parameters: "/C if exist ""%APPDATA%\dorm_mgmt_system_dorm_mgmt_v1.0"" rd /s /q ""%APPDATA%\dorm_mgmt_system_dorm_mgmt_v1.0"" >nul 2>&1"; Flags: runhidden; RunOnceId: "CleanupDormTemp5"
-; 清理PyInstaller临时文件
-Filename: "{sys}\cmd.exe"; Parameters: "/C for /d %d in (""%LOCALAPPDATA%\Temp\dorm_mgmt_system_dorm_mgmt_v1.0"") do rd /s /q ""%d"" >nul 2>&1"; Flags: runhidden; RunOnceId: "CleanupPyInstaller1"
-Filename: "{sys}\cmd.exe"; Parameters: "/C for /d %d in (""%TEMP%\dorm_mgmt_system_dorm_mgmt_v1.0"") do rd /s /q ""%d"" >nul 2>&1"; Flags: runhidden; RunOnceId: "CleanupPyInstaller2"
+; 清理应用程序独特临时目录（runtime_tmpdir=dorm_mgmt_v1.0）
+; PyInstaller在 %TEMP%\dorm_mgmt_v1.0\_MEIxxxxxx 下解压运行时文件
+Filename: "{sys}\cmd.exe"; Parameters: "/C if exist ""%TEMP%\dorm_mgmt_v1.0"" rd /s /q ""%TEMP%\dorm_mgmt_v1.0"" >nul 2>&1"; Flags: runhidden; RunOnceId: "CleanupDormTemp1"
+Filename: "{sys}\cmd.exe"; Parameters: "/C if exist ""%TMP%\dorm_mgmt_v1.0"" rd /s /q ""%TMP%\dorm_mgmt_v1.0"" >nul 2>&1"; Flags: runhidden; RunOnceId: "CleanupDormTemp2"
+Filename: "{sys}\cmd.exe"; Parameters: "/C if exist ""%LOCALAPPDATA%\Temp\dorm_mgmt_v1.0"" rd /s /q ""%LOCALAPPDATA%\Temp\dorm_mgmt_v1.0"" >nul 2>&1"; Flags: runhidden; RunOnceId: "CleanupDormTemp3"
 
 ; 注意：HKLM注册表残留项的清理已移至pre_install_check.bat文件中
 ; 在那里我们只在有管理员权限时才尝试清理HKLM注册表项，避免权限错误
