@@ -139,55 +139,18 @@ def setup_persistent_cookie_sanitizer(app):
     """拦截非项目cookie的持久化属性，将其转为会话级
     
     某些浏览器扩展或外部服务可能设置持久化cookie（如stay_login、did、_SSID、_CrPoSt），
-    这些cookie的有效期可能长达365天。此拦截器通过两种方式处理：
-    
-    1. 检查服务端响应中的Set-Cookie头，剥离expires/Max-Age属性
-    2. 读取请求中已存在的目标cookie，在响应中主动设置同名会话级cookie覆盖
-       — 这对HttpOnly cookie（JS无法读取/重写）尤其关键
+    有效期可能长达365天。此拦截器读取请求中已存在的目标cookie（包括HttpOnly），
+    在响应中主动设置同名会话级cookie覆盖，使其关闭浏览器即失效。
     """
     TARGET_COOKIES = {'stay_login', 'did', '_SSID', '_CrPoSt'}
     
     @app.after_request
     def sanitize_persistent_cookies(response):
-        # === 方式1：检查服务端响应中的Set-Cookie头 ===
-        cookie_headers = response.headers.getlist('Set-Cookie')
-        if cookie_headers:
-            modified = False
-            new_headers = []
-            
-            for cookie_header in cookie_headers:
-                name_part = cookie_header.split('=')[0].strip()
-                
-                if name_part in TARGET_COOKIES:
-                    parts = cookie_header.split(';')
-                    sanitized_parts = []
-                    for part in parts:
-                        part_stripped = part.strip()
-                        part_lower = part_stripped.lower()
-                        if not (part_lower.startswith('expires') or 
-                                part_lower.startswith('max-age')):
-                            sanitized_parts.append(part_stripped)
-                    
-                    new_header = '; '.join(sanitized_parts)
-                    new_headers.append(new_header)
-                    modified = True
-                    logging.info(f"[Cookie策略] 已将服务端Set-Cookie中的 {name_part} 转为会话级")
-                else:
-                    new_headers.append(cookie_header)
-            
-            if modified:
-                del response.headers['Set-Cookie']
-                for header in new_headers:
-                    response.headers.add('Set-Cookie', header)
-        
-        # === 方式2：主动覆盖请求中已存在的目标cookie ===
-        # 对HttpOnly cookie（JS无法读取/重写）尤其关键
-        # 服务端通过request.cookies可读取所有cookie（包括HttpOnly），
-        # 然后在响应中设置同名会话级cookie覆盖旧的持久化cookie
+        # 读取请求中的目标cookie，主动设置同名会话级cookie覆盖
+        # request.cookies可读取所有cookie（包括HttpOnly），无需前端JS参与
         for name in TARGET_COOKIES:
             value = request.cookies.get(name)
             if value:
-                # 设置同名会话级cookie覆盖（无expires/Max-Age = 会话级）
                 response.set_cookie(
                     name,
                     value=value,
@@ -195,9 +158,9 @@ def setup_persistent_cookie_sanitizer(app):
                     httponly=False,
                     samesite='Lax',
                     secure=request.is_secure,
-                    # 关键：不设置max_age和expires → 会话级cookie
+                    # 不设置max_age和expires → 会话级cookie
                 )
-                logging.info(f"[Cookie策略] 已主动覆盖cookie {name} 为会话级（原cookie可能为HttpOnly）")
+                logging.info(f"[Cookie策略] 已覆盖cookie {name} 为会话级")
         
         return response
     
