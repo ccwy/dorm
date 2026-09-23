@@ -113,11 +113,6 @@ a = Analysis(
 pyz = PYZ(a.pure, a.zipped_data, cipher=None)
 
 # 创建可执行文件
-# 设置自定义运行时临时目录前缀，使PyInstaller解压目录可被识别和清理
-# PyInstaller会在 %TEMP%\{runtime_tmpdir} 下创建 _MEIxxxxxx 子目录
-# 如果不设置，默认在 %TEMP\_MEIxxxxxx 创建，无法与其他PyInstaller应用区分
-app_unique_suffix = "dorm_mgmt_v1.0"
-
 exe = EXE(
     pyz,
     a.scripts,
@@ -131,7 +126,6 @@ exe = EXE(
     strip=False,
     upx=False,  # 禁用UPX压缩——UPX解压开销会拖慢启动速度
     upx_exclude=[],
-    runtime_tmpdir=app_unique_suffix,  # 临时目录: %TEMP%\dorm_mgmt_v1.0\_MEIxxxxxx
     console=False,
     disable_windowed_traceback=False,
     argv_emulation=False,

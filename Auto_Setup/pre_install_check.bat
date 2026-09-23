@@ -1,6 +1,10 @@
 ﻿@echo off
 chcp 65001 > nul
 
+REM 检测是否被ISS安装程序调用（ISS设置ISS_RUN=Y环境变量）
+set "ISS_RUN=N"
+if "%~1"=="--iss" set "ISS_RUN=Y"
+
 REM 注意：WebView2检测已移至安装程序主脚本中执行
 REM WebView2运行时是行政后勤管理系统运行所必需的组件
 
@@ -10,7 +14,7 @@ NET SESSION >nul 2>&1
 if %errorLevel% neq 0 (
     echo 注意：当前不是以管理员权限运行，可能无法清理某些系统级残留
     echo 但仍然可以继续安装，数据将存储在您选择的安装路径中
-    pause
+    if "%ISS_RUN%"=="N" if "%ISS_RUN%"=="N" pause
 )
 
 echo ===================================================
@@ -134,18 +138,6 @@ if exist "%TEMP_DIR%" (
     echo 没有发现系统临时目录中的相关文件
 )
 
-REM 清理PyInstaller运行时临时目录（单文件模式残留）
-echo 检查PyInstaller运行时临时目录...
-set "PYINSTALLER_TEMP_DIR=%TEMP%\dorm_mgmt_v1.0"
-if exist "%PYINSTALLER_TEMP_DIR%" (
-    echo 发现PyInstaller运行时临时目录，正在清理...
-    timeout /t 1 >nul
-    rmdir /s /q "%PYINSTALLER_TEMP_DIR%" >nul 2>&1
-    echo PyInstaller运行时临时目录已清理
-) else (
-    echo 没有发现PyInstaller运行时临时目录
-)
-
 REM 清理注册表中的残留
 echo 正在清理注册表中的残留...
 REM 只清理HKCU（当前用户）注册表项，避免需要管理员权限
@@ -177,4 +169,4 @@ echo ===================================================
 echo 提示：在安装向导中，您可以自定义安装路径
 echo 数据文件将始终存储在您选择的安装路径中
 echo ===================================================
-pause
+if "%ISS_RUN%"=="N" pause

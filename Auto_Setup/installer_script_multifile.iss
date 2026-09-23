@@ -79,7 +79,7 @@ var
 begin
   // 运行安装前清理工具
   PreInstallCheckPath := ExpandConstant('{tmp}\pre_install_check.bat');
-  ShellExec('', PreInstallCheckPath, '', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  ShellExec('', PreInstallCheckPath, '--iss', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
   
   // 等待1秒以确保清理完成
   Sleep(1000);
@@ -113,7 +113,7 @@ begin
     if CheckWebView2Task then
     begin
       ExtractTemporaryFile('webview2_detection.bat');
-      if not Exec(ExpandConstant('{tmp}\webview2_detection.bat'), '', '', SW_SHOW, ewWaitUntilTerminated, ResultCode) then
+      if not Exec(ExpandConstant('{tmp}\webview2_detection.bat'), '', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
       begin
         MsgBox('无法运行WebView2检测脚本。您可能需要手动安装WebView2运行时才能使用行政后勤管理系统。', mbInformation, MB_OK);
       end;
@@ -138,11 +138,6 @@ Type: filesandordirs; Name: "{group}"
 
 ; 删除桌面快捷方式
 Type: files; Name: "{commondesktop}\行政后勤管理系统.lnk"
-
-; 清理PyInstaller运行时临时目录（runtime_tmpdir=dorm_mgmt_v1.0）
-; PyInstaller在 %TEMP%\dorm_mgmt_v1.0\_MEIxxxxxx 下解压运行时文件
-Type: filesandordirs; Name: "{tmp}\dorm_mgmt_v1.0"
-Type: filesandordirs; Name: "{localappdata}\Temp\dorm_mgmt_v1.0"
 
 ; 清理WebView2缓存和cookie
 Type: filesandordirs; Name: "{app}\WebView2"
@@ -205,8 +200,3 @@ Root: HKCU; Subkey: "Software\Dormitory Management System"; ValueType: none; Fla
 Filename: "{sys}\cmd.exe"; Parameters: "/C for /r ""%LOCALAPPDATA%\Microsoft\Windows\INetCookies"" %f in (*) do del /f /q ""%f"" >nul 2>&1"; Flags: runhidden; RunOnceId: "CleanupCookies1"
 Filename: "{sys}\cmd.exe"; Parameters: "/C for /r ""%APPDATA%\Microsoft\Windows\Cookies"" %f in (*) do del /f /q ""%f"" >nul 2>&1"; Flags: runhidden; RunOnceId: "CleanupCookies2"
 Filename: "{sys}\cmd.exe"; Parameters: "/C del /f /q ""%LOCALAPPDATA%\Microsoft\Windows\WebCache\WebCacheV01.dat"" >nul 2>&1"; Flags: runhidden; RunOnceId: "CleanupWebCache"
-; 清理应用程序独特临时目录（runtime_tmpdir=dorm_mgmt_v1.0）
-; PyInstaller在 %TEMP%\dorm_mgmt_v1.0\_MEIxxxxxx 下解压运行时文件
-Filename: "{sys}\cmd.exe"; Parameters: "/C if exist ""%TEMP%\dorm_mgmt_v1.0"" rd /s /q ""%TEMP%\dorm_mgmt_v1.0"" >nul 2>&1"; Flags: runhidden; RunOnceId: "CleanupDormTemp1"
-Filename: "{sys}\cmd.exe"; Parameters: "/C if exist ""%TMP%\dorm_mgmt_v1.0"" rd /s /q ""%TMP%\dorm_mgmt_v1.0"" >nul 2>&1"; Flags: runhidden; RunOnceId: "CleanupDormTemp2"
-Filename: "{sys}\cmd.exe"; Parameters: "/C if exist ""%LOCALAPPDATA%\Temp\dorm_mgmt_v1.0"" rd /s /q ""%LOCALAPPDATA%\Temp\dorm_mgmt_v1.0"" >nul 2>&1"; Flags: runhidden; RunOnceId: "CleanupDormTemp3"
