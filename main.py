@@ -104,9 +104,7 @@ def init_flask_app(progress_callback=None):
     # Flask用SECRET_KEY签名session cookie，换密钥后旧cookie签名验证失败→用户自动未登录
     import secrets
     app.secret_key = secrets.token_hex(32)
-    app.permanent_session_lifetime = current_config.PERMANENT_SESSION_LIFETIME
     
-    print(f"会话超时时间: {app.permanent_session_lifetime}")
     # 验证REMEMBER_COOKIE_DURATION配置是否正确加载
     # Flask-Login默认COOKIE_DURATION为365天，若未正确加载则会使用默认值
     remember_duration = app.config.get('REMEMBER_COOKIE_DURATION', '未配置')

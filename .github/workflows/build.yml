@@ -210,7 +210,7 @@ jobs:
             - win7建议安装 Windows 更新 KB2999226
             - 需要安装现代浏览器（Chrome 109+ 或 Firefox 115 ESR 推荐）
             - win7仅支持服务器模式运行
-            - **不支持 IE11**
+            - **不支持 IE浏览器**
             - win10以上需要安装WebView2 运行时
             - win10以上支持客户端模式和服务器模式
 

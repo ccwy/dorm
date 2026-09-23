@@ -27,14 +27,12 @@ def get_app_dir():
 _shared_db_config = DatabaseConfig.load_config()
 
 class Config:
-    # 基础配置
-    SECRET_KEY = 'cDds8dsjhuHUDSHUd3SH78chfdsufnhuyr78djsHDSHADEU'
+    # cookie基础配置
     SESSION_COOKIE_NAME = 'CRspli9ois'
-    PERMANENT_SESSION_LIFETIME = timedelta(hours=12)
     
     # 会话不活动超时设置
     # 用户在这段时间内没有任何操作将被自动退出登录
-    SESSION_INACTIVITY_TIMEOUT = 3 * 60 * 60  # 3小时不活动自动退出
+    SESSION_INACTIVITY_TIMEOUT = 1 * 60 * 60  # 1小时不活动自动退出
     REMEMBER_COOKIE_DURATION = timedelta(days=30)  # "记住我"Cookie有效期30天
     
     # 基础目录
@@ -79,14 +77,9 @@ class Config:
     
     DEBUG = False  # 是否开启调试模式
 
-    # API配置
-    API_BASE_URL = ""  # 基础API地址
-    API_TIMEOUT = 10  # API调用超时时间（秒）
-
 #生产环境
 class ProductionConfig(Config):
     db_config = _shared_db_config  # 使用共享配置，避免重复load_config调用
-    SECRET_KEY = 'WUQIOkxuidS3zcadSwdsdSQzcsWa8dsa'
     DEBUG = False
     SYSTEM_TITLE = db_config.get('SERVER_PORT', "行政后勤管理系统")
     # 根据SERVER_MODE配置决定SERVER_HOST
