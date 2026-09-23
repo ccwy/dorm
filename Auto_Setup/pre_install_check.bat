@@ -1,168 +1,101 @@
 @echo off
-chcp 65001 > nul
 
-REM 注意：WebView2检测已移至安装程序主脚本中执行
-REM WebView2运行时是行政后勤管理系统运行所必需的组件
+REM WebView2��װ���ű�
+REM �˽ű������ڰ�װ�����м��WebView2�Ƿ��Ѱ�װ
 
-:check_admin
-REM 检查是否有管理员权限
-NET SESSION >nul 2>&1
-if %errorLevel% neq 0 (
-    echo 注意：当前不是以管理员权限运行，可能无法清理某些系统级残留
-    echo 但仍然可以继续安装，数据将存储在您选择的安装路径中
-    pause
-)
+:check_webview2
+REM ���WebView2�Ƿ��Ѱ�װ
 
-echo ===================================================
-echo 行政后勤管理系统 - 安装前清理工具
-
-echo 正在检查并清理旧版本残留...
-echo 提示：如果您之前将程序安装在自定义路径，可能需要手动清理该路径中的旧文件
-
-
-REM 停止正在运行的应用程序进程
-echo 检查并停止正在运行的应用程序...
-taskkill /f /im "行政后勤管理系统.exe" >nul 2>&1
-taskkill /f /im "行政后勤管理系统.exe" >nul 2>&1
-echo 应用程序进程已停止（如果存在）
-
-REM 清理Program Files目录中的旧安装
-echo 检查Program Files目录中的旧安装...
-if exist "%ProgramFiles%\行政后勤管理系统" (
-    echo 发现旧安装在Program Files目录，正在清理...
-    timeout /t 1 >nul
-    rmdir /s /q "%ProgramFiles%\行政后勤管理系统" >nul 2>&1
-    echo Program Files目录中的旧安装已清理
-) else (
-    echo 没有发现Program Files目录中的旧安装
-)
-
-if exist "%ProgramFiles%\行政后勤管理系统" (
-    echo 发现旧安装在Program Files目录，正在清理...
-    timeout /t 1 >nul
-    rmdir /s /q "%ProgramFiles%\行政后勤管理系统" >nul 2>&1
-    echo Program Files目录中的旧安装已清理
-) else (
-    echo 没有发现Program Files目录中的旧安装
-)
-
-REM 清理Program Files (x86)目录中的旧安装
-echo 检查Program Files (x86)目录中的旧安装...
-if exist "%ProgramFiles(x86)%\行政后勤管理系统" (
-    echo 发现旧安装在Program Files (x86)目录，正在清理...
-    timeout /t 1 >nul
-    rmdir /s /q "%ProgramFiles(x86)%\行政后勤管理系统" >nul 2>&1
-    echo Program Files (x86)目录中的旧安装已清理
-) else (
-    echo 没有发现Program Files (x86)目录中的旧安装
-)
-
-if exist "%ProgramFiles(x86)%\行政后勤管理系统" (
-    echo 发现旧安装在Program Files (x86)目录，正在清理...
-    timeout /t 1 >nul
-    rmdir /s /q "%ProgramFiles(x86)%\行政后勤管理系统" >nul 2>&1
-    echo Program Files (x86)目录中的旧安装已清理
-) else (
-    echo 没有发现Program Files (x86)目录中的旧安装
-)
-
-REM 清理用户AppData目录中的旧安装
-echo 检查用户AppData目录中的旧安装...
-set "USER_APP_DATA=%APPDATA%\..\Local\行政后勤管理系统"
-if exist "%USER_APP_DATA%" (
-    echo 发现旧安装在用户AppData目录，正在清理...
-    timeout /t 1 >nul
-    rmdir /s /q "%USER_APP_DATA%" >nul 2>&1
-    echo 用户AppData目录中的旧安装已清理
-) else (
-    echo 没有发现用户AppData目录中的旧安装
-)
-
-set "USER_APP_DATA_CN=%APPDATA%\..\Local\行政后勤管理系统"
-if exist "%USER_APP_DATA_CN%" (
-    echo 发现旧安装在用户AppData目录，正在清理...
-    timeout /t 1 >nul
-    rmdir /s /q "%USER_APP_DATA_CN%" >nul 2>&1
-    echo 用户AppData目录中的旧安装已清理
-) else (
-    echo 没有发现用户AppData目录中的旧安装
-)
-
-REM 清理用户文档目录中的日志和数据
-echo 检查用户文档目录中的数据...
-set "USER_DOCS=%USERPROFILE%\Documents\行政后勤管理系统"
-if exist "%USER_DOCS%" (
-    echo 发现文档目录中的数据，正在清理...
-    timeout /t 1 >nul
-    rmdir /s /q "%USER_DOCS%" >nul 2>&1
-    echo 文档目录中的数据已清理
-) else (
-    echo 没有发现文档目录中的数据
-)
-
-REM 清理LocalAppData目录中的临时文件和缓存
-echo 检查LocalAppData目录中的临时文件和缓存...
-set "LOCAL_APP_DATA=%LOCALAPPDATA%\行政后勤管理系统"
-if exist "%LOCAL_APP_DATA%" (
-    echo 发现LocalAppData目录中的临时文件和缓存，正在清理...
-    timeout /t 1 >nul
-    rmdir /s /q "%LOCAL_APP_DATA%" >nul 2>&1
-    echo LocalAppData目录中的临时文件和缓存已清理
-) else (
-    echo 没有发现LocalAppData目录中的临时文件和缓存
-)
-
-set "LOCAL_APP_DATA_CN=%LOCALAPPDATA%\行政后勤管理系统"
-if exist "%LOCAL_APP_DATA_CN%" (
-    echo 发现LocalAppData目录中的临时文件和缓存，正在清理...
-    timeout /t 1 >nul
-    rmdir /s /q "%LOCAL_APP_DATA_CN%" >nul 2>&1
-    echo LocalAppData目录中的临时文件和缓存已清理
-) else (
-    echo 没有发现LocalAppData目录中的临时文件和缓存
-)
-
-REM 清理系统临时目录中的相关文件
-echo 检查系统临时目录中的相关文件...
-set "TEMP_DIR=%TEMP%\行政后勤管理系统"
-if exist "%TEMP_DIR%" (
-    echo 发现系统临时目录中的相关文件，正在清理...
-    timeout /t 1 >nul
-    rmdir /s /q "%TEMP_DIR%" >nul 2>&1
-    echo 系统临时目录中的相关文件已清理
-) else (
-    echo 没有发现系统临时目录中的相关文件
-)
-
-REM 清理注册表中的残留
-echo 正在清理注册表中的残留...
-REM 只清理HKCU（当前用户）注册表项，避免需要管理员权限
-reg delete "HKCU\SOFTWARE\行政后勤管理系统" /f >nul 2>&1
-reg delete "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\行政后勤管理系统_is1" /f >nul 2>&1
-
-REM 仅在有管理员权限时才尝试清理HKLM注册表项
-NET SESSION >nul 2>&1
+REM ����1: ���ע��� - Evergreen Runtime
+reg query "HKLM\SOFTWARE\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}" >nul 2>&1
 if %errorLevel% equ 0 (
-    echo 检测到管理员权限，正在清理HKLM注册表项...
-    reg delete "HKLM\SOFTWARE\行政后勤管理系统" /f >nul 2>&1
-    reg delete "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\行政后勤管理系统_is1" /f >nul 2>&1
+    echo WebView2���: ͨ��ע�����⵽WebView2 Evergreen Runtime�Ѱ�װ
+    goto webview2_installed
 )
-echo 注册表清理完成
 
-REM 清理开始菜单和桌面快捷方式
-echo 正在清理开始菜单和桌面快捷方式...
-del /f /q "%APPDATA%\Microsoft\Windows\Start Menu\Programs\行政后勤管理系统.lnk" >nul 2>&1
-del /f /q "%PUBLIC%\Desktop\行政后勤管理系统.lnk" >nul 2>&1
-del /f /q "%USERPROFILE%\Desktop\行政后勤管理系统.lnk" >nul 2>&1
-del /f /q "%APPDATA%\Microsoft\Windows\Start Menu\Programs\行政后勤管理系统.lnk" >nul 2>&1
-del /f /q "%PUBLIC%\Desktop\行政后勤管理系统.lnk" >nul 2>&1
-del /f /q "%USERPROFILE%\Desktop\行政后勤管理系统.lnk" >nul 2>&1
-echo 快捷方式清理完成
+REM ����1.1: ���32λע��� - Evergreen Runtime
+reg query "HKLM\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}" >nul 2>&1
+if %errorLevel% equ 0 (
+    echo WebView2���: ͨ��32λע�����⵽WebView2 Evergreen Runtime�Ѱ�װ
+    goto webview2_installed
+)
 
-echo ===================================================
-echo 清理完成！现在可以安全安装新版本的行政后勤管理系统了。
-echo ===================================================
-echo 提示：在安装向导中，您可以自定义安装路径
-echo 数据文件将始终存储在您选择的安装路径中
-echo ===================================================
+REM ����2: ���ע��� - Fixed Version
+reg query "HKLM\SOFTWARE\Microsoft\EdgeUpdate\Clients\{F20586C8-705C-474E-BA42-7E975B87D44B}" >nul 2>&1
+if %errorLevel% equ 0 (
+    echo WebView2���: ͨ��ע�����⵽WebView2 Fixed Version�Ѱ�װ
+    goto webview2_installed
+)
+
+REM ����2.1: ���32λע��� - Fixed Version
+reg query "HKLM\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F20586C8-705C-474E-BA42-7E975B87D44B}" >nul 2>&1
+if %errorLevel% equ 0 (
+    echo WebView2���: ͨ��32λע�����⵽WebView2 Fixed Version�Ѱ�װ
+    goto webview2_installed
+)
+
+REM ����3: ��鳣����װ·��
+REM ϵͳ����װ·�� - 64λ
+if exist "%SystemRoot%\System32\MicrosoftEdgeWebView2\EdgeWebView2.exe" (
+    echo WebView2���: ͨ��ϵͳĿ¼��⵽WebView2�Ѱ�װ
+    goto webview2_installed
+)
+
+REM ϵͳ����װ·�� - 32λ
+if exist "%SystemRoot%\SysWOW64\MicrosoftEdgeWebView2\EdgeWebView2.exe" (
+    echo WebView2���: ͨ��32λϵͳĿ¼��⵽WebView2�Ѱ�װ
+    goto webview2_installed
+)
+
+REM �û�����װ·�� - EdgeWebView
+if exist "%LOCALAPPDATA%\Microsoft\EdgeWebView\Application\EdgeWebView2.exe" (
+    echo WebView2���: ͨ���û�Ŀ¼��⵽WebView2�Ѱ�װ
+    goto webview2_installed
+)
+
+REM �û�����װ·�� - Edge
+if exist "%LOCALAPPDATA%\Microsoft\Edge\Application\msedgewebview2.exe" (
+    echo WebView2���: ͨ��Edge�����Ŀ¼��⵽WebView2�Ѱ�װ
+    goto webview2_installed
+)
+
+REM Edge�������װĿ¼����������λ�� - ϵͳ��
+if exist "%ProgramFiles%\Microsoft\Edge\Application\msedgewebview2.exe" (
+    echo WebView2���: ͨ��ϵͳ��Edge�����Ŀ¼��⵽WebView2�Ѱ�װ
+    goto webview2_installed
+)
+
+REM Edge�������װĿ¼����������λ�� - 32λϵͳ��
+if exist "%ProgramFiles(x86)%\Microsoft\Edge\Application\msedgewebview2.exe" (
+    echo WebView2���: ͨ��32λϵͳ��Edge�����Ŀ¼��⵽WebView2�Ѱ�װ
+    goto webview2_installed
+)
+
+REM δ��⵽WebView2
+:webview2_not_installed
+cls
+echo ===============================================================================
+echo                             ��Ҫ��ʾ
+echo ===============================================================================
+echo �������ڹ���ϵͳ��ҪWebView2����ʱ��������������У�����ǰϵͳ��δ��⵽�������
+echo
+echo ע�⣺Windows 10��Windows 11����ϵͳͨ����ԤװWebView2����ʱ��
+echo �������Microsoft Edge������߶ȼ��ɣ�������Ѱ�װEdge�������
+echo ϵͳ�кܿ����Ѱ���WebView2�����
+echo
+echo �������ϵͳ��ȷʵû�д��������Ҫ�Ȱ�װ������ʹ���������ڹ���ϵͳ��
+echo
+echo ���Microsoft�ٷ���վ���ز���װWebView2����ʱ��
+echo https://developer.microsoft.com/zh-cn/microsoft-edge/webview2/#download-section
+echo
+echo ����ѡ��"Evergreen Bootstrapper"��"Evergreen Standalone Installer"�汾��
+echo ��װ��ɺ�����������ʹ���������ڹ���ϵͳ��
+echo ===============================================================================
 pause
+goto end
+
+:webview2_installed
+echo WebView2�ѳɹ���װ�����Լ�����װ�������ڹ���ϵͳ��
+goto end
+
+:end

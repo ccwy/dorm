@@ -1,4 +1,4 @@
-锘緻echo off
+@echo off
 setlocal enabledelayedexpansion
 
 :: 项目根目录

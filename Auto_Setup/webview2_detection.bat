@@ -1,102 +1,167 @@
 @echo off
-chcp 65001 > nul
 
-REM WebView2å®‰è£…æ£€æµ‹è„šæœ¬
-REM æ­¤è„šæœ¬ç”¨äºŽåœ¨å®‰è£…è¿‡ç¨‹ä¸­æ£€æµ‹WebView2æ˜¯å¦å·²å®‰è£…
+REM ×¢Òâ£ºWebView2¼ì²âÒÑÒÆÖÁ°²×°³ÌÐòÖ÷½Å±¾ÖÐÖ´ÐÐ
+REM WebView2ÔËÐÐÊ±ÊÇÐÐÕþºóÇÚ¹ÜÀíÏµÍ³ÔËÐÐËù±ØÐèµÄ×é¼þ
 
-:check_webview2
-REM æ£€æŸ¥WebView2æ˜¯å¦å·²å®‰è£…
+:check_admin
+REM ¼ì²éÊÇ·ñÓÐ¹ÜÀíÔ±È¨ÏÞ
+NET SESSION >nul 2>&1
+if %errorLevel% neq 0 (
+    echo ×¢Òâ£ºµ±Ç°²»ÊÇÒÔ¹ÜÀíÔ±È¨ÏÞÔËÐÐ£¬¿ÉÄÜÎÞ·¨ÇåÀíÄ³Ð©ÏµÍ³¼¶²ÐÁô
+    echo µ«ÈÔÈ»¿ÉÒÔ¼ÌÐø°²×°£¬Êý¾Ý½«´æ´¢ÔÚÄúÑ¡ÔñµÄ°²×°Â·¾¶ÖÐ
+    pause
+)
 
-REM æ–¹æ³•1: æ£€æŸ¥æ³¨å†Œè¡¨ - Evergreen Runtime
-reg query "HKLM\SOFTWARE\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}" >nul 2>&1
+echo ===================================================
+echo ÐÐÕþºóÇÚ¹ÜÀíÏµÍ³ - °²×°Ç°ÇåÀí¹¤¾ß
+
+echo ÕýÔÚ¼ì²é²¢ÇåÀí¾É°æ±¾²ÐÁô...
+echo ÌáÊ¾£ºÈç¹ûÄúÖ®Ç°½«³ÌÐò°²×°ÔÚ×Ô¶¨ÒåÂ·¾¶£¬¿ÉÄÜÐèÒªÊÖ¶¯ÇåÀí¸ÃÂ·¾¶ÖÐµÄ¾ÉÎÄ¼þ
+
+
+REM Í£Ö¹ÕýÔÚÔËÐÐµÄÓ¦ÓÃ³ÌÐò½ø³Ì
+echo ¼ì²é²¢Í£Ö¹ÕýÔÚÔËÐÐµÄÓ¦ÓÃ³ÌÐò...
+taskkill /f /im "ÐÐÕþºóÇÚ¹ÜÀíÏµÍ³.exe" >nul 2>&1
+taskkill /f /im "ÐÐÕþºóÇÚ¹ÜÀíÏµÍ³.exe" >nul 2>&1
+echo Ó¦ÓÃ³ÌÐò½ø³ÌÒÑÍ£Ö¹£¨Èç¹û´æÔÚ£©
+
+REM ÇåÀíProgram FilesÄ¿Â¼ÖÐµÄ¾É°²×°
+echo ¼ì²éProgram FilesÄ¿Â¼ÖÐµÄ¾É°²×°...
+if exist "%ProgramFiles%\ÐÐÕþºóÇÚ¹ÜÀíÏµÍ³" (
+    echo ·¢ÏÖ¾É°²×°ÔÚProgram FilesÄ¿Â¼£¬ÕýÔÚÇåÀí...
+    timeout /t 1 >nul
+    rmdir /s /q "%ProgramFiles%\ÐÐÕþºóÇÚ¹ÜÀíÏµÍ³" >nul 2>&1
+    echo Program FilesÄ¿Â¼ÖÐµÄ¾É°²×°ÒÑÇåÀí
+) else (
+    echo Ã»ÓÐ·¢ÏÖProgram FilesÄ¿Â¼ÖÐµÄ¾É°²×°
+)
+
+if exist "%ProgramFiles%\ÐÐÕþºóÇÚ¹ÜÀíÏµÍ³" (
+    echo ·¢ÏÖ¾É°²×°ÔÚProgram FilesÄ¿Â¼£¬ÕýÔÚÇåÀí...
+    timeout /t 1 >nul
+    rmdir /s /q "%ProgramFiles%\ÐÐÕþºóÇÚ¹ÜÀíÏµÍ³" >nul 2>&1
+    echo Program FilesÄ¿Â¼ÖÐµÄ¾É°²×°ÒÑÇåÀí
+) else (
+    echo Ã»ÓÐ·¢ÏÖProgram FilesÄ¿Â¼ÖÐµÄ¾É°²×°
+)
+
+REM ÇåÀíProgram Files (x86)Ä¿Â¼ÖÐµÄ¾É°²×°
+echo ¼ì²éProgram Files (x86)Ä¿Â¼ÖÐµÄ¾É°²×°...
+if exist "%ProgramFiles(x86)%\ÐÐÕþºóÇÚ¹ÜÀíÏµÍ³" (
+    echo ·¢ÏÖ¾É°²×°ÔÚProgram Files (x86)Ä¿Â¼£¬ÕýÔÚÇåÀí...
+    timeout /t 1 >nul
+    rmdir /s /q "%ProgramFiles(x86)%\ÐÐÕþºóÇÚ¹ÜÀíÏµÍ³" >nul 2>&1
+    echo Program Files (x86)Ä¿Â¼ÖÐµÄ¾É°²×°ÒÑÇåÀí
+) else (
+    echo Ã»ÓÐ·¢ÏÖProgram Files (x86)Ä¿Â¼ÖÐµÄ¾É°²×°
+)
+
+if exist "%ProgramFiles(x86)%\ÐÐÕþºóÇÚ¹ÜÀíÏµÍ³" (
+    echo ·¢ÏÖ¾É°²×°ÔÚProgram Files (x86)Ä¿Â¼£¬ÕýÔÚÇåÀí...
+    timeout /t 1 >nul
+    rmdir /s /q "%ProgramFiles(x86)%\ÐÐÕþºóÇÚ¹ÜÀíÏµÍ³" >nul 2>&1
+    echo Program Files (x86)Ä¿Â¼ÖÐµÄ¾É°²×°ÒÑÇåÀí
+) else (
+    echo Ã»ÓÐ·¢ÏÖProgram Files (x86)Ä¿Â¼ÖÐµÄ¾É°²×°
+)
+
+REM ÇåÀíÓÃ»§AppDataÄ¿Â¼ÖÐµÄ¾É°²×°
+echo ¼ì²éÓÃ»§AppDataÄ¿Â¼ÖÐµÄ¾É°²×°...
+set "USER_APP_DATA=%APPDATA%\..\Local\ÐÐÕþºóÇÚ¹ÜÀíÏµÍ³"
+if exist "%USER_APP_DATA%" (
+    echo ·¢ÏÖ¾É°²×°ÔÚÓÃ»§AppDataÄ¿Â¼£¬ÕýÔÚÇåÀí...
+    timeout /t 1 >nul
+    rmdir /s /q "%USER_APP_DATA%" >nul 2>&1
+    echo ÓÃ»§AppDataÄ¿Â¼ÖÐµÄ¾É°²×°ÒÑÇåÀí
+) else (
+    echo Ã»ÓÐ·¢ÏÖÓÃ»§AppDataÄ¿Â¼ÖÐµÄ¾É°²×°
+)
+
+set "USER_APP_DATA_CN=%APPDATA%\..\Local\ÐÐÕþºóÇÚ¹ÜÀíÏµÍ³"
+if exist "%USER_APP_DATA_CN%" (
+    echo ·¢ÏÖ¾É°²×°ÔÚÓÃ»§AppDataÄ¿Â¼£¬ÕýÔÚÇåÀí...
+    timeout /t 1 >nul
+    rmdir /s /q "%USER_APP_DATA_CN%" >nul 2>&1
+    echo ÓÃ»§AppDataÄ¿Â¼ÖÐµÄ¾É°²×°ÒÑÇåÀí
+) else (
+    echo Ã»ÓÐ·¢ÏÖÓÃ»§AppDataÄ¿Â¼ÖÐµÄ¾É°²×°
+)
+
+REM ÇåÀíÓÃ»§ÎÄµµÄ¿Â¼ÖÐµÄÈÕÖ¾ºÍÊý¾Ý
+echo ¼ì²éÓÃ»§ÎÄµµÄ¿Â¼ÖÐµÄÊý¾Ý...
+set "USER_DOCS=%USERPROFILE%\Documents\ÐÐÕþºóÇÚ¹ÜÀíÏµÍ³"
+if exist "%USER_DOCS%" (
+    echo ·¢ÏÖÎÄµµÄ¿Â¼ÖÐµÄÊý¾Ý£¬ÕýÔÚÇåÀí...
+    timeout /t 1 >nul
+    rmdir /s /q "%USER_DOCS%" >nul 2>&1
+    echo ÎÄµµÄ¿Â¼ÖÐµÄÊý¾ÝÒÑÇåÀí
+) else (
+    echo Ã»ÓÐ·¢ÏÖÎÄµµÄ¿Â¼ÖÐµÄÊý¾Ý
+)
+
+REM ÇåÀíLocalAppDataÄ¿Â¼ÖÐµÄÁÙÊ±ÎÄ¼þºÍ»º´æ
+echo ¼ì²éLocalAppDataÄ¿Â¼ÖÐµÄÁÙÊ±ÎÄ¼þºÍ»º´æ...
+set "LOCAL_APP_DATA=%LOCALAPPDATA%\ÐÐÕþºóÇÚ¹ÜÀíÏµÍ³"
+if exist "%LOCAL_APP_DATA%" (
+    echo ·¢ÏÖLocalAppDataÄ¿Â¼ÖÐµÄÁÙÊ±ÎÄ¼þºÍ»º´æ£¬ÕýÔÚÇåÀí...
+    timeout /t 1 >nul
+    rmdir /s /q "%LOCAL_APP_DATA%" >nul 2>&1
+    echo LocalAppDataÄ¿Â¼ÖÐµÄÁÙÊ±ÎÄ¼þºÍ»º´æÒÑÇåÀí
+) else (
+    echo Ã»ÓÐ·¢ÏÖLocalAppDataÄ¿Â¼ÖÐµÄÁÙÊ±ÎÄ¼þºÍ»º´æ
+)
+
+set "LOCAL_APP_DATA_CN=%LOCALAPPDATA%\ÐÐÕþºóÇÚ¹ÜÀíÏµÍ³"
+if exist "%LOCAL_APP_DATA_CN%" (
+    echo ·¢ÏÖLocalAppDataÄ¿Â¼ÖÐµÄÁÙÊ±ÎÄ¼þºÍ»º´æ£¬ÕýÔÚÇåÀí...
+    timeout /t 1 >nul
+    rmdir /s /q "%LOCAL_APP_DATA_CN%" >nul 2>&1
+    echo LocalAppDataÄ¿Â¼ÖÐµÄÁÙÊ±ÎÄ¼þºÍ»º´æÒÑÇåÀí
+) else (
+    echo Ã»ÓÐ·¢ÏÖLocalAppDataÄ¿Â¼ÖÐµÄÁÙÊ±ÎÄ¼þºÍ»º´æ
+)
+
+REM ÇåÀíÏµÍ³ÁÙÊ±Ä¿Â¼ÖÐµÄÏà¹ØÎÄ¼þ
+echo ¼ì²éÏµÍ³ÁÙÊ±Ä¿Â¼ÖÐµÄÏà¹ØÎÄ¼þ...
+set "TEMP_DIR=%TEMP%\ÐÐÕþºóÇÚ¹ÜÀíÏµÍ³"
+if exist "%TEMP_DIR%" (
+    echo ·¢ÏÖÏµÍ³ÁÙÊ±Ä¿Â¼ÖÐµÄÏà¹ØÎÄ¼þ£¬ÕýÔÚÇåÀí...
+    timeout /t 1 >nul
+    rmdir /s /q "%TEMP_DIR%" >nul 2>&1
+    echo ÏµÍ³ÁÙÊ±Ä¿Â¼ÖÐµÄÏà¹ØÎÄ¼þÒÑÇåÀí
+) else (
+    echo Ã»ÓÐ·¢ÏÖÏµÍ³ÁÙÊ±Ä¿Â¼ÖÐµÄÏà¹ØÎÄ¼þ
+)
+
+REM ÇåÀí×¢²á±íÖÐµÄ²ÐÁô
+echo ÕýÔÚÇåÀí×¢²á±íÖÐµÄ²ÐÁô...
+REM Ö»ÇåÀíHKCU£¨µ±Ç°ÓÃ»§£©×¢²á±íÏî£¬±ÜÃâÐèÒª¹ÜÀíÔ±È¨ÏÞ
+reg delete "HKCU\SOFTWARE\ÐÐÕþºóÇÚ¹ÜÀíÏµÍ³" /f >nul 2>&1
+reg delete "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\ÐÐÕþºóÇÚ¹ÜÀíÏµÍ³_is1" /f >nul 2>&1
+
+REM ½öÔÚÓÐ¹ÜÀíÔ±È¨ÏÞÊ±²Å³¢ÊÔÇåÀíHKLM×¢²á±íÏî
+NET SESSION >nul 2>&1
 if %errorLevel% equ 0 (
-    echo WebView2æ£€æµ‹: é€šè¿‡æ³¨å†Œè¡¨æ£€æµ‹åˆ°WebView2 Evergreen Runtimeå·²å®‰è£…
-    goto webview2_installed
+    echo ¼ì²âµ½¹ÜÀíÔ±È¨ÏÞ£¬ÕýÔÚÇåÀíHKLM×¢²á±íÏî...
+    reg delete "HKLM\SOFTWARE\ÐÐÕþºóÇÚ¹ÜÀíÏµÍ³" /f >nul 2>&1
+    reg delete "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\ÐÐÕþºóÇÚ¹ÜÀíÏµÍ³_is1" /f >nul 2>&1
 )
+echo ×¢²á±íÇåÀíÍê³É
 
-REM æ–¹æ³•1.1: æ£€æŸ¥32ä½æ³¨å†Œè¡¨ - Evergreen Runtime
-reg query "HKLM\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}" >nul 2>&1
-if %errorLevel% equ 0 (
-    echo WebView2æ£€æµ‹: é€šè¿‡32ä½æ³¨å†Œè¡¨æ£€æµ‹åˆ°WebView2 Evergreen Runtimeå·²å®‰è£…
-    goto webview2_installed
-)
+REM ÇåÀí¿ªÊ¼²Ëµ¥ºÍ×ÀÃæ¿ì½Ý·½Ê½
+echo ÕýÔÚÇåÀí¿ªÊ¼²Ëµ¥ºÍ×ÀÃæ¿ì½Ý·½Ê½...
+del /f /q "%APPDATA%\Microsoft\Windows\Start Menu\Programs\ÐÐÕþºóÇÚ¹ÜÀíÏµÍ³.lnk" >nul 2>&1
+del /f /q "%PUBLIC%\Desktop\ÐÐÕþºóÇÚ¹ÜÀíÏµÍ³.lnk" >nul 2>&1
+del /f /q "%USERPROFILE%\Desktop\ÐÐÕþºóÇÚ¹ÜÀíÏµÍ³.lnk" >nul 2>&1
+del /f /q "%APPDATA%\Microsoft\Windows\Start Menu\Programs\ÐÐÕþºóÇÚ¹ÜÀíÏµÍ³.lnk" >nul 2>&1
+del /f /q "%PUBLIC%\Desktop\ÐÐÕþºóÇÚ¹ÜÀíÏµÍ³.lnk" >nul 2>&1
+del /f /q "%USERPROFILE%\Desktop\ÐÐÕþºóÇÚ¹ÜÀíÏµÍ³.lnk" >nul 2>&1
+echo ¿ì½Ý·½Ê½ÇåÀíÍê³É
 
-REM æ–¹æ³•2: æ£€æŸ¥æ³¨å†Œè¡¨ - Fixed Version
-reg query "HKLM\SOFTWARE\Microsoft\EdgeUpdate\Clients\{F20586C8-705C-474E-BA42-7E975B87D44B}" >nul 2>&1
-if %errorLevel% equ 0 (
-    echo WebView2æ£€æµ‹: é€šè¿‡æ³¨å†Œè¡¨æ£€æµ‹åˆ°WebView2 Fixed Versionå·²å®‰è£…
-    goto webview2_installed
-)
-
-REM æ–¹æ³•2.1: æ£€æŸ¥32ä½æ³¨å†Œè¡¨ - Fixed Version
-reg query "HKLM\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F20586C8-705C-474E-BA42-7E975B87D44B}" >nul 2>&1
-if %errorLevel% equ 0 (
-    echo WebView2æ£€æµ‹: é€šè¿‡32ä½æ³¨å†Œè¡¨æ£€æµ‹åˆ°WebView2 Fixed Versionå·²å®‰è£…
-    goto webview2_installed
-)
-
-REM æ–¹æ³•3: æ£€æŸ¥å¸¸è§å®‰è£…è·¯å¾„
-REM ç³»ç»Ÿçº§å®‰è£…è·¯å¾„ - 64ä½
-if exist "%SystemRoot%\System32\MicrosoftEdgeWebView2\EdgeWebView2.exe" (
-    echo WebView2æ£€æµ‹: é€šè¿‡ç³»ç»Ÿç›®å½•æ£€æµ‹åˆ°WebView2å·²å®‰è£…
-    goto webview2_installed
-)
-
-REM ç³»ç»Ÿçº§å®‰è£…è·¯å¾„ - 32ä½
-if exist "%SystemRoot%\SysWOW64\MicrosoftEdgeWebView2\EdgeWebView2.exe" (
-    echo WebView2æ£€æµ‹: é€šè¿‡32ä½ç³»ç»Ÿç›®å½•æ£€æµ‹åˆ°WebView2å·²å®‰è£…
-    goto webview2_installed
-)
-
-REM ç”¨æˆ·çº§å®‰è£…è·¯å¾„ - EdgeWebView
-if exist "%LOCALAPPDATA%\Microsoft\EdgeWebView\Application\EdgeWebView2.exe" (
-    echo WebView2æ£€æµ‹: é€šè¿‡ç”¨æˆ·ç›®å½•æ£€æµ‹åˆ°WebView2å·²å®‰è£…
-    goto webview2_installed
-)
-
-REM ç”¨æˆ·çº§å®‰è£…è·¯å¾„ - Edge
-if exist "%LOCALAPPDATA%\Microsoft\Edge\Application\msedgewebview2.exe" (
-    echo WebView2æ£€æµ‹: é€šè¿‡Edgeæµè§ˆå™¨ç›®å½•æ£€æµ‹åˆ°WebView2å·²å®‰è£…
-    goto webview2_installed
-)
-
-REM Edgeæµè§ˆå™¨å®‰è£…ç›®å½•çš„å…¶ä»–å¸¸è§ä½ç½® - ç³»ç»Ÿçº§
-if exist "%ProgramFiles%\Microsoft\Edge\Application\msedgewebview2.exe" (
-    echo WebView2æ£€æµ‹: é€šè¿‡ç³»ç»Ÿçº§Edgeæµè§ˆå™¨ç›®å½•æ£€æµ‹åˆ°WebView2å·²å®‰è£…
-    goto webview2_installed
-)
-
-REM Edgeæµè§ˆå™¨å®‰è£…ç›®å½•çš„å…¶ä»–å¸¸è§ä½ç½® - 32ä½ç³»ç»Ÿçº§
-if exist "%ProgramFiles(x86)%\Microsoft\Edge\Application\msedgewebview2.exe" (
-    echo WebView2æ£€æµ‹: é€šè¿‡32ä½ç³»ç»Ÿçº§Edgeæµè§ˆå™¨ç›®å½•æ£€æµ‹åˆ°WebView2å·²å®‰è£…
-    goto webview2_installed
-)
-
-REM æœªæ£€æµ‹åˆ°WebView2
-:webview2_not_installed
-cls
-echo ===============================================================================
-echo                             é‡è¦æç¤º
-echo ===============================================================================
-echo è¡Œæ”¿åŽå‹¤ç®¡ç†ç³»ç»Ÿéœ€è¦WebView2è¿è¡Œæ—¶ç»„ä»¶æ‰èƒ½æ­£å¸¸è¿è¡Œï¼Œä½†å½“å‰ç³»ç»Ÿä¸­æœªæ£€æµ‹åˆ°è¯¥ç»„ä»¶ã€‚
-echo
-echo æ³¨æ„ï¼šWindows 10å’ŒWindows 11æ“ä½œç³»ç»Ÿé€šå¸¸å·²é¢„è£…WebView2è¿è¡Œæ—¶ï¼Œ
-echo è¯¥ç»„ä»¶ä¸ŽMicrosoft Edgeæµè§ˆå™¨é«˜åº¦é›†æˆï¼Œå¦‚æžœæ‚¨å·²å®‰è£…Edgeæµè§ˆå™¨ï¼Œ
-echo ç³»ç»Ÿä¸­å¾ˆå¯èƒ½å·²åŒ…å«WebView2ç»„ä»¶ã€‚
-echo
-echo å¦‚æžœæ‚¨çš„ç³»ç»Ÿä¸­ç¡®å®žæ²¡æœ‰æ­¤ç»„ä»¶ï¼Œéœ€è¦å…ˆå®‰è£…å®ƒæ‰èƒ½ä½¿ç”¨è¡Œæ”¿åŽå‹¤ç®¡ç†ç³»ç»Ÿã€‚
-echo
-echo è¯·ä»ŽMicrosoftå®˜æ–¹ç½‘ç«™ä¸‹è½½å¹¶å®‰è£…WebView2è¿è¡Œæ—¶ï¼š
-echo https://developer.microsoft.com/zh-cn/microsoft-edge/webview2/#download-section
-echo
-echo å»ºè®®é€‰æ‹©"Evergreen Bootstrapper"æˆ–"Evergreen Standalone Installer"ç‰ˆæœ¬ï¼Œ
-echo å®‰è£…å®ŒæˆåŽï¼Œæ‚¨å¯ä»¥æ­£å¸¸ä½¿ç”¨è¡Œæ”¿åŽå‹¤ç®¡ç†ç³»ç»Ÿã€‚
-echo ===============================================================================
+echo ===================================================
+echo ÇåÀíÍê³É£¡ÏÖÔÚ¿ÉÒÔ°²È«°²×°ÐÂ°æ±¾µÄÐÐÕþºóÇÚ¹ÜÀíÏµÍ³ÁË¡£
+echo ===================================================
+echo ÌáÊ¾£ºÔÚ°²×°Ïòµ¼ÖÐ£¬Äú¿ÉÒÔ×Ô¶¨Òå°²×°Â·¾¶
+echo Êý¾ÝÎÄ¼þ½«Ê¼ÖÕ´æ´¢ÔÚÄúÑ¡ÔñµÄ°²×°Â·¾¶ÖÐ
+echo ===================================================
 pause
-goto end
-
-:webview2_installed
-echo WebView2å·²æˆåŠŸå®‰è£…ï¼Œå¯ä»¥ç»§ç»­å®‰è£…è¡Œæ”¿åŽå‹¤ç®¡ç†ç³»ç»Ÿã€‚
-goto end
-
-:end
