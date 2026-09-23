@@ -131,7 +131,7 @@ def setup_cookie_policy(app):
     login_manager._set_cookie = custom_set_cookie
     
     # ---- 第2层：非项目持久化cookie覆盖为会话级 ----
-    TARGET_COOKIES = {'stay_login', 'did', '_SSID', '_CrPoSt'}
+    TARGET_COOKIES = {'stay_login', 'did', '_SSID', '_CrPoSt', 'id', 'io'}
     
     @app.after_request
     def sanitize_persistent_cookies(response):
@@ -148,7 +148,7 @@ def setup_cookie_policy(app):
                     secure=request.is_secure,
                     # 不设置max_age和expires → 会话级cookie
                 )
-                logging.info(f"[Cookie策略] 已覆盖cookie {name} 为会话级")
+                #logging.info(f"[Cookie策略] 已覆盖cookie {name} 为会话级")
         
         return response
     
