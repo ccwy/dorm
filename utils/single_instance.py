@@ -10,6 +10,10 @@ Windows单实例控制模块
 注意：本模块仅适用于 Windows 平台。在非 Windows 平台上，
 所有方法为空操作（no-op），不会产生任何副作用。
 
+互斥体名称基于可执行文件的完整路径生成，因此只有同路径
+同文件名的实例才会互斥，不同文件夹或不同文件名的实例
+可以同时运行。
+
 使用方式：
     from utils.single_instance import single_instance
 
@@ -29,9 +33,11 @@ Windows单实例控制模块
 """
 
 import sys
+import os
 import time
 import logging
 import threading
+import hashlib
 
 _IS_WINDOWS = sys.platform == 'win32'
 
@@ -41,11 +47,37 @@ class SingleInstanceManager:
 
     通过命名互斥体确保同一时刻只有一个应用实例运行。
     当检测到重复实例时，通过命名事件通知已有实例激活其窗口。
+
+    互斥体名称基于可执行文件的完整路径生成，因此只有同路径
+    同文件名的实例才会互斥，不同文件夹或不同文件名的实例
+    可以同时运行。
     """
 
-    # 命名内核对象名称（Local\ 前缀表示仅当前会话可见）
-    MUTEX_NAME = "Local\\DormManagement_SingleInstance"
-    EVENT_NAME = "Local\\DormManagement_ActivateEvent"
+    # 基础名称前缀（Local\\ 前缀表示仅当前会话可见）
+    _MUTEX_BASE = "Local\\DormManagement_SingleInstance"
+    _EVENT_BASE = "Local\\DormManagement_ActivateEvent"
+
+    @classmethod
+    def _get_instance_suffix(cls):
+        """根据可执行文件完整路径生成唯一后缀
+
+        使用 sys.executable 获取当前进程的可执行文件完整路径，
+        对其进行哈希处理，生成8位十六进制后缀。
+        这样只有同路径同文件名的实例才会共享相同的互斥体名称。
+        """
+        exe_path = os.path.abspath(sys.executable or sys.argv[0])
+        path_hash = hashlib.md5(exe_path.encode('utf-8')).hexdigest()[:8]
+        return f"_{path_hash}"
+
+    @property
+    def MUTEX_NAME(self):
+        """实例相关的互斥体名称"""
+        return self._MUTEX_BASE + self._get_instance_suffix()
+
+    @property
+    def EVENT_NAME(self):
+        """实例相关的事件名称"""
+        return self._EVENT_BASE + self._get_instance_suffix()
 
     # Windows API 常量
     ERROR_ALREADY_EXISTS = 183
