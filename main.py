@@ -107,6 +107,10 @@ def init_flask_app(progress_callback=None):
     app.permanent_session_lifetime = current_config.PERMANENT_SESSION_LIFETIME
     
     print(f"会话超时时间: {app.permanent_session_lifetime}")
+    # 验证REMEMBER_COOKIE_DURATION配置是否正确加载
+    # Flask-Login默认COOKIE_DURATION为365天，若未正确加载则会使用默认值
+    remember_duration = app.config.get('REMEMBER_COOKIE_DURATION', '未配置')
+    print(f"Remember Cookie有效期: {remember_duration}")
     
     # 阶段2：加载核心模块
     if progress_callback:
@@ -269,6 +273,11 @@ def init_flask_app(progress_callback=None):
     login_manager.login_view = 'login.login'
     login_manager.login_message = '请先登录以访问此页面'
     login_manager.login_message_category = 'info'
+
+    # 覆盖Flask-Login的_set_cookie方法，支持会话级remember cookie
+    # 未勾选"记住我"时remember_token为会话级（参考CRspli9ois），勾选时30天有效期
+    from utils.cookie_secure import setup_remember_cookie_enforcer
+    setup_remember_cookie_enforcer(app)
 
     @login_manager.user_loader
     def load_user(user_id):
