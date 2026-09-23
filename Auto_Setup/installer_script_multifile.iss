@@ -113,7 +113,7 @@ begin
     if CheckWebView2Task then
     begin
       ExtractTemporaryFile('webview2_detection.bat');
-      if not Exec(ExpandConstant('{tmp}\webview2_detection.bat'), '', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
+      if not Exec(ExpandConstant('{tmp}\webview2_detection.bat'), '--iss', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
       begin
         MsgBox('无法运行WebView2检测脚本。您可能需要手动安装WebView2运行时才能使用行政后勤管理系统。', mbInformation, MB_OK);
       end;

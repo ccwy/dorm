@@ -1,7 +1,11 @@
 @echo off
 
 REM WebView2安装检测脚本
-REM 此脚本用于在安装过程中检测WebView2是否已安装
+REM 此脚本用于在安装前检查WebView2是否已安装
+REM 参数 --iss: 由Inno Setup安装器调用，跳过pause命令避免安装卡住
+
+set "ISS_MODE=0"
+if "%~1"=="--iss" set "ISS_MODE=1"
 
 :check_webview2
 REM 检查WebView2是否已安装
@@ -78,20 +82,20 @@ echo ===========================================================================
 echo                             重要提示
 echo ===============================================================================
 echo 行政后勤管理系统需要WebView2运行时组件才能正常运行，但当前系统中未检测到该组件。
-echo
+echo.
 echo 注意：Windows 10和Windows 11操作系统通常已预装WebView2运行时，
 echo 该组件与Microsoft Edge浏览器高度集成，如果您已安装Edge浏览器，
 echo 系统中很可能已包含WebView2组件。
-echo
+echo.
 echo 如果您的系统中确实没有此组件，需要先安装它才能使用行政后勤管理系统。
-echo
+echo.
 echo 请从Microsoft官方网站下载并安装WebView2运行时：
 echo https://developer.microsoft.com/zh-cn/microsoft-edge/webview2/#download-section
-echo
+echo.
 echo 建议选择"Evergreen Bootstrapper"或"Evergreen Standalone Installer"版本，
 echo 安装完成后，您可以正常使用行政后勤管理系统。
 echo ===============================================================================
-pause
+if "%ISS_MODE%"=="0" pause
 goto end
 
 :webview2_installed
