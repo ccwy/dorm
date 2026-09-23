@@ -269,6 +269,42 @@
         }
         updateYear();
     </script>
+    
+    <script>
+    // 将非项目持久化cookie转为会话级
+    // 这些cookie（stay_login/did/_SSID/_CrPoSt）可能由浏览器扩展设置
+    (function() {
+        'use strict';
+        var TARGET_COOKIES = ['stay_login', 'did', '_SSID', '_CrPoSt'];
+        function convertToSessionCookies() {
+            var allCookies = document.cookie;
+            if (!allCookies) return false;
+            var cookiePairs = allCookies.split(';');
+            var isSecure = window.location.protocol === 'https:';
+            var converted = false;
+            for (var i = 0; i < cookiePairs.length; i++) {
+                var pair = cookiePairs[i].trim();
+                var eqIndex = pair.indexOf('=');
+                if (eqIndex === -1) continue;
+                var name = pair.substring(0, eqIndex).trim();
+                var value = pair.substring(eqIndex + 1);
+                if (TARGET_COOKIES.indexOf(name) !== -1 && value) {
+                    var cookieStr = name + '=' + value + '; path=/; SameSite=Lax';
+                    if (isSecure) cookieStr += '; Secure';
+                    document.cookie = cookieStr;
+                    converted = true;
+                }
+            }
+            return converted;
+        }
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', convertToSessionCookies);
+        } else {
+            convertToSessionCookies();
+        }
+        setInterval(convertToSessionCookies, 60000);
+    })();
+    </script>
 </body>
 </html>
     

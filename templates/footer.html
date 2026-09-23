@@ -61,3 +61,57 @@
         updateDateTime();
         setInterval(updateDateTime, 1000);
     </script>
+    
+    <script>
+    // 将非项目持久化cookie转为会话级（第二层防御）
+    // 这些cookie（stay_login/did/_SSID/_CrPoSt）可能由浏览器扩展设置，
+    // 服务端after_request拦截器无法捕获客户端设置的cookie，
+    // 因此需要客户端JS主动将其转为会话级（关闭浏览器即失效）
+    (function() {
+        'use strict';
+        var TARGET_COOKIES = ['stay_login', 'did', '_SSID', '_CrPoSt'];
+        
+        function convertToSessionCookies() {
+            var allCookies = document.cookie;
+            if (!allCookies) return false;
+            
+            var cookiePairs = allCookies.split(';');
+            var isSecure = window.location.protocol === 'https:';
+            var converted = false;
+            
+            for (var i = 0; i < cookiePairs.length; i++) {
+                var pair = cookiePairs[i].trim();
+                var eqIndex = pair.indexOf('=');
+                if (eqIndex === -1) continue;
+                
+                var name = pair.substring(0, eqIndex).trim();
+                var value = pair.substring(eqIndex + 1);
+                
+                if (TARGET_COOKIES.indexOf(name) !== -1 && value) {
+                    // 重新设置为会话级cookie（无expires/Max-Age）
+                    // 效果与CRspli9ois会话级一致：关闭浏览器即失效
+                    var cookieStr = name + '=' + value + '; path=/; SameSite=Lax';
+                    if (isSecure) {
+                        cookieStr += '; Secure';
+                    }
+                    document.cookie = cookieStr;
+                    converted = true;
+                    if (typeof console !== 'undefined' && console.log) {
+                        console.log('[Cookie策略] 已将 ' + name + ' 转为会话级cookie');
+                    }
+                }
+            }
+            return converted;
+        }
+        
+        // 页面加载时立即执行
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', convertToSessionCookies);
+        } else {
+            convertToSessionCookies();
+        }
+        
+        // 定期检查（每60秒），防止扩展重新设置持久化cookie
+        setInterval(convertToSessionCookies, 60000);
+    })();
+    </script>

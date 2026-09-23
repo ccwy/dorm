@@ -135,6 +135,61 @@ def setup_remember_cookie_enforcer(app):
     logging.info("[Cookie策略] 已覆盖Flask-Login _set_cookie，支持会话级remember cookie")
 
 
+def setup_persistent_cookie_sanitizer(app):
+    """拦截非项目cookie的持久化属性，将其转为会话级
+    
+    某些浏览器扩展或外部服务可能设置持久化cookie（如stay_login、did、_SSID、_CrPoSt），
+    这些cookie的有效期可能长达365天。此拦截器检查服务端响应中的Set-Cookie头，
+    如果发现这些cookie，剥离其expires/Max-Age属性，使其成为会话级cookie。
+    
+    注意：如果这些cookie由浏览器扩展在客户端设置（非服务端Set-Cookie），
+    则此拦截器无法生效，需要依赖客户端JavaScript转换（见footer.html）。
+    """
+    TARGET_COOKIES = {'stay_login', 'did', '_SSID', '_CrPoSt'}
+    
+    @app.after_request
+    def sanitize_persistent_cookies(response):
+        # 检查响应中的Set-Cookie头
+        cookie_headers = response.headers.getlist('Set-Cookie')
+        if not cookie_headers:
+            return response
+        
+        modified = False
+        new_headers = []
+        
+        for cookie_header in cookie_headers:
+            # 提取cookie名称（等号前的部分）
+            name_part = cookie_header.split('=')[0].strip()
+            
+            if name_part in TARGET_COOKIES:
+                # 剥离expires和Max-Age属性，使其成为会话级cookie
+                parts = cookie_header.split(';')
+                sanitized_parts = []
+                for part in parts:
+                    part_stripped = part.strip()
+                    part_lower = part_stripped.lower()
+                    if not (part_lower.startswith('expires') or 
+                            part_lower.startswith('max-age')):
+                        sanitized_parts.append(part_stripped)
+                
+                new_header = '; '.join(sanitized_parts)
+                new_headers.append(new_header)
+                modified = True
+                logging.info(f"[Cookie策略] 已将服务端Set-Cookie中的 {name_part} 转为会话级")
+            else:
+                new_headers.append(cookie_header)
+        
+        if modified:
+            # 替换Set-Cookie头
+            del response.headers['Set-Cookie']
+            for header in new_headers:
+                response.headers.add('Set-Cookie', header)
+        
+        return response
+    
+    logging.info("[Cookie策略] 已注册持久化cookie清理拦截器（目标: stay_login/did/_SSID/_CrPoSt）")
+
+
 def invalidate_all_sessions():
     """使所有现有session失效，通过更换SECRET_KEY实现
     

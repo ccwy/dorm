@@ -278,6 +278,11 @@ def init_flask_app(progress_callback=None):
     # 未勾选"记住我"时remember_token为会话级（参考CRspli9ois），勾选时30天有效期
     from utils.cookie_secure import setup_remember_cookie_enforcer
     setup_remember_cookie_enforcer(app)
+    
+    # 拦截非项目持久化cookie（stay_login/did/_SSID/_CrPoSt），剥离expires转为会话级
+    # 这些cookie可能由浏览器扩展设置，服务端拦截器作为第一层防御
+    from utils.cookie_secure import setup_persistent_cookie_sanitizer
+    setup_persistent_cookie_sanitizer(app)
 
     @login_manager.user_loader
     def load_user(user_id):
