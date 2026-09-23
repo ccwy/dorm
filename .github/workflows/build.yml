@@ -113,20 +113,6 @@ jobs:
           Invoke-WebRequest -Uri $islUrl -OutFile $islPath -UseBasicParsing
           Write-Host "已下载中文语言包到: $islPath"
 
-      - name: 🔨 Inno Setup 打包 (单文件安装包)
-        run: |
-          New-Item -ItemType Directory -Path "Auto_Setup\Output" -Force
-          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "Auto_Setup\installer_script.iss" /O"Auto_Setup\Output"
-          $version = "${{ steps.version.outputs.version }}"
-          $srcFile = "Auto_Setup\Output\行政后勤管理系统_Setup_v1.0.exe"
-          if (Test-Path $srcFile) {
-            if ($version -ne "") {
-              Move-Item -Path $srcFile -Destination "Auto_Setup\Output\DormManagement_Setup_SingleFile_v${version}.exe" -Force
-            } else {
-              Move-Item -Path $srcFile -Destination "Auto_Setup\Output\DormManagement_Setup_SingleFile.exe" -Force
-            }
-          }
-
       - name: 🔨 Inno Setup 打包 (多文件安装包)
         run: |
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "Auto_Setup\installer_script_multifile.iss" /O"Auto_Setup\Output"
@@ -164,9 +150,7 @@ jobs:
           # 安装版
           $installerDir = "dist/windows-installer"
           if (-not (Test-Path $installerDir)) { New-Item -ItemType Directory -Path $installerDir -Force }
-          $singleInstaller = Get-ChildItem -Path "Auto_Setup\Output" -Filter "DormManagement_Setup_SingleFile*.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
           $multiInstaller = Get-ChildItem -Path "Auto_Setup\Output" -Filter "DormManagement_Setup_MultiFile*.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
-          if ($singleInstaller) { Move-Item -Path $singleInstaller.FullName -Destination $installerDir -Force }
           if ($multiInstaller) { Move-Item -Path $multiInstaller.FullName -Destination $installerDir -Force }
 
       - name: 📤 上传 Windows 绿色版·单文件
@@ -219,7 +203,6 @@ jobs:
             |------|------|
             | `DormManagement_Portable_SingleFile_v*.exe` | 单文件绿色版，无需安装，直接运行 |
             | `DormManagement_Portable_MultiFile_v*.zip` | 多文件绿色版，解压后运行主程序，启动更快 |
-            | `DormManagement_Setup_SingleFile_v*.exe` | Inno Setup 安装程序（单文件模式），自动配置快捷方式和卸载程序 |
             | `DormManagement_Setup_MultiFile_v*.exe` | Inno Setup 安装程序（多文件模式），自动配置快捷方式和卸载程序 |
             | `DormManagement_Docker_v*.tar` | Docker 镜像，使用 `docker load -i` 导入 |
             | `DormManagement_v*.apk` | Android APK，直接安装运行（最低 Android 8） |
