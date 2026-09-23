@@ -79,18 +79,19 @@ def logout_user_securely(response=None):
     return response
 
 
-def setup_remember_cookie_enforcer(app):
-    """覆盖Flask-Login的_set_cookie方法，支持会话级remember cookie
+def setup_cookie_policy(app):
+    """统一设置Cookie策略，确保所有cookie符合会话级要求
     
-    Flask-Login 0.6.3的_set_cookie始终设置expires，不支持会话级cookie。
-    通过覆盖此方法，根据用户的"记住我"选择决定cookie有效期：
-    - 勾选"记住我"：使用Flask-Login默认行为（30天有效期）
-    - 未勾选：设置会话级cookie（无expires/Max-Age，参考CRspli9ois）
+    两层机制协同工作：
+    1. 覆盖Flask-Login的_set_cookie方法 → 控制remember_token的有效期
+       - 勾选"记住我"：30天有效期（Flask-Login默认行为）
+       - 未勾选：会话级（关闭浏览器即失效，与CRspli9ois一致）
     
-    这样remember_token的行为与CRspli9ois一致：
-    - 勾选时有有效期，跨浏览器重启保持登录
-    - 未勾选时为会话级，关闭浏览器即失效
+    2. after_request拦截器 → 覆盖非项目持久化cookie为会话级
+       - 目标：stay_login、did、_SSID、_CrPoSt
+       - 原理：读取请求中的目标cookie（包括HttpOnly），设置同名会话级cookie覆盖
     """
+    # ---- 第1层：remember_token有效期控制 ----
     login_manager = app.login_manager
     original_set_cookie = login_manager._set_cookie
     
@@ -99,13 +100,10 @@ def setup_remember_cookie_enforcer(app):
         
         config = current_app.config
         cookie_name = config.get('REMEMBER_COOKIE_NAME', 'remember_token')
-        
-        # 检查用户的remember选择
         remember_choice = session.get('_remember_choice')
         
         if remember_choice is False:
             # 未勾选"记住我"：设置会话级remember cookie（无expires）
-            # 效果与CRspli9ois会话级一致：关闭浏览器即失效
             data = encode_cookie(str(session['_user_id']))
             domain = config.get('REMEMBER_COOKIE_DOMAIN')
             path = config.get('REMEMBER_COOKIE_PATH', '/')
@@ -113,7 +111,6 @@ def setup_remember_cookie_enforcer(app):
             httponly = config.get('REMEMBER_COOKIE_HTTPONLY', True)
             samesite = config.get('REMEMBER_COOKIE_SAMESITE')
             
-            # 不设置expires = 会话级cookie
             response.set_cookie(
                 cookie_name,
                 value=data,
@@ -123,7 +120,7 @@ def setup_remember_cookie_enforcer(app):
                 httponly=httponly,
                 samesite=samesite,
             )
-            logging.info(f"[Cookie策略] 设置会话级remember_token（用户未选择记住我）")
+            logging.info("[Cookie策略] 设置会话级remember_token（用户未选择记住我）")
         else:
             # 勾选"记住我"：使用Flask-Login默认行为（30天有效期）
             original_set_cookie(response)
@@ -132,21 +129,12 @@ def setup_remember_cookie_enforcer(app):
                          f"REMEMBER_COOKIE_DURATION={remember_duration}")
     
     login_manager._set_cookie = custom_set_cookie
-    logging.info("[Cookie策略] 已覆盖Flask-Login _set_cookie，支持会话级remember cookie")
-
-
-def setup_persistent_cookie_sanitizer(app):
-    """拦截非项目cookie的持久化属性，将其转为会话级
     
-    某些浏览器扩展或外部服务可能设置持久化cookie（如stay_login、did、_SSID、_CrPoSt），
-    有效期可能长达365天。此拦截器读取请求中已存在的目标cookie（包括HttpOnly），
-    在响应中主动设置同名会话级cookie覆盖，使其关闭浏览器即失效。
-    """
+    # ---- 第2层：非项目持久化cookie覆盖为会话级 ----
     TARGET_COOKIES = {'stay_login', 'did', '_SSID', '_CrPoSt'}
     
     @app.after_request
     def sanitize_persistent_cookies(response):
-        # 读取请求中的目标cookie，主动设置同名会话级cookie覆盖
         # request.cookies可读取所有cookie（包括HttpOnly），无需前端JS参与
         for name in TARGET_COOKIES:
             value = request.cookies.get(name)
@@ -164,7 +152,7 @@ def setup_persistent_cookie_sanitizer(app):
         
         return response
     
-    logging.info("[Cookie策略] 已注册持久化cookie清理拦截器（目标: stay_login/did/_SSID/_CrPoSt）")
+    logging.info("[Cookie策略] 已初始化：remember_token双模式 + 持久化cookie会话级覆盖")
 
 
 def invalidate_all_sessions():
