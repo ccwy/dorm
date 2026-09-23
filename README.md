@@ -31,6 +31,7 @@ https://github.com/ccwy/dorm/releases
 | Windows 7 SP1 | 32/64 位 | 仅服务端模式 |
 | Windows 10+ | 64 位 | 客户端 + 服务端模式 |
 | Android 8+ | ARM64 / x86 | 客户端模式 |
+| docker | AMD64  | 仅服务端模式 |
 
 ### 系统要求
 
