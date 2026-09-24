@@ -86,6 +86,12 @@ jobs:
           pip install -r requirements.txt
           pip install pyinstaller==6.16
 
+      - name: ✂️ 剥离Python环境PE签名 (Win7兼容)
+        run: |
+          $pythonDir = python -c "import sys; print(sys.prefix)"
+          Write-Host "Python路径: $pythonDir"
+          python Auto_Setup/strip_pe_signatures.py $pythonDir
+
       - name: 🔨 创建 data 目录
         run: |
           if (-not (Test-Path "data")) {
@@ -197,6 +203,7 @@ jobs:
             - **不支持 IE浏览器**
             - win10以上需要安装WebView2 运行时
             - win10以上支持客户端模式和服务器模式
+            - **已内置Win7兼容处理**：无需安装KB4474419补丁即可正常运行
 
             ### 下载说明
             | 文件 | 说明 |
