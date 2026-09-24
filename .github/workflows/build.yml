@@ -190,7 +190,7 @@ jobs:
 
             #### 系统要求
             - Windows 7 SP1（32位或64位）以上系统
-            - win7必须安装 Windows 更新 [KB4474419](https://catalog.update.microsoft.com/v7/site/Search.aspx?q=KB4474419)
+            - win7必须安装 Windows 更新Win7 SHA-2代码签名支持 [KB4474419](https://catalog.update.microsoft.com/v7/site/Search.aspx?q=KB4474419)
             - 需要安装现代浏览器（Chrome 109+ 或 Firefox 115 ESR 推荐）
             - win7仅支持服务器模式运行
             - **不支持 IE浏览器**
