@@ -36,9 +36,9 @@ https://github.com/ccwy/dorm/releases
 ### 系统要求
 
 - Windows 7 SP1（32 位或 64 位）及以上系统
-- Windows 7 建议安装系统更新 [KB2999226](https://support.microsoft.com/en-us/topic/update-for-universal-c-runtime-in-windows-c0514201-7fe6-95fa-3b9a-83c5f4c1c9ee)
+- Windows 7 必须安装系统更新 [KB4474419](https://catalog.update.microsoft.com/v7/site/Search.aspx?q=KB4474419)
 - 服务端模式需安装现代浏览器（推荐 Chrome 109+ 或 Firefox 115 ESR）
-- **不支持 IE11**
+- **不支持 IE浏览器**
 - Windows 10 及以上需安装 [WebView2 运行时](https://developer.microsoft.com/en-us/microsoft-edge/webview2/)
 - Android 8 及以上，支持 ARM64 和 x86 架构
 

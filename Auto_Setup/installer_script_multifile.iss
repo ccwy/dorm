@@ -78,29 +78,7 @@ function InitializeSetup(): Boolean;
 var
   ResultCode: Integer;
   PreInstallCheckPath: String;
-  KBCheckPath: String;
 begin
-  // 运行SHA-2代码签名支持检测（Win7需KB4474419/KB4490628补丁）
-  ExtractTemporaryFile('kb4474419_check.bat');
-  KBCheckPath := ExpandConstant('{tmp}\kb4474419_check.bat');
-  ShellExec('', KBCheckPath, '--iss', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
-  
-  // 如果SHA-2支持未检测到（返回码1），弹出警告让用户选择是否继续
-  if ResultCode = 1 then
-  begin
-    if MsgBox('当前系统为Windows 7但未检测到SHA-2代码签名支持。' + #13#10 + #13#10 +
-              '缺少此支持会导致程序无法正常运行。' + #13#10 + #13#10 +
-              '请安装KB4474419补丁：' + #13#10 +
-              '官方: https://catalog.update.microsoft.com/v7/site/Search.aspx?q=KB4474419' + #13#10 +
-              '备用x64: https://mnl.lanzouc.com/i2ULP49qiqla' + #13#10 +
-              '备用x86: https://mnl.lanzouc.com/iWzXt49qiptc' + #13#10 + #13#10 +
-              '是否仍要继续安装？', mbConfirmation, MB_YESNO) = IDNO then
-    begin
-      Result := False;
-      Exit;
-    end;
-  end;
-  
   // 运行安装前清理工具
   ExtractTemporaryFile('pre_install_check.bat');
   PreInstallCheckPath := ExpandConstant('{tmp}\pre_install_check.bat');
@@ -123,18 +101,155 @@ begin
     Result := False;
 end;
 
-// 在用户做出任务选择后检查并运行WebView2检测
+// KB4474419 下载链接点击处理
+var
+  KBShellResultCode: Integer;
+
+procedure OpenKBOfficialLink(Sender: TObject);
+begin
+  ShellExec('open', 'https://catalog.update.microsoft.com/v7/site/Search.aspx?q=KB4474419', '', '', SW_SHOWNORMAL, ewNoWait, KBShellResultCode);
+end;
+
+procedure OpenKBx64Link(Sender: TObject);
+begin
+  ShellExec('open', 'https://mnl.lanzouc.com/i2ULP49qiqla', '', '', SW_SHOWNORMAL, ewNoWait, KBShellResultCode);
+end;
+
+procedure OpenKBx86Link(Sender: TObject);
+begin
+  ShellExec('open', 'https://mnl.lanzouc.com/iWzXt49qiptc', '', '', SW_SHOWNORMAL, ewNoWait, KBShellResultCode);
+end;
+
+// 在安装过程中执行各项检测
 procedure CurStepChanged(CurStep: TSetupStep);
 var
   ResultCode: Integer;
   CheckWebView2Task: Boolean;
+  KBResultCode: Integer;
+  KBForm: TSetupForm;
+  InfoLabel: TNewStaticText;
+  LinkOfficial, Linkx64, Linkx86: TNewStaticText;
+  NoteLabel: TNewStaticText;
+  AbortBtn, RetryBtn: TNewButton;
 begin
   if CurStep = ssInstall then
   begin
-    // 在安装开始前检查是否选择了WebView2检测任务
+    // ===== KB4474419 SHA-2 代码签名支持检测（Win7必需） =====
+    ExtractTemporaryFile('kb4474419_check.bat');
+    KBResultCode := 1;
+    
+    while KBResultCode = 1 do
+    begin
+      if not Exec(ExpandConstant('{tmp}\kb4474419_check.bat'), '--iss', '', SW_HIDE, ewWaitUntilTerminated, KBResultCode) then
+      begin
+        // 脚本执行失败，跳过检测
+        KBResultCode := 0;
+        Break;
+      end;
+      
+      if KBResultCode <> 1 then
+        Break;
+      
+      // SHA-2 支持未检测到，显示带可点击下载链接的对话框
+      KBForm := CreateCustomForm();
+      try
+        KBForm.Caption := '缺少 SHA-2 代码签名支持';
+        KBForm.Width := 520;
+        KBForm.Height := 290;
+        KBForm.BorderStyle := bsDialog;
+        KBForm.Position := poScreenCenter;
+        
+        // 说明文字
+        InfoLabel := TNewStaticText.Create(KBForm);
+        InfoLabel.Parent := KBForm;
+        InfoLabel.Caption := '当前系统为 Windows 7，但未检测到 SHA-2 代码签名支持。'#13#10 +
+                             '缺少此支持会导致程序无法正常运行。'#13#10#13#10 +
+                             '请点击下方链接下载并安装 KB4474419 补丁：';
+        InfoLabel.Left := 20;
+        InfoLabel.Top := 15;
+        InfoLabel.Width := 470;
+        InfoLabel.Height := 70;
+        InfoLabel.AutoSize := False;
+        InfoLabel.WordWrap := True;
+        
+        // 官方下载链接
+        LinkOfficial := TNewStaticText.Create(KBForm);
+        LinkOfficial.Parent := KBForm;
+        LinkOfficial.Caption := '>> 官方下载（Microsoft 更新目录）';
+        LinkOfficial.Left := 30;
+        LinkOfficial.Top := 95;
+        LinkOfficial.Font.Color := clBlue;
+        LinkOfficial.Font.Style := [fsUnderline];
+        LinkOfficial.OnClick := @OpenKBOfficialLink;
+        
+        // 备用x64下载链接
+        Linkx64 := TNewStaticText.Create(KBForm);
+        Linkx64.Parent := KBForm;
+        Linkx64.Caption := '>> 备用下载（64位系统）';
+        Linkx64.Left := 30;
+        Linkx64.Top := 120;
+        Linkx64.Font.Color := clBlue;
+        Linkx64.Font.Style := [fsUnderline];
+        Linkx64.OnClick := @OpenKBx64Link;
+        
+        // 备用x86下载链接
+        Linkx86 := TNewStaticText.Create(KBForm);
+        Linkx86.Parent := KBForm;
+        Linkx86.Caption := '>> 备用下载（32位系统）';
+        Linkx86.Left := 30;
+        Linkx86.Top := 145;
+        Linkx86.Font.Color := clBlue;
+        Linkx86.Font.Style := [fsUnderline];
+        Linkx86.OnClick := @OpenKBx86Link;
+        
+        // 注意事项
+        NoteLabel := TNewStaticText.Create(KBForm);
+        NoteLabel.Parent := KBForm;
+        NoteLabel.Caption := '注意：64位系统选 x64，32位系统选 x86；安装补丁后需重启计算机。';
+        NoteLabel.Left := 20;
+        NoteLabel.Top := 180;
+        NoteLabel.Width := 470;
+        NoteLabel.Height := 30;
+        NoteLabel.AutoSize := False;
+        NoteLabel.WordWrap := True;
+        NoteLabel.Font.Color := clGrayText;
+        
+        // 重新检测按钮
+        RetryBtn := TNewButton.Create(KBForm);
+        RetryBtn.Parent := KBForm;
+        RetryBtn.Caption := '重新检测';
+        RetryBtn.Left := 140;
+        RetryBtn.Top := 225;
+        RetryBtn.Width := 100;
+        RetryBtn.Height := 30;
+        RetryBtn.ModalResult := mrRetry;
+        RetryBtn.Default := True;
+        
+        // 中止安装按钮
+        AbortBtn := TNewButton.Create(KBForm);
+        AbortBtn.Parent := KBForm;
+        AbortBtn.Caption := '中止安装';
+        AbortBtn.Left := 260;
+        AbortBtn.Top := 225;
+        AbortBtn.Width := 100;
+        AbortBtn.Height := 30;
+        AbortBtn.ModalResult := mrCancel;
+        AbortBtn.Cancel := True;
+        
+        if KBForm.ShowModal() = mrCancel then
+        begin
+          // 用户选择中止安装
+          Abort();
+        end;
+        // 用户选择重新检测，循环继续
+      finally
+        KBForm.Free();
+      end;
+    end;
+    
+    // ===== WebView2 检测 =====
     CheckWebView2Task := WizardSilent or WizardIsTaskSelected('checkwebview2');
     
-    // 如果选择了检测任务，则运行WebView2检测脚本
     if CheckWebView2Task then
     begin
       ExtractTemporaryFile('webview2_detection.bat');
@@ -145,7 +260,6 @@ begin
     end
     else if not WizardSilent then
     begin
-      // 如果未选择检测任务且非静默安装，显示提示信息
       MsgBox('您选择跳过WebView2运行时检测。请注意，行政后勤管理系统需要WebView2运行时才能正常运行。如果程序无法启动，请手动安装WebView2运行时。', mbInformation, MB_OK);
     end;
   end;
