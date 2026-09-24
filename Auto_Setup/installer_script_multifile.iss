@@ -151,7 +151,7 @@ begin
         Break;
       
       // SHA-2 支持未检测到，显示带可点击下载链接的对话框
-      KBForm := CreateCustomForm();
+      KBForm := CreateCustomForm;
       try
         KBForm.Caption := '缺少 SHA-2 代码签名支持';
         KBForm.Width := 520;
@@ -236,14 +236,14 @@ begin
         AbortBtn.ModalResult := mrCancel;
         AbortBtn.Cancel := True;
         
-        if KBForm.ShowModal() = mrCancel then
+        if KBForm.ShowModal = mrCancel then
         begin
           // 用户选择中止安装
-          Abort();
+          Abort;
         end;
         // 用户选择重新检测，循环继续
       finally
-        KBForm.Free();
+        KBForm.Free;
       end;
     end;
     
