@@ -80,22 +80,25 @@ var
   PreInstallCheckPath: String;
   KBCheckPath: String;
 begin
-  // 运行SHA-2代码签名支持检测（Win7可选建议）
-  // 注意：打包时已剥离.pyd/.dll的Authenticode签名，Win7无需KB4474419即可正常运行
-  // 此检测仅作为信息提示，不阻止安装
+  // 运行SHA-2代码签名支持检测（Win7需KB4474419/KB4490628补丁）
   ExtractTemporaryFile('kb4474419_check.bat');
   KBCheckPath := ExpandConstant('{tmp}\kb4474419_check.bat');
   ShellExec('', KBCheckPath, '--iss', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
   
-  // 如果SHA-2支持未检测到（返回码1），仅提示建议安装补丁，不阻止安装
+  // 如果SHA-2支持未检测到（返回码1），弹出警告让用户选择是否继续
   if ResultCode = 1 then
   begin
-    MsgBox('当前系统为Windows 7但未检测到SHA-2代码签名支持。' + #13#10 + #13#10 +
-           '本安装包已剥离DLL签名，无需该补丁即可正常运行。' + #13#10 + #13#10 +
-           '但建议安装KB4474419补丁以获得更好的系统安全性：' + #13#10 +
-           '官方: https://catalog.update.microsoft.com/v7/site/Search.aspx?q=KB4474419' + #13#10 +
-           '备用x64: https://mnl.lanzouc.com/i2ULP49qiqla' + #13#10 +
-           '备用x86: https://mnl.lanzouc.com/iWzXt49qiptc', mbInformation, MB_OK);
+    if MsgBox('当前系统为Windows 7但未检测到SHA-2代码签名支持。' + #13#10 + #13#10 +
+              '缺少此支持会导致程序无法正常运行。' + #13#10 + #13#10 +
+              '请安装KB4474419补丁：' + #13#10 +
+              '官方: https://catalog.update.microsoft.com/v7/site/Search.aspx?q=KB4474419' + #13#10 +
+              '备用x64: https://mnl.lanzouc.com/i2ULP49qiqla' + #13#10 +
+              '备用x86: https://mnl.lanzouc.com/iWzXt49qiptc' + #13#10 + #13#10 +
+              '是否仍要继续安装？', mbConfirmation, MB_YESNO) = IDNO then
+    begin
+      Result := False;
+      Exit;
+    end;
   end;
   
   // 运行安装前清理工具
