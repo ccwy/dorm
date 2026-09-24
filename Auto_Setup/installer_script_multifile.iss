@@ -61,6 +61,7 @@ Name: "{userdesktop}\行政后勤管理系统"; Filename: "{app}\行政后勤管
 
 [Tasks]
 Name: "desktopicon"; Description: "创建桌面快捷方式"; GroupDescription: "附加图标"
+Name: "checkkb4474419"; Description: "检测SHA-2代码签名支持(Win7必需)"; GroupDescription: "安装选项"; Flags: checkedonce
 Name: "checkwebview2"; Description: "检测WebView2运行时"; GroupDescription: "安装选项"; Flags: checkedonce
 
 [Code]
@@ -124,7 +125,7 @@ end;
 procedure CurStepChanged(CurStep: TSetupStep);
 var
   ResultCode: Integer;
-  CheckWebView2Task: Boolean;
+  CheckKBTask, CheckWebView2Task: Boolean;
   KBResultCode: Integer;
   KBForm: TSetupForm;
   InfoLabel: TNewStaticText;
@@ -135,116 +136,125 @@ begin
   if CurStep = ssInstall then
   begin
     // ===== KB4474419 SHA-2 代码签名支持检测（Win7必需） =====
-    ExtractTemporaryFile('kb4474419_check.bat');
-    KBResultCode := 1;
+    CheckKBTask := WizardSilent or WizardIsTaskSelected('checkkb4474419');
     
-    while KBResultCode = 1 do
+    if CheckKBTask then
     begin
-      if not Exec(ExpandConstant('{tmp}\kb4474419_check.bat'), '--iss', '', SW_HIDE, ewWaitUntilTerminated, KBResultCode) then
+      ExtractTemporaryFile('kb4474419_check.bat');
+      KBResultCode := 1;
+    
+      while KBResultCode = 1 do
       begin
-        // 脚本执行失败，跳过检测
-        KBResultCode := 0;
-        Break;
-      end;
-      
-      if KBResultCode <> 1 then
-        Break;
-      
-      // SHA-2 支持未检测到，显示带可点击下载链接的对话框
-      KBForm := CreateCustomForm(500, 250, False, False);
-      try
-        KBForm.Caption := '缺少 SHA-2 代码签名支持';
-        KBForm.Width := 520;
-        KBForm.Height := 290;
-        KBForm.BorderStyle := bsDialog;
-        KBForm.Position := poScreenCenter;
-        
-        // 说明文字
-        InfoLabel := TNewStaticText.Create(KBForm);
-        InfoLabel.Parent := KBForm;
-        InfoLabel.Caption := '当前系统为 Windows 7，但未检测到 SHA-2 代码签名支持。'#13#10 +
-                             '缺少此支持会导致程序无法正常运行。'#13#10#13#10 +
-                             '请点击下方链接下载并安装 KB4474419 补丁：';
-        InfoLabel.Left := 20;
-        InfoLabel.Top := 15;
-        InfoLabel.Width := 470;
-        InfoLabel.Height := 70;
-        InfoLabel.AutoSize := False;
-        InfoLabel.WordWrap := True;
-        
-        // 官方下载链接
-        LinkOfficial := TNewStaticText.Create(KBForm);
-        LinkOfficial.Parent := KBForm;
-        LinkOfficial.Caption := '>> 官方下载（Microsoft 更新目录）';
-        LinkOfficial.Left := 30;
-        LinkOfficial.Top := 95;
-        LinkOfficial.Font.Color := clBlue;
-        LinkOfficial.Font.Style := [fsUnderline];
-        LinkOfficial.OnClick := @OpenKBOfficialLink;
-        
-        // 备用x64下载链接
-        Linkx64 := TNewStaticText.Create(KBForm);
-        Linkx64.Parent := KBForm;
-        Linkx64.Caption := '>> 备用下载（64位系统）';
-        Linkx64.Left := 30;
-        Linkx64.Top := 120;
-        Linkx64.Font.Color := clBlue;
-        Linkx64.Font.Style := [fsUnderline];
-        Linkx64.OnClick := @OpenKBx64Link;
-        
-        // 备用x86下载链接
-        Linkx86 := TNewStaticText.Create(KBForm);
-        Linkx86.Parent := KBForm;
-        Linkx86.Caption := '>> 备用下载（32位系统）';
-        Linkx86.Left := 30;
-        Linkx86.Top := 145;
-        Linkx86.Font.Color := clBlue;
-        Linkx86.Font.Style := [fsUnderline];
-        Linkx86.OnClick := @OpenKBx86Link;
-        
-        // 注意事项
-        NoteLabel := TNewStaticText.Create(KBForm);
-        NoteLabel.Parent := KBForm;
-        NoteLabel.Caption := '注意：64位系统选 x64，32位系统选 x86；安装补丁后需重启计算机。';
-        NoteLabel.Left := 20;
-        NoteLabel.Top := 180;
-        NoteLabel.Width := 470;
-        NoteLabel.Height := 30;
-        NoteLabel.AutoSize := False;
-        NoteLabel.WordWrap := True;
-        NoteLabel.Font.Color := clGrayText;
-        
-        // 重新检测按钮
-        RetryBtn := TNewButton.Create(KBForm);
-        RetryBtn.Parent := KBForm;
-        RetryBtn.Caption := '重新检测';
-        RetryBtn.Left := 140;
-        RetryBtn.Top := 225;
-        RetryBtn.Width := 100;
-        RetryBtn.Height := 30;
-        RetryBtn.ModalResult := mrRetry;
-        RetryBtn.Default := True;
-        
-        // 中止安装按钮
-        AbortBtn := TNewButton.Create(KBForm);
-        AbortBtn.Parent := KBForm;
-        AbortBtn.Caption := '中止安装';
-        AbortBtn.Left := 260;
-        AbortBtn.Top := 225;
-        AbortBtn.Width := 100;
-        AbortBtn.Height := 30;
-        AbortBtn.ModalResult := mrCancel;
-        AbortBtn.Cancel := True;
-        
-        if KBForm.ShowModal = mrCancel then
+        if not Exec(ExpandConstant('{tmp}\\kb4474419_check.bat'), '--iss', '', SW_HIDE, ewWaitUntilTerminated, KBResultCode) then
         begin
-          // 用户选择中止安装
-          Abort;
+          // 脚本执行失败，跳过检测
+          KBResultCode := 0;
+          Break;
         end;
-        // 用户选择重新检测，循环继续
-      finally
-        KBForm.Free;
+
+        if KBResultCode <> 1 then
+          Break;
+
+        // SHA-2 支持未检测到，显示带可点击下载链接的对话框
+        KBForm := CreateCustomForm(500, 300, False, False);
+        try
+          KBForm.Caption := '缺少 SHA-2 代码签名支持';
+          KBForm.Width := 520;
+          KBForm.Height := 340;
+          KBForm.BorderStyle := bsDialog;
+          KBForm.Position := poScreenCenter;
+
+          // 说明文字
+          InfoLabel := TNewStaticText.Create(KBForm);
+          InfoLabel.Parent := KBForm;
+          InfoLabel.Caption := '当前系统为 Windows 7，但未检测到 SHA-2 代码签名支持。'#13#10 +
+                               '缺少此支持会导致程序无法正常运行。'#13#10#13#10 +
+                               '请点击下方链接下载并安装 KB4474419 补丁：';
+          InfoLabel.Left := 20;
+          InfoLabel.Top := 15;
+          InfoLabel.Width := 470;
+          InfoLabel.Height := 70;
+          InfoLabel.AutoSize := False;
+          InfoLabel.WordWrap := True;
+
+          // 官方下载链接
+          LinkOfficial := TNewStaticText.Create(KBForm);
+          LinkOfficial.Parent := KBForm;
+          LinkOfficial.Caption := '>> 官方下载（Microsoft 更新目录）';
+          LinkOfficial.Left := 30;
+          LinkOfficial.Top := 95;
+          LinkOfficial.Font.Color := clBlue;
+          LinkOfficial.Font.Style := [fsUnderline];
+          LinkOfficial.OnClick := @OpenKBOfficialLink;
+
+          // 备用x64下载链接
+          Linkx64 := TNewStaticText.Create(KBForm);
+          Linkx64.Parent := KBForm;
+          Linkx64.Caption := '>> 备用下载（64位系统）';
+          Linkx64.Left := 30;
+          Linkx64.Top := 120;
+          Linkx64.Font.Color := clBlue;
+          Linkx64.Font.Style := [fsUnderline];
+          Linkx64.OnClick := @OpenKBx64Link;
+
+          // 备用x86下载链接
+          Linkx86 := TNewStaticText.Create(KBForm);
+          Linkx86.Parent := KBForm;
+          Linkx86.Caption := '>> 备用下载（32位系统）';
+          Linkx86.Left := 30;
+          Linkx86.Top := 145;
+          Linkx86.Font.Color := clBlue;
+          Linkx86.Font.Style := [fsUnderline];
+          Linkx86.OnClick := @OpenKBx86Link;
+
+          // 注意事项
+          NoteLabel := TNewStaticText.Create(KBForm);
+          NoteLabel.Parent := KBForm;
+          NoteLabel.Caption := '注意：64位系统选 x64，32位系统选 x86；安装补丁后需重启计算机。';
+          NoteLabel.Left := 20;
+          NoteLabel.Top := 180;
+          NoteLabel.Width := 470;
+          NoteLabel.Height := 30;
+          NoteLabel.AutoSize := False;
+          NoteLabel.WordWrap := True;
+          NoteLabel.Font.Color := clGrayText;
+
+          // 重新检测按钮
+          RetryBtn := TNewButton.Create(KBForm);
+          RetryBtn.Parent := KBForm;
+          RetryBtn.Caption := '重新检测';
+          RetryBtn.Left := 140;
+          RetryBtn.Top := 270;
+          RetryBtn.Width := 100;
+          RetryBtn.Height := 30;
+          RetryBtn.ModalResult := mrRetry;
+          RetryBtn.Default := True;
+
+          // 中止安装按钮
+          AbortBtn := TNewButton.Create(KBForm);
+          AbortBtn.Parent := KBForm;
+          AbortBtn.Caption := '中止安装';
+          AbortBtn.Left := 260;
+          AbortBtn.Top := 270;
+          AbortBtn.Width := 100;
+          AbortBtn.Height := 30;
+          AbortBtn.ModalResult := mrCancel;
+          AbortBtn.Cancel := True;
+
+          if KBForm.ShowModal = mrCancel then
+          begin
+            // 用户选择中止安装
+            Abort;
+          end;
+          // 用户选择重新检测，循环继续
+        finally
+          KBForm.Free;
+        end;
       end;
+    end
+    else if not WizardSilent then
+    begin
+      MsgBox('您选择跳过SHA-2代码签名支持检测。请注意，Windows 7系统缺少此支持会导致程序无法正常运行。如果程序启动报错，请安装KB4474419补丁。', mbInformation, MB_OK);
     end;
     
     // ===== WebView2 检测 =====
