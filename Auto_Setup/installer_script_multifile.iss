@@ -76,35 +76,7 @@ function InitializeSetup(): Boolean;
 var
   ResultCode: Integer;
   PreInstallCheckPath: String;
-  UcrtDllPath: String;
-  UcrtFound: Boolean;
 begin
-  // ===== Windows 7 兼容性检查 =====
-  // Python 3.5+ 依赖 Universal C Runtime (UCRT)，Win7 未内置
-  // 直接检查 ucrtbase.dll 是否存在（最可靠的方式）
-  // - Win10/11：系统内置 UCRT，DLL 始终存在
-  // - Win7 未装补丁：DLL 不存在，需要安装
-  // - Win7 已装补丁：DLL 存在，无需额外操作
-  UcrtDllPath := ExpandConstant('{sys}\ucrtbase.dll');
-  UcrtFound := FileExists(UcrtDllPath);
-  
-  if not UcrtFound then
-  begin
-    // UCRT 缺失，显示警告
-    if MsgBox(
-      '检测到系统缺少通用 C 运行时 (UCRT) 组件，程序将无法正常启动。' + #13#10 + #13#10 +
-      '这通常发生在 Windows 7 或更早版本上。' + #13#10 + #13#10 +
-      '请安装以下补丁之一后重新安装：' + #13#10 +
-      '1. Windows 更新 KB2999226（通用 C 运行时补丁）' + #13#10 +
-      '2. Visual C++ Redistributable 2015-2022' + #13#10 + #13#10 +
-      '是否继续安装？（建议选择"否"，先安装补丁后再重新安装）',
-      mbConfirmation, MB_YESNO) = IDNO then
-    begin
-      Result := False;
-      Exit;
-    end;
-  end;
-  
   // 运行安装前清理工具
   PreInstallCheckPath := ExpandConstant('{tmp}\pre_install_check.bat');
   ShellExec('', PreInstallCheckPath, '--iss', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);

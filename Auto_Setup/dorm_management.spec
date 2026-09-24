@@ -10,45 +10,6 @@ current_dir = os.path.dirname(os.path.abspath(sys.argv[0])) if len(sys.argv) > 0
 # 定义项目根目录（脚本位于Auto_Setup文件夹中，需要向上一级目录）
 project_root = os.path.abspath(os.path.join(current_dir, '..'))
 
-# ===== Windows 7 兼容性：收集 UCRT DLL =====
-# Python 3.5+ 依赖 Universal C Runtime (UCRT)，Win7 未内置
-# 从 Python 安装目录收集 UCRT DLL 打包进应用，确保 Win7 可运行
-ucrt_binaries = []
-if sys.platform == 'win32':
-    # UCRT DLL 通常位于 Python 安装目录或 Windows System32
-    # 从 Python 目录收集（这些 DLL 与 Python 版本匹配，兼容性最好）
-    python_dir = os.path.dirname(sys.executable)
-    ucrt_dll_names = [
-        'ucrtbase.dll',
-        'api-ms-win-crt-runtime-l1-1-0.dll',
-        'api-ms-win-crt-stdio-l1-1-0.dll',
-        'api-ms-win-crt-heap-l1-1-0.dll',
-        'api-ms-win-crt-string-l1-1-0.dll',
-        'api-ms-win-crt-convert-l1-1-0.dll',
-        'api-ms-win-crt-environment-l1-1-0.dll',
-        'api-ms-win-crt-filesystem-l1-1-0.dll',
-        'api-ms-win-crt-math-l1-1-0.dll',
-        'api-ms-win-crt-time-l1-1-0.dll',
-        'api-ms-win-crt-utility-l1-1-0.dll',
-        'api-ms-win-crt-locale-l1-1-0.dll',
-        'api-ms-win-crt-process-l1-1-0.dll',
-        'api-ms-win-crt-multibyte-l1-1-0.dll',
-        'api-ms-win-crt-signals-l1-1-0.dll',
-    ]
-    for dll_name in ucrt_dll_names:
-        # 优先从 Python 目录查找
-        dll_path = os.path.join(python_dir, dll_name)
-        if os.path.isfile(dll_path):
-            ucrt_binaries.append((dll_path, '.'))
-            continue
-        # 备用：从 System32 查找
-        system32 = os.path.join(os.environ.get('SystemRoot', r'C:\Windows'), 'System32')
-        dll_path = os.path.join(system32, dll_name)
-        if os.path.isfile(dll_path):
-            ucrt_binaries.append((dll_path, '.'))
-    if ucrt_binaries:
-        print(f"[Win7兼容] 收集到 {len(ucrt_binaries)} 个 UCRT DLL")
-
 # 定义资源文件路径 - 指向项目根目录下的资源
 data_dir = os.path.join(project_root, 'data')
 
@@ -109,7 +70,7 @@ lazy_import_submodules = (
 a = Analysis(
     [os.path.join(project_root, 'main.py')],
     pathex=[project_root],
-    binaries=ucrt_binaries,
+    binaries=[],
     datas=[
         # 核心应用资源
         (templates_path, 'templates'),
@@ -142,7 +103,7 @@ a = Analysis(
     ],
     hookspath=[],
     hooksconfig={},
-    runtime_hooks=[os.path.join(current_dir, 'runtime_hook_win7.py')],
+    runtime_hooks=[],
     win_no_prefer_redirects=False,
     win_private_assemblies=False,
     cipher=None,
