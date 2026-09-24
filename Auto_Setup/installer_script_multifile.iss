@@ -151,7 +151,7 @@ begin
         Break;
       
       // SHA-2 支持未检测到，显示带可点击下载链接的对话框
-      KBForm := CreateCustomForm;
+      KBForm := CreateCustomForm(500, 250, False, False);
       try
         KBForm.Caption := '缺少 SHA-2 代码签名支持';
         KBForm.Width := 520;
