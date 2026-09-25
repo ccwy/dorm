@@ -47,7 +47,8 @@ https://github.com/ccwy/dorm/releases
 为方便用户在安装前检测系统环境是否满足运行要求，提供独立的系统环境检测工具：
 
 - **功能**：检测系统是否已安装 WebView2 运行时及 Win7 SHA-2 代码签名支持（KB4474419）等必要组件
-- **下载地址**：https://github.com/ccwy/check_webview2_sh2/releases
+- **使用方式**：下载 Release 中的 `check_env_v*.exe`，双击运行即可查看检测结果
+- **源码位置**：[`check_sh2_webviw2/`](check_sh2_webviw2/)
 
 ## 默认登录账号
 
