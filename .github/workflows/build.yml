@@ -197,6 +197,9 @@ jobs:
             - win10以上需要安装WebView2 运行时
             - win10以上支持客户端模式和服务器模式
 
+            ### 系统环境检测工具
+            安装前可使用 [系统环境检测工具](https://github.com/ccwy/check_webview2_sh2/releases) 检测系统是否满足运行要求（WebView2 运行时、Win7 SHA-2 代码签名支持等）
+
             ### 下载说明
             | 文件 | 说明 |
             |------|------|

@@ -42,6 +42,13 @@ https://github.com/ccwy/dorm/releases
 - Windows 10 及以上需安装 [WebView2 运行时](https://developer.microsoft.com/en-us/microsoft-edge/webview2/)
 - Android 8 及以上，支持 ARM64 和 x86 架构
 
+### 系统环境检测工具
+
+为方便用户在安装前检测系统环境是否满足运行要求，提供独立的系统环境检测工具：
+
+- **功能**：检测系统是否已安装 WebView2 运行时及 Win7 SHA-2 代码签名支持（KB4474419）等必要组件
+- **下载地址**：https://github.com/ccwy/check_webview2_sh2/releases
+
 ## 默认登录账号
 
 | 项目 | 值 |
