@@ -131,7 +131,7 @@ def setup_cookie_policy(app):
     login_manager._set_cookie = custom_set_cookie
     
     # ---- 第2层：非项目持久化cookie覆盖为会话级 ----
-    TARGET_COOKIES = {'stay_login', 'did', '_SSID', '_CrPoSt', 'id', 'io'}
+    TARGET_COOKIES = {'stay_login', 'did', '_SSID', '_CrPoSt', 'id', 'io', 'nd-player-7361', 'ViewType', 'X-ND-Client-Unique-Id'}
     
     @app.after_request
     def sanitize_persistent_cookies(response):
