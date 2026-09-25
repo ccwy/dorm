@@ -87,9 +87,9 @@ def setup_cookie_policy(app):
        - 勾选"记住我"：30天有效期（Flask-Login默认行为）
        - 未勾选：会话级（关闭浏览器即失效，与CRspli9ois一致）
     
-    2. after_request拦截器 → 覆盖非项目持久化cookie为会话级
-       - 目标：stay_login、did、_SSID、_CrPoSt
-       - 原理：读取请求中的目标cookie（包括HttpOnly），设置同名会话级cookie覆盖
+    2. after_request拦截器 → 将所有cookie覆盖为会话级（排除名单机制）
+       - 排除：remember_token（由第1层控制）、Flask session cookie（始终会话级）
+       - 原理：遍历请求中所有cookie，排除名单外的均覆盖为会话级
     """
     # ---- 第1层：remember_token有效期控制 ----
     login_manager = app.login_manager
@@ -131,12 +131,20 @@ def setup_cookie_policy(app):
     login_manager._set_cookie = custom_set_cookie
     
     # ---- 第2层：非项目持久化cookie覆盖为会话级 ----
-    TARGET_COOKIES = {'stay_login', 'did', '_SSID', '_CrPoSt', 'id', 'io', 'nd-player-7361', 'ViewType', 'X-ND-Client-Unique-Id'}
+    # 排除名单：这些cookie不进行会话级覆盖
+    # - remember_token：由第1层单独控制有效期（记住我=30天，否则会话级）
+    # - Flask session cookie：始终会话级，由Flask自行管理，无需覆盖
+    SESSION_COOKIE_NAME = app.config.get('SESSION_COOKIE_NAME', 'session')
+    REMEMBER_COOKIE_NAME = app.config.get('REMEMBER_COOKIE_NAME', 'remember_token')
+    EXCLUDED_COOKIES = {SESSION_COOKIE_NAME, REMEMBER_COOKIE_NAME}
     
     @app.after_request
     def sanitize_persistent_cookies(response):
         # request.cookies可读取所有cookie（包括HttpOnly），无需前端JS参与
-        for name in TARGET_COOKIES:
+        # 默认所有cookie都覆盖为会话级，仅排除名单中的cookie跳过
+        for name in request.cookies:
+            if name in EXCLUDED_COOKIES:
+                continue
             value = request.cookies.get(name)
             if value:
                 response.set_cookie(
@@ -148,11 +156,10 @@ def setup_cookie_policy(app):
                     secure=request.is_secure,
                     # 不设置max_age和expires → 会话级cookie
                 )
-                #logging.info(f"[Cookie策略] 已覆盖cookie {name} 为会话级")
         
         return response
     
-    logging.info("[Cookie策略] 已初始化：remember_token双模式 + 持久化cookie会话级覆盖")
+    logging.info("[Cookie策略] 已初始化：remember_token双模式 + 全cookie会话级覆盖（排除名单机制）")
 
 
 def invalidate_all_sessions():
