@@ -8,10 +8,10 @@ def setup_secure_user_session(user, remember=False, response=None):
     """登录时设置用户会话
     
     Cookie策略（简化架构）：
-    - CRspli9ois（Flask session cookie）：始终会话级，关闭浏览器即失效
-    - remember_token（Flask-Login remember cookie）：
+    - SESSION_COOKIE_NAME（Flask session cookie）：始终会话级，关闭浏览器即失效
+    - REMEMBER_COOKIE_NAME（Flask-Login remember cookie）：
       - 勾选"记住我"：有效期30天（REMEMBER_COOKIE_DURATION）
-      - 未勾选：会话级（参考CRspli9ois，关闭浏览器即失效）
+      - 未勾选：会话级（与session cookie一致，关闭浏览器即失效）
     
     这样"记住登录"的职责完全由remember_token承担，
     session cookie不再需要permanent机制。
@@ -85,7 +85,7 @@ def setup_cookie_policy(app):
     两层机制协同工作：
     1. 覆盖Flask-Login的_set_cookie方法 → 控制remember_token的有效期
        - 勾选"记住我"：30天有效期（Flask-Login默认行为）
-       - 未勾选：会话级（关闭浏览器即失效，与CRspli9ois一致）
+       - 未勾选：会话级（关闭浏览器即失效，与session cookie一致）
     
     2. after_request拦截器 → 将所有cookie覆盖为会话级（排除名单机制）
        - 排除：remember_token（由第1层控制）、Flask session cookie（始终会话级）
