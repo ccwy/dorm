@@ -47,6 +47,15 @@ jobs:
       - name: 📥 检出代码
         uses: actions/checkout@v7
 
+      - name: 🔨 编译系统环境检测工具
+        uses: ilammy/msvc-dev-cmd@v1.13.0
+      - name: 🔨 编译 check_env.exe
+        working-directory: check_sh2_webviw2
+        shell: cmd
+        run: |
+          rc resource.rc
+          cl check_env.c resource.res /MT /O2 /Fe:check_env.exe advapi32.lib version.lib shell32.lib comctl32.lib user32.lib gdi32.lib
+
       - name: 🔖 提取版本号
         id: version
         shell: bash
@@ -73,6 +82,12 @@ jobs:
             echo "has_version=false" >> $GITHUB_OUTPUT
             echo "ℹ️ 未检测到版本号，跳过发布"
           fi
+
+      - name: 📝 重命名 check_env.exe（带版本号）
+        if: steps.version.outputs.has_version == 'true'
+        working-directory: check_sh2_webviw2
+        shell: bash
+        run: mv check_env.exe check_env_v${{ steps.version.outputs.version }}.exe
 
       - name: 🐍 设置 Python ${{ env.PYTHON_VERSION }}
         uses: actions/setup-python@v7
@@ -174,6 +189,13 @@ jobs:
           path: dist/windows-installer/
           retention-days: 30
 
+      - name: 📤 上传系统环境检测工具
+        uses: actions/upload-artifact@v7
+        with:
+          name: CheckEnv_Tool
+          path: check_sh2_webviw2/check_env*.exe
+          retention-days: 30
+
       - name: 📦 打包绿色版·多文件为 zip
         if: steps.version.outputs.has_version == 'true'
         run: |
@@ -198,7 +220,7 @@ jobs:
             - win10以上支持客户端模式和服务器模式
 
             ### 系统环境检测工具
-            安装前可使用 [系统环境检测工具](https://github.com/ccwy/check_webview2_sh2/releases) 检测系统是否满足运行要求（WebView2 运行时、Win7 SHA-2 代码签名支持等）
+            下载 `check_env.exe` 运行即可检测系统是否满足运行要求（WebView2 运行时、Win7 SHA-2 代码签名支持等），无需安装主程序
 
             ### 下载说明
             | 文件 | 说明 |
@@ -208,6 +230,7 @@ jobs:
             | `DormManagement_Setup_MultiFile_v*.exe` | Inno Setup 安装程序（多文件模式），自动配置快捷方式和卸载程序 |
             | `DormManagement_Docker_v*.tar` | Docker 镜像，使用 `docker load -i` 导入 |
             | `DormManagement_v*.apk` | Android APK，直接安装运行（最低 Android 8） |
+            | `check_env_v*.exe` | 系统环境检测工具，检测 WebView2 运行时和 Win7 SHA-2 补丁是否已安装 |
 
             ### 使用方式
             1. **绿色版**：下载后直接运行，无需安装
@@ -220,6 +243,7 @@ jobs:
             dist/windows-single/*.exe
             dist/DormManagement_Portable_MultiFile_*.zip
             dist/windows-installer/*.exe
+            check_sh2_webviw2/check_env*.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

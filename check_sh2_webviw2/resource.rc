@@ -1,0 +1,4 @@
+#include <windows.h>
+
+/* 应用程序清单 - 启用Common Controls v6 (SysLink控件需要) */
+1 RT_MANIFEST "app.manifest"
