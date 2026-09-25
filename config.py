@@ -28,7 +28,7 @@ _shared_db_config = DatabaseConfig.load_config()
 
 class Config:
     # cookie基础配置
-    SESSION_COOKIE_NAME = 'CRspli9ois'
+    SESSION_COOKIE_NAME = 'Dorm_manage'
     
     # 会话不活动超时设置
     # 用户在这段时间内没有任何操作将被自动退出登录
