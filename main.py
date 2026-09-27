@@ -374,6 +374,41 @@ def init_flask_app(progress_callback=None):
     def handle_chrome_devtools():
         return jsonify({}), 200
 
+    # PWA 路由：动态生成 manifest.json（通配域名，使用相对路径）
+    @app.route('/manifest.json')
+    def manifest():
+        from models.system_config.system_config import SystemConfig
+        system_title = SystemConfig.get_config_value('SYSTEM_TITLE', '行政后勤管理系统')
+        return jsonify({
+            "name": system_title,
+            "short_name": system_title[:8],
+            "description": system_title + " - PWA应用",
+            "start_url": "./",
+            "scope": "./",
+            "display": "standalone",
+            "orientation": "any",
+            "theme_color": "#165DFF",
+            "background_color": "#ffffff",
+            "icons": [
+                {"src": "./static/images/icon-72x72.png", "sizes": "72x72", "type": "image/png"},
+                {"src": "./static/images/icon-96x96.png", "sizes": "96x96", "type": "image/png"},
+                {"src": "./static/images/icon-128x128.png", "sizes": "128x128", "type": "image/png"},
+                {"src": "./static/images/icon-144x144.png", "sizes": "144x144", "type": "image/png"},
+                {"src": "./static/images/icon-152x152.png", "sizes": "152x152", "type": "image/png"},
+                {"src": "./static/images/icon-192x192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+                {"src": "./static/images/icon-384x384.png", "sizes": "384x384", "type": "image/png"},
+                {"src": "./static/images/icon-512x512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"}
+            ]
+        }), 200, {'Content-Type': 'application/manifest+json'}
+
+    # PWA 路由：Service Worker 文件（需从根路径访问以满足 scope 要求）
+    @app.route('/sw.js')
+    def service_worker():
+        from flask import send_from_directory
+        response = send_from_directory('static/js', 'sw.js')
+        response.headers['Cache-Control'] = 'no-cache'
+        return response
+
     def run_server():
         _stamp("Flask应用初始化完成，准备启动服务器")
         from waitress import serve
