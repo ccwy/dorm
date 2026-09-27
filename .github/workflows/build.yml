@@ -2,7 +2,7 @@ name: 自动化打包构建
 
 on:
   push:
-    branches: [ main, master, 测试 ]
+    branches: [ main, master ]
     tags: [ 'v*' ]
   workflow_dispatch:
     inputs:
