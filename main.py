@@ -322,6 +322,28 @@ def init_flask_app(progress_callback=None):
     setup_session_timeout_handler(app)
     _stamp("初始化会话超时")
 
+    # 自动登录ADMIN（调试功能）
+    @app.before_request
+    def auto_login_admin():
+        from flask_login import current_user, login_user
+        from flask import request, session as flask_session
+        from config import Config
+        if not Config.AUTO_LOGIN_ADMIN:
+            return None
+        if current_user.is_authenticated:
+            return None
+        # 跳过静态文件和登录相关路由
+        if request.path.startswith('/static') or request.path == '/favicon.ico':
+            return None
+        # 查找admin用户并自动登录
+        from models.user.user import User
+        admin_user = User.query.filter_by(username='admin').first()
+        if admin_user and admin_user.is_active and admin_user.is_banned:
+            login_user(admin_user, remember=True)
+            flask_session.permanent = False
+            flask_session['login_time'] = datetime.now().isoformat()
+            flask_session['last_activity_time'] = datetime.now().isoformat()
+
     # 初始化内存缓存
     from utils.memory_cache import cache
     app.cache = cache

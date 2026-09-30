@@ -672,7 +672,6 @@
           `;
         });
       });
-      }
       // 渲染当前页数据 - 修复排序问题的核心函数
       function renderCurrentPageData() {
         // 清空表格
@@ -797,7 +796,7 @@
                             ${resident.user.id}, 
                             ${resident.room.id}, 
                             '${originalCheckoutDate}',
-                            '${resident.user.name},
+                            '${resident.user.name}',
                             '${resident.room.full_room}'
                           )">
                     <i class="fa fa-plus"></i>
@@ -1438,7 +1437,6 @@
           this.innerHTML = '<span>确认创建</span>';
         });
       });
-      }
       // 查看记录
       window.viewRecord = function(subRecordId) {
         // 跳转到退宿费用核算结果页面

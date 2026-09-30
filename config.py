@@ -33,6 +33,7 @@ class Config:
     # 会话不活动超时设置
     # 用户在这段时间内没有任何操作将被自动退出登录
     SESSION_INACTIVITY_TIMEOUT = 1 * 60 * 60  # 1小时不活动自动退出
+    AUTO_LOGIN_ADMIN = True  # 自动登录ADMIN账号（仅用于调试，生产环境务必设为False）
     REMEMBER_COOKIE_DURATION = timedelta(days=30)  # "记住我"Cookie有效期30天
     
     # 基础目录
@@ -81,6 +82,7 @@ class Config:
 class ProductionConfig(Config):
     db_config = _shared_db_config  # 使用共享配置，避免重复load_config调用
     DEBUG = False
+    AUTO_LOGIN_ADMIN = False  # 生产环境禁止自动登录
     SYSTEM_TITLE = db_config.get('SERVER_PORT', "行政后勤管理系统")
     # 根据SERVER_MODE配置决定SERVER_HOST
     # Android环境：使用127.0.0.1（本地运行）
