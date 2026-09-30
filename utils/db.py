@@ -79,17 +79,17 @@ def init_roles_and_permissions():
     admin_excluded_modules = {'log', 'role', 'system_settings'}
     # 普通用户的权限配置
     user_permissions = {
-        'ticket': {'view', 'create'},
-        'maintenance': {'view', 'create'},
+        #'ticket': {'view', 'create'},
+        #'maintenance': {'view', 'create'},
         'utility': {'room_records_detail'},
-        'dorm_application': {'view', 'create', 'cancel'},
+        #'dorm_application': {'view', 'create', 'cancel'},
     }
     # 维修员的权限配置
     maintenance_permissions = {
-        'maintenance': {'view', 'create', 'handle'},
-        'ticket': {'view', 'create'},
+        #'maintenance': {'view', 'create', 'handle'},
+        #'ticket': {'view', 'create'},
         'utility': {'room_records_detail'},
-        'dorm_application': {'view', 'create'},
+        #'dorm_application': {'view', 'create'},
     }
     
     # 创建所有内置角色

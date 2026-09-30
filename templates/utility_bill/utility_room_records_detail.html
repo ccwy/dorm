@@ -124,7 +124,10 @@
         <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
           <div>
             <p class="text-sm text-gray-500">账期</p>
-            <p id="billing-period" class="font-medium text-lg">2023年09月</p>
+            <div class="flex items-center gap-2">
+              <p id="billing-period" class="font-medium text-lg">2023年09月</p>
+              <span id="bill-status" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">待处理</span>
+            </div>
           </div>
           
           <div>
@@ -628,7 +631,7 @@
     function populatePageData(data) {
       // 填充基本信息和账期范围
       if (data.billing_period) {
-        safeSetTextContent('billing-period', `${data.billing_period}期`);
+        safeSetTextContent('billing-period', `${data.billing_period}`);
         // 单独设置账期范围
         if (data.start_date && data.end_date) {
           // 移除日期中的T字符并只保留日期部分
@@ -663,6 +666,20 @@
       // 移除不存在的building元素设置
       //safeSetTextContent('room_id', data.room_info.room_id ? `${data.room_info.room_id}` : '未知');
       safeSetTextContent('occupant-count', data.total_occupants ? `${data.total_occupants}人` : '0人');
+
+      // 设置核算状态
+      const statusElement = document.getElementById('bill-status');
+      if (statusElement) {
+          const status = data.status || 'pending';
+          const statusConfig = {
+              'pending': { text: '待处理', class: 'bg-yellow-100 text-yellow-800' },
+              'processing': { text: '计算中', class: 'bg-blue-100 text-blue-800' },
+              'completed': { text: '已完成', class: 'bg-green-100 text-green-800' }
+          };
+          const config = statusConfig[status] || statusConfig['pending'];
+          statusElement.textContent = config.text;
+          statusElement.className = `inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${config.class}`;
+      }
       
       // 填充电费信息
       safeSetTextContent('electric-previous', data.meter_records.electric.previous_reading !== undefined ? 

@@ -463,7 +463,7 @@
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label class="block text-xs font-medium text-gray-600 mb-1">水表读数</label>
-                                <input type="number" step="0.01" min="0" name="water_current" 
+                                <input type="number" step="0.1" min="0" name="water_current" 
                                     value="{{ application.water_current if application.water_current is not none else '' }}"
                                     placeholder="请输入当前水表读数" 
                                     class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500/50 text-sm">
@@ -473,7 +473,7 @@
                             </div>
                             <div>
                                 <label class="block text-xs font-medium text-gray-600 mb-1">电表读数</label>
-                                <input type="number" step="0.01" min="0" name="electric_current" 
+                                <input type="number" step="0.1" min="0" name="electric_current" 
                                     value="{{ application.electric_current if application.electric_current is not none else '' }}"
                                     placeholder="请输入当前电表读数" 
                                     class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500/50 text-sm">
