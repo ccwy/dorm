@@ -279,11 +279,9 @@ def update_configs():
         updated_keys = []
         db_config_updates = {}      #数据库更新
         backup_config_updates = {}  #自动备份
-        fee_config_updates = {}     #自定义抄表日期和开启开关
-       
+        
         is_db_config = category == 'system'             # 检查是否是数据库配置更新
         is_backup_config = category == 'system.backup'  #检查是否是自动备份更新
-        is_fee_config = category == 'fee'         #自定义抄表日期和开启开关
 
         for key, value in configs.items():
             config_item = SystemConfig.query.filter_by(
@@ -345,17 +343,6 @@ def update_configs():
                     else:
                         backup_config_updates[key] = value
 
-                # 自定义抄表日期和开启开关
-                if is_fee_config :
-                    if key == 'ENABLE_CUSTOM_METER_READING_DAY':
-                            fee_config_updates[key] = str(value).lower() == 'true' or value is True
-                    elif key == 'CUSTOM_METER_READING_DAY':
-                        try:
-                            fee_config_updates[key] = int(value)
-                        except ValueError:
-                            fee_config_updates[key] = 1  # 日期默认值
-                    # 移除else分支，只保存特定的配置项，避免整个模块被保存进去
-
                 
                 # 根据配置类型进行值转换，与模型保持一致
                 try:
@@ -394,15 +381,6 @@ def update_configs():
                 updated_keys.append(key)
                 
             message = f"更新{category}模块配置,成功更新{len(updated_keys)}项配置"
-
-         #费用主表自动生成月度记录
-        if is_fee_config and fee_config_updates:
-            from utils.db_config import DatabaseConfig    
-            # 保存到外部配置文件
-            DatabaseConfig.update_config(fee_config_updates)
-            logging.info(f"自定义抄表日期和开启开关设置已更新: {fee_config_updates}")
-            db.session.commit()
-            message = f"更新{category}模块配置,成功更新{len(updated_keys)}项配置，自定义抄表日期和开启开关设置已更新"
 
         #自动备份配置
         if is_backup_config and backup_config_updates:

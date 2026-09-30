@@ -132,11 +132,17 @@
                         </div>
 
                         <div>
-                            <label class="block text-sm font-medium text-neutral-700 mb-1">账期</label>
-                            <div class="flex items-center p-2.5 bg-neutral-50 rounded-lg border border-neutral-200">
-                                <span class="mr-3 text-neutral-500"><i class="fa fa-calendar"></i></span>
-                                <span id="billingPeriodText" class="text-neutral-800">加载中...</span>
-                            </div>
+                            <label for="billingPeriod" class="block text-sm font-medium text-neutral-700 mb-1">账期 <span class="text-red-500">*</span></label>
+                            <select id="billingPeriod" name="billing_period" required
+                                    class="w-full py-2.5 px-3 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all">
+                                {% if billing_periods %}
+                                    {% for period in billing_periods %}
+                                    <option value="{{ period }}">{{ period }}</option>
+                                    {% endfor %}
+                                {% else %}
+                                    <option value="">暂无可用账期</option>
+                                {% endif %}
+                            </select>
                         </div>
 
                         <div>
@@ -173,7 +179,8 @@
                             <div>
                                 <select id="waterReplace" name="waterReplace" class="w-full py-2.5 px-3 border border-neutral-300 rounded-lg form-input-focus transition-custom">
                                     <option value="false">否</option>
-                                    <option value="true">是</option>
+                                    <option value="true">换表</option>
+                                    <option value="first" disabled>首次抄表（自动）</option>
                                 </select>
                                 <div class="meter-replaced-indicator" id="water-replaced-indicator" style="display: none;">
                                     表具已更换，当前为初始值
@@ -230,7 +237,8 @@
                             <div>
                                 <select id="electricReplace" name="electricReplace" class="w-full py-2.5 px-3 border border-neutral-300 rounded-lg form-input-focus transition-custom">
                                     <option value="false">否</option>
-                                    <option value="true">是</option>
+                                    <option value="true">换表</option>
+                                    <option value="first" disabled>首次抄表（自动）</option>
                                 </select>
                                 <div class="meter-replaced-indicator" id="electric-replaced-indicator" style="display: none;">
                                     表具已更换，当前为初始值
@@ -408,19 +416,25 @@
                 const formattedDate = readingDate.toISOString().slice(0, 16);
                 document.getElementById('readingDate').value = formattedDate;
                 document.getElementById('readerNameText').textContent = data.meter_reader || '未知';
-                const billingPeriodText = document.getElementById('billingPeriodText');
-                billingPeriodText.textContent = data.billing_period || '未知';
-                
-                // 为账期添加点击跳转功能
+                // 设置账期下拉框选中值
+                const billingPeriodSelect = document.getElementById('billingPeriod');
                 if (data.billing_period) {
-                    billingPeriodText.style.cursor = 'pointer';
-                    billingPeriodText.style.color = '#165DFF';
-                    billingPeriodText.onclick = function() {
-                        window.location.href = `/utility/utility_room_records_detail?record_id=${data.record_id}`;
-                    };
-                } else {
-                    billingPeriodText.style.cursor = 'default';
-                    billingPeriodText.style.color = '#262626';
+                    // 检查下拉框中是否已有该账期选项
+                    let periodExists = false;
+                    for (let i = 0; i < billingPeriodSelect.options.length; i++) {
+                        if (billingPeriodSelect.options[i].value === data.billing_period) {
+                            periodExists = true;
+                            break;
+                        }
+                    }
+                    // 如果下拉框中没有该账期选项，添加一个
+                    if (!periodExists) {
+                        const option = document.createElement('option');
+                        option.value = data.billing_period;
+                        option.textContent = data.billing_period;
+                        billingPeriodSelect.appendChild(option);
+                    }
+                    billingPeriodSelect.value = data.billing_period;
                 }
                 
                 // 显示楼栋、房间号和房间ID，并添加点击跳转功能
@@ -460,15 +474,37 @@
                 document.getElementById('electricCurrent').value = data.electric?.current !== null ? data.electric.current : '';
                 document.getElementById('electricNotes').value = data.electric?.notes || '';
                 
-                // 设置是否换表字段的值
-                document.getElementById('waterReplace').value = data.water?.replaced ? 'true' : 'false';
-                document.getElementById('electricReplace').value = data.electric?.replaced ? 'true' : 'false';
+                // 设置是否换表字段的值（区分首次抄表和换表）
+                const waterSequence = data.water?.sequence;
+                const electricSequence = data.electric?.sequence;
+                const waterReplaceSelect = document.getElementById('waterReplace');
+                const electricReplaceSelect = document.getElementById('electricReplace');
                 
-                // 如果是换表，显示提示信息
+                if (data.water?.replaced && waterSequence === 0) {
+                    waterReplaceSelect.value = 'first';
+                    waterReplaceSelect.disabled = true;
+                } else {
+                    waterReplaceSelect.value = data.water?.replaced ? 'true' : 'false';
+                }
+                
+                if (data.electric?.replaced && electricSequence === 0) {
+                    electricReplaceSelect.value = 'first';
+                    electricReplaceSelect.disabled = true;
+                } else {
+                    electricReplaceSelect.value = data.electric?.replaced ? 'true' : 'false';
+                }
+                
+                // 如果是换表或首次抄表，显示提示信息
                 const waterIndicator = document.getElementById('water-replaced-indicator');
                 const electricIndicator = document.getElementById('electric-replaced-indicator');
-                waterIndicator.style.display = data.water?.replaced ? 'block' : 'none';
-                electricIndicator.style.display = data.electric?.replaced ? 'block' : 'none';
+                if (data.water?.replaced) {
+                    waterIndicator.style.display = 'block';
+                    waterIndicator.textContent = waterSequence === 0 ? '首次抄表，当前为初始值' : '表具已更换，当前为初始值';
+                }
+                if (data.electric?.replaced) {
+                    electricIndicator.style.display = 'block';
+                    electricIndicator.textContent = electricSequence === 0 ? '首次抄表，当前为初始值' : '表具已更换，当前为初始值';
+                }
                 
                 // 更新全局抄表记录数据
                 updateMeterRecordData(data);
@@ -569,17 +605,23 @@
             }
             
             // 获取表单数据
+            const billingPeriod = document.getElementById('billingPeriod').value;
+            if (!billingPeriod) {
+                showToast('errorToast', '请选择账期');
+                return;
+            }
             const formData = {
                 // 基本信息
                 reading_date: formatDateForBackend(document.getElementById('readingDate').value),
+                billing_period: billingPeriod,
                 // 水表数据
                 water_current: document.getElementById('waterCurrent').value ? parseFloat(document.getElementById('waterCurrent').value) : null,
                 water_notes: document.getElementById('waterNotes').value,
-                water_meter_replaced: document.getElementById('waterReplace').value === 'true',
+                water_meter_replaced: document.getElementById('waterReplace').value === 'true' || document.getElementById('waterReplace').value === 'first',
                 // 电表数据
                 electric_current: document.getElementById('electricCurrent').value ? parseFloat(document.getElementById('electricCurrent').value) : null,
                 electric_notes: document.getElementById('electricNotes').value,
-                electric_meter_replaced: document.getElementById('electricReplace').value === 'true'
+                electric_meter_replaced: document.getElementById('electricReplace').value === 'true' || document.getElementById('electricReplace').value === 'first'
             };
 
             // 辅助函数：将 datetime-local 格式转换为后端期望的日期格式
@@ -653,7 +695,15 @@
         function updateReplacedIndicator(type) {
             const selectElement = document.getElementById(`${type}Replace`);
             const indicator = document.getElementById(`${type}-replaced-indicator`);
-            indicator.style.display = selectElement.value === 'true' ? 'block' : 'none';
+            if (selectElement.value === 'true') {
+                indicator.style.display = 'block';
+                indicator.textContent = '表具已更换，当前为初始值';
+            } else if (selectElement.value === 'first') {
+                indicator.style.display = 'block';
+                indicator.textContent = '首次抄表，当前为初始值';
+            } else {
+                indicator.style.display = 'none';
+            }
         }
 
         // 页面加载完成后初始化
@@ -687,6 +737,15 @@
                 updateReplacedIndicator('electric');
             });
             
+            // 为账期下拉框添加事件监听器，切换账期时重新加载媒体文件
+            document.getElementById('billingPeriod').addEventListener('change', function() {
+                if (meterRecordData && meterRecordData.room_id) {
+                    const newBillingPeriod = this.value;
+                    meterRecordData.billing_period = newBillingPeriod;
+                    loadMediaFiles(newBillingPeriod, meterRecordData.room_id);
+                }
+            });
+            
             // 滚动时导航栏效果
             window.addEventListener('scroll', () => {
                 const header = document.querySelector('header');
@@ -711,10 +770,8 @@
             meterRecordData = data;
             // 加载已上传的媒体文件
             if (data && data.room_id) {
-                // 尝试从record_id获取账期信息，或者从reading_date计算账期
-                let billingPeriod = data.billing_period;
-                
-                
+                // 从下拉框获取当前选中的账期
+                const billingPeriod = document.getElementById('billingPeriod').value || data.billing_period;
                 
                 // 存储账期和房间ID信息，以便后续上传操作使用
                 meterRecordData.billing_period = billingPeriod;
@@ -752,7 +809,8 @@
                 return;
             }
             
-            const { billing_period, room_id } = meterRecordData;
+            const billing_period = document.getElementById('billingPeriod').value || meterRecordData.billing_period;
+            const { room_id } = meterRecordData;
             
             // 检查并显示上传进度
             const progressContainer = document.getElementById('uploadProgressContainer');

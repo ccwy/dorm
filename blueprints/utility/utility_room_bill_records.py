@@ -152,46 +152,49 @@ def get_period_info(period):
 
 
 
-# 辅助函数：获取上一个账期
-def get_previous_period(current_period):
-    """计算上一个账期，格式为YYYY-MM"""
-    try:
-        year, month = map(int, current_period.split('-'))
-        month -= 1
-        if month == 0:
-            month = 12
-            year -= 1
-        return f"{year}-{month:02d}"
-    except Exception as e:
-        logging.error(f"计算上一个账期失败: {str(e)}")
-        return None
-
-
-# 辅助函数：获取房间的历史抄表记录
+# 辅助函数：获取房间的历史抄表记录（跨期查找最近的历史读数）
 def get_room_history_readings(room_id, current_period):
-    """获取房间的历史抄表记录，包括上月最后一次读数"""
+    """获取房间的历史抄表记录，跨期查找当前账期之前最近的电表和水表读数。
+    
+    与 batch_update_from_meter 中的逻辑一致，直接查询 UtilityMeterReading 表，
+    join RoomUtilityRecord 过滤 billing_period < 当前账期，
+    分别查找电表和水表的最近历史读数，去重后返回。
+    """
     try:
-        # 获取上一个账期
-        prev_period = get_previous_period(current_period)
-        if not prev_period:
-            return []
-            
-        # 查询上一个账期的主表记录
-        prev_main_record = RoomUtilityRecord.query.filter_by(
-            room_id=room_id,
-            billing_period=prev_period
-        ).first()
+        history_readings = []
+        seen_ids = set()
         
-        if not prev_main_record:
-            return []
-            
-        # 查询上一个账期的最后一次抄表记录
-        prev_readings = UtilityMeterReading.query.filter_by(
-            record_id=prev_main_record.record_id,
-            reading_type=1  # 正常抄表
-        ).order_by(UtilityMeterReading.reading_date.desc()).limit(1).all()
+        # 电表：查询本期之前的最新正常抄表记录（有电表读数的）
+        prev_electric_reading = UtilityMeterReading.query\
+            .filter_by(room_id=room_id)\
+            .filter(UtilityMeterReading.electric_current.isnot(None))\
+            .filter(UtilityMeterReading.reading_type == 1)\
+            .filter(UtilityMeterReading.record_id.isnot(None))\
+            .join(RoomUtilityRecord, UtilityMeterReading.record_id == RoomUtilityRecord.record_id)\
+            .filter(RoomUtilityRecord.billing_period < current_period)\
+            .order_by(UtilityMeterReading.reading_date.desc(), UtilityMeterReading.id.desc())\
+            .first()
         
-        return prev_readings
+        if prev_electric_reading and prev_electric_reading.id not in seen_ids:
+            seen_ids.add(prev_electric_reading.id)
+            history_readings.append(prev_electric_reading)
+        
+        # 水表：查询本期之前的最新正常抄表记录（有水表读数的）
+        prev_water_reading = UtilityMeterReading.query\
+            .filter_by(room_id=room_id)\
+            .filter(UtilityMeterReading.water_current.isnot(None))\
+            .filter(UtilityMeterReading.reading_type == 1)\
+            .filter(UtilityMeterReading.record_id.isnot(None))\
+            .join(RoomUtilityRecord, UtilityMeterReading.record_id == RoomUtilityRecord.record_id)\
+            .filter(RoomUtilityRecord.billing_period < current_period)\
+            .order_by(UtilityMeterReading.reading_date.desc(), UtilityMeterReading.id.desc())\
+            .first()
+        
+        if prev_water_reading and prev_water_reading.id not in seen_ids:
+            seen_ids.add(prev_water_reading.id)
+            history_readings.append(prev_water_reading)
+        
+        return history_readings
     except Exception as e:
         logging.error(f"获取房间历史抄表记录失败: {str(e)}")
         return []
@@ -823,9 +826,11 @@ def search_records():
                         'reading_date': reading.reading_date.strftime('%Y-%m-%dT%H:%M:%S') if reading.reading_date else None,
                         'electric_reading': float(reading.electric_current) if reading.electric_current else None,
                         'electric_meter_replaced': reading.electric_meter_replaced,
+                        'electric_meter_sequence': reading.electric_meter_sequence,
                         'electric_notes': reading.electric_notes,
                         'water_reading': float(reading.water_current) if reading.water_current else None,
                         'water_meter_replaced': reading.water_meter_replaced,
+                        'water_meter_sequence': reading.water_meter_sequence,
                         'water_notes': reading.water_notes,
                         'reader': reading.meter_reader.name if (reading.meter_reader and hasattr(reading.meter_reader, 'name')) else None,
                         'reading_type': reading.reading_type

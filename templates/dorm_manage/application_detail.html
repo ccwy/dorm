@@ -187,6 +187,12 @@
                         <span class="text-gray-500">退宿类型</span>
                         <span class="text-gray-800">{{ application.checkout_type if application.checkout_type else '-' }}</span>
                     </div>
+                    {% if application.billing_period %}
+                    <div class="flex justify-between text-sm">
+                        <span class="text-gray-500">账期</span>
+                        <span class="text-gray-800">{{ application.billing_period }}</span>
+                    </div>
+                    {% endif %}
                     {% if application.water_current is not none %}
                     <div class="flex justify-between text-sm">
                         <span class="text-gray-500">水表读数</span>

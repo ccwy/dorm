@@ -38,11 +38,11 @@ def download_template():
         ws = wb.active
         ws.title = "抄表记录模板"
 
-        # 表头（不含抄表人字段）
+        # 表头（不含抄表人字段，增加账期列）
         headers = [
-            "记录ID（批量更新必填）", "抄表日期时间", "楼栋", "宿舍号",
-            "水表本次读数", "水表是否更换", "水表备注",
-             "电表本次读数", "电表是否更换", "电表备注",
+            "记录ID（批量更新必填）", "账期(YYYY-MM)", "抄表日期时间", "楼栋", "宿舍号",
+            "水表本次读数", "水表是否更换(否/是/首次抄表)", "水表备注",
+             "电表本次读数", "电表是否更换(否/是/首次抄表)", "电表备注",
              "抄表类型"
         ]
         ws.append(headers)
@@ -55,22 +55,24 @@ def download_template():
         # 添加示例数据行
         ws.append([
             "",  # 新增记录无需填写ID
+            "2024-06",  # 账期（导入时通过参数指定，此处仅供参考）
             "2024-06-01 10:30:00", "3", "305",
-            "567.2", "589.7", "否", "表具正常",
-            "1234.0", "1256.8", "否", "表具正常",
+            "567.2", "否", "表具正常",
+            "1234.0", "否", "表具正常",
             "退宿抄表"
         ])
         
         ws.append([
             "1001",  # 批量更新时填写此ID
+            "2024-06",  # 账期（导入时通过参数指定，此处仅供参考）
             "2024-06-30 10:30:00", "3", "306",
-            "590.1", "610.5", "是", "更换新表",
-            "1300.2", "1320.3", "否", "表具正常",
+            "590.1", "是", "更换新表",
+            "1300.2", "否", "表具正常",
             "正常抄表"
         ])
 
         # 调整列宽
-        column_widths = [18, 25, 8, 8, 12, 12, 10, 20, 12, 12, 10, 20, 15]
+        column_widths = [18, 15, 25, 8, 8, 12, 20, 20, 12, 20, 20, 15]
         for col, width in enumerate(column_widths, 1):
             ws.column_dimensions[get_column_letter(col)].width = width
 
@@ -172,11 +174,11 @@ def export_readings():
         ws = wb.active
         ws.title = "抄表记录"
 
-        # 表头（移除抄表人相关字段）
+        # 表头（移除抄表人相关字段，增加账期列）
         headers = [
-            "记录ID（批量更新必填）", "序号", "抄表日期时间", "楼栋", "宿舍号",
-            "抄表类型", "水表上次读数", "水表本次读数", "用水量(m³)", "水表是否更换", "水表备注",
-            "电表上次读数", "电表本次读数", "用电量(kWh)", "电表是否更换", "电表备注"
+            "记录ID（批量更新必填）", "序号", "账期", "抄表日期时间", "楼栋", "宿舍号",
+            "抄表类型", "水表上次读数", "水表本次读数", "用水量(m³)", "水表是否更换", "水表换表次数", "水表备注",
+            "电表上次读数", "电表本次读数", "用电量(kWh)", "电表是否更换", "电表换表次数", "电表备注"
         ]
         ws.append(headers)
 
@@ -185,12 +187,24 @@ def export_readings():
             cell.font = Font(bold=True)
             cell.alignment = Alignment(horizontal='center')
 
-        # 填充数据（不含抄表人信息）
+        # 填充数据（不含抄表人信息，增加账期列）
+        # 预加载所有关联的主表记录，避免循环内重复查询
+        record_ids = [r.record_id for r in readings if r.record_id]
+        bill_record_map = {}
+        if record_ids:
+            bill_records = RoomUtilityRecord.query.filter(RoomUtilityRecord.record_id.in_(record_ids)).all()
+            bill_record_map = {br.record_id: br for br in bill_records}
+        
         for idx, reading in enumerate(readings, 1):
             room = reading.room
+            # 获取账期：通过record_id关联的主表记录
+            billing_period_val = ""
+            if reading.record_id and reading.record_id in bill_record_map:
+                billing_period_val = bill_record_map[reading.record_id].billing_period or ""
             ws.append([
                 reading.id,  # 记录ID，用于批量更新时的唯一标识
                 idx,
+                billing_period_val,  # 账期
                 reading.reading_date.strftime('%Y-%m-%d %H:%M:%S'),
                 room.building if room else "",
                 room.room_number if room else "",
@@ -198,17 +212,19 @@ def export_readings():
                 reading.water_previous or "",
                 reading.water_current or "",
                 reading.water_usage or "",
-                "是" if reading.water_meter_replaced else "否",
+                "首次抄表" if (reading.water_meter_replaced and reading.water_meter_sequence == 0) else "是" if reading.water_meter_replaced else "否",
+                reading.water_meter_sequence or 0,
                 reading.water_notes or "",
                 reading.electric_previous or "",
                 reading.electric_current or "",
                 reading.electric_usage or "",
-                "是" if reading.electric_meter_replaced else "否",
+                "首次抄表" if (reading.electric_meter_replaced and reading.electric_meter_sequence == 0) else "是" if reading.electric_meter_replaced else "否",
+                reading.electric_meter_sequence or 0,
                 reading.electric_notes or ""
             ])
 
         # 调整列宽
-        column_widths = [18, 5, 20, 15, 8, 8, 10, 12, 12, 15, 10, 20, 12, 12, 15, 10, 20]
+        column_widths = [18, 5, 12, 20, 15, 8, 8, 10, 12, 12, 15, 12, 10, 20, 12, 12, 15, 12, 10, 20]
         for col, width in enumerate(column_widths, 1):
             ws.column_dimensions[get_column_letter(col)].width = width
 
@@ -267,7 +283,7 @@ def export_readings():
 @login_required
 @require_permission('utility.import')
 def import_readings():
-    """从Excel导入新的抄表记录（自动同步上次读数）"""
+    """从Excel导入新的抄表记录（按账期抄表模式，billing_period为必填参数）"""
     log_data = {
         "文件名": "",
         "记录总数": 0,
@@ -281,6 +297,21 @@ def import_readings():
             msg = "请先登录系统"
             logging.error(f"导入文件失败{msg}")
             return jsonify({"success": False, "message": msg}), 401
+
+        # 获取必填的billing_period参数
+        billing_period = request.form.get('billing_period', '').strip()
+        if not billing_period:
+            msg = "缺少必填参数billing_period（格式：YYYY-MM）"
+            logging.error(f"导入文件失败{msg}")
+            return jsonify({"success": False, "message": msg}), 400
+        
+        # 验证billing_period格式
+        try:
+            datetime.strptime(billing_period, '%Y-%m')
+        except ValueError:
+            msg = f"billing_period格式错误：{billing_period}，请使用YYYY-MM格式"
+            logging.error(f"导入文件失败{msg}")
+            return jsonify({"success": False, "message": msg}), 400
 
         if 'file' not in request.files:
             msg = "未上传文件"
@@ -460,14 +491,15 @@ def import_readings():
                 water_current = float(water_curr) if (water_curr is not None and str(water_curr).strip()) else None
                 electric_current = float(electric_curr) if (electric_curr is not None and str(electric_curr).strip()) else None
 
-                # 转换布尔值
-                water_meter_replaced = str(water_replaced).lower() in ['是', 'true', '1'] if water_replaced else False
-                electric_meter_replaced = str(electric_replaced).lower() in ['是', 'true', '1'] if electric_replaced else False
+                # 转换布尔值（支持"首次抄表"值，等同于meter_replaced=True）
+                water_meter_replaced = str(water_replaced).lower() in ['是', 'true', '1', '首次抄表'] if water_replaced else False
+                electric_meter_replaced = str(electric_replaced).lower() in ['是', 'true', '1', '首次抄表'] if electric_replaced else False
 
-                # 调用模型的create_reading方法（自动同步上次读数）
+                # 调用模型的create_reading方法（按账期抄表模式，billing_period为必填参数）
                 # 注意：这里不传递water_prev和electric_prev，由模型自动计算
                 new_reading = UtilityMeterReading.create_reading(
                     room_id=room.id,
+                    billing_period=billing_period,
                     water_current=water_current,
                     electric_current=electric_current,
                     water_meter_replaced=water_meter_replaced,
@@ -687,9 +719,9 @@ def batch_update():
                             logging.error(f"第{row_num}行记录ID {record_id} 电表本次读数格式错误")
                             raise ValueError("电表本次读数必须是数字")
                     
-                    # 处理更换标记（影响模型同步逻辑）
-                    update_data['water_meter_replaced'] = str(row.get('水表是否更换', '')).lower() in ['是', 'true', '1']
-                    update_data['electric_meter_replaced'] = str(row.get('电表是否更换', '')).lower() in ['是', 'true', '1']
+                    # 处理更换标记（影响模型同步逻辑，支持"首次抄表"值）
+                    update_data['water_meter_replaced'] = str(row.get('水表是否更换', '')).lower() in ['是', 'true', '1', '首次抄表']
+                    update_data['electric_meter_replaced'] = str(row.get('电表是否更换', '')).lower() in ['是', 'true', '1', '首次抄表']
                     
                     # 处理备注
                     water_notes = str(row.get('水表备注', '')).strip() or None

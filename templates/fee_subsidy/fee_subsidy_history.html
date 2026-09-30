@@ -505,7 +505,7 @@
                         data.data.forEach(period => {
                             const option = document.createElement('option');
                             option.value = period;
-                            option.textContent = `${period.substring(0, 4)}年${period.substring(5, 7)}月`;
+                            option.textContent = `${period}`;
                             billingPeriodSelect.appendChild(option);
                         });
                     } else {

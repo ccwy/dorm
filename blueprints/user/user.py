@@ -214,7 +214,7 @@ def view(id):
     # 处理退宿人员费用记录
     for record in checkout_utility_records:
         # 提取账期信息（格式为YYYY-MM）
-        billing_period = record.checkout_date.strftime('%Y-%m')
+        billing_period = record.main_record.billing_period if record.main_record else record.checkout_date.strftime('%Y-%m')
         utility_records.append({
             'record_id': record.record_id,
             'billing_period': billing_period,

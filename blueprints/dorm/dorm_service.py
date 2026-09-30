@@ -93,7 +93,7 @@ def do_change(user_id, target_room_id, reason="自愿换宿", change_date=None, 
 
 def do_checkout(user_id, check_out_date, checkout_type='在职退宿',
                 water_current=None, electric_current=None,
-                operator_id=None, remarks=''):
+                operator_id=None, remarks='', billing_period=None):
     """完整退宿业务逻辑：模型层退宿 + 补贴禁用 + 用户状态更新 + 抄表 + 费用计算
 
     Args:
@@ -104,6 +104,7 @@ def do_checkout(user_id, check_out_date, checkout_type='在职退宿',
         electric_current: 电表读数（可选）
         operator_id: 操作人ID（可选，默认取current_user）
         remarks: 备注
+        billing_period: 账期（格式YYYY-MM，必填，自离退宿时可选）
 
     Returns:
         dict: {'dorm': Dorm对象, 'subsidies_disabled': bool, 'subsidies_count': int,
@@ -165,6 +166,7 @@ def do_checkout(user_id, check_out_date, checkout_type='在职退宿',
                 meter_reader_id=op_id,
                 reading_type=2,  # 退宿抄表
                 user_id=user_id,
+                billing_period=billing_period,
                 water_notes=f"退宿抄表：{user.name if user else '未知用户'}，{check_out_date.strftime('%Y-%m-%d %H:%M:%S')}",
                 electric_notes=f"退宿抄表：{user.name if user else '未知用户'}，{check_out_date.strftime('%Y-%m-%d %H:%M:%S')}"
             )
@@ -178,6 +180,7 @@ def do_checkout(user_id, check_out_date, checkout_type='在职退宿',
             checkout_date=check_out_date,
             electric_reading=electric_current,
             water_reading=water_current,
+            billing_period=billing_period,
             remarks=f"退宿费用计算：{user.name if user else '未知用户'}，退宿日期：{check_out_date.strftime('%Y-%m-%d %H:%M:%S')}",
             calculate_fee=calculate_fee
         )

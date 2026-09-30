@@ -110,10 +110,23 @@
                 <!-- 筛选区，自适应布局 -->
                 <div class="filter-container-wrapper mb-6">
                     <form action="/utility-meter/utility_reading" method="get" class="filter-container">
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                             <div class="fixed-input-container">
-                                <label for="readingDateTime" class="block text-sm font-medium text-gray-700 mb-1">抄表日期时间 <span class="text-red-500">*</span></label>
-                                <input type="datetime-local" step="1" id="readingDateTime" name="reading_date_time" value="{{ reading_date_time }}" required
+                                <label for="billingPeriod" class="block text-sm font-medium text-gray-700 mb-1">账期 <span class="text-red-500">*</span></label>
+                                <select id="billingPeriod" name="billing_period" required
+                                        class="fixed-input px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                                    {% if billing_periods %}
+                                        {% for period in billing_periods %}
+                                        <option value="{{ period }}" {% if period == current_billing_period %}selected{% endif %}>{{ period }}</option>
+                                        {% endfor %}
+                                    {% else %}
+                                        <option value="{{ current_billing_period }}" selected>{{ current_billing_period }}</option>
+                                    {% endif %}
+                                </select>
+                            </div>
+                            <div class="fixed-input-container">
+                                <label for="readingDateTime" class="block text-sm font-medium text-gray-700 mb-1">抄表日期时间</label>
+                                <input type="datetime-local" step="1" id="readingDateTime" name="reading_date_time" value="{{ reading_date_time }}"
                                        class="fixed-input px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
                                 {% if datetime_error %}
                                 <div id="datetimeError" class="text-red-500 text-xs mt-1">
@@ -152,6 +165,7 @@
                 <form id="batchSaveForm" action="/utility-meter/utility_reading" method="post">
                     <input type="hidden" name="is_batch" value="true">
                     <input type="hidden" name="reading_date_time" value="{{ reading_date_time }}">
+                    <input type="hidden" name="billing_period" id="batchBillingPeriod" value="{{ current_billing_period }}">
 
                     
                     <div class="overflow-x-auto">
@@ -208,8 +222,13 @@
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap">
                                             <div class="relative">
-                                                <div class="meter-replaced-indicator" id="electric-replaced-indicator-{{ room.id }}" style="display: none;">
-                                                    表具已更换，当前为初始值
+                                                <div class="meter-replaced-indicator" id="electric-replaced-indicator-{{ room.id }}" 
+                                                     {% if room.latest_electric_reading is none %}
+                                                     style="display: block;"
+                                                     {% else %}
+                                                     style="display: none;"
+                                                     {% endif %}>
+                                                    {% if room.latest_electric_reading is none %}首次抄表，当前为初始值{% else %}表具已更换，当前为初始值{% endif %}
                                                 </div>
                                                 <input type="number" step="1"
                                                     {% if room.latest_electric_reading is not none %}
@@ -224,10 +243,16 @@
                                         <td class="px-6 py-4 whitespace-nowrap">
                                             <div class="relative inline-block w-10 h-5">
                                                 <input type="checkbox" id="electric-replace-{{ room.id }}" name="electric_replaced_{{ room.id }}"
-                                                       class="switch-checkbox absolute opacity-0 w-0 h-0">
-                                                <label for="electric-replace-{{ room.id }}" class="switch-label absolute cursor-pointer top-0 left-0 right-0 bottom-0 bg-gray-300 rounded-full transition-colors duration-300 ease-in-out">
-                                                    <span class="switch-dot absolute left-1 bottom-1 w-4 h-4 bg-white rounded-full transition-transform duration-300 ease-in-out"></span>
+                                                       class="switch-checkbox absolute opacity-0 w-0 h-0"
+                                                       {% if room.latest_electric_reading is none %}checked disabled{% endif %}>
+                                                <label for="electric-replace-{{ room.id }}" class="switch-label absolute cursor-pointer top-0 left-0 right-0 bottom-0 bg-gray-300 rounded-full transition-colors duration-300 ease-in-out
+                                                       {% if room.latest_electric_reading is none %}bg-primary{% endif %}">
+                                                    <span class="switch-dot absolute left-1 bottom-1 w-4 h-4 bg-white rounded-full transition-transform duration-300 ease-in-out
+                                                          {% if room.latest_electric_reading is none %}translate-x-[18px]{% endif %}"></span>
                                                 </label>
+                                                {% if room.latest_electric_reading is none %}
+                                                <span class="text-xs text-accent ml-1 whitespace-nowrap">首次</span>
+                                                {% endif %}
                                             </div>
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap" style="width: 120px;">
@@ -248,8 +273,13 @@
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap">
                                             <div class="relative">
-                                                <div class="meter-replaced-indicator" id="water-replaced-indicator-{{ room.id }}" style="display: none;">
-                                                    表具已更换，当前为初始值
+                                                <div class="meter-replaced-indicator" id="water-replaced-indicator-{{ room.id }}" 
+                                                     {% if room.latest_water_reading is none %}
+                                                     style="display: block;"
+                                                     {% else %}
+                                                     style="display: none;"
+                                                     {% endif %}>
+                                                    {% if room.latest_water_reading is none %}首次抄表，当前为初始值{% else %}表具已更换，当前为初始值{% endif %}
                                                 </div>
                                                 <input type="number" step="1"
                                                     {% if room.latest_water_reading is not none %}
@@ -264,10 +294,16 @@
                                         <td class="px-6 py-4 whitespace-nowrap">
                                             <div class="relative inline-block w-10 h-5">
                                                 <input type="checkbox" id="water-replace-{{ room.id }}" name="water_replaced_{{ room.id }}"
-                                                       class="switch-checkbox absolute opacity-0 w-0 h-0">
-                                                <label for="water-replace-{{ room.id }}" class="switch-label absolute cursor-pointer top-0 left-0 right-0 bottom-0 bg-gray-300 rounded-full transition-colors duration-300 ease-in-out">
-                                                    <span class="switch-dot absolute left-1 bottom-1 w-4 h-4 bg-white rounded-full transition-transform duration-300 ease-in-out"></span>
+                                                       class="switch-checkbox absolute opacity-0 w-0 h-0"
+                                                       {% if room.latest_water_reading is none %}checked disabled{% endif %}>
+                                                <label for="water-replace-{{ room.id }}" class="switch-label absolute cursor-pointer top-0 left-0 right-0 bottom-0 bg-gray-300 rounded-full transition-colors duration-300 ease-in-out
+                                                       {% if room.latest_water_reading is none %}bg-primary{% endif %}">
+                                                    <span class="switch-dot absolute left-1 bottom-1 w-4 h-4 bg-white rounded-full transition-transform duration-300 ease-in-out
+                                                          {% if room.latest_water_reading is none %}translate-x-[18px]{% endif %}"></span>
                                                 </label>
+                                                {% if room.latest_water_reading is none %}
+                                                <span class="text-xs text-accent ml-1 whitespace-nowrap">首次</span>
+                                                {% endif %}
                                             </div>
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap">
@@ -299,8 +335,8 @@
                                             <input type="hidden" name="electric_current" value="" id="electric_current_{{ room.id }}">
                                             <input type="hidden" name="water_notes" value="" id="water_notes_val_{{ room.id }}">
                                             <input type="hidden" name="electric_notes" value="" id="electric_notes_val_{{ room.id }}">
-                                            <input type="hidden" name="water_meter_replaced" value="false" id="water_meter_replaced_{{ room.id }}">
-                                            <input type="hidden" name="electric_meter_replaced" value="false" id="electric_meter_replaced_{{ room.id }}">
+                                            <input type="hidden" name="water_meter_replaced" value="{% if room.latest_water_reading is none %}true{% else %}false{% endif %}" id="water_meter_replaced_{{ room.id }}">
+                                            <input type="hidden" name="electric_meter_replaced" value="{% if room.latest_electric_reading is none %}true{% else %}false{% endif %}" id="electric_meter_replaced_{{ room.id }}">
 
                                             <button type="button" class="save-row-btn px-3 py-1 bg-secondary text-white rounded-md hover:bg-secondary/90 text-sm"
                                                     onclick="prepareSaveData({{ room.id }});">
@@ -571,10 +607,16 @@
                        
                      // 显示/隐藏表具更换指示器
                      if (this.checked) {
-                         indicator.style.display = 'block';
-                     } else {
-                         indicator.style.display = 'none';
-                     }
+                          indicator.style.display = 'block';
+                          // 根据是否为首次抄表显示不同文字
+                          if (this.disabled) {
+                              indicator.textContent = '首次抄表，当前为初始值';
+                          } else {
+                              indicator.textContent = '表具已更换，当前为初始值';
+                          }
+                      } else {
+                          indicator.style.display = 'none';
+                      }
                  });
              });
                
@@ -612,7 +654,16 @@
                  });
              }
                
-             // 批量保存表单提交处理
+             // 账期选择联动：同步更新批量保存表单中的隐藏字段
+              const billingPeriodSelect = document.getElementById('billingPeriod');
+              const batchBillingPeriodInput = document.getElementById('batchBillingPeriod');
+              if (billingPeriodSelect && batchBillingPeriodInput) {
+                  billingPeriodSelect.addEventListener('change', function() {
+                      batchBillingPeriodInput.value = this.value;
+                  });
+              }
+              
+              // 批量保存表单提交处理
              const batchSaveForm = document.getElementById('batchSaveForm');
              if (batchSaveForm) {
                  batchSaveForm.addEventListener('submit', function(e) {
@@ -642,6 +693,14 @@
                      // 转换日期格式：将YYYY-MM-DDThh:mm:ss转换为YYYY-MM-DD hh:mm:ss
                      const batchReadingDate = readingDateTime ? readingDateTime.replace('T', ' ') : '';
                      addHiddenField('batch_reading_date', batchReadingDate);
+                     
+                     // 获取账期
+                     const batchBillingPeriod = document.getElementById('billingPeriod').value;
+                     if (!batchBillingPeriod) {
+                         alert('请先选择账期');
+                         return;
+                     }
+                     addHiddenField('billing_period', batchBillingPeriod);
                      
                      // 创建数组来存储批量数据
                      const roomIds = [];
@@ -700,6 +759,12 @@
           
          // 准备单个保存的数据
          function prepareSaveData(roomId) {
+             // 获取账期
+             const billingPeriod = document.getElementById('billingPeriod').value;
+             if (!billingPeriod) {
+                 alert('请先选择账期');
+                 return false;
+             }
              // 获取表单数据
              const waterReading = document.querySelector(`input[name="water_reading_${roomId}"]`).value.trim();
              const electricityReading = document.querySelector(`input[name="electricity_reading_${roomId}"]`).value.trim();
@@ -737,6 +802,7 @@
               
              addHiddenField('room_id', roomId);
              addHiddenField('reading_date', readingDate);
+             addHiddenField('billing_period', billingPeriod);
              addHiddenField('water_current', waterReading);
              addHiddenField('electric_current', electricityReading);
              addHiddenField('water_notes', waterNotes);

@@ -33,7 +33,7 @@ class Config:
     # 会话不活动超时设置
     # 用户在这段时间内没有任何操作将被自动退出登录
     SESSION_INACTIVITY_TIMEOUT = 1 * 60 * 60  # 1小时不活动自动退出
-    AUTO_LOGIN_ADMIN = True  # 自动登录ADMIN账号（仅用于调试，生产环境务必设为False）
+    
     REMEMBER_COOKIE_DURATION = timedelta(days=30)  # "记住我"Cookie有效期30天
     
     # 基础目录
@@ -77,6 +77,8 @@ class Config:
         USE_DESKTOP_VIEW = True  # False为开发网页模式，True为桌面窗口模式，方便开发调试
     
     DEBUG = False  # 是否开启调试模式
+
+    AUTO_LOGIN_ADMIN = True  # 自动登录ADMIN账号（仅用于调试，生产环境务必设为False）
 
 #生产环境
 class ProductionConfig(Config):

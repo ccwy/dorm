@@ -26,7 +26,7 @@ def create_checkout_record():
         data = request.get_json()
         
         # 验证必要参数
-        required_fields = ['user_id', 'room_id', 'checkout_date']
+        required_fields = ['user_id', 'room_id', 'checkout_date', 'billing_period']
         for field in required_fields:
             if field not in data or not data[field]:
                 return jsonify({
@@ -37,6 +37,16 @@ def create_checkout_record():
         # 解析参数
         user_id = data['user_id']
         room_id = data['room_id']
+        billing_period = str(data['billing_period']).strip()
+        
+        # 验证账期格式（YYYY-MM）
+        try:
+            datetime.strptime(billing_period, '%Y-%m')
+        except ValueError:
+            return jsonify({
+                'success': False,
+                'message': '账期格式错误，应为YYYY-MM'
+            }), 400
         
         
         # 解析退宿日期（支持带时间的格式）
@@ -119,6 +129,7 @@ def create_checkout_record():
             # 调用模型方法创建记录
             UtilityMeterReading.create_reading(
                 room_id=room_id,
+                billing_period=billing_period,
                 water_current=water_reading,
                 electric_current=electric_reading,
                 reading_date=reading_date or datetime.now(),
@@ -150,6 +161,7 @@ def create_checkout_record():
             checkout_date=checkout_date,
             electric_reading=electric_reading,
             water_reading=water_reading,
+            billing_period=billing_period,
             calculate_fee=calculate_fee
         )
         
@@ -686,11 +698,7 @@ def delete_period_records():
 
 # 辅助函数：格式化账期显示
 def format_period(period):
-    """将YYYY-MM格式的账期转换为更友好的显示格式"""
+    """直接返回账期原始值"""
     if not period:
         return ""
-    try:
-        year, month = period.split('-')
-        return f"{year}年{month}月"
-    except ValueError:
-        return period
+    return period

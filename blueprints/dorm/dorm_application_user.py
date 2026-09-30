@@ -370,7 +370,8 @@ def create_checkout():
             last_electric_reading = None
             if active_dorm and active_dorm.room_id:
                 latest_reading = UtilityMeterReading.query.filter_by(
-                    room_id=active_dorm.room_id
+                    room_id=active_dorm.room_id,
+                    reading_type=1
                 ).order_by(UtilityMeterReading.reading_date.desc()).first()
                 if latest_reading:
                     last_water_reading = latest_reading.water_current
@@ -401,6 +402,7 @@ def create_checkout():
         check_out_date_str = request.form.get('check_out_date', '').strip()
         reason = request.form.get('reason', '').strip()
         checkout_type = request.form.get('checkout_type', '在职退宿').strip()
+        billing_period = request.form.get('billing_period', '').strip() or None
         water_current_str = request.form.get('water_current', '').strip()
         electric_current_str = request.form.get('electric_current', '').strip()
 
@@ -409,6 +411,8 @@ def create_checkout():
             logging.warning(f"用户 {user_id} 申请退宿参数不完整")
             flash('请填写所有必填字段（退宿日期、申请原因）', 'error')
             return redirect(url_for('dorm_application_user.create_checkout'))
+
+
 
         # 验证退宿类型
         valid_checkout_types = ('在职退宿', '离职退宿', '自离退宿')
@@ -446,6 +450,7 @@ def create_checkout():
             check_out_date=check_out_date,
             reason=reason,
             checkout_type=checkout_type,
+            billing_period=billing_period,
             water_current=water_current,
             electric_current=electric_current
         )

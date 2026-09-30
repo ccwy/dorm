@@ -314,6 +314,15 @@
         </div>
         
         <div class="mb-4">
+          <label for="createBillingPeriod" class="block text-sm font-medium text-gray-700 mb-1">账期 <span class="text-red-500">*</span></label>
+          <select id="createBillingPeriod" required
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all">
+            <option value="">请选择账期</option>
+          </select>
+          <p class="text-xs text-gray-500 mt-1">选择本次退宿费用所属的账期</p>
+        </div>
+        
+        <div class="mb-4">
           <label for="electricReading" class="block text-sm font-medium text-gray-700 mb-1">电表读数 (kWh)</label>
           <input type="number" step="0.01" min="0" id="electricReading" 
                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all">
@@ -379,6 +388,7 @@
       const createCheckoutDateInput = document.getElementById('createCheckoutDate');
       const createUserNameLabel = document.getElementById('createUserName');
       const createRoomNumberLabel = document.getElementById('createRoomNumber');
+      const createBillingPeriodSelect = document.getElementById('createBillingPeriod');
       const electricReadingInput = document.getElementById('electricReading');
       const waterReadingInput = document.getElementById('waterReading');
       const calculateFeeCheckbox = document.getElementById('calculateFee');
@@ -471,6 +481,15 @@
                 option.value = period;
                 option.textContent = formatPeriod(period);
                 accountPeriodSelect.appendChild(option);
+              });
+              
+              // 同步填充新增记录模态框的账期下拉框
+              createBillingPeriodSelect.innerHTML = '<option value="">请选择账期</option>';
+              data.periods.forEach(period => {
+                const option = document.createElement('option');
+                option.value = period;
+                option.textContent = formatPeriod(period);
+                createBillingPeriodSelect.appendChild(option);
               });
               
               // 设置默认选中第一个账期
@@ -1351,6 +1370,13 @@
         waterReadingInput.value = '';
         calculateFeeCheckbox.checked = true;
         
+        // 设置默认账期为当前页面选中的账期
+        if (currentBillPeriod && createBillingPeriodSelect.querySelector(`option[value="${currentBillPeriod}"]`)) {
+          createBillingPeriodSelect.value = currentBillPeriod;
+        } else {
+          createBillingPeriodSelect.value = '';
+        }
+        
         // 显示模态框
         createRecordModal.classList.remove('hidden');
         createRecordModal.classList.add('flex');
@@ -1374,7 +1400,13 @@
         
         // 验证必填参数
         if (!userId || !roomId || !checkoutDate) {
-          showSuccessToast('缺少必要参数，无法创建记录', false);
+          showSuccessToast('缺少必要参数（用户、房间、退宿日期），无法创建记录', false);
+          return;
+        }
+        
+        const createBillingPeriod = createBillingPeriodSelect.value;
+        if (!createBillingPeriod) {
+          showSuccessToast('请选择账期', false);
           return;
         }
         
@@ -1383,7 +1415,8 @@
           user_id: parseInt(userId),
           room_id: parseInt(roomId),
           checkout_date: checkoutDate,
-          calculate_fee: calculateFee
+          calculate_fee: calculateFee,
+          billing_period: createBillingPeriod
         };
         
         // 添加可选参数
@@ -1487,12 +1520,6 @@
       // 格式化账期显示
       function formatPeriod(period) {
         if (!period) return '';
-        // 支持YYYY-MM和YYYYMM两种格式
-        if (period.includes('-')) {
-          return `${period}`;
-        } else if (period.length === 6) {
-          return `${period.substr(0, 4)}年${period.substr(4, 2)}月`;
-        }
         return period;
       }
       

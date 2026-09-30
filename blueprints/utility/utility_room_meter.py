@@ -11,8 +11,8 @@ from flask_login import login_required, current_user
 from flask import send_from_directory, send_file, flash, redirect, url_for, Blueprint, request, render_template
 from utils.log import log_operation
 from utils.room_meter_photo import room_meter_manager
-import traceback, calendar
-from datetime import datetime,timedelta
+import traceback
+from datetime import datetime
 
 from utils.auth import require_permission
 
@@ -38,10 +38,45 @@ def utility_reading():
                     water_currents = request.form.getlist('water_currents[]')
                     electric_currents = request.form.getlist('electric_currents[]')
                     reading_date_str = request.form.get('batch_reading_date', '')
+                    billing_period = request.form.get('billing_period', '').strip()
                     water_notes_list = request.form.getlist('water_notes[]')
                     electric_notes_list = request.form.getlist('electric_notes[]')
                     water_meter_replaced_list = request.form.getlist('water_meter_replaced[]')
                     electric_meter_replaced_list = request.form.getlist('electric_meter_replaced[]')
+                    
+                    # 验证billing_period参数（必填）
+                    if not billing_period:
+                        log_operation(
+                            user_id=current_user.id,
+                            module='utility',
+                            operation_type='meter',
+                            action=f"批量保存抄表记录 [错误: 未提供账期参数]",
+                            result="失败"
+                        )
+                        logging.error(f"批量保存抄表记录 [错误: 未提供账期参数]")
+                        return render_template(
+                            'utility_bill/utility_reading.html',
+                            title=f"抄表登记",
+                            error_message="批量保存失败：未提供账期参数（billing_period）"
+                        )
+                    
+                    # 验证billing_period格式（YYYY-MM）
+                    try:
+                        datetime.strptime(billing_period, '%Y-%m')
+                    except ValueError:
+                        log_operation(
+                            user_id=current_user.id,
+                            module='utility',
+                            operation_type='meter',
+                            action=f"批量保存抄表记录 [错误: 账期格式错误: {billing_period}]",
+                            result="失败"
+                        )
+                        logging.error(f"批量保存抄表记录 [错误: 账期格式错误: {billing_period}]")
+                        return render_template(
+                            'utility_bill/utility_reading.html',
+                            title=f"抄表登记",
+                            error_message="批量保存失败：账期格式错误，请使用YYYY-MM格式"
+                        )
                     
                     # 验证批量数据长度一致
                     if not (len(room_ids) == len(water_currents) == len(electric_currents) == 
@@ -128,6 +163,7 @@ def utility_reading():
                                 # 调用模型的create_reading方法保存记录
                                 UtilityMeterReading.create_reading(
                                     room_id=room_id,
+                                    billing_period=billing_period,
                                     water_current=water_current_float,
                                     electric_current=electric_current_float,
                                     reading_date=reading_date,
@@ -140,7 +176,6 @@ def utility_reading():
                                 )
                                 
                                 # 保存成功后，将临时目录的照片移动到正式账期目录
-                                billing_period = reading_date.strftime('%Y-%m')
                                 try:
                                     move_result = room_meter_manager.move_temp_to_billing_period(room_id, billing_period)
                                     if move_result['moved'] > 0:
@@ -236,6 +271,7 @@ def utility_reading():
                 water_current = request.form.get('water_current', '').strip()
                 electric_current = request.form.get('electric_current', '').strip()
                 reading_date_str = request.form.get('reading_date', '')
+                billing_period = request.form.get('billing_period', '').strip()
                 water_notes = request.form.get('water_notes', '').strip()
                 electric_notes = request.form.get('electric_notes', '').strip()
                 water_meter_replaced = request.form.get('water_meter_replaced') == 'true'
@@ -255,6 +291,40 @@ def utility_reading():
                         'utility_bill/utility_reading.html',
                         title=f"抄表登记",
                         error_message="保存失败：未提供房间ID"
+                    )
+                
+                # 验证billing_period参数（必填）
+                if not billing_period:
+                    log_operation(
+                        user_id=current_user.id,
+                        module='utility',
+                        operation_type='meter',
+                        action=f"保存抄表记录 [错误: 未提供账期参数]",
+                        result="失败"
+                    )
+                    logging.error(f"保存抄表记录 [错误: 未提供账期参数]")
+                    return render_template(
+                        'utility_bill/utility_reading.html',
+                        title=f"抄表登记",
+                        error_message="保存失败：未提供账期参数（billing_period）"
+                    )
+                
+                # 验证billing_period格式（YYYY-MM）
+                try:
+                    datetime.strptime(billing_period, '%Y-%m')
+                except ValueError:
+                    log_operation(
+                        user_id=current_user.id,
+                        module='utility',
+                        operation_type='meter',
+                        action=f"保存抄表记录 [错误: 账期格式错误: {billing_period}]",
+                        result="失败"
+                    )
+                    logging.error(f"保存抄表记录 [错误: 账期格式错误: {billing_period}]")
+                    return render_template(
+                        'utility_bill/utility_reading.html',
+                        title=f"抄表登记",
+                        error_message="保存失败：账期格式错误，请使用YYYY-MM格式"
                     )
                 
                 # 验证房间是否存在
@@ -325,6 +395,7 @@ def utility_reading():
                     # 调用模型的create_reading方法保存记录
                     reading = UtilityMeterReading.create_reading(
                         room_id=room_id,
+                        billing_period=billing_period,
                         water_current=water_current_float,
                         electric_current=electric_current_float,
                         reading_date=reading_date,
@@ -340,7 +411,6 @@ def utility_reading():
                     db.session.commit()
                     
                     # 保存成功后，将临时目录的照片移动到正式账期目录
-                    billing_period = reading_date.strftime('%Y-%m')
                     try:
                         move_result = room_meter_manager.move_temp_to_billing_period(room_id, billing_period)
                         if move_result['moved'] > 0:
@@ -476,6 +546,24 @@ def utility_reading():
         current_datetime = datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
         reading_date_time = request.args.get('reading_date_time', current_datetime)
         
+        # 获取可用账期列表（从主表查询去重的billing_period）
+        billing_periods = []
+        current_billing_period = datetime.now().strftime('%Y-%m')
+        try:
+            periods = db.session.query(RoomUtilityRecord.billing_period).distinct().order_by(RoomUtilityRecord.billing_period.desc()).all()
+            billing_periods = [p[0] for p in periods if p[0]]
+        except Exception as e:
+            logging.warning(f"获取账期列表失败: {str(e)}")
+        
+        # 如果URL参数中指定了billing_period，优先使用
+        url_billing_period = request.args.get('billing_period', '').strip()
+        if url_billing_period:
+            try:
+                datetime.strptime(url_billing_period, '%Y-%m')
+                current_billing_period = url_billing_period
+            except ValueError:
+                pass  # 格式不正确则使用默认值
+        
         # 将数据传递给模板
         return render_template(
             'utility_bill/utility_reading.html',
@@ -496,7 +584,9 @@ def utility_reading():
             building_filter=building_filter,
             success_message=success_message,
             batch_errors=batch_errors,
-            reading_date_time=reading_date_time
+            reading_date_time=reading_date_time,
+            billing_periods=billing_periods,
+            current_billing_period=current_billing_period
         )
         
     except Exception as e:
@@ -511,6 +601,7 @@ def utility_reading():
         # 出现异常时返回基本页面，确保前端能正常显示
 
         current_datetime = datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
+        current_billing_period = datetime.now().strftime('%Y-%m')
         
         return render_template(
             'utility_bill/utility_reading.html',
@@ -519,7 +610,9 @@ def utility_reading():
             rooms=[],
             pagination={'total': 0, 'page': 1, 'per_page': 20, 'pages': 0},
             error_message="加载数据失败，请刷新页面重试",
-            reading_date_time=current_datetime
+            reading_date_time=current_datetime,
+            billing_periods=[],
+            current_billing_period=current_billing_period
         )
 
 @utility_room_meter_bp.route('/utility_reading_manage', methods=['GET'])
@@ -581,8 +674,14 @@ def utility_reading_edit(reading_id):
         action=f"访问编辑抄表记录页面 [记录ID: {reading_id}]",
         result="成功"
     )
-    # 可以在这里获取基本信息传递给模板
-    return render_template('utility_bill/utility_reading_edit.html', reading_id=reading_id,title=f"编辑抄表记录")
+    # 获取可用账期列表（从主表查询去重的billing_period）
+    billing_periods = []
+    try:
+        periods = db.session.query(RoomUtilityRecord.billing_period).distinct().order_by(RoomUtilityRecord.billing_period.desc()).all()
+        billing_periods = [p[0] for p in periods if p[0]]
+    except Exception as e:
+        logging.warning(f"获取账期列表失败: {str(e)}")
+    return render_template('utility_bill/utility_reading_edit.html', reading_id=reading_id, title=f"编辑抄表记录", billing_periods=billing_periods)
 
 @utility_room_meter_bp.route('/<int:reading_id>', methods=['GET'])
 @login_required
@@ -783,16 +882,12 @@ def batch_delete_readings():
 def delete_readings_by_month(year_month):
     """
     按账期（YYYY-MM）删除抄表记录
-    前端传递的参数为YYYY-MM格式，解析为该月份的起始和结束日期
+    通过billing_period关联主表record_id来查找并删除抄表记录
     """
     try:
-        # 解析年月参数
+        # 验证账期格式
         try:
-            year, month = map(int, year_month.split('-'))
-            # 计算该月份的第一天和最后一天
-            start_date = datetime(year, month, 1)
-            last_day = calendar.monthrange(year, month)[1]
-            end_date = datetime(year, month, last_day, 23, 59, 59)
+            datetime.strptime(year_month, '%Y-%m')
         except ValueError:
             log_operation(
                 user_id=current_user.id,
@@ -806,10 +901,31 @@ def delete_readings_by_month(year_month):
                 'message': '日期格式错误，请使用YYYY-MM格式'
             }), 400
         
-        # 查询该月份内的所有抄表记录
+        # 通过billing_period查找主表记录，获取record_id列表
+        main_records = RoomUtilityRecord.query.filter(
+            RoomUtilityRecord.billing_period == year_month
+        ).all()
+        
+        if not main_records:
+            log_operation(
+                user_id=current_user.id,
+                module='utility',
+                operation_type='delete',
+                action=f"按账期删除抄表记录 [账期: {year_month}, 结果: 无主表记录]",
+                result="成功"
+            )
+            return jsonify({
+                'success': True,
+                'message': f'账期 {year_month} 内没有找到抄表记录',
+                'data': {'deleted_count': 0}
+            })
+        
+        # 提取主表record_id
+        record_ids = [record.record_id for record in main_records]
+        
+        # 通过record_id关联查询抄表记录
         readings = UtilityMeterReading.query.filter(
-            UtilityMeterReading.reading_date >= start_date,
-            UtilityMeterReading.reading_date <= end_date
+            UtilityMeterReading.record_id.in_(record_ids)
         ).all()
         
         if not readings:
@@ -817,7 +933,7 @@ def delete_readings_by_month(year_month):
                 user_id=current_user.id,
                 module='utility',
                 operation_type='delete',
-                action=f"按账期删除抄表记录 [账期: {year_month}, 结果: 无记录]",
+                action=f"按账期删除抄表记录 [账期: {year_month}, 结果: 无抄表记录]",
                 result="成功"
             )
             return jsonify({
@@ -932,8 +1048,7 @@ def get_readings_by_period():
                 'message': 'billing_period格式错误，请使用YYYY-MM格式'
             }), 400
         
-        # 从主表查询对应账期的记录
-        from models.utility.utility_room_bill_record import RoomUtilityRecord
+        # 从主表查询对应账期的记录（已在文件顶部导入RoomUtilityRecord）
         
         # 查询主表记录
         main_records = RoomUtilityRecord.query.filter(
@@ -1002,24 +1117,22 @@ def get_readings_by_period():
         current_records = pagination.items
         
         records_with_归属 = []
+        # 构建record_id到主表billing_period的映射
+        record_period_map = {record.record_id: record.billing_period for record in main_records}
+        
         for record, room in current_records:
             prev_record = UtilityMeterReading.query.filter(
                 UtilityMeterReading.room_id == record.room_id,
-                UtilityMeterReading.reading_date < record.reading_date
+                UtilityMeterReading.reading_date < record.reading_date,
+                UtilityMeterReading.reading_type == 1
             ).order_by(UtilityMeterReading.reading_date.desc()).first()
             
-            period_start = prev_record.reading_date if prev_record else None
-            period_end = record.reading_date
-            display_billing_period = f"{period_start.strftime('%Y-%m-%d') if period_start else '无'} 至 {period_end.strftime('%Y-%m-%d')}"
-            
-            if not period_start:
-                归属_month = period_end.strftime('%Y-%m')
-            else:
-                归属_month = get_majority_month(period_start, period_end)
+            # 直接使用主表的billing_period
+            归属_month = record_period_map.get(record.record_id, billing_period)
             
             record_dict = record.to_dict()
             record_dict['prev_reading'] = prev_record.to_dict() if prev_record else None
-            record_dict['billing_period'] = display_billing_period
+            record_dict['billing_period'] = 归属_month
             record_dict['归属_month'] = 归属_month
             record_dict['room_number'] = room.room_number
             record_dict['room_building'] = room.building
@@ -1067,31 +1180,6 @@ def get_readings_by_period():
             'message': f"查询失败{str(e)}"   
         }), 500
 
-def get_majority_month(start_date, end_date):
-    """计算周期内天数最多的月份（核心辅助函数）"""
-    months = []
-    current = start_date
-    # 收集周期涉及的所有月份
-    while current <= end_date:
-        year_month = current.strftime('%Y-%m')
-        if year_month not in months:
-            months.append(year_month)
-        # 移动到下个月第一天
-        current = (current.replace(day=1) + timedelta(days=32)).replace(day=1)
-    
-    # 计算每个月在周期内的实际天数
-    month_days = {}
-    for ym in months:
-        y, m = map(int, ym.split('-'))
-        month_start = max(start_date, datetime(y, m, 1))
-        last_day = calendar.monthrange(y, m)[1]
-        month_end = min(end_date, datetime(y, m, last_day, 23, 59, 59))
-        days = (month_end - month_start).days + 1  # 包含首尾两天
-        month_days[ym] = days
-    
-    # 返回天数最多的月份（天数相同则取较晚的月份）
-    return max(month_days.items(), key=lambda x: (x[1], x[0]))[0]
-    
 @utility_room_meter_bp.route('/edit/<int:reading_id>/save', methods=['POST'])
 @login_required
 @require_permission('utility.edit')
@@ -1115,6 +1203,23 @@ def save_edited_reading(reading_id):
             return jsonify({'success': False, 'message': f'抄表记录ID不存在: {reading_id}'}), 404
         
         data = request.json
+        
+        # 处理账期变更：如果提供了billing_period，查找或创建对应的RoomUtilityRecord并更新record_id
+        if 'billing_period' in data and data['billing_period']:
+            billing_period = data.pop('billing_period')
+            try:
+                # 查找该房间对应账期的主表记录
+                bill_record = RoomUtilityRecord.get_by_room_and_period(reading.room_id, billing_period)
+                if bill_record:
+                    data['record_id'] = bill_record.record_id
+                else:
+                    # 如果该账期主表记录不存在，自动创建
+                    bill_record = RoomUtilityRecord.create_from_meter_reading(reading.room_id, billing_period)
+                    data['record_id'] = bill_record.record_id
+                    logging.info(f"编辑抄表记录时自动创建账期主表记录: 房间{reading.room_id}, 账期{billing_period}")
+            except Exception as e:
+                logging.error(f"处理账期变更失败: {str(e)}")
+                return jsonify({'success': False, 'message': f'账期变更失败: {str(e)}'}), 400
         
         # 验证必要字段
         if 'water_current' not in data and 'electric_current' not in data:

@@ -198,6 +198,12 @@
                         <span class="text-gray-500">退宿类型</span>
                         <span class="text-gray-800">{{ application.checkout_type if application.checkout_type else '-' }}</span>
                     </div>
+                    {% if application.billing_period %}
+                    <div class="flex justify-between text-sm">
+                        <span class="text-gray-500">账期</span>
+                        <span class="text-gray-800">{{ application.billing_period }}</span>
+                    </div>
+                    {% endif %}
                     {% if application.water_current is not none %}
                     <div class="flex justify-between text-sm">
                         <span class="text-gray-500">水表读数（申请人填写）</span>
@@ -435,6 +441,15 @@
                         {% if application.checkout_type %}
                         <p class="mt-1 text-xs text-gray-500">申请人选择：{{ application.checkout_type }}</p>
                         {% endif %}
+                    </div>
+                    <!-- 账期确认 -->
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">账期 <span class="text-danger">*</span></label>
+                        <select id="admin_billing_period" name="billing_period" required
+                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500/50 text-sm">
+                            <option value="">请选择账期</option>
+                        </select>
+
                     </div>
                     <!-- 水电表读数确认 -->
                     <div class="mb-4 bg-gray-50 rounded-lg p-4">
@@ -682,6 +697,31 @@
             if (checkOutDate && !checkOutDate.value) {
                 checkOutDate.value = localISOString;
             }
+
+            // 加载账期列表（退宿申请审核时）
+            {% if application.application_type == 'checkout' and application.status == 'pending' %}
+            const billingPeriodSelect = document.getElementById('admin_billing_period');
+            if (billingPeriodSelect) {
+                fetch('{{ url_for("utility_room_bill_records_bp.get_periods") }}')
+                    .then(response => response.json())
+                    .then(response => {
+                        if (response.success && response.periods) {
+                            billingPeriodSelect.innerHTML = '<option value="">请选择账期</option>';
+                            const currentPeriod = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+                            const appPeriod = '{{ application.billing_period if application.billing_period else "" }}';
+                            response.periods.forEach(function(period) {
+                                const isSelected = appPeriod ? period === appPeriod : period === currentPeriod;
+                                const option = document.createElement('option');
+                                option.value = period;
+                                option.textContent = period;
+                                if (isSelected) option.selected = true;
+                                billingPeriodSelect.appendChild(option);
+                            });
+                        }
+                    })
+                    .catch(error => console.error('加载账期列表失败:', error));
+            }
+            {% endif %}
         });
 
         // === 房间列表（参考dorm_create_allocation） ===

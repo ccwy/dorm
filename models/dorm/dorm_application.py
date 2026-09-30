@@ -36,6 +36,7 @@ class DormApplication(db.Model):
 
     # 退宿申请附加信息
     checkout_type = db.Column(db.String(20), nullable=True, comment='退宿类型：在职退宿/离职退宿/自离退宿')
+    billing_period = db.Column(db.String(7), nullable=True, comment='账期（YYYY-MM格式，管理端审核时选择）')
     water_current = db.Column(db.Float, nullable=True, comment='退宿水表读数（m³，可为空）')
     electric_current = db.Column(db.Float, nullable=True, comment='退宿电表读数（kWh，可为空）')
 
@@ -205,6 +206,7 @@ class DormApplication(db.Model):
             check_in_date=kwargs.get('check_in_date'),
             check_out_date=kwargs.get('check_out_date'),
             checkout_type=kwargs.get('checkout_type'),
+            billing_period=kwargs.get('billing_period'),
             water_current=kwargs.get('water_current'),
             electric_current=kwargs.get('electric_current'),
             operator_user_id=current_user.id if current_user.is_authenticated else None
@@ -216,7 +218,7 @@ class DormApplication(db.Model):
 
     def approve(self, reviewer_id, check_in_date=None, check_out_date=None,
                 assigned_room_id=None, review_remark=None,
-                checkout_type=None, water_current=None, electric_current=None):
+                checkout_type=None, billing_period=None, water_current=None, electric_current=None):
         """审核通过申请，调用现有Dorm方法执行对应操作
 
         Args:
@@ -226,6 +228,7 @@ class DormApplication(db.Model):
             assigned_room_id: 实际分配房间ID（申请/换宿时使用，不修改申请人填写的目标房间）
             review_remark: 审核备注
             checkout_type: 退宿类型（退宿时使用：在职退宿/离职退宿/自离退宿）
+            billing_period: 账期（退宿时使用，YYYY-MM格式）
             water_current: 水表读数（退宿时使用，可为空）
             electric_current: 电表读数（退宿时使用，可为空）
 
@@ -320,6 +323,8 @@ class DormApplication(db.Model):
                     # 水电表读数：优先使用审核人确认的，否则使用申请人填写的
                     effective_water = water_current if water_current is not None else app.water_current
                     effective_electric = electric_current if electric_current is not None else app.electric_current
+                    # 账期：优先使用审核人确认的，否则使用申请人填写的
+                    effective_billing_period = billing_period or app.billing_period
 
                     checkout_result = do_checkout(
                         user_id=app.user_id,
@@ -327,6 +332,7 @@ class DormApplication(db.Model):
                         checkout_type=effective_checkout_type,
                         water_current=effective_water,
                         electric_current=effective_electric,
+                        billing_period=effective_billing_period,
                         operator_id=operator_id,
                         remarks=f"通过申请{app.application_number}退宿：{app.reason or '无'}"
                     )

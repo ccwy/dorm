@@ -1218,7 +1218,16 @@
                             <td class="px-4 py-2 text-sm">${reading.reading_date ? new Date(reading.reading_date).toLocaleDateString() : '-'}</td>
                             <td class="px-4 py-2 text-sm">${reading.electric_reading != null ? reading.electric_reading : '-'}</td>
                             <td class="px-4 py-2 text-sm">${reading.water_reading != null ? reading.water_reading : '-'}</td>
-                            <td class="px-4 py-2 text-sm">${(reading.water_meter_replaced ? '水表更换' : '') + (reading.electric_meter_replaced ? (reading.water_meter_replaced ? ', ' : '') + '电表更换' : '') || '-'}</td>
+                            <td class="px-4 py-2 text-sm">${(() => {
+                                let parts = [];
+                                if (reading.water_meter_replaced) {
+                                    parts.push(reading.water_meter_sequence === 0 ? '首次水表抄表' : '水表更换');
+                                }
+                                if (reading.electric_meter_replaced) {
+                                    parts.push(reading.electric_meter_sequence === 0 ? '首次电表抄表' : '电表更换');
+                                }
+                                return parts.join(', ') || '-';
+                            })()}</td>
                             <td class="px-4 py-2 text-sm">${(reading.water_notes || '') + (reading.electric_notes ? `, ${reading.electric_notes}` : '') || '-'}</td>
                             <td class="px-4 py-2 text-sm">${reading.reader || '-'}</td>
                         </tr>

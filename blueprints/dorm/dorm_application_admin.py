@@ -190,7 +190,8 @@ def application_detail(id):
         last_electric_reading = None
         if application.application_type == 'checkout' and current_dorm and current_dorm.room_id:
             latest_reading = UtilityMeterReading.query.filter_by(
-                room_id=current_dorm.room_id
+                room_id=current_dorm.room_id,
+                reading_type=1
             ).order_by(UtilityMeterReading.reading_date.desc()).first()
             if latest_reading:
                 last_water_reading = latest_reading.water_current
@@ -251,6 +252,7 @@ def approve_application(id):
 
         # 退宿相关参数
         checkout_type = request.form.get('checkout_type', '').strip()
+        billing_period = request.form.get('billing_period', '').strip()
         water_current_str = request.form.get('water_current', '').strip()
         electric_current_str = request.form.get('electric_current', '').strip()
 
@@ -276,6 +278,8 @@ def approve_application(id):
         if application.application_type == 'checkout':
             if checkout_type:
                 checkout_kwargs['checkout_type'] = checkout_type
+            if billing_period:
+                checkout_kwargs['billing_period'] = billing_period
             if water_current is not None:
                 checkout_kwargs['water_current'] = water_current
             if electric_current is not None:
