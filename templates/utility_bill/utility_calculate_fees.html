@@ -1228,7 +1228,7 @@
                                 }
                                 return parts.join(', ') || '-';
                             })()}</td>
-                            <td class="px-4 py-2 text-sm">${(reading.water_notes || '') + (reading.electric_notes ? `, ${reading.electric_notes}` : '') || '-'}</td>
+                            <td class="px-4 py-2 text-sm">${reading.notes || '-'}</td>
                             <td class="px-4 py-2 text-sm">${reading.reader || '-'}</td>
                         </tr>
                         `;

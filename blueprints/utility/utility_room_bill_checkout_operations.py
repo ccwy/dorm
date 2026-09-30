@@ -134,8 +134,7 @@ def create_checkout_record():
                 electric_current=electric_reading,
                 reading_date=reading_date or datetime.now(),
                 meter_reader_id=current_user.id,
-                water_notes=f"自动创建水表退宿抄表记录 - 用户:{user_name}",
-                electric_notes=f"自动创建电表退宿抄表记录 - 用户:{user_name}",
+                notes=f"自动创建退宿抄表记录 - 用户:{user_name}",
                 reading_type=2,  # 退宿抄表类型标识
                 user_id=user_id,
                 water_meter_replaced=False,

@@ -39,8 +39,7 @@ def utility_reading():
                     electric_currents = request.form.getlist('electric_currents[]')
                     reading_date_str = request.form.get('batch_reading_date', '')
                     billing_period = request.form.get('billing_period', '').strip()
-                    water_notes_list = request.form.getlist('water_notes[]')
-                    electric_notes_list = request.form.getlist('electric_notes[]')
+                    notes_list = request.form.getlist('notes[]')
                     water_meter_replaced_list = request.form.getlist('water_meter_replaced[]')
                     electric_meter_replaced_list = request.form.getlist('electric_meter_replaced[]')
                     
@@ -80,7 +79,7 @@ def utility_reading():
                     
                     # 验证批量数据长度一致
                     if not (len(room_ids) == len(water_currents) == len(electric_currents) == 
-                            len(water_notes_list) == len(electric_notes_list) == 
+                            len(notes_list) == 
                             len(water_meter_replaced_list) == len(electric_meter_replaced_list)):
                         log_operation(
                             user_id=current_user.id,
@@ -136,8 +135,7 @@ def utility_reading():
                                 room_id = room_ids[i]
                                 water_current = water_currents[i].strip()
                                 electric_current = electric_currents[i].strip()
-                                water_notes = water_notes_list[i].strip() if i < len(water_notes_list) else ''
-                                electric_notes = electric_notes_list[i].strip() if i < len(electric_notes_list) else ''
+                                notes = notes_list[i].strip() if i < len(notes_list) else ''
                                 water_meter_replaced = water_meter_replaced_list[i] == 'true'
                                 electric_meter_replaced = electric_meter_replaced_list[i] == 'true'
                                 
@@ -168,8 +166,7 @@ def utility_reading():
                                     electric_current=electric_current_float,
                                     reading_date=reading_date,
                                     meter_reader_id=current_user.id,
-                                    water_notes=water_notes,
-                                    electric_notes=electric_notes,
+                                    notes=notes,
                                     reading_type=1,  # 正常抄表类型
                                     water_meter_replaced=water_meter_replaced,
                                     electric_meter_replaced=electric_meter_replaced
@@ -272,8 +269,7 @@ def utility_reading():
                 electric_current = request.form.get('electric_current', '').strip()
                 reading_date_str = request.form.get('reading_date', '')
                 billing_period = request.form.get('billing_period', '').strip()
-                water_notes = request.form.get('water_notes', '').strip()
-                electric_notes = request.form.get('electric_notes', '').strip()
+                notes = request.form.get('notes', '').strip()
                 water_meter_replaced = request.form.get('water_meter_replaced') == 'true'
                 electric_meter_replaced = request.form.get('electric_meter_replaced') == 'true'
                 
@@ -400,8 +396,7 @@ def utility_reading():
                         electric_current=electric_current_float,
                         reading_date=reading_date,
                         meter_reader_id=current_user.id,
-                        water_notes=water_notes,
-                        electric_notes=electric_notes,
+                        notes=notes,
                         reading_type=1,  # 正常抄表类型
                         water_meter_replaced=water_meter_replaced,
                         electric_meter_replaced=electric_meter_replaced

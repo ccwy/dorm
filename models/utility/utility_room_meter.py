@@ -43,8 +43,7 @@ class UtilityMeterReading(db.Model):
     reading_date = db.Column(db.DateTime, default=datetime.now, nullable=False, comment='抄表日期时间')
     meter_reader_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), 
                               nullable=True, comment='抄表人ID')
-    water_notes = db.Column(db.Text, nullable=True, comment='水表备注')
-    electric_notes = db.Column(db.Text, nullable=True, comment='电表备注')
+    notes = db.Column(db.Text, nullable=True, comment='备注')
     created_at = db.Column(db.DateTime, default=datetime.now, comment='记录创建时间')
     updated_at = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now, comment='记录更新时间')
     
@@ -147,7 +146,7 @@ class UtilityMeterReading(db.Model):
     def create_reading(cls, room_id, billing_period, water_current=None, electric_current=None,
                       water_meter_replaced=False, electric_meter_replaced=False,
                       reading_date=None, meter_reader_id=None,
-                      water_notes=None, electric_notes=None,
+                      notes=None,
                       record_id=None, reading_type=None, user_id=None):
         # 延迟导入
         from datetime import datetime, date
@@ -336,10 +335,9 @@ class UtilityMeterReading(db.Model):
             electric_meter_sequence=electric_meter_sequence,
             reading_date=reading_datetime,
             meter_reader_id=meter_reader_id,
-            water_notes=water_notes,
+            notes=notes,
             reading_type=reading_type,
-            user_id=user_id,
-            electric_notes=electric_notes
+            user_id=user_id
         )
         
         db.session.add(new_reading)
@@ -572,7 +570,6 @@ class UtilityMeterReading(db.Model):
                 'usage': float(self.water_usage) if self.water_usage else None,          # 自动计算的用量
                 'replaced': self.water_meter_replaced,
                 'sequence': self.water_meter_sequence,  # 新增：换表次数
-                'notes': self.water_notes
             },
             'electric': {
                 'current': float(self.electric_current) if self.electric_current else None,
@@ -580,8 +577,8 @@ class UtilityMeterReading(db.Model):
                 'usage': float(self.electric_usage) if self.electric_usage else None,          # 自动计算的用量
                 'replaced': self.electric_meter_replaced,
                 'sequence': self.electric_meter_sequence,  # 新增：换表次数
-                'notes': self.electric_notes
             },
+            'notes': self.notes,
             'reading_type': self.reading_type,
             'user_id': self.user_id,
             'reading_date': self.reading_date.strftime('%Y-%m-%dT%H:%M:%S'),

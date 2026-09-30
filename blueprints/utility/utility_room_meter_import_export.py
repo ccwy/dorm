@@ -41,8 +41,9 @@ def download_template():
         # 表头（不含抄表人字段，增加账期列）
         headers = [
             "记录ID（批量更新必填）", "账期(YYYY-MM)", "抄表日期时间", "楼栋", "宿舍号",
-            "水表本次读数", "水表是否更换(否/是/首次抄表)", "水表备注",
-             "电表本次读数", "电表是否更换(否/是/首次抄表)", "电表备注",
+            "水表本次读数", "水表是否更换(否/是/首次抄表)",
+             "电表本次读数", "电表是否更换(否/是/首次抄表)",
+             "备注",
              "抄表类型"
         ]
         ws.append(headers)
@@ -177,8 +178,8 @@ def export_readings():
         # 表头（移除抄表人相关字段，增加账期列）
         headers = [
             "记录ID（批量更新必填）", "序号", "账期", "抄表日期时间", "楼栋", "宿舍号",
-            "抄表类型", "水表上次读数", "水表本次读数", "用水量(m³)", "水表是否更换", "水表换表次数", "水表备注",
-            "电表上次读数", "电表本次读数", "用电量(kWh)", "电表是否更换", "电表换表次数", "电表备注"
+            "抄表类型", "水表上次读数", "水表本次读数", "用水量(m³)", "水表是否更换", "水表换表次数",
+            "电表上次读数", "电表本次读数", "用电量(kWh)", "电表是否更换", "电表换表次数", "备注"
         ]
         ws.append(headers)
 
@@ -214,13 +215,12 @@ def export_readings():
                 reading.water_usage or "",
                 "首次抄表" if (reading.water_meter_replaced and reading.water_meter_sequence == 0) else "是" if reading.water_meter_replaced else "否",
                 reading.water_meter_sequence or 0,
-                reading.water_notes or "",
                 reading.electric_previous or "",
                 reading.electric_current or "",
                 reading.electric_usage or "",
                 "首次抄表" if (reading.electric_meter_replaced and reading.electric_meter_sequence == 0) else "是" if reading.electric_meter_replaced else "否",
                 reading.electric_meter_sequence or 0,
-                reading.electric_notes or ""
+                reading.notes or ""
             ])
 
         # 调整列宽
@@ -436,10 +436,9 @@ def import_readings():
                 room_number = row[header_indices.get("宿舍号")]
                 water_curr = row[header_indices.get("水表本次读数")]
                 water_replaced = row[header_indices.get("水表是否更换")]
-                water_notes = row[header_indices.get("水表备注")]
+                notes = row[header_indices.get("备注")]
                 electric_curr = row[header_indices.get("电表本次读数")]
                 electric_replaced = row[header_indices.get("电表是否更换")]
-                electric_notes = row[header_indices.get("电表备注")]
                 reading_type_str = row[header_indices.get("抄表类型")]
                 
                 # 解析抄表类型
@@ -506,8 +505,7 @@ def import_readings():
                     electric_meter_replaced=electric_meter_replaced,
                     reading_date=reading_date,
                     meter_reader_id=current_user.id,  # 默认当前用户
-                    water_notes=str(water_notes).strip() if water_notes else None,
-                    electric_notes=str(electric_notes).strip() if electric_notes else None,
+                    notes=str(notes).strip() if notes else None,
                     reading_type=reading_type
                 )
                 
@@ -724,13 +722,9 @@ def batch_update():
                     update_data['electric_meter_replaced'] = str(row.get('电表是否更换', '')).lower() in ['是', 'true', '1', '首次抄表']
                     
                     # 处理备注
-                    water_notes = str(row.get('水表备注', '')).strip() or None
-                    if water_notes is not None:
-                        update_data['water_notes'] = water_notes
-                    
-                    electric_notes = str(row.get('电表备注', '')).strip() or None
-                    if electric_notes is not None:
-                        update_data['electric_notes'] = electric_notes
+                    notes = str(row.get('备注', '')).strip() or None
+                    if notes is not None:
+                        update_data['notes'] = notes
                     
                     # 处理抄表类型
                     if '抄表类型' in df.columns and pd.notna(row.get('抄表类型')):

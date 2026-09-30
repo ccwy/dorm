@@ -186,8 +186,7 @@
                                         水表更换
                                         <i class="fa fa-question-circle text-gray-400" title="标记水表是否已更换，更换后当前读数将作为初始值"></i>
                                     </th>
-                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">电表备注</th>
-                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">水表备注</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">备注</th>
                                     <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">抄表照片</th>
                                     <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
                                 </tr>
@@ -307,14 +306,8 @@
                                             </div>
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap">
-                                            <input type="text" class="electric-notes table-notes-input w-full px-2 py-1 border border-gray-300 rounded-md"
-                                                   name="electric_notes_{{ room.id }}"
-                                                   placeholder="如：表具更换原因等">
-                                            <div class="text-xs text-gray-500 mt-1">{{ room.building or '' }}{{ room.room_number or '' }}</div>
-                                        </td>
-                                        <td class="px-6 py-4 whitespace-nowrap">
-                                            <input type="text" class="water-notes table-notes-input w-full px-2 py-1 border border-gray-300 rounded-md" 
-                                                   name="water_notes_{{ room.id }}"
+                                            <input type="text" class="notes table-notes-input w-full px-2 py-1 border border-gray-300 rounded-md"
+                                                   name="notes_{{ room.id }}"
                                                    placeholder="如：表具更换原因等">
                                             <div class="text-xs text-gray-500 mt-1">{{ room.building or '' }}{{ room.room_number or '' }}</div>
                                         </td>
@@ -333,8 +326,7 @@
                                             <input type="hidden" name="reading_date" value="{{ reading_date_time }}" id="reading_date_{{ room.id }}">
                                             <input type="hidden" name="water_current" value="" id="water_current_{{ room.id }}">
                                             <input type="hidden" name="electric_current" value="" id="electric_current_{{ room.id }}">
-                                            <input type="hidden" name="water_notes" value="" id="water_notes_val_{{ room.id }}">
-                                            <input type="hidden" name="electric_notes" value="" id="electric_notes_val_{{ room.id }}">
+                                            <input type="hidden" name="notes" value="" id="notes_val_{{ room.id }}">
                                             <input type="hidden" name="water_meter_replaced" value="{% if room.latest_water_reading is none %}true{% else %}false{% endif %}" id="water_meter_replaced_{{ room.id }}">
                                             <input type="hidden" name="electric_meter_replaced" value="{% if room.latest_electric_reading is none %}true{% else %}false{% endif %}" id="electric_meter_replaced_{{ room.id }}">
 
@@ -706,8 +698,7 @@
                      const roomIds = [];
                      const waterCurrents = [];
                      const electricCurrents = [];
-                     const waterNotesList = [];
-                     const electricNotesList = [];
+                     const notesList = [];
                      const waterMeterReplacedList = [];
                      const electricMeterReplacedList = [];
                      
@@ -727,8 +718,7 @@
                                  roomIds.push(roomId);
                                  waterCurrents.push(waterReading);
                                  electricCurrents.push(electricityReading);
-                                 waterNotesList.push(row.querySelector(`input[name="water_notes_${roomId}"]`)?.value.trim() || '');
-                                 electricNotesList.push(row.querySelector(`input[name="electric_notes_${roomId}"]`)?.value.trim() || '');
+                                 notesList.push(row.querySelector(`input[name="notes_${roomId}"]`)?.value.trim() || '');
                                  waterMeterReplacedList.push(row.querySelector(`input[id="water-replace-${roomId}"]`)?.checked ? 'true' : 'false');
                                  electricMeterReplacedList.push(row.querySelector(`input[id="electric-replace-${roomId}"]`)?.checked ? 'true' : 'false');
                              }
@@ -745,8 +735,7 @@
                      roomIds.forEach(id => addHiddenField('room_ids[]', id));
                      waterCurrents.forEach(val => addHiddenField('water_currents[]', val));
                      electricCurrents.forEach(val => addHiddenField('electric_currents[]', val));
-                     waterNotesList.forEach(val => addHiddenField('water_notes[]', val));
-                     electricNotesList.forEach(val => addHiddenField('electric_notes[]', val));
+                     notesList.forEach(val => addHiddenField('notes[]', val));
                      waterMeterReplacedList.forEach(val => addHiddenField('water_meter_replaced[]', val));
                      electricMeterReplacedList.forEach(val => addHiddenField('electric_meter_replaced[]', val));
                      
@@ -768,8 +757,7 @@
              // 获取表单数据
              const waterReading = document.querySelector(`input[name="water_reading_${roomId}"]`).value.trim();
              const electricityReading = document.querySelector(`input[name="electricity_reading_${roomId}"]`).value.trim();
-             const waterNotes = document.querySelector(`input[name="water_notes_${roomId}"]`).value.trim();
-             const electricNotes = document.querySelector(`input[name="electric_notes_${roomId}"]`).value.trim();
+             const notes = document.querySelector(`input[name="notes_${roomId}"]`).value.trim();
              const waterReplaced = document.getElementById(`water-replace-${roomId}`).checked;
              const electricReplaced = document.getElementById(`electric-replace-${roomId}`).checked;
              // 直接从主控件获取最新的日期时间值
@@ -805,8 +793,7 @@
              addHiddenField('billing_period', billingPeriod);
              addHiddenField('water_current', waterReading);
              addHiddenField('electric_current', electricityReading);
-             addHiddenField('water_notes', waterNotes);
-             addHiddenField('electric_notes', electricNotes);
+             addHiddenField('notes', notes);
              addHiddenField('water_meter_replaced', waterReplaced ? 'true' : 'false');
              addHiddenField('electric_meter_replaced', electricReplaced ? 'true' : 'false');
               

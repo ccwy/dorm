@@ -827,11 +827,11 @@ def search_records():
                         'electric_reading': float(reading.electric_current) if reading.electric_current else None,
                         'electric_meter_replaced': reading.electric_meter_replaced,
                         'electric_meter_sequence': reading.electric_meter_sequence,
-                        'electric_notes': reading.electric_notes,
+                        'notes': reading.notes,
                         'water_reading': float(reading.water_current) if reading.water_current else None,
                         'water_meter_replaced': reading.water_meter_replaced,
                         'water_meter_sequence': reading.water_meter_sequence,
-                        'water_notes': reading.water_notes,
+
                         'reader': reading.meter_reader.name if (reading.meter_reader and hasattr(reading.meter_reader, 'name')) else None,
                         'reading_type': reading.reading_type
                     })

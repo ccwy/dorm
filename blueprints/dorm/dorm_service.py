@@ -167,8 +167,7 @@ def do_checkout(user_id, check_out_date, checkout_type='在职退宿',
                 reading_type=2,  # 退宿抄表
                 user_id=user_id,
                 billing_period=billing_period,
-                water_notes=f"退宿抄表：{user.name if user else '未知用户'}，{check_out_date.strftime('%Y-%m-%d %H:%M:%S')}",
-                electric_notes=f"退宿抄表：{user.name if user else '未知用户'}，{check_out_date.strftime('%Y-%m-%d %H:%M:%S')}"
+                notes=f"退宿抄表：{user.name if user else '未知用户'}，{check_out_date.strftime('%Y-%m-%d %H:%M:%S')}"
             )
             logging.info(f"添加{user.name}的退宿抄表记录：房间ID={room_id}, 用户ID={user_id}, 水表读数={water_current}, 电表读数={electric_current}")
 

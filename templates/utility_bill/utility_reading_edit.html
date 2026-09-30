@@ -202,13 +202,13 @@
                         </div>
                     </div>
                     
-                    <!-- 水表备注 - 可编辑 -->
+                    <!-- 备注 - 可编辑 -->
                     <div>
-                        <label for="waterNotes" class="block text-sm font-medium text-neutral-700 mb-1">水表备注</label>
+                        <label for="notes" class="block text-sm font-medium text-neutral-700 mb-1">备注</label>
                         <div class="relative">
-                            <textarea id="waterNotes" name="waterNotes" rows="2"
-                                class="w-full pl-3 pr-3 py-2.5 border border-neutral-300 rounded-lg form-input-focus water-focus transition-custom resize-none"
-                                placeholder="请输入水表相关备注信息（可选）"></textarea>
+                            <textarea id="notes" name="notes" rows="2"
+                                class="w-full pl-3 pr-3 py-2.5 border border-neutral-300 rounded-lg form-input-focus transition-custom resize-none"
+                                placeholder="请输入备注信息（可选）"></textarea>
                         </div>
                     </div>
                 </div>
@@ -260,15 +260,7 @@
                         </div>
                     </div>
                     
-                    <!-- 电表备注 - 可编辑 -->
-                    <div>
-                        <label for="electricNotes" class="block text-sm font-medium text-neutral-700 mb-1">电表备注</label>
-                        <div class="relative">
-                            <textarea id="electricNotes" name="electricNotes" rows="2"
-                                class="w-full pl-3 pr-3 py-2.5 border border-neutral-300 rounded-lg form-input-focus electricity-focus transition-custom resize-none"
-                                placeholder="请输入电表相关备注信息（可选）"></textarea>
-                        </div>
-                    </div>
+
                 </div>
 
                 <!-- 抄表照片/视频上传 -->
@@ -467,12 +459,11 @@
                 // 水表数据 - 正确访问嵌套的water对象属性
                 document.getElementById('waterPreviousText').textContent = data.water?.previous !== null ? data.water.previous : '无';
                 document.getElementById('waterCurrent').value = data.water?.current !== null ? data.water.current : '';
-                document.getElementById('waterNotes').value = data.water?.notes || '';
+                document.getElementById('notes').value = data.notes || '';
                 
                 // 电表数据 - 正确访问嵌套的electric对象属性
                 document.getElementById('electricPreviousText').textContent = data.electric?.previous !== null ? data.electric.previous : '无';
                 document.getElementById('electricCurrent').value = data.electric?.current !== null ? data.electric.current : '';
-                document.getElementById('electricNotes').value = data.electric?.notes || '';
                 
                 // 设置是否换表字段的值（区分首次抄表和换表）
                 const waterSequence = data.water?.sequence;
@@ -526,8 +517,7 @@
             const inputs = [
                 document.getElementById('waterCurrent'),
                 document.getElementById('electricCurrent'),
-                document.getElementById('waterNotes'),
-                document.getElementById('electricNotes')
+                document.getElementById('notes')
             ];
             
             inputs.forEach(input => {
@@ -616,11 +606,11 @@
                 billing_period: billingPeriod,
                 // 水表数据
                 water_current: document.getElementById('waterCurrent').value ? parseFloat(document.getElementById('waterCurrent').value) : null,
-                water_notes: document.getElementById('waterNotes').value,
                 water_meter_replaced: document.getElementById('waterReplace').value === 'true' || document.getElementById('waterReplace').value === 'first',
                 // 电表数据
                 electric_current: document.getElementById('electricCurrent').value ? parseFloat(document.getElementById('electricCurrent').value) : null,
-                electric_notes: document.getElementById('electricNotes').value,
+                // 备注
+                notes: document.getElementById('notes').value,
                 electric_meter_replaced: document.getElementById('electricReplace').value === 'true' || document.getElementById('electricReplace').value === 'first'
             };
 
