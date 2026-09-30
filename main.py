@@ -129,7 +129,8 @@ def init_flask_app(progress_callback=None):
         login_bp, user_bp, user_api_bp, user_operations_bp,
         user_import_export_bp, room_import_export_bp,
         room_bp, room_api_bp,
-        dorm_bp, dorm_import_export_bp,
+        dorm_bp, dorm_import_export_bp, dorm_application_user_bp, dorm_application_admin_bp,
+        dorm_application_export_bp,
         system_config_bp, log_bp,
         utility_room_meter_bp, utility_room_meter_import_export_bp,
         utility_index_bp,
@@ -163,6 +164,9 @@ def init_flask_app(progress_callback=None):
     app.register_blueprint(room_import_export_bp)
     app.register_blueprint(dorm_bp)
     app.register_blueprint(dorm_import_export_bp)
+    app.register_blueprint(dorm_application_user_bp)
+    app.register_blueprint(dorm_application_admin_bp)
+    app.register_blueprint(dorm_application_export_bp)
     app.register_blueprint(system_config_bp)
     app.register_blueprint(log_bp)
     app.register_blueprint(utility_room_meter_bp)

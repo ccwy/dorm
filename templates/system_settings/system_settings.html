@@ -91,9 +91,14 @@
                         </li>
                     </ul>
                     <div class="p-4 border-t border-gray-200 bg-gray-50">
-                        <button id="initializeAllBtn" class="w-full btn-secondary text-sm flex items-center justify-center">
+                        <button id="initializeAllBtn" class="w-full btn-secondary text-sm flex items-center justify-center mb-2">
                             <i class="fa fa-refresh mr-2"></i>初始化所有配置
                         </button>
+                        {% if current_env == 'windows' %}
+                        <button id="restartSystemBtn" class="w-full bg-red-500 text-white text-sm flex items-center justify-center py-2 px-4 rounded-md hover:bg-red-600 transition-colors">
+                            <i class="fa fa-power-off mr-2"></i>重启系统
+                        </button>
+                        {% endif %}
                     </div>
                 </div>
             </div>
@@ -396,6 +401,7 @@
             document.getElementById('saveConfigBtn').addEventListener('click', saveConfigChanges);
             safeAddListener('initializeModuleBtn', 'click', showInitializeModuleConfirm);
             safeAddListener('initializeAllBtn', 'click', showInitializeAllConfirm);
+            safeAddListener('restartSystemBtn', 'click', showRestartSystemConfirm);
             safeAddListener('createBackupBtn', 'click', createBackup);
             safeAddListener('restoreFromFileBtn', 'click', selectBackupFile);
             document.getElementById('backupFileInput').addEventListener('change', handleBackupFileSelect);
@@ -1414,6 +1420,45 @@
                 initializeAllConfigs,
                 false // 不显示强制清空选项
             );
+        }
+
+        // 显示重启系统确认对话框
+        function showRestartSystemConfirm() {
+            showConfirmDialog(
+                '重启系统',
+                '确定要重启系统吗？系统将自动关闭并重新启动，期间所有用户将断开连接。',
+                restartSystem,
+                false
+            );
+        }
+
+        // 重启系统
+        function restartSystem() {
+            fetch('/system/api/restart-system', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => response.json().then(data => ({ ok: response.ok, data: data })))
+            .then(({ ok, data }) => {
+                if (ok && data.success) {
+                    showToast('系统正在重启，请稍候...', 'success');
+                    // 禁用重启按钮防止重复点击
+                    const btn = document.getElementById('restartSystemBtn');
+                    if (btn) {
+                        btn.disabled = true;
+                        btn.innerHTML = '<i class="fa fa-spinner fa-spin mr-2"></i>重启中...';
+                    }
+                } else {
+                    showToast('重启失败: ' + (data.message || '未知错误'), 'error');
+                }
+            })
+            .catch(error => {
+                console.error('重启系统错误:', error);
+                showToast('重启系统失败，请稍后重试', 'error');
+            });
         }
 
         // 初始化所有配置

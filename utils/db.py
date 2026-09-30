@@ -82,12 +82,14 @@ def init_roles_and_permissions():
         'ticket': {'view', 'create'},
         'maintenance': {'view', 'create'},
         'utility': {'room_records_detail'},
+        'dorm_application': {'view', 'create', 'cancel'},
     }
     # 维修员的权限配置
     maintenance_permissions = {
         'maintenance': {'view', 'create', 'handle'},
         'ticket': {'view', 'create'},
         'utility': {'room_records_detail'},
+        'dorm_application': {'view', 'create'},
     }
     
     # 创建所有内置角色
@@ -328,6 +330,7 @@ def init_db(app: Flask, force_recreate=False):
             import models.room.room
             import models.room.room_bed
             import models.dorm.dorm
+            import models.dorm.dorm_application  # 宿舍申请模型
             import models.log.log
             import models.utility.utility_room_meter
             import models.system_config.system_config

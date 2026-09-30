@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    {% include 'static.html' %}
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#165DFF',
+                        secondary: '#36CFC9',
+                        accent: '#722ED1',
+                        danger: '#F5222D',
+                        info: '#1890FF',
+                        warning: '#FAAD14'
+                    },
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .btn-effect {
+                transition: all 0.2s ease;
+            }
+            .btn-effect:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            }
+            .fade-in {
+                animation: fadeIn 0.5s ease-in;
+            }
+            @keyframes fadeIn {
+                from { opacity: 0; }
+                to { opacity: 1; }
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    {% include 'header.html' %}
+
+    <main class="container mx-auto px-4 py-6">
+        <!-- 标题和返回按钮区 -->
+        <div class="mb-6 fade-in">
+            <div class="flex items-center">
+                <a href="{{ url_for('dorm_application_user.application_list') }}" class="text-gray-600 hover:text-primary transition-colors mr-4">
+                    <i class="fa fa-arrow-left"></i>
+                </a>
+                <div>
+                    <h2 class="text-[clamp(1.5rem,3vw,2rem)] font-bold text-dark">{{ title }}</h2>
+                    <p class="text-gray-500 mt-1">
+                        {% if application_type == 'allocate' %}填写宿舍申请信息，床位将自动分配，提交后等待管理员审核
+                        {% elif application_type == 'change' %}填写换宿申请信息，床位将自动分配，提交后等待管理员审核
+                        {% elif application_type == 'checkout' %}填写退宿申请信息，提交后等待管理员审核
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 消息提示区域 -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            <div class="flash-messages mb-6">
+              {% for category, message in messages %}
+                <div class="p-4 rounded-md mb-2 {% if category == 'success' %}bg-green-100 text-green-800{% elif category == 'error' or category == 'danger' %}bg-red-100 text-red-800{% elif category == 'warning' %}bg-yellow-100 text-yellow-800{% else %}bg-blue-100 text-blue-800{% endif %}">
+                  <button type="button" class="float-right ml-2 text-gray-500 hover:text-gray-700" onclick="this.parentElement.remove()">×</button>
+                  {{ message }}
+                </div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        {% endwith %}
+
+        <!-- 申请表单 -->
+        <div class="bg-white rounded-lg shadow-sm p-6">
+            {% set form_action = url_for('dorm_application_user.create_allocate') if application_type == 'allocate' else (url_for('dorm_application_user.create_change') if application_type == 'change' else url_for('dorm_application_user.create_checkout')) %}
+            <form id="applicationForm" method="POST" action="{{ form_action }}">
+                <!-- 用户信息 -->
+                <div class="mb-8">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4 pb-2 border-b border-gray-200">
+                        <i class="fa fa-user mr-2 text-primary"></i>用户信息
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-x-8 gap-y-4">
+                        <div>
+                            <label class="block text-sm text-gray-500 mb-1">姓名</label>
+                            <p class="font-medium text-gray-800">{{ user.name if user else '-' }}</p>
+                        </div>
+                        <div>
+                            <label class="block text-sm text-gray-500 mb-1">工号</label>
+                            <p class="font-medium text-gray-800">{{ user.student_id if user and user.student_id else '-' }}</p>
+                        </div>
+                        <div>
+                            <label class="block text-sm text-gray-500 mb-1">性别</label>
+                            <p class="font-medium text-gray-800">{{ user.gender if user and user.gender else '-' }}</p>
+                        </div>
+                        <div>
+                            <label class="block text-sm text-gray-500 mb-1">部门</label>
+                            <p class="font-medium text-gray-800">{{ user.dept.name if user and user.dept else '-' }}</p>
+                        </div>
+                    </div>
+                </div>
+
+                {% if application_type == 'change' or application_type == 'checkout' %}
+                <!-- 当前宿舍信息（换宿/退宿时显示） -->
+                <div class="mb-8">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4 pb-2 border-b border-gray-200">
+                        <i class="fa fa-home mr-2 text-secondary"></i>当前宿舍信息
+                    </h3>
+                    {% if active_dorm and current_room %}
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-x-8 gap-y-4">
+                        <div>
+                            <label class="block text-sm text-gray-500 mb-1">当前房间</label>
+                            <p class="font-medium text-lg text-gray-800">{{ current_room.building }}{{ current_room.room_number }}</p>
+                        </div>
+                        <div>
+                            <label class="block text-sm text-gray-500 mb-1">入住时间</label>
+                            <p class="font-medium text-gray-800">
+                                {{ active_dorm.check_in_date.strftime('%Y-%m-%d') if active_dorm.check_in_date else '-' }}
+                            </p>
+                        </div>
+                        <div>
+                            <label class="block text-sm text-gray-500 mb-1">已住天数</label>
+                            <p class="font-medium text-gray-800">{{ stay_days if stay_days else '-' }}</p>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="bg-yellow-50 border border-yellow-200 rounded-md p-4">
+                        <p class="text-yellow-700"><i class="fa fa-exclamation-circle mr-1"></i>未找到当前住宿信息</p>
+                    </div>
+                    {% endif %}
+                </div>
+                {% endif %}
+
+                {% if application_type == 'allocate' or application_type == 'change' %}
+                <!-- 目标房间选择（申请宿舍/换宿时显示） -->
+                <div class="mb-8 bg-gray-50 rounded-lg p-6">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4">
+                        <i class="fa fa-bed mr-2 text-accent"></i>选择目标房间 <span class="text-red-500 text-sm">*</span>
+                        <span class="text-sm font-normal text-gray-500 ml-2">（床位将自动分配）</span>
+                    </h3>
+                    
+                    <!-- 房间筛选 -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                        <div>
+                            <label for="buildingFilter" class="block text-sm font-medium text-gray-700 mb-1">楼栋</label>
+                            <select id="buildingFilter" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                                <option value="">所有楼栋</option>
+                                {% if building_list %}
+                                    {% for building in building_list %}
+                                        <option value="{{ building }}">{{ building }}</option>
+                                    {% endfor %}
+                                {% endif %}
+                            </select>
+                        </div>
+                        <div class="flex items-end gap-2">
+                            <div class="flex-1">
+                                <label for="roomNumberSearch" class="block text-sm font-medium text-gray-700 mb-1">房间号</label>
+                                <input type="text" id="roomNumberSearch" placeholder="搜索房间号" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                            </div>
+                            <button type="button" id="refreshRooms" class="px-4 py-2 bg-gray-100 text-gray-700 border border-gray-300 rounded-md hover:bg-gray-200 flex items-center justify-center h-10">
+                                <i class="fa fa-refresh mr-1"></i>
+                                刷新
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 可用房间列表 -->
+                    <div class="overflow-x-auto min-w-full">
+                        <table class="min-w-full bg-white rounded-lg overflow-hidden">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="py-3 px-4 text-left text-sm font-medium text-gray-700 border-b">选择</th>
+                                    <th class="py-3 px-4 text-left text-sm font-medium text-gray-700 border-b">房间号</th>
+                                </tr>
+                            </thead>
+                            <tbody id="roomList" class="divide-y divide-gray-200">
+                                <!-- 房间列表将通过JavaScript动态加载 -->
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- 分页控制 -->
+                    <div id="pagination" class="mt-4 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
+                        <div class="text-sm text-gray-500">
+                            显示 <span id="showingFrom">0</span>-<span id="showingTo">0</span> 条，共 <span id="totalRooms">0</span> 条
+                        </div>
+                        <div class="flex flex-wrap items-center gap-4">
+                            <span id="pageInfo" class="text-sm text-gray-700">第 <span id="currentPage">1</span>/<span id="totalPages">0</span> 页</span>
+                            <select id="pageSizeSelect" class="border border-gray-300 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
+                                <option value="10">10条/页</option>
+                                <option value="20">20条/页</option>
+                                <option value="50">50条/页</option>
+                            </select>
+                            <button id="prevPage" class="px-3 py-1 border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                                <i class="fa fa-chevron-left"></i> 上一页
+                            </button>
+                            <button id="nextPage" class="px-3 py-1 border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                                下一页 <i class="fa fa-chevron-right"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 隐藏字段：选中的房间ID -->
+                    <input type="hidden" name="target_room_id" id="target_room_id" value="">
+
+                    <!-- 当前选择信息 -->
+                    <div class="mt-4 p-4 bg-blue-50 rounded-lg">
+                        <h4 class="text-md font-semibold mb-2">当前选择</h4>
+                        <div>
+                            <p class="text-sm text-gray-500">目标房间</p>
+                            <p class="font-medium text-primary" id="selected_room_display">请选择房间</p>
+                        </div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- 日期和原因 -->
+                <div class="mb-8">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4 pb-2 border-b border-gray-200">
+                        <i class="fa fa-calendar mr-2 text-warning"></i>申请信息
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {% if application_type == 'checkout' %}
+                        <div>
+                            <label for="check_out_date" class="block text-sm font-medium text-gray-700 mb-1">
+                                期望退宿日期 <span class="text-red-500">*</span>
+                            </label>
+                            <input type="datetime-local" id="check_out_date" name="check_out_date" required
+                                value="{{ default_datetime }}"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                        </div>
+                        <div>
+                            <label for="checkout_type" class="block text-sm font-medium text-gray-700 mb-1">
+                                退宿类型 <span class="text-red-500">*</span>
+                            </label>
+                            <select id="checkout_type" name="checkout_type"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                                <option value="在职退宿" selected>在职退宿</option>
+                                <option value="离职退宿">离职退宿</option>
+                            </select>
+                            <p class="text-xs text-gray-500 mt-1">自离退宿由管理员在审核时选择</p>
+                        </div>
+                        {% else %}
+                        <div>
+                            <label for="check_in_date" class="block text-sm font-medium text-gray-700 mb-1">
+                                {% if application_type == 'allocate' %}期望入住日期{% else %}期望换宿日期{% endif %} <span class="text-red-500">*</span>
+                            </label>
+                            <input type="datetime-local" id="check_in_date" name="check_in_date" required
+                                value="{{ default_datetime }}"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                        </div>
+                        {% endif %}
+                        {% if application_type == 'checkout' %}
+                        <div>
+                            <label for="water_current" class="block text-sm font-medium text-gray-700 mb-1">
+                                水表读数（m³） <span class="text-gray-400 text-xs">选填</span>
+                            </label>
+                            <input type="number" step="0.01" id="water_current" name="water_current"
+                                placeholder="请输入当前水表读数"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                            {% if last_water_reading is not none %}
+                            <p class="text-xs text-gray-500 mt-1">上次读数：{{ last_water_reading }} m³</p>
+                            {% endif %}
+                        </div>
+                        <div>
+                            <label for="electric_current" class="block text-sm font-medium text-gray-700 mb-1">
+                                电表读数（kWh） <span class="text-gray-400 text-xs">选填</span>
+                            </label>
+                            <input type="number" step="0.01" id="electric_current" name="electric_current"
+                                placeholder="请输入当前电表读数"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                            {% if last_electric_reading is not none %}
+                            <p class="text-xs text-gray-500 mt-1">上次读数：{{ last_electric_reading }} kWh</p>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                        <div>
+                            <label for="reason" class="block text-sm font-medium text-gray-700 mb-1">
+                                申请原因 <span class="text-red-500">*</span>
+                            </label>
+                            <textarea id="reason" name="reason" rows="3" required
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                placeholder="请详细说明申请原因..."></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 提交按钮 -->
+                <div class="flex items-center gap-4 pt-4 border-t border-gray-200">
+                    <button type="submit" id="submitBtn" class="btn-effect bg-primary text-white px-6 py-2.5 rounded-md flex items-center">
+                        <i class="fa fa-paper-plane mr-2"></i>提交申请
+                    </button>
+                    <a href="{{ url_for('dorm_application_user.application_list') }}" class="btn-effect bg-gray-200 text-gray-700 px-6 py-2.5 rounded-md flex items-center">
+                        <i class="fa fa-arrow-left mr-2"></i>返回列表
+                    </a>
+                </div>
+            </form>
+        </div>
+    </main>
+
+    {% include 'footer.html' %}
+
+    <script>
+        $(document).ready(function() {
+            const applicationType = '{{ application_type }}';
+            {% if application_type == 'allocate' or application_type == 'change' %}
+            // 当前页码和每页显示数量
+            let currentPage = 1;
+            let perPage = 10;
+
+            // 筛选和搜索元素
+            const buildingFilter = $('#buildingFilter');
+            const roomNumberSearch = $('#roomNumberSearch');
+            const refreshRooms = $('#refreshRooms');
+
+            // 分页相关元素
+            const roomList = $('#roomList');
+            const prevPage = $('#prevPage');
+            const nextPage = $('#nextPage');
+            const currentPageEl = $('#currentPage');
+            const totalPagesEl = $('#totalPages');
+            const showingFrom = $('#showingFrom');
+            const showingTo = $('#showingTo');
+            const totalRooms = $('#totalRooms');
+
+            // 其他元素
+            const selectedRoomId = $('#target_room_id');
+            const selectedRoomDisplay = $('#selected_room_display');
+            const confirmBtn = $('#submitBtn');
+
+            // 用户信息
+            const userGender = '{{ user.gender if user and user.gender else "" }}';
+
+            // 初始化加载房间列表
+            loadRooms();
+
+            // 监听筛选条件变化
+            buildingFilter.on('change', function() { currentPage = 1; loadRooms(); });
+            roomNumberSearch.on('keypress', function(e) { if (e.which === 13) { currentPage = 1; loadRooms(); } });
+
+            // 每页显示条数变化
+            const pageSizeSelect = $('#pageSizeSelect');
+            pageSizeSelect.on('change', function() { perPage = parseInt($(this).val()); currentPage = 1; loadRooms(); });
+
+            // 上一页/下一页
+            prevPage.on('click', function(e) { e.preventDefault(); if (currentPage > 1) { currentPage--; loadRooms(); } });
+            nextPage.on('click', function(e) { e.preventDefault(); const tp = parseInt(totalPagesEl.text()); if (currentPage < tp) { currentPage++; loadRooms(); } });
+
+            // 刷新按钮
+            refreshRooms.on('click', function(e) { e.preventDefault(); location.reload(); });
+
+            // 阻止所有按钮的默认表单提交行为
+            $(document).on('click', 'button[type="button"]', function(e) { e.preventDefault(); });
+
+            // 加载房间列表
+            function loadRooms() {
+                const filters = {
+                    gender: userGender !== '-' ? userGender : '',
+                    status: 'available',
+                    building: buildingFilter.val(),
+                    room_number: roomNumberSearch.val(),
+                    page: currentPage,
+                    per_page: perPage
+                };
+
+                // 换宿时排除当前用户住宿的房间
+                {% if application_type == 'change' and user %}
+                filters['exclude_user_id'] = {{ user.id }};
+                {% endif %}
+
+                $.ajax({
+                    url: '{{ url_for("room_api.get_rooms") }}',
+                    type: 'GET',
+                    data: filters,
+                    success: function(response) {
+                        if (response.success && response.data && response.data.rooms) {
+                            updateRoomList(response.data.rooms);
+                            if (response.data.pagination) {
+                                updatePagination(response.data.pagination.total, response.data.pagination.page, response.data.pagination.pages);
+                            }
+                        } else {
+                            roomList.html('<tr><td colspan="9" class="py-4 px-4 text-center text-gray-500">加载失败，请重试</td></tr>');
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        console.error('加载房间列表失败:', error);
+                        roomList.html('<tr><td colspan="9" class="py-4 px-4 text-center text-gray-500">加载失败，请重试</td></tr>');
+                    }
+                });
+            }
+
+            // 更新房间列表
+            function updateRoomList(rooms) {
+                roomList.empty();
+                const currentSelectedRoomId = selectedRoomId.val();
+
+                if (rooms.length === 0) {
+                    roomList.html('<tr><td colspan="2" class="py-4 px-4 text-center text-gray-500">没有找到符合条件的房间</td></tr>');
+                    return;
+                }
+
+                rooms.forEach(room => {
+                    const isSelected = currentSelectedRoomId === String(room.id);
+                    const row = $('<tr>').addClass('hover:bg-gray-50');
+                    if (isSelected) row.addClass('bg-blue-50');
+
+                    // 选择按钮
+                    const selectCell = $('<td>').addClass('py-3 px-4 whitespace-nowrap text-left');
+                    const radioBtn = $('<input>')
+                        .attr('type', 'radio')
+                        .attr('name', 'selectedRoom')
+                        .attr('value', room.id)
+                        .prop('checked', isSelected)
+                        .addClass('form-radio h-4 w-4 text-primary focus:ring-primary');
+
+                    radioBtn.on('change', function(e) {
+                        e.stopPropagation();
+                        const roomId = $(this).val();
+                        const roomNumber = $(this).closest('tr').find('td:nth-child(2)').text();
+
+                        selectedRoomId.val(roomId);
+                        selectedRoomDisplay.text(roomNumber);
+
+                        // 高亮选中行
+                        roomList.find('tr').removeClass('bg-blue-50');
+                        $(this).closest('tr').addClass('bg-blue-50');
+                    });
+
+                    selectCell.append(radioBtn);
+
+                    // 房间号
+                    const roomNumberCell = $('<td>').addClass('py-3 px-4 whitespace-nowrap font-medium');
+                    roomNumberCell.text(room.building + room.room_number);
+
+                    row.append(selectCell, roomNumberCell);
+
+                    // 点击整行选中房间
+                    row.on('click', function() {
+                        const radioBtn = $(this).find('input[name="selectedRoom"]');
+                        if (!radioBtn.is(':checked')) {
+                            radioBtn.prop('checked', true).trigger('change');
+                        }
+                    });
+
+                    roomList.append(row);
+                });
+            }
+
+            // 更新分页信息
+            function updatePagination(total, page, pages) {
+                totalRooms.text(total);
+                const from = (page - 1) * perPage + 1;
+                const to = Math.min(page * perPage, total);
+                showingFrom.text(from);
+                showingTo.text(to);
+                currentPage = page;
+                currentPageEl.text(page);
+                totalPagesEl.text(pages);
+                prevPage.prop('disabled', page === 1);
+                nextPage.prop('disabled', page === pages);
+            }
+            {% endif %}
+
+            // 表单提交验证
+            $('#applicationForm').on('submit', function(e) {
+                {% if application_type == 'allocate' or application_type == 'change' %}
+                if (!$('#target_room_id').val()) {
+                    e.preventDefault();
+                    alert('请选择目标房间');
+                    return;
+                }
+                {% if application_type == 'allocate' %}
+                if (!$('#check_in_date').val()) {
+                    e.preventDefault();
+                    alert('请选择入住日期');
+                    return;
+                }
+                {% elif application_type == 'change' %}
+                if (!$('#check_in_date').val()) {
+                    e.preventDefault();
+                    alert('请选择换宿日期');
+                    return;
+                }
+                {% endif %}
+                {% endif %}
+                {% if application_type == 'checkout' %}
+                if (!$('#check_out_date').val()) {
+                    e.preventDefault();
+                    alert('请选择退宿日期');
+                    return;
+                }
+                {% endif %}
+                if (!$('#reason').val().trim()) {
+                    e.preventDefault();
+                    alert('请填写申请原因');
+                    return;
+                }
+                // 禁用提交按钮防止重复提交
+                const submitBtn = $('#submitBtn');
+                submitBtn.prop('disabled', true);
+                submitBtn.html('<i class="fa fa-spinner fa-spin mr-2"></i>提交中...');
+            });
+        });
+    </script>
+</body>
+</html>

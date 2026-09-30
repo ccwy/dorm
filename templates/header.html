@@ -34,54 +34,24 @@
         </a>
         {% endif %}
         {% endif %}
-        <!-- 隐藏不显示
-        {% if current_user.has_permission('room.view') %}
-        <a href="{{ url_for('room.manage') }}" 
-           class="nav-item nav-room text-gray-700 hover:text-primary transition-colors py-1 border-b-2 {% if request.endpoint == 'room.manage' %}border-primary text-primary{% else %}border-transparent{% endif %}">
-           <i class="fa fa-bed mr-2"></i>房间
-        </a>
-        -->
         {% endif %}
+        
         {% if get_config_value('FEATURE_DORM_MANAGE_ENABLED', True) and current_user.has_permission('dorm.view') %}
         <a href="{{ url_for('dorm.manage') }}" 
            class="nav-item nav-dorm text-gray-700 hover:text-primary transition-colors py-1 border-b-2 {% if request.endpoint == 'dorm.manage' %}border-primary text-primary{% else %}border-transparent{% endif %}">
            <i class="fa fa-building mr-2"></i>宿舍
         </a>
         {% endif %}
+        
+        
+
         {% if get_config_value('FEATURE_UTILITY_BILL_ENABLED', True) and current_user.has_permission('utility.view') %}
         <a href="{{ url_for('utility_index.utility_index') }}" 
            class="nav-item nav-utility text-gray-700 hover:text-primary transition-colors py-1 border-b-2 {% if request.endpoint and 'utility' in request.endpoint %}border-primary text-primary{% else %}border-transparent{% endif %}">
            <i class="fa fa-bolt mr-2"></i>水电
         </a>
         {% endif %}
-        <!-- 隐藏不显示
-        {% if current_user.has_permission('fee_subsidy.view') %}
-        <a href="{{ url_for('fee_subsidy.fee_subsidy_index') }}" 
-           class="nav-item nav-subsidy text-gray-700 hover:text-primary transition-colors py-1 border-b-2 {% if request.endpoint == 'fee_subsidy.fee_subsidy_index' %}border-primary text-primary{% else %}border-transparent{% endif %}">
-           <i class="fa fa-gift mr-2"></i>补贴
-        </a>
-        {% endif %}
-        {% if current_user.has_permission('ticket.view') %}
-        <a href="{{ url_for('ticket_admin.admin_ticket_list' if current_user.has_permission('ticket.manage') else 'ticket_user.user_ticket_list') }}" 
-           class="nav-item nav-ticket text-gray-700 hover:text-primary transition-colors py-1 border-b-2 {% if request.endpoint in ['ticket_admin.admin_ticket_list', 'ticket_admin.ticket_detail', 'ticket_user.user_ticket_list', 'ticket_user.ticket_detail'] %}border-primary text-primary{% else %}border-transparent{% endif %}">
-           <i class="fa fa-ticket mr-2"></i>留言
-        </a>
-        {% endif %}
-        {% if current_user.has_permission('file_sharing.view') %}
-        <a href="{{ url_for('file_sharing.file_sharing') }}" 
-           class="nav-item nav-file text-gray-700 hover:text-primary transition-colors py-1 border-b-2 {% if request.endpoint == 'file_sharing.file_sharing' %}border-primary text-primary{% else %}border-transparent{% endif %}">
-           <i class="fa fa-folder-open mr-2"></i>文件
-        </a>
-        {% endif %}
-         
-        {% if get_config_value('FEATURE_CONTRACT_MANAGE_ENABLED', True) and current_user.has_permission('contract.view') %}
-        <a href="{{ url_for('contract.index') }}" 
-           class="nav-item nav-contract text-gray-700 hover:text-primary transition-colors py-1 border-b-2 {% if request.endpoint == 'contract.index' %}border-primary text-primary{% else %}border-transparent{% endif %}">
-           <i class="fa fa-file-text mr-2"></i>合同
-        </a>
-        {% endif %}
-        -->
-
+       
         {% if get_config_value('FEATURE_MAINTENANCE_MANAGE_ENABLED', True) and current_user.has_permission('maintenance.view') %}
         {% if current_user.has_permission('maintenance.manage') %}
         <a href="{{ url_for('maintenance_admin.admin_order_list') }}" 
@@ -115,7 +85,6 @@
            class="nav-item nav-log text-gray-700 hover:text-primary transition-colors py-1 border-b-2 {% if request.endpoint == 'log.log' %}border-primary text-primary{% else %}border-transparent{% endif %}">
            <i class="fa fa-file-text-o mr-2"></i>日志
         </a>
-        {% endif %}
         {% endif %}
 
       </nav>
@@ -178,6 +147,11 @@ nav a i {
   /* 宿舍图标 - 橙色 */
   .nav-item.nav-dorm i {
     color: #f97316;
+  }
+  
+  /* 宿舍申请图标 - 粉色 */
+  .nav-item.nav-dorm-application i {
+    color: #ec4899;
   }
   
   /* 水电图标 - 黄色 */

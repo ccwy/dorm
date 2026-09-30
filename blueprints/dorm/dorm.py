@@ -281,85 +281,96 @@ def get_statistics():
 @login_required
 @require_permission('dorm.view')
 def get_recent_operations():
-    """获取最近操作记录（调用换宿链并过滤换宿过程中的退宿）"""
+    """获取最近操作记录（分配入住、更换宿舍、互换宿舍、退宿）"""
     try:
-        # 获取所有住宿记录，按更新时间降序排序
-        all_dorms = Dorm.query.order_by(Dorm.updated_at.desc()).all()
+        # 获取所有住宿记录，按创建时间降序排序
+        all_dorms = Dorm.query.order_by(Dorm.created_at.desc()).limit(200).all()
         
         operations = []
-        processed_operations = set()  # 用于记录已处理的操作，避免重复
         
         for dorm in all_dorms:
-            # 创建一个唯一标识来避免重复处理同一操作
-            operation_key = f"{dorm.user_id}_{dorm.id}_{dorm.updated_at}"
-            if operation_key in processed_operations:
-                continue
-            
-            # 检查是否是换宿过程中产生的退宿记录
-            is_transfer_checkout = False
-            if dorm.status == 'checked_out' and dorm.next_dorms:
-                # 如果当前记录是已退宿状态，且有后续记录，可能是换宿过程中的退宿
-                # 遍历所有后续记录（而不是只看第一条）
-                for next_dorm in dorm.next_dorms:
-                    if next_dorm.status == 'active' and next_dorm.prev_dorm_id == dorm.id:
-                        # 后续有活跃记录，且是从当前记录转换过来的，说明是换宿过程中的退宿
-                        is_transfer_checkout = True
-                        break
-                
-                # 过滤掉换宿过程中产生的退宿记录
-                if is_transfer_checkout:
-                    processed_operations.add(operation_key)
-                    continue
-            
-            # 确定操作类型
-            if dorm.status == 'active' and not dorm.check_out_date:
-                # 检查是否有前序记录，判断是新分配还是换宿
-                if dorm.prev_dorm_id:
-                    operation_type = 'change'  # 更换宿舍
-                else:
-                    operation_type = 'allocate'  # 分配宿舍
-            else:
-                operation_type = 'checkout'  # 正常的退宿记录
-            
             # 获取用户信息
-            user = User.query.get(dorm.user_id)
+            user = dorm.user
             user_name = user.name if user else f"未知用户(ID:{dorm.user_id})"
             
             # 获取房间信息
             room_info = f"{dorm.room.building}{dorm.room.room_number}" if dorm.room else f"未知房间(ID:{dorm.room_id})"
             
-            # 如果是换宿，获取前后房间信息
-            if operation_type == 'change' and dorm.prev_dorm:
-                prev_room = Room.query.get(dorm.prev_dorm.room_id)
-                if prev_room:
-                    prev_room_info = f"{prev_room.building}{prev_room.room_number}"
-                    room_info = f"{prev_room_info} → {room_info}"
+            # 获取操作人信息
+            operator_name = "系统"
+            if dorm.operator_user_id:
+                operator = User.query.get(dorm.operator_user_id)
+                if operator:
+                    operator_name = operator.name
             
-            # 操作人信息
-            operator_name = "系统"  # 实际应用中可以从操作日志中获取
+            # 1. 每条Dorm记录代表一次"入住分配"操作，类型由prev_dorm_id决定
+            if dorm.prev_dorm_id is None:
+                # 无前序记录 → 分配入住
+                operation_type = 'allocate'
+                prev_room_info = ''
+            else:
+                # 有前序记录 → 更换宿舍或互换宿舍
+                # 检查是否为互换：prev_dorm的房间是否有其他人换入
+                operation_type = 'change'
+                if dorm.prev_dorm and dorm.prev_dorm.room:
+                    prev_room_info = f"{dorm.prev_dorm.room.building}{dorm.prev_dorm.room.room_number}"
+                    prev_room_id = dorm.prev_dorm.room_id
+                    other_swap = Dorm.query.filter(
+                        Dorm.room_id == prev_room_id,
+                        Dorm.prev_dorm_id.isnot(None),
+                        Dorm.id != dorm.id,
+                        Dorm.user_id != dorm.user_id
+                    ).first()
+                    if other_swap:
+                        operation_type = 'swap'
+                else:
+                    prev_room_info = ''
             
-            # 格式化操作时间
-            operation_time = dorm.updated_at.strftime('%Y-%m-%d %H:%M')
+            # 构建房间信息显示
+            if operation_type == 'allocate':
+                display_room_info = room_info
+            elif operation_type in ('change', 'swap'):
+                display_room_info = f"{prev_room_info} → {room_info}" if prev_room_info else room_info
+            else:
+                display_room_info = room_info
+            
+            # 入住操作的时间使用created_at
+            creation_time = dorm.created_at.strftime('%Y-%m-%d %H:%M') if dorm.created_at else '-'
             
             operations.append({
-                'time': operation_time,
+                'time': creation_time,
                 'type': operation_type,
                 'user_name': user_name,
                 'user_id': dorm.user_id,
-                'room_info': room_info,
+                'room_info': display_room_info,
                 'operator': operator_name,
                 'type_text': {
                     'allocate': '分配宿舍',
                     'change': '更换宿舍',
+                    'swap': '互换宿舍',
                     'checkout': '办理退宿'
                 }[operation_type]
             })
             
-            processed_operations.add(operation_key)
-            
-            # 如果已经收集了10条记录，停止
-            if len(operations) >= 10:
-                break
+            # 2. 如果已退宿且无后续换宿记录，额外生成一条"退宿"操作
+            if dorm.status == 'checked_out':
+                # 检查是否有后续换宿记录
+                has_continuation = Dorm.query.filter(
+                    Dorm.prev_dorm_id == dorm.id
+                ).first() is not None
+                
+                if not has_continuation:
+                    # 真正的退宿（非换宿中间步骤）
+                    checkout_time = dorm.check_out_date.strftime('%Y-%m-%d %H:%M') if dorm.check_out_date else (dorm.updated_at.strftime('%Y-%m-%d %H:%M') if dorm.updated_at else '-')
+                    operations.append({
+                        'time': checkout_time,
+                        'type': 'checkout',
+                        'user_name': user_name,
+                        'user_id': dorm.user_id,
+                        'room_info': room_info,
+                        'operator': operator_name,
+                        'type_text': '办理退宿'
+                    })
         
         # 按时间排序并限制为10条
         operations.sort(key=lambda x: x['time'], reverse=True)
@@ -742,3 +753,215 @@ def dorm_records():
             'dorm_manage/dorm_records.html',
             title="宿舍操作记录查询"
         )
+
+
+# 宿舍操作记录API - 基于Dorm表查询住宿记录
+@dorm_bp.route('/api/dorm-records')
+@login_required
+@require_permission('dorm.view')
+def get_dorm_records():
+    """获取住宿操作记录（分配入住、更换宿舍、互换宿舍、退宿）
+    
+    核心逻辑：每条Dorm记录代表一次"入住分配"操作，类型由prev_dorm_id决定（而非status）。
+    已退宿且无后续换宿的记录，额外生成一条"退宿"操作。
+    """
+    try:
+        # 获取筛选参数
+        user_name = request.args.get('user_name', '', type=str).strip()
+        room_number = request.args.get('room_number', '', type=str).strip()
+        operation_type = request.args.get('operation_type', '', type=str).strip()
+        date_from = request.args.get('date_from', '', type=str).strip()
+        date_to = request.args.get('date_to', '', type=str).strip()
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 20, type=int)
+        
+        if per_page < 1 or per_page > 100:
+            per_page = 20
+        
+        # 查询所有住宿记录，预加载关联
+        query = Dorm.query.join(User).join(Room)
+        
+        # 按用户名筛选
+        if user_name:
+            query = query.filter(User.name.ilike(f'%{user_name}%'))
+        
+        # 按房间号筛选
+        if room_number:
+            query = query.filter(Room.room_number.ilike(f'%{room_number}%'))
+        
+        # 按日期范围筛选（基于created_at）
+        if date_from:
+            try:
+                date_from_dt = datetime.strptime(date_from, '%Y-%m-%d')
+                query = query.filter(Dorm.created_at >= date_from_dt)
+            except ValueError:
+                pass
+        if date_to:
+            try:
+                date_to_dt = datetime.strptime(date_to + ' 23:59:59', '%Y-%m-%d %H:%M:%S')
+                query = query.filter(Dorm.created_at <= date_to_dt)
+            except ValueError:
+                pass
+        
+        # 按创建时间降序排列
+        query = query.order_by(Dorm.created_at.desc())
+        
+        # 获取所有符合条件的记录
+        all_dorms = query.all()
+        
+        records = []
+        for dorm in all_dorms:
+            # 获取用户信息
+            user = dorm.user
+            user_name_val = user.name if user else f"未知(ID:{dorm.user_id})"
+            
+            # 获取房间信息
+            room = dorm.room
+            room_str = f"{room.building}{room.room_number}" if room else f"未知(ID:{dorm.room_id})"
+            
+            # 获取操作人信息
+            operator_name = '系统'
+            if dorm.operator_user_id:
+                operator = User.query.get(dorm.operator_user_id)
+                if operator:
+                    operator_name = operator.name
+            
+            # ---- 1. 入住分配操作（每条Dorm记录都有） ----
+            # 操作类型由prev_dorm_id决定，与status无关
+            if dorm.prev_dorm_id is None:
+                creation_type = 'allocate'
+                old_room_str = '-'
+                swap_with = None
+            else:
+                # 有前序记录 → 更换宿舍或互换宿舍
+                old_room_str = '-'
+                swap_with = None
+                if dorm.prev_dorm and dorm.prev_dorm.room:
+                    old_room_str = f"{dorm.prev_dorm.room.building}{dorm.prev_dorm.room.room_number}"
+                    # 检查是否为互换：prev_dorm的房间是否有其他人换入
+                    prev_room_id = dorm.prev_dorm.room_id
+                    other_swap = Dorm.query.filter(
+                        Dorm.room_id == prev_room_id,
+                        Dorm.prev_dorm_id.isnot(None),
+                        Dorm.id != dorm.id,
+                        Dorm.user_id != dorm.user_id
+                    ).first()
+                    if other_swap:
+                        creation_type = 'swap'
+                        if other_swap.user:
+                            swap_with = other_swap.user.name
+                    else:
+                        creation_type = 'change'
+                else:
+                    creation_type = 'change'
+            
+            # 入住操作时间使用created_at
+            creation_time = dorm.created_at.strftime('%Y-%m-%d %H:%M') if dorm.created_at else '-'
+            check_in = dorm.check_in_date.strftime('%Y-%m-%d') if dorm.check_in_date else '-'
+            check_out = dorm.check_out_date.strftime('%Y-%m-%d') if dorm.check_out_date else '-'
+            stay_days = dorm.stay_days or 0
+            
+            # 构建宿舍信息显示（与首页最近操作记录一致的格式）
+            if creation_type == 'allocate':
+                room_info = room_str
+            elif creation_type in ('change', 'swap'):
+                room_info = f"{old_room_str} → {room_str}" if old_room_str != '-' else room_str
+            else:
+                room_info = room_str
+            
+            # 按操作类型筛选（入住操作）
+            if not operation_type or operation_type == creation_type:
+                records.append({
+                    'id': dorm.id,
+                    'operation_time': creation_time,
+                    'operator': operator_name,
+                    'user_name': user_name_val,
+                    'user_id': dorm.user_id,
+                    'room_info': room_info,
+                    'operation_type': creation_type,
+                    'operation_type_text': {
+                        'allocate': '分配入住',
+                        'change': '更换宿舍',
+                        'swap': '互换宿舍'
+                    }.get(creation_type, creation_type),
+                    'check_in_date': check_in,
+                    'check_out_date': check_out,
+                    'stay_days': stay_days,
+                    'remarks': dorm.remarks or '-',
+                    'swap_with': swap_with
+                })
+            
+            # ---- 2. 退宿操作（仅已退宿且无后续换宿记录） ----
+            if dorm.status == 'checked_out':
+                # 检查是否有后续换宿记录（有prev_dorm_id指向此记录的活跃记录）
+                has_continuation = Dorm.query.filter(
+                    Dorm.prev_dorm_id == dorm.id
+                ).first() is not None
+                
+                if not has_continuation:
+                    # 真正的退宿（非换宿中间步骤）
+                    checkout_time = dorm.check_out_date.strftime('%Y-%m-%d %H:%M') if dorm.check_out_date else (dorm.updated_at.strftime('%Y-%m-%d %H:%M') if dorm.updated_at else '-')
+                    
+                    # 按操作类型筛选（退宿操作）
+                    if not operation_type or operation_type == 'checkout':
+                        records.append({
+                            'id': f"{dorm.id}-checkout",
+                            'operation_time': checkout_time,
+                            'operator': operator_name,
+                            'user_name': user_name_val,
+                            'user_id': dorm.user_id,
+                            'room_info': room_str,
+                            'operation_type': 'checkout',
+                            'operation_type_text': '退宿',
+                            'check_in_date': check_in,
+                            'check_out_date': check_out,
+                            'stay_days': stay_days,
+                            'remarks': dorm.remarks or '-',
+                            'swap_with': None
+                        })
+        
+        # 按操作时间降序排序
+        records.sort(key=lambda x: x['operation_time'], reverse=True)
+        
+        # 手动分页
+        total = len(records)
+        total_pages = max(1, (total + per_page - 1) // per_page)
+        if page > total_pages:
+            page = total_pages
+        start = (page - 1) * per_page
+        end = start + per_page
+        page_records = records[start:end]
+        
+        return jsonify({
+            'success': True,
+            'data': {
+                'records': page_records,
+                'total': total,
+                'page': page,
+                'per_page': per_page,
+                'pages': total_pages
+            }
+        })
+    except Exception as e:
+        logging.error(f"获取住宿操作记录失败: {str(e)}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+        
+        return jsonify({
+            'success': True,
+            'data': {
+                'records': page_records,
+                'total': total,
+                'page': page,
+                'per_page': per_page,
+                'pages': total_pages
+            }
+        })
+    except Exception as e:
+        logging.error(f"获取住宿操作记录失败: {str(e)}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500

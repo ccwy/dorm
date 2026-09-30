@@ -149,6 +149,15 @@ class SystemConfig(db.Model):
                 'sort_order': 20
             },
             {
+                'config_key': 'FEATURE_DORM_APPLICATION_ENABLED',
+                'config_value': 'true',
+                'config_type': 'bool',
+                'category': 'system.feature',
+                'description': '宿舍申请功能开关',
+                'is_editable': True,
+                'sort_order': 21
+            },
+            {
                 'config_key': 'FEATURE_ROOM_MANAGE_ENABLED',
                 'config_value': 'true',
                 'config_type': 'bool',

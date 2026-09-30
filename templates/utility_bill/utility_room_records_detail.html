@@ -811,6 +811,7 @@
           const checkoutSection = document.getElementById('checkout-occupants-section');
           if (checkoutSection) checkoutSection.classList.remove('hidden');
           
+          const canEdit = true; // 允许编辑退宿记录
           data.checkout_occupants.forEach((occupant, index) => {
             const row = document.createElement('tr');
             row.className = 'hover:bg-gray-50 transition-all-300';

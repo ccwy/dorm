@@ -7,7 +7,7 @@ from .user import user_bp, user_api_bp, user_operations_bp, user_import_export_b
 
 # 宿舍与房间管理相关
 from .room import room_bp, room_api_bp, room_import_export_bp  # 房间蓝图（含API、导入导出）
-from .dorm import dorm_bp, dorm_import_export_bp  # 宿舍蓝图（含导入导出）
+from .dorm import dorm_bp, dorm_import_export_bp, dorm_application_user_bp, dorm_application_admin_bp, dorm_application_export_bp  # 宿舍蓝图（含导入导出、宿舍申请、申请导出）
 
 # 系统配置与日志相关
 from .system_settings import system_config_bp  # 系统配置蓝图

@@ -1,3 +1,6 @@
 # 宿舍管理蓝图包
 from .dorm import dorm_bp
 from .dorm_import_export import dorm_import_export_bp
+from .dorm_application_user import dorm_application_user_bp
+from .dorm_application_admin import dorm_application_admin_bp
+from .dorm_application_export import dorm_application_export_bp

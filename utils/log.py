@@ -10,6 +10,7 @@ import datetime
 MODULE_MAP = {
     'room': '房间管理',
     'dorm': '宿舍管理',
+    'dorm_application': '宿舍申请',
     'system': '系统设置',
     'backup': '备份管理',
     'user': '用户管理',
@@ -58,6 +59,12 @@ OPERATION_TYPE_MAP = {
     ('dorm', 'change'): '更换宿舍',
     ('dorm', 'batch_import_export'): '导入导出',
     ('dorm', 'batch_import'): '导入',
+    # 宿舍申请模块
+    ('dorm_application', 'records'): '访问页面',
+    ('dorm_application', 'create'): '提交申请',
+    ('dorm_application', 'cancel'): '取消申请',
+    ('dorm_application', 'approve'): '审批通过',
+    ('dorm_application', 'reject'): '审批拒绝',
     # 日志模块（示例扩展）
     ('backup', 'config_update'): '更新配置',
     ('backup', 'restore_backup'): '恢复备份',

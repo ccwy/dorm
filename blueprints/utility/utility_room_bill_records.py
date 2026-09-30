@@ -25,7 +25,6 @@ MODULE_NAME = 'utility_room_bill_records_bp'
 
 @utility_room_bill_records_bp.route('/periods', methods=['GET'])
 @login_required
-@require_permission('utility.view')
 def get_periods():
     """获取所有可用账期列表（供前端选择账期使用）"""
     try:
