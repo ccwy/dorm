@@ -567,6 +567,12 @@
               total: data.data.length,
               per_page: perPage
             });
+
+            // 处理warnings：显示缺少dorm_id关联的记录警告
+            if (data.warnings && data.warnings.length > 0) {
+              const warningMsg = data.warnings.join('\n');
+              alert('数据异常警告：\n\n' + warningMsg + '\n\n请重新核算相关账单以修复数据');
+            }
           } else {
             tableBody.innerHTML = `<tr><td colspan="13" class="px-6 py-8 text-center text-danger"><i class="fa fa-exclamation-circle mr-2"></i>${data.message}</td></tr>`;
           }

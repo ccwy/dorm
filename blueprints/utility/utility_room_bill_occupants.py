@@ -64,12 +64,9 @@ def get_fee_records():
             RoomUtilityOccupant.user_id == User.id
         ).outerjoin(
             Department, User.department_id == Department.id
-        ).join(
-            Dorm,  # 关联Dorm表
-            db.and_(
-                Dorm.user_id == RoomUtilityOccupant.user_id,
-                Dorm.room_id == RoomUtilityRecord.room_id
-            )
+        ).outerjoin(
+            Dorm,  # 通过dorm_id精确关联Dorm表，避免同一用户同一房间多条dorm记录产生笛卡尔积
+            Dorm.id == RoomUtilityOccupant.dorm_id
         ).join(
             Room,  # 关联Room表用于获取楼栋信息
             RoomUtilityRecord.room_id == Room.id
@@ -114,6 +111,7 @@ def get_fee_records():
         
         # 处理查询结果
         records = []
+        warnings = []
         for item in pagination.items:
             main_record, occupant_record, user_name, user_department, dorm_record, room = item
             
@@ -122,9 +120,22 @@ def get_fee_records():
             period_end = end_date if end_date else main_record.end_date
             
             # 确定实际入住和退宿日期（取与账期的交集，datetime比较）
-            actual_check_in = max(dorm_record.check_in_date, period_start)
-            actual_check_out = dorm_record.check_out_date or period_end
-            actual_check_out = min(actual_check_out, period_end)
+            if dorm_record:
+                actual_check_in = max(dorm_record.check_in_date, period_start)
+                actual_check_out = dorm_record.check_out_date or period_end
+                actual_check_out = min(actual_check_out, period_end)
+            else:
+                # 无dorm_id的记录说明数据不正确，记录错误并跳过
+                logging.error(
+                    f"分摊记录缺少dorm_id关联: occupant_id={occupant_record.id}, "
+                    f"user_id={occupant_record.user_id}, room_id={occupant_record.room_id}, "
+                    f"record_id={occupant_record.record_id}"
+                )
+                warnings.append(
+                    f"分摊记录ID={occupant_record.id}（用户ID={occupant_record.user_id}，"
+                    f"房间ID={occupant_record.room_id}）缺少dorm_id关联，请重新核算账单"
+                )
+                continue
             
             # 格式化日期时间显示（包含秒）
             check_in_str = actual_check_in.strftime('%Y-%m-%d %H:%M:%S')
@@ -184,7 +195,8 @@ def get_fee_records():
                 'per_page': per_page,
                 'has_next': pagination.has_next,
                 'has_prev': pagination.has_prev
-            }
+            },
+            'warnings': warnings
         })
         
     except Exception as e:
@@ -562,6 +574,7 @@ def create_fee_export_data(billing_period):
     # 获取符合条件的主表记录
     main_records = query.all()
     export_data = []
+    export_warnings = []
     
     for main in main_records:
         # 获取该记录的所有人员分摊记录
@@ -580,31 +593,13 @@ def create_fee_export_data(billing_period):
             # 跳过此记录
             continue
         
-        # 批量获取住宿记录（包括换宿历史）
+        # 批量获取住宿记录 - 通过dorm_id精确匹配
         user_ids = [rec.user_id for rec in occupant_records]
-        # 获取所有状态的住宿记录，不仅仅是active
-        all_dorm_records = Dorm.query.filter(
-            Dorm.user_id.in_(user_ids),
-            Dorm.room_id == main.room_id
-        ).all()
-        
-        # 构建用户住宿记录映射，考虑换宿链
-        dorm_map = {}
-        for dorm in all_dorm_records:
-            # 对于每个用户，获取其完整住宿链
-            user_dorms = dorm.dorm_chain
-            # 在账期内有效的住宿记录
-            valid_dorms = []
-            for d in user_dorms:
-                # 检查住宿记录是否在账期内
-                dorm_end_date = d.check_out_date if d.check_out_date else end_date
-                if not (d.check_in_date > end_date or dorm_end_date < start_date):
-                    valid_dorms.append(d)
-            
-            # 按入住日期排序，取最新的有效记录
-            if valid_dorms:
-                valid_dorms.sort(key=lambda x: x.check_in_date, reverse=True)
-                dorm_map[dorm.user_id] = valid_dorms[0]
+        dorm_ids = [rec.dorm_id for rec in occupant_records if rec.dorm_id]
+        dorm_by_id = {}
+        if dorm_ids:
+            dorm_records = Dorm.query.filter(Dorm.id.in_(dorm_ids)).all()
+            dorm_by_id = {d.id: d for d in dorm_records}
         
         # 批量获取用户信息
         users = User.query.filter(User.id.in_(user_ids)).all()
@@ -618,8 +613,21 @@ def create_fee_export_data(billing_period):
             user_department = user.department or "" if user else ""
             user_position = user.position or "" if user else ""
             
-            dorm = dorm_map.get(occupant.user_id)
-            check_in_date = dorm.check_in_date if dorm else None
+            # 通过dorm_id精确获取对应的dorm记录
+            dorm = dorm_by_id.get(occupant.dorm_id) if occupant.dorm_id else None
+            if not dorm:
+                # 无dorm_id关联的记录说明数据不正确，记录错误并跳过
+                logging.error(
+                    f"导出-分摊记录缺少dorm_id关联: occupant_id={occupant.id}, "
+                    f"user_id={occupant.user_id}, room_id={occupant.room_id}, "
+                    f"record_id={occupant.record_id}"
+                )
+                export_warnings.append(
+                    f"分摊记录ID={occupant.id}（用户ID={occupant.user_id}，"
+                    f"房间ID={occupant.room_id}）缺少dorm_id关联，请重新核算账单"
+                )
+                continue
+            check_in_date = dorm.check_in_date
             # 格式化日期时间显示
             check_in_str = check_in_date.strftime('%Y-%m-%d') if check_in_date else ""
             
@@ -664,7 +672,7 @@ def create_fee_export_data(billing_period):
                 '分摊应付金额': occupant.payable_fee # 新增：用户应付费用字段
             })
     
-    return export_data
+    return export_data, export_warnings
 
 @utility_room_bill_occupants_bp.route('/api/export_fee_data', methods=['GET'])
 @login_required
@@ -704,7 +712,7 @@ def export_fee_data():
         logging.info(f"用户 {current_user.id} 开始导出 {billing_period} 账期的费用数据")
         
         # 创建导出数据
-        export_data = create_fee_export_data(billing_period)
+        export_data, export_warnings = create_fee_export_data(billing_period)
         
         if not export_data:
             # 记录无数据情况
