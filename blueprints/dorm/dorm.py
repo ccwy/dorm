@@ -497,6 +497,10 @@ def dorm_query():
                     check_in_date_only = record.check_in_date.date() if isinstance(record.check_in_date, datetime) else record.check_in_date
                     check_out_date_only = record.check_out_date.date() if isinstance(record.check_out_date, datetime) else record.check_out_date
                     
+                    # 同日换宿：如果退宿日期和入住日期是同一天，不计天数（与Dorm模型stay_days属性一致）
+                    if check_in_date_only == check_out_date_only:
+                        continue
+                    
                     # 计算日期差，加1天确保入住当天被计算在内
                     if check_out_date_only >= check_in_date_only:
                         delta_days = (check_out_date_only - check_in_date_only).days

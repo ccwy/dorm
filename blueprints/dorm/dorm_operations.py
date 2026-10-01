@@ -931,7 +931,8 @@ def checkout():
                         'gender': roommate.gender,
                         'department': roommate.department,
                         'position': roommate.position,
-                        'check_in_date': roommate_dorm.check_in_date if roommate_dorm.check_in_date else ''
+                        'check_in_date': roommate_dorm.check_in_date if roommate_dorm.check_in_date else '',
+                        'stay_days': roommate_dorm.stay_days
                     })
 
             # 获取用户换宿记录
@@ -1213,7 +1214,8 @@ def swap():
                     roommates=[],
                     available_rooms=[],
                     error_message=error_message,
-                    next_url=next_url
+                    next_url=next_url,
+                    datetime=datetime
                 )
             
             # 查询用户的当前住宿记录
@@ -1234,7 +1236,8 @@ def swap():
                     roommates=[],
                     available_rooms=[],
                     error_message=error_message,
-                    next_url=next_url
+                    next_url=next_url,
+                    datetime=datetime
                 )
             
             # 查询当前房间信息
@@ -1251,7 +1254,8 @@ def swap():
                     roommates=[],
                     available_rooms=[],
                     error_message=error_message,
-                    next_url=next_url
+                    next_url=next_url,
+                    datetime=datetime
                 )
             
             # 查询室友信息
@@ -1280,7 +1284,8 @@ def swap():
                             'check_in_date': record.check_in_date if record.check_in_date else '',
                             'check_out_date': record.check_out_date if record.check_out_date else '',
                             'status': '在住' if record.status == 'active' else '已退宿',
-                            'remarks': record.remarks or ''
+                            'remarks': record.remarks or '',
+                            'stay_days': record.stay_days
                         })
             except Exception as e:
                 logging.error(f"获取换宿记录失败: {str(e)}")
@@ -1295,7 +1300,8 @@ def swap():
                         'gender': roommate.gender,
                         'department': roommate.department,
                         'position': roommate.position,
-                        'check_in_date': roommate_dorm.check_in_date if roommate_dorm.check_in_date else ''
+                        'check_in_date': roommate_dorm.check_in_date if roommate_dorm.check_in_date else '',
+                        'stay_days': roommate_dorm.stay_days
                     })
             
             
@@ -1363,6 +1369,9 @@ def swap():
         except Exception as e:
             logging.error(f"获取用户水电费记录失败: {str(e)}")
     
+    # 预计算当前住宿已住天数
+    current_stay_days = current_dorm.stay_days if current_dorm else 0
+    
     # 渲染模板并返回数据
     return render_template(
         'dorm_manage/dorm_swap.html',
@@ -1377,7 +1386,8 @@ def swap():
         default_datetime=default_datetime,  # 传递默认日期时间
         datetime=datetime,  # 传递datetime模块给模板使用
         utility_records=utility_records,  # 传递用户水电费记录
-        next_url=next_url  # 传递来源页面URL
+        next_url=next_url,  # 传递来源页面URL
+        current_stay_days=current_stay_days  # 传递当前已住天数
     )
 
 # 单人更换宿舍页面（GET）

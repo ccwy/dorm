@@ -458,7 +458,7 @@ class CheckoutUtilityRecord(db.Model):
                 dorm_id=dorm_id,
                 checkin_date=checkin_date,
                 checkout_date=checkout_date,
-                stay_days=(checkout_date.date() - checkin_date.date()).days + 1,
+                stay_days=0 if checkout_date.date() == checkin_date.date() else (checkout_date.date() - checkin_date.date()).days + 1,
                 user_period_days=user_period_days,
                 total_period_days=total_period_days,
                 natural_days=natural_days,
@@ -960,7 +960,11 @@ class CheckoutUtilityRecord(db.Model):
             
             # 累加有效住宿天数
             if stay_start <= stay_end:
-                days = (stay_end.date() - stay_start.date()).days + 1  # 包含首尾日期
+                # 同日换宿：入住和退宿为同一天时不计天数
+                if stay_start.date() == stay_end.date():
+                    days = 0
+                else:
+                    days = (stay_end.date() - stay_start.date()).days + 1  # 包含首尾日期
                 user_period_days += days
                 logging.debug(
                     f"用户{user_id}在房间{room_id}的住宿段: {stay_start}至{stay_end}, "
@@ -997,7 +1001,11 @@ class CheckoutUtilityRecord(db.Model):
                 continue
                 
             # 计算该用户在该段的住宿天数
-            days = (stay_end.date() - stay_start.date()).days + 1
+            # 同日换宿：入住和退宿为同一天时不计天数
+            if stay_start.date() == stay_end.date():
+                days = 0
+            else:
+                days = (stay_end.date() - stay_start.date()).days + 1
             
             # 记录用户住宿信息，避免重复计算
             if user_key not in user_stays:

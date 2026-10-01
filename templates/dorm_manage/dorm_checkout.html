@@ -124,7 +124,7 @@
                                                 {% set end_date = datetime.now() %}
                                                 {% set check_in_date_only = check_in_date.date() if check_in_date.hour == 0 and check_in_date.minute == 0 and check_in_date.second == 0 else check_in_date.date() %}
                                                 {% set end_date_only = end_date.date() %}
-                                                {% if end_date_only < check_in_date_only %}
+                                                {% if end_date_only <= check_in_date_only %}
                                                     0
                                                 {% else %}
                                                     {{ (end_date_only - check_in_date_only).days + 1 }}
@@ -188,7 +188,7 @@
                                                                 {% set end_date = datetime.now() %}
                                                                 {% set check_in_date_only = check_in_date.date() if check_in_date.hour == 0 and check_in_date.minute == 0 and check_in_date.second == 0 else check_in_date.date() %}
                                                                 {% set end_date_only = end_date.date() %}
-                                                                {% if end_date_only < check_in_date_only %}
+                                                                {% if end_date_only <= check_in_date_only %}
                                                                     0
                                                                 {% else %}
                                                                     {{ (end_date_only - check_in_date_only).days + 1 }}
@@ -270,7 +270,7 @@
                                                         {% set end_date = record.check_out_date if record.check_out_date else datetime.now() %}
                                                         {% set check_in_date_only = check_in_date.date() if check_in_date.hour == 0 and check_in_date.minute == 0 and check_in_date.second == 0 else check_in_date.date() %}
                                                         {% set end_date_only = end_date.date() %}
-                                                        {% if end_date_only < check_in_date_only %}
+                                                        {% if end_date_only <= check_in_date_only %}
                                                             0
                                                         {% else %}
                                                             {{ (end_date_only - check_in_date_only).days + 1 }}

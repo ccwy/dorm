@@ -184,7 +184,8 @@ def application_detail(id):
                 end_date = current_dorm.check_out_date.date() if hasattr(current_dorm.check_out_date, 'date') else current_dorm.check_out_date
             else:
                 end_date = datetime.now().date()
-            stay_days = max(0, (end_date - check_in).days + 1)
+            # 同日换宿：入住和退宿为同一天时不计天数
+            stay_days = 0 if end_date == check_in else max(0, (end_date - check_in).days + 1)
 
         # 获取上次水电表读数（退宿申请时显示）
         last_water_reading = None

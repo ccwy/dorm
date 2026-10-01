@@ -138,7 +138,7 @@ class Dorm(db.Model):
             
     @property
     def stay_days(self):
-        """计算住宿总天数，入住当天算1天"""
+        """计算住宿总天数，入住当天算1天；同日换宿（退宿日期=入住日期）当天不计天数"""
         if not self.check_in_date:
             return 0
         
@@ -148,6 +148,10 @@ class Dorm(db.Model):
         # 只比较日期部分，忽略时间
         check_in_date_only = self.check_in_date.date() if isinstance(self.check_in_date, datetime) else self.check_in_date
         end_date_only = end_date.date() if isinstance(end_date, datetime) else end_date
+        
+        # 同日换宿：如果退宿日期和入住日期是同一天，不计天数
+        if self.check_out_date and check_in_date_only == end_date_only:
+            return 0
         
         # 计算日期差，加1天确保入住当天被计算在内
         if end_date_only >= check_in_date_only:
@@ -377,9 +381,11 @@ class Dorm(db.Model):
                 if not current_dorm:
                     raise ValueError(f"用户{user_id}无当前有效住宿记录，无法换宿")
 
-                # 添加时间验证：确保换宿时间不小于前宿舍入住时间
-                if change_date < current_dorm.check_in_date:
-                    raise ValueError(f"换宿时间({change_date.strftime('%Y-%m-%d')})不能小于当前宿舍入住时间({current_dorm.check_in_date.strftime('%Y-%m-%d')})")
+                # 换宿日期不能早于入住日期（同一天允许，但时间不能早于入住时间）
+                if change_date.date() < current_dorm.check_in_date.date():
+                    raise ValueError(f"换宿日期({change_date.strftime('%Y-%m-%d')})不能早于当前宿舍入住日期({current_dorm.check_in_date.strftime('%Y-%m-%d')})")
+                if change_date.date() == current_dorm.check_in_date.date() and change_date < current_dorm.check_in_date:
+                    raise ValueError(f"换宿时间({change_date.strftime('%Y-%m-%d %H:%M')})不能早于当前宿舍入住时间({current_dorm.check_in_date.strftime('%Y-%m-%d %H:%M')})")
                     
                  # 记录旧房间ID
                 old_room_id = current_dorm.room_id
@@ -536,11 +542,15 @@ class Dorm(db.Model):
                 if not dorm_b:
                     raise ValueError(f"用户{user_b_id}无有效住宿记录")
 
-                # 添加时间验证：确保换宿时间不小于双方前宿舍入住时间
-                if exchange_date < dorm_a.check_in_date:
-                    raise ValueError(f"换宿时间({exchange_date.strftime('%Y-%m-%d')})不能小于用户A当前宿舍入住时间({dorm_a.check_in_date.strftime('%Y-%m-%d')})")
-                if exchange_date < dorm_b.check_in_date:
-                    raise ValueError(f"换宿时间({exchange_date.strftime('%Y-%m-%d')})不能小于用户B当前宿舍入住时间({dorm_b.check_in_date.strftime('%Y-%m-%d')})")
+                # 换宿日期不能早于入住日期（同一天允许，但时间不能早于入住时间）
+                if exchange_date.date() < dorm_a.check_in_date.date():
+                    raise ValueError(f"换宿日期({exchange_date.strftime('%Y-%m-%d')})不能早于用户A当前宿舍入住日期({dorm_a.check_in_date.strftime('%Y-%m-%d')})")
+                if exchange_date.date() == dorm_a.check_in_date.date() and exchange_date < dorm_a.check_in_date:
+                    raise ValueError(f"换宿时间({exchange_date.strftime('%Y-%m-%d %H:%M')})不能早于用户A当前宿舍入住时间({dorm_a.check_in_date.strftime('%Y-%m-%d %H:%M')})")
+                if exchange_date.date() < dorm_b.check_in_date.date():
+                    raise ValueError(f"换宿日期({exchange_date.strftime('%Y-%m-%d')})不能早于用户B当前宿舍入住日期({dorm_b.check_in_date.strftime('%Y-%m-%d')})")
+                if exchange_date.date() == dorm_b.check_in_date.date() and exchange_date < dorm_b.check_in_date:
+                    raise ValueError(f"换宿时间({exchange_date.strftime('%Y-%m-%d %H:%M')})不能早于用户B当前宿舍入住时间({dorm_b.check_in_date.strftime('%Y-%m-%d %H:%M')})")
 
                 # 2. 获取双方房间信息并拼接完整编号
                 room_a = Room.query.get(dorm_a.room_id)

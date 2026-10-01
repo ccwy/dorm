@@ -119,19 +119,7 @@
                                     <div>
                                         <h3 class="text-sm text-gray-500">已住天数</h3>
                                         <p class="font-medium">
-                                            {% if current_dorm.check_in_date %}
-                                                {% set check_in_date = current_dorm.check_in_date %}
-                                                {% set end_date = datetime.now() %}
-                                                {% set check_in_date_only = check_in_date.date() if check_in_date.hour == 0 and check_in_date.minute == 0 and check_in_date.second == 0 else check_in_date.date() %}
-                                                {% set end_date_only = end_date.date() %}
-                                                {% if end_date_only < check_in_date_only %}
-                                                    0
-                                                {% else %}
-                                                    {{ (end_date_only - check_in_date_only).days + 1 }}
-                                                {% endif %}
-                                            {% else %}
-                                                0
-                                            {% endif %}
+                                            {{ current_stay_days if current_stay_days is defined and current_stay_days else 0 }}
                                         </p>
                                     </div>
                                 </div>
@@ -163,19 +151,7 @@
                                                         <td class="py-2 px-4 text-sm text-gray-800 border-b whitespace-nowrap">{{ roommate.position or '-' }}</td>
                                                         <td class="py-2 px-4 text-sm text-gray-800 border-b whitespace-nowrap">{{ roommate.check_in_date or '-' }}</td>
                                                         <td class="py-2 px-4 text-sm text-gray-800 border-b whitespace-nowrap">
-                                                            {% if roommate.check_in_date %}
-                                                                {% set check_in_date = roommate.check_in_date %}
-                                                                {% set end_date = datetime.now() %}
-                                                                {% set check_in_date_only = check_in_date.date() if check_in_date.hour == 0 and check_in_date.minute == 0 and check_in_date.second == 0 else check_in_date.date() %}
-                                                                {% set end_date_only = end_date.date() %}
-                                                                {% if end_date_only < check_in_date_only %}
-                                                                    0
-                                                                {% else %}
-                                                                    {{ (end_date_only - check_in_date_only).days + 1 }}
-                                                                {% endif %}
-                                                            {% else %}
-                                                                -
-                                                            {% endif %}
+                                                            {{ roommate.stay_days if roommate.stay_days is defined and roommate.stay_days else '-' }}
                                                         </td>
                                                     </tr>
                                                     {% endfor %}
@@ -229,19 +205,7 @@
                                                 <td class="py-2 px-4 text-sm text-gray-800 border-b">{{ record.check_in_date }}</td>
                                                 <td class="py-2 px-4 text-sm text-gray-800 border-b">{{ record.check_out_date if record.check_out_date else '-' }}</td>
                                                 <td class="py-2 px-4 text-sm text-gray-800 border-b">
-                                                    {% if record.check_in_date %}
-                                                        {% set check_in_date = record.check_in_date %}
-                                                        {% set end_date = record.check_out_date if record.check_out_date else datetime.now() %}
-                                                        {% set check_in_date_only = check_in_date.date() if check_in_date.hour == 0 and check_in_date.minute == 0 and check_in_date.second == 0 else check_in_date.date() %}
-                                                        {% set end_date_only = end_date.date() %}
-                                                        {% if end_date_only < check_in_date_only %}
-                                                            0
-                                                        {% else %}
-                                                            {{ (end_date_only - check_in_date_only).days + 1 }}
-                                                        {% endif %}
-                                                    {% else %}
-                                                        -
-                                                    {% endif %}
+                                                    {{ record.stay_days if record.stay_days is defined and record.stay_days else '-' }}
                                                 </td>												
                                                 <td class="py-2 px-4 text-sm border-b">
                                                     <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium 

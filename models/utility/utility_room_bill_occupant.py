@@ -328,6 +328,10 @@ class RoomUtilityOccupant(db.Model):
         
         if actual_check_in > actual_check_out:
             return 0
+        
+        # 同日换宿：退宿日期=入住日期时，天数为0
+        if check_out is not None and actual_check_in.date() == actual_check_out.date():
+            return 0
             
         delta = actual_check_out - actual_check_in
         return delta.days + 1

@@ -542,7 +542,8 @@ def application_detail(id):
                 end_date = current_dorm.check_out_date.date() if hasattr(current_dorm.check_out_date, 'date') else current_dorm.check_out_date
             else:
                 end_date = datetime.now().date()
-            stay_days = max(0, (end_date - check_in).days + 1)
+            # 同日换宿：入住和退宿为同一天时不计天数
+            stay_days = 0 if end_date == check_in else max(0, (end_date - check_in).days + 1)
 
         # 获取退宿费用核算记录（审核通过的退宿申请）
         checkout_fee_record = None

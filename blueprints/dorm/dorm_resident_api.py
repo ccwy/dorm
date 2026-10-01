@@ -725,7 +725,13 @@ def get_checkout_residents():
                     
                     # 计算天数差
                     delta = actual_check_out - actual_check_in
-                    month_stay_days = max(int(delta.total_seconds() / 86400) + 1, 0)  # +1是因为包含首尾两天
+                    # 同日换宿：入住和退宿为同一天时，天数计为0（不计当天）
+                    actual_check_in_date = actual_check_in.date() if isinstance(actual_check_in, datetime) else actual_check_in
+                    actual_check_out_date = actual_check_out.date() if isinstance(actual_check_out, datetime) else actual_check_out
+                    if actual_check_in_date == actual_check_out_date:
+                        month_stay_days = 0
+                    else:
+                        month_stay_days = max(int(delta.total_seconds() / 86400) + 1, 0)  # +1是因为包含首尾两天
                 except (TypeError, ValueError) as e:
                     logging.warning(
                         f"日期计算错误 [请求ID: {request_id}] "
