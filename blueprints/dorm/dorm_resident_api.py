@@ -629,17 +629,14 @@ def get_checkout_residents():
             f"搜索姓名: {search_name or '无'}, "
             f"搜索房间号: {search_room or '无'}, "
             f"楼栋筛选: {building or '无'}, "
-            f"部门筛选: {department or '无'}, "
-            f"查询日期范围: {start_date} 至 {end_date}"
+            f"部门筛选: {department or '无'}"
         )
         
-        # 基础查询：查询该账期内的退宿记录，排除有后续换宿记录的情况
+        # 基础查询：按退宿归属账期精确筛选，仅查询退宿操作类型的记录
         query = Dorm.query.filter(
             Dorm.status == 'checked_out',
-            Dorm.check_out_date >= start_date,
-            Dorm.check_out_date <= end_date,
-            # 关键过滤条件：没有后续换宿记录的才是真正退宿
-            ~Dorm.next_dorms.any()
+            Dorm.operation_type == 'checkout',
+            Dorm.checkout_billing_period == bill_period
         )
         
         # 关联用户表用于姓名搜索

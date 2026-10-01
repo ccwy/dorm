@@ -590,7 +590,8 @@ def checkout():
             # 执行退宿操作
             current_dorm.check_out(
                 check_out_date=check_out_date,
-                remarks=remarks
+                remarks=remarks,
+                billing_period=billing_period
             )
             
             # 根据退宿类型进行不同处理

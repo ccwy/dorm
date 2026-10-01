@@ -121,7 +121,7 @@ def do_checkout(user_id, check_out_date, checkout_type='在职退宿',
         raise ValueError(f"用户{user_id}无当前有效住宿记录，无法退宿")
 
     # 1. 执行模型层退宿操作
-    current_dorm.check_out(check_out_date=check_out_date, remarks=remarks)
+    current_dorm.check_out(check_out_date=check_out_date, remarks=remarks, billing_period=billing_period)
 
     result = {'dorm': current_dorm, 'subsidies_disabled': False, 'subsidies_count': 0,
               'checkout_record': None, 'calculate_fee': False}

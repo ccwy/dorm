@@ -31,6 +31,9 @@ class Dorm(db.Model):
     # 新增：操作类型字段（记录本次住宿记录的产生方式）
     operation_type = db.Column(db.String(20), nullable=True, comment='操作类型：allocation(分配)/transfer(换宿)/exchange(互换)/checkout(退宿)')
     
+    # 新增：退宿归属账期（退宿时写入，用于按账期精确筛选退宿人员）
+    checkout_billing_period = db.Column(db.String(7), nullable=True, comment='退宿归属账期（格式YYYY-MM，退宿时写入）')
+    
     # 时间记录字段
     created_at = db.Column(db.DateTime, default=datetime.now, comment='记录创建时间')
     updated_at = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now, comment='记录更新时间')
@@ -290,8 +293,15 @@ class Dorm(db.Model):
     # --------------------------
     # 退宿核心方法
     # --------------------------
-    def check_out(self, check_out_date, remarks, operation_type='checkout'):
-        """处理退宿逻辑，释放床位并更新房间状态"""
+    def check_out(self, check_out_date, remarks, operation_type='checkout', billing_period=None):
+        """处理退宿逻辑，释放床位并更新房间状态
+        
+        Args:
+            check_out_date: 退宿日期
+            remarks: 备注
+            operation_type: 操作类型（默认checkout）
+            billing_period: 退宿归属账期（格式YYYY-MM，仅退宿时写入）
+        """
      
         if self.status != 'active':
             raise ValueError("只能对活跃的住宿记录执行退宿")
@@ -309,6 +319,10 @@ class Dorm(db.Model):
         self.operation_type = operation_type
         self.remarks = remarks if remarks else self.remarks
         self.operator_user_id = current_user.id if current_user.is_authenticated else None
+        
+        # 退宿时写入归属账期
+        if billing_period and operation_type == 'checkout':
+            self.checkout_billing_period = billing_period
         
         # 更新房间 occupancy 和状态
         room = Room.query.get(self.room_id)
