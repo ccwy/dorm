@@ -4,6 +4,7 @@ from models.user.user import User
 from models.dorm.dorm import Dorm
 from models.room.room import Room
 from models.utility.utility_room_bill_occupant import RoomUtilityOccupant
+from models.utility.utility_room_bill_checkout import CheckoutUtilityRecord
 from datetime import datetime
 from .user import user_bp  # 导入dorm蓝图
 from utils.log import log_operation
@@ -47,34 +48,57 @@ def user_info():
     
     # 获取用户的水电费记录
     utility_records = []
-    # 查询用户在水电费分摊表中的记录
-    occupant_records = RoomUtilityOccupant.query.filter_by(user_id=user.id).all()
     
-    for record in occupant_records:
-        # 获取主记录信息
-        main_record = record.main_record
-        if main_record:
-            # 获取房间信息
-            room = Room.query.get(main_record.room_id)
-            
-            utility_info = {
-                'record_id': main_record.record_id,
-                'billing_period': main_record.billing_period,
-                'room_id': main_record.room_id,
-                'room_building': room.building if room else '',
-                'room_number': room.room_number if room else '',
-                'electric_fee': record.electric_fee,
-                'water_fee': record.water_fee,
-                'total_fee': record.total_fee,
-                'reduction_fee': record.user_reduction_fee,
-                'payable_fee': record.payable_fee,
-                'stay_days': record.stay_days,
-                'type': 'active' if record.is_transferred else 'active'
-            }
-            utility_records.append(utility_info)
+    # 获取在住人员费用记录（按账期倒序）
+    active_utility_records = RoomUtilityOccupant.query.filter_by(user_id=user.id)
+    active_utility_records = active_utility_records.join(RoomUtilityOccupant.main_record)
+    active_utility_records = active_utility_records.order_by('billing_period').all()
     
-    # 按账期倒序排列水电费记录
-    utility_records.sort(key=lambda x: x['billing_period'], reverse=True)
+    # 获取退宿人员费用记录（按账期倒序）
+    checkout_utility_records = CheckoutUtilityRecord.query.filter_by(user_id=user.id)
+    checkout_utility_records = checkout_utility_records.order_by(CheckoutUtilityRecord.created_at.desc()).all()
+    
+    # 处理在住人员费用记录
+    for record in active_utility_records:
+        utility_records.append({
+            'record_id': record.record_id,
+            'billing_period': record.main_record.billing_period,
+            'type': 'active',
+            'electric_fee': record.electric_fee,
+            'water_fee': record.water_fee,
+            'total_fee': record.total_fee,
+            'payable_fee': record.payable_fee,
+            'stay_days': record.stay_days,
+            'room_id': record.room_id,
+            'room_building': record.room.building if record.room else '未知',
+            'room_number': record.room.room_number if record.room else '未知',
+            'created_at': record.created_at,
+            'reduction_fee': record.user_reduction_fee
+        })
+    
+    # 处理退宿人员费用记录
+    for record in checkout_utility_records:
+        # 提取账期信息（格式为YYYY-MM）
+        billing_period = record.main_record.billing_period if record.main_record else record.checkout_date.strftime('%Y-%m')
+        utility_records.append({
+            'record_id': record.record_id,
+            'billing_period': billing_period,
+            'type': 'checkout',
+            'electric_fee': record.user_billing_electric_fee,
+            'water_fee': record.user_billing_water_fee,
+            'total_fee': record.user_billing_total_fee,
+            'payable_fee': record.payable_fee,
+            'stay_days': record.user_period_days,
+            'room_id': record.room_id,
+            'room_building': record.room.building if record.room else '未知',
+            'room_number': record.room.room_number if record.room else '未知',
+            'created_at': record.created_at,
+            'reduction_fee': record.user_independent_reduction + record.user_proportional_reduction,
+            'checkout_id': record.id
+        })
+    
+    # 按账期倒序排序
+    utility_records.sort(key=lambda x: (x['billing_period'], x['created_at']), reverse=True)
     
     # 格式化日期函数
     def format_datetime(dt):

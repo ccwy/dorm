@@ -200,7 +200,7 @@ def utility_room_checkout_edit():
 # 退宿费用计算结果页面
 @utility_index_bp.route('/utility_user_checkout_detail')
 @login_required
-@require_permission('utility.view')
+@require_permission('utility.user_checkout_detail')
 def utility_user_checkout_detail():
 
     # 获取URL参数，只需要checkout_id

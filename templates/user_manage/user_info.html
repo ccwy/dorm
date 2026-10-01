@@ -279,7 +279,7 @@
                         <div class="overflow-x-auto">
                             <table class="min-w-full divide-y divide-gray-200">
                                 <thead>
-                                      <tr>
+                                    <tr>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">账期</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">房间号</th>
@@ -289,6 +289,7 @@
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">减免费用</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">应付费用</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">住宿天数</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">类型</th>
                                     </tr>
                                 </thead>
                                 <tbody class="bg-white divide-y divide-gray-200">
@@ -296,10 +297,17 @@
                                         {% for record in utility_records %}
                                         <tr class="hover:bg-gray-50 transition duration-200">
                                               <td class="px-6 py-4 whitespace-nowrap">
+                                                {% if record.type == 'checkout' and record.checkout_id %}
+                                                <a href="{{ url_for('utility_index.utility_user_checkout_detail', id=record.checkout_id) }}" 
+                                                   class="inline-flex items-center px-3 py-1 rounded-md text-sm font-medium text-white bg-amber-600 hover:bg-amber-700 transition-colors duration-200">
+                                                    <i class="fa fa-eye mr-1"></i> 详情
+                                                </a>
+                                                {% else %}
                                                 <a href="{{ url_for('utility_index.utility_room_records_detail', record_id=record.record_id) }}" 
                                                    class="inline-flex items-center px-3 py-1 rounded-md text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 transition-colors duration-200">
                                                     <i class="fa fa-eye mr-1"></i> 详情
                                                 </a>
+                                                {% endif %}
                                               </td>
                                               <td class="px-6 py-4 whitespace-nowrap">
                                               {{ record.billing_period }}
@@ -313,17 +321,25 @@
                                             <td class="px-6 py-4 whitespace-nowrap">¥{{ "%.2f"|format(record.water_fee or 0) }}</td>
                                             <td class="px-6 py-4 whitespace-nowrap">¥{{ "%.2f"|format(record.total_fee or 0) }}</td>
                                             <td class="px-6 py-4 whitespace-nowrap text-green-600">¥{{ "%.2f"|format(record.reduction_fee or 0) }}</td>
-                                            <td class="px-6 py-4 whitespace-nowrap  text-red-600">
-                                                ¥{{ "%.2f"|format(record.payable_fee or 0) }}
+                                            <td class="px-6 py-4 whitespace-nowrap font-medium">
+                                                <span class="text-red-600">¥{{ "%.2f"|format(record.payable_fee or 0) }}</span>
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap font-medium">
                                                 {{ record.stay_days or 0 }} 天
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <span class="px-2 py-1 
+                                                    {% if record.type == 'active' %}bg-green-100 text-green-800
+                                                    {% else %}bg-amber-100 text-amber-800{% endif %} 
+                                                    rounded-full text-xs">
+                                                    {{ '在住' if record.type == 'active' else '退宿' }}
+                                                </span>
                                             </td>
                                         </tr>
                                         {% endfor %}
                                     {% else %}
                                         <tr>
-                                            <td colspan="9" class="px-6 py-6 text-center text-sm text-gray-500">
+                                            <td colspan="10" class="px-6 py-6 text-center text-sm text-gray-500">
                                                 暂无水电费记录
                                             </td>
                                         </tr>
@@ -331,9 +347,11 @@
                                 </tbody>
                             </table>
                         </div>
+                        <div class="mt-4 text-sm text-gray-500">
+                            <p><i class="fa fa-info-circle mr-1"></i> 记录按账期倒序排列，包含在住和退宿期间的水电费</p>
+                        </div>
                     </div>
                 </div>
-                <!-- 换宿记录卡片 -->
                 {% if historical_dorms and historical_dorms|length > 0 %}
                 <div class="bg-white rounded-lg shadow-sm overflow-hidden card-hover mb-6">
                     <div class="px-6 py-4 border-b border-gray-200">

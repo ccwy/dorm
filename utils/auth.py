@@ -85,6 +85,7 @@ PERMISSIONS = {
             'export': '导出',
             'import': '导入',
             'room_records_detail': '查看房间水电费明细',
+            'user_checkout_detail': '查看用户退宿水电费',
         }
     },
     'fee_subsidy': {

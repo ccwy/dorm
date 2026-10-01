@@ -81,7 +81,7 @@ def init_roles_and_permissions():
     user_permissions = {
         #'ticket': {'view', 'create'},
         #'maintenance': {'view', 'create'},
-        'utility': {'room_records_detail'},
+        'utility': {'room_records_detail', 'user_checkout_detail'},
         #'dorm_application': {'view', 'create', 'cancel'},
     }
     # 维修员的权限配置
