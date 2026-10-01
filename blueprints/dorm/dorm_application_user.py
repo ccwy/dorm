@@ -6,6 +6,7 @@ from models.user.user import User
 from models.room.room import Room
 from models.room.room_bed import Bed
 from models.utility.utility_room_meter import UtilityMeterReading
+from models.utility.utility_room_bill_checkout import CheckoutUtilityRecord
 from flask_login import login_required, current_user
 from utils.auth import require_permission
 from utils.log import log_operation
@@ -369,13 +370,18 @@ def create_checkout():
             last_water_reading = None
             last_electric_reading = None
             if active_dorm and active_dorm.room_id:
-                latest_reading = UtilityMeterReading.query.filter_by(
-                    room_id=active_dorm.room_id,
-                    reading_type=1
-                ).order_by(UtilityMeterReading.reading_date.desc()).first()
-                if latest_reading:
-                    last_water_reading = latest_reading.water_current
-                    last_electric_reading = latest_reading.electric_current
+                latest_water = UtilityMeterReading.get_latest_water_reading(active_dorm.room_id)
+                latest_electric = UtilityMeterReading.get_latest_electric_reading(active_dorm.room_id)
+                if latest_water and latest_water.water_current is not None:
+                    last_water_reading = {
+                        'value': float(latest_water.water_current),
+                        'date': latest_water.reading_date.strftime('%Y-%m-%d %H:%M:%S')
+                    }
+                if latest_electric and latest_electric.electric_current is not None:
+                    last_electric_reading = {
+                        'value': float(latest_electric.electric_current),
+                        'date': latest_electric.reading_date.strftime('%Y-%m-%d %H:%M:%S')
+                    }
 
             logging.info(f"用户 [{user_id}] 访问申请退宿页面")
             # 生成默认日期时间（当前时间，精确到分钟）
@@ -538,12 +544,27 @@ def application_detail(id):
                 end_date = datetime.now().date()
             stay_days = max(0, (end_date - check_in).days + 1)
 
+        # 获取退宿费用核算记录（审核通过的退宿申请）
+        checkout_fee_record = None
+        checkout_billing_period = None
+        if application.application_type == 'checkout' and application.status == 'approved' and application.user_id:
+            checkout_fee_record = CheckoutUtilityRecord.query.filter_by(
+                user_id=application.user_id
+            ).order_by(CheckoutUtilityRecord.created_at.desc()).first()
+            if checkout_fee_record and checkout_fee_record.record_id:
+                from models.utility.utility_room_bill_record import RoomUtilityRecord
+                main_record = RoomUtilityRecord.query.get(checkout_fee_record.record_id)
+                if main_record:
+                    checkout_billing_period = main_record.billing_period
+
         return render_template('dorm_manage/application_detail.html',
                               title="申请详情",
                               application=application,
                               current_dorm=current_dorm,
                               stay_days=stay_days,
-                              is_checked_out=is_checked_out)
+                              is_checked_out=is_checked_out,
+                              checkout_fee_record=checkout_fee_record,
+                              checkout_billing_period=checkout_billing_period)
     except Exception as e:
         logging.error(f"查看宿舍申请详情失败: {str(e)}")
         flash('查看申请详情失败，请稍后重试', 'error')

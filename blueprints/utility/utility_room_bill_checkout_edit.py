@@ -56,11 +56,12 @@ def get_checkout_edit_data(checkout_id):
             return jsonify({"status": "error", "message": f"关联的房间不存在"}), 404
         
         # 3. 获取用户和住宿记录信息
+        # 取用户在该房间的最后一段住宿记录（按退宿日期降序），避免取到换宿产生的中间记录
         dorm_record = Dorm.query.filter_by(
             user_id=checkout_record.user_id,
             room_id=room.id,
             status='checked_out'
-        ).first()
+        ).order_by(Dorm.check_out_date.desc()).first()
         
         if not dorm_record:
             log_operation(
@@ -87,10 +88,12 @@ def get_checkout_edit_data(checkout_id):
         roommates = []
         
         # 确定当前账单周期的时间范围
-        # 从费用主表(main_record)获取正确的账期开始时间
-        # 注意：main_record是主账单记录，包含正确的账期信息
-        current_checkin = main_record.start_date
-        current_checkout = dorm_record.check_out_date or datetime.now()
+        # 账期作为时间围栏：室友过滤以账期为界
+        period_start = main_record.start_date
+        period_end = main_record.end_date
+        
+        # 判断退宿是否为换宿产生（换宿产生的退宿日期不显示）
+        is_transfer = bool(dorm_record.next_dorms)
         
         # 获取当前房间的所有住宿记录（包括在住和已退宿）
         all_dorm_records = Dorm.query.filter(
@@ -118,8 +121,8 @@ def get_checkout_edit_data(checkout_id):
                     
                     # 检查是否在当前房间且时间范围与账单周期重叠
                     if (chain_dorm.room_id == room.id and 
-                        chain_checkin <= current_checkout and 
-                        chain_checkout >= current_checkin):
+                        chain_checkin <= period_end and 
+                        chain_checkout >= period_start):
                         
                         # 检查该用户在账单周期内是否有换宿记录
                         transfer_details = chain_dorm.get_transfer_details()
@@ -128,7 +131,7 @@ def get_checkout_edit_data(checkout_id):
                         # 如果有后续换宿记录，且换宿时间在账单周期内，则视为提前离开
                         if transfer_details['next']:
                             next_checkin = transfer_details['next']['check_in']
-                            if isinstance(next_checkin, datetime) and current_checkin < next_checkin < current_checkout:
+                            if isinstance(next_checkin, datetime) and period_start < next_checkin < period_end:
                                 has_early_transfer = True
                         
                         # 只有没有提前换宿的才算有效室友
@@ -154,32 +157,32 @@ def get_checkout_edit_data(checkout_id):
                         # 1. 在用户实际入住前已经退宿的室友
                         # 2. 在账期开始前已经退宿的室友（确保按账期截断）
                         if (actual_checkout is not None and 
-                            (actual_checkout < actual_checkin or actual_checkout < current_checkin)):
+                            (actual_checkout < actual_checkin or actual_checkout < period_start)):
                             continue  # 跳过不符合账期要求的室友
                         
                         # 获取换宿记录的详细信息（根据换宿时间点确定显示内容）
                         transfer_prev_room = None
                         transfer_next_room = None
                         
-                        # 1. 室友在用户退宿前换宿进宿舍，在用户退宿后换宿走的情况
+                        # 1. 室友在账期内换宿进宿舍，在账期结束后换宿走的情况
                         #    显示室友从哪里换宿进来的
-                        if transfer_details['prev'] and not (transfer_details['next'] and transfer_details['next']['check_in'] <= current_checkout):
+                        if transfer_details['prev'] and not (transfer_details['next'] and transfer_details['next']['check_in'] <= period_end):
                             transfer_prev_room = transfer_details['prev']['room_number']
                         
-                        # 2. 室友在用户退宿前换宿走的情况
+                        # 2. 室友在账期内换宿走的情况
                         #    显示室友从当前宿舍换宿到其它宿舍
-                        if transfer_details['next'] and transfer_details['next']['check_in'] <= current_checkout:
+                        if transfer_details['next'] and transfer_details['next']['check_in'] <= period_end:
                             transfer_next_room = transfer_details['next']['room_number']
                         
-                        # 2. 根据室友的退宿日期与用户退宿日期的关系确定状态
+                        # 2. 根据室友的退宿日期与账期结束日期的关系确定状态
                         # 首先检查是否有退宿日期
                         if relevant_dorm.check_out_date:
-                            # 如果有退宿日期，且退宿日期在用户退宿日期之前或当天，则显示为已退宿
-                            if relevant_dorm.check_out_date <= current_checkout:
+                            # 如果有退宿日期，且退宿日期在账期结束日期之前或当天，则显示为已退宿
+                            if relevant_dorm.check_out_date <= period_end:
                                 status_text = "已退宿"
                                 status_type = "neutral"
                             else:
-                                # 退宿日期晚于用户退宿日期，显示为在住，不显示退宿日期
+                                # 退宿日期晚于账期结束日期，显示为在住，不显示退宿日期
                                 status_text = "在住"
                                 status_type = "success"
                                 actual_checkout = None
@@ -264,8 +267,10 @@ def get_checkout_edit_data(checkout_id):
                 "room_info": {
                     "room_id": room.id,
                     "room_number": f"{room.building}{room.room_number}",
+                    "billing_period": main_record.billing_period,
                     "check_in_date": dorm_record.check_in_date.isoformat() if dorm_record.check_in_date else None,
                     "check_out_date": dorm_record.check_out_date.isoformat() if dorm_record.check_out_date else None,
+                    "is_transfer": is_transfer,
                     # 直接从子表读取的天数信息
                     "stay_days": checkout_record.stay_days,
                     "user_period_days": checkout_record.user_period_days,

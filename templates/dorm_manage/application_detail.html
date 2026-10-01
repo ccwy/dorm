@@ -320,6 +320,44 @@
                     </div>
                 </div>
                 {% endif %}
+                <!-- 退宿费用核算结果 -->
+                {% if checkout_fee_record %}
+                <div class="mt-4 pt-4 border-t border-gray-200">
+                    <h4 class="text-sm font-semibold text-gray-700 mb-3 flex items-center">
+                        <i class="fa fa-calculator text-green-600 mr-2"></i>退宿费用核算结果
+                    </h4>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        {% if checkout_billing_period %}
+                        <div class="bg-green-50 p-4 rounded-lg">
+                            <p class="text-sm text-gray-500 mb-1">归属账期</p>
+                            <p class="text-gray-800 font-medium">{{ checkout_billing_period }}</p>
+                        </div>
+                        {% endif %}
+                        <div class="bg-green-50 p-4 rounded-lg">
+                            <p class="text-sm text-gray-500 mb-1">原始总费用</p>
+                            <p class="text-gray-800 font-medium">{{ checkout_fee_record.user_original_total_fee if checkout_fee_record.user_original_total_fee else 0 }} 元</p>
+                        </div>
+                        <div class="bg-green-50 p-4 rounded-lg">
+                            <p class="text-sm text-gray-500 mb-1">计费总费用</p>
+                            <p class="text-gray-800 font-medium">{{ checkout_fee_record.user_billing_total_fee if checkout_fee_record.user_billing_total_fee else 0 }} 元</p>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                        <div class="bg-green-50 p-4 rounded-lg">
+                            <p class="text-sm text-gray-500 mb-1">计费电费</p>
+                            <p class="text-gray-800 font-medium">{{ checkout_fee_record.user_billing_electric_fee if checkout_fee_record.user_billing_electric_fee else 0 }} 元</p>
+                        </div>
+                        <div class="bg-green-50 p-4 rounded-lg">
+                            <p class="text-sm text-gray-500 mb-1">计费水费</p>
+                            <p class="text-gray-800 font-medium">{{ checkout_fee_record.user_billing_water_fee if checkout_fee_record.user_billing_water_fee else 0 }} 元</p>
+                        </div>
+                        <div class="bg-green-50 p-4 rounded-lg">
+                            <p class="text-sm text-gray-500 mb-1">应付费用</p>
+                            <p class="text-orange-600 font-bold text-lg">{{ checkout_fee_record.payable_fee if checkout_fee_record.payable_fee else 0 }} 元</p>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
             </div>
             {% elif application.application_type in ('allocate', 'change') and application.result_dorm %}
             <div class="mt-4 pt-4 border-t border-gray-200">
@@ -364,7 +402,7 @@
         {% endif %}
 
         <!-- 取消申请按钮（仅pending状态显示） -->
-        {% if application.status == 'pending' %}
+        {% if application.status == 'pending' and current_user.has_permission('dorm_application.cancel') %}
         <div class="mb-6">
             <form id="cancelForm" method="POST" action="{{ url_for('dorm_application_user.cancel_application', id=application.id) }}">
                 <button type="submit" class="btn-effect bg-red-600 text-white px-6 py-2.5 rounded-md hover:bg-red-700 transition-colors flex items-center"

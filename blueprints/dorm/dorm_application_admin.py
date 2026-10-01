@@ -5,6 +5,7 @@ from models.dorm.dorm import Dorm
 from models.user.user import User
 from models.room.room import Room, RoomStatus
 from models.utility.utility_room_meter import UtilityMeterReading
+from models.utility.utility_room_bill_checkout import CheckoutUtilityRecord
 from flask_login import login_required, current_user
 from utils.auth import require_permission
 from utils.log import log_operation
@@ -189,13 +190,31 @@ def application_detail(id):
         last_water_reading = None
         last_electric_reading = None
         if application.application_type == 'checkout' and current_dorm and current_dorm.room_id:
-            latest_reading = UtilityMeterReading.query.filter_by(
-                room_id=current_dorm.room_id,
-                reading_type=1
-            ).order_by(UtilityMeterReading.reading_date.desc()).first()
-            if latest_reading:
-                last_water_reading = latest_reading.water_current
-                last_electric_reading = latest_reading.electric_current
+            latest_water = UtilityMeterReading.get_latest_water_reading(current_dorm.room_id)
+            latest_electric = UtilityMeterReading.get_latest_electric_reading(current_dorm.room_id)
+            if latest_water and latest_water.water_current is not None:
+                last_water_reading = {
+                    'value': float(latest_water.water_current),
+                    'date': latest_water.reading_date.strftime('%Y-%m-%d %H:%M:%S')
+                }
+            if latest_electric and latest_electric.electric_current is not None:
+                last_electric_reading = {
+                    'value': float(latest_electric.electric_current),
+                    'date': latest_electric.reading_date.strftime('%Y-%m-%d %H:%M:%S')
+                }
+
+        # 获取退宿费用核算记录（审核通过的退宿申请）
+        checkout_fee_record = None
+        checkout_billing_period = None
+        if application.application_type == 'checkout' and application.status == 'approved' and application.user_id:
+            checkout_fee_record = CheckoutUtilityRecord.query.filter_by(
+                user_id=application.user_id
+            ).order_by(CheckoutUtilityRecord.created_at.desc()).first()
+            if checkout_fee_record and checkout_fee_record.record_id:
+                from models.utility.utility_room_bill_record import RoomUtilityRecord
+                main_record = RoomUtilityRecord.query.get(checkout_fee_record.record_id)
+                if main_record:
+                    checkout_billing_period = main_record.billing_period
 
         return render_template('dorm_manage/application_admin_detail.html',
                               title="审核详情",
@@ -205,6 +224,8 @@ def application_detail(id):
                               is_checked_out=is_checked_out,
                               last_water_reading=last_water_reading,
                               last_electric_reading=last_electric_reading,
+                              checkout_fee_record=checkout_fee_record,
+                              checkout_billing_period=checkout_billing_period,
                               building_list=Room.query.with_entities(Room.building).distinct().order_by(Room.building).all(),
                               room_type_list=Room.get_valid_room_types(),
                               room_level_list=Room.get_valid_room_levels())

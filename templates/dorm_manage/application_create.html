@@ -245,7 +245,7 @@
                                 <option value="在职退宿" selected>在职退宿</option>
                                 <option value="离职退宿">离职退宿</option>
                             </select>
-                            <p class="text-xs text-gray-500 mt-1">自离退宿由管理员在审核时选择</p>
+                            <p class="text-xs text-gray-500 mt-1">外宿请选择在职退宿</p>
                         </div>
 
                         {% else %}
@@ -266,8 +266,8 @@
                             <input type="number" step="0.1" id="water_current" name="water_current"
                                 placeholder="请输入当前水表读数"
                                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
-                            {% if last_water_reading is not none %}
-                            <p class="text-xs text-gray-500 mt-1">上次读数：{{ last_water_reading }} m³</p>
+                            {% if last_water_reading %}
+                            <p class="text-xs text-gray-500 mt-1">上次读数：{{ last_water_reading.value }} m³（{{ last_water_reading.date }}）</p>
                             {% endif %}
                         </div>
                         <div>
@@ -277,8 +277,8 @@
                             <input type="number" step="0.1" id="electric_current" name="electric_current"
                                 placeholder="请输入当前电表读数"
                                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
-                            {% if last_electric_reading is not none %}
-                            <p class="text-xs text-gray-500 mt-1">上次读数：{{ last_electric_reading }} kWh</p>
+                            {% if last_electric_reading %}
+                            <p class="text-xs text-gray-500 mt-1">上次读数：{{ last_electric_reading.value }} kWh（{{ last_electric_reading.date }}）</p>
                             {% endif %}
                         </div>
                         {% endif %}

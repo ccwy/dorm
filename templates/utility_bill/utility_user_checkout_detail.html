@@ -83,7 +83,7 @@
                         </h3>
                     </div>
                     <div class="p-6">
-                        <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-x-8 gap-y-4">
+                        <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-x-8 gap-y-4">
                             <div>
                                 <h4 class="text-sm text-gray-500">姓名</h4>
                                 <p class="font-medium text-lg"><a href="{{ url_for('user.view', id=user.id) }}" class="text-primary hover:text-primary/80 hover:underline">{{ user.name if user else '未知用户' }}</a>(ID:{{ user.id }})</p>
@@ -93,13 +93,19 @@
                                 <p class="font-medium"><a href="{{ url_for('room.view', id=room.id) }}" class="text-primary hover:text-primary/80 hover:underline">{{ room.building }}{{ room.room_number }}</a>(ID:{{ room.id }})</p>
                             </div>
                             <div>
+                                <h4 class="text-sm text-gray-500">归属账期</h4>
+                                <p class="font-medium">{{ billing_period }}</p>
+                            </div>
+                            <div>
                                 <h4 class="text-sm text-gray-500">入住日期</h4>
                                 <p class="font-medium">{{ checkout_record.checkin_date.strftime('%Y-%m-%d') }}</p>
                             </div>
+                            {% if not is_transfer %}
                             <div>
                                 <h4 class="text-sm text-gray-500">退宿日期</h4>
                                 <p class="font-medium">{{ checkout_record.checkout_date.strftime('%Y-%m-%d') }}</p>
                             </div>
+                            {% endif %}
                             <div>
                                 <h4 class="text-sm text-gray-500">费用核算总天数</h4>
                                 <p class="font-medium">{{ checkout_record.total_period_days }} 天</p>
@@ -347,9 +353,9 @@
                         <i class="fa fa-pencil mr-2"></i>编辑退宿费用
                     </a>
                     {% endif %}
-                    <a href="{{ url_for('dorm.dorm_query') }}" class="px-8 py-3 bg-primary text-white rounded-md hover:bg-primary/90 btn-effect">
+                    <button type="button" onclick="window.history.back()" class="px-8 py-3 bg-primary text-white rounded-md hover:bg-primary/90 btn-effect">
                         <i class="fa fa-check mr-2"></i>返回
-                    </a>
+                    </button>
                 </div>
             </section>
         </main>

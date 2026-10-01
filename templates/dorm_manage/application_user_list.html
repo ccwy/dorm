@@ -239,7 +239,7 @@
                                         <a href="{{ url_for('dorm_application_user.application_detail', id=app.id) }}" class="btn-effect bg-blue-500 text-white px-2 py-1 rounded-md text-sm inline-flex items-center mr-2">
                                             <i class="fa fa-eye mr-1"></i>详情
                                         </a>
-                                        {% if app.status == 'pending' %}
+                                        {% if app.status == 'pending' and current_user.has_permission('dorm_application.cancel') %}
                                         <form method="POST" action="{{ url_for('dorm_application_user.cancel_application', id=app.id) }}" class="inline" onsubmit="return confirm('确定要取消此申请吗？');">
                                             <button type="submit" class="btn-effect bg-red-500 text-white px-2 py-1 rounded-md text-sm inline-flex items-center">
                                                 <i class="fa fa-times mr-1"></i>取消
