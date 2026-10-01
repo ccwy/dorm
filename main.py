@@ -33,24 +33,7 @@ from utils.db_config import DatabaseConfig
 _stamp("导入db_config")
 
 # 直接使用 Config 类，不再区分开发/生产环境
-# 源码运行时 DEBUG=True/AUTO_LOGIN_ADMIN=True，打包后自动为 False
 current_config = Config
-
-# 检测是否是重载操作
-import argparse
-parser_env = argparse.ArgumentParser(add_help=False)
-parser_env.add_argument('--restarted', action='store_true')
-args_env, _ = parser_env.parse_known_args()
-is_restarted = args_env.restarted
-if is_restarted:
-    print("检测到重载操作，将重新从本地文件加载数据库配置")
-    import importlib
-    from utils import db_config
-    importlib.reload(db_config)
-    print("数据库配置已重新加载")
-else:
-    print("数据库配置未重新加载")
-
 
 def _load_splash_html(system_title):
     """加载闪屏HTML模板，支持打包和开发环境"""
@@ -222,15 +205,7 @@ def init_flask_app(progress_callback=None):
     with app.app_context():
         db_config_data = DatabaseConfig.load_config()
         needs_force_check = False
-        if db_config_data.get("AUTO_SWITCHED_TO_SQLITE", False):
-            needs_force_check = True
-            logging.info("检测到之前MySQL连接失败，将重新检查连接状态")
-        elif db_config_data.get("SQL_TYPE", "").upper() == "SQLITE":
-            sqlite_path = db_config_data.get("SQLITE_DB_PATH", "")
-            if not sqlite_path or not os.path.exists(sqlite_path):
-                needs_force_check = True
-                logging.info("SQLite数据库文件不存在，将执行首次启动检查")
-        elif db_config_data.get("SQL_TYPE", "").upper() == "MYSQL":
+        if db_config_data.get("SQL_TYPE", "").upper() == "MYSQL":
             if db_config_data.get("LAST_FAILED_MYSQL_ATTEMPT"):
                 needs_force_check = True
                 logging.info("检测到MySQL历史连接失败记录，将检查连接状态")
@@ -277,10 +252,11 @@ def init_flask_app(progress_callback=None):
     def load_user(user_id):
         return db.session.get(User, int(user_id))
 
-    logging.getLogger('werkzeug').setLevel(logging.DEBUG)
-    logging.getLogger('flask').setLevel(logging.DEBUG)
+    log_level = logging.DEBUG if current_config.DEBUG else logging.WARNING
+    logging.getLogger('werkzeug').setLevel(log_level)
+    logging.getLogger('flask').setLevel(log_level)
 
-    _stamp("创建Flask应用实例")
+    _stamp("Flask核心配置完成")
 
     _backup_initialized = False
     def _init_backup_thread():
@@ -482,7 +458,7 @@ def run_server():
 if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser(description='行政后勤管理系统')
-    parser.add_argument('--no-reload', action='store_true', help='禁用自动重载')
+    # 占位参数：防止argparse遇到--restarted时报错，实际检测由single_instance.py通过sys.argv完成
     parser.add_argument('--restarted', action='store_true', help='标识重启操作（内部使用）')
     args = parser.parse_args()
     logging.info("解析命令行参数")
