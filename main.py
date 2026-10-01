@@ -26,28 +26,21 @@ def _stamp(label):
     logging.info(f"[启动计时] {label}: {elapsed:.3f}s")
 
 # 导入配置类
-from config import Config, config
+from config import Config
 _stamp("导入config")
 # 从外部配置获取数据库连接
 from utils.db_config import DatabaseConfig
 _stamp("导入db_config")
 
-# 确定运行环境（优先从命令行参数获取，然后是环境变量，最后是默认值）
-import argparse
-parser_env = argparse.ArgumentParser(add_help=False)
-parser_env.add_argument('--config', type=str)
-parser_env.add_argument('--restarted', action='store_true')
-args_env, _ = parser_env.parse_known_args()
-env = args_env.config if args_env.config else os.environ.get('FLASK_ENV', 'default')
-
-# 确保环境值有效
-if env not in config:
-    env = 'default'
-current_config = config[env]
-print(f"当前环境: {env}")
-print(f"当前配置: {current_config}")
+# 直接使用 Config 类，不再区分开发/生产环境
+# 源码运行时 DEBUG=True/AUTO_LOGIN_ADMIN=True，打包后自动为 False
+current_config = Config
 
 # 检测是否是重载操作
+import argparse
+parser_env = argparse.ArgumentParser(add_help=False)
+parser_env.add_argument('--restarted', action='store_true')
+args_env, _ = parser_env.parse_known_args()
 is_restarted = args_env.restarted
 if is_restarted:
     print("检测到重载操作，将重新从本地文件加载数据库配置")
@@ -490,7 +483,6 @@ if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser(description='行政后勤管理系统')
     parser.add_argument('--no-reload', action='store_true', help='禁用自动重载')
-    parser.add_argument('--config', type=str, help='指定配置环境')
     parser.add_argument('--restarted', action='store_true', help='标识重启操作（内部使用）')
     args = parser.parse_args()
     logging.info("解析命令行参数")
