@@ -27,6 +27,9 @@ class CheckoutUtilityRecord(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='RESTRICT'), nullable=False, comment='退宿人员ID，限制删除')
     room_id = db.Column(db.Integer, db.ForeignKey('rooms.id', ondelete='RESTRICT'), nullable=False, comment='退宿人员房间ID，限制删除')
     
+    # 关联退宿Dorm记录（精确关联到实际退宿的住宿记录）
+    dorm_id = db.Column(db.Integer, db.ForeignKey('dorms.id', ondelete='SET NULL'), nullable=True, comment='关联的退宿Dorm记录ID')
+    
     # 时间信息
     checkin_date = db.Column(db.DateTime, nullable=True, comment='入住日期时间')
     checkout_date = db.Column(db.DateTime, nullable=True, comment='退宿日期时间')
@@ -100,28 +103,25 @@ class CheckoutUtilityRecord(db.Model):
     @classmethod
     def create_from_checkout(cls, room_id, user_id, checkout_date, 
                             electric_reading, water_reading, remarks,
-                            calculate_fee=True):
+                            billing_period, calculate_fee=True, dorm_id=None):
         """创建退宿费用记录"""
         try:
             logging.info(f"\n===== 开始创建退宿费用记录 =====")
             logging.info(f"参数: room_id={room_id}, user_id={user_id}, checkout_date={checkout_date}")
 
-            # 新增：验证用户是否存在并且状态为在职
+            # 验证用户是否存在（退宿费用核算不限制在职状态，补录场景用户可能已离职）
             user = User.query.get(user_id)
             if not user:
                 raise ValueError(f"用户ID不存在: {user_id}")
-            if not user.is_status():
-                raise ValueError(f"用户ID={user_id}非在职状态，不能进行退宿费用核算")
 
             # 1.4 获取当期账期
-            main_record = RoomUtilityRecord.get_by_room_and_date(room_id, checkout_date)
+            main_record = RoomUtilityRecord.get_by_room_and_period(room_id, billing_period)
             if not main_record:
-                main_record = RoomUtilityRecord.create_from_meter_reading(room_id, checkout_date)
+                main_record = RoomUtilityRecord.create_from_meter_reading(room_id, billing_period, reading_date=checkout_date)
                 logging.info(f"自动创建账期记录: {main_record.billing_period}")
             
             period_start = main_record.start_date
             period_end = main_record.end_date
-            billing_period = main_record.billing_period
             
             # 计算当月自然天数
             natural_days = (period_end.date() - period_start.date()).days + 1
@@ -143,7 +143,8 @@ class CheckoutUtilityRecord(db.Model):
             date_info = cls.calculate_stay_information(
                 user_id=user_id,
                 room_id=room_id,
-                checkout_date=checkout_date
+                checkout_date=checkout_date,
+                billing_period=billing_period
             )
             checkin_date = date_info['original_checkin_date']
             user_period_days = date_info['user_period_days']
@@ -162,14 +163,36 @@ class CheckoutUtilityRecord(db.Model):
 
 
             # 1.5 获取上期抄表记录
-            latest_meter = UtilityMeterReading.query.filter(
-                UtilityMeterReading.room_id == room_id,
-                UtilityMeterReading.reading_type == 1,
-                UtilityMeterReading.reading_date < period_start
-            ).order_by(UtilityMeterReading.reading_date.desc()).first()
+            # 退宿场景：本期所有抄表记录都是"上次读数"的候选，"本次读数"是退宿读数（参数传入）
+            # 因此直接获取最新的抄表记录值作为上次读数，与房间费用核算处的语义不同
+            # （房间费用核算处：本期记录中最早=上次，最晚=本次）
+            electric_previous = Decimal('0')
+            water_previous = Decimal('0')
 
-            electric_previous = Decimal(str(latest_meter.electric_current)) if latest_meter else Decimal('0')
-            water_previous = Decimal(str(latest_meter.water_current)) if latest_meter else Decimal('0')
+            # ---- 电表上次读数 ----
+            # 使用跨账期查询方法，自动处理换表记录（只取换表后的最新读数）
+            last_electric_reading = UtilityMeterReading.get_latest_electric_reading(room_id)
+            if last_electric_reading:
+                electric_previous = Decimal(str(last_electric_reading.electric_current))
+                logging.info(f'退宿：房间{room_id}电表上次读数(跨账期): {electric_previous}, 读数日期: {last_electric_reading.reading_date}')
+            else:
+                # 无历史记录（首次抄表）→ 上次读数=本次读数，用量为0
+                if electric_reading is not None:
+                    electric_previous = Decimal(str(electric_reading))
+                logging.info(f'退宿：房间{room_id}电表无历史读数记录，上次读数设为退宿读数: {electric_previous}')
+
+            # ---- 水表上次读数 ----
+            # 使用跨账期查询方法，自动处理换表记录（只取换表后的最新读数）
+            last_water_reading = UtilityMeterReading.get_latest_water_reading(room_id)
+            if last_water_reading:
+                water_previous = Decimal(str(last_water_reading.water_current))
+                logging.info(f'退宿：房间{room_id}水表上次读数(跨账期): {water_previous}, 读数日期: {last_water_reading.reading_date}')
+            else:
+                # 无历史记录（首次抄表）→ 上次读数=本次读数，用量为0
+                if water_reading is not None:
+                    water_previous = Decimal(str(water_reading))
+                logging.info(f'退宿：房间{room_id}水表无历史读数记录，上次读数设为退宿读数: {water_previous}')
+
             logging.info(f"上期抄表记录: 电={electric_previous}, 水={water_previous}")
 
             # 2. 初始化费用相关临时变量
@@ -357,6 +380,7 @@ class CheckoutUtilityRecord(db.Model):
                 logging.info(f"价格配置: 电{electric_price}, 水{water_price}")
 
                 # 6.2 计算房间总抄表用量（房间级原始数据）
+                # electric_previous 和 water_previous 已在1.5节中根据同账期抄表记录正确计算
                 meter_electric_usage = round(electric_reading - electric_previous, 2)
                 meter_water_usage = round(water_reading - water_previous, 2)
                 
@@ -431,6 +455,7 @@ class CheckoutUtilityRecord(db.Model):
                 record_id=main_record.record_id,
                 user_id=user_id,
                 room_id=room_id,
+                dorm_id=dorm_id,
                 checkin_date=checkin_date,
                 checkout_date=checkout_date,
                 stay_days=(checkout_date.date() - checkin_date.date()).days + 1,
@@ -611,6 +636,7 @@ class CheckoutUtilityRecord(db.Model):
                     user_id=self.user_id,
                     room_id=self.room_id,
                     checkout_date=self.checkout_date,
+                    billing_period=billing_period,
                     period_start=period_start,
                     period_end=period_end
                 )
@@ -884,7 +910,7 @@ class CheckoutUtilityRecord(db.Model):
             raise
 
     @classmethod
-    def calculate_stay_information(cls, user_id, room_id, checkout_date, period_start=None, period_end=None):
+    def calculate_stay_information(cls, user_id, room_id, checkout_date, billing_period=None, period_start=None, period_end=None):
         """统一计算住宿相关日期信息，充分利用住宿链数据"""
         # 实现保持不变
         # 1. 获取用户住宿链信息
@@ -905,14 +931,17 @@ class CheckoutUtilityRecord(db.Model):
         
         # 2. 获取账期
         if not period_start or not period_end:
-            main_record = RoomUtilityRecord.get_by_room_and_date(room_id, checkout_date)
-            if main_record:
-                period_start = main_record.start_date
-                period_end = main_record.end_date
+            if billing_period:
+                main_record = RoomUtilityRecord.get_by_room_and_period(room_id, billing_period)
+                if main_record:
+                    period_start = main_record.start_date
+                    period_end = main_record.end_date
+                else:
+                    logging.error(f"无法获取房间{room_id}账期{billing_period}的水电费主记录，无法确定账期")
+                    raise ValueError(f"无法获取房间{room_id}账期{billing_period}的水电费主记录，无法进行退宿费用核算")
             else:
-                # 如果没有主记录，停止计算并输出错误
-                logging.error(f"无法获取房间{room_id}在日期{checkout_date}的水电费主记录，无法确定账期")
-                raise ValueError(f"无法获取房间{room_id}在日期{checkout_date}的水电费主记录，无法进行退宿费用核算")
+                logging.error(f"缺少billing_period参数且未提供period_start/period_end，无法确定账期")
+                raise ValueError(f"缺少billing_period参数且未提供period_start/period_end，无法确定账期")
         
         # 3. 利用住宿链计算用户当期住宿天数
         user_period_days = 0

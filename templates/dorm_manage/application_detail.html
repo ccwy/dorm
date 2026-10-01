@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    {% include 'static.html' %}
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#165DFF',
+                        secondary: '#36CFC9',
+                        accent: '#722ED1',
+                        danger: '#F5222D',
+                        info: '#1890FF',
+                        warning: '#FAAD14'
+                    },
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .btn-effect {
+                transition: all 0.2s ease;
+            }
+            .btn-effect:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            }
+            .fade-in {
+                animation: fadeIn 0.5s ease-in;
+            }
+            @keyframes fadeIn {
+                from { opacity: 0; }
+                to { opacity: 1; }
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    {% include 'header.html' %}
+
+    <main class="container mx-auto px-4 py-6">
+        <!-- 标题和返回按钮区 -->
+        <div class="mb-6 fade-in">
+            <div class="flex items-center">
+                <a href="{{ url_for('dorm_application_user.application_list') }}" class="text-gray-600 hover:text-primary transition-colors mr-4">
+                    <i class="fa fa-arrow-left"></i>
+                </a>
+                <div>
+                    <h2 class="text-[clamp(1.5rem,3vw,2rem)] font-bold text-dark">申请详情</h2>
+                    <p class="text-gray-500 mt-1">申请编号：{{ application.application_number }}</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 消息提示区域 -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            <div class="flash-messages mb-6">
+              {% for category, message in messages %}
+                <div class="p-4 rounded-md mb-2 {% if category == 'success' %}bg-green-100 text-green-800{% elif category == 'error' or category == 'danger' %}bg-red-100 text-red-800{% elif category == 'warning' %}bg-yellow-100 text-yellow-800{% else %}bg-blue-100 text-blue-800{% endif %}">
+                  <button type="button" class="float-right ml-2 text-gray-500 hover:text-gray-700" onclick="this.parentElement.remove()">×</button>
+                  {{ message }}
+                </div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        {% endwith %}
+
+        <!-- 状态标签 -->
+        <div class="mb-6 flex items-center gap-3">
+            <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium
+                {% if application.application_type == 'allocate' %}bg-blue-100 text-blue-800
+                {% elif application.application_type == 'change' %}bg-orange-100 text-orange-800
+                {% elif application.application_type == 'checkout' %}bg-purple-100 text-purple-800
+                {% endif %}">
+                {% if application.application_type == 'allocate' %}申请宿舍
+                {% elif application.application_type == 'change' %}申请换宿
+                {% elif application.application_type == 'checkout' %}申请退宿
+                {% else %}{{ application.application_type }}{% endif %}
+            </span>
+            <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium
+                {% if application.status == 'pending' %}bg-yellow-100 text-yellow-800
+                {% elif application.status == 'approved' %}bg-green-100 text-green-800
+                {% elif application.status == 'rejected' %}bg-red-100 text-red-800
+                {% elif application.status == 'cancelled' %}bg-gray-100 text-gray-800
+                {% endif %}">
+                {% if application.status == 'pending' %}待审核
+                {% elif application.status == 'approved' %}已通过
+                {% elif application.status == 'rejected' %}已拒绝
+                {% elif application.status == 'cancelled' %}已取消
+                {% else %}{{ application.status }}{% endif %}
+            </span>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            <!-- 申请人信息卡片 -->
+            <div class="bg-white rounded-lg shadow-sm p-6">
+                <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                    <i class="fa fa-user text-primary mr-2"></i>申请人信息
+                </h3>
+                <div class="space-y-3">
+                    <div class="flex justify-between text-sm">
+                        <span class="text-gray-500">姓名</span>
+                        {% if application.user %}
+                        <a href="{{ url_for('user.view', id=application.user.id) }}" class="text-primary hover:underline font-medium">{{ application.user.name }}</a>
+                        {% else %}
+                        <span class="text-gray-800 font-medium">-</span>
+                        {% endif %}
+                    </div>
+                    <div class="flex justify-between text-sm">
+                        <span class="text-gray-500">工号</span>
+                        <span class="text-gray-800">{{ application.user.student_id if application.user and application.user.student_id else '-' }}</span>
+                    </div>
+                    <div class="flex justify-between text-sm">
+                        <span class="text-gray-500">性别</span>
+                        <span class="text-gray-800">{{ application.user.gender if application.user else '-' }}</span>
+                    </div>
+                    <div class="flex justify-between text-sm">
+                        <span class="text-gray-500">年龄</span>
+                        <span class="text-gray-800">{{ application.user.age if application.user and application.user.age else '-' }}</span>
+                    </div>
+                    <div class="flex justify-between text-sm">
+                        <span class="text-gray-500">部门</span>
+                        <span class="text-gray-800">{{ application.user.dept.name if application.user and application.user.dept else '-' }}</span>
+                    </div>
+                    <div class="flex justify-between text-sm">
+                        <span class="text-gray-500">岗位</span>
+                        <span class="text-gray-800">{{ application.user.position if application.user and application.user.position else '-' }}</span>
+                    </div>
+                    <div class="flex justify-between text-sm">
+                        <span class="text-gray-500">人员类别</span>
+                        <span class="text-gray-800">{{ application.user.category if application.user and application.user.category else '-' }}</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 申请信息卡片 -->
+            <div class="bg-white rounded-lg shadow-sm p-6">
+                <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                    <i class="fa fa-file-text text-primary mr-2"></i>申请信息
+                </h3>
+                <div class="space-y-3">
+                    <div class="flex justify-between text-sm">
+                        <span class="text-gray-500">申请编号</span>
+                        <span class="text-gray-800 font-mono">{{ application.application_number }}</span>
+                    </div>
+                    <div class="flex justify-between text-sm">
+                        <span class="text-gray-500">申请类型</span>
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                            {% if application.application_type == 'allocate' %}bg-blue-100 text-blue-800
+                            {% elif application.application_type == 'change' %}bg-orange-100 text-orange-800
+                            {% elif application.application_type == 'checkout' %}bg-purple-100 text-purple-800
+                            {% endif %}">
+                            {% if application.application_type == 'allocate' %}申请宿舍
+                            {% elif application.application_type == 'change' %}申请换宿
+                            {% elif application.application_type == 'checkout' %}申请退宿
+                            {% else %}{{ application.application_type }}{% endif %}
+                        </span>
+                    </div>
+                    <div class="flex justify-between text-sm">
+                        <span class="text-gray-500">状态</span>
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                            {% if application.status == 'pending' %}bg-yellow-100 text-yellow-800
+                            {% elif application.status == 'approved' %}bg-green-100 text-green-800
+                            {% elif application.status == 'rejected' %}bg-red-100 text-red-800
+                            {% elif application.status == 'cancelled' %}bg-gray-100 text-gray-800
+                            {% endif %}">
+                            {% if application.status == 'pending' %}待审核
+                            {% elif application.status == 'approved' %}已通过
+                            {% elif application.status == 'rejected' %}已拒绝
+                            {% elif application.status == 'cancelled' %}已取消
+                            {% else %}{{ application.status }}{% endif %}
+                        </span>
+                    </div>
+                    <div class="flex justify-between text-sm">
+                        <span class="text-gray-500">申请原因</span>
+                        <span class="text-gray-800">{{ application.reason if application.reason else '-' }}</span>
+                    </div>
+                    {% if application.application_type == 'checkout' %}
+                    <div class="flex justify-between text-sm">
+                        <span class="text-gray-500">退宿类型</span>
+                        <span class="text-gray-800">{{ application.checkout_type if application.checkout_type else '-' }}</span>
+                    </div>
+                    {% if application.billing_period %}
+                    <div class="flex justify-between text-sm">
+                        <span class="text-gray-500">账期</span>
+                        <span class="text-gray-800">{{ application.billing_period }}</span>
+                    </div>
+                    {% endif %}
+                    {% if application.water_current is not none %}
+                    <div class="flex justify-between text-sm">
+                        <span class="text-gray-500">水表读数</span>
+                        <span class="text-gray-800">{{ application.water_current }}</span>
+                    </div>
+                    {% endif %}
+                    {% if application.electric_current is not none %}
+                    <div class="flex justify-between text-sm">
+                        <span class="text-gray-500">电表读数</span>
+                        <span class="text-gray-800">{{ application.electric_current }}</span>
+                    </div>
+                    {% endif %}
+                    {% endif %}
+                    <div class="flex justify-between text-sm">
+                        <span class="text-gray-500">创建时间</span>
+                        <span class="text-gray-800">{{ application.created_at.strftime('%Y-%m-%d %H:%M:%S') if application.created_at else '-' }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 当前宿舍信息卡片（换宿/退宿时显示） -->
+        {% if application.application_type in ('change', 'checkout') and application.current_room %}
+        <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                <i class="fa fa-home text-orange-500 mr-2"></i>当前宿舍信息
+                {% if is_checked_out %}
+                <span class="ml-2 px-2 py-0.5 text-xs bg-gray-100 text-gray-600 rounded">已退宿</span>
+                {% endif %}
+            </h3>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="bg-gray-50 p-4 rounded-lg">
+                    <p class="text-sm text-gray-500 mb-1">当前宿舍</p>
+                    <p class="text-gray-800 font-medium">{{ application.current_room.building }}{{ application.current_room.room_number }}</p>
+                </div>
+                <div class="bg-gray-50 p-4 rounded-lg">
+                    <p class="text-sm text-gray-500 mb-1">入住时间</p>
+                    <p class="text-gray-800 font-medium">{{ current_dorm.check_in_date.strftime('%Y-%m-%d') if current_dorm and current_dorm.check_in_date else '-' }}</p>
+                </div>
+                <div class="bg-gray-50 p-4 rounded-lg">
+                    <p class="text-sm text-gray-500 mb-1">已住天数</p>
+                    <p class="text-gray-800 font-medium">{{ stay_days if stay_days else '-' }}</p>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- 申请宿舍信息卡片（申请/换宿时显示） -->
+        {% if application.application_type in ('allocate', 'change') and application.target_room %}
+        <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                <i class="fa fa-building text-blue-500 mr-2"></i>申请宿舍信息
+            </h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="bg-gray-50 p-4 rounded-lg">
+                    <p class="text-sm text-gray-500 mb-1">申请宿舍</p>
+                    <p class="text-gray-800 font-medium"><a href="{{ url_for('room.view', id=application.target_room.id) }}" class="text-primary hover:underline">{{ application.target_room.building }}{{ application.target_room.room_number }}</a></p>
+                </div>
+                <div class="bg-gray-50 p-4 rounded-lg">
+                    <p class="text-sm text-gray-500 mb-1">期望入住时间</p>
+                    <p class="text-gray-800 font-medium">{{ application.check_in_date.strftime('%Y-%m-%d %H:%M') if application.check_in_date else '-' }}</p>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- 审核结果信息（非pending状态显示） -->
+        {% if application.status != 'pending' %}
+        <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                <i class="fa fa-gavel text-primary mr-2"></i>审核结果
+            </h3>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="bg-gray-50 p-4 rounded-lg">
+                    <p class="text-sm text-gray-500 mb-1">审核结果</p>
+                    {% if application.status == 'approved' %}
+                    <p class="text-green-600 font-medium"><i class="fa fa-check-circle mr-1"></i>已通过</p>
+                    {% elif application.status == 'rejected' %}
+                    <p class="text-red-600 font-medium"><i class="fa fa-times-circle mr-1"></i>已拒绝</p>
+                    {% endif %}
+                </div>
+                <div class="bg-gray-50 p-4 rounded-lg">
+                    <p class="text-sm text-gray-500 mb-1">审核人</p>
+                    <p class="text-gray-800 font-medium">{{ application.reviewer.name if application.reviewer else '-' }}</p>
+                </div>
+                <div class="bg-gray-50 p-4 rounded-lg">
+                    <p class="text-sm text-gray-500 mb-1">审核时间</p>
+                    <p class="text-gray-800 font-medium">{{ application.reviewed_at.strftime('%Y-%m-%d %H:%M:%S') if application.reviewed_at else '-' }}</p>
+                </div>
+            </div>
+            <!-- 审核通过时显示操作结果 -->
+            {% if application.status == 'approved' %}
+            {% if application.application_type == 'checkout' and application.result_dorm %}
+            <div class="mt-4 pt-4 border-t border-gray-200">
+                <h4 class="text-sm font-semibold text-gray-700 mb-3 flex items-center">
+                    <i class="fa fa-sign-out text-purple-500 mr-2"></i>退宿信息
+                </h4>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="bg-purple-50 p-4 rounded-lg">
+                        <p class="text-sm text-gray-500 mb-1">退宿宿舍</p>
+                        <p class="text-gray-800 font-medium">{{ application.result_dorm.room.building }}{{ application.result_dorm.room.room_number if application.result_dorm.room else '-' }}</p>
+                    </div>
+                    <div class="bg-purple-50 p-4 rounded-lg">
+                        <p class="text-sm text-gray-500 mb-1">入住时间</p>
+                        <p class="text-gray-800 font-medium">{{ application.result_dorm.check_in_date.strftime('%Y-%m-%d %H:%M') if application.result_dorm.check_in_date else '-' }}</p>
+                    </div>
+                    <div class="bg-purple-50 p-4 rounded-lg">
+                        <p class="text-sm text-gray-500 mb-1">退宿日期</p>
+                        <p class="text-gray-800 font-medium">{{ application.result_dorm.check_out_date.strftime('%Y-%m-%d %H:%M') if application.result_dorm.check_out_date else '-' }}</p>
+                    </div>
+                </div>
+                {% if application.checkout_type %}
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                    <div class="bg-purple-50 p-4 rounded-lg">
+                        <p class="text-sm text-gray-500 mb-1">退宿类型</p>
+                        <p class="text-gray-800 font-medium">{{ application.checkout_type }}</p>
+                    </div>
+                    <div class="bg-purple-50 p-4 rounded-lg">
+                        <p class="text-sm text-gray-500 mb-1">水表读数</p>
+                        <p class="text-gray-800 font-medium">{{ application.water_current if application.water_current is not none else '-' }}</p>
+                    </div>
+                    <div class="bg-purple-50 p-4 rounded-lg">
+                        <p class="text-sm text-gray-500 mb-1">电表读数</p>
+                        <p class="text-gray-800 font-medium">{{ application.electric_current if application.electric_current is not none else '-' }}</p>
+                    </div>
+                </div>
+                {% endif %}
+                <!-- 退宿费用核算结果 -->
+                {% if checkout_fee_record %}
+                <div class="mt-4 pt-4 border-t border-gray-200">
+                    <h4 class="text-sm font-semibold text-gray-700 mb-3 flex items-center">
+                        <i class="fa fa-calculator text-green-600 mr-2"></i>退宿费用核算结果
+                    </h4>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        {% if checkout_billing_period %}
+                        <div class="bg-green-50 p-4 rounded-lg">
+                            <p class="text-sm text-gray-500 mb-1">归属账期</p>
+                            <p class="text-gray-800 font-medium">{{ checkout_billing_period }}</p>
+                        </div>
+                        {% endif %}
+                        <div class="bg-green-50 p-4 rounded-lg">
+                            <p class="text-sm text-gray-500 mb-1">原始总费用</p>
+                            <p class="text-gray-800 font-medium">{{ checkout_fee_record.user_original_total_fee if checkout_fee_record.user_original_total_fee else 0 }} 元</p>
+                        </div>
+                        <div class="bg-green-50 p-4 rounded-lg">
+                            <p class="text-sm text-gray-500 mb-1">计费总费用</p>
+                            <p class="text-gray-800 font-medium">{{ checkout_fee_record.user_billing_total_fee if checkout_fee_record.user_billing_total_fee else 0 }} 元</p>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                        <div class="bg-green-50 p-4 rounded-lg">
+                            <p class="text-sm text-gray-500 mb-1">计费电费</p>
+                            <p class="text-gray-800 font-medium">{{ checkout_fee_record.user_billing_electric_fee if checkout_fee_record.user_billing_electric_fee else 0 }} 元</p>
+                        </div>
+                        <div class="bg-green-50 p-4 rounded-lg">
+                            <p class="text-sm text-gray-500 mb-1">计费水费</p>
+                            <p class="text-gray-800 font-medium">{{ checkout_fee_record.user_billing_water_fee if checkout_fee_record.user_billing_water_fee else 0 }} 元</p>
+                        </div>
+                        <div class="bg-green-50 p-4 rounded-lg">
+                            <p class="text-sm text-gray-500 mb-1">应付费用</p>
+                            <p class="text-orange-600 font-bold text-lg">{{ checkout_fee_record.payable_fee if checkout_fee_record.payable_fee else 0 }} 元</p>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+            {% elif application.application_type in ('allocate', 'change') and application.result_dorm %}
+            <div class="mt-4 pt-4 border-t border-gray-200">
+                <h4 class="text-sm font-semibold text-gray-700 mb-3 flex items-center">
+                    <i class="fa fa-home text-green-500 mr-2"></i>实际分配宿舍
+                </h4>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="bg-green-50 p-4 rounded-lg">
+                        <p class="text-sm text-gray-500 mb-1">实际分配宿舍</p>
+                        <p class="text-gray-800 font-medium">{{ application.result_dorm.room.building }}{{ application.result_dorm.room.room_number if application.result_dorm.room else '-' }}</p>
+                    </div>
+                    <div class="bg-green-50 p-4 rounded-lg">
+                        <p class="text-sm text-gray-500 mb-1">确认入住时间</p>
+                        <p class="text-gray-800 font-medium">{{ application.result_dorm.check_in_date.strftime('%Y-%m-%d %H:%M') if application.result_dorm.check_in_date else '-' }}</p>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            {% if application.review_remark %}
+            <div class="mt-4 pt-4 border-t border-gray-200">
+                <h4 class="text-sm font-semibold text-gray-700 mb-3 flex items-center">
+                    <i class="fa fa-comment text-gray-500 mr-2"></i>审核备注
+                </h4>
+                <div class="bg-gray-50 p-4 rounded-lg">
+                    <p class="text-gray-800">{{ application.review_remark }}</p>
+                </div>
+            </div>
+            {% endif %}
+            {% endif %}
+            <!-- 审核拒绝时显示拒绝原因 -->
+            {% if application.status == 'rejected' %}
+            <div class="mt-4 pt-4 border-t border-gray-200">
+                <h4 class="text-sm font-semibold text-gray-700 mb-3 flex items-center">
+                    <i class="fa fa-times-circle text-red-500 mr-2"></i>拒绝原因
+                </h4>
+                <div class="bg-red-50 p-4 rounded-lg">
+                    <p class="text-gray-800">{{ application.review_remark if application.review_remark else '未填写' }}</p>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <!-- 取消申请按钮（仅pending状态显示） -->
+        {% if application.status == 'pending' and current_user.has_permission('dorm_application.cancel') %}
+        <div class="mb-6">
+            <form id="cancelForm" method="POST" action="{{ url_for('dorm_application_user.cancel_application', id=application.id) }}">
+                <button type="submit" class="btn-effect bg-red-600 text-white px-6 py-2.5 rounded-md hover:bg-red-700 transition-colors flex items-center"
+                    onclick="return confirm('确认取消此申请吗？此操作不可撤销。');">
+                    <i class="fa fa-times mr-2"></i>取消申请
+                </button>
+            </form>
+        </div>
+        {% endif %}
+    </main>
+
+    {% include 'footer.html' %}
+    <script>
+    </script>
+</body>
+</html>

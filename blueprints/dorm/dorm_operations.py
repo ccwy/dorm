@@ -544,12 +544,13 @@ def checkout():
             # 获取水电表抄表读数
             water_current = request.form.get('water_current', type=float)
             electric_current = request.form.get('electric_current', type=float)
+            billing_period = request.form.get('billing_period', '')
             
             # 基础参数验证
-            if not all([user_id, check_out_date]):
+            if not all([user_id, check_out_date, billing_period]):
                 # 缺少必要参数
-                logging.error(f"退宿缺少必要参数（用户ID: {user_id}，退宿日期: {check_out_date}）")
-                flash('缺少必要参数（用户ID/退宿日期）', 'danger')
+                logging.error(f"退宿缺少必要参数（用户ID: {user_id}，退宿日期: {check_out_date}，账期: {billing_period}）")
+                flash('缺少必要参数（用户ID/退宿日期/账期）', 'danger')
                 return redirect(url_for('dorm.checkout', user_id=user_id))
             
             # 验证用户是否存在
@@ -589,7 +590,8 @@ def checkout():
             # 执行退宿操作
             current_dorm.check_out(
                 check_out_date=check_out_date,
-                remarks=remarks
+                remarks=remarks,
+                billing_period=billing_period
             )
             
             # 根据退宿类型进行不同处理
@@ -677,8 +679,8 @@ def checkout():
                         meter_reader_id=current_user.id,
                         reading_type=2,  # 退宿抄表
                         user_id=user_id,
-                        water_notes=f"退宿抄表：{user.name if user else '未知用户'}，{check_out_date.strftime('%Y-%m-%d %H:%M:%S')}",
-                        electric_notes=f"退宿抄表：{user.name if user else '未知用户'}，{check_out_date.strftime('%Y-%m-%d %H:%M:%S')}"
+                        billing_period=billing_period,
+                        notes=f"退宿抄表：{user.name if user else '未知用户'}，{check_out_date.strftime('%Y-%m-%d %H:%M:%S')}"
                     )
                     
                     logging.info(f"添加{user.name}的退宿抄表记录：房间ID={room_id}, 用户ID={user_id}, 水表读数={water_current}, 电表读数={electric_current}")
@@ -692,8 +694,10 @@ def checkout():
                     checkout_date=check_out_date,
                     electric_reading=electric_current,
                     water_reading=water_current,
+                    billing_period=billing_period,
                     remarks=f"退宿费用计算：{user.name if user else '未知用户'}，退宿日期：{check_out_date.strftime('%Y-%m-%d %H:%M:%S')}",
-                    calculate_fee=calculate_fee
+                    calculate_fee=calculate_fee,
+                    dorm_id=current_dorm.id
                 )
                     
                 logging.info(f"计算{user.name}的退宿费用：房间ID={room_id}, 用户ID={user_id}, 是否计算费用={calculate_fee}")
@@ -995,7 +999,7 @@ def checkout():
             
             # 处理退宿人员费用记录
             for record in checkout_utility_records:
-                billing_period = record.checkout_date.strftime('%Y-%m')
+                billing_period = record.main_record.billing_period if record.main_record else record.checkout_date.strftime('%Y-%m')
                 utility_records.append({
                     'record_id': record.record_id,
                     'billing_period': billing_period,
@@ -1335,7 +1339,7 @@ def swap():
             
             # 处理退宿人员费用记录
             for record in checkout_utility_records:
-                billing_period = record.checkout_date.strftime('%Y-%m')
+                billing_period = record.main_record.billing_period if record.main_record else record.checkout_date.strftime('%Y-%m')
                 utility_records.append({
                     'record_id': record.record_id,
                     'billing_period': billing_period,

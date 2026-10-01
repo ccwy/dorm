@@ -149,6 +149,15 @@ class SystemConfig(db.Model):
                 'sort_order': 20
             },
             {
+                'config_key': 'FEATURE_DORM_APPLICATION_ENABLED',
+                'config_value': 'true',
+                'config_type': 'bool',
+                'category': 'system.feature',
+                'description': '宿舍申请功能开关',
+                'is_editable': True,
+                'sort_order': 21
+            },
+            {
                 'config_key': 'FEATURE_ROOM_MANAGE_ENABLED',
                 'config_value': 'true',
                 'config_type': 'bool',
@@ -531,22 +540,7 @@ class SystemConfig(db.Model):
                 'description': '退宿费用核算特殊减免规则标准值（人数）',
                 'sort_order': 80
             },
-            {
-                'config_key': 'ENABLE_CUSTOM_METER_READING_DAY',
-                'config_value': 'False',
-                'config_type': 'bool',
-                'category': 'fee',
-                'description': '是否启用自定义抄表日，启用后将会以自定义的日期为起始日期，否则按自然月计算',
-                'sort_order': 90
-            },
-            {
-                'config_key': 'CUSTOM_METER_READING_DAY',
-                'config_value': '1',
-                'config_type': 'int',
-                'category': 'fee',
-                'description': '自定义抄表日（1-31），抄表日大于该月份的最大日期时使用该月份的最大日期',
-                'sort_order': 100
-            },
+
             {
                 'config_key': 'ALLOWANCE_TYPES',
                 'config_value': '外宿补贴,住宿补贴,房间水电按用量减免,房间水电按金额减免,话费补贴',

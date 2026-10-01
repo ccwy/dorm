@@ -23,7 +23,7 @@ def get_app_dir():
         # 开发环境 - 使用项目根目录
         return os.path.abspath(os.path.dirname(__file__))
 
-# 启动时仅加载一次配置，避免Config/ProductionConfig/DevelopmentConfig重复调用load_config()
+# 启动时仅加载一次配置，避免重复调用load_config()
 _shared_db_config = DatabaseConfig.load_config()
 
 class Config:
@@ -33,6 +33,7 @@ class Config:
     # 会话不活动超时设置
     # 用户在这段时间内没有任何操作将被自动退出登录
     SESSION_INACTIVITY_TIMEOUT = 1 * 60 * 60  # 1小时不活动自动退出
+    
     REMEMBER_COOKIE_DURATION = timedelta(days=30)  # "记住我"Cookie有效期30天
     
     # 基础目录
@@ -41,9 +42,21 @@ class Config:
     # 从外部数据库配置文件获取连接信息（使用共享配置，避免重复load_config调用）
     db_config = _shared_db_config
     SQL_TYPE = db_config.get('SQL_TYPE', "SQLITE")
+
     # 服务器配置
-    SERVER_HOST = '0.0.0.0'
-    SERVER_PORT = db_config.get('SERVER_PORT', 35168)  # 使用安全的端口，避免浏览器阻止
+    # 根据SERVER_MODE配置决定SERVER_HOST
+    # Android环境：使用127.0.0.1（本地运行）
+    # Docker环境：使用0.0.0.0
+    # 服务端模式：使用0.0.0.0
+    # 客户端模式：使用127.0.0.1
+    if os.environ.get('ANDROID_ENV', 'false').lower() == 'true':
+        SERVER_HOST = '127.0.0.1'  # Android环境 - 本地运行，绑定localhost
+    elif os.environ.get('DOCKER_ENV', 'false').lower() == 'true':
+        SERVER_HOST = '0.0.0.0'
+    else:
+        server_mode = db_config.get('SERVER_MODE', '客户端')
+        SERVER_HOST = '0.0.0.0' if server_mode == '服务端' else '127.0.0.1'
+    SERVER_PORT = int(db_config.get('SERVER_PORT', 35168))  # 确保int类型
 
     # 备份目录配置
     if os.environ.get('ANDROID_ENV', 'false').lower() == 'true':  # 优先检查Android环境
@@ -75,49 +88,14 @@ class Config:
     else:
         USE_DESKTOP_VIEW = True  # False为开发网页模式，True为桌面窗口模式，方便开发调试
     
-    DEBUG = False  # 是否开启调试模式
-
-#生产环境
-class ProductionConfig(Config):
-    db_config = _shared_db_config  # 使用共享配置，避免重复load_config调用
+    # 调试模式：打包后为False
     DEBUG = False
-    SYSTEM_TITLE = db_config.get('SERVER_PORT', "行政后勤管理系统")
-    # 根据SERVER_MODE配置决定SERVER_HOST
-    # Android环境：使用127.0.0.1（本地运行）
-    # 服务端模式：使用0.0.0.0
-    # 客户端模式：使用127.0.0.1
-    # 同时保留Docker环境的优先判断
-    if os.environ.get('ANDROID_ENV', 'false').lower() == 'true':
-        SERVER_HOST = '127.0.0.1'  # Android环境 - 本地运行，绑定localhost
-    elif os.environ.get('DOCKER_ENV', 'false').lower() == 'true':
-        SERVER_HOST = '0.0.0.0'
-    else:
-        server_mode = db_config.get('SERVER_MODE', '客户端')
-        SERVER_HOST = '0.0.0.0' if server_mode == '服务端' else '127.0.0.1'
-    SERVER_PORT = int(db_config.get('SERVER_PORT', 35168))
 
-#开发环境
-class DevelopmentConfig(Config):
-    db_config = _shared_db_config  # 使用共享配置，避免重复load_config调用
-    # 根据SERVER_MODE配置决定SERVER_HOST
-    # Android环境：使用127.0.0.1（本地运行）
-    # 服务端模式：使用0.0.0.0
-    # 客户端模式：使用127.0.0.1
-    # 同时保留Docker环境的优先判断
-    if os.environ.get('ANDROID_ENV', 'false').lower() == 'true':
-        SERVER_HOST = '127.0.0.1'  # Android环境 - 本地运行，绑定localhost
-    elif os.environ.get('DOCKER_ENV', 'false').lower() == 'true':
-        SERVER_HOST = '0.0.0.0'
-    else:
-        server_mode = db_config.get('SERVER_MODE', '客户端')
-        SERVER_HOST = '0.0.0.0' if server_mode == '服务端' else '127.0.0.1'
-    SERVER_PORT = int(db_config.get('SERVER_PORT', 35168))
-    DEBUG = True
-    SYSTEM_TITLE = "行政后勤管理系统（开发模式）"
+    # 自动登录ADMIN账号：打包后禁止自动登录（安全）
+    AUTO_LOGIN_ADMIN = False
 
-#模式选择
-config = {
-    'development': DevelopmentConfig, #开发环境
-    'production': ProductionConfig,   #生产环境
-    'default': ProductionConfig       #系统默认使用开发环境配置，但桌面窗口模式由USE_DESKTOP_VIEW控制
-}
+    # 系统标题：从外部配置读取，修复原ProductionConfig中key为SERVER_PORT的bug
+    SYSTEM_TITLE = db_config.get('SYSTEM_TITLE', "行政后勤管理系统")
+
+# 向后兼容：允许 from config import config 仍可用
+config = Config

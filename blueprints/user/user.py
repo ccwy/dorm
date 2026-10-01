@@ -159,7 +159,8 @@ def view(id):
     # 直接获取最新的住宿记录（不通过中间方法）
     from models.dorm.dorm import Dorm
     latest_dorm = Dorm.get_user_latest_dorm(id)  # 保留模型中的获取最新记录方法
-    historical_dorms = latest_dorm.dorm_chain if latest_dorm else []
+    # 查询用户所有住宿记录（包括独立的多段住宿，不仅限于换宿链）
+    historical_dorms = Dorm.query.filter_by(user_id=id).order_by(Dorm.check_in_date.desc()).all()
     
     # 住宿状态文本转换（直接基于原始字段判断）
     boarding_status = "住宿中" if (latest_dorm and latest_dorm.status == 'active') else "未住宿"
@@ -213,7 +214,7 @@ def view(id):
     # 处理退宿人员费用记录
     for record in checkout_utility_records:
         # 提取账期信息（格式为YYYY-MM）
-        billing_period = record.checkout_date.strftime('%Y-%m')
+        billing_period = record.main_record.billing_period if record.main_record else record.checkout_date.strftime('%Y-%m')
         utility_records.append({
             'record_id': record.record_id,
             'billing_period': billing_period,

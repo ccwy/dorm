@@ -252,7 +252,7 @@
                 <!-- 基本信息部分 -->
                 <div class="mb-8">
                     <h3 class="text-lg font-semibold mb-4 pb-2 border-b border-gray-100">基本信息</h3>
-                    <div class="grid grid-cols-2 md:grid-cols-5 lg:grid-cols-10 gap-6">
+                    <div class="grid grid-cols-2 md:grid-cols-5 lg:grid-cols-5 gap-6">
                         
                         
                         <div>
@@ -279,6 +279,11 @@
                         </div>
                         
                         <div>
+                            <p class="info-label">归属账期</p>
+                            <p class="info-value">${data.room_info?.billing_period || '-'}</p>
+                        </div>
+                        
+                        <div>
                             <p class="info-label">部门</p>
                             <p class="info-value">${data.user_info?.department || '-'}</p>
                         </div>
@@ -293,10 +298,12 @@
                             <p class="info-value">${formatDate(data.room_info?.check_in_date) || '-'}</p>
                         </div>
                         
+                        ${!data.room_info?.is_transfer ? `
                         <div>
                             <p class="info-label">退宿日期</p>
                             <p class="info-value">${formatDate(data.room_info?.check_out_date) || '-'}</p>
                         </div>
+                        ` : ''}
                         
                         <div>
                             <p class="info-label">费用核算总天数</p>
@@ -306,11 +313,6 @@
                         <div>
                             <p class="info-label">本月已住天数</p>
                             <p class="info-value">${data.room_info?.user_period_days || 0}</p>
-                        </div>
-                        
-                        <div>
-                            <p class="info-label">费用分摊比例</p>
-                            <p class="info-value">${feeInfo.user_ratio ? (feeInfo.user_ratio * 100).toFixed(2) + '%' : '0%'}</p>
                         </div>
                     </div>
                 </div>
@@ -664,12 +666,12 @@
         
         // 处理取消
         function handleCancel() {
-            window.location.href = '{{ url_for('utility_index.utility_room_checkout') }}';
+            window.history.back();
         }
         
         // 处理返回
         function handleBack() {
-            window.location.href = '{{ url_for('utility_index.utility_room_checkout') }}';
+            window.history.back();
         }
         
         // 显示错误信息

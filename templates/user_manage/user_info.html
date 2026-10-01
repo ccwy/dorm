@@ -57,6 +57,11 @@
                     </div>
                     <!-- 反馈按钮 -->
                     <div class="flex items-center gap-2">
+                    {% if get_config_value('FEATURE_DORM_APPLICATION_ENABLED', True) and current_user.has_permission('dorm_application.view') %}
+                    <a href="{{ url_for('dorm_application_user.application_list') }}" class="btn-effect bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-500/90 transition-colors flex items-center justify-center">
+                        <i class="fa fa-bed mr-2"></i>宿舍申请
+                    </a>
+                    {% endif %}
                     {% if get_config_value('FEATURE_TICKET_MANAGE_ENABLED', True) and current_user.has_permission('ticket.view') %}
                     <a href="{{ url_for('ticket_user.user_ticket_list') }}" class="btn-effect bg-primary text-white px-4 py-2 rounded-md hover:bg-primary/90 transition-colors flex items-center justify-center">
                         <i class="fa fa-comment-o mr-2"></i>留言

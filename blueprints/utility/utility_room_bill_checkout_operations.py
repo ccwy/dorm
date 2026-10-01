@@ -2,6 +2,7 @@ from flask import request, jsonify
 from utils.db import db
 from models.user.user import User
 from models.room.room import Room
+from models.dorm.dorm import Dorm
 from models.utility.utility_room_bill_record import RoomUtilityRecord
 from models.utility.utility_room_bill_checkout import CheckoutUtilityRecord
 from models.utility.utility_room_meter import UtilityMeterReading
@@ -26,7 +27,7 @@ def create_checkout_record():
         data = request.get_json()
         
         # 验证必要参数
-        required_fields = ['user_id', 'room_id', 'checkout_date']
+        required_fields = ['user_id', 'room_id', 'checkout_date', 'billing_period']
         for field in required_fields:
             if field not in data or not data[field]:
                 return jsonify({
@@ -37,6 +38,16 @@ def create_checkout_record():
         # 解析参数
         user_id = data['user_id']
         room_id = data['room_id']
+        billing_period = str(data['billing_period']).strip()
+        
+        # 验证账期格式（YYYY-MM）
+        try:
+            datetime.strptime(billing_period, '%Y-%m')
+        except ValueError:
+            return jsonify({
+                'success': False,
+                'message': '账期格式错误，应为YYYY-MM'
+            }), 400
         
         
         # 解析退宿日期（支持带时间的格式）
@@ -119,12 +130,12 @@ def create_checkout_record():
             # 调用模型方法创建记录
             UtilityMeterReading.create_reading(
                 room_id=room_id,
+                billing_period=billing_period,
                 water_current=water_reading,
                 electric_current=electric_reading,
                 reading_date=reading_date or datetime.now(),
                 meter_reader_id=current_user.id,
-                water_notes=f"自动创建水表退宿抄表记录 - 用户:{user_name}",
-                electric_notes=f"自动创建电表退宿抄表记录 - 用户:{user_name}",
+                notes=f"自动创建退宿抄表记录 - 用户:{user_name}",
                 reading_type=2,  # 退宿抄表类型标识
                 user_id=user_id,
                 water_meter_replaced=False,
@@ -144,13 +155,25 @@ def create_checkout_record():
             water_reading = Decimal('0')
 
         # 创建退宿费用记录
+        # 查询用户在该房间的退宿Dorm记录，关联dorm_id
+        dorm_record = Dorm.query.filter_by(
+            user_id=user_id,
+            room_id=room_id,
+            status='checked_out',
+            operation_type='checkout'
+        ).order_by(Dorm.check_out_date.desc()).first()
+        dorm_id = dorm_record.id if dorm_record else None
+        
         checkout_record = CheckoutUtilityRecord.create_from_checkout(
             room_id=room_id,
             user_id=user_id,
             checkout_date=checkout_date,
             electric_reading=electric_reading,
             water_reading=water_reading,
-            calculate_fee=calculate_fee
+            billing_period=billing_period,
+            calculate_fee=calculate_fee,
+            dorm_id=dorm_id,
+            remarks=f"退宿费用计算：用户ID={user_id}，退宿日期：{checkout_date.strftime('%Y-%m-%d %H:%M:%S')}"
         )
         
         db.session.commit()
@@ -203,6 +226,33 @@ def create_checkout_record():
             'success': False,
             'message': f'创建退宿费用记录失败: {str(e)}'
         }), 500
+
+@utility_room_bill_checkout_bp.route('/get_latest_readings', methods=['GET'])
+@login_required
+@require_permission('utility.view')
+def get_latest_readings():
+    """获取房间最新的水电表抄表记录（用于新增退宿费用时显示上次读数）"""
+    try:
+        room_id = request.args.get('room_id', type=int)
+        if not room_id:
+            return jsonify({'success': False, 'message': '缺少房间ID参数'}), 400
+
+        # 使用跨账期查询方法获取最新抄表记录
+        latest_electric = UtilityMeterReading.get_latest_electric_reading(room_id)
+        latest_water = UtilityMeterReading.get_latest_water_reading(room_id)
+
+        return jsonify({
+            'success': True,
+            'data': {
+                'electric_previous': float(latest_electric.electric_current) if latest_electric and latest_electric.electric_current is not None else None,
+                'electric_reading_date': latest_electric.reading_date.isoformat() if latest_electric else None,
+                'water_previous': float(latest_water.water_current) if latest_water and latest_water.water_current is not None else None,
+                'water_reading_date': latest_water.reading_date.isoformat() if latest_water else None
+            }
+        })
+    except Exception as e:
+        logging.error(f'获取最新抄表记录失败: {str(e)}')
+        return jsonify({'success': False, 'message': f'获取最新抄表记录失败: {str(e)}'}), 500
 
 @utility_room_bill_checkout_bp.route('/delete', methods=['POST'])
 @login_required
@@ -686,11 +736,7 @@ def delete_period_records():
 
 # 辅助函数：格式化账期显示
 def format_period(period):
-    """将YYYY-MM格式的账期转换为更友好的显示格式"""
+    """直接返回账期原始值"""
     if not period:
         return ""
-    try:
-        year, month = period.split('-')
-        return f"{year}年{month}月"
-    except ValueError:
-        return period
+    return period

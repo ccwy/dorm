@@ -180,8 +180,6 @@ def reload_service():
             # 开发环境参数处理
             if '--no-reload' in restart_cmd:
                 restart_cmd.remove('--no-reload')
-            if 'development' not in restart_cmd and '--config=development' not in restart_cmd:
-                restart_cmd.append('--config=development')
             # 标识重启操作，供单实例检测使用
             if '--restarted' not in restart_cmd:
                 restart_cmd.append('--restarted')

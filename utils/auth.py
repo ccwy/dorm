@@ -61,6 +61,18 @@ PERMISSIONS = {
             'import': '导入',
         }
     },
+    'dorm_application': {
+        'name': '宿舍申请',
+        'actions': {
+            'view': '查看',
+            'create': '新增',
+            'cancel': '取消',
+            'manage': '管理',
+            'approve': '审批',
+            'delete': '删除',
+            'export': '导出',
+        }
+    },
     'utility': {
         'name': '水电费管理',
         'actions': {
@@ -272,5 +284,3 @@ def require_permission(permission_code):
             return f(*args, **kwargs)
         return decorated_function
     return decorator
-
-

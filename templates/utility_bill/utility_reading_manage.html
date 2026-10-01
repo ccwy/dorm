@@ -743,6 +743,19 @@
                     const currentElectric = record.electric?.current || 0;
                     const electricUsage = record.electric?.usage || 0;
                     
+                    // 换表/首次抄表标记
+                    const electricReplaced = record.electric?.replaced === true;
+                    const electricSequence = record.electric?.sequence ?? -1;
+                    const electricIcon = electricReplaced ? (electricSequence === 0 
+                        ? '<i class="fa fa-plus-circle text-orange-500 text-xs ml-1" title="首次抄表"></i>' 
+                        : '<i class="fa fa-refresh text-orange-500 text-xs ml-1" title="换表"></i>') : '';
+                    
+                    const waterReplaced = record.water?.replaced === true;
+                    const waterSequence = record.water?.sequence ?? -1;
+                    const waterIcon = waterReplaced ? (waterSequence === 0 
+                        ? '<i class="fa fa-plus-circle text-orange-500 text-xs ml-1" title="首次抄表"></i>' 
+                        : '<i class="fa fa-refresh text-orange-500 text-xs ml-1" title="换表"></i>') : '';
+                    
                     row.innerHTML = `
                         <td class="px-4 py-4 whitespace-nowrap">
                             <div class="flex items-center">
@@ -762,7 +775,7 @@
                         <td class="px-4 py-4 text-sm">
                             ${currentElectric ? `
                             <div><span class="text-primary font-medium">${electricUsage}</span> kWh</div>
-                            <div><span class="text-gray-700">${prevElectric}→${currentElectric}</span></div>
+                            <div><span class="text-gray-700">${prevElectric}→${currentElectric}</span>${electricIcon}</div>
                             ` : `
                             <div class="text-gray-500 italic">无记录</div>
                             `}
@@ -770,7 +783,7 @@
                         <td class="px-4 py-4 text-sm">
                             ${currentWater ? `
                             <div><span class="text-primary font-medium">${waterUsage}</span> m³</div>
-                            <div><span class="text-gray-700">${prevWater}→${currentWater}</span></div>
+                            <div><span class="text-gray-700">${prevWater}→${currentWater}</span>${waterIcon}</div>
                             ` : `
                             <div class="text-gray-500 italic">无记录</div>
                             `}
@@ -1008,7 +1021,13 @@
             
             // 添加抄表按钮事件
             addReadingBtn.addEventListener('click', function() {
-                window.location.href = '/utility-meter/utility_reading';
+                const selectedPeriod = billingPeriodSelect.value;
+                const url = '/utility-meter/utility_reading';
+                if (selectedPeriod) {
+                    window.location.href = url + '?billing_period=' + encodeURIComponent(selectedPeriod);
+                } else {
+                    window.location.href = url;
+                }
             });
             
             // 点击模态框背景关闭

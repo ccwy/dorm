@@ -26,38 +26,14 @@ def _stamp(label):
     logging.info(f"[启动计时] {label}: {elapsed:.3f}s")
 
 # 导入配置类
-from config import Config, config
+from config import Config
 _stamp("导入config")
 # 从外部配置获取数据库连接
 from utils.db_config import DatabaseConfig
 _stamp("导入db_config")
 
-# 确定运行环境（优先从命令行参数获取，然后是环境变量，最后是默认值）
-import argparse
-parser_env = argparse.ArgumentParser(add_help=False)
-parser_env.add_argument('--config', type=str)
-parser_env.add_argument('--restarted', action='store_true')
-args_env, _ = parser_env.parse_known_args()
-env = args_env.config if args_env.config else os.environ.get('FLASK_ENV', 'default')
-
-# 确保环境值有效
-if env not in config:
-    env = 'default'
-current_config = config[env]
-print(f"当前环境: {env}")
-print(f"当前配置: {current_config}")
-
-# 检测是否是重载操作
-is_restarted = args_env.restarted
-if is_restarted:
-    print("检测到重载操作，将重新从本地文件加载数据库配置")
-    import importlib
-    from utils import db_config
-    importlib.reload(db_config)
-    print("数据库配置已重新加载")
-else:
-    print("数据库配置未重新加载")
-
+# 直接使用 Config 类，不再区分开发/生产环境
+current_config = Config
 
 def _load_splash_html(system_title):
     """加载闪屏HTML模板，支持打包和开发环境"""
@@ -129,7 +105,8 @@ def init_flask_app(progress_callback=None):
         login_bp, user_bp, user_api_bp, user_operations_bp,
         user_import_export_bp, room_import_export_bp,
         room_bp, room_api_bp,
-        dorm_bp, dorm_import_export_bp,
+        dorm_bp, dorm_import_export_bp, dorm_application_user_bp, dorm_application_admin_bp,
+        dorm_application_export_bp,
         system_config_bp, log_bp,
         utility_room_meter_bp, utility_room_meter_import_export_bp,
         utility_index_bp,
@@ -163,6 +140,9 @@ def init_flask_app(progress_callback=None):
     app.register_blueprint(room_import_export_bp)
     app.register_blueprint(dorm_bp)
     app.register_blueprint(dorm_import_export_bp)
+    app.register_blueprint(dorm_application_user_bp)
+    app.register_blueprint(dorm_application_admin_bp)
+    app.register_blueprint(dorm_application_export_bp)
     app.register_blueprint(system_config_bp)
     app.register_blueprint(log_bp)
     app.register_blueprint(utility_room_meter_bp)
@@ -225,15 +205,7 @@ def init_flask_app(progress_callback=None):
     with app.app_context():
         db_config_data = DatabaseConfig.load_config()
         needs_force_check = False
-        if db_config_data.get("AUTO_SWITCHED_TO_SQLITE", False):
-            needs_force_check = True
-            logging.info("检测到之前MySQL连接失败，将重新检查连接状态")
-        elif db_config_data.get("SQL_TYPE", "").upper() == "SQLITE":
-            sqlite_path = db_config_data.get("SQLITE_DB_PATH", "")
-            if not sqlite_path or not os.path.exists(sqlite_path):
-                needs_force_check = True
-                logging.info("SQLite数据库文件不存在，将执行首次启动检查")
-        elif db_config_data.get("SQL_TYPE", "").upper() == "MYSQL":
+        if db_config_data.get("SQL_TYPE", "").upper() == "MYSQL":
             if db_config_data.get("LAST_FAILED_MYSQL_ATTEMPT"):
                 needs_force_check = True
                 logging.info("检测到MySQL历史连接失败记录，将检查连接状态")
@@ -280,10 +252,11 @@ def init_flask_app(progress_callback=None):
     def load_user(user_id):
         return db.session.get(User, int(user_id))
 
-    logging.getLogger('werkzeug').setLevel(logging.DEBUG)
-    logging.getLogger('flask').setLevel(logging.DEBUG)
+    log_level = logging.DEBUG if current_config.DEBUG else logging.WARNING
+    logging.getLogger('werkzeug').setLevel(log_level)
+    logging.getLogger('flask').setLevel(log_level)
 
-    _stamp("创建Flask应用实例")
+    _stamp("Flask核心配置完成")
 
     _backup_initialized = False
     def _init_backup_thread():
@@ -317,6 +290,28 @@ def init_flask_app(progress_callback=None):
     from utils.session_timeout import setup_session_timeout_handler
     setup_session_timeout_handler(app)
     _stamp("初始化会话超时")
+
+    # 自动登录ADMIN（调试功能）
+    @app.before_request
+    def auto_login_admin():
+        from flask_login import current_user, login_user
+        from flask import request, session as flask_session
+        from config import Config
+        if not Config.AUTO_LOGIN_ADMIN:
+            return None
+        if current_user.is_authenticated:
+            return None
+        # 跳过静态文件和登录相关路由
+        if request.path.startswith('/static') or request.path == '/favicon.ico':
+            return None
+        # 查找admin用户并自动登录
+        from models.user.user import User
+        admin_user = User.query.filter_by(username='admin').first()
+        if admin_user and admin_user.is_active and admin_user.is_banned:
+            login_user(admin_user, remember=True)
+            flask_session.permanent = False
+            flask_session['login_time'] = datetime.now().isoformat()
+            flask_session['last_activity_time'] = datetime.now().isoformat()
 
     # 初始化内存缓存
     from utils.memory_cache import cache
@@ -463,8 +458,7 @@ def run_server():
 if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser(description='行政后勤管理系统')
-    parser.add_argument('--no-reload', action='store_true', help='禁用自动重载')
-    parser.add_argument('--config', type=str, help='指定配置环境')
+    # 占位参数：防止argparse遇到--restarted时报错，实际检测由single_instance.py通过sys.argv完成
     parser.add_argument('--restarted', action='store_true', help='标识重启操作（内部使用）')
     args = parser.parse_args()
     logging.info("解析命令行参数")

@@ -6,14 +6,7 @@ from models.dorm.dorm import Dorm
 from models.user.user import User
 from config import Config
 from flask_login import login_required, current_user
-from utils.auth import require_permission
 from utils.log import log_operation
-import traceback
-from datetime import datetime  # 只保留datetime导入
-from werkzeug.utils import secure_filename
-import os
-
-from utils.auth import require_permission
 from models.system_config.system_config import SystemConfig  # 新增：导入系统配置模型
 from utils.room_photo import RoomPhotoManager
 
@@ -40,7 +33,6 @@ def get_room_type_mapping():
 
 @room_api_bp.route('/<int:room_id>', methods=['GET'])
 @login_required
-@require_permission('room.view')
 def get_room_detail(room_id):
     try:
         logging.debug(f"=== 处理房间详情请求：room_id={room_id} ===")
@@ -183,7 +175,6 @@ def get_room_detail(room_id):
 
 @room_api_bp.route('', methods=['GET'])
 @login_required
-@require_permission('room.view')
 def get_rooms():
     try:
         logging.debug("\n=== 房间列表请求 ===")
@@ -409,7 +400,6 @@ def get_rooms():
 
 @room_api_bp.route('/user-rooms/batch', methods=['POST'])
 @login_required
-@require_permission('room.view')
 def get_batch_user_rooms():
     try:
         data = request.get_json()
@@ -496,7 +486,6 @@ def get_batch_user_rooms():
 
 @room_api_bp.route('/media/<room_id>/<filename>', methods=['GET'])
 @login_required
-@require_permission('room.view')
 def get_room_media(room_id, filename):
     """获取房间的媒体文件（照片或视频）"""
     try:
@@ -520,7 +509,6 @@ def get_room_media(room_id, filename):
 
 @room_api_bp.route('/media/list', methods=['GET'])
 @login_required
-@require_permission('room.view')
 def get_room_media_list():
     """获取房间的所有媒体文件列表"""
     try:
@@ -565,7 +553,6 @@ def get_room_media_list():
 
 @room_api_bp.route('/buildings', methods=['GET'])
 @login_required
-@require_permission('room.view')
 def get_buildings():
     """获取所有楼栋信息"""
     try:

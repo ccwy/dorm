@@ -463,6 +463,14 @@
                                 </select>
                                 <p class="text-xs text-gray-500 mt-1">自离退宿时，不会计算费用</p>
                             </div>
+                            <div>
+                                <label for="billing_period" class="block text-sm font-medium text-gray-700 mb-1">账期 <span class="text-red-500">*</span></label>
+                                <select id="billing_period" name="billing_period" required
+                                        class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                                    <!-- 账期选项将通过JavaScript动态加载 -->
+                                </select>
+                                <p class="text-xs text-gray-500 mt-1">选择本次退宿抄表所属的账期</p>
+                            </div>
                             <div class="md:col-span-4">
                                 <label for="remarks" class="block text-sm font-medium text-gray-700 mb-1">备注</label>
                                 <textarea id="remarks" name="remarks" rows="3"
@@ -493,6 +501,47 @@
             // 获取退宿日期输入框和本月已住天数显示元素
             const checkOutDateInput = document.getElementById('check_out_date');
             const monthStayDaysElement = document.getElementById('month_stay_days');
+            const billingPeriodSelect = document.getElementById('billing_period');
+            
+            // 加载账期列表
+            function loadBillingPeriods() {
+                fetch('/utility_room_bill_records_bp/periods')
+                    .then(response => {
+                        if (!response.ok) throw new Error('获取账期数据失败');
+                        return response.json();
+                    })
+                    .then(data => {
+                        if (data && data.periods && Array.isArray(data.periods)) {
+                            billingPeriodSelect.innerHTML = '';
+                            // 按时间倒序排序账期
+                            const sortedPeriods = [...data.periods].sort((a, b) => b.localeCompare(a));
+                            sortedPeriods.forEach(period => {
+                                const option = document.createElement('option');
+                                option.value = period;
+                                option.textContent = period;
+                                billingPeriodSelect.appendChild(option);
+                            });
+                            // 默认选中当前月份
+                            const now = new Date();
+                            const currentPeriod = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+                            if (sortedPeriods.includes(currentPeriod)) {
+                                billingPeriodSelect.value = currentPeriod;
+                            }
+                        }
+                    })
+                    .catch(error => {
+                        console.error('加载账期失败:', error);
+                        // 加载失败时，使用当前月份作为默认选项
+                        const now = new Date();
+                        const currentPeriod = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+                        billingPeriodSelect.innerHTML = '';
+                        const option = document.createElement('option');
+                        option.value = currentPeriod;
+                        option.textContent = currentPeriod;
+                        billingPeriodSelect.appendChild(option);
+                    });
+            }
+            loadBillingPeriods();
             
             // 获取用户ID和房间ID（从后端获取）
             const userId = "{{ user.id }}";

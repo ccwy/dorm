@@ -10,6 +10,7 @@ from utils.log import log_operation
 
 from utils.auth import require_permission
 from models.utility.utility_room_bill_checkout import CheckoutUtilityRecord # 退宿费用子表
+from models.dorm.dorm import Dorm  # 住宿记录模型（判断换宿）
 
 # 蓝图定义，前缀设为'/utility'便于区分系统其他模块
 utility_index_bp = Blueprint('utility_index', __name__, url_prefix='/utility')
@@ -216,12 +217,26 @@ def utility_user_checkout_detail():
     user = User.query.get_or_404(checkout_record.user_id)
     room = Room.query.get_or_404(checkout_record.room_id)
     
+    # 获取关联主表的账期信息
+    main_record = RoomUtilityRecord.query.get(checkout_record.record_id)
+    billing_period = main_record.billing_period if main_record else None
+    
+    # 通过 dorm_id 关联的 Dorm 记录判断操作类型
+    # 换宿(transfer)/互换(exchange)产生的退宿日期不显示，真正退宿(checkout)才显示
+    is_transfer = False
+    if checkout_record.dorm_id:
+        dorm_record = Dorm.query.get(checkout_record.dorm_id)
+        if dorm_record and dorm_record.operation_type in ('transfer', 'exchange'):
+            is_transfer = True
+    
     # 渲染费用结果页面
     return render_template('utility_bill/utility_user_checkout_detail.html', 
                           title=f"退宿费用核算-{user.name}(ID:{user.id})",
                           checkout_record=checkout_record, 
                           user=user, 
-                          room=room)
+                          room=room,
+                          billing_period=billing_period,
+                          is_transfer=is_transfer)
     
 # 房间人员费用明细页面
 @utility_index_bp.route('/utility_occupant_manage')

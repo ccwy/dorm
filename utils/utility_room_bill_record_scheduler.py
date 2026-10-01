@@ -4,45 +4,8 @@ from datetime import datetime
 from threading import Thread
 import logging
 
-# 导入DatabaseConfig类
-from utils.db_config import DatabaseConfig
-
-# 获取生成日期配置
-def get_generation_day():
-    """从db_config读取配置，获取自定义抄表日作为生成日期"""
-    try:
-        config = DatabaseConfig.load_config()
-        
-        # 检查是否启用了自定义抄表日
-        enable_custom_day = config.get('ENABLE_CUSTOM_METER_READING_DAY', False)
-        
-        if enable_custom_day:
-            # 使用自定义抄表日
-            day = config.get('CUSTOM_METER_READING_DAY', 1)
-            #logging.info(f"检查是否需要生成费用主表记录，使用自定义抄表日: {day} 号")
-        else:
-            # 不启用自定义抄表日时使用默认值1号
-            day = 1
-            #logging.info(f"检查是否需要生成费用主表记录，未启用自定义抄表日，使用默认日期: {day}号")
-        
-        # 获取当前年份和月份，用于动态计算最大天数
-        current_year = datetime.now().year
-        current_month = datetime.now().month
-        import calendar  # 导入calendar模块用于获取月份天数
-        # 获取当前月份的实际最大天数
-        max_days = calendar.monthrange(current_year, current_month)[1]
-        
-        # 确保返回值是整数且在有效范围内
-        if isinstance(day, int) and 1 <= day <= max_days:
-            return day
-        # 如果设置的天数超过当月最大天数，返回当月最大天数
-        elif isinstance(day, int) and day > max_days:
-            logging.warning(f"配置的生成日期{day}超过了{current_year}年{current_month}月的最大天数{max_days}，已自动调整为{max_days}")
-            return max_days
-        return 1
-    except Exception as e:
-        logging.error(f"获取费用主表生成日期失败: {str(e)}")
-        return 1
+# 每月生成费用主表记录的日期（固定为1号）
+GENERATION_DAY = 1
 
 
 
@@ -77,16 +40,12 @@ def generate_monthly_utility_records():
 # 检查是否需要生成记录并执行
 def check_and_generate_records():
     """
-    检查是否需要生成记录并执行
+    每月1号检查是否需要生成记录并执行
     """
     try:
-        generation_day = get_generation_day()
-        if datetime.now().day == generation_day:
-            logging.info("开始检查是否需要生成费用主表记录")
-            logging.debug(f"生成日期: {generation_day}, 当前日期: {datetime.now().day}")
-            logging.info(f"当前日期: {generation_day}，符合生成条件，开始执行生成任务")
+        if datetime.now().day == GENERATION_DAY:
+            logging.info(f"当前日期为每月{GENERATION_DAY}号，符合生成条件，开始执行生成任务")
             generate_monthly_utility_records()
-
         return True
     except Exception as e:
         logging.error(f"检查并生成记录时发生错误: {str(e)}", exc_info=True)
@@ -100,41 +59,21 @@ def start_scheduler(app):
     try:
         # 在应用上下文中执行
         with app.app_context():
-            # 初始化变量
-            current_generation_day = None
-            current_job = None
-            
             # 固定时间为01:00
             FIXED_GENERATION_TIME = '01:00'
             # 维修临时文件清理时间：每天02:00
             MAINTENANCE_CLEANUP_TIME = '02:00'
             
+            # 注册费用主表记录生成任务（每天01:00检查，每月1号执行生成）
+            schedule.every().day.at(FIXED_GENERATION_TIME).do(lambda: execute_with_context(app, check_and_generate_records))
+            logging.info(f"费用主表记录自动生成调度器已启动，将在每月{GENERATION_DAY}日的{FIXED_GENERATION_TIME}执行任务，每60秒检查一次")
+            
+            # 维修临时文件清理任务（每天02:00执行一次）
+            schedule.every().day.at(MAINTENANCE_CLEANUP_TIME).do(lambda: execute_with_context(app, cleanup_maintenance_temp_files))
+            logging.info(f"维修临时文件定时清理任务已注册，将在每天{MAINTENANCE_CLEANUP_TIME}执行")
+            
             # 循环执行任务
             while True:
-                # 获取生成日期配置
-                new_generation_day = get_generation_day()
-                
-                # 检查日期配置是否变更
-                if new_generation_day != current_generation_day:
-                    # 如果有变更，先清除旧任务
-                    if current_job:
-                        schedule.cancel_job(current_job)
-                        logging.info(f"已取消旧的定时任务（日期: {current_generation_day}）")
-                    
-                    # 创建新任务
-                    current_job = schedule.every().day.at(FIXED_GENERATION_TIME).do(lambda: execute_with_context(app, check_and_generate_records))
-                    current_generation_day = new_generation_day
-                    logging.info(f"费用主表记录自动生成调度器已更新，将在每月{new_generation_day}日的{FIXED_GENERATION_TIME}执行任务，每60秒检查一次")
-                
-                # 维修临时文件清理任务（每天02:00执行一次）
-                if not hasattr(start_scheduler, '_maintenance_cleanup_scheduled'):
-                    schedule.every().day.at(MAINTENANCE_CLEANUP_TIME).do(lambda: execute_with_context(app, cleanup_maintenance_temp_files))
-                    start_scheduler._maintenance_cleanup_scheduled = True
-                    logging.info(f"维修临时文件定时清理任务已注册，将在每天{MAINTENANCE_CLEANUP_TIME}执行")
-                #else:
-                #    logging.info(f"未满足生成条件，当前日期={datetime.now().day}，任务日期：每月{current_generation_day}日的{FIXED_GENERATION_TIME}执行任务，每60秒检查一次")
-                
-                # 运行待执行的任务
                 schedule.run_pending()
                 time.sleep(60)  # 每60秒检查一次
                 

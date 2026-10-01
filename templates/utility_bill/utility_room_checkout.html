@@ -314,15 +314,26 @@
         </div>
         
         <div class="mb-4">
+          <label for="createBillingPeriod" class="block text-sm font-medium text-gray-700 mb-1">账期 <span class="text-red-500">*</span></label>
+          <select id="createBillingPeriod" required
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all">
+            <option value="">请选择账期</option>
+          </select>
+          <p class="text-xs text-gray-500 mt-1">选择本次退宿费用所属的账期</p>
+        </div>
+        
+        <div class="mb-4">
           <label for="electricReading" class="block text-sm font-medium text-gray-700 mb-1">电表读数 (kWh)</label>
           <input type="number" step="0.01" min="0" id="electricReading" 
                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all">
+          <p id="electricPreviousInfo" class="text-xs text-gray-400 mt-1 hidden">上次: <span id="electricPreviousValue">-</span> kWh<span id="electricPreviousDate"></span></p>
         </div>
         
         <div class="mb-4">
           <label for="waterReading" class="block text-sm font-medium text-gray-700 mb-1">水表读数 (m³)</label>
           <input type="number" step="0.01" min="0" id="waterReading" 
                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all">
+          <p id="waterPreviousInfo" class="text-xs text-gray-400 mt-1 hidden">上次: <span id="waterPreviousValue">-</span> m³<span id="waterPreviousDate"></span></p>
         </div>
         
         <div class="mb-2">
@@ -379,6 +390,7 @@
       const createCheckoutDateInput = document.getElementById('createCheckoutDate');
       const createUserNameLabel = document.getElementById('createUserName');
       const createRoomNumberLabel = document.getElementById('createRoomNumber');
+      const createBillingPeriodSelect = document.getElementById('createBillingPeriod');
       const electricReadingInput = document.getElementById('electricReading');
       const waterReadingInput = document.getElementById('waterReading');
       const calculateFeeCheckbox = document.getElementById('calculateFee');
@@ -471,6 +483,15 @@
                 option.value = period;
                 option.textContent = formatPeriod(period);
                 accountPeriodSelect.appendChild(option);
+              });
+              
+              // 同步填充新增记录模态框的账期下拉框
+              createBillingPeriodSelect.innerHTML = '<option value="">请选择账期</option>';
+              data.periods.forEach(period => {
+                const option = document.createElement('option');
+                option.value = period;
+                option.textContent = formatPeriod(period);
+                createBillingPeriodSelect.appendChild(option);
               });
               
               // 设置默认选中第一个账期
@@ -672,7 +693,6 @@
           `;
         });
       });
-      }
       // 渲染当前页数据 - 修复排序问题的核心函数
       function renderCurrentPageData() {
         // 清空表格
@@ -797,7 +817,7 @@
                             ${resident.user.id}, 
                             ${resident.room.id}, 
                             '${originalCheckoutDate}',
-                            '${resident.user.name},
+                            '${resident.user.name}',
                             '${resident.room.full_room}'
                           )">
                     <i class="fa fa-plus"></i>
@@ -1352,9 +1372,53 @@
         waterReadingInput.value = '';
         calculateFeeCheckbox.checked = true;
         
+        // 设置默认账期为当前页面选中的账期
+        if (currentBillPeriod && createBillingPeriodSelect.querySelector(`option[value="${currentBillPeriod}"]`)) {
+          createBillingPeriodSelect.value = currentBillPeriod;
+        } else {
+          createBillingPeriodSelect.value = '';
+        }
+        
+        // 获取上次抄表记录并显示
+        fetchLatestReadings(roomId);
+        
         // 显示模态框
         createRecordModal.classList.remove('hidden');
         createRecordModal.classList.add('flex');
+      }
+      
+      // 获取房间最新抄表记录
+      function fetchLatestReadings(roomId) {
+        const electricPreviousInfo = document.getElementById('electricPreviousInfo');
+        const electricPreviousValue = document.getElementById('electricPreviousValue');
+        const electricPreviousDate = document.getElementById('electricPreviousDate');
+        const waterPreviousInfo = document.getElementById('waterPreviousInfo');
+        const waterPreviousValue = document.getElementById('waterPreviousValue');
+        const waterPreviousDate = document.getElementById('waterPreviousDate');
+        
+        // 先隐藏
+        electricPreviousInfo.classList.add('hidden');
+        waterPreviousInfo.classList.add('hidden');
+        
+        fetch(`/utility_room_bill_checkout/get_latest_readings?room_id=${roomId}`)
+          .then(response => response.json())
+          .then(data => {
+            if (data.success && data.data) {
+              if (data.data.electric_previous !== null && data.data.electric_previous !== undefined) {
+                electricPreviousValue.textContent = data.data.electric_previous;
+                electricPreviousDate.textContent = data.data.electric_reading_date ? ` (${data.data.electric_reading_date.replace('T', ' ')})` : '';
+                electricPreviousInfo.classList.remove('hidden');
+              }
+              if (data.data.water_previous !== null && data.data.water_previous !== undefined) {
+                waterPreviousValue.textContent = data.data.water_previous;
+                waterPreviousDate.textContent = data.data.water_reading_date ? ` (${data.data.water_reading_date.replace('T', ' ')})` : '';
+                waterPreviousInfo.classList.remove('hidden');
+              }
+            }
+          })
+          .catch(err => {
+            console.error('获取上次抄表记录失败:', err);
+          });
       }
       
       // 关闭新增记录模态框
@@ -1375,7 +1439,13 @@
         
         // 验证必填参数
         if (!userId || !roomId || !checkoutDate) {
-          showSuccessToast('缺少必要参数，无法创建记录', false);
+          showSuccessToast('缺少必要参数（用户、房间、退宿日期），无法创建记录', false);
+          return;
+        }
+        
+        const createBillingPeriod = createBillingPeriodSelect.value;
+        if (!createBillingPeriod) {
+          showSuccessToast('请选择账期', false);
           return;
         }
         
@@ -1384,7 +1454,8 @@
           user_id: parseInt(userId),
           room_id: parseInt(roomId),
           checkout_date: checkoutDate,
-          calculate_fee: calculateFee
+          calculate_fee: calculateFee,
+          billing_period: createBillingPeriod
         };
         
         // 添加可选参数
@@ -1438,7 +1509,6 @@
           this.innerHTML = '<span>确认创建</span>';
         });
       });
-      }
       // 查看记录
       window.viewRecord = function(subRecordId) {
         // 跳转到退宿费用核算结果页面
@@ -1489,12 +1559,6 @@
       // 格式化账期显示
       function formatPeriod(period) {
         if (!period) return '';
-        // 支持YYYY-MM和YYYYMM两种格式
-        if (period.includes('-')) {
-          return `${period}`;
-        } else if (period.length === 6) {
-          return `${period.substr(0, 4)}年${period.substr(4, 2)}月`;
-        }
         return period;
       }
       

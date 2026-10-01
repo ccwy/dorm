@@ -76,7 +76,7 @@
             {% endif %}
             {% endwith %}
         <!-- 功能卡片区域 -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             
             <!-- 分配宿舍 -->
             {% if current_user.has_permission('dorm.allocate') %}
@@ -123,14 +123,14 @@
             </div>
             {% endif %}
             
-            <!-- 住宿详情查询 -->
+            <!-- 查看房间在住列表 -->
             {% if current_user.has_permission('dorm.view') %}
             <div class="bg-white rounded-xl p-6 shadow-sm card-hover text-center">
                 <div class="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4 mx-auto">
                     <i class="fa fa-table text-2xl text-blue-600"></i>
                 </div>
-                <h3 class="text-lg font-medium text-dark mb-2">在住人员表单式</h3>
-                <p class="text-gray-500 text-sm mb-4">查询在住人员详细信息</p>
+                <h3 class="text-lg font-medium text-dark mb-2">查看房间在住列表</h3>
+                <p class="text-gray-500 text-sm mb-4">查看房间在住人员信息</p>
                 <button onclick="window.location.href='{{ url_for('dorm.dorm_query_2') }}'" 
                         class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600">
                     点击查看
@@ -148,6 +148,21 @@
                 <p class="text-gray-500 text-sm mb-4">管理房间基本信息和设施</p>
                 <button onclick="window.location.href='{{ url_for('room.manage') }}'" 
                         class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700">
+                    进入管理
+                </button>
+            </div>
+            {% endif %}
+
+            <!-- 宿舍申请管理 -->
+            {% if get_config_value('FEATURE_DORM_APPLICATION_ENABLED', True) and current_user.has_permission('dorm_application.manage') %}
+            <div class="bg-white rounded-xl p-6 shadow-sm card-hover text-center">
+                <div class="w-16 h-16 bg-pink-100 rounded-full flex items-center justify-center mb-4 mx-auto">
+                    <i class="fa fa-file-text-o text-2xl text-pink-600"></i>
+                </div>
+                <h3 class="text-lg font-medium text-dark mb-2">宿舍申请管理</h3>
+                <p class="text-gray-500 text-sm mb-4">审核宿舍入住、换宿、退宿申请</p>
+                <button onclick="window.location.href='{{ url_for('dorm_application_admin.application_list') }}'" 
+                        class="px-4 py-2 bg-pink-500 text-white rounded-md hover:bg-pink-600">
                     进入管理
                 </button>
             </div>
@@ -433,6 +448,9 @@ fetch('{{ url_for('dorm.get_statistics') }}')
                                     break;
                                 case 'change':
                                     typeClass = 'bg-secondary/10 text-secondary';
+                                    break;
+                                case 'swap':
+                                    typeClass = 'bg-purple-100 text-purple-700';
                                     break;
                                 case 'checkout':
                                     typeClass = 'bg-danger/10 text-danger';

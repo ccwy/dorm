@@ -99,8 +99,6 @@ class DatabaseConfig:
                 "BACKUP_RETENTION_COUNT": 100,              # 备份数量
                 "BACKUP_INTERVAL": 1440,                    # 自动备份间隔（分钟）
                 "ENABLE_AUTO_BACKUP": True,                 # 是否开启自动备份
-                'ENABLE_CUSTOM_METER_READING_DAY': False,   # 水自定义抄表日期配置（新增默认值）
-                'CUSTOM_METER_READING_DAY': 1,              # 自定义抄表日期
                 "SERVER_MODE": "服务端" if is_win7() else "客户端",  # 启动模式（Win7默认服务端，否则默认客户端）
                 "SYSTEM_TITLE": "行政后勤管理系统"                # 系统标题   
             }

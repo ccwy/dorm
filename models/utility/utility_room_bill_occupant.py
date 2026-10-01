@@ -29,6 +29,7 @@ class RoomUtilityOccupant(db.Model):
     )
     user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='RESTRICT'), nullable=False, comment='用户ID，限制删除')
     room_id = db.Column(db.Integer, db.ForeignKey('rooms.id', ondelete='RESTRICT'), nullable=False, comment='当前分摊记录对应的房间ID，限制删除')
+    dorm_id = db.Column(db.Integer, db.ForeignKey('dorms.id', ondelete='SET NULL'), nullable=True, comment='关联的住宿记录ID，用于精确匹配dorm记录避免笛卡尔积')
     is_transferred = db.Column(db.Boolean, default=False, comment='是否为换宿人员记录（True=换宿，False=正常在住）')
     stay_days = db.Column(db.Integer, default=0, comment='账单周期内的住宿天数')
     electric_fee = db.Column(db.Numeric(10, 2), default=0.00, comment='分摊的电费')
@@ -101,6 +102,7 @@ class RoomUtilityOccupant(db.Model):
                         'days': item['days'],
                         'room_id': item['room_id'],
                         'is_transferred': item['is_transferred'],
+                        'dorm_id': item['dorm_id'],
                         'start': item['start_date'],
                         'end': item['end_date']
                     })
@@ -200,6 +202,7 @@ class RoomUtilityOccupant(db.Model):
                 record_id=record_id,
                 user_id=user_id,
                 room_id=item['room_id'],
+                dorm_id=item.get('dorm_id'),
                 is_transferred=item['is_transferred'],
                 stay_days=item['days'],
                 electric_fee=user_electric,

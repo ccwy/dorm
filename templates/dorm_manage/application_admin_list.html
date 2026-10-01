@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    {% include 'static.html' %}
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#165DFF',
+                        secondary: '#36CFC9',
+                        accent: '#722ED1',
+                        danger: '#F5222D',
+                        info: '#1890FF',
+                        warning: '#FAAD14'
+                    },
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .btn-effect {
+                transition: all 0.2s ease;
+            }
+            .btn-effect:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            }
+            .btn-hover {
+                transition: all 0.3s ease;
+            }
+            .btn-hover:hover {
+                transform: translateY(-2px);
+            }
+            .fade-in {
+                animation: fadeIn 0.5s ease-in;
+            }
+            @keyframes fadeIn {
+                from { opacity: 0; }
+                to { opacity: 1; }
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    {% include 'header.html' %}
+
+    <main class="container mx-auto px-4 py-6">
+        <!-- 标题和功能按钮区 -->
+        <div class="mb-6 fade-in">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between">
+                <div class="flex items-center">
+                    <button type="button" onclick="window.history.back()" class="text-gray-600 hover:text-primary transition-colors mr-4">
+                        <i class="fa fa-arrow-left"></i>
+                    </button>
+                    <div>
+                        <h2 class="text-[clamp(1.5rem,3vw,2rem)] font-bold text-dark">{{ title }}</h2>
+                        <p class="text-gray-500 mt-1">管理和审核所有宿舍申请，查看详情并进行审批操作</p>
+                    </div>
+                </div>
+                <div class="mt-4 md:mt-0 flex flex-wrap gap-3">
+                    {% if current_user.has_permission('dorm_application.delete') %}
+                    <button id="batchDeleteBtn" class="btn-effect bg-red-500 text-white px-4 py-2 rounded-md flex items-center" disabled>
+                        <i class="fa fa-trash mr-2"></i>批量删除
+                    </button>
+                    {% endif %}
+                    <button id="refreshListBtn" class="btn-effect bg-gray-500 text-white px-4 py-2 rounded-md flex items-center">
+                        <i class="fa fa-refresh mr-2"></i>刷新
+                    </button>
+                    {% if current_user.has_permission('dorm_application.export') %}
+                    <button id="exportBtn" class="btn-hover bg-warning text-white px-4 py-2 rounded-md flex items-center">
+                        <i class="fa fa-download mr-2"></i>
+                        <span id="exportBtnText">导出</span>
+                        <span id="exportLoading" class="hidden"><i class="fa fa-circle-o-notch fa-spin ml-2"></i>导出中...</span>
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- 消息提示区域 -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            <div class="flash-messages mb-6">
+              {% for category, message in messages %}
+                <div class="p-4 rounded-md mb-2 {% if category == 'success' %}bg-green-100 text-green-800{% elif category == 'error' or category == 'danger' %}bg-red-100 text-red-800{% elif category == 'warning' %}bg-yellow-100 text-yellow-800{% else %}bg-blue-100 text-blue-800{% endif %}">
+                  <button type="button" class="float-right ml-2 text-gray-500 hover:text-gray-700" onclick="this.parentElement.remove()">×</button>
+                  {{ message }}
+                </div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        {% endwith %}
+
+        <!-- 统计卡片区域 -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+            <!-- 待审核 -->
+            <div class="bg-white rounded-xl p-6 shadow-sm">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-500 text-sm">待审核</p>
+                        <h3 class="text-3xl font-bold mt-1 text-yellow-600" id="pendingCount">-</h3>
+                    </div>
+                    <div class="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center">
+                        <i class="fa fa-clock text-yellow-600 text-xl"></i>
+                    </div>
+                </div>
+            </div>
+            <!-- 今日新增 -->
+            <div class="bg-white rounded-xl p-6 shadow-sm">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-500 text-sm">今日新增</p>
+                        <h3 class="text-3xl font-bold mt-1 text-blue-600" id="todayCount">-</h3>
+                    </div>
+                    <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                        <i class="fa fa-calendar-plus text-blue-600 text-xl"></i>
+                    </div>
+                </div>
+            </div>
+            <!-- 已通过 -->
+            <div class="bg-white rounded-xl p-6 shadow-sm">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-500 text-sm">已通过</p>
+                        <h3 class="text-3xl font-bold mt-1 text-green-600" id="approvedCount">-</h3>
+                    </div>
+                    <div class="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                        <i class="fa fa-check-circle text-green-600 text-xl"></i>
+                    </div>
+                </div>
+            </div>
+            <!-- 已拒绝 -->
+            <div class="bg-white rounded-xl p-6 shadow-sm">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-500 text-sm">已拒绝</p>
+                        <h3 class="text-3xl font-bold mt-1 text-red-600" id="rejectedCount">-</h3>
+                    </div>
+                    <div class="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
+                        <i class="fa fa-times-circle text-red-600 text-xl"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 筛选栏 -->
+        <div class="bg-white rounded-lg p-4 mb-6 shadow-sm">
+            <form id="filterForm" method="get" action="{{ url_for('dorm_application_admin.application_list') }}">
+                <div class="flex flex-wrap items-center gap-4">
+                    <div class="flex items-center gap-2">
+                        <label class="text-sm font-medium text-gray-700">申请类型：</label>
+                        <select name="application_type" class="border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
+                            <option value="">全部</option>
+                            <option value="allocate" {% if application_type_filter == 'allocate' %}selected{% endif %}>申请宿舍</option>
+                            <option value="change" {% if application_type_filter == 'change' %}selected{% endif %}>申请换宿</option>
+                            <option value="checkout" {% if application_type_filter == 'checkout' %}selected{% endif %}>申请退宿</option>
+                        </select>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <label class="text-sm font-medium text-gray-700">状态：</label>
+                        <select name="status" class="border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
+                            <option value="">全部</option>
+                            <option value="pending" {% if status_filter == 'pending' %}selected{% endif %}>待审核</option>
+                            <option value="approved" {% if status_filter == 'approved' %}selected{% endif %}>已通过</option>
+                            <option value="rejected" {% if status_filter == 'rejected' %}selected{% endif %}>已拒绝</option>
+                            <option value="cancelled" {% if status_filter == 'cancelled' %}selected{% endif %}>已取消</option>
+                        </select>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <label class="text-sm font-medium text-gray-700">申请人：</label>
+                        <input type="text" name="search" value="{{ search_query }}" placeholder="姓名或申请编号" class="border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" onkeypress="if(event.key === 'Enter') { this.form.submit(); }">
+                    </div>
+                    <button type="submit" class="btn-effect bg-primary text-white px-4 py-2 rounded-md text-sm flex items-center">
+                        <i class="fa fa-search mr-1"></i>筛选
+                    </button>
+                    <a href="{{ url_for('dorm_application_admin.application_list') }}" class="btn-effect bg-gray-200 text-gray-700 px-4 py-2 rounded-md text-sm flex items-center">
+                        <i class="fa fa-undo mr-1"></i>重置
+                    </a>
+                </div>
+            </form>
+        </div>
+
+        <!-- 申请列表 -->
+        <div class="bg-white rounded-lg shadow-sm overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            {% if current_user.has_permission('dorm_application.delete') %}
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                <input type="checkbox" id="selectAll" class="rounded border-gray-300">
+                            </th>
+                            {% endif %}
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">申请编号</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">申请人</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">部门</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">性别</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">年龄</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">职位</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">申请类型</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">状态</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">宿舍信息</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">申请日期</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">审核人</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        {% if applications %}
+                            {% for app in applications %}
+                                <tr class="hover:bg-gray-50 transition-colors">
+                                    {% if current_user.has_permission('dorm_application.delete') %}
+                                    <td class="px-4 py-4 whitespace-nowrap text-sm">
+                                        {% if app.status != 'approved' %}
+                                        <input type="checkbox" name="selectedIds" value="{{ app.id }}" class="rounded border-gray-300 application-checkbox">
+                                        {% endif %}
+                                    </td>
+                                    {% endif %}
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700 font-mono"><a href="{{ url_for('dorm_application_admin.application_detail', id=app.id) }}" class="text-primary hover:underline">{{ app.application_number }}</a></td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                                        {% if app.user %}
+                                            <a href="{{ url_for('user.view', id=app.user.id) }}" class="text-primary hover:underline">{{ app.user.name }}</a>
+                                        {% else %}
+                                            <span class="text-gray-400">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                                        {{ app.user.dept.name if app.user and app.user.dept else '-' }}
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                                        {{ app.user.gender if app.user else '-' }}
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                                        {{ app.user.age if app.user and app.user.age else '-' }}
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                                        {{ app.user.position if app.user and app.user.position else '-' }}
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm">
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                                            {% if app.application_type == 'allocate' %}bg-blue-100 text-blue-800
+                                            {% elif app.application_type == 'change' %}bg-orange-100 text-orange-800
+                                            {% elif app.application_type == 'checkout' %}bg-purple-100 text-purple-800
+                                            {% endif %}">
+                                            {% if app.application_type == 'allocate' %}申请宿舍
+                                            {% elif app.application_type == 'change' %}申请换宿
+                                            {% elif app.application_type == 'checkout' %}申请退宿
+                                            {% else %}{{ app.application_type }}{% endif %}
+                                        </span>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm">
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                                            {% if app.status == 'pending' %}bg-yellow-100 text-yellow-800
+                                            {% elif app.status == 'approved' %}bg-green-100 text-green-800
+                                            {% elif app.status == 'rejected' %}bg-red-100 text-red-800
+                                            {% elif app.status == 'cancelled' %}bg-gray-100 text-gray-800
+                                            {% endif %}">
+                                            {% if app.status == 'pending' %}待审核
+                                            {% elif app.status == 'approved' %}已通过
+                                            {% elif app.status == 'rejected' %}已拒绝
+                                            {% elif app.status == 'cancelled' %}已取消
+                                            {% else %}{{ app.status }}{% endif %}
+                                        </span>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                                        {% if app.application_type == 'change' %}
+                                            {% if app.current_room and app.target_room %}
+                                                <a href="{{ url_for('room.view', id=app.current_room.id) }}" class="text-primary hover:underline">{{ app.current_room.building }}{{ app.current_room.room_number }}</a>
+                                                <span class="text-gray-400 mx-1">→</span>
+                                                <a href="{{ url_for('room.view', id=app.target_room.id) }}" class="text-primary hover:underline">{{ app.target_room.building }}{{ app.target_room.room_number }}</a>
+                                            {% elif app.target_room %}
+                                                <a href="{{ url_for('room.view', id=app.target_room.id) }}" class="text-primary hover:underline">{{ app.target_room.building }}{{ app.target_room.room_number }}</a>
+                                            {% elif app.current_room %}
+                                                <a href="{{ url_for('room.view', id=app.current_room.id) }}" class="text-primary hover:underline">{{ app.current_room.building }}{{ app.current_room.room_number }}</a>
+                                            {% else %}
+                                                <span class="text-gray-400">-</span>
+                                            {% endif %}
+                                        {% elif app.application_type == 'checkout' %}
+                                            {% if app.current_room %}
+                                                <a href="{{ url_for('room.view', id=app.current_room.id) }}" class="text-primary hover:underline">{{ app.current_room.building }}{{ app.current_room.room_number }}</a>
+                                            {% else %}
+                                                <span class="text-gray-400">-</span>
+                                            {% endif %}
+                                        {% else %}
+                                            {% if app.target_room %}
+                                                <a href="{{ url_for('room.view', id=app.target_room.id) }}" class="text-primary hover:underline">{{ app.target_room.building }}{{ app.target_room.room_number }}</a>
+                                            {% else %}
+                                                <span class="text-gray-400">-</span>
+                                            {% endif %}
+                                        {% endif %}
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                                        {% if app.created_at %}
+                                            {{ app.created_at.strftime('%Y-%m-%d %H:%M') }}
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                                        {% if app.reviewer %}
+                                            {{ app.reviewer.name }}
+                                        {% else %}
+                                            <span class="text-gray-400">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm">
+                                        <div class="flex space-x-2">
+                                            {% if app.status == 'pending' %}
+                                                {% if current_user.has_permission('dorm_application.approve') %}
+                                                <a href="{{ url_for('dorm_application_admin.application_detail', id=app.id) }}" class="btn-effect bg-primary text-white px-2 py-1 rounded-md text-sm inline-flex items-center">
+                                                    <i class="fa fa-eye mr-1"></i>审核
+                                                </a>
+                                                {% else %}
+                                                <a href="{{ url_for('dorm_application_admin.application_detail', id=app.id) }}" class="btn-effect bg-blue-500 text-white px-2 py-1 rounded-md text-sm inline-flex items-center">
+                                                    <i class="fa fa-eye mr-1"></i>详情
+                                                </a>
+                                                {% endif %}
+                                            {% else %}
+                                                <a href="{{ url_for('dorm_application_admin.application_detail', id=app.id) }}" class="btn-effect bg-gray-500 text-white px-2 py-1 rounded-md text-sm inline-flex items-center">
+                                                    <i class="fa fa-eye mr-1"></i>详情
+                                                </a>
+                                            {% endif %}
+                                            {% if current_user.has_permission('dorm_application.delete') and app.status != 'approved' %}
+                                            <form method="POST" action="{{ url_for('dorm_application_admin.delete_application', id=app.id) }}" class="inline" onsubmit="return confirm('确认删除此申请吗？此操作不可撤销。');">
+                                                <button type="submit" class="btn-effect bg-red-500 text-white px-2 py-1 rounded-md text-sm inline-flex items-center">
+                                                    <i class="fa fa-trash mr-1"></i>删除
+                                                </button>
+                                            </form>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="13" class="px-4 py-12 text-center text-gray-500">
+                                    <i class="fa fa-inbox text-4xl mb-2 opacity-30"></i>
+                                    <p>暂无申请记录</p>
+                                </td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- 分页控件 -->
+            {% if pagination and pagination.total > 0 %}
+            <div class="px-4 py-3 bg-gray-50 border-t border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div class="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                    <div class="text-sm text-gray-700">
+                        显示 {{ (page-1)*per_page + 1 }} 到 {{ page*per_page if page*per_page < pagination.total else pagination.total }} 条，共 {{ pagination.total }} 条记录
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <span class="text-sm text-gray-700">每页显示：</span>
+                        <select id="pageSizeSelect" class="px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
+                            <option value="10" {% if per_page == 10 %}selected{% endif %}>10条/页</option>
+                            <option value="20" {% if per_page == 20 %}selected{% endif %}>20条/页</option>
+                            <option value="50" {% if per_page == 50 %}selected{% endif %}>50条/页</option>
+                            <option value="100" {% if per_page == 100 %}selected{% endif %}>100条/页</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <div class="text-sm text-gray-700">
+                        第{{ pagination.page }}页/共{{ pagination.pages }}页
+                    </div>
+                    <div class="flex space-x-1">
+                    {% if pagination.has_prev %}
+                    <a href="{{ url_for('dorm_application_admin.application_list', page=pagination.prev_num, per_page=per_page, application_type=application_type_filter, status=status_filter, search=search_query) }}"
+                       class="px-3 py-1 border border-gray-300 rounded bg-white text-gray-500 hover:bg-gray-50 transition-colors">
+                        <i class="fa fa-chevron-left"></i>
+                        <span class="ml-1">上一页</span>
+                    </a>
+                    {% else %}
+                    <span class="px-3 py-1 border border-gray-300 rounded bg-gray-100 text-gray-400 cursor-not-allowed">
+                        <i class="fa fa-chevron-left"></i>
+                        <span class="ml-1">上一页</span>
+                    </span>
+                    {% endif %}
+                    
+                    {% if pagination.has_next %}
+                    <a href="{{ url_for('dorm_application_admin.application_list', page=pagination.next_num, per_page=per_page, application_type=application_type_filter, status=status_filter, search=search_query) }}"
+                       class="px-3 py-1 border border-gray-300 rounded bg-white text-gray-500 hover:bg-gray-50 transition-colors">
+                        <span class="mr-1">下一页</span>
+                        <i class="fa fa-chevron-right"></i>
+                    </a>
+                    {% else %}
+                    <span class="px-3 py-1 border border-gray-300 rounded bg-gray-100 text-gray-400 cursor-not-allowed">
+                        <span class="mr-1">下一页</span>
+                        <i class="fa fa-chevron-right"></i>
+                    </span>
+                    {% endif %}
+                </div>
+            </div>
+            </div>
+            {% endif %}
+        </div>
+    </main>
+    
+    {% include 'footer.html' %}
+
+    <script>
+        // 页面大小改变事件
+        const pageSizeSelect = document.getElementById('pageSizeSelect');
+        if (pageSizeSelect) {
+            pageSizeSelect.addEventListener('change', function() {
+                const perPage = this.value;
+                const searchParams = new URLSearchParams(window.location.search);
+                searchParams.set('page', '1');
+                searchParams.set('per_page', perPage);
+                window.location.href = '{{ url_for('dorm_application_admin.application_list') }}?' + searchParams.toString();
+            });
+        }
+
+        // 导出按钮 - 携带当前筛选参数
+        const exportBtn = document.getElementById('exportBtn');
+        const exportBtnText = document.getElementById('exportBtnText');
+        const exportLoadingSpan = document.getElementById('exportLoading');
+        if (exportBtn) {
+            exportBtn.addEventListener('click', function() {
+                // 显示导出中状态
+                exportBtnText.textContent = '';
+                exportLoadingSpan.classList.remove('hidden');
+
+                // 禁用按钮，防止重复点击
+                exportBtn.disabled = true;
+                exportBtn.classList.remove('btn-hover');
+
+                const searchParams = new URLSearchParams(window.location.search);
+                searchParams.delete('page');
+                searchParams.delete('per_page');
+                window.location.href = '{{ url_for("dorm_application_export.export_applications") }}?' + searchParams.toString();
+
+                // 60秒后恢复按钮状态
+                setTimeout(function() {
+                    exportBtnText.textContent = '导出';
+                    exportLoadingSpan.classList.add('hidden');
+                    exportBtn.disabled = false;
+                    exportBtn.classList.add('btn-hover');
+                }, 60000);
+            });
+        }
+
+        // 刷新列表按钮
+        const refreshListBtn = document.getElementById('refreshListBtn');
+        if (refreshListBtn) {
+            refreshListBtn.addEventListener('click', function() {
+                window.location.reload();
+            });
+        }
+
+        // 通过AJAX加载统计数据
+        function loadStatistics() {
+            fetch('{{ url_for("dorm_application_admin.api_statistics") }}')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.data) {
+                        const pendingEl = document.getElementById('pendingCount');
+                        const todayEl = document.getElementById('todayCount');
+                        const approvedEl = document.getElementById('approvedCount');
+                        const rejectedEl = document.getElementById('rejectedCount');
+                        if (pendingEl) pendingEl.textContent = data.data.pending_count !== undefined ? data.data.pending_count : '-';
+                        if (todayEl) todayEl.textContent = data.data.today_count !== undefined ? data.data.today_count : '-';
+                        if (approvedEl) approvedEl.textContent = data.data.approved_count !== undefined ? data.data.approved_count : '-';
+                        if (rejectedEl) rejectedEl.textContent = data.data.rejected_count !== undefined ? data.data.rejected_count : '-';
+                    }
+                })
+                .catch(error => {
+                    console.error('获取统计数据失败:', error);
+                });
+        }
+        loadStatistics();
+
+        // 全选/取消全选
+        const selectAll = document.getElementById('selectAll');
+        const batchDeleteBtn = document.getElementById('batchDeleteBtn');
+        if (selectAll) {
+            selectAll.addEventListener('change', function() {
+                const checkboxes = document.querySelectorAll('.application-checkbox');
+                checkboxes.forEach(cb => cb.checked = this.checked);
+                updateBatchDeleteBtn();
+            });
+        }
+
+        // 监听单个checkbox变化
+        document.addEventListener('change', function(e) {
+            if (e.target.classList.contains('application-checkbox')) {
+                updateBatchDeleteBtn();
+                // 更新全选状态
+                if (selectAll) {
+                    const all = document.querySelectorAll('.application-checkbox');
+                    const checked = document.querySelectorAll('.application-checkbox:checked');
+                    selectAll.checked = all.length > 0 && all.length === checked.length;
+                }
+            }
+        });
+
+        function updateBatchDeleteBtn() {
+            if (!batchDeleteBtn) return;
+            const checked = document.querySelectorAll('.application-checkbox:checked');
+            if (checked.length > 0) {
+                batchDeleteBtn.disabled = false;
+                batchDeleteBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            } else {
+                batchDeleteBtn.disabled = true;
+                batchDeleteBtn.classList.add('opacity-50', 'cursor-not-allowed');
+            }
+        }
+
+        // 批量删除
+        if (batchDeleteBtn) {
+            batchDeleteBtn.addEventListener('click', function() {
+                const checked = document.querySelectorAll('.application-checkbox:checked');
+                if (checked.length === 0) return;
+                if (!confirm('确认删除选中的 ' + checked.length + ' 条申请吗？此操作不可撤销。')) return;
+
+                const ids = Array.from(checked).map(cb => cb.value);
+                const formData = new FormData();
+                ids.forEach(id => formData.append('ids[]', id));
+
+                fetch('{{ url_for("dorm_application_admin.batch_delete") }}', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        window.location.reload();
+                    } else {
+                        alert(data.message || '批量删除失败');
+                    }
+                })
+                .catch(error => {
+                    console.error('批量删除失败:', error);
+                    alert('批量删除失败，请稍后重试');
+                });
+            });
+        }
+    </script>
+</body>
+</html>
