@@ -56,12 +56,18 @@ def get_checkout_edit_data(checkout_id):
             return jsonify({"status": "error", "message": f"关联的房间不存在"}), 404
         
         # 3. 获取用户和住宿记录信息
-        # 取用户在该房间的最后一段住宿记录（按退宿日期降序），避免取到换宿产生的中间记录
-        dorm_record = Dorm.query.filter_by(
-            user_id=checkout_record.user_id,
-            room_id=room.id,
-            status='checked_out'
-        ).order_by(Dorm.check_out_date.desc()).first()
+        # 通过 dorm_id 精确关联退宿Dorm记录
+        dorm_record = None
+        if checkout_record.dorm_id:
+            dorm_record = Dorm.query.get(checkout_record.dorm_id)
+        
+        # 兼容旧数据：如果没有 dorm_id，回退到查询
+        if not dorm_record:
+            dorm_record = Dorm.query.filter_by(
+                user_id=checkout_record.user_id,
+                room_id=room.id,
+                status='checked_out'
+            ).order_by(Dorm.check_out_date.desc()).first()
         
         if not dorm_record:
             log_operation(
@@ -92,8 +98,8 @@ def get_checkout_edit_data(checkout_id):
         period_start = main_record.start_date
         period_end = main_record.end_date
         
-        # 判断退宿是否为换宿产生（换宿产生的退宿日期不显示）
-        is_transfer = bool(dorm_record.next_dorms)
+        # 判断退宿是否为换宿/互换产生（换宿/互换产生的退宿日期不显示）
+        is_transfer = dorm_record.operation_type in ('transfer', 'exchange') if dorm_record and dorm_record.operation_type else False
         
         # 获取当前房间的所有住宿记录（包括在住和已退宿）
         all_dorm_records = Dorm.query.filter(
@@ -268,8 +274,8 @@ def get_checkout_edit_data(checkout_id):
                     "room_id": room.id,
                     "room_number": f"{room.building}{room.room_number}",
                     "billing_period": main_record.billing_period,
-                    "check_in_date": dorm_record.check_in_date.isoformat() if dorm_record.check_in_date else None,
-                    "check_out_date": dorm_record.check_out_date.isoformat() if dorm_record.check_out_date else None,
+                    "check_in_date": checkout_record.checkin_date.isoformat() if checkout_record.checkin_date else None,
+                    "check_out_date": checkout_record.checkout_date.isoformat() if checkout_record.checkout_date else None,
                     "is_transfer": is_transfer,
                     # 直接从子表读取的天数信息
                     "stay_days": checkout_record.stay_days,

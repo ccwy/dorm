@@ -326,12 +326,14 @@
           <label for="electricReading" class="block text-sm font-medium text-gray-700 mb-1">电表读数 (kWh)</label>
           <input type="number" step="0.01" min="0" id="electricReading" 
                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all">
+          <p id="electricPreviousInfo" class="text-xs text-gray-400 mt-1 hidden">上次: <span id="electricPreviousValue">-</span> kWh<span id="electricPreviousDate"></span></p>
         </div>
         
         <div class="mb-4">
           <label for="waterReading" class="block text-sm font-medium text-gray-700 mb-1">水表读数 (m³)</label>
           <input type="number" step="0.01" min="0" id="waterReading" 
                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all">
+          <p id="waterPreviousInfo" class="text-xs text-gray-400 mt-1 hidden">上次: <span id="waterPreviousValue">-</span> m³<span id="waterPreviousDate"></span></p>
         </div>
         
         <div class="mb-2">
@@ -1377,9 +1379,46 @@
           createBillingPeriodSelect.value = '';
         }
         
+        // 获取上次抄表记录并显示
+        fetchLatestReadings(roomId);
+        
         // 显示模态框
         createRecordModal.classList.remove('hidden');
         createRecordModal.classList.add('flex');
+      }
+      
+      // 获取房间最新抄表记录
+      function fetchLatestReadings(roomId) {
+        const electricPreviousInfo = document.getElementById('electricPreviousInfo');
+        const electricPreviousValue = document.getElementById('electricPreviousValue');
+        const electricPreviousDate = document.getElementById('electricPreviousDate');
+        const waterPreviousInfo = document.getElementById('waterPreviousInfo');
+        const waterPreviousValue = document.getElementById('waterPreviousValue');
+        const waterPreviousDate = document.getElementById('waterPreviousDate');
+        
+        // 先隐藏
+        electricPreviousInfo.classList.add('hidden');
+        waterPreviousInfo.classList.add('hidden');
+        
+        fetch(`/utility_room_bill_checkout/get_latest_readings?room_id=${roomId}`)
+          .then(response => response.json())
+          .then(data => {
+            if (data.success && data.data) {
+              if (data.data.electric_previous !== null && data.data.electric_previous !== undefined) {
+                electricPreviousValue.textContent = data.data.electric_previous;
+                electricPreviousDate.textContent = data.data.electric_reading_date ? ` (${data.data.electric_reading_date.replace('T', ' ')})` : '';
+                electricPreviousInfo.classList.remove('hidden');
+              }
+              if (data.data.water_previous !== null && data.data.water_previous !== undefined) {
+                waterPreviousValue.textContent = data.data.water_previous;
+                waterPreviousDate.textContent = data.data.water_reading_date ? ` (${data.data.water_reading_date.replace('T', ' ')})` : '';
+                waterPreviousInfo.classList.remove('hidden');
+              }
+            }
+          })
+          .catch(err => {
+            console.error('获取上次抄表记录失败:', err);
+          });
       }
       
       // 关闭新增记录模态框

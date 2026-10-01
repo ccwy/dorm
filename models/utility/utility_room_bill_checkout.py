@@ -27,6 +27,9 @@ class CheckoutUtilityRecord(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='RESTRICT'), nullable=False, comment='退宿人员ID，限制删除')
     room_id = db.Column(db.Integer, db.ForeignKey('rooms.id', ondelete='RESTRICT'), nullable=False, comment='退宿人员房间ID，限制删除')
     
+    # 关联退宿Dorm记录（精确关联到实际退宿的住宿记录）
+    dorm_id = db.Column(db.Integer, db.ForeignKey('dorms.id', ondelete='SET NULL'), nullable=True, comment='关联的退宿Dorm记录ID')
+    
     # 时间信息
     checkin_date = db.Column(db.DateTime, nullable=True, comment='入住日期时间')
     checkout_date = db.Column(db.DateTime, nullable=True, comment='退宿日期时间')
@@ -100,18 +103,16 @@ class CheckoutUtilityRecord(db.Model):
     @classmethod
     def create_from_checkout(cls, room_id, user_id, checkout_date, 
                             electric_reading, water_reading, remarks,
-                            billing_period, calculate_fee=True):
+                            billing_period, calculate_fee=True, dorm_id=None):
         """创建退宿费用记录"""
         try:
             logging.info(f"\n===== 开始创建退宿费用记录 =====")
             logging.info(f"参数: room_id={room_id}, user_id={user_id}, checkout_date={checkout_date}")
 
-            # 新增：验证用户是否存在并且状态为在职
+            # 验证用户是否存在（退宿费用核算不限制在职状态，补录场景用户可能已离职）
             user = User.query.get(user_id)
             if not user:
                 raise ValueError(f"用户ID不存在: {user_id}")
-            if not user.is_status():
-                raise ValueError(f"用户ID={user_id}非在职状态，不能进行退宿费用核算")
 
             # 1.4 获取当期账期
             main_record = RoomUtilityRecord.get_by_room_and_period(room_id, billing_period)
@@ -162,184 +163,35 @@ class CheckoutUtilityRecord(db.Model):
 
 
             # 1.5 获取上期抄表记录
-            # 新逻辑：从本期抄表记录中按reading_date排序，确定上次读数和本次读数
+            # 退宿场景：本期所有抄表记录都是"上次读数"的候选，"本次读数"是退宿读数（参数传入）
+            # 因此直接获取最新的抄表记录值作为上次读数，与房间费用核算处的语义不同
+            # （房间费用核算处：本期记录中最早=上次，最晚=本次）
             electric_previous = Decimal('0')
             water_previous = Decimal('0')
 
-            # 查询本期抄表记录
-            current_period_readings = UtilityMeterReading.query\
-                .filter_by(room_id=room_id)\
-                .filter(UtilityMeterReading.reading_type == 1)\
-                .filter(UtilityMeterReading.record_id.isnot(None))\
-                .join(RoomUtilityRecord, UtilityMeterReading.record_id == RoomUtilityRecord.record_id)\
-                .filter(RoomUtilityRecord.billing_period == billing_period)\
-                .all()
-            
-            # 按reading_date排序获取有效电表/水表读数
-            electric_readings_in_period = sorted(
-                [r for r in current_period_readings if r.electric_current is not None],
-                key=lambda r: (r.reading_date or datetime.min, r.id)
-            )
-            water_readings_in_period = sorted(
-                [r for r in current_period_readings if r.water_current is not None],
-                key=lambda r: (r.reading_date or datetime.min, r.id)
-            )
-            
-            # ---- 电表读数计算 ----
-            # 新逻辑：换表记录只作初始读数（上次读数），不能作为本次读数
-            # 1. 找最后一个换表/首次标记的记录（初始读数点）
-            # 2. 在初始读数点之后找最晚的普通抄表记录作为本次读数
-            # 3. 如果没有后续普通抄表 → 不计费
-            # 4. 如果没有初始读数点（全是普通抄表）→ 最早作上次读数，最晚作本次读数
-            # 5. 如果只有1条普通抄表 → 从历史账期查上期读数
-
-            # 找最后一个换表/首次标记的记录（初始读数点）
-            last_electric_reset_index = -1
-            for i, r in enumerate(electric_readings_in_period):
-                if getattr(r, 'electric_meter_replaced', False):
-                    last_electric_reset_index = i
-
-            if last_electric_reset_index >= 0:
-                # 有初始读数点（换表或首次抄表）
-                electric_previous = Decimal(str(electric_readings_in_period[last_electric_reset_index].electric_current))
-                
-                # 在初始读数点之后找普通抄表记录
-                subsequent_electric_normal = [r for r in electric_readings_in_period[last_electric_reset_index + 1:] 
-                                              if not getattr(r, 'electric_meter_replaced', False)]
-                
-                if subsequent_electric_normal:
-                    # 有后续普通抄表 → 最晚的作为本次读数（但退宿场景用退宿读数，此处仅用于确定previous）
-                    logging.info(f'退宿：房间{room_id}电表有换表记录(索引{last_electric_reset_index})，上次读数: {electric_previous}')
-                else:
-                    # 没有后续普通抄表 → 换表读数作为previous，退宿读数作为current
-                    logging.info(f'退宿：房间{room_id}电表换表后无后续普通抄表，上次读数: {electric_previous}')
-                
-            elif len(electric_readings_in_period) >= 2:
-                # 没有初始读数点，全是普通抄表
-                electric_previous = Decimal(str(electric_readings_in_period[0].electric_current))
-                logging.info(f'退宿：房间{room_id}电表全普通抄表，上次读数: {electric_previous}')
-                
-            elif len(electric_readings_in_period) == 1:
-                # 单条普通抄表，从历史查上期读数
-                if getattr(electric_readings_in_period[0], 'electric_meter_replaced', False):
-                    # 换表/首次抄表且无后续 → 换表读数作为previous
-                    electric_previous = Decimal(str(electric_readings_in_period[0].electric_current))
-                    logging.info(f'退宿：房间{room_id}电表仅1条换表记录，上次读数: {electric_previous}')
-                else:
-                    # 从历史账期查询上期读数
-                    prev_electric_reading = UtilityMeterReading.query\
-                        .filter_by(room_id=room_id)\
-                        .filter(UtilityMeterReading.electric_current.isnot(None))\
-                        .filter(UtilityMeterReading.reading_type == 1)\
-                        .filter(UtilityMeterReading.record_id.isnot(None))\
-                        .join(RoomUtilityRecord, UtilityMeterReading.record_id == RoomUtilityRecord.record_id)\
-                        .filter(RoomUtilityRecord.billing_period < billing_period)\
-                        .order_by(UtilityMeterReading.reading_date.desc(), UtilityMeterReading.id.desc())\
-                        .first()
-
-                    if prev_electric_reading:
-                        electric_previous = Decimal(str(prev_electric_reading.electric_current))
-                        logging.info(f'退宿：房间{room_id}电表单条普通抄表，上期读数来自历史账期: {electric_previous}')
-                    else:
-                        # 无历史记录（首次抄表）→ 不计费
-                        electric_previous = Decimal(str(electric_readings_in_period[0].electric_current))
-                        logging.info(f'退宿：房间{room_id}电表首次抄表且无后续抄表，不计费')
+            # ---- 电表上次读数 ----
+            # 使用跨账期查询方法，自动处理换表记录（只取换表后的最新读数）
+            last_electric_reading = UtilityMeterReading.get_latest_electric_reading(room_id)
+            if last_electric_reading:
+                electric_previous = Decimal(str(last_electric_reading.electric_current))
+                logging.info(f'退宿：房间{room_id}电表上次读数(跨账期): {electric_previous}, 读数日期: {last_electric_reading.reading_date}')
             else:
-                # 无抄表记录，尝试从历史查询
-                prev_electric_reading = UtilityMeterReading.query\
-                    .filter_by(room_id=room_id)\
-                    .filter(UtilityMeterReading.electric_current.isnot(None))\
-                    .filter(UtilityMeterReading.reading_type == 1)\
-                    .filter(UtilityMeterReading.record_id.isnot(None))\
-                    .join(RoomUtilityRecord, UtilityMeterReading.record_id == RoomUtilityRecord.record_id)\
-                    .filter(RoomUtilityRecord.billing_period < billing_period)\
-                    .order_by(UtilityMeterReading.reading_date.desc(), UtilityMeterReading.id.desc())\
-                    .first()
+                # 无历史记录（首次抄表）→ 上次读数=本次读数，用量为0
+                if electric_reading is not None:
+                    electric_previous = Decimal(str(electric_reading))
+                logging.info(f'退宿：房间{room_id}电表无历史读数记录，上次读数设为退宿读数: {electric_previous}')
 
-                if prev_electric_reading:
-                    electric_previous = Decimal(str(prev_electric_reading.electric_current))
-                    logging.info(f'退宿：房间{room_id}无本期电表抄表记录，使用历史读数: {electric_previous}')
-                else:
-                    electric_previous = Decimal('0')
-                    logging.info(f'退宿：房间{room_id}无电表读数记录')
-
-            # ---- 水表读数计算 ----
-            # 新逻辑：换表记录只作初始读数（上次读数），不能作为本次读数
-            # 1. 找最后一个换表/首次标记的记录（初始读数点）
-            # 2. 在初始读数点之后找最晚的普通抄表记录作为本次读数
-            # 3. 如果没有后续普通抄表 → 不计费
-            # 4. 如果没有初始读数点（全是普通抄表）→ 最早作上次读数，最晚作本次读数
-            # 5. 如果只有1条普通抄表 → 从历史账期查上期读数
-
-            # 找最后一个换表/首次标记的记录（初始读数点）
-            last_water_reset_index = -1
-            for i, r in enumerate(water_readings_in_period):
-                if getattr(r, 'water_meter_replaced', False):
-                    last_water_reset_index = i
-
-            if last_water_reset_index >= 0:
-                # 有初始读数点（换表或首次抄表）
-                water_previous = Decimal(str(water_readings_in_period[last_water_reset_index].water_current))
-                
-                # 在初始读数点之后找普通抄表记录
-                subsequent_water_normal = [r for r in water_readings_in_period[last_water_reset_index + 1:] 
-                                           if not getattr(r, 'water_meter_replaced', False)]
-                
-                if subsequent_water_normal:
-                    # 有后续普通抄表 → 最晚的作为本次读数（但退宿场景用退宿读数，此处仅用于确定previous）
-                    logging.info(f'退宿：房间{room_id}水表有换表记录(索引{last_water_reset_index})，上次读数: {water_previous}')
-                else:
-                    # 没有后续普通抄表 → 换表读数作为previous，退宿读数作为current
-                    logging.info(f'退宿：房间{room_id}水表换表后无后续普通抄表，上次读数: {water_previous}')
-                
-            elif len(water_readings_in_period) >= 2:
-                # 没有初始读数点，全是普通抄表
-                water_previous = Decimal(str(water_readings_in_period[0].water_current))
-                logging.info(f'退宿：房间{room_id}水表全普通抄表，上次读数: {water_previous}')
-                
-            elif len(water_readings_in_period) == 1:
-                # 单条普通抄表，从历史查上期读数
-                if getattr(water_readings_in_period[0], 'water_meter_replaced', False):
-                    # 换表/首次抄表且无后续 → 换表读数作为previous
-                    water_previous = Decimal(str(water_readings_in_period[0].water_current))
-                    logging.info(f'退宿：房间{room_id}水表仅1条换表记录，上次读数: {water_previous}')
-                else:
-                    # 从历史账期查询上期读数
-                    prev_water_reading = UtilityMeterReading.query\
-                        .filter_by(room_id=room_id)\
-                        .filter(UtilityMeterReading.water_current.isnot(None))\
-                        .filter(UtilityMeterReading.reading_type == 1)\
-                        .filter(UtilityMeterReading.record_id.isnot(None))\
-                        .join(RoomUtilityRecord, UtilityMeterReading.record_id == RoomUtilityRecord.record_id)\
-                        .filter(RoomUtilityRecord.billing_period < billing_period)\
-                        .order_by(UtilityMeterReading.reading_date.desc(), UtilityMeterReading.id.desc())\
-                        .first()
-
-                    if prev_water_reading:
-                        water_previous = Decimal(str(prev_water_reading.water_current))
-                        logging.info(f'退宿：房间{room_id}水表单条普通抄表，上期读数来自历史账期: {water_previous}')
-                    else:
-                        # 无历史记录（首次抄表）→ 不计费
-                        water_previous = Decimal(str(water_readings_in_period[0].water_current))
-                        logging.info(f'退宿：房间{room_id}水表首次抄表且无后续抄表，不计费')
+            # ---- 水表上次读数 ----
+            # 使用跨账期查询方法，自动处理换表记录（只取换表后的最新读数）
+            last_water_reading = UtilityMeterReading.get_latest_water_reading(room_id)
+            if last_water_reading:
+                water_previous = Decimal(str(last_water_reading.water_current))
+                logging.info(f'退宿：房间{room_id}水表上次读数(跨账期): {water_previous}, 读数日期: {last_water_reading.reading_date}')
             else:
-                # 无抄表记录，尝试从历史查询
-                prev_water_reading = UtilityMeterReading.query\
-                    .filter_by(room_id=room_id)\
-                    .filter(UtilityMeterReading.water_current.isnot(None))\
-                    .filter(UtilityMeterReading.reading_type == 1)\
-                    .filter(UtilityMeterReading.record_id.isnot(None))\
-                    .join(RoomUtilityRecord, UtilityMeterReading.record_id == RoomUtilityRecord.record_id)\
-                    .filter(RoomUtilityRecord.billing_period < billing_period)\
-                    .order_by(UtilityMeterReading.reading_date.desc(), UtilityMeterReading.id.desc())\
-                    .first()
-
-                if prev_water_reading:
-                    water_previous = Decimal(str(prev_water_reading.water_current))
-                    logging.info(f'退宿：房间{room_id}无本期水表抄表记录，使用历史读数: {water_previous}')
-                else:
-                    water_previous = Decimal('0')
-                    logging.info(f'退宿：房间{room_id}无水表读数记录')
+                # 无历史记录（首次抄表）→ 上次读数=本次读数，用量为0
+                if water_reading is not None:
+                    water_previous = Decimal(str(water_reading))
+                logging.info(f'退宿：房间{room_id}水表无历史读数记录，上次读数设为退宿读数: {water_previous}')
 
             logging.info(f"上期抄表记录: 电={electric_previous}, 水={water_previous}")
 
@@ -603,6 +455,7 @@ class CheckoutUtilityRecord(db.Model):
                 record_id=main_record.record_id,
                 user_id=user_id,
                 room_id=room_id,
+                dorm_id=dorm_id,
                 checkin_date=checkin_date,
                 checkout_date=checkout_date,
                 stay_days=(checkout_date.date() - checkin_date.date()).days + 1,

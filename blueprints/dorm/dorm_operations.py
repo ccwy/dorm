@@ -695,7 +695,8 @@ def checkout():
                     water_reading=water_current,
                     billing_period=billing_period,
                     remarks=f"退宿费用计算：{user.name if user else '未知用户'}，退宿日期：{check_out_date.strftime('%Y-%m-%d %H:%M:%S')}",
-                    calculate_fee=calculate_fee
+                    calculate_fee=calculate_fee,
+                    dorm_id=current_dorm.id
                 )
                     
                 logging.info(f"计算{user.name}的退宿费用：房间ID={room_id}, 用户ID={user_id}, 是否计算费用={calculate_fee}")

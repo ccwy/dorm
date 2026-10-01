@@ -181,7 +181,8 @@ def do_checkout(user_id, check_out_date, checkout_type='在职退宿',
             water_reading=water_current,
             billing_period=billing_period,
             remarks=f"退宿费用计算：{user.name if user else '未知用户'}，退宿日期：{check_out_date.strftime('%Y-%m-%d %H:%M:%S')}",
-            calculate_fee=calculate_fee
+            calculate_fee=calculate_fee,
+            dorm_id=current_dorm.id
         )
         result['checkout_record'] = checkout_record
         result['calculate_fee'] = calculate_fee

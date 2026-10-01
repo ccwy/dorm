@@ -221,14 +221,13 @@ def utility_user_checkout_detail():
     main_record = RoomUtilityRecord.query.get(checkout_record.record_id)
     billing_period = main_record.billing_period if main_record else None
     
-    # 判断退宿是否为换宿产生（换宿产生的退宿日期不显示）
-    # 取用户在该房间的最后一段住宿记录（按退宿日期降序），避免取到换宿产生的中间记录
-    last_dorm_record = Dorm.query.filter_by(
-        user_id=checkout_record.user_id,
-        room_id=room.id,
-        status='checked_out'
-    ).order_by(Dorm.check_out_date.desc()).first()
-    is_transfer = bool(last_dorm_record and last_dorm_record.next_dorms) if last_dorm_record else False
+    # 通过 dorm_id 关联的 Dorm 记录判断操作类型
+    # 换宿(transfer)/互换(exchange)产生的退宿日期不显示，真正退宿(checkout)才显示
+    is_transfer = False
+    if checkout_record.dorm_id:
+        dorm_record = Dorm.query.get(checkout_record.dorm_id)
+        if dorm_record and dorm_record.operation_type in ('transfer', 'exchange'):
+            is_transfer = True
     
     # 渲染费用结果页面
     return render_template('utility_bill/utility_user_checkout_detail.html', 
