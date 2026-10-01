@@ -9,6 +9,8 @@ from sqlalchemy.exc import SQLAlchemyError
 from utils.log import log_operation
 from models.room.room import Room
 from datetime import datetime, timedelta  # 修正：移除date，保留datetime和timedelta
+from collections import defaultdict
+from decimal import Decimal
 import io
 import logging  # 确保导入logging模块
 from sqlalchemy.exc import SQLAlchemyError
@@ -106,36 +108,89 @@ def get_fee_records():
         # 执行分页查询
         pagination = query.order_by(
             RoomUtilityRecord.billing_period.desc(),
-            RoomUtilityRecord.room_id.asc()
+            RoomUtilityRecord.room_id.asc(),
+            RoomUtilityOccupant.user_id.asc()
         ).paginate(page=page, per_page=per_page)
+        
+        # 预过滤：移除无 dorm_record 的项，确保汇总仅包含有效记录
+        warnings = []
+        valid_items = []
+        for item in pagination.items:
+            _main, _occupant, _uname, _udept, _dorm, _room = item
+            if _dorm is None:
+                logging.error(
+                    f"分摊记录缺少dorm_id关联: occupant_id={_occupant.id}, "
+                    f"user_id={_occupant.user_id}, room_id={_occupant.room_id}, "
+                    f"record_id={_occupant.record_id}"
+                )
+                warnings.append(
+                    f"分摊记录ID={_occupant.id}（用户ID={_occupant.user_id}，"
+                    f"房间ID={_occupant.room_id}）缺少dorm_id关联，请重新核算账单"
+                )
+            else:
+                valid_items.append(item)
+
+        # 基于有效项构建用户分组和汇总
+        user_groups = defaultdict(list)
+        for item in valid_items:
+            _main, _occupant, _uname, _udept, _dorm, _room = item
+            group_key = (_main.billing_period, _main.room_id, _occupant.user_id)
+            user_groups[group_key].append((_occupant, _dorm, _main))
+
+        user_summaries = {}
+        for group_key, items in user_groups.items():
+            occupants = [item[0] for item in items]
+            dorm_records = [item[1] for item in items]
+            main_records = [item[2] for item in items]
+            person_total_fee_sum = sum(Decimal(str(o.total_fee or 0)) for o in occupants)
+            user_reduction_fee_sum = sum(Decimal(str(o.user_reduction_fee or 0)) for o in occupants)
+            payable_fee_sum = sum(Decimal(str(o.payable_fee or 0)) for o in occupants)
+            stay_days_sum = sum(o.stay_days or 0 for o in occupants)
+            # 计算住宿周期范围
+            _main = main_records[0]
+            period_start = start_date if start_date else _main.start_date
+            period_end = end_date if end_date else _main.end_date
+            check_in_dates = []
+            check_out_dates = []
+            for dorm in dorm_records:
+                actual_check_in = max(dorm.check_in_date, period_start)
+                actual_check_out = dorm.check_out_date or period_end
+                actual_check_out = min(actual_check_out, period_end)
+                check_in_dates.append(actual_check_in)
+                check_out_dates.append(actual_check_out)
+            min_check_in = min(check_in_dates)
+            max_check_out = max(check_out_dates)
+            user_summaries[group_key] = {
+                'person_total_fee': float(person_total_fee_sum),
+                'user_reduction_fee': float(user_reduction_fee_sum),
+                'payable_fee': float(payable_fee_sum),
+                'stay_days': stay_days_sum,
+                'check_in_date': min_check_in.strftime('%Y-%m-%d'),
+                'check_out_date': max_check_out.strftime('%Y-%m-%d')
+            }
         
         # 处理查询结果
         records = []
-        warnings = []
-        for item in pagination.items:
+        user_first_seen = set()
+        for item in valid_items:
             main_record, occupant_record, user_name, user_department, dorm_record, room = item
+            
+            # 计算用户分组汇总字段
+            group_key = (main_record.billing_period, main_record.room_id, occupant_record.user_id)
+            user_record_count = len(user_groups[group_key])
+            is_user_first = group_key not in user_first_seen
+            if is_user_first:
+                user_first_seen.add(group_key)
+            user_summary = user_summaries[group_key] if is_user_first else None
             
             # 计算账期内的实际住宿周期（datetime类型）
             period_start = start_date if start_date else main_record.start_date
             period_end = end_date if end_date else main_record.end_date
             
             # 确定实际入住和退宿日期（取与账期的交集，datetime比较）
-            if dorm_record:
-                actual_check_in = max(dorm_record.check_in_date, period_start)
-                actual_check_out = dorm_record.check_out_date or period_end
-                actual_check_out = min(actual_check_out, period_end)
-            else:
-                # 无dorm_id的记录说明数据不正确，记录错误并跳过
-                logging.error(
-                    f"分摊记录缺少dorm_id关联: occupant_id={occupant_record.id}, "
-                    f"user_id={occupant_record.user_id}, room_id={occupant_record.room_id}, "
-                    f"record_id={occupant_record.record_id}"
-                )
-                warnings.append(
-                    f"分摊记录ID={occupant_record.id}（用户ID={occupant_record.user_id}，"
-                    f"房间ID={occupant_record.room_id}）缺少dorm_id关联，请重新核算账单"
-                )
-                continue
+            actual_check_in = max(dorm_record.check_in_date, period_start)
+            actual_check_out = dorm_record.check_out_date or period_end
+            actual_check_out = min(actual_check_out, period_end)
             
             # 格式化日期时间显示（包含秒）
             check_in_str = actual_check_in.strftime('%Y-%m-%d %H:%M:%S')
@@ -171,7 +226,10 @@ def get_fee_records():
                 'record_id': main_record.record_id,
                 'occupant_id': occupant_record.id,
                 'room_number': room.room_number,  # 新增：房间号字段
-                'building': room.building  # 新增：楼栋字段
+                'building': room.building,  # 新增：楼栋字段
+                'user_record_count': user_record_count,
+                'is_user_first': is_user_first,
+                'user_summary': user_summary,
             })
         
         # 记录成功日志

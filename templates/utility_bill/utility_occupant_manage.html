@@ -113,6 +113,50 @@
         width: 100% !important;
       }
     }
+    
+    /* 用户汇总行 - 蓝色淡底+稍粗字体 */
+    .user-summary-row { background-color: rgba(59, 130, 246, 0.08); }
+    .user-summary-row td { font-weight: 500; }
+    /* 用户明细行 - 浅灰底+正常字体 */
+    .user-detail-row { background-color: rgba(0, 0, 0, 0.02); }
+    .user-detail-row td { font-weight: 400; font-size: 0.75rem; }
+    /* 明细行默认隐藏 */
+    .user-detail-row.collapsed-detail { display: none; }
+    /* 明细行姓名缩进 */
+    .user-detail-name {
+      padding-left: 2rem !important;
+      color: #64748b;
+    }
+    /* 展开/折叠图标 */
+    .toggle-details { cursor: pointer; color: #3b82f6; margin-left: 6px; font-size: 0.75rem; }
+    .toggle-details:hover { color: #1d4ed8; }
+    /* "合计"标记 */
+    .summary-tag {
+      display: inline-block;
+      background: #dbeafe;
+      color: #1d4ed8;
+      font-size: 0.65rem;
+      padding: 1px 4px;
+      border-radius: 3px;
+      margin-left: 4px;
+      font-weight: normal;
+    }
+    /* 记录数标记 */
+    .record-count-badge {
+      display: inline-block;
+      background: #eff6ff;
+      color: #3b82f6;
+      font-size: 0.65rem;
+      padding: 1px 5px;
+      border-radius: 10px;
+      margin-left: 4px;
+    }
+    /* 明细序号 */
+    .detail-index {
+      color: #94a3b8;
+      font-size: 0.7rem;
+      margin-left: 4px;
+    }
   </style>
 </head>
 
@@ -477,10 +521,12 @@
       if (headers[9]) headers[9].style.display = displayValue;  // 减免金额表头
       if (headers[10]) headers[10].style.display = displayValue; // 个人应付金额表头
       
-      // 如果已有数据，同步更新表格内容行
-      document.querySelectorAll('#feeRecordsTableBody tr').forEach(row => {
-        if (row.cells[9]) row.cells[9].style.display = displayValue;  // 减免金额单元格
-        if (row.cells[10]) row.cells[10].style.display = displayValue; // 个人应付金额单元格
+      // 表体：使用 data-column 属性选择器，避免 rowspan 导致的 cell index 错位
+      document.querySelectorAll('#feeRecordsTableBody td[data-column="reduction"]').forEach(cell => {
+        cell.style.display = displayValue;
+      });
+      document.querySelectorAll('#feeRecordsTableBody td[data-column="payable"]').forEach(cell => {
+        cell.style.display = displayValue;
       });
     }
     
@@ -605,115 +651,188 @@
       let html = '';
       Object.values(groupedRecords).forEach(group => {
         const occupants = group.occupants;
+        const roomGroupKey = `${occupants[0].billing_period}-${occupants[0].room_id}`;
         
-        occupants.forEach((occupant, index) => {
-          html += '<tr class="table-row-hover transition-all-300">';
+        // 按用户分组
+        const userGroups = {};
+        occupants.forEach(o => {
+          const key = `${o.user_id}`;
+          if (!userGroups[key]) userGroups[key] = [];
+          userGroups[key].push(o);
+        });
+        
+        const userGroupEntries = Object.entries(userGroups);
+        // 初始可见行数 = 汇总行数（每个用户组一条汇总行，明细行默认隐藏）
+        const visibleRowCount = userGroupEntries.length;
+        
+        let isFirstUserInRoom = true;
+        
+        userGroupEntries.forEach(([userId, userRecords], userIndex) => {
+          const firstRecord = userRecords[0];
+          const isMultiRecord = userRecords.length > 1;
+          const summary = firstRecord.user_summary || {};
+          const userGroupKey = `${firstRecord.billing_period}-${firstRecord.room_id}-${userId}`;
           
-          // 账期（只在第一行显示）
-          if (index === 0) {
-            html += `<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" rowspan="${occupants.length}">
-              <a href="{{ url_for('utility_index.utility_room_records_detail') }}?record_id=${occupant.record_id}" 
-               class="text-blue-600 hover:text-blue-800 hover:underline">
-                      ${occupant.billing_period}
+          // ============ 汇总行（始终显示） ============
+          let summaryRowClasses = 'table-row-hover transition-all-300 user-summary-row';
+          if (isFirstUserInRoom) summaryRowClasses += ' room-first-row';
+          html += `<tr class="${summaryRowClasses}" data-room-group="${roomGroupKey}" data-user-group="${userGroupKey}">`;
+          
+          // 房间级单元格（仅房间内第一个用户组的汇总行渲染，rowspan = 可见行数）
+          if (isFirstUserInRoom) {
+            // 账期
+            html += `<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" rowspan="${visibleRowCount}">
+              <a href="{{ url_for('utility_index.utility_room_records_detail') }}?record_id=${firstRecord.record_id}" 
+                 class="text-blue-600 hover:text-blue-800 hover:underline">
+                ${firstRecord.billing_period}
               </a>
-                    </td>`;
+            </td>`;
+            // 房间号
+            html += `<td class="px-6 py-4 whitespace-nowrap text-sm" rowspan="${visibleRowCount}">
+              <a href="javascript:void(0);" onclick="window.location.href='/room/view/' + ${firstRecord.room_id}" 
+                 class="text-blue-600 hover:text-blue-800 hover:underline transition-colors">
+                ${firstRecord.building || '未知'}${firstRecord.room_number || '未知'}
+              </a>(ID:${firstRecord.room_id})
+            </td>`;
+            // 电费
+            html += `<td class="px-6 py-4 whitespace-nowrap" rowspan="${visibleRowCount}">
+              <div class="text-sm font-medium text-gray-900">¥${formatFee(firstRecord.electric_fee).toFixed(2)}</div>
+              <div class="text-xs text-gray-500">抄: ${firstRecord.electric_reading || '0'}</div>
+            </td>`;
+            // 水费
+            html += `<td class="px-6 py-4 whitespace-nowrap" rowspan="${visibleRowCount}">
+              <div class="text-sm font-medium text-gray-900">¥${formatFee(firstRecord.water_fee).toFixed(2)}</div>
+              <div class="text-xs text-gray-500">抄: ${firstRecord.water_reading || '0'}</div>
+            </td>`;
+            // 总费用
+            html += `<td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900" rowspan="${visibleRowCount}">
+              <div class="text-sm font-medium text-gray-900">¥${formatFee(firstRecord.total_fee).toFixed(2)}</div>
+              <div class="text-xs text-gray-500">减: ¥${formatFee(firstRecord.room_reduction_fee || 0).toFixed(2)}</div>
+            </td>`;
+            // 退宿总费用
+            html += `<td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900" rowspan="${visibleRowCount}">
+              ¥${formatFee(firstRecord.checked_out_total_fee).toFixed(2)}
+            </td>`;
+            // 在住总费用
+            html += `<td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900" rowspan="${visibleRowCount}">
+              ¥${formatFee(firstRecord.actual_total_fee).toFixed(2)}
+            </td>`;
+            
+            isFirstUserInRoom = false;
           }
           
-          // 房间号（只在第一行显示）
-          if (index === 0) {
-            html += `<td class="px-6 py-4 whitespace-nowrap text-sm" rowspan="${occupants.length}">
-            <a href="javascript:void(0);" onclick="window.location.href='/room/view/' + ${occupant.room_id}" class="text-blue-600 hover:text-blue-800  hover:underline transition-colors">
-              ${occupant.building || '未知'}${occupant.room_number || '未知'}
-            </a>(ID:${occupant.room_id})
-          </td>`;
+          // 姓名列
+          html += `<td class="px-6 py-4 whitespace-nowrap text-sm font-medium">`;
+          html += `<a href="javascript:void(0);" onclick="window.location.href='/user/view/' + ${firstRecord.user_id}" 
+               class="text-blue-600 hover:text-blue-800 hover:underline transition-colors">
+              ${firstRecord.user_name || '未知'}
+            </a>`;
+          if (isMultiRecord) {
+            html += `<span class="record-count-badge">${userRecords.length}条</span>`;
+            html += `<span class="toggle-details" onclick="toggleUserDetails('${userGroupKey}', this, ${userRecords.length}, '${roomGroupKey}')" title="展开明细">
+                <i class="fa fa-chevron-right"></i>
+              </span>`;
           }
+          html += `</td>`;
           
-          // 电费（只在第一行显示）
-          if (index === 0) {
-            html += `<td class="px-6 py-4 whitespace-nowrap" rowspan="${occupants.length}">
-                      <div class="text-sm font-medium text-gray-900">¥${formatFee(occupant.electric_fee).toFixed(2)}</div>
-                      <div class="text-xs text-gray-500">抄: ${occupant.electric_reading || '0'}</div>
-                    </td>`;
-          }
-          
-          // 水费（只在第一行显示）
-          if (index === 0) {
-            html += `<td class="px-6 py-4 whitespace-nowrap" rowspan="${occupants.length}">
-                      <div class="text-sm font-medium text-gray-900">¥${formatFee(occupant.water_fee).toFixed(2)}</div>
-                      <div class="text-xs text-gray-500">抄: ${occupant.water_reading || '0'}</div>
-                    </td>`;
-          }
-          
-          // 总费用（只在第一行显示）
-          if (index === 0) {
-            html += `<td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900" rowspan="${occupants.length}">
-                      <div class="text-sm font-medium text-gray-900">¥${formatFee(occupant.total_fee).toFixed(2)}</div>
-                      <div class="text-xs text-gray-500">减: ¥${formatFee(occupant.room_reduction_fee || 0).toFixed(2)}</div>
-                    </td>`;
-          }
-
-          // 退宿总费用（只在第一行显示）
-          if (index === 0) {
-            html += `<td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900" rowspan="${occupants.length}">
-                      ¥${formatFee(occupant.checked_out_total_fee).toFixed(2)}
-                    </td>`;
-          }
-
-          // 在住人员总费用（只在第一行显示）
-          if (index === 0) {
-            html += `<td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900" rowspan="${occupants.length}">
-                      ¥${formatFee(occupant.actual_total_fee).toFixed(2)}
-                    </td>`;
-          }
-
-          // 姓名（点击跳转到用户详情）
-          html += `<td class="px-6 py-4 whitespace-nowrap text-sm">
-                    <a href="javascript:void(0);" onclick="window.location.href='/user/view/' + ${occupant.user_id}" class="text-blue-600 hover:text-blue-800  hover:underline transition-colors">
-                      ${occupant.user_name || '未知'}
-                    </a>(ID:${occupant.user_id})
-                  </td>`;
-          
-          // 个人金额
+          // 分摊金额（汇总值）
           html += `<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    ¥${formatFee(occupant.person_total_fee).toFixed(2)}
-                  </td>`;
-
-          // 减免金额 - 根据配置显示
-          html += `<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" style="display: ${feeUserFeeEnabled ? 'table-cell' : 'none'}">
-                    ¥${formatFee(occupant.user_reduction_fee).toFixed(2)}
-                  </td>`;
-
-          // 个人应付金额 - 根据配置显示
-          html += `<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" style="display: ${feeUserFeeEnabled ? 'table-cell' : 'none'}">
-                    <a href="{{ url_for('utility_index.utility_room_records_detail') }}?record_id=${occupant.record_id}" 
-                       class="text-blue-600 hover:text-blue-800  hover:underline transition-colors">
-                    ¥${formatFee(occupant.payable_fee).toFixed(2)}
-                    </a>
-                  </td>`;
+            ¥${formatFee(summary.person_total_fee).toFixed(2)}
+            ${isMultiRecord ? '<span class="summary-tag">合计</span>' : ''}
+          </td>`;
           
-          // 住宿天数和周期
+          // 减免金额（汇总值）
+          html += `<td class="px-6 py-4 whitespace-nowrap text-xs text-gray-900" style="display: ${feeUserFeeEnabled ? 'table-cell' : 'none'}" data-column="reduction">
+            ¥${formatFee(summary.user_reduction_fee).toFixed(2)}
+            ${isMultiRecord ? '<span class="summary-tag">合计</span>' : ''}
+          </td>`;
+          
+          // 个人应付（汇总值）
+          html += `<td class="px-6 py-4 whitespace-nowrap text-xs text-gray-900" style="display: ${feeUserFeeEnabled ? 'table-cell' : 'none'}" data-column="payable">
+            <a href="{{ url_for('utility_index.utility_room_records_detail') }}?record_id=${firstRecord.record_id}" 
+               class="text-blue-600 hover:text-blue-800 hover:underline transition-colors">
+              ¥${formatFee(summary.payable_fee).toFixed(2)}
+            </a>
+            ${isMultiRecord ? '<span class="summary-tag">合计</span>' : ''}
+          </td>`;
+          
+          // 住宿天数（汇总值）
           html += `<td class="px-6 py-4 whitespace-nowrap">
-                    <div class="text-sm font-medium text-gray-900">${occupant.stay_days || 0}天</div>
-                    <div class="text-xs text-gray-500">
-                      ${occupant.check_in_date.substring(0, 10)}→${occupant.check_out_date.substring(0, 10)}
-                    </div>
-                  </td>`;
+            <div class="text-sm font-medium text-gray-900">${summary.stay_days || 0}天</div>
+            ${!isMultiRecord && summary.check_in_date ? `<div class="text-xs text-gray-500">${summary.check_in_date.substring(0, 10)}→${summary.check_out_date.substring(0, 10)}</div>` : ''}
+            ${isMultiRecord ? '<div class="text-xs text-gray-400">合计</div>' : ''}
+          </td>`;
           
-          // 操作
+          // 操作列（单条记录时汇总行显示删除按钮，多条记录时不显示，由明细行各自显示）
           html += `<td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <div class="flex space-x-2">
-                      ${canDelete ? `<a href="javascript:void(0);" class="text-danger hover:text-danger/80 transition-all-300 btn-hover-scale delete-record" 
-                         data-billingperiod="${occupant.billing_period}" 
-                         data-roomnumber="${(occupant.building || '未知') + (occupant.room_number || '未知')}" 
-                         data-name="${occupant.user_name}"
-                         data-occupantid="${occupant.occupant_id}" 
-                         title="删除">
-                        <i class="fa fa-trash"></i>
-                      </a>` : ''}
-                    </div>
-                  </td>`;
+            <div class="flex space-x-2">
+              ${canDelete && !isMultiRecord ? `<a href="javascript:void(0);" class="text-danger hover:text-danger/80 transition-all-300 btn-hover-scale delete-record" 
+                 data-billingperiod="${firstRecord.billing_period}" 
+                 data-roomnumber="${(firstRecord.building || '未知') + (firstRecord.room_number || '未知')}" 
+                 data-name="${firstRecord.user_name}"
+                 data-occupantid="${firstRecord.occupant_id}" 
+                 title="删除">
+                <i class="fa fa-trash"></i>
+              </a>` : ''}
+            </div>
+          </td>`;
           
-          html += '</tr>';
+          html += `</tr>`;
+          
+          // ============ 明细行（仅多记录时渲染，默认隐藏） ============
+          if (isMultiRecord) {
+            userRecords.forEach((record, recordIndex) => {
+              html += `<tr class="table-row-hover transition-all-300 user-detail-row collapsed-detail" data-room-group="${roomGroupKey}" data-user-group="${userGroupKey}">`;
+              
+              // 姓名列（缩进+序号）
+              html += `<td class="px-6 py-4 whitespace-nowrap text-xs user-detail-name">
+                <a href="javascript:void(0);" onclick="window.location.href='/user/view/' + ${record.user_id}" 
+                   class="text-blue-600 hover:text-blue-800 hover:underline transition-colors">
+                  ${record.user_name || '未知'}
+                </a>
+                <span class="detail-index">${recordIndex + 1}/${userRecords.length}</span>
+              </td>`;
+              
+              // 分摊金额
+              html += `<td class="px-6 py-4 whitespace-nowrap text-xs text-gray-900">
+                ¥${formatFee(record.person_total_fee).toFixed(2)}
+              </td>`;
+              
+              // 减免金额
+              html += `<td class="px-6 py-4 whitespace-nowrap text-xs text-gray-900" style="display: ${feeUserFeeEnabled ? 'table-cell' : 'none'}" data-column="reduction">
+                ¥${formatFee(record.user_reduction_fee).toFixed(2)}
+              </td>`;
+              
+              // 个人应付
+              html += `<td class="px-6 py-4 whitespace-nowrap text-xs text-gray-900" style="display: ${feeUserFeeEnabled ? 'table-cell' : 'none'}" data-column="payable">
+                ¥${formatFee(record.payable_fee).toFixed(2)}
+              </td>`;
+              
+              // 住宿天数和周期
+              html += `<td class="px-6 py-4 whitespace-nowrap">
+                <div class="text-xs font-medium text-gray-900">${record.stay_days || 0}天</div>
+                <div class="text-xs text-gray-500">
+                  ${record.check_in_date.substring(0, 10)}→${record.check_out_date.substring(0, 10)}
+                </div>
+              </td>`;
+              
+              // 操作列
+              html += `<td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                <div class="flex space-x-2">
+                  ${canDelete ? `<a href="javascript:void(0);" class="text-danger hover:text-danger/80 transition-all-300 btn-hover-scale delete-record" 
+                     data-billingperiod="${record.billing_period}" 
+                     data-roomnumber="${(record.building || '未知') + (record.room_number || '未知')}" 
+                     data-name="${record.user_name}"
+                     data-occupantid="${record.occupant_id}" 
+                     title="删除">
+                    <i class="fa fa-trash"></i>
+                  </a>` : ''}
+                </div>
+              </td>`;
+              
+              html += `</tr>`;
+            });
+          }
         });
       });
       
@@ -732,6 +851,42 @@
       
       // 确保表格渲染后应用配置
       updateFeeColumnsVisibility();
+    }
+    
+    // 切换用户明细行的展开/折叠
+    function toggleUserDetails(userGroupKey, toggleEl, detailCount, roomGroupKey) {
+      const detailRows = document.querySelectorAll(`.user-detail-row[data-user-group="${userGroupKey}"]`);
+      const isCollapsed = detailRows.length > 0 && detailRows[0].classList.contains('collapsed-detail');
+      
+      if (isCollapsed) {
+        // 展开：移除隐藏类，切换图标，增加rowspan
+        detailRows.forEach(row => row.classList.remove('collapsed-detail'));
+        toggleEl.innerHTML = '<i class="fa fa-chevron-down"></i>';
+        toggleEl.title = '折叠明细';
+        adjustRoomRowspan(roomGroupKey, detailCount);
+      } else {
+        // 折叠：添加隐藏类，切换图标，减少rowspan
+        detailRows.forEach(row => row.classList.add('collapsed-detail'));
+        toggleEl.innerHTML = '<i class="fa fa-chevron-right"></i>';
+        toggleEl.title = '展开明细';
+        adjustRoomRowspan(roomGroupKey, -detailCount);
+      }
+    }
+    
+    // 调整房间级 rowspan（只调整前7列：账期、房间号、电费、水费、总费用、退宿总费用、在住总费用）
+    function adjustRoomRowspan(roomGroupKey, delta) {
+      const firstRow = document.querySelector(`.room-first-row[data-room-group="${roomGroupKey}"]`);
+      if (!firstRow) return;
+      // 只调整前7个td（room-level单元格）
+      const roomCells = firstRow.querySelectorAll('td');
+      for (let i = 0; i < Math.min(7, roomCells.length); i++) {
+        const cell = roomCells[i];
+        const current = parseInt(cell.getAttribute('rowspan')) || 1;
+        const newVal = current + delta;
+        if (newVal >= 1) {
+          cell.setAttribute('rowspan', newVal);
+        }
+      }
     }
     
     // 更新分页状态 - 重构为新的分页控件
