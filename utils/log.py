@@ -78,6 +78,9 @@ OPERATION_TYPE_MAP = {
     ('system', 'module'): '获取模块',
     ('system', 'records'): '访问页面',
     ('system', 'system_api'): '调用接口',
+    ('system', 'config_update'): '更新配置',
+    ('system', 'restart'): '触发系统重启',
+    ('system', 'system_api'): '查询系统存储信息',
     # 用户管理模块
     ('user', 'user_api'): '调用接口',
     ('user', 'records'): '访问页面',

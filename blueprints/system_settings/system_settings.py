@@ -220,8 +220,6 @@ def get_module_configs(category):
                 if key in local_config:
                     configs[key] = local_config[key]
                     
-
-
         return jsonify({
             "success": True,
             "data": configs,
