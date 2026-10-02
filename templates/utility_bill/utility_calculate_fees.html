@@ -484,7 +484,20 @@
 
         // 初始化页面
         function initPage() {
-            loadBillingPeriods();
+            loadBillingPeriods().then(() => {
+                // 检查URL参数是否有billing_period，如果有则自动选中并加载数据
+                const urlParams = new URLSearchParams(window.location.search);
+                const periodParam = urlParams.get('billing_period');
+                if (periodParam) {
+                    billingPeriodSelect.value = periodParam;
+                    if (billingPeriodSelect.value === periodParam) {
+                        currentBillingPeriod = periodParam;
+                        currentPage = 1;
+                        updateActionButtons();
+                        loadRecords();
+                    }
+                }
+            });
             loadBuildings();  // 加载楼栋列表
             // 设置默认账期为当前月份
             const now = new Date();
@@ -693,53 +706,22 @@
         }
 
         // 新增：生成空账期
-        async function createEmptyPeriod(period) {
+        function createEmptyPeriod(period) {
             if (!period) {
                 showToast('请选择账期', 'warning');
                 return;
             }
 
-            showLoading('正在生成空账期...');
-
-            try {
-                const response = await fetch(`/utility_room_bill_records_bp/create_empty_period`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ 
-                        billing_period: period
-                    })
-                });
-
-                // 处理响应
-                let result;
-                try {
-                    result = await response.json();
-                } catch (e) {
-                    throw new Error(`服务器返回无效响应: ${await response.text()}`);
-                }
-                
-                if (!response.ok || !result.success) {
-                    throw new Error(result.error || '生成空账期失败');
-                }
-                
-                showToast(`成功生成${period}空账期，共创建${result.created_count}条记录`, 'success');
-                // 重新加载账期列表和数据
-                loadBillingPeriods();
-                // 如果当前没有选中账期，自动选中新生成的账期并加载
-                if (!currentBillingPeriod) {
-                    billingPeriodSelect.value = period;
-                    currentBillingPeriod = period;
-                    updateActionButtons();
-                    loadRecords();
-                }
-            } catch (error) {
-                console.error('生成空账期失败:', error);
-                showToast('生成失败: ' + (error.message || '网络错误'), 'error');
-            } finally {
-                hideLoading();
-            }
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '/utility_room_bill_records_bp/create_empty_period';
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'billing_period';
+            input.value = period;
+            form.appendChild(input);
+            document.body.appendChild(form);
+            form.submit();
         }
 
         // 更新操作按钮状态
@@ -888,201 +870,78 @@
         }
 
         // 一键核算费用
-        async function calculateBill() {
+        function calculateBill() {
             if (!currentBillingPeriod) {
                 showToast('请先选择账期', 'warning');
                 return;
             }
 
-            showLoading('正在进行费用核算...');
-
-            try {
-                const response = await fetch(`/utility_room_bill_records_bp/fee_bill`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ 
-                        calculate: true,
-                        billing_period: currentBillingPeriod
-                    })
-                });
-
-                // 处理非JSON响应
-                let result;
-                try {
-                    result = await response.json();
-                } catch (e) {
-                    throw new Error(`服务器返回无效响应: ${await response.text()}`);
-                }
-                
-                if (!response.ok || !result.success) {
-                    throw new Error(result.error || '费用核算核算失败');
-                }
-                
-                showToast(`费用核算完成，共更新${result.updated_count}条主表记录`, 'success');
-                loadRecords(); // 重新加载记录
-            } catch (error) {
-                showToast('核算失败: ' + error.message, 'error');
-                console.error('核算失败:', error);
-            } finally {
-                hideLoading();
-            }
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '/utility_room_bill_records_bp/fee_bill';
+            const addHiddenField = (name, value) => {
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = name;
+                input.value = value;
+                form.appendChild(input);
+            };
+            addHiddenField('calculate', 'true');
+            addHiddenField('billing_period', currentBillingPeriod);
+            document.body.appendChild(form);
+            form.submit();
         }
 
         // 清空当期主表数据（仅清除抄表信息和费用核算信息）
-        async function clearPeriodData(period) {
+        function clearPeriodData(period) {
             if (!period) {
                 showToast('请先选择账期', 'warning');
                 return;
             }
 
-            showLoading('正在清空当期数据...');
-            
-            try {
-                // 调用后端后端端清空接口
-                const response = await fetch(`/utility_room_bill_records_bp/clear-period`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        billing_period: period
-                    })
-                });
-
-                // 处理响应
-                let result;
-                try {
-                    result = await response.json();
-                } catch (e) {
-                    throw new Error(`服务器返回无效响应: ${await response.text()}`);
-                }
-                
-                if (!response.ok || !result.success) {
-                    throw new Error(result.error || '清空空数据失败');
-                }
-                
-                showToast(`成功清空${period}账期的主表数据，共处理${result.cleared_count}条记录`, 'success');
-                // 重新加载数据
-                loadRecords();
-            } catch (error) {
-                console.error('清空当期期数据失败:', error);
-                showToast('清空失败: ' + (error.message || '网络错误'), 'error');
-            } finally {
-                hideLoading();
-            }
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '/utility_room_bill_records_bp/clear-period';
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'billing_period';
+            input.value = period;
+            form.appendChild(input);
+            document.body.appendChild(form);
+            form.submit();
         }
 
-        // 按账期删除所有记录 - 与后端batch-delete接口匹配
-        async function deleteAllRecords(period) {
+        // 按账期删除所有记录 - 使用新的delete-period路由
+        function deleteAllRecords(period) {
             if (!period) {
                 showToast('请先选择账期', 'warning');
                 return;
             }
 
-            // 首先获取当前账期的所有记录ID
-            showLoading('正在获取记录ID...');
-            
-            try {
-                // 先获取当前账期的所有记录
-                const response = await fetch(`/utility_room_bill_records_bp/search?billing_period=${period}&page=1&per_page=1000`);
-                if (!response.ok) throw new Error('获取记录列表失败');
-                
-                const result = await response.json();
-                if (!result.success) throw new Error(result.error || '获取记录列表失败');
-                
-                const records = result.data;
-                if (records.length === 0) {
-                    hideLoading();
-                    showToast('当前账期没有记录可删除', 'info');
-                    return;
-                }
-                
-                // 提取所有记录ID
-                const recordIds = records.map(record => record.record_id);
-                
-                // 调用批量删除接口
-                showLoading('正在删除记录...');
-                const deleteResponse = await fetch(`/utility_room_bill_records_bp/batch-delete`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        record_ids: recordIds  // 后端需要的参数名是record_ids
-                    })
-                });
-
-                // 处理删除响应
-                let deleteResult;
-                try {
-                    deleteResult = await deleteResponse.json();
-                } catch (e) {
-                    throw new Error(`服务器返回无效响应: ${await deleteResponse.text()}`);
-                }
-                
-                if (!deleteResponse.ok || !deleteResult.success) {
-                    throw new Error(deleteResult.error || '删除失败');
-                }
-                
-                showToast(`成功删除${period}账期的所有记录，共${deleteResult.deleted_ids.length}条`, 'success');
-                // 重新加载数据
-                loadRecords();
-            } catch (error) {
-                console.error('批量删除请求失败:', error);
-                showToast('删除失败: ' + (error.message || '网络错误'), 'error');
-            } finally {
-                hideLoading();
-            }
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '/utility_room_bill_records_bp/delete-period';
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'billing_period';
+            input.value = period;
+            form.appendChild(input);
+            document.body.appendChild(form);
+            form.submit();
         }
 
-        // 单行删除 - 与后端接口匹配
+                // 删除单条记录 - 使用POST表单提交到新的delete路由
         function deleteSingleRecord(recordId) {
             if (!recordId || isNaN(recordId)) {
                 showToast('无效的记录ID', 'warning');
                 return;
             }
 
-            showLoading('正在删除记录...');
-
-            // 与后端接口匹配：DELETE /utility_room_bill_records_bp/<record_id>
-            fetch(`/utility_room_bill_records_bp/${recordId}`, {
-                method: 'DELETE',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
-            })
-            .then(response => {
-                if (!response.ok) {
-                    // 尝试解析错误响应
-                    return response.text().then(text => {
-                        try {
-                            const err = JSON.parse(text);
-                            throw new Error(err.error || `删除失败 (HTTP ${response.status})`);
-                        } catch {
-                            throw new Error(`删除失败 (HTTP ${response.status}): ${text.substring(0, 100)}`);
-                        }
-                    });
-                }
-                return response.json();
-            })
-            .then(data => {
-                if (data.success) {
-                    showToast('删除成功', 'success');
-                    // 重新加载数据确保一致性
-                    loadRecords();
-                } else {
-                    showToast('删除失败: ' + (data.error || '未知错误'), 'error');
-                }
-            })
-            .catch(error => {
-                console.error('删除请求失败:', error);
-                showToast('删除失败: ' + error.message, 'error');
-            })
-            .finally(() => {
-                hideLoading();
-            });
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = `/utility_room_bill_records_bp/${recordId}/delete`;
+            document.body.appendChild(form);
+            form.submit();
         }
 
         // 更新账期信息

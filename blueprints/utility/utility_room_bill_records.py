@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, flash, redirect, url_for
 from datetime import datetime, time
 from utils.db import db
 from models.utility.utility_room_bill_record import RoomUtilityRecord  # 主表模型
@@ -318,11 +318,13 @@ def get_records_by_period():
 def create_record():  # 保持原有接口名称
     """一键核算费用接口，仅处理批量核算逻辑"""
     try:
-        data = request.get_json()
-        
         # 仅保留一键核算逻辑，移除单个记录的创建/更新逻辑
+        # 鎷取表单参数
+        calculate = request.form.get('calculate')
+        billing_period = request.form.get('billing_period')
+        
         # 验证核算必要参数
-        if not data.get('calculate') or not data.get('billing_period'):
+        if not calculate or not billing_period:
             log_operation(
                 user_id=current_user.id,
                 module='utility',
@@ -330,14 +332,12 @@ def create_record():  # 保持原有接口名称
                 action="缺少必要参数：calculate和billing_period为必填项",
                 result="失败"
             )
-            return jsonify({
-                'success': False,
-                'error': '缺少必要参数：calculate和billing_period为必填项'
-            }), 400
+            flash('缺少必要参数：calculate和billing_period为必填项', 'danger')
+            return redirect(url_for('utility_index.utility_calculate_fees', billing_period=billing_period or ''))
         
         # 1. 查询该账期的所有主表记录
         main_records = RoomUtilityRecord.query.filter_by(
-            billing_period=data['billing_period']
+            billing_period=billing_period
         ).all()
         
         if not main_records:
@@ -345,13 +345,11 @@ def create_record():  # 保持原有接口名称
                 user_id=current_user.id,
                 module='utility',
                 operation_type="bill_update",  # 保持原有日志类型
-                action=f"未找到{data['billing_period']}的主表记录，请先确保主表已初始化",
+                action=f"未找到{billing_period}的主表记录，请先确保主表已初始化",
                 result="失败"
             )
-            return jsonify({
-                'success': False,
-                'error': f'未找到{data["billing_period"]}的主表记录，请先初始化主表'
-            }), 400
+            flash(f'未找到{billing_period}的主表记录，请先初始化主表', 'danger')
+            return redirect(url_for('utility_index.utility_calculate_fees', billing_period=billing_period))
         
         # 2. 提取所有主表ID，查询关联的子表抄表记录
         main_record_ids = [record.record_id for record in main_records]
@@ -361,14 +359,12 @@ def create_record():  # 保持原有接口名称
         ).all()
         
         if not meter_readings:
-            return jsonify({
-                'success': False,
-                'error': f'{data["billing_period"]}的主表记录未关联任何抄表数据，请先完成抄表'
-            }), 400
+            flash(f'{billing_period}的主表记录未关联任何抄表数据，请先完成抄表', 'danger')
+            return redirect(url_for('utility_index.utility_calculate_fees', billing_period=billing_period))
         
         # 3. 调用模型层的批量更新方法（核心逻辑完全由模型层处理）
         updated_count = RoomUtilityRecord.batch_update_from_meter(
-            billing_period=data['billing_period'],
+            billing_period=billing_period,
             meter_readings=meter_readings,
             main_records=main_records
         )
@@ -379,14 +375,11 @@ def create_record():  # 保持原有接口名称
             user_id=current_user.id,
             module='utility',
             operation_type="bill_update",  # 保持原有日志类型
-            action=f"费用核算：{data['billing_period']}，更新{updated_count}条记录",
+            action=f"费用核算：{billing_period}，更新{updated_count}条记录",
             result="成功"
         )
-        return jsonify({
-            'success': True, 
-            'message': f'费用核算完成，共更新{updated_count}条主表记录',
-            'updated_count': updated_count
-        })
+        flash(f'费用核算完成，共更新{updated_count}条主表记录', 'success')
+        return redirect(url_for('utility_index.utility_calculate_fees', billing_period=billing_period))
         
     except Exception as e:
         db.session.rollback()
@@ -400,16 +393,17 @@ def create_record():  # 保持原有接口名称
             action=f"核算处理失败: {str(e)}",
             result="失败"
         )
-        return jsonify({'error': f'核算处理失败: {str(e)}'}), 500
+        flash(f'核算处理失败: {str(e)}', 'danger')
+        billing_period = request.form.get('billing_period', '')
+        return redirect(url_for('utility_index.utility_calculate_fees', billing_period=billing_period))
 
 
-@utility_room_bill_records_bp.route('/<int:record_id>', methods=['DELETE'])
+@utility_room_bill_records_bp.route('/<int:record_id>/delete', methods=['POST'])
 @login_required
 @require_permission('utility.delete')
 def delete_single_record(record_id):
     """删除单条账单记录（单行删除功能）"""
     try:
-        
         # 验证记录存在
         record = RoomUtilityRecord.get_by_id(record_id)
         if not record:
@@ -421,8 +415,9 @@ def delete_single_record(record_id):
                 action=f"删除单条记录 [记录ID: {record_id}, 原因: 记录不存在]",
                 result="失败"
             )
-            
-            return jsonify({'error': f'记录ID={record_id}不存在'}), 404
+            flash(f'记录ID={record_id}不存在', 'danger')
+            billing_period = request.form.get('billing_period', '')
+            return redirect(url_for('utility_index.utility_calculate_fees', billing_period=billing_period))
         
         # 保存记录信息用于日志
         room_id = record.room_id
@@ -453,12 +448,8 @@ def delete_single_record(record_id):
             f"用户{current_user.id}删除了账单记录ID={record_id}（房间{room_id}），"
             f"连带删除补贴记录{subsidy_deleted_count}条"
         )
-        return jsonify({
-            'success': True,
-            'message': f'记录ID={record_id}已成功删除',
-            'record_id': record_id,
-            'subsidy_deleted_count': subsidy_deleted_count
-        })
+        flash('记录已成功删除', 'success')
+        return redirect(url_for('utility_index.utility_calculate_fees', billing_period=billing_period))
         
     except Exception as e:
         db.session.rollback()
@@ -475,8 +466,9 @@ def delete_single_record(record_id):
             action=f"删除单条记录 [记录ID: {record_id}, 错误: {str(e)}]",
             result="失败"
         )
-        
-        return jsonify({'error': f'删除失败: {str(e)}'}), 500
+        flash(f'删除失败: {str(e)}', 'danger')
+        billing_period = request.form.get('billing_period', '')
+        return redirect(url_for('utility_index.utility_calculate_fees', billing_period=billing_period))
 
 
 
@@ -486,33 +478,20 @@ def delete_single_record(record_id):
 def batch_delete_records():
     """批量删除账单记录（支持删除当期账单），连带删除关联的费用补贴记录"""
     try:
-        
-        # 获取请求数据（要求前端传递JSON格式的record_ids列表）
-        data = request.get_json()
-        if not data or 'record_ids' not in data:
+        # 获取表单数据
+        record_ids = request.form.getlist('record_ids[]', type=int)
+        if not record_ids:
             # 记录参数错误日志
             log_operation(
                 user_id=current_user.id,
                 module='utility',
                 operation_type="delete",
-                action=f"批量删除记录 [数据: {str(data)}, 原因: 未提供record_ids参数]",
+                action=f"批量删除记录 [原因: 未提供record_ids参数]",
                 result="失败"
             )
-            
-            return jsonify({'error': '请提供要删除的记录ID列表（参数名：record_ids）'}), 400
-        
-        record_ids = data['record_ids']
-        # 验证参数格式
-        if not isinstance(record_ids, list) or len(record_ids) == 0:
-            # 记录参数错误日志
-            log_operation(
-                user_id=current_user.id,
-                module='utility',
-                operation_type="delete",
-                action=f"批量删除记录 [record_ids: {str(record_ids)}, 原因: record_ids必须是包含至少一个ID的列表]",
-                result="失败"
-            )
-            return jsonify({'error': 'record_ids必须是包含至少一个ID的列表'}), 400
+            flash('请提供要删除的记录ID列表', 'danger')
+            billing_period = request.form.get('billing_period', '')
+            return redirect(url_for('utility_index.utility_calculate_fees', billing_period=billing_period))
         
         # 验证所有记录存在并收集关联信息
         records = []
@@ -528,7 +507,9 @@ def batch_delete_records():
                     action=f"批量删除记录 [记录ID: {record_id}, 原因: 记录不存在]",
                     result="失败"
                 )
-                return jsonify({'error': f'记录ID={record_id}不存在，无法删除'}), 404
+                flash(f'记录ID={record_id}不存在，无法删除', 'danger')
+                billing_period = request.form.get('billing_period', '')
+                return redirect(url_for('utility_index.utility_calculate_fees', billing_period=billing_period))
             records.append(record)
             room_period_pairs.append((record.room_id, record.billing_period))
         
@@ -563,12 +544,9 @@ def batch_delete_records():
                    f"连带删除补贴记录数量: {total_subsidy_deleted}]",
             result="成功"
         )
-        return jsonify({
-            'success': True,
-            'message': f'成功删除{len(deleted_ids)}条记录，连带删除补贴记录{total_subsidy_deleted}条',
-            'deleted_ids': deleted_ids,
-            'subsidy_deleted_count': total_subsidy_deleted
-        })
+        flash(f'成功删除{len(deleted_ids)}条记录', 'success')
+        billing_period = records[0].billing_period if records else request.form.get('billing_period', '')
+        return redirect(url_for('utility_index.utility_calculate_fees', billing_period=billing_period))
         
     except Exception as e:
         db.session.rollback()
@@ -581,10 +559,82 @@ def batch_delete_records():
             user_id=current_user.id,
             module='utility',
             operation_type="delete",
-            action=f"批量删除记录 [record_ids: {str(request.get_json().get('record_ids'))}, 错误: {str(e)}]",
+            action=f"批量删除记录 [record_ids: {str(request.form.getlist('record_ids[]'))}, 错误: {str(e)}]",
             result="失败"
         )
-        return jsonify({'error': f'删除失败: {str(e)}'}), 500
+        flash(f'删除失败: {str(e)}', 'danger')
+        billing_period = request.form.get('billing_period', '')
+        return redirect(url_for('utility_index.utility_calculate_fees', billing_period=billing_period))
+
+@utility_room_bill_records_bp.route('/delete-period', methods=['POST'])
+@login_required
+@require_permission('utility.delete')
+def delete_period_records():
+    """按账期删除所有记录（替代前端两步操作：先search获取IDs，再batch-delete）"""
+    try:
+        period = request.form.get('billing_period')
+        if not period:
+            log_operation(
+                user_id=current_user.id,
+                module='utility',
+                operation_type="delete",
+                action=f"按账期删除记录 [原因: 未提供账期参数]",
+                result="失败"
+            )
+            flash('请提供账期参数', 'danger')
+            return redirect(url_for('utility_index.utility_calculate_fees'))
+        
+        # 查询该账期的所有主表记录
+        records = RoomUtilityRecord.query.filter_by(billing_period=period).all()
+        if not records:
+            flash(f'账期{period}没有记录可删除', 'danger')
+            return redirect(url_for('utility_index.utility_calculate_fees', billing_period=period))
+        
+        # 收集关联信息用于删除补贴记录
+        room_period_pairs = [(record.room_id, record.billing_period) for record in records]
+        
+        # 批量删除关联的费用补贴子表记录
+        total_subsidy_deleted = 0
+        for room_id, billing_period in room_period_pairs:
+            deleted = FeeSubsidyUsage.query.filter(
+                FeeSubsidyUsage.room_id == room_id,
+                FeeSubsidyUsage.billing_period == billing_period,
+                FeeSubsidyUsage.is_checkout.in_([1, 2, 3])
+            ).delete(synchronize_session=False)
+            total_subsidy_deleted += deleted
+        
+        # 执行批量删除主表记录
+        deleted_count = 0
+        for record in records:
+            record.delete()  # 调用主表delete方法，级联删除子表
+            deleted_count += 1
+        
+        db.session.commit()
+        
+        # 记录操作日志
+        log_operation(
+            user_id=current_user.id,
+            module='utility',
+            operation_type="delete",
+            action=f"按账期删除记录 [账期: {period}, 删除数量: {deleted_count}, 连带删除补贴记录数量: {total_subsidy_deleted}]",
+            result="成功"
+        )
+        flash(f'成功删除{period}账期的所有记录，共{deleted_count}条', 'success')
+        return redirect(url_for('utility_index.utility_calculate_fees', billing_period=period))
+        
+    except Exception as e:
+        db.session.rollback()
+        logging.error(f"按账期删除记录失败: {str(e)}")
+        log_operation(
+            user_id=current_user.id,
+            module='utility',
+            operation_type="delete",
+            action=f"按账期删除记录 [账期: {request.form.get('billing_period')}, 错误: {str(e)}]",
+            result="失败"
+        )
+        flash(f'删除失败: {str(e)}', 'danger')
+        billing_period = request.form.get('billing_period', '')
+        return redirect(url_for('utility_index.utility_calculate_fees', billing_period=billing_period))
 
 @utility_room_bill_records_bp.route('/clear-period', methods=['POST'])
 @login_required
@@ -592,19 +642,18 @@ def batch_delete_records():
 def clear_period_data():
     """清空指定账期的主表数据（保留记录，清除抄表和费用信息）"""
     try:
-        data = request.get_json()
-        if not data or 'billing_period' not in data:
+        period = request.form.get('billing_period')
+        if not period:
             # 记录参数错误日志
             log_operation(
                 user_id=current_user.id,
                 module='utility',
                 operation_type="delete",
-                action=f"清空账期数据 [数据: {str(data)}, 原因: 未提供账期参数]",
+                action=f"清空账期数据 [原因: 未提供账期参数]",
                 result="失败"
             )
-            return jsonify({'error': '请提供账期参数（billing_period）'}), 400
-            
-        period = data['billing_period']
+            flash('请提供账期参数（billing_period）', 'danger')
+            return redirect(url_for('utility_index.utility_calculate_fees'))
         
         # 查询该账期的所有主表记录
         records = RoomUtilityRecord.query.filter_by(billing_period=period).all()
@@ -617,10 +666,8 @@ def clear_period_data():
                 action=f"清空账期数据 [账期: {period}, 原因: 未找到主表记录]",
                 result="失败"
             )
-            return jsonify({
-                'success': False,
-                'error': f'未找到{period}的主表记录'
-            }), 404
+            flash(f'未找到{period}的主表记录', 'danger')
+            return redirect(url_for('utility_index.utility_calculate_fees', billing_period=period))
 
         # 提取所有主表记录ID，用于删除关联子表
         record_ids = [record.record_id for record in records]
@@ -701,12 +748,8 @@ def clear_period_data():
             action=f"清空账期数据 [账期: {period}, 主表清除数量: {cleared_count}, 在住人员子表删除数量: {room_utility_occupant_deleted}，补贴子表删除数量: {subsidy_usage_deleted}]",
             result="成功"
         )
-        return jsonify({
-            'success': True,
-            'message': f'成功清空{period}账期数据，主表{cleared_count}条，在住人员子表{room_utility_occupant_deleted}条',
-            'cleared_count': cleared_count,
-            'deleted_occupant_records': room_utility_occupant_deleted
-        })
+        flash(f'成功清空{period}账期数据', 'success')
+        return redirect(url_for('utility_index.utility_calculate_fees', billing_period=period))
         
     except Exception as e:
         db.session.rollback()
@@ -716,10 +759,12 @@ def clear_period_data():
             user_id=current_user.id,
             module='utility',
             operation_type="delete",
-            action=f"清空账期数据 [账期: {data.get('billing_period')}, 错误: {str(e)}]",
+            action=f"清空账期数据 [账期: {request.form.get('billing_period')}, 错误: {str(e)}]",
             result="失败"
         )
-        return jsonify({'error': f'清空失败: {str(e)}'}), 500
+        flash(f'清空失败: {str(e)}', 'danger')
+        billing_period = request.form.get('billing_period', '')
+        return redirect(url_for('utility_index.utility_calculate_fees', billing_period=billing_period))
 
 
 @utility_room_bill_records_bp.route('/search', methods=['GET'])
@@ -916,7 +961,82 @@ def create_empty_period_records():
     会先检查账期是否已存在，存在则不允许创建
     """
     try:
-        data = request.get_json()
+        # 获取表单参数
+        billing_period = request.form.get('billing_period')
+        
+        # 验证必要参数
+        if not billing_period:
+            # 记录参数错误日志
+            log_operation(
+                user_id=current_user.id,
+                module='utility',
+                operation_type='bill_update',
+                action=f"创建空账期记录 [原因: 未提供账期参数]",
+                result="失败"
+            )
+            flash('请提供账期参数（billing_period，格式：YYYY-MM）', 'danger')
+            return redirect(url_for('utility_index.utility_calculate_fees'))
+        
+        # 验证账期格式
+        try:
+            datetime.strptime(billing_period, '%Y-%m')
+        except ValueError:
+            # 记录参数错误日志
+            log_operation(
+                user_id=current_user.id,
+                module='utility',
+                operation_type='bill_update',
+                action=f"创建空账期记录 [账期: {billing_period}, 原因: 账期格式错误]",
+                result="失败"
+            )
+            flash('账期格式错误，应为YYYY-MM', 'danger')
+            return redirect(url_for('utility_index.utility_calculate_fees', billing_period=billing_period))
+        
+        # 调用模型方法创建空记录
+        created_count = RoomUtilityRecord.create_empty_records_for_period(
+            billing_period=billing_period
+        )
+
+        db.session.commit()
+        # 记录操作日志
+        log_operation(
+            user_id=current_user.id,
+            module='utility',
+            operation_type='bill_update',
+            action=f"为账期创建空记录 [账期: {billing_period}, 创建数量: {created_count}]",
+            result="成功"
+        )
+        flash(f'成功为账期{billing_period}创建{created_count}条空记录', 'success')
+        return redirect(url_for('utility_index.utility_calculate_fees', billing_period=billing_period))
+        
+    except ValueError as e:
+        # 处理账期已存在等预期错误
+        # 记录错误日志
+        log_operation(
+            user_id=current_user.id,
+            module='utility',
+            operation_type='bill_update',
+            action=f"创建空账期记录 [账期: {request.form.get('billing_period')}, 错误: {str(e)}]",
+            result="失败"
+        )
+        flash(f'{str(e)}', 'danger')
+        billing_period = request.form.get('billing_period', '')
+        return redirect(url_for('utility_index.utility_calculate_fees', billing_period=billing_period))
+    except Exception as e:
+        db.session.rollback()
+        logging.error(f"创建指定账期空记录失败: {str(e)}")
+        
+        # 记录错误日志
+        log_operation(
+            user_id=current_user.id,
+            module='utility',
+            operation_type='bill_update',
+            action=f"创建指定账期空记录 [账期: {request.form.get('billing_period')}, 错误: {str(e)}]",
+            result="失败"
+        )
+        flash(f'创建失败: {str(e)}', 'danger')
+        billing_period = request.form.get('billing_period', '')
+        return redirect(url_for('utility_index.utility_calculate_fees', billing_period=billing_period))
         
         # 验证必要参数
         if not data or 'billing_period' not in data:

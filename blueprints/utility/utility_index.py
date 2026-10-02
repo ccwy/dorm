@@ -76,6 +76,7 @@ def utility_index():
 def utility_calculate_fees():
     """核算水电费页面（已修正模板文件名）"""
     try:
+        billing_period = request.args.get('billing_period', '')
         log_operation(
             user_id=current_user.id,
             module='utility',#这里记载模块
@@ -83,7 +84,7 @@ def utility_calculate_fees():
             action=f"访问核算水电费页面",#这里记载成功与失败的记录
             result="成功"#这里只有成功与失败
         )
-        return render_template('utility_bill/utility_calculate_fees.html', title=f"月度账单管理")
+        return render_template('utility_bill/utility_calculate_fees.html', title=f"月度账单管理", billing_period=billing_period)
     except Exception as e:
         logging.error(f"访问核算水电费页面失败: {str(e)}")
         log_operation(
@@ -94,7 +95,8 @@ def utility_calculate_fees():
             result="失败"#这里只有成功与失败
         )
         flash(str(e), 'danger')
-        return render_template('utility_bill/utility_calculate_fees.html', title=f"月度账单管理")
+        billing_period = request.args.get('billing_period', '')
+        return render_template('utility_bill/utility_calculate_fees.html', title=f"月度账单管理", billing_period=billing_period)
 
 @utility_index_bp.route('/utility_room_records_detail')
 @login_required
