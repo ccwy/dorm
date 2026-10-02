@@ -657,4 +657,135 @@ def download_import_template():
         logging.error(f'下载住宿分配导入模板失败：{str(e)}，操作人ID：{current_user.id}')
         flash('下载导入模板失败', 'danger')
         return redirect(url_for('dorm.dorm_query'))
+
+
+@dorm_import_export_bp.route('/export-room-residents', methods=['GET'])
+@login_required
+@require_permission('dorm.export')
+def export_room_residents():
+    """按房间号导出在住人员数据，每行一个房间，居住人员信息合并到同一行"""
+    try:
+        from models.room.room import RoomStatus
+        
+        search_query = request.args.get('search', '').strip()
+        
+        # 查询所有非关闭状态的房间
+        rooms = Room.query.filter(Room.status != RoomStatus.CLOSED.value).all()
+        
+        # 查询所有活跃的住宿记录，按房间ID分组
+        all_dorm_records = Dorm.query.filter_by(status='active').all()
+        dorm_records_by_room = {}
+        for record in all_dorm_records:
+            if record.room_id not in dorm_records_by_room:
+                dorm_records_by_room[record.room_id] = []
+            dorm_records_by_room[record.room_id].append(record)
+        
+        # 查询所有用户信息
+        all_users = User.query.all()
+        user_map = {user.id: user for user in all_users}
+        
+        # 处理搜索过滤
+        if search_query:
+            filtered_rooms = []
+            for room in rooms:
+                room_number = f"{room.building}{room.room_number}"
+                if search_query in room_number:
+                    filtered_rooms.append(room)
+                    continue
+                room_records = dorm_records_by_room.get(room.id, [])
+                residents = [user_map.get(record.user_id) for record in room_records if record.user_id in user_map]
+                if any(search_query in resident.name for resident in residents if resident):
+                    filtered_rooms.append(room)
+            rooms = filtered_rooms
+        
+        # 按楼栋和房间号排序
+        rooms.sort(key=lambda r: (r.building, r.room_number))
+        
+        # 构建导出数据
+        export_data = []
+        for idx, room in enumerate(rooms, 1):
+            room_records = dorm_records_by_room.get(room.id, [])
+            residents_info = []
+            
+            for record in room_records:
+                user = user_map.get(record.user_id)
+                if user:
+                    check_in = record.check_in_date.strftime('%Y-%m-%d') if record.check_in_date else '未知'
+                    dept = user.department if user.department else ''
+                    pos = user.position if user.position else ''
+                    sid = user.student_id if user.student_id else ''
+                    residents_info.append(f"{user.name} | {sid} | {dept} | {pos} | {check_in}")
+            
+            residents_str = '\n'.join(residents_info) if residents_info else '无'
+            
+            export_data.append({
+                '序号': idx,
+                '房间号': f"{room.building}{room.room_number}",
+                '性别': room.gender_restriction,
+                '级别': room.room_level or '',
+                '房间类型': f"{room.room_type}({room.capacity}人间)",
+                '居住人员': residents_str,
+                '备注': room.remark or ''
+            })
+        
+        # 检查是否有数据
+        if not export_data:
+            flash('没有找到符合条件的房间数据', 'warning')
+            return redirect(url_for('dorm.dorm_room_query'))
+        
+        # 生成Excel文件
+        output = BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            df = pd.DataFrame(export_data)
+            df.to_excel(writer, index=False, sheet_name='房间在住人员')
+            
+            # 获取工作表并设置格式
+            worksheet = writer.sheets['房间在住人员']
+            
+            # 设置列宽
+            worksheet.column_dimensions['A'].width = 6   # 序号
+            worksheet.column_dimensions['B'].width = 10  # 房间号
+            worksheet.column_dimensions['C'].width = 8   # 性别
+            worksheet.column_dimensions['D'].width = 10  # 级别
+            worksheet.column_dimensions['E'].width = 15  # 房间类型
+            worksheet.column_dimensions['F'].width = 50  # 居住人员
+            worksheet.column_dimensions['G'].width = 15  # 备注
+            
+            # 设置居住人员列自动换行
+            from openpyxl.styles import Alignment as XlAlignment
+            for row in worksheet.iter_rows(min_row=2, max_row=worksheet.max_row, min_col=6, max_col=6):
+                for cell in row:
+                    cell.alignment = XlAlignment(wrap_text=True, vertical='top')
+        
+        output.seek(0)
+        
+        # 构建下载响应
+        filename = f"房间在住人员_{datetime.now().strftime('%Y%m%d')}.xlsx"
+        encoded_filename = quote(filename)
+        
+        response = make_response(output.getvalue())
+        response.headers["Content-Disposition"] = f"attachment; filename*=UTF-8''{encoded_filename}"
+        response.headers["Content-Type"] = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        
+        log_operation(
+            user_id=current_user.id,
+            module='dorm',
+            operation_type='batch_import_export',
+            action=f"按房间导出在住人员数据: {len(export_data)}个房间",
+            result="成功"
+        )
+        logging.info(f'成功按房间导出在住人员数据，共{len(export_data)}个房间，操作人ID：{current_user.id}')
+        return response
+        
+    except Exception as e:
+        log_operation(
+            user_id=current_user.id,
+            module='dorm',
+            operation_type='batch_import_export',
+            action=f"按房间导出在住人员数据失败: {str(e)}",
+            result="失败"
+        )
+        logging.error(f'按房间导出在住人员数据失败：{str(e)}，操作人ID：{current_user.id}')
+        flash(f'导出房间在住人员数据失败: {str(e)}', 'danger')
+        return redirect(url_for('dorm.dorm_room_query'))
     

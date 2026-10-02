@@ -32,13 +32,6 @@ def utility_home():
         return render_template('utility_bill/utility_index.html', title=f"水电费管理")
     except Exception as e:
         logging.error(f"访问水电费管理首页失败: {str(e)}")
-        log_operation(
-            user_id=current_user.id,
-            module='utility',#这里记载模块
-            operation_type='records',#这里记载类型
-            action=f"访问水电费管理首页 [错误: {str(e)}]",#这里记载成功与失败的记录
-            result="失败"#这里只有成功与失败
-        )
         flash(str(e), 'danger')
         return render_template('utility_bill/utility_index.html', title=f"水电费管理")
 
@@ -58,13 +51,6 @@ def utility_index():
         return render_template('utility_bill/utility_index.html', title=f"水电费管理")
     except Exception as e:
         logging.error(f"通过/index访问首页失败: {str(e)}")
-        log_operation(
-            user_id=current_user.id,
-            module='utility',#这里记载模块
-            operation_type='records',#这里记载类型
-            action=f"通过/index访问首页 [错误: {str(e)}]",#这里记载成功与失败的记录
-            result="失败"#这里只有成功与失败
-        )
         flash(str(e), 'danger')
         return render_template('utility_bill/utility_index.html', title=f"水电费管理")
 
@@ -74,29 +60,22 @@ def utility_index():
 @login_required
 @require_permission('utility.view')
 def utility_calculate_fees():
-    """核算水电费页面（已修正模板文件名）"""
+    """核算房间水电费页面（已修正模板文件名）"""
     try:
         billing_period = request.args.get('billing_period', '')
         log_operation(
             user_id=current_user.id,
             module='utility',#这里记载模块
             operation_type='records',#这里记载类型
-            action=f"访问核算水电费页面",#这里记载成功与失败的记录
+            action=f"访问核算房间水电费页面",#这里记载成功与失败的记录
             result="成功"#这里只有成功与失败
         )
-        return render_template('utility_bill/utility_calculate_fees.html', title=f"月度账单管理", billing_period=billing_period)
+        return render_template('utility_bill/utility_calculate_fees.html', title=f"核算房间水电费", billing_period=billing_period)
     except Exception as e:
-        logging.error(f"访问核算水电费页面失败: {str(e)}")
-        log_operation(
-            user_id=current_user.id,
-            module='utility',#这里记载模块
-            operation_type='records',#这里记载类型
-            action=f"访问核算水电费页面 [错误: {str(e)}]",#这里记载成功与失败的记录
-            result="失败"#这里只有成功与失败
-        )
+        logging.error(f"访问核算房间水电费页面失败: {str(e)}")
         flash(str(e), 'danger')
         billing_period = request.args.get('billing_period', '')
-        return render_template('utility_bill/utility_calculate_fees.html', title=f"月度账单管理", billing_period=billing_period)
+        return render_template('utility_bill/utility_calculate_fees.html', title=f"核算房间水电费", billing_period=billing_period)
 
 @utility_index_bp.route('/utility_room_records_detail')
 @login_required
@@ -118,13 +97,6 @@ def utility_room_records_detail():
         return render_template('utility_bill/utility_room_records_detail.html', title=f"房间水电费查询")
     except Exception as e:
         logging.error(f"访问房间水电费查询页面失败: {str(e)}")
-        log_operation(
-            user_id=current_user.id,
-            module='utility',#这里记载模块
-            operation_type='records',#这里记载类型
-            action=f"访问房间水电费查询页面 [错误: {str(e)}]",#这里记载成功与失败的记录
-            result="失败"#这里只有成功与失败
-        )
         flash(str(e), 'danger')
         return render_template('utility_bill/utility_room_records_detail.html', title=f"房间水电费查询")
 
@@ -157,13 +129,6 @@ def utility_room_checkout():
         return render_template('utility_bill/utility_room_checkout.html', title=f"退宿人员费用查询", departments=departments_list, buildings=buildings_list, billing_period=billing_period)
     except Exception as e:
         logging.error(f"访问退宿人员费用查询页面失败: {str(e)}")
-        log_operation(
-            user_id=current_user.id,
-            module='utility',#这里记载模块
-            operation_type='checkout',#这里记载类型
-            action=f"访问退宿人员费用查询页面 [错误: {str(e)}]",#这里记载成功与失败的记录
-            result="失败"#这里只有成功与失败
-        )
         # 即使出错也尝试获取部门和楼栋信息
         try:
             departments_list = [d.name for d in Department.query.filter_by(status='正常').order_by(Department.name).all()]
@@ -196,13 +161,6 @@ def utility_room_checkout_edit():
         return render_template('utility_bill/utility_room_checkout_edit.html', title=f"编辑退宿人员费用")
     except Exception as e:
         logging.error(f"访问编辑退宿人员费用页面失败: {str(e)}")
-        log_operation(
-            user_id=current_user.id,
-            module='utility',#这里记载模块
-            operation_type='checkout_edit',#这里记载类型
-            action=f"访问编辑退宿人员费用页面 [错误: {str(e)}]",#这里记载成功与失败的记录
-            result="失败"#这里只有成功与失败
-        )
         flash(str(e), 'danger')
         return render_template('utility_bill/utility_room_checkout_edit.html', title=f"编辑退宿人员费用")
 
@@ -279,13 +237,6 @@ def utility_occupant_manage():
         return render_template('utility_bill/utility_occupant_manage.html', billing_periods=billing_periods, buildings=building_list, departments=department_list, billing_period=billing_period, title=f"用户费用管理")
     except Exception as e:
         logging.error(f"访问用户费用管理页面失败: {str(e)}")
-        log_operation(
-            user_id=current_user.id,
-            module='utility',#这里记载模块
-            operation_type='records',#这里记载类型
-            action=f"访问用户费用管理页面 [错误: {str(e)}]",#这里记载成功与失败的记录
-            result="失败"#这里只有成功与失败
-        )
         flash(str(e), 'danger')
         return render_template('utility_bill/utility_occupant_manage.html', billing_periods=[], buildings=[], departments=[], billing_period='', title=f"用户费用管理")
 

@@ -564,10 +564,10 @@ def dorm_query():
         )
 
 
-@dorm_bp.route('/dorm_query_2')
+@dorm_bp.route('/dorm_room_query')
 @login_required
 @require_permission('dorm.view')
-def dorm_query_2():
+def dorm_room_query():
     """显示宿舍分配表页面，默认显示所有房间"""
     # 获取查询参数（只保留搜索功能）
     search_query = request.args.get('search', '').strip()
@@ -686,7 +686,7 @@ def dorm_query_2():
 
     # 直接返回所有房间，不再做数量限制
     return render_template(
-        'dorm_manage/dorm_query_2.html', 
+        'dorm_manage/dorm_room_query.html', 
         title="在住人员查询",
         regions=regions,  # 传递所有房间
         original_regions=regions,  # 保持一致，都为所有房间

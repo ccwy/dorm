@@ -305,7 +305,7 @@
                                     <input id="selectAll" type="checkbox" class="h-4 w-4 text-primary border-gray-300 rounded focus:ring-primary">
                                 </div>
                             </th>
-                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">序号</th>
                             <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">抄表日期</th>
                             <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">宿舍号</th>
                             <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">抄表类型</th>
@@ -571,12 +571,13 @@
                             billingPeriodSelect.value = firstPeriodOption.value;
                             loadRecords(); // 加载选中周期的数据
                         } else {
-                        // 没有可用周期，显示空状态
+                            // 没有可用周期，显示空状态
+                            showNoPeriodsState();
+                        }
+                    } else {
+                        // 没有周期数据，显示空状态
                         showNoPeriodsState();
                     }
-                } else {
-                    // 没有周期数据，显示空状态
-                    showNoPeriodsState();
                 }
             
             });
@@ -751,7 +752,7 @@
                     return;
                 }
                 
-                records.forEach(record => {
+                records.forEach((record, index) => {
                     const row = document.createElement('tr');
                     row.className = 'hover:bg-gray-50 transition-bg';
                     
@@ -798,7 +799,7 @@
                                 <input type="checkbox" class="record-checkbox h-4 w-4 text-primary border-gray-300 rounded focus:ring-primary" data-id="${record.id}">
                             </div>
                         </td>
-                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900">${record.id}</td>
+                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900">${(currentPage - 1) * pageSize + index + 1}</td>
                         <td class="px-4 py-4 whitespace-nowrap text-sm">
                             <a href="/utility-meter/edit/${record.id}" class="text-blue-600 hover:underline">${formattedDate}</a>
                         </td>
