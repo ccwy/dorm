@@ -1,4 +1,4 @@
-from flask import request, jsonify, make_response
+from flask import request, make_response, flash, redirect, url_for
 from utils.db import db
 from models.user.user import User
 from models.department.department import Department
@@ -15,7 +15,7 @@ from .utility_room_bill_checkout import utility_room_bill_checkout_bp  # 导入�
 from io import BytesIO
 from urllib.parse import quote
     
-@utility_room_bill_checkout_bp.route('/export', methods=['POST'])
+@utility_room_bill_checkout_bp.route('/export', methods=['GET'])
 @login_required
 @require_permission('utility.export')
 def export_checkout_records():
@@ -26,12 +26,9 @@ def export_checkout_records():
     import pandas as pd
     try:
         # 获取查询参数
-        data = request.get_json() or {}
-        
-        # 提取查询条件
-        billing_period = str(data.get('billing_period', '')).strip()
-        department = str(data.get('department', '')).strip()
-        search_text = str(data.get('search_text', '')).strip().lower()
+        billing_period = request.args.get('billing_period', '').strip()
+        department = request.args.get('department', '').strip()
+        search_text = request.args.get('search_text', '').strip().lower()
         
         # 构建查询
         query = CheckoutUtilityRecord.query.join(
@@ -77,10 +74,8 @@ def export_checkout_records():
                 action=f"导出退宿费用记录 [账期: {billing_period}, 部门: {department}]，没有找到符合条件的退宿记录",
                 result="失败"
             )
-            return jsonify({
-                'success': False,
-                'message': '没有找到符合条件的退宿记录'
-            }), 404
+            flash('没有找到符合条件的退宿记录', 'warning')
+            return redirect(url_for('utility_index.utility_room_checkout'))
         
         # 准备导出数据
         export_data = []
@@ -197,8 +192,5 @@ def export_checkout_records():
             action=f"导出退宿费用记录失败 [账期: {billing_period if 'billing_period' in locals() else ''}, 部门: {department if 'department' in locals() else ''}]失败: {str(e)}",
             result="失败"
         )
-        return jsonify({
-            'success': False,
-            'message': '导出退宿费用记录失败',
-            'error': str(e)
-        }), 500
+        flash('导出退宿费用记录失败', 'danger')
+        return redirect(url_for('utility_index.utility_room_checkout'))

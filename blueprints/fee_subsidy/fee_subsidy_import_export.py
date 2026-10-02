@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify, send_file
+from flask import Blueprint, request, jsonify, send_file, flash, redirect, url_for
 from flask_login import login_required, current_user
 from utils.auth import require_permission
 from datetime import datetime
@@ -142,86 +142,84 @@ def export_records():
     data = []
     
     if not records:
-        # 如果没有记录，添加一行空数据来保持表格结构
-        empty_row = {header: '' for header in headers}
-        empty_row[headers[0]] = '暂无数据'  # 在第一列显示提示
-        data.append(empty_row)
-    else:
-        for record in records:
-            # 获取关联信息
-            user = User.query.get(record.user_id) if record.user_id else None
-            room = Room.query.get(record.room_id) if record.room_id else None
-            room_building = room.building if room else ''
-            room_number = room.room_number if room else ''
-            
-            # 创建数据行字典
-            row_data = {
-                'ID': record.id,
-                '费用类型': record.fee_type,
-                '生效时间': record.effective_date.strftime('%Y-%m-%d %H:%M:%S') if record.effective_date else '',
-                '是否启用': '是' if record.is_enabled else '否',
-                '创建时间': record.create_time.strftime('%Y-%m-%d %H:%M:%S') if record.create_time else '',
-                '更新时间': record.update_time.strftime('%Y-%m-%d %H:%M:%S') if record.update_time else '',
-                '操作人ID': record.operator_id,
-                '变更原因': record.change_reason or '',
-                '账期': record.billing_period,
-                '账期开始日': record.billing_start_date.strftime('%Y-%m-%d') if record.billing_start_date else '',
-                '账期结束日': record.billing_end_date.strftime('%Y-%m-%d') if record.billing_end_date else ''
-            }
-            
-            # 记录级别的类型判断（处理全量导出时的混合类型）
-            record_is_usage = record.fee_type == "房间水电按用量减免"
-            record_is_room_amount = record.fee_type in ["房间水电按金额减免"]
-            record_is_user_amount = not record_is_usage and not record_is_room_amount
-            
-            # 根据类型添加特定数据
-            if is_usage_type or record_is_usage:
-                # 用量类型数据
-                row_data.update({
-                    '电费减免量': record.electric_reduction,
-                    '水费减免量': record.water_reduction,
-                    '房间ID': record.room_id,
-                    '楼栋': room_building,
-                    '房间号': room_number
-                })
-            elif is_room_based_amount_type or record_is_room_amount:
-                # 房间相关金额型数据
-                row_data.update({
-                    '金额': record.amount,
-                    '房间ID': record.room_id,
-                    '楼栋': room_building,
-                    '房间号': room_number
-                })
-            elif is_user_based_amount_type or record_is_user_amount:
-                # 其他金额型数据（带用户信息）
-                row_data.update({
-                    '金额': record.amount,
-                    '用户ID': record.user_id,
-                    '用户姓名': user.name if user else '',
-                    '部门': user.department if user else '',
-                    '职位': user.position if user else ''
-                })
-            else:
-                # 全量导出时的默认处理
-                row_data.update({
-                    '金额': record.amount,
-                    '电费减免量': record.electric_reduction,
-                    '水费减免量': record.water_reduction,
-                    '用户ID': record.user_id,
-                    '用户姓名': user.name if user else '',
-                    '部门': user.department if user else '',
-                    '职位': user.position if user else '',
-                    '房间ID': record.room_id,
-                    '楼栋': room_building,
-                    '房间号': room_number
-                })
-            
-            # 确保所有表头字段都存在于row_data中
-            for header in headers:
-                if header not in row_data:
-                    row_data[header] = ''
-            
-            data.append(row_data)
+        flash('没有找到符合条件的费用补贴记录', 'warning')
+        return redirect(url_for('fee_subsidy.fee_subsidy_index'))
+
+    for record in records:
+        # 获取关联信息
+        user = User.query.get(record.user_id) if record.user_id else None
+        room = Room.query.get(record.room_id) if record.room_id else None
+        room_building = room.building if room else ''
+        room_number = room.room_number if room else ''
+        
+        # 创建数据行字典
+        row_data = {
+            'ID': record.id,
+            '费用类型': record.fee_type,
+            '生效时间': record.effective_date.strftime('%Y-%m-%d %H:%M:%S') if record.effective_date else '',
+            '是否启用': '是' if record.is_enabled else '否',
+            '创建时间': record.create_time.strftime('%Y-%m-%d %H:%M:%S') if record.create_time else '',
+            '更新时间': record.update_time.strftime('%Y-%m-%d %H:%M:%S') if record.update_time else '',
+            '操作人ID': record.operator_id,
+            '变更原因': record.change_reason or '',
+            '账期': record.billing_period,
+            '账期开始日': record.billing_start_date.strftime('%Y-%m-%d') if record.billing_start_date else '',
+            '账期结束日': record.billing_end_date.strftime('%Y-%m-%d') if record.billing_end_date else ''
+        }
+        
+        # 记录级别的类型判断（处理全量导出时的混合类型）
+        record_is_usage = record.fee_type == "房间水电按用量减免"
+        record_is_room_amount = record.fee_type in ["房间水电按金额减免"]
+        record_is_user_amount = not record_is_usage and not record_is_room_amount
+        
+        # 根据类型添加特定数据
+        if is_usage_type or record_is_usage:
+            # 用量类型数据
+            row_data.update({
+                '电费减免量': record.electric_reduction,
+                '水费减免量': record.water_reduction,
+                '房间ID': record.room_id,
+                '楼栋': room_building,
+                '房间号': room_number
+            })
+        elif is_room_based_amount_type or record_is_room_amount:
+            # 房间相关金额型数据
+            row_data.update({
+                '金额': record.amount,
+                '房间ID': record.room_id,
+                '楼栋': room_building,
+                '房间号': room_number
+            })
+        elif is_user_based_amount_type or record_is_user_amount:
+            # 其他金额型数据（带用户信息）
+            row_data.update({
+                '金额': record.amount,
+                '用户ID': record.user_id,
+                '用户姓名': user.name if user else '',
+                '部门': user.department if user else '',
+                '职位': user.position if user else ''
+            })
+        else:
+            # 全量导出时的默认处理
+            row_data.update({
+                '金额': record.amount,
+                '电费减免量': record.electric_reduction,
+                '水费减免量': record.water_reduction,
+                '用户ID': record.user_id,
+                '用户姓名': user.name if user else '',
+                '部门': user.department if user else '',
+                '职位': user.position if user else '',
+                '房间ID': record.room_id,
+                '楼栋': room_building,
+                '房间号': room_number
+            })
+        
+        # 确保所有表头字段都存在于row_data中
+        for header in headers:
+            if header not in row_data:
+                row_data[header] = ''
+        
+        data.append(row_data)
     
     # 使用pandas创建DataFrame
     df = pd.DataFrame(data, columns=headers)
@@ -654,7 +652,5 @@ def generate_import_template():
         )
     except Exception as e:
         logging.error(f"生成导入模板失败: {str(e)}", exc_info=True)
-        return jsonify({
-            'success': False,
-            'message': f'生成模板失败: {str(e)}'
-        }), 500
+        flash('生成导入模板失败，请联系管理员', 'danger')
+        return redirect(url_for('fee_subsidy.fee_subsidy_index'))

@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template
+from flask import Blueprint, render_template, flash
 from flask_login import login_required, current_user
 import logging
 from utils.log import log_operation
@@ -34,7 +34,8 @@ def supply_home():
             action=f"访问低值易耗品管理首页 [错误: {str(e)}]",
             result="失败"
         )
-        return render_template('supply_manage/supply_index.html', title="低值易耗品管理", error=str(e))
+        flash(str(e), 'danger')
+        return render_template('supply_manage/supply_index.html', title="低值易耗品管理")
 
 
 @supply_index_bp.route('/index', methods=['GET'])
@@ -60,4 +61,5 @@ def supply_index():
             action=f"通过/index访问低值易耗品管理首页 [错误: {str(e)}]",
             result="失败"
         )
-        return render_template('supply_manage/supply_index.html', title="低值易耗品管理", error=str(e))
+        flash(str(e), 'danger')
+        return render_template('supply_manage/supply_index.html', title="低值易耗品管理")

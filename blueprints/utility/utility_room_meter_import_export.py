@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify, make_response
+from flask import Blueprint, request, jsonify, make_response, flash, redirect, url_for
 from utils.db import db
 from datetime import datetime
 import logging
@@ -122,7 +122,8 @@ def download_template():
             action=f"模板下载失败{error_msg}",
             result="失败"
         )
-        return jsonify({"success": False, "message": error_msg}), 500
+        flash(f'模板下载失败: {error_msg}', 'danger')
+        return redirect(url_for('utility_room_meter.utility_reading_manage'))
     
 # 导出抄表记录为Excel（包含记录ID，不含抄表人信息）
 # 导出抄表记录为Excel（包含记录ID，不含抄表人信息）
@@ -138,10 +139,8 @@ def export_readings():
         # 参数验证：只允许billing_period参数
         if not billing_period:
             logging.error("导出抄表记录失败：缺少billing_period参数")
-            return jsonify({
-                'success': False, 
-                'message': '请提供billing_period参数（格式：YYYY-MM）'
-            }), 400
+            flash('请提供账期参数（格式：YYYY-MM）', 'warning')
+            return redirect(url_for('utility_room_meter.utility_reading_manage'))
 
         # 构建查询
         query = UtilityMeterReading.query.join(Room)
@@ -159,10 +158,8 @@ def export_readings():
             
             if not main_records:
                 logging.error(f"导出抄表记录失败：未找到{billing_period}账期的记录")
-                return jsonify({
-                    'success': False, 
-                    'message': f'未找到{billing_period}账期的记录'
-                }), 404
+                flash(f'未找到{billing_period}账期的记录', 'warning')
+                return redirect(url_for('utility_room_meter.utility_reading_manage'))
             
             # 提取所有主表记录ID
             record_ids = [record.record_id for record in main_records]
@@ -171,10 +168,8 @@ def export_readings():
             query = query.filter(UtilityMeterReading.record_id.in_(record_ids))
         except ValueError:
             logging.error(f"导出抄表记录失败：账期格式错误，{billing_period}")
-            return jsonify({
-                'success': False, 
-                'message': '账期格式错误，请使用YYYY-MM格式'
-            }), 400
+            flash('账期格式错误，请使用YYYY-MM格式', 'warning')
+            return redirect(url_for('utility_room_meter.utility_reading_manage'))
 
         # 按日期倒序
         readings = query.order_by(UtilityMeterReading.reading_date.desc()).all()
@@ -273,7 +268,8 @@ def export_readings():
             action=f"导出失败{error_msg}",
             result="失败"
         )
-        return jsonify({"success": False, "message": error_msg}), 500
+        flash(f'导出抄表记录失败: {error_msg}', 'danger')
+        return redirect(url_for('utility_room_meter.utility_reading_manage'))
     except Exception as e:
         logging.error(f"导出记录发生错误{str(e)}")
         error_msg = f"导出失败: {str(e)}"
@@ -284,7 +280,8 @@ def export_readings():
             action=f"导出失败{error_msg}",
             result="失败"
         )
-        return jsonify({"success": False, "message": error_msg}), 500
+        flash(f'导出抄表记录失败: {error_msg}', 'danger')
+        return redirect(url_for('utility_room_meter.utility_reading_manage'))
 
 
 # 导入抄表记录从Excel（新记录导入，无需ID和抄表人）

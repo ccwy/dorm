@@ -71,6 +71,19 @@
   
   <!-- 主内容区 -->
   <main class="flex-grow container container mx-auto px-4 py-6">
+    <!-- 消息提示区域 -->
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    <div class="flash-messages mb-6">
+      {% for category, message in messages %}
+        <div class="p-4 rounded-md mb-2 {% if category == 'success' %}bg-green-100 text-green-800{% elif category == 'error' or category == 'danger' %}bg-red-100 text-red-800{% elif category == 'warning' %}bg-yellow-100 text-yellow-800{% else %}bg-blue-100 text-blue-800{% endif %}">
+          <button type="button" class="float-right ml-2 text-gray-500 hover:text-gray-700" onclick="this.parentElement.remove()">×</button>
+          {{ message | safe }}
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+{% endwith %}
     <!-- 页面标题 -->
     
     <div class="mb-6 fade-in">
@@ -1175,80 +1188,20 @@
           return;
         }
         
-        // 智能判断搜索类型
-        const { type: searchType } = determineSearchType(searchText);
-        
         // 显示加载状态
         this.disabled = true;
         this.innerHTML = '<i class="fa fa-circle-o-notch fa-spin"></i><span>导出中...</span>';
         
-        // 构建导出参数
-        const exportParams = {
-          billing_period: selectedPeriod,
-          department: department
-        };
-        
-        // 根据判断结果设置搜索参数
+        // 构建导出URL参数
+        const params = new URLSearchParams();
+        params.append('billing_period', selectedPeriod);
+        if (department) params.append('department', department);
         if (searchText) {
-          if (searchType === 'name') {
-            exportParams.name = searchText;
-          } else {
-            exportParams.room_number = searchText;
-          }
+          params.append('search_text', searchText);
         }
-        
-        // 调用后端导出API
-        fetch('/utility_room_bill_checkout/export', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(exportParams)
-        })
-        .then(response => {
-          if (!response.ok) {
-            throw new Error(`导出失败，状态码: ${response.status}`);
-          }
-          return response.blob();
-        })
-        .then(blob => {
-          // 创建下载链接
-          const url = window.URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          
-          // 设置文件名
-          const now = new Date();
-          const dateStr = now.getFullYear() + 
-                         (now.getMonth() + 1).toString().padStart(2, '0') + 
-                         now.getDate().toString().padStart(2, '0') + 
-                         '_' + 
-                         now.getHours().toString().padStart(2, '0') + 
-                         now.getMinutes().toString().padStart(2, '0') + 
-                         now.getSeconds().toString().padStart(2, '0');
-          
-          a.download = `退宿人员费用记录_${formatPeriod(selectedPeriod)}_${dateStr}.xlsx`;
-          document.body.appendChild(a);
-          a.click();
-          
-          // 清理
-          window.URL.revokeObjectURL(url);
-          document.body.removeChild(a);
-          
-          showSuccessToast(`成功导出 ${formatPeriod(selectedPeriod)} 的退宿人员费用信息`);
-        })
-        .catch(error => {
-          console.error('导出失败:', error);
-          showSuccessToast(`导出失败: ${error.message}`, false);
-        })
-        .finally(() => {
-          // 60秒后恢复按钮状态（即使导出可能还在进行，但UI上给用户反馈）
-          const btn = this;
-          setTimeout(function() {
-            btn.disabled = false;
-            btn.innerHTML = '<i class="fa fa-download"></i><span>导出</span>';
-          }, 60000);
-        });
+
+        // 直接跳转导出
+        window.location.href = '/utility_room_bill_checkout/export?' + params.toString();
       });
       }
       // 全选/取消全选事件

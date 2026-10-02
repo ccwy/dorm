@@ -1,4 +1,4 @@
-from flask import Blueprint, request, render_template, send_file, jsonify
+from flask import Blueprint, request, render_template, send_file, jsonify, flash, redirect, url_for
 from flask_login import login_required
 from sqlalchemy import or_
 from utils.db import db
@@ -310,6 +310,7 @@ def user_records_detail():
         
     except Exception as e:
         logging.error(f"获取用户水电费详情失败: {str(e)}")
+        flash(str(e), 'danger')
         return render_template(
             'utility_bill/utility_user_records_detail.html',
             title="用户水电费查询",
@@ -343,10 +344,8 @@ def export_user_records_excel():
         
         # 验证必填参数
         if not billing_period:
-            return jsonify({
-                'success': False,
-                'message': '请选择账期'
-            }), 400
+            flash('缺少必要参数', 'warning')
+            return redirect(url_for('utility_user_records_detail.user_records_detail'))
         
         # 构建查询 - 在住人员费用
         occupant_query = db.session.query(
@@ -549,10 +548,8 @@ def export_user_records_excel():
         
         # 如果没有数据，返回提示
         if not export_data:
-            return jsonify({
-                'success': False,
-                'message': f'没有找到符合条件的用户数据'
-            }), 404
+            flash('没有可导出的数据', 'warning')
+            return redirect(url_for('utility_user_records_detail.user_records_detail'))
         
         # 创建DataFrame
         df = pd.DataFrame(export_data)
@@ -642,8 +639,5 @@ def export_user_records_excel():
             )
         except:
             pass
-        return jsonify({
-            'success': False,
-            'message': '导出用户费用详情失败',
-            'error': str(e)
-        }), 500
+        flash(f'导出失败: {str(e)}', 'danger')
+        return redirect(url_for('utility_user_records_detail.user_records_detail'))

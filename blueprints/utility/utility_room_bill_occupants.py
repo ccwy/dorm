@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify,send_file
+from flask import Blueprint, request, jsonify, send_file, flash, redirect, url_for
 from models.utility.utility_room_bill_record import RoomUtilityRecord      #导入主表模型
 from models.utility.utility_room_bill_occupant import RoomUtilityOccupant  #导入子表模型
 from models.dorm.dorm import Dorm
@@ -626,7 +626,7 @@ def get_billing_period_dates(billing_period):
         raise ValueError(f"无效的账期格式: {billing_period}，应为YYYY-MM")
 
 def create_fee_export_data(billing_period):
-    """创建导出数据，仅按账期筛选"""
+    """创建导出数据，仅按账期筛选，按用户汇总导出"""
     # 构建查询条件 - 仅按账期筛选
     query = RoomUtilityRecord.query.filter(RoomUtilityRecord.billing_period == billing_period)
     
@@ -646,13 +646,11 @@ def create_fee_export_data(billing_period):
         room = Room.query.get(main.room_id)
         if not room:
             logging.error(f"找不到房间信息: room_id={main.room_id}")
-            # 跳过此记录，避免后续错误
             continue
         
         # 验证房间信息完整性
         if not room.building or not room.room_number:
             logging.error(f"房间信息不完整: room_id={main.room_id}, building={room.building}, room_number={room.room_number}")
-            # 跳过此记录
             continue
         
         # 批量获取住宿记录 - 通过dorm_id精确匹配
@@ -667,18 +665,12 @@ def create_fee_export_data(billing_period):
         users = User.query.filter(User.id.in_(user_ids)).all()
         user_map = {user.id: user for user in users}
         
-        # 收集数据
+        # 过滤有效记录并按 (user_id) 分组
+        user_groups = defaultdict(list)
         for occupant in occupant_records:
-            user = user_map.get(occupant.user_id)
-            user_name = user.name if user else f"未知用户（ID:{occupant.user_id}）"
-            user_company = user.company or "" if user else ""
-            user_department = user.department or "" if user else ""
-            user_position = user.position or "" if user else ""
-            
             # 通过dorm_id精确获取对应的dorm记录
             dorm = dorm_by_id.get(occupant.dorm_id) if occupant.dorm_id else None
             if not dorm:
-                # 无dorm_id关联的记录说明数据不正确，记录错误并跳过
                 logging.error(
                     f"导出-分摊记录缺少dorm_id关联: occupant_id={occupant.id}, "
                     f"user_id={occupant.user_id}, room_id={occupant.room_id}, "
@@ -689,50 +681,125 @@ def create_fee_export_data(billing_period):
                     f"房间ID={occupant.room_id}）缺少dorm_id关联，请重新核算账单"
                 )
                 continue
-            check_in_date = dorm.check_in_date
-            # 格式化日期时间显示
-            check_in_str = check_in_date.strftime('%Y-%m-%d') if check_in_date else ""
+            user_groups[occupant.user_id].append((occupant, dorm))
+        
+        # 按用户分组汇总输出
+        for user_id, group_items in user_groups.items():
+            user = user_map.get(user_id)
+            user_name = user.name if user else f"未知用户（ID:{user_id}）"
+            user_company = user.company or "" if user else ""
+            user_department = user.department or "" if user else ""
+            user_position = user.position or "" if user else ""
             
-            # 构建导出记录
-            export_data.append({
-                '账期': main.billing_period,
-                '房间ID': main.room_id,
-                '楼栋': room.building,
-                '房间号': room.room_number,
-                '本期电表当前读数': main.electric_current,
-                '本期电表上期读数': main.electric_previous,
-                '本期电表用量': main.electric_usage,
-                '减免电用量': main.electric_reduction,
-                '计费电用量': main.electric_billing_usage,
-                '电费单价': main.electric_price,
-                '本期电费': main.total_electric_fee,
-                '计费电费': main.billing_electric_fee,
-                '本期水表当前读数': main.water_current,
-                '本期水表上期读数': main.water_previous,
-                '本期水表用量': main.water_usage,
-                '减免水用量': main.water_reduction,
-                '计费水用量': main.water_billing_usage,
-                '水费单价': main.water_price,
-                '本期水费': main.total_water_fee,
-                '计费水费': main.billing_water_fee,
-                '本期总费用': main.total_fee,
-                '计费总费用': main.billing_total_fee,
-                '退宿人员费用': main.checked_out_total_fee,
-                '减免房间级费用': main.room_reduction_fee,
-                '房间应付费用': main.actual_total_fee,
-                '分摊人员ID': occupant.user_id,
-                '分摊人员姓名': user_name,
-                '公司': user_company,
-                '部门': user_department,
-                '职位': user_position,
-                '入住时间': check_in_str,  # 已转换为包含时间的字符串
-                '账期内住宿天数': occupant.stay_days,
-                '分摊电费': occupant.electric_fee,
-                '分摊水费': occupant.water_fee,
-                '分摊总金额': occupant.total_fee,
-                '减免金额': occupant.user_reduction_fee, # 新增：减免费用字段
-                '分摊应付金额': occupant.payable_fee # 新增：用户应付费用字段
-            })
+            if len(group_items) == 1:
+                # 单条记录，直接输出
+                occupant, dorm = group_items[0]
+                check_in_date = dorm.check_in_date
+                check_in_str = check_in_date.strftime('%Y-%m-%d') if check_in_date else ""
+                
+                export_data.append({
+                    '账期': main.billing_period,
+                    '房间ID': main.room_id,
+                    '楼栋': room.building,
+                    '房间号': room.room_number,
+                    '本期电表当前读数': main.electric_current,
+                    '本期电表上期读数': main.electric_previous,
+                    '本期电表用量': main.electric_usage,
+                    '减免电用量': main.electric_reduction,
+                    '计费电用量': main.electric_billing_usage,
+                    '电费单价': main.electric_price,
+                    '本期电费': main.total_electric_fee,
+                    '计费电费': main.billing_electric_fee,
+                    '本期水表当前读数': main.water_current,
+                    '本期水表上期读数': main.water_previous,
+                    '本期水表用量': main.water_usage,
+                    '减免水用量': main.water_reduction,
+                    '计费水用量': main.water_billing_usage,
+                    '水费单价': main.water_price,
+                    '本期水费': main.total_water_fee,
+                    '计费水费': main.billing_water_fee,
+                    '本期总费用': main.total_fee,
+                    '计费总费用': main.billing_total_fee,
+                    '退宿人员费用': main.checked_out_total_fee,
+                    '减免房间级费用': main.room_reduction_fee,
+                    '房间应付费用': main.actual_total_fee,
+                    '分摊人员ID': user_id,
+                    '分摊人员姓名': user_name,
+                    '公司': user_company,
+                    '部门': user_department,
+                    '职位': user_position,
+                    '入住时间': check_in_str,
+                    '账期内住宿天数': occupant.stay_days,
+                    '分摊电费': occupant.electric_fee,
+                    '分摊水费': occupant.water_fee,
+                    '分摊总金额': occupant.total_fee,
+                    '减免金额': occupant.user_reduction_fee,
+                    '分摊应付金额': occupant.payable_fee,
+                    '备注': ""
+                })
+            else:
+                # 多条记录，汇总输出
+                # 入住时间取最早
+                check_in_dates = []
+                for occupant, dorm in group_items:
+                    if dorm.check_in_date:
+                        check_in_dates.append(dorm.check_in_date)
+                min_check_in = min(check_in_dates) if check_in_dates else None
+                check_in_str = min_check_in.strftime('%Y-%m-%d') if min_check_in else ""
+                
+                # 汇总求和（使用Decimal避免浮点精度问题）
+                stay_days_sum = sum(o.stay_days or 0 for o, d in group_items)
+                electric_fee_sum = sum(Decimal(str(o.electric_fee or 0)) for o, d in group_items)
+                water_fee_sum = sum(Decimal(str(o.water_fee or 0)) for o, d in group_items)
+                total_fee_sum = sum(Decimal(str(o.total_fee or 0)) for o, d in group_items)
+                user_reduction_fee_sum = sum(Decimal(str(o.user_reduction_fee or 0)) for o, d in group_items)
+                payable_fee_sum = sum(Decimal(str(o.payable_fee or 0)) for o, d in group_items)
+                
+                # 构建备注：列出应付金额明细和合计
+                payable_details = "+".join(str(Decimal(str(o.payable_fee or 0))) for o, d in group_items)
+                
+                remark = f"换宿合并: 应付[{payable_details}={payable_fee_sum}]"
+                
+                export_data.append({
+                    '账期': main.billing_period,
+                    '房间ID': main.room_id,
+                    '楼栋': room.building,
+                    '房间号': room.room_number,
+                    '本期电表当前读数': main.electric_current,
+                    '本期电表上期读数': main.electric_previous,
+                    '本期电表用量': main.electric_usage,
+                    '减免电用量': main.electric_reduction,
+                    '计费电用量': main.electric_billing_usage,
+                    '电费单价': main.electric_price,
+                    '本期电费': main.total_electric_fee,
+                    '计费电费': main.billing_electric_fee,
+                    '本期水表当前读数': main.water_current,
+                    '本期水表上期读数': main.water_previous,
+                    '本期水表用量': main.water_usage,
+                    '减免水用量': main.water_reduction,
+                    '计费水用量': main.water_billing_usage,
+                    '水费单价': main.water_price,
+                    '本期水费': main.total_water_fee,
+                    '计费水费': main.billing_water_fee,
+                    '本期总费用': main.total_fee,
+                    '计费总费用': main.billing_total_fee,
+                    '退宿人员费用': main.checked_out_total_fee,
+                    '减免房间级费用': main.room_reduction_fee,
+                    '房间应付费用': main.actual_total_fee,
+                    '分摊人员ID': user_id,
+                    '分摊人员姓名': user_name,
+                    '公司': user_company,
+                    '部门': user_department,
+                    '职位': user_position,
+                    '入住时间': check_in_str,
+                    '账期内住宿天数': stay_days_sum,
+                    '分摊电费': float(electric_fee_sum),
+                    '分摊水费': float(water_fee_sum),
+                    '分摊总金额': float(total_fee_sum),
+                    '减免金额': float(user_reduction_fee_sum),
+                    '分摊应付金额': float(payable_fee_sum),
+                    '备注': remark
+                })
     
     return export_data, export_warnings
 
@@ -758,10 +825,8 @@ def export_fee_data():
             )
             # 同时记录到logging
             logging.warning(f"用户 {current_user.id} 未提供账期参数尝试导出费用数据")
-            return jsonify({
-                'success': False,
-                'message': '请提供账期参数(billing_period，格式为YYYY-MM)'
-            }), 400
+            flash('缺少必要参数', 'warning')
+            return redirect(url_for('utility_index.utility_occupant_manage'))
         
         # 记录导出操作开始 - 与日志蓝图保持一致的记录方式
         log_operation(
@@ -786,10 +851,8 @@ def export_fee_data():
                 result="失败"
             )
             logging.info(f"用户 {current_user.id} 导出 {billing_period} 账期费用数据，未找到匹配记录")
-            return jsonify({
-                'success': False,
-                'message': f'没有找到{ billing_period }账期的费用数据'
-            }), 404
+            flash('没有可导出的数据', 'warning')
+            return redirect(url_for('utility_index.utility_occupant_manage'))
         
         # 创建Excel
         df = pd.DataFrame(export_data)
@@ -934,10 +997,8 @@ def export_fee_data():
             action=f"导出费用数据失败 [错误: {str(ve)}]",
             result="失败"
         )
-        return jsonify({
-            'success': False,
-            'message': str(ve)
-        }), 400
+        flash(str(ve), 'warning')
+        return redirect(url_for('utility_index.utility_occupant_manage'))
     except Exception as e:
         # 异常错误日志记录
         logging.error(f"用户 {current_user.id} 导出费用数据失败: {str(e)}", exc_info=True)
@@ -948,7 +1009,5 @@ def export_fee_data():
             action=f"导出费用数据失败 [错误: {str(e)}]",
             result="失败"
         )
-        return jsonify({
-            'success': False,
-            'message': f'导出失败: {str(e)}'
-        }), 500
+        flash(f'导出失败: {str(e)}', 'danger')
+        return redirect(url_for('utility_index.utility_occupant_manage'))

@@ -1,4 +1,4 @@
-from flask import Blueprint, request, make_response, abort, jsonify
+from flask import Blueprint, request, make_response, abort, jsonify, flash, redirect, url_for
 from flask_login import login_required, current_user
 from utils.auth import require_permission
 from utils.log import log_operation
@@ -54,6 +54,10 @@ def export_applications():
             )
 
         applications = query.order_by(DormApplication.created_at.desc()).all()
+
+        if not applications:
+            flash('没有找到符合条件的宿舍申请记录', 'warning')
+            return redirect(url_for('dorm_application_admin.application_list'))
 
         # 类型映射
         type_map = {'allocate': '申请宿舍', 'change': '申请换宿', 'checkout': '申请退宿'}
@@ -150,4 +154,5 @@ def export_applications():
 
     except Exception as e:
         logging.error(f"导出宿舍申请记录失败: {str(e)}")
-        abort(500, description=f"导出失败: {str(e)}")
+        flash('导出宿舍申请记录失败', 'danger')
+        return redirect(url_for('dorm_application_admin.application_list'))

@@ -104,7 +104,8 @@ def role_list():
             action=f'访问角色列表页 [错误: {str(e)}]',
             result='失败'
         )
-        return render_template('role_manage/role_list.html', title='角色管理', roles=[], error=str(e))
+        flash(str(e), 'danger')
+        return render_template('role_manage/role_list.html', title='角色管理', roles=[])
 
 
 # ========== 角色详情页（查看角色下的用户） ==========

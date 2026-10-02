@@ -39,7 +39,8 @@ def utility_home():
             action=f"访问水电费管理首页 [错误: {str(e)}]",#这里记载成功与失败的记录
             result="失败"#这里只有成功与失败
         )
-        return render_template('utility_bill/utility_index.html', title=f"水电费管理", error=str(e))
+        flash(str(e), 'danger')
+        return render_template('utility_bill/utility_index.html', title=f"水电费管理")
 
 @utility_index_bp.route('/index', methods=['GET'])
 @login_required
@@ -64,7 +65,8 @@ def utility_index():
             action=f"通过/index访问首页 [错误: {str(e)}]",#这里记载成功与失败的记录
             result="失败"#这里只有成功与失败
         )
-        return render_template('utility_bill/utility_index.html', title=f"水电费管理", error=str(e))
+        flash(str(e), 'danger')
+        return render_template('utility_bill/utility_index.html', title=f"水电费管理")
 
 
 # 水电费核算页面
@@ -91,7 +93,8 @@ def utility_calculate_fees():
             action=f"访问核算水电费页面 [错误: {str(e)}]",#这里记载成功与失败的记录
             result="失败"#这里只有成功与失败
         )
-        return render_template('utility_bill/utility_calculate_fees.html', title=f"月度账单管理", error=str(e))
+        flash(str(e), 'danger')
+        return render_template('utility_bill/utility_calculate_fees.html', title=f"月度账单管理")
 
 @utility_index_bp.route('/utility_room_records_detail')
 @login_required
@@ -120,7 +123,8 @@ def utility_room_records_detail():
             action=f"访问房间水电费查询页面 [错误: {str(e)}]",#这里记载成功与失败的记录
             result="失败"#这里只有成功与失败
         )
-        return render_template('utility_bill/utility_room_records_detail.html', title=f"房间水电费查询", error=str(e))
+        flash(str(e), 'danger')
+        return render_template('utility_bill/utility_room_records_detail.html', title=f"房间水电费查询")
 
 @utility_index_bp.route('/utility_room_checkout')
 @login_required
@@ -166,7 +170,8 @@ def utility_room_checkout():
             departments_list = []
             buildings_list = []
             
-        return render_template('utility_bill/utility_room_checkout.html', title=f"退宿人员费用查询", error=str(e), departments=departments_list, buildings=buildings_list)
+        flash(str(e), 'danger')
+        return render_template('utility_bill/utility_room_checkout.html', title=f"退宿人员费用查询", departments=departments_list, buildings=buildings_list)
 
 @utility_index_bp.route('/utility_room_checkout_edit')
 @login_required
@@ -195,7 +200,8 @@ def utility_room_checkout_edit():
             action=f"访问编辑退宿人员费用页面 [错误: {str(e)}]",#这里记载成功与失败的记录
             result="失败"#这里只有成功与失败
         )
-        return render_template('utility_bill/utility_room_checkout_edit.html', title=f"编辑退宿人员费用", error=str(e))
+        flash(str(e), 'danger')
+        return render_template('utility_bill/utility_room_checkout_edit.html', title=f"编辑退宿人员费用")
 
 # 退宿费用计算结果页面
 @utility_index_bp.route('/utility_user_checkout_detail')
@@ -277,5 +283,6 @@ def utility_occupant_manage():
             action=f"访问用户费用管理页面 [错误: {str(e)}]",#这里记载成功与失败的记录
             result="失败"#这里只有成功与失败
         )
-        return render_template('utility_bill/utility_occupant_manage.html', billing_periods=[], buildings=[], departments=[], title=f"用户费用管理", error=str(e))
+        flash(str(e), 'danger')
+        return render_template('utility_bill/utility_occupant_manage.html', billing_periods=[], buildings=[], departments=[], title=f"用户费用管理")
 

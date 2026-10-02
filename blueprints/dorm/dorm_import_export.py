@@ -1,4 +1,4 @@
-from flask import Blueprint, request, make_response, abort, redirect, url_for, flash, jsonify
+from flask import Blueprint, request, make_response, redirect, url_for, flash, jsonify
 from flask_login import login_required, current_user
 from utils.auth import require_permission
 from utils.log import log_operation
@@ -184,6 +184,11 @@ def export_residents():
                     if not (dorm_record.status == 'active' and not dorm_record.check_out_date):
                         history_data.append(history_record)
         
+        # 检查是否有数据可导出
+        if not current_data:
+            flash('没有找到符合条件的在住人员数据', 'warning')
+            return redirect(url_for('dorm.dorm_query'))
+        
         # 生成Excel文件（包含两个工作表）
         output = BytesIO()
         with pd.ExcelWriter(output, engine='openpyxl') as writer:
@@ -229,7 +234,8 @@ def export_residents():
         )
         # 记录日志
         logging.error(f'导出在住人员数据失败：{str(e)}，操作人ID：{current_user.id}')
-        abort(500, description=f"导出失败: {str(e)}")
+        flash(f'导出在住人员数据失败: {str(e)}', 'danger')
+        return redirect(url_for('dorm.dorm_query'))
 
 @dorm_import_export_bp.route('/import-residents', methods=['POST'])
 @login_required
@@ -648,6 +654,7 @@ def download_import_template():
             result="失败"
         )
         # 记录日志
-        logging.error(f'下载住宿分配导入模板失败：{error_msg}，操作人ID：{current_user.id}')
-        abort(500, description=f"下载模板失败: {str(e)}")
+        logging.error(f'下载住宿分配导入模板失败：{str(e)}，操作人ID：{current_user.id}')
+        flash('下载导入模板失败', 'danger')
+        return redirect(url_for('dorm.dorm_query'))
     
