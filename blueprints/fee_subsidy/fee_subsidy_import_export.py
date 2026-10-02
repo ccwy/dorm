@@ -143,6 +143,8 @@ def export_records():
     
     if not records:
         flash('没有找到符合条件的费用补贴记录', 'warning')
+        if include_disabled:
+            return redirect(url_for('fee_subsidy.fee_subsidy_history'))
         return redirect(url_for('fee_subsidy.fee_subsidy_index'))
 
     for record in records:

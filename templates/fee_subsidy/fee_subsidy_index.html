@@ -63,17 +63,7 @@
 <body class="bg-gray-50 font-inter text-dark min-h-screen flex flex-col">
     {% include 'header.html' %}
     
-    {% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-    <div class="flash-messages mb-6">
-        {% for category, message in messages %}
-        <div class="p-4 rounded-md mb-2 text-center {% if category == 'success' %}bg-green-100 text-green-800{% elif category == 'error' or category == 'danger' %}bg-red-100 text-red-800{% elif category == 'warning' %}bg-yellow-100 text-yellow-800{% else %}bg-blue-100 text-blue-800{% endif %}">
-            {{ message }}
-        </div>
-        {% endfor %}
-    </div>
-    {% endif %}
-    {% endwith %}
+    
     
     <!-- 主内容区 -->
     <main class="flex-grow container mx-auto px-4 py-6">
@@ -96,7 +86,19 @@
                 </div>
             </div>
         </div>
-
+        <!-- 消息提示区域 -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        <div class="flash-messages mb-6">
+            {% for category, message in messages %}
+            <div class="p-4 rounded-md mb-2 {% if category == 'success' %}bg-green-100 text-green-800{% elif category == 'error' or category == 'danger' %}bg-red-100 text-red-800{% elif category == 'warning' %}bg-yellow-100 text-yellow-800{% else %}bg-blue-100 text-blue-800{% endif %}">
+                <button type="button" class="float-right ml-2 text-gray-500 hover:text-gray-700" onclick="this.parentElement.remove()">×</button>
+                {{ message | safe }}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    {% endwith %}
         <!-- 筛选区域 -->
         <div class="bg-white rounded-lg card-shadow p-5 mb-6 fade-in" style="animation-delay: 100ms;">
             <form id="filterForm" class="space-y-4">

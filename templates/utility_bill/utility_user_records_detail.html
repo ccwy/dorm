@@ -80,24 +80,7 @@
   </style>
 </head>
 <body class="font-inter bg-gray-100 min-h-screen">
-  <!-- 顶部导航 
-  <header class="bg-white shadow-sm sticky top-0 z-10">
-    <div class="container mx-auto px-4 py-3 flex justify-between items-center">
-      <div class="flex items-center space-x-2">
-        <i class="fa fa-tint text-primary text-xl"></i>
-        <span class="text-gray-700 font-semibold text-lg">水电管理系统</span>
-      </div>
-      <div class="flex items-center space-x-4">
-        <button class="text-gray-500 hover:text-primary transition-colors">
-          <i class="fa fa-bell-o"></i>
-        </button>
-        <div class="flex items-center space-x-2">
-          <img src="https://picsum.photos/id/1005/40/40" alt="用户头像" class="w-8 h-8 rounded-full object-cover">
-          <span class="text-gray-600 text-sm hidden md:inline">管理员</span>
-        </div>
-      </div>
-    </div>
-  </header>-->
+  <!-- 顶部导航 -->
   {% include 'header.html' %}
   
   <!-- 主内容区 -->
@@ -136,7 +119,19 @@
         </div>
       </div>
     </div>
-
+    <!-- 消息提示区域 -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    <div class="flash-messages mb-6">
+        {% for category, message in messages %}
+        <div class="p-4 rounded-md mb-2 {% if category == 'success' %}bg-green-100 text-green-800{% elif category == 'error' or category == 'danger' %}bg-red-100 text-red-800{% elif category == 'warning' %}bg-yellow-100 text-yellow-800{% else %}bg-blue-100 text-blue-800{% endif %}">
+            <button type="button" class="float-right ml-2 text-gray-500 hover:text-gray-700" onclick="this.parentElement.remove()">×</button>
+            {{ message | safe }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    {% endwith %}
     <!-- 筛选区 -->
     <div class="bg-white rounded-lg shadow-card rounded-lg p-4 mb-6 transition-all duration-300 hover:shadow-hover">
       <form id="filterForm" class="space-y-4">

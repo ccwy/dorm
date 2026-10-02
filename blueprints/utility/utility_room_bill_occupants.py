@@ -299,10 +299,8 @@ def load_bill():
                 action=f"加载账单数据失败 [账期: {billing_period}, 原因: 未找到记录]",
                 result="失败"
             )
-            return jsonify({
-                'success': False, 
-                'message': f'未找到{ billing_period }的账单记录'
-            }), 404
+            flash(f'未找到{billing_period}的账单记录', 'danger')
+            return redirect(url_for('utility_index.utility_occupant_manage'))
         
         # 加载对应的子表记录
         record_ids = [r.record_id for r in main_records]
@@ -342,8 +340,7 @@ def load_bill():
 def calculate_bill():
     """核算指定账期的所有房间费用"""
     try:
-        data = request.json
-        billing_period = data.get('billingPeriod')
+        billing_period = request.form.get('billingPeriod')
         
         if not billing_period:
             log_operation(
@@ -353,7 +350,8 @@ def calculate_bill():
                 action=f"核算账单失败 [原因: 未提供账期参数]",
                 result="失败"
             )
-            return jsonify({'success': False, 'message': '请选择账期'}), 400
+            flash('请选择账期', 'danger')
+            return redirect(url_for('utility_index.utility_occupant_manage'))
             
         # 获取该账期的所有主表记录（仅核算完成的）
         all_period_records = RoomUtilityRecord.get_by_period(None, period=billing_period)
@@ -373,10 +371,8 @@ def calculate_bill():
                 action=f"核算账单失败 [账期: {billing_period}, 原因: 未找到记录]",
                 result="失败"
             )
-            return jsonify({
-                'success': False, 
-                'message': f'未找到{ billing_period }的账单记录，请先创建'
-            }), 404
+            flash(f'未找到{billing_period}的账单记录，请先创建', 'danger')
+            return redirect(url_for('utility_index.utility_occupant_manage'))
         
         # 关键修复2：初始化全局补贴余额字典，跨房间共享
         global_subsidy_balances = {}
@@ -402,12 +398,8 @@ def calculate_bill():
             result="成功"
         )
         
-        return jsonify({
-            'success': True,
-            'message': f'{ billing_period }的费用核算完成',
-            'updated_room_count': updated_room_count,  # 新增：返回房间数量
-            'updated_occupant_count': updated_occupant
-        })
+        flash(f'{billing_period}的费用核算完成，共更新{updated_room_count}个房间，{updated_occupant}条人员记录', 'success')
+        return redirect(url_for('utility_index.utility_occupant_manage'))
         
     except SQLAlchemyError as e:
         db.session.rollback()
@@ -419,7 +411,8 @@ def calculate_bill():
             action=f"核算账单失败 [错误: {str(e)}]",
             result="失败"
         )
-        return jsonify({'success': False, 'message': f'数据库错误: {str(e)}'}), 500
+        flash(f'数据库错误: {str(e)}', 'danger')
+        return redirect(url_for('utility_index.utility_occupant_manage'))
     except Exception as e:
         db.session.rollback()
         logging.error(f"核算账单失败: {str(e)}")
@@ -430,7 +423,8 @@ def calculate_bill():
             action=f"核算账单失败 [错误: {str(e)}]",
             result="失败"
         )
-        return jsonify({'success': False, 'message': f'核算失败: {str(e)}'}), 500
+        flash(f'核算失败: {str(e)}', 'danger')
+        return redirect(url_for('utility_index.utility_occupant_manage'))
 
 # 删除当期子表账单
 @utility_room_bill_occupants_bp.route('/api/clear_current_bill', methods=['POST'])
@@ -439,8 +433,7 @@ def calculate_bill():
 def clear_current_bill():
     """删除指定账期的子表分摊记录（保留主表数据）"""
     try:
-        data = request.json
-        billing_period = data.get('billingPeriod')
+        billing_period = request.form.get('billingPeriod')
         
         if not billing_period:
             log_operation(
@@ -450,7 +443,8 @@ def clear_current_bill():
                 action=f"删除子表账单失败 [原因: 未提供账期参数]",
                 result="失败"
             )
-            return jsonify({'success': False, 'message': '请选择账期'}), 400
+            flash('请选择账期', 'danger')
+            return redirect(url_for('utility_index.utility_occupant_manage'))
             
         # 获取该账期的所有主表记录ID
         main_records = RoomUtilityRecord.get_by_period(None, period=billing_period)
@@ -462,10 +456,8 @@ def clear_current_bill():
                 action=f"删除子表账单失败 [账期: {billing_period}, 原因: 未找到记录]",
                 result="失败"
             )
-            return jsonify({
-                'success': False, 
-                'message': f'未找到{ billing_period }的账单记录'
-            }), 404
+            flash(f'未找到{billing_period}的账单记录', 'danger')
+            return redirect(url_for('utility_index.utility_occupant_manage'))
         
         record_ids = [r.record_id for r in main_records]
 
@@ -492,11 +484,8 @@ def clear_current_bill():
             action=f"删除当期子表账单 [账期: {billing_period}, 删除记录数: {deleted_count}，补贴子表删除数量: {subsidy_usage_deleted}]",
             result="成功"
         )
-        return jsonify({
-            'success': True,
-            'message': f'{ billing_period }的子表账单数据已删除',
-            'deleted_count': deleted_count
-        })
+        flash(f'{billing_period}的子表账单数据已删除，共删除{deleted_count}条记录', 'success')
+        return redirect(url_for('utility_index.utility_occupant_manage'))
         
     except SQLAlchemyError as e:
         db.session.rollback()
@@ -508,7 +497,8 @@ def clear_current_bill():
             action=f"删除子表账单失败 [错误: {str(e)}]",
             result="失败"
         )
-        return jsonify({'success': False, 'message': f'数据库错误: {str(e)}'}), 500
+        flash(f'数据库错误: {str(e)}', 'danger')
+        return redirect(url_for('utility_index.utility_occupant_manage'))
     except Exception as e:
         db.session.rollback()
         logging.error(f"删除账单失败: {str(e)}")
@@ -519,10 +509,11 @@ def clear_current_bill():
             action=f"删除子表账单失败 [错误: {str(e)}]",
             result="失败"
         )
-        return jsonify({'success': False, 'message': f'删除失败: {str(e)}'}), 500
+        flash(f'删除失败: {str(e)}', 'danger')
+        return redirect(url_for('utility_index.utility_occupant_manage'))
 
 # 删除单条费用记录
-@utility_room_bill_occupants_bp.route('/api/delete_fee_record/<int:occupant_id>', methods=['DELETE'])
+@utility_room_bill_occupants_bp.route('/api/delete_fee_record/<int:occupant_id>', methods=['POST'])
 @login_required
 @require_permission('utility.delete')
 def delete_fee_record(occupant_id):
@@ -538,7 +529,8 @@ def delete_fee_record(occupant_id):
                 action=f"删除单条费用记录失败 [记录ID: {occupant_id}, 原因: 记录不存在]",
                 result="失败"
             )
-            return jsonify({'success': False, 'message': '记录不存在'}), 404
+            flash('记录不存在', 'danger')
+            return redirect(url_for('utility_index.utility_occupant_manage'))
             
         # 获取关联信息用于返回
         main_record = RoomUtilityRecord.get_by_id(record.record_id)
@@ -573,11 +565,8 @@ def delete_fee_record(occupant_id):
             result="成功"
         )
         
-        return jsonify({
-            'success': True,
-            'message': f'已删除 {billing_period} 账期， {room.building}{room.room_number} 房间， {user_name} 的费用记录',
-            'subsidy_deleted_count': subsidy_deleted_count
-        })
+        flash(f'已删除 {billing_period} 账期， {room.building}{room.room_number} 房间， {user_name} 的费用记录', 'success')
+        return redirect(url_for('utility_index.utility_occupant_manage'))
         
     except SQLAlchemyError as e:
         db.session.rollback()
@@ -589,18 +578,8 @@ def delete_fee_record(occupant_id):
             action=f"删除单条费用记录失败 [记录ID: {occupant_id}, 错误: {str(e)}]",
             result="失败"
         )
-        return jsonify({'success': False, 'message': f'数据库错误: {str(e)}'}), 500
-    except Exception as e:
-        db.session.rollback()
-        logging.error(f"删除单条记录失败: {str(e)}")
-        log_operation(
-            user_id=current_user.id,
-            module='utility',
-            operation_type='delete',
-            action=f"删除单条费用记录失败 [记录ID: {occupant_id}, 错误: {str(e)}]",
-            result="失败"
-        )
-        return jsonify({'success': False, 'message': f'删除失败: {str(e)}'}), 500
+        flash(f'数据库错误: {str(e)}', 'danger')
+        return redirect(url_for('utility_index.utility_occupant_manage'))
 
 
 
