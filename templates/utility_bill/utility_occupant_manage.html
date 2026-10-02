@@ -1069,7 +1069,7 @@
       try {
         // 创建隐藏的a标签进行下载
         const a = document.createElement('a');
-        a.href = `/utility_room_bill_occupants/api/export_fee_data?${urlParams.toString()}`;
+        a.href = `/utility_room_bill_occupants_export/api/export_fee_data?${urlParams.toString()}`;
         // 移除前端自定义的download属性，使用后端传递的文件名
         document.body.appendChild(a);
         a.click();

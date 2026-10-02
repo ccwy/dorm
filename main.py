@@ -110,7 +110,7 @@ def init_flask_app(progress_callback=None):
         system_config_bp, log_bp,
         utility_room_meter_bp, utility_room_meter_import_export_bp,
         utility_index_bp,
-        utility_room_bill_records_bp, utility_room_bill_occupants_bp, utility_room_bill_checkout_bp,
+        utility_room_bill_records_bp, utility_room_bill_occupants_bp, utility_room_bill_occupants_export_bp, utility_room_bill_checkout_bp,
         fee_subsidy_bp, fee_subsidy_import_export_bp,
         utility_user_records_detail_bp,
         file_sharing_bp, ticket_user_bp, ticket_admin_bp, todo_bp, chat_bp,
@@ -150,6 +150,7 @@ def init_flask_app(progress_callback=None):
     app.register_blueprint(utility_index_bp)
     app.register_blueprint(utility_room_bill_records_bp)# 注册主表蓝图
     app.register_blueprint(utility_room_bill_occupants_bp)# 注册子表蓝图（独立注册）
+    app.register_blueprint(utility_room_bill_occupants_export_bp)# 注册子表导出蓝图
     app.register_blueprint(utility_room_bill_checkout_bp)
     app.register_blueprint(utility_user_records_detail_bp)
     app.register_blueprint(fee_subsidy_bp)
