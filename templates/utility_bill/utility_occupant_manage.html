@@ -405,7 +405,18 @@
     document.addEventListener('DOMContentLoaded', function() {
       // 修改：先加载系统配置，再加载账期
       loadSystemConfig().then(() => {
-        loadBillingPeriods();
+        loadBillingPeriods().then(() => {
+          // 检查URL参数是否有billing_period，如果有则自动选中并加载数据
+          const urlParams = new URLSearchParams(window.location.search);
+          const periodParam = urlParams.get('billing_period');
+          if (periodParam) {
+            const billingPeriodSelect = document.getElementById('billingPeriod');
+            billingPeriodSelect.value = periodParam;
+            if (billingPeriodSelect.value === periodParam) {
+              fetchFeeRecords();
+            }
+          }
+        });
       });
       
       // DOM元素获取和事件绑定
@@ -554,7 +565,7 @@
     
     // 加载账期选项
     function loadBillingPeriods() {
-      fetch('/utility_room_bill_records_bp/periods')
+      return fetch('/utility_room_bill_records_bp/periods')
         .then(response => {
           if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
           return response.json();

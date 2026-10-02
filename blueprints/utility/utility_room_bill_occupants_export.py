@@ -113,9 +113,7 @@ def create_fee_export_data(billing_period):
                 
                 export_data.append({
                     '账期': main.billing_period,
-                    '房间ID': main.room_id,
-                    '楼栋': room.building,
-                    '房间号': room.room_number,
+                    '房间号': f"{room.building}{room.room_number}",
                     '本期电表当前读数': main.electric_current,
                     '本期电表上期读数': main.electric_previous,
                     '本期电表用量': main.electric_usage,
@@ -176,9 +174,7 @@ def create_fee_export_data(billing_period):
                 
                 export_data.append({
                     '账期': main.billing_period,
-                    '房间ID': main.room_id,
-                    '楼栋': room.building,
-                    '房间号': room.room_number,
+                    '房间号': f"{room.building}{room.room_number}",
                     '本期电表当前读数': main.electric_current,
                     '本期电表上期读数': main.electric_previous,
                     '本期电表用量': main.electric_usage,
@@ -280,7 +276,7 @@ def create_user_summary_export_data(billing_period):
             if not room:
                 continue
 
-            room_label = f"{room.building}-{room.room_number}"
+            room_label = f"{room.building}{room.room_number}"
 
             # 构建抄表记录
             meter_info = (
@@ -392,7 +388,7 @@ def export_fee_data():
             # 同时记录到logging
             logging.warning(f"用户 {current_user.id} 未提供账期参数尝试导出费用数据")
             flash('缺少必要参数', 'warning')
-            return redirect(url_for('utility_index.utility_occupant_manage'))
+            return redirect(url_for('utility_index.utility_occupant_manage', billing_period=billing_period))
         
         # 记录导出操作开始 - 与日志蓝图保持一致的记录方式
         log_operation(
@@ -418,13 +414,13 @@ def export_fee_data():
             )
             logging.info(f"用户 {current_user.id} 导出 {billing_period} 账期费用数据，未找到匹配记录")
             flash('没有可导出的数据', 'warning')
-            return redirect(url_for('utility_index.utility_occupant_manage'))
+            return redirect(url_for('utility_index.utility_occupant_manage', billing_period=billing_period))
         
         # 创建Excel
         df = pd.DataFrame(export_data)
         
         # 先按楼栋排序，再按房间号排序，确保不同楼栋的相同房间号不会被混淆
-        df = df.sort_values(by=['楼栋', '房间号'])
+        df = df.sort_values(by=['房间号'])
         
         # 处理日期时间格式（保留时间信息）
         if '入住时间' in df.columns:
@@ -453,7 +449,7 @@ def export_fee_data():
             
             # 需要合并的列名（房间相关的公共信息）
             columns_to_merge = [
-                '账期', '房间ID', '楼栋', '房间号',
+                '账期', '房间号',
                 '本期电表当前读数', '本期电表上期读数', '本期电表用量', '减免电用量', '计费电用量', '电费单价','本期电费', '计费电费',
                 '本期水表当前读数', '本期水表上期读数', '本期水表用量', '减免水用量', '计费水用量', '水费单价','本期水费', '计费水费',
                 '本期总费用', '计费总费用', '退宿人员费用', '减免房间级费用', '房间应付费用'
@@ -479,22 +475,19 @@ def export_fee_data():
                     cell.border = thin_border
             
             if max_row > 1:  # 确保有数据行
-                # 获取楼栋和房间号列的索引
-                building_col_idx = col_index_map.get('楼栋')
+                # 获取房间号列的索引
                 room_col_idx = col_index_map.get('房间号')
                 
-                if building_col_idx and room_col_idx:
-                    # 记录当前楼栋、房间号和起始行
-                    current_building = worksheet.cell(row=2, column=building_col_idx).value
+                if room_col_idx:
+                    # 记录当前房间号和起始行
                     current_room = worksheet.cell(row=2, column=room_col_idx).value
                     start_row = 2
                     
-                    # 遍历所有行，识别连续相同的楼栋和房间号组合
+                    # 遍历所有行，识别连续相同的房间号
                     for row in range(3, max_row + 1):
-                        building_value = worksheet.cell(row=row, column=building_col_idx).value
                         room_value = worksheet.cell(row=row, column=room_col_idx).value
                         
-                        if building_value != current_building or room_value != current_room:
+                        if room_value != current_room:
                             # 对所有需要合并的列执行合并操作
                             for col_name in columns_to_merge:
                                 col_idx = col_index_map.get(col_name)
@@ -511,11 +504,10 @@ def export_fee_data():
                                     merged_cell.alignment = Alignment(vertical='center', horizontal='center')
                                     merged_cell.border = thin_border
                             
-                            current_building = building_value
                             current_room = room_value
                             start_row = row
                     
-                    # 处理最后一组相同楼栋和房间号的行
+                    # 处理最后一组相同房间号的行
                     if max_row - start_row > 0:
                         for col_name in columns_to_merge:
                             col_idx = col_index_map.get(col_name)
@@ -588,7 +580,7 @@ def export_fee_data():
             result="失败"
         )
         flash(str(ve), 'warning')
-        return redirect(url_for('utility_index.utility_occupant_manage'))
+        return redirect(url_for('utility_index.utility_occupant_manage', billing_period=billing_period))
     except Exception as e:
         # 异常错误日志记录
         logging.error(f"用户 {current_user.id} 导出费用数据失败: {str(e)}", exc_info=True)
@@ -600,4 +592,4 @@ def export_fee_data():
             result="失败"
         )
         flash(f'导出失败: {str(e)}', 'danger')
-        return redirect(url_for('utility_index.utility_occupant_manage'))
+        return redirect(url_for('utility_index.utility_occupant_manage', billing_period=billing_period))

@@ -300,7 +300,7 @@ def load_bill():
                 result="失败"
             )
             flash(f'未找到{billing_period}的账单记录', 'danger')
-            return redirect(url_for('utility_index.utility_occupant_manage'))
+            return redirect(url_for('utility_index.utility_occupant_manage', billing_period=billing_period))
         
         # 加载对应的子表记录
         record_ids = [r.record_id for r in main_records]
@@ -351,7 +351,7 @@ def calculate_bill():
                 result="失败"
             )
             flash('请选择账期', 'danger')
-            return redirect(url_for('utility_index.utility_occupant_manage'))
+            return redirect(url_for('utility_index.utility_occupant_manage', billing_period=billing_period))
             
         # 获取该账期的所有主表记录（仅核算完成的）
         all_period_records = RoomUtilityRecord.get_by_period(None, period=billing_period)
@@ -372,7 +372,7 @@ def calculate_bill():
                 result="失败"
             )
             flash(f'未找到{billing_period}的账单记录，请先创建', 'danger')
-            return redirect(url_for('utility_index.utility_occupant_manage'))
+            return redirect(url_for('utility_index.utility_occupant_manage', billing_period=billing_period))
         
         # 关键修复2：初始化全局补贴余额字典，跨房间共享
         global_subsidy_balances = {}
@@ -399,7 +399,7 @@ def calculate_bill():
         )
         
         flash(f'{billing_period}的费用核算完成，共更新{updated_room_count}个房间，{updated_occupant}条人员记录', 'success')
-        return redirect(url_for('utility_index.utility_occupant_manage'))
+        return redirect(url_for('utility_index.utility_occupant_manage', billing_period=billing_period))
         
     except SQLAlchemyError as e:
         db.session.rollback()
@@ -412,7 +412,7 @@ def calculate_bill():
             result="失败"
         )
         flash(f'数据库错误: {str(e)}', 'danger')
-        return redirect(url_for('utility_index.utility_occupant_manage'))
+        return redirect(url_for('utility_index.utility_occupant_manage', billing_period=billing_period))
     except Exception as e:
         db.session.rollback()
         logging.error(f"核算账单失败: {str(e)}")
@@ -424,7 +424,7 @@ def calculate_bill():
             result="失败"
         )
         flash(f'核算失败: {str(e)}', 'danger')
-        return redirect(url_for('utility_index.utility_occupant_manage'))
+        return redirect(url_for('utility_index.utility_occupant_manage', billing_period=billing_period))
 
 # 删除当期子表账单
 @utility_room_bill_occupants_bp.route('/api/clear_current_bill', methods=['POST'])
@@ -444,7 +444,7 @@ def clear_current_bill():
                 result="失败"
             )
             flash('请选择账期', 'danger')
-            return redirect(url_for('utility_index.utility_occupant_manage'))
+            return redirect(url_for('utility_index.utility_occupant_manage', billing_period=billing_period))
             
         # 获取该账期的所有主表记录ID
         main_records = RoomUtilityRecord.get_by_period(None, period=billing_period)
@@ -457,7 +457,7 @@ def clear_current_bill():
                 result="失败"
             )
             flash(f'未找到{billing_period}的账单记录', 'danger')
-            return redirect(url_for('utility_index.utility_occupant_manage'))
+            return redirect(url_for('utility_index.utility_occupant_manage', billing_period=billing_period))
         
         record_ids = [r.record_id for r in main_records]
 
@@ -485,7 +485,7 @@ def clear_current_bill():
             result="成功"
         )
         flash(f'{billing_period}的子表账单数据已删除，共删除{deleted_count}条记录', 'success')
-        return redirect(url_for('utility_index.utility_occupant_manage'))
+        return redirect(url_for('utility_index.utility_occupant_manage', billing_period=billing_period))
         
     except SQLAlchemyError as e:
         db.session.rollback()
@@ -498,7 +498,7 @@ def clear_current_bill():
             result="失败"
         )
         flash(f'数据库错误: {str(e)}', 'danger')
-        return redirect(url_for('utility_index.utility_occupant_manage'))
+        return redirect(url_for('utility_index.utility_occupant_manage', billing_period=billing_period))
     except Exception as e:
         db.session.rollback()
         logging.error(f"删除账单失败: {str(e)}")
@@ -510,7 +510,7 @@ def clear_current_bill():
             result="失败"
         )
         flash(f'删除失败: {str(e)}', 'danger')
-        return redirect(url_for('utility_index.utility_occupant_manage'))
+        return redirect(url_for('utility_index.utility_occupant_manage', billing_period=billing_period))
 
 # 删除单条费用记录
 @utility_room_bill_occupants_bp.route('/api/delete_fee_record/<int:occupant_id>', methods=['POST'])
@@ -566,7 +566,7 @@ def delete_fee_record(occupant_id):
         )
         
         flash(f'已删除 {billing_period} 账期， {room.building}{room.room_number} 房间， {user_name} 的费用记录', 'success')
-        return redirect(url_for('utility_index.utility_occupant_manage'))
+        return redirect(url_for('utility_index.utility_occupant_manage', billing_period=billing_period))
         
     except SQLAlchemyError as e:
         db.session.rollback()

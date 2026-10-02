@@ -106,7 +106,7 @@ def utility_room_records_detail():
     try:
         # 获取查询参数用于日志
         room_id = request.args.get('room_id', '未指定')
-        billing_period = request.args.get('period', '未指定')
+        billing_period = request.args.get('billing_period', '')
         
         log_operation(
             user_id=current_user.id,
@@ -255,7 +255,7 @@ def utility_occupant_manage():
     """加载房间人员费用明细页面"""
     try:
         # 获取查询参数用于日志
-        billing_period = request.args.get('period', '未指定')
+        billing_period = request.args.get('billing_period', '')
         room_id = request.args.get('room_id', '未指定')
         
         # 获取所有账期用于下拉选择
@@ -276,7 +276,7 @@ def utility_occupant_manage():
             action=f"访问用户费用管理页面 [账期: {billing_period}, 房间ID: {room_id}, 加载账期数量: {len(billing_periods)}, 加载楼栋数量: {len(building_list)}, 加载部门数量: {len(department_list)}]",#这里记载成功与失败的记录
             result="成功"#这里只有成功与失败
         )
-        return render_template('utility_bill/utility_occupant_manage.html', billing_periods=billing_periods, buildings=building_list, departments=department_list, title=f"用户费用管理")
+        return render_template('utility_bill/utility_occupant_manage.html', billing_periods=billing_periods, buildings=building_list, departments=department_list, billing_period=billing_period, title=f"用户费用管理")
     except Exception as e:
         logging.error(f"访问用户费用管理页面失败: {str(e)}")
         log_operation(
@@ -287,5 +287,5 @@ def utility_occupant_manage():
             result="失败"#这里只有成功与失败
         )
         flash(str(e), 'danger')
-        return render_template('utility_bill/utility_occupant_manage.html', billing_periods=[], buildings=[], departments=[], title=f"用户费用管理")
+        return render_template('utility_bill/utility_occupant_manage.html', billing_periods=[], buildings=[], departments=[], billing_period='', title=f"用户费用管理")
 
