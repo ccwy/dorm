@@ -1,14 +1,13 @@
-from flask import Blueprint, request, jsonify, render_template
+from flask import Blueprint, request, jsonify, render_template, send_from_directory, send_file, flash, redirect, url_for
 import logging
 import os
 from utils.db import db
 from models.utility.utility_room_meter import UtilityMeterReading
 from models.room.room import Room
 from models.user.user import User
-from models.utility.utility_room_bill_record import RoomUtilityRecord  # 新增：导入房间水电费用主表模型
+from models.utility.utility_room_bill_record import RoomUtilityRecord
 from config import Config
 from flask_login import login_required, current_user
-from flask import send_from_directory, send_file, flash, redirect, url_for, Blueprint, request, render_template
 from utils.log import log_operation
 from utils.room_meter_photo import room_meter_manager
 import traceback
@@ -27,6 +26,11 @@ def utility_reading():
     """抄表登记页面 - 支持楼栋筛选、房间搜索、分页和获取最新抄表记录，以及单个和批量表单提交保存"""
     if request.method == 'POST':
         try:
+            # 提取筛选参数，用于redirect时保留页面状态
+            building_filter = request.form.get('building', '')
+            search_room = request.form.get('search_room', '')
+            page = request.form.get('page', 1, type=int)
+            
             # 检查是否为批量保存请求
             is_batch = request.form.get('is_batch') == 'true'
             
@@ -53,11 +57,8 @@ def utility_reading():
                             result="失败"
                         )
                         logging.error(f"批量保存抄表记录 [错误: 未提供账期参数]")
-                        return render_template(
-                            'utility_bill/utility_reading.html',
-                            title=f"抄表登记",
-                            error_message="批量保存失败：未提供账期参数（billing_period）"
-                        )
+                        flash("批量保存失败：未提供账期参数（billing_period）", "danger")
+                        return redirect(url_for('utility_room_meter.utility_reading', building=building_filter, search_room=search_room, page=page))
                     
                     # 验证billing_period格式（YYYY-MM）
                     try:
@@ -71,11 +72,8 @@ def utility_reading():
                             result="失败"
                         )
                         logging.error(f"批量保存抄表记录 [错误: 账期格式错误: {billing_period}]")
-                        return render_template(
-                            'utility_bill/utility_reading.html',
-                            title=f"抄表登记",
-                            error_message="批量保存失败：账期格式错误，请使用YYYY-MM格式"
-                        )
+                        flash("批量保存失败：账期格式错误，请使用YYYY-MM格式", "danger")
+                        return redirect(url_for('utility_room_meter.utility_reading', building=building_filter, search_room=search_room, page=page))
                     
                     # 验证批量数据长度一致
                     if not (len(room_ids) == len(water_currents) == len(electric_currents) == 
@@ -89,11 +87,8 @@ def utility_reading():
                             result="失败"
                         )
                         logging.error(f"批量保存抄表记录 [错误: 批量数据长度不一致]")
-                        return render_template(
-                            'utility_bill/utility_reading.html',
-                            title=f"抄表登记",
-                            error_message="批量保存失败：数据格式错误，各字段长度不一致"
-                        )
+                        flash("批量保存失败：数据格式错误，各字段长度不一致", "danger")
+                        return redirect(url_for('utility_room_meter.utility_reading', building=building_filter, search_room=search_room, page=page))
                     
                     # 处理日期格式
                     reading_date = datetime.now()
@@ -115,11 +110,8 @@ def utility_reading():
                                         result="失败"
                                     )
                                     logging.error(f"批量保存抄表记录 [错误: 日期格式错误]")
-                                    return render_template(
-                                        'utility_bill/utility_reading.html',
-                                        title=f"抄表登记",
-                                        error_message="批量保存失败：日期格式错误，请使用 yyyy-mm-dd 或 yyyy-mm-dd HH:MM 或 yyyy-mm-dd HH:MM:SS"
-                                    )
+                                    flash("批量保存失败：日期格式错误，请使用 yyyy-mm-dd 或 yyyy-mm-dd HH:MM 或 yyyy-mm-dd HH:MM:SS", "danger")
+                                    return redirect(url_for('utility_room_meter.utility_reading', building=building_filter, search_room=search_room, page=page))
                     
                     # 准备批量保存数据
                     success_count = 0
@@ -209,11 +201,12 @@ def utility_reading():
                                                   "请检查错误详情并重新提交。"
                                 logging.error(f"批量保存抄表记录 [错误: {error_count} 条记录保存失败]")
                             
-                            # 重定向回页面，带上成功消息和错误详情
-                            from flask import redirect, url_for
-                            return redirect(url_for('utility_room_meter.utility_reading', 
-                                                 success_message=success_message,
-                                                 batch_errors=','.join(error_details) if error_count > 0 else None))
+                            # 重定向回页面，使用flash消息
+                            if error_count > 0:
+                                flash(f"{success_message} 失败详情：{'；'.join(error_details)}", "warning")
+                            else:
+                                flash(success_message, "success")
+                            return redirect(url_for('utility_room_meter.utility_reading', building=building_filter, search_room=search_room, page=page))
                         else:
                             # 全部失败
                             log_operation(
@@ -224,12 +217,8 @@ def utility_reading():
                                 result="失败"
                             )
                             logging.error(f"批量保存抄表记录 [错误: 所有记录均未能保存]")
-                            return render_template(
-                                'utility_bill/utility_reading.html',
-                                title=f"抄表登记",
-                                error_message=f"批量保存失败：所有记录均未能保存",
-                                batch_errors=error_details
-                            )
+                            flash(f"批量保存失败：所有记录均未能保存。失败详情：{'；'.join(error_details)}", "danger")
+                            return redirect(url_for('utility_room_meter.utility_reading', building=building_filter, search_room=search_room, page=page))
                             
                     except Exception as e:
                         db.session.rollback()
@@ -241,11 +230,8 @@ def utility_reading():
                             action=f"批量创建抄表记录 [事务错误: {str(e)}]",
                             result="失败"
                         )
-                        return render_template(
-                            'utility_bill/utility_reading.html',
-                            title=f"抄表登记",
-                            error_message=f"批量保存失败：{str(e)}"
-                        )
+                        flash(f"批量保存失败：{str(e)}", "danger")
+                        return redirect(url_for('utility_room_meter.utility_reading', building=building_filter, search_room=search_room, page=page))
                         
                 except Exception as e:
                     logging.error(f"处理批量抄表记录提交失败: {str(e)}")
@@ -256,11 +242,8 @@ def utility_reading():
                         action=f"处理批量抄表记录提交 [错误: {str(e)}]",
                         result="失败"
                     )
-                    return render_template(
-                        'utility_bill/utility_reading.html',
-                        title=f"抄表登记",
-                        error_message=f"批量处理失败：{str(e)}"
-                    )
+                    flash(f"批量处理失败：{str(e)}", "danger")
+                    return redirect(url_for('utility_room_meter.utility_reading', building=building_filter, search_room=search_room, page=page))
             else:
                 # 单个保存处理
                 # 从表单获取数据
@@ -283,11 +266,8 @@ def utility_reading():
                         result="失败"
                     )
                     logging.error(f"保存抄表记录 [错误: 未提供房间ID]")
-                    return render_template(
-                        'utility_bill/utility_reading.html',
-                        title=f"抄表登记",
-                        error_message="保存失败：未提供房间ID"
-                    )
+                    flash("保存失败：未提供房间ID", "danger")
+                    return redirect(url_for('utility_room_meter.utility_reading', building=building_filter, search_room=search_room, page=page))
                 
                 # 验证billing_period参数（必填）
                 if not billing_period:
@@ -299,11 +279,8 @@ def utility_reading():
                         result="失败"
                     )
                     logging.error(f"保存抄表记录 [错误: 未提供账期参数]")
-                    return render_template(
-                        'utility_bill/utility_reading.html',
-                        title=f"抄表登记",
-                        error_message="保存失败：未提供账期参数（billing_period）"
-                    )
+                    flash("保存失败：未提供账期参数（billing_period）", "danger")
+                    return redirect(url_for('utility_room_meter.utility_reading', building=building_filter, search_room=search_room, page=page))
                 
                 # 验证billing_period格式（YYYY-MM）
                 try:
@@ -317,11 +294,8 @@ def utility_reading():
                         result="失败"
                     )
                     logging.error(f"保存抄表记录 [错误: 账期格式错误: {billing_period}]")
-                    return render_template(
-                        'utility_bill/utility_reading.html',
-                        title=f"抄表登记",
-                        error_message="保存失败：账期格式错误，请使用YYYY-MM格式"
-                    )
+                    flash("保存失败：账期格式错误，请使用YYYY-MM格式", "danger")
+                    return redirect(url_for('utility_room_meter.utility_reading', building=building_filter, search_room=search_room, page=page))
                 
                 # 验证房间是否存在
                 room = Room.query.get(room_id)
@@ -334,11 +308,8 @@ def utility_reading():
                         result="失败"
                     )
                     logging.error(f"保存抄表记录 [错误: 房间ID不存在: {room_id}]")
-                    return render_template(
-                        'utility_bill/utility_reading.html',
-                        title=f"抄表登记",
-                        error_message=f"保存失败：房间ID {room_id} 不存在"
-                    )
+                    flash(f"保存失败：房间ID {room_id} 不存在", "danger")
+                    return redirect(url_for('utility_room_meter.utility_reading', building=building_filter, search_room=search_room, page=page))
                 
                 # 处理日期格式
                 reading_date = datetime.now()
@@ -360,11 +331,8 @@ def utility_reading():
                                     result="失败"
                                 )
                                 logging.error(f"保存抄表记录 [错误: 日期格式错误]")
-                                return render_template(
-                                    'utility_bill/utility_reading.html',
-                                    title=f"抄表登记",
-                                    error_message="保存失败：日期格式错误，请使用 yyyy-mm-dd 或 yyyy-mm-dd HH:MM 或 yyyy-mm-dd HH:MM:SS"
-                                )
+                                flash("保存失败：日期格式错误，请使用 yyyy-mm-dd 或 yyyy-mm-dd HH:MM 或 yyyy-mm-dd HH:MM:SS", "danger")
+                                return redirect(url_for('utility_room_meter.utility_reading', building=building_filter, search_room=search_room, page=page))
                 
                 # 转换读数为浮点数（如果有值）
                 water_current_float = float(water_current) if water_current else None
@@ -380,11 +348,8 @@ def utility_reading():
                         result="失败"
                     )
                     logging.error(f"保存抄表记录 [错误: 未提供任何读数]")
-                    return render_template(
-                        'utility_bill/utility_reading.html',
-                        title=f"抄表登记",
-                        error_message="保存失败：至少需要提供一项水表或电表读数"
-                    )
+                    flash("保存失败：至少需要提供一项水表或电表读数", "danger")
+                    return redirect(url_for('utility_room_meter.utility_reading', building=building_filter, search_room=search_room, page=page))
                 
                 # 使用事务处理创建记录
                 try:
@@ -422,9 +387,9 @@ def utility_reading():
                         result="成功"
                     )
                     logging.info(f"创建抄表记录 [房间: {room.room_full_identifier}]")
-                    # 重定向回页面，带上成功消息
-                    from flask import redirect, url_for
-                    return redirect(url_for('utility_room_meter.utility_reading', success_message=f"成功保存房间 {room.room_full_identifier} 的抄表记录"))
+                    # 重定向回页面，使用flash消息
+                    flash(f"成功保存房间 {room.room_full_identifier} 的抄表记录", "success")
+                    return redirect(url_for('utility_room_meter.utility_reading', building=building_filter, search_room=search_room, page=page))
                     
                 except Exception as e:
                     db.session.rollback()
@@ -436,11 +401,8 @@ def utility_reading():
                         action=f"创建抄表记录 [错误: {str(e)}]",
                         result="失败"
                     )
-                    return render_template(
-                        'utility_bill/utility_reading.html',
-                        title=f"抄表登记",
-                        error_message=f"保存失败：{str(e)}"
-                    )
+                    flash(f"保存失败：{str(e)}", "danger")
+                    return redirect(url_for('utility_room_meter.utility_reading', building=building_filter, search_room=search_room, page=page))
                     
         except Exception as e:
             logging.error(f"处理抄表记录提交失败: {str(e)}")
@@ -451,11 +413,8 @@ def utility_reading():
                 action=f"处理抄表记录提交 [错误: {str(e)}]",
                 result="失败"
             )
-            return render_template(
-                'utility_bill/utility_reading.html',
-                title=f"抄表登记",
-                error_message=f"处理失败：{str(e)}"
-            )
+            flash(f"处理失败：{str(e)}", "danger")
+            return redirect(url_for('utility_room_meter.utility_reading', building=building_filter, search_room=search_room, page=page))
     
     # GET 请求处理
     try:
@@ -472,13 +431,6 @@ def utility_reading():
         building_filter = request.args.get('building', '')
         page = request.args.get('page', 1, type=int)
         per_page = request.args.get('per_page', 10, type=int)
-        success_message = request.args.get('success_message', '')
-        batch_errors_str = request.args.get('batch_errors', '')
-        
-        # 处理批量错误信息
-        batch_errors = []
-        if batch_errors_str:
-            batch_errors = batch_errors_str.split(',')
         
         # 构建房间查询
         room_query = Room.query
@@ -577,8 +529,6 @@ def utility_reading():
             },
             search_room=search_room,
             building_filter=building_filter,
-            success_message=success_message,
-            batch_errors=batch_errors,
             reading_date_time=reading_date_time,
             billing_periods=billing_periods,
             current_billing_period=current_billing_period
@@ -598,13 +548,13 @@ def utility_reading():
         current_datetime = datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
         current_billing_period = datetime.now().strftime('%Y-%m')
         
+        flash("加载数据失败，请刷新页面重试", "danger")
         return render_template(
             'utility_bill/utility_reading.html',
             title=f"抄表登记",
             buildings=[],
             rooms=[],
             pagination={'total': 0, 'page': 1, 'per_page': 20, 'pages': 0},
-            error_message="加载数据失败，请刷新页面重试",
             reading_date_time=current_datetime,
             billing_periods=[],
             current_billing_period=current_billing_period
