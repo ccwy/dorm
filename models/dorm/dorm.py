@@ -6,6 +6,7 @@ from models.room.room import Room  # 导入房间模型
 from models.room.room_bed import Bed  # 导入床位模型
 from models.user.user import User  # 关键修复：添加User模型的导入
 from flask_login import current_user  # 用于获取当前登录用户
+from models.dorm.dorm_operation import DormOperation  # 导入操作记录子模型
 
 class Dorm(db.Model):
     """住宿分配模型（管理用户与房间的关联，解决关系冲突）"""
@@ -29,7 +30,8 @@ class Dorm(db.Model):
     prev_dorm = db.relationship('Dorm', remote_side=[id], backref='next_dorms', lazy='joined')  # 反向引用下一条记录
     
     # 新增：操作类型字段（记录本次住宿记录的产生方式）
-    operation_type = db.Column(db.String(20), nullable=True, comment='操作类型：allocation(分配)/transfer(换宿)/exchange(互换)/checkout(退宿)')
+    operation_type = db.Column(db.String(20), nullable=True, comment='开始操作类型：allocation(分配)/transfer(换宿)/exchange(互换)——记录此住宿周期如何开始')
+    end_operation_type = db.Column(db.String(20), nullable=True, comment='结束操作类型：checkout(退宿)/transfer(换宿)/exchange(互换)，在住时为None')
     
     # 新增：退宿归属账期（退宿时写入，用于按账期精确筛选退宿人员）
     checkout_billing_period = db.Column(db.String(7), nullable=True, comment='退宿归属账期（格式YYYY-MM，退宿时写入）')
@@ -222,7 +224,7 @@ class Dorm(db.Model):
     # 新增住宿分配核心方法
     # --------------------------
     @classmethod
-    def create_allocation(cls, user_id, room_id, bed_id, check_in_date, remarks, operation_type='allocation'):
+    def create_allocation(cls, user_id, room_id, bed_id, check_in_date, remarks, operation_type='allocation', _create_operation_record=True):
         """创建新的住宿分配记录，占用床位并更新房间状态"""
         # 获取房间信息
         room = Room.query.get(room_id)
@@ -286,8 +288,22 @@ class Dorm(db.Model):
             room.status = 'full'
         
         db.session.add(new_dorm)
-        
+        db.session.flush()  # 确保new_dorm.id已生成
 
+        # 创建 DormOperation 记录（分配入住）
+        if _create_operation_record:
+            dorm_op = DormOperation(
+                dorm_id=new_dorm.id,
+                user_id=user_id,
+                operation_type='allocation',
+                room_id=room_id,
+                from_room_id=None,
+                bed_id=bed_id,
+                from_bed_id=None,
+                operator_user_id=current_user.id if current_user.is_authenticated else None,
+                remarks=remarks
+            )
+            db.session.add(dorm_op)
 
         # 更新房间平均年龄
         if room:
@@ -297,13 +313,12 @@ class Dorm(db.Model):
     # --------------------------
     # 退宿核心方法
     # --------------------------
-    def check_out(self, check_out_date, remarks, operation_type='checkout', billing_period=None):
+    def check_out(self, check_out_date, remarks, billing_period=None, _create_operation_record=True):
         """处理退宿逻辑，释放床位并更新房间状态
         
         Args:
             check_out_date: 退宿日期
             remarks: 备注
-            operation_type: 操作类型（默认checkout）
             billing_period: 退宿归属账期（格式YYYY-MM，仅退宿时写入）
         """
      
@@ -317,15 +332,18 @@ class Dorm(db.Model):
                 if bed.status == 'occupied':
                     bed.status = 'available'
 
+        # 记录原房间和床位信息（用于DormOperation）
+        from_room_id = self.room_id
+        from_bed_id = self.bed_id
+
         # 更新住宿记录状态
         self.check_out_date = check_out_date  # 已改为datetime类型
         self.status = 'checked_out'
-        self.operation_type = operation_type
+        self.end_operation_type = 'checkout'
         self.remarks = remarks if remarks else self.remarks
-        self.operator_user_id = current_user.id if current_user.is_authenticated else None
         
         # 退宿时写入归属账期
-        if billing_period and operation_type == 'checkout':
+        if billing_period:
             self.checkout_billing_period = billing_period
         
         # 更新房间 occupancy 和状态
@@ -338,6 +356,21 @@ class Dorm(db.Model):
                     room.status = 'available'
         
         db.session.add(self)
+
+        # 创建 DormOperation 记录（退宿）
+        if _create_operation_record:
+            dorm_op = DormOperation(
+                dorm_id=self.id,
+                user_id=self.user_id,
+                operation_type='checkout',
+                room_id=None,  # 退宿无目标房间
+                from_room_id=from_room_id,
+                bed_id=None,
+                from_bed_id=from_bed_id,
+                operator_user_id=current_user.id if current_user.is_authenticated else None,
+                remarks=remarks
+            )
+            db.session.add(dorm_op)
 
         # 更新房间平均年龄
         if room:
@@ -439,11 +472,14 @@ class Dorm(db.Model):
 
                 # 4. 核心优化点：复用退宿函数处理原住宿
                 old_room_id = current_dorm.room_id
+                old_bed_id = current_dorm.bed_id
                 current_dorm.check_out(
                     check_out_date=change_date,  # 已改为datetime类型
                     remarks=f"换宿至房间{target_room_id}，原因：{reason}",
-                    operation_type='transfer'
+                    _create_operation_record=False
                 )
+                current_dorm.end_operation_type = 'transfer'
+                db.session.flush()  # 关键修复：确�end_operation_type写入数据库后再expire_all
                 # 退宿后强制刷新，确保原床位状态已更新
                 db.session.expire_all()
 
@@ -455,9 +491,24 @@ class Dorm(db.Model):
                     bed_id=available_bed.id,
                     check_in_date=change_date,  # 已改为datetime类型
                     remarks=f"从房间{old_room_id}换入，原因：{reason}",
-                    operation_type='transfer'
+                    operation_type='transfer',
+                    _create_operation_record=False
                 )
                 new_dorm.prev_dorm_id = current_dorm.id
+
+                # 创建 DormOperation 记录（换宿）
+                dorm_op = DormOperation(
+                    dorm_id=new_dorm.id,
+                    user_id=user_id,
+                    operation_type='transfer',
+                    room_id=target_room_id,
+                    from_room_id=old_room_id,
+                    bed_id=available_bed.id,
+                    from_bed_id=old_bed_id,
+                    operator_user_id=current_user.id if current_user.is_authenticated else None,
+                    remarks=f"从房间{old_room_id}换入，原因：{reason}"
+                )
+                db.session.add(dorm_op)
 
                 # 6. 验证新分配结果
                 if not new_dorm:
@@ -598,13 +649,16 @@ class Dorm(db.Model):
                 dorm_a.check_out(
                     check_out_date=exchange_date,  # 已改为datetime类型
                     remarks=f"与用户{user_b_id}互换至房间{room_b_full}，原因：{reason}",
-                    operation_type='exchange'
+                    _create_operation_record=False
                 )
                 dorm_b.check_out(
                     check_out_date=exchange_date,  # 已改为datetime类型
                     remarks=f"与用户{user_a_id}互换至房间{room_a_full}，原因：{reason}",
-                    operation_type='exchange'
+                    _create_operation_record=False
                 )
+                dorm_a.end_operation_type = 'exchange'
+                dorm_b.end_operation_type = 'exchange'
+                db.session.flush()  # 关键修复：确�end_operation_type写入数据库后再expire_all
                 # 退宿后强制刷新
                 db.session.expire_all()
 
@@ -624,7 +678,8 @@ class Dorm(db.Model):
                     bed_id=bed_b_id,
                     check_in_date=exchange_date,  # 已改为datetime类型
                     remarks=f"与用户{user_b_id}互换，原房间{room_a_full}",
-                    operation_type='exchange'
+                    operation_type='exchange',
+                    _create_operation_record=False
                 )
                 new_dorm_b = cls.create_allocation(
                     user_id=user_b_id,
@@ -632,12 +687,41 @@ class Dorm(db.Model):
                     bed_id=bed_a_id,
                     check_in_date=exchange_date,  # 已改为datetime类型
                     remarks=f"与用户{user_a_id}互换，原房间{room_b_full}",
-                    operation_type='exchange'
+                    operation_type='exchange',
+                    _create_operation_record=False
                 )
 
                 # 关联历史记录
                 new_dorm_a.prev_dorm_id = dorm_a.id
                 new_dorm_b.prev_dorm_id = dorm_b.id
+
+                # 创建 DormOperation 记录（互换 - 双方各一条）
+                dorm_op_a = DormOperation(
+                    dorm_id=new_dorm_a.id,
+                    user_id=user_a_id,
+                    operation_type='exchange',
+                    room_id=room_b_id,
+                    from_room_id=room_a_id,
+                    bed_id=bed_b_id,
+                    from_bed_id=bed_a_id,
+                    operator_user_id=current_user.id if current_user.is_authenticated else None,
+                    swap_with_user_id=user_b_id,
+                    remarks=f"与用户{user_b_id}互换，原房间{room_a_full}"
+                )
+                dorm_op_b = DormOperation(
+                    dorm_id=new_dorm_b.id,
+                    user_id=user_b_id,
+                    operation_type='exchange',
+                    room_id=room_a_id,
+                    from_room_id=room_b_id,
+                    bed_id=bed_a_id,
+                    from_bed_id=bed_b_id,
+                    operator_user_id=current_user.id if current_user.is_authenticated else None,
+                    swap_with_user_id=user_a_id,
+                    remarks=f"与用户{user_a_id}互换，原房间{room_b_full}"
+                )
+                db.session.add(dorm_op_a)
+                db.session.add(dorm_op_b)
 
                 if not has_active_transaction:
                     db.session.commit()
@@ -667,4 +751,64 @@ class Dorm(db.Model):
             logging.error(f"互换异常: {str(e)}\n{traceback.format_exc()}")
             # 关键修复5：错误日志中安全处理变量
             raise e
-    
+
+    @classmethod
+    def fix_inconsistent_end_operation_types(cls):
+        """查找并修复end_operation_type不一致的记录（有后续换宿记录但被标记为checkout）"""
+        # 查找所有 end_operation_type == 'checkout' 且 status == 'checked_out' 的记录
+        checked_out_records = cls.query.filter_by(
+            end_operation_type='checkout',
+            status='checked_out'
+        ).all()
+
+        logging.info(f"开始检查end_operation_type一致性，共检查 {len(checked_out_records)} 条已退宿记录")
+
+        fixed_records = []
+
+        for record in checked_out_records:
+            # 检查是否有 next_dorms（即 prev_dorm_id 指向它的记录存在）
+            next_dorms = cls.query.filter_by(prev_dorm_id=record.id).all()
+
+            if not next_dorms:
+                # 没有后续记录，说明是真正的退宿，跳过
+                continue
+
+            # 有后续记录，说明这是换宿而非退宿，需要修复
+            # 根据下一条记录的 operation_type 判断正确的 end_operation_type
+            next_dorm = next_dorms[0]
+
+            if next_dorm.operation_type == 'exchange':
+                new_value = 'exchange'
+            elif next_dorm.operation_type == 'transfer':
+                new_value = 'transfer'
+            else:
+                # 无法确定时默认设为 transfer
+                new_value = 'transfer'
+
+            logging.warning(
+                f"发现不一致记录：Dorm ID={record.id}, user_id={record.user_id}, "
+                f"end_operation_type='checkout' 但存在后续记录(next_dorm_id={next_dorm.id}, "
+                f"operation_type='{next_dorm.operation_type}')，将修复为 '{new_value}'"
+            )
+
+            record.end_operation_type = new_value
+
+            fixed_records.append({
+                'dorm_id': record.id,
+                'user_id': record.user_id,
+                'old_value': 'checkout',
+                'new_value': new_value,
+                'next_dorm_id': next_dorm.id
+            })
+
+        if fixed_records:
+            db.session.commit()
+            logging.info(f"已修复 {len(fixed_records)} 条不一致记录并提交")
+        else:
+            logging.info("未发现不一致记录，无需修复")
+
+        return {
+            'total_checked': len(checked_out_records),
+            'fixed_count': len(fixed_records),
+            'fixed_records': fixed_records
+        }

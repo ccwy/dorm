@@ -635,7 +635,7 @@ def get_checkout_residents():
         # 基础查询：按退宿归属账期精确筛选，仅查询退宿操作类型的记录
         query = Dorm.query.filter(
             Dorm.status == 'checked_out',
-            Dorm.operation_type == 'checkout',
+            Dorm.end_operation_type == 'checkout',
             Dorm.checkout_billing_period == bill_period
         )
         

@@ -356,8 +356,12 @@ def calculate_bill():
             )
             return jsonify({'success': False, 'message': '请选择账期'}), 400
             
-        # 获取该账期的所有主表记录
-        main_records = RoomUtilityRecord.get_by_period(None, period=billing_period)
+        # 获取该账期的所有主表记录（仅核算完成的）
+        all_period_records = RoomUtilityRecord.get_by_period(None, period=billing_period)
+        main_records = [r for r in all_period_records if r.status == 'completed']
+        skipped_count = len(all_period_records) - len(main_records)
+        if skipped_count > 0:
+            logging.info(f"账期{billing_period}：跳过{skipped_count}个未核算房间")
         
         # 关键修复：按账单开始日期排序，确保补贴按时间顺序使用
         main_records.sort(key=lambda x: x.start_date)

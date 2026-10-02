@@ -226,7 +226,7 @@ def utility_user_checkout_detail():
     is_transfer = False
     if checkout_record.dorm_id:
         dorm_record = Dorm.query.get(checkout_record.dorm_id)
-        if dorm_record and dorm_record.operation_type in ('transfer', 'exchange'):
+        if dorm_record and dorm_record.end_operation_type in ('transfer', 'exchange'):
             is_transfer = True
     
     # 渲染费用结果页面

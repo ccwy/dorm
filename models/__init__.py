@@ -10,5 +10,5 @@ from .department import Department  # 部门管理模型
 from .supply import Supplier, SupplierOperationRecord, SupplyItem, StorageLocation, SupplyStockDetail, StockIn, StockInDetail, StockOut, StockOutDetail, SupplyInventory, SupplyInventoryDetail, SupplyStockRecord  # 低值易耗品进销存模型
 from .role import Role, RolePermission  # 角色权限模型
 from .contract import Contract, ContractOperationRecord
-from .dorm import Dorm, DormApplication  # 宿舍管理模型及申请模型
+from .dorm import Dorm, DormApplication, DormOperation  # 宿舍管理模型及申请模型
 from .maintenance import MaintenanceOrder, MaintenanceReply

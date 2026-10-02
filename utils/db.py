@@ -331,6 +331,7 @@ def init_db(app: Flask, force_recreate=False):
             import models.room.room_bed
             import models.dorm.dorm
             import models.dorm.dorm_application  # 宿舍申请模型
+            import models.dorm.dorm_operation  # 宿舍操作记录模型
             import models.log.log
             import models.utility.utility_room_meter
             import models.system_config.system_config

@@ -53,7 +53,7 @@ class RoomUtilityOccupant(db.Model):
     @classmethod
     def calculate_room_fee(cls, record_id, user_subsidy_balances=None):
         """计算房间内所有人员（含换宿）的费用分摊"""
-        from models.user.user import User  # 新增：导入User模型用于用户状态验证
+        from models.user.user import User  # 导入User模型用于验证用户是否存在
         # 确保字典全局唯一，避免每次调用创建新字典
         if user_subsidy_balances is None:
             user_subsidy_balances = {}
@@ -67,6 +67,9 @@ class RoomUtilityOccupant(db.Model):
             
         if main_record.actual_electric_fee is None or main_record.actual_water_fee is None:
             raise ValueError(f"主表记录ID={record_id}的实际应收费用数据不完整")
+        
+        if main_record.status != 'completed':
+            raise ValueError(f"主表记录ID={record_id}尚未核算完成（当前状态：{main_record.status}），跳过用户费用分摊")
         
         # 清空旧记录
         cls.query.filter_by(record_id=record_id).delete()
@@ -94,9 +97,10 @@ class RoomUtilityOccupant(db.Model):
         for item in valid_occupants:
             # 只统计当前房间的住宿天数
             if item['room_id'] == room_id:
-                # 新增：验证用户状态是否为在职
+                # 核算以账期内是否有住宿记录为准，不限制用户当前在职状态
+                # （用户可能在账期内正常住宿但后来离职，过往账期仍应参与分摊）
                 user = User.query.get(item['user_id'])
-                if user and user.is_status():
+                if user:
                     occupant_days.append({
                         'user_id': item['user_id'],
                         'days': item['days'],
@@ -108,7 +112,7 @@ class RoomUtilityOccupant(db.Model):
                     })
                     total_days += item['days']
                 else:
-                    logging.warning(f"用户ID={item['user_id']}非在职状态，不参与费用分摊")
+                    logging.warning(f"用户ID={item['user_id']}不存在，不参与费用分摊")
         
         if total_days <= 0:
             logging.warning(f"房间{room_id}在{start_date}至{end_date}期间有效住宿总天数为0")
@@ -223,7 +227,8 @@ class RoomUtilityOccupant(db.Model):
         """批量计算一个账期内所有房间的费用，确保补贴跨房间流转"""
         # 按时间顺序获取该账期内所有房间的主表记录
         main_records = RoomUtilityRecord.query.filter(
-            RoomUtilityRecord.billing_period == billing_period
+            RoomUtilityRecord.billing_period == billing_period,
+            RoomUtilityRecord.status == 'completed'
         ).order_by(RoomUtilityRecord.start_date).all()
     
         # 初始化全局唯一的补贴余额字典
@@ -277,13 +282,31 @@ class RoomUtilityOccupant(db.Model):
                     continue
                 processed_records.add(record.id)
                 
-                # 关键改进：判断是否为退宿人员（非换宿）
-                # 退宿人员定义：有退房日期且没有后续住宿记录
-                is_checkout = bool(record.check_out_date) and len(record.next_dorms) == 0
+                # 判断是否为账期内真正退宿人员（checkout且退宿发生在账期内）
+                # 核算账期外退宿的用户，在账期内应视为正常住宿，纳入在住分摊
+                is_checkout_in_period = (
+                    record.end_operation_type == 'checkout' and
+                    record.check_out_date is not None and
+                    start_date <= record.check_out_date <= end_date
+                )
                 
-                # 如果是退宿人员，直接跳过，不纳入核算
-                if is_checkout:
-                    logging.debug(f"退宿人员记录{dorm.id}已排除，不纳入费用核算")
+                # 防御性检查：如果记录有后续换宿记录（next_dorms），则不应视为退宿
+                # 这处理了end_operation_type可能被错误设置为'checkout'的数据不一致情况
+                # （已知问题：change_dorm/exchange_dorm中expire_all()可能导致end_operation_type覆盖丢失）
+                if is_checkout_in_period and record.next_dorms:
+                    logging.warning(
+                        f"住宿记录{record.id}(user_id={record.user_id}, room_id={record.room_id})的"
+                        f"end_operation_type为'checkout'但存在后续换宿记录(next_dorm_ids="
+                        f"{[d.id for d in record.next_dorms]})，视为数据不一致，"
+                        f"将作为换宿处理而非退宿排除"
+                    )
+                    is_checkout_in_period = False
+                
+                if is_checkout_in_period:
+                    logging.info(
+                        f"账期内退宿人员记录{record.id}(user_id={record.user_id}, room_id={record.room_id})"
+                        f"已排除，退宿日期={record.check_out_date}，由退宿子表单独核算"
+                    )
                     continue
                 
                 days = RoomUtilityOccupant._calculate_stay_days(
@@ -313,7 +336,10 @@ class RoomUtilityOccupant(db.Model):
                         'end_date': actual_end
                     })
         
-        logging.debug(f"房间{room_id}有效住宿记录: {len(all_occupancy)}条（已排除退宿人员）")
+        logging.info(
+                        f"房间{room_id}有效住宿记录: {len(all_occupancy)}条（已排除账期内退宿人员），"
+                        f"基础查询{len(base_occupants)}条，处理记录{len(processed_records)}条"
+                    )
         return all_occupancy
     
     @staticmethod
@@ -330,7 +356,7 @@ class RoomUtilityOccupant(db.Model):
             return 0
         
         # 同日换宿：退宿日期=入住日期时，天数为0
-        if check_out is not None and actual_check_in.date() == actual_check_out.date():
+        if check_out is not None and check_in.date() == check_out.date():
             return 0
             
         delta = actual_check_out - actual_check_in

@@ -253,7 +253,7 @@ def view(id):
         room_types = Room.get_valid_room_types()
         type_mapping = {t: t for t in room_types}
         # 获取房间的水电费记录
-        utility_records = RoomUtilityRecord.query.filter_by(room_id=id).order_by(RoomUtilityRecord.billing_period.desc()).all()
+        utility_records = RoomUtilityRecord.query.filter_by(room_id=id, status='completed').order_by(RoomUtilityRecord.billing_period.desc()).all()
         # 获取房间的媒体文件
         media_files = RoomPhotoManager.get_media_files(room.id)
         log_operation(

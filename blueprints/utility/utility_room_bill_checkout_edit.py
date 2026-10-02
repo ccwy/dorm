@@ -99,7 +99,7 @@ def get_checkout_edit_data(checkout_id):
         period_end = main_record.end_date
         
         # 判断退宿是否为换宿/互换产生（换宿/互换产生的退宿日期不显示）
-        is_transfer = dorm_record.operation_type in ('transfer', 'exchange') if dorm_record and dorm_record.operation_type else False
+        is_transfer = dorm_record.end_operation_type in ('transfer', 'exchange') if dorm_record and dorm_record.end_operation_type else False
         
         # 获取当前房间的所有住宿记录（包括在住和已退宿）
         all_dorm_records = Dorm.query.filter(

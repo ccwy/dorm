@@ -88,10 +88,10 @@ class Config:
     else:
         USE_DESKTOP_VIEW = True  # False为开发网页模式，True为桌面窗口模式，方便开发调试
     
-    # 调试模式：打包后为False
+    # 调试模式：默认为False
     DEBUG = False
 
-    # 自动登录ADMIN账号：打包后禁止自动登录（安全）
+    # 自动登录ADMIN账号：默认为False（安全）
     AUTO_LOGIN_ADMIN = False
 
     # 系统标题：从外部配置读取，修复原ProductionConfig中key为SERVER_PORT的bug

@@ -1,5 +1,6 @@
 from flask import Blueprint, request, jsonify, send_file, abort
 import logging
+from datetime import datetime, date
 from utils.db import db
 from models.room.room import Room, RoomStatus
 from models.dorm.dorm import Dorm
@@ -69,13 +70,15 @@ def get_room_detail(room_id):
                 check_in_date = "未记录"
                 days_stayed = "未记录"
                 try:
-                    # 明确检查check_in_date是否存在且为datetime类型
-                    if dorm.check_in_date is not None and isinstance(dorm.check_in_date, datetime):
-                        check_in_date = dorm.check_in_date.strftime('%Y-%m-%d %H:%M')  # 增加时间显示
-                        # 使用与Dorm模型一致的天数计算方法
-                        # 只比较日期部分，忽略时间
-                        check_in_date_only = dorm.check_in_date.date()
-                        today_date_only = datetime.today().date()
+                    # 检查check_in_date是否存在且为datetime或date类型
+                    if dorm.check_in_date is not None and isinstance(dorm.check_in_date, (datetime, date)):
+                        if isinstance(dorm.check_in_date, datetime):
+                            check_in_date = dorm.check_in_date.strftime('%Y-%m-%d %H:%M')
+                            check_in_date_only = dorm.check_in_date.date()
+                        else:
+                            check_in_date = dorm.check_in_date.strftime('%Y-%m-%d')
+                            check_in_date_only = dorm.check_in_date
+                        today_date_only = date.today()
                         
                         # 计算日期差，加1天确保入住当天被计算在内
                         if today_date_only >= check_in_date_only:
@@ -306,8 +309,11 @@ def get_rooms():
                 for occ in occupants[:3]:  # 只取前3位
                     check_in_date = "未记录"
                     try:
-                        if occ.check_in_date is not None and isinstance(occ.check_in_date, datetime):
-                            check_in_date = occ.check_in_date.strftime('%Y-%m-%d %H:%M')  # 增加时间显示
+                        if occ.check_in_date is not None and isinstance(occ.check_in_date, (datetime, date)):
+                            if isinstance(occ.check_in_date, datetime):
+                                check_in_date = occ.check_in_date.strftime('%Y-%m-%d %H:%M')
+                            else:
+                                check_in_date = occ.check_in_date.strftime('%Y-%m-%d')
                         else:
                             logging.warning(
                                 f"入住记录ID={occ.id}的check_in_date缺失或格式异常 "
@@ -438,9 +444,18 @@ def get_batch_user_rooms():
                 # 处理入住日期时间
                 check_in_date = "未记录"
                 days_stayed = "未记录"
-                if dorm.check_in_date is not None and isinstance(dorm.check_in_date, datetime):
-                    check_in_date = dorm.check_in_date.strftime('%Y-%m-%d %H:%M')
-                    days_stayed = (datetime.today().date() - dorm.check_in_date.date()).days
+                if dorm.check_in_date is not None and isinstance(dorm.check_in_date, (datetime, date)):
+                    if isinstance(dorm.check_in_date, datetime):
+                        check_in_date = dorm.check_in_date.strftime('%Y-%m-%d %H:%M')
+                        check_in_date_only = dorm.check_in_date.date()
+                    else:
+                        check_in_date = dorm.check_in_date.strftime('%Y-%m-%d')
+                        check_in_date_only = dorm.check_in_date
+                    today_date_only = date.today()
+                    if today_date_only >= check_in_date_only:
+                        days_stayed = (today_date_only - check_in_date_only).days + 1
+                    else:
+                        days_stayed = 0
                 
                 results.append({
                     "user_id": user_id,

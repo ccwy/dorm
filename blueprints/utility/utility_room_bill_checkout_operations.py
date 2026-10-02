@@ -160,7 +160,7 @@ def create_checkout_record():
             user_id=user_id,
             room_id=room_id,
             status='checked_out',
-            operation_type='checkout'
+            end_operation_type='checkout'
         ).order_by(Dorm.check_out_date.desc()).first()
         dorm_id = dorm_record.id if dorm_record else None
         

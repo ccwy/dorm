@@ -961,7 +961,7 @@ class CheckoutUtilityRecord(db.Model):
             # 累加有效住宿天数
             if stay_start <= stay_end:
                 # 同日换宿：入住和退宿为同一天时不计天数
-                if stay_start.date() == stay_end.date():
+                if dorm.check_out_date is not None and dorm.check_in_date.date() == dorm.check_out_date.date():
                     days = 0
                 else:
                     days = (stay_end.date() - stay_start.date()).days + 1  # 包含首尾日期
@@ -1002,7 +1002,7 @@ class CheckoutUtilityRecord(db.Model):
                 
             # 计算该用户在该段的住宿天数
             # 同日换宿：入住和退宿为同一天时不计天数
-            if stay_start.date() == stay_end.date():
+            if dorm.check_out_date is not None and dorm.check_in_date.date() == dorm.check_out_date.date():
                 days = 0
             else:
                 days = (stay_end.date() - stay_start.date()).days + 1
@@ -1020,6 +1020,7 @@ class CheckoutUtilityRecord(db.Model):
                     new_end = max(stay_end, existing['end'])
                     existing['start'] = new_start
                     existing['end'] = new_end
+                    existing['days'] = (new_end.date() - new_start.date()).days + 1  # 重算合并后的天数
                     overlap = True
                     break
             
