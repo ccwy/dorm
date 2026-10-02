@@ -1,4 +1,4 @@
-from flask import request, jsonify
+from flask import request, jsonify, flash, redirect, url_for
 from utils.db import db
 from models.dorm.dorm import Dorm
 from models.user.user import User
@@ -30,7 +30,8 @@ def get_checkout_edit_data(checkout_id):
                 action=f"查询退宿修改数据 [退宿记录ID: {checkout_id}]，退宿记录不存在",
                 result="失败"
             )
-            return jsonify({"status": "error", "message": f"退宿记录ID={checkout_id}不存在"}), 404
+            flash(f'退宿记录ID={checkout_id}不存在', 'danger')
+            return redirect(url_for('utility_index.utility_room_checkout_edit', id=checkout_id))
         
         # 2. 获取关联的主表和房间信息
         main_record = RoomUtilityRecord.query.get(checkout_record.record_id)
@@ -325,9 +326,11 @@ def get_checkout_edit_data(checkout_id):
 def update_checkout_data(checkout_id):
     """仅接收修改后的抄表记录，更新并重新计算费用"""
     try:
-        # 1. 获取请求数据
-        data = request.get_json()
-        if not data:
+        # 1. 获取表单数据
+        new_electric_reading = request.form.get('new_electric_reading')
+        new_water_reading = request.form.get('new_water_reading')
+        
+        if new_electric_reading is None and new_water_reading is None:
             log_operation(
                 user_id=current_user.id,
                 module='utility',
@@ -335,7 +338,8 @@ def update_checkout_data(checkout_id):
                 action=f"更新退宿记录 [退宿记录ID: {checkout_id}]，未提供更新数据",
                 result="失败"
             )
-            return jsonify({"status": "error", "message": "未提供更新数据"}), 400
+            flash('未提供更新数据', 'danger')
+            return redirect(url_for('utility_index.utility_room_checkout_edit', id=checkout_id))
         
         # 2. 获取子表记录
         checkout_record = CheckoutUtilityRecord.query.get(checkout_id)
@@ -347,11 +351,10 @@ def update_checkout_data(checkout_id):
                 action=f"更新退宿记录 [退宿记录ID: {checkout_id}]，退宿记录不存在",
                 result="失败"
             )
-            return jsonify({"status": "error", "message": f"退宿记录ID={checkout_id}不存在"}), 404
+            flash(f'退宿记录ID={checkout_id}不存在', 'danger')
+            return redirect(url_for('utility_index.utility_room_checkout_edit', id=checkout_id))
         
-        # 3. 仅提取需要更新的抄表参数
-        new_electric_reading = data.get('new_electric_reading')
-        new_water_reading = data.get('new_water_reading')
+        # 3. 仅提取需要更新的抄表参数（已从表单获取）
         
         # 4. 调用模型方法更新退宿记录（仅传递抄表参数）
         updated_record = checkout_record.update_checkout_record(
@@ -381,11 +384,7 @@ def update_checkout_data(checkout_id):
         
         db.session.commit()
         
-        # 6. 返回更新后的费用信息
-        result = {
-            "status": "success",
-            "message": "退宿费用已成功更新，抄表记录已同步更新",
-        }
+        # 6. 返回更新成功
          # 记录成功日志
         log_operation(
             user_id=current_user.id,
@@ -394,7 +393,8 @@ def update_checkout_data(checkout_id):
             action=f"更新退宿记录 [退宿记录ID: {checkout_id}, 新电表读数: {new_electric_reading}, 新水表读数: {new_water_reading}]，退宿费用已更新，抄表记录已同步",
             result="成功"
         )
-        return jsonify(result)
+        flash('退宿费用已成功更新，抄表记录已同步更新', 'success')
+        return redirect(url_for('utility_index.utility_room_checkout_edit', id=checkout_id))
         
     except ValueError as e:
         db.session.rollback()
@@ -406,7 +406,8 @@ def update_checkout_data(checkout_id):
             action=f"更新退宿费用记录参数错误 [退宿记录ID: {checkout_id}]: {str(e)}",
             result="失败"
         )
-        return jsonify({"status": "error", "message": str(e)}), 400
+        flash(str(e), 'danger')
+        return redirect(url_for('utility_index.utility_room_checkout_edit', id=checkout_id))
     except Exception as e:
         db.session.rollback()
         logging.error(f"更新退宿记录失败: {str(e)}", exc_info=True)
@@ -417,4 +418,5 @@ def update_checkout_data(checkout_id):
             action=f"更新退宿费用记录失败 [退宿记录ID: {checkout_id}]: {str(e)}",
             result="失败"
         )
-        return jsonify({"status": "error", "message": f"更新失败: {str(e)}"}), 500
+        flash(f'更新失败: {str(e)}', 'danger')
+        return redirect(url_for('utility_index.utility_room_checkout_edit', id=checkout_id))

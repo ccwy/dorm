@@ -217,6 +217,158 @@ def create_fee_export_data(billing_period):
     
     return export_data, export_warnings
 
+
+def create_user_summary_export_data(billing_period):
+    """创建按用户汇总的导出数据，跨所有房间按user_id分组"""
+    # 查询指定账期的所有 RoomUtilityRecord
+    main_records = RoomUtilityRecord.query.filter(
+        RoomUtilityRecord.billing_period == billing_period
+    ).all()
+
+    if not main_records:
+        return []
+
+    # 收集所有 occupant 记录，并建立 record_id -> main_record 映射
+    record_map = {}
+    all_occupants = []
+    for main in main_records:
+        record_map[main.record_id] = main
+        occupants = RoomUtilityOccupant.get_by_record(main.record_id)
+        all_occupants.extend(occupants)
+
+    if not all_occupants:
+        return []
+
+    # 批量加载 User 信息
+    user_ids = list(set(occ.user_id for occ in all_occupants))
+    users = User.query.filter(User.id.in_(user_ids)).all()
+    user_map = {user.id: user for user in users}
+
+    # 批量加载 Dorm 信息
+    dorm_ids = list(set(occ.dorm_id for occ in all_occupants if occ.dorm_id))
+    dorm_by_id = {}
+    if dorm_ids:
+        dorm_records = Dorm.query.filter(Dorm.id.in_(dorm_ids)).all()
+        dorm_by_id = {d.id: d for d in dorm_records}
+
+    # 批量加载 Room 信息
+    room_ids = list(set(main.room_id for main in main_records))
+    rooms = Room.query.filter(Room.id.in_(room_ids)).all()
+    room_map = {room.id: room for room in rooms}
+
+    # 按 user_id 跨所有房间分组
+    user_groups = defaultdict(list)
+    for occ in all_occupants:
+        user_groups[occ.user_id].append(occ)
+
+    export_data = []
+
+    for user_id, occupant_list in user_groups.items():
+        user = user_map.get(user_id)
+        user_name = user.name if user else f"未知用户（ID:{user_id}）"
+        user_student_id = user.student_id if user else ""
+        user_department = user.department or "" if user else ""
+        user_position = user.position or "" if user else ""
+
+        if len(occupant_list) == 1:
+            # 单条记录：用户只在一个房间
+            occ = occupant_list[0]
+            main = record_map.get(occ.record_id)
+            if not main:
+                continue
+            room = room_map.get(main.room_id)
+            if not room:
+                continue
+
+            room_label = f"{room.building}-{room.room_number}"
+
+            # 构建抄表记录
+            meter_info = (
+                f"电表: {main.electric_previous}→{main.electric_current}, "
+                f"用量{main.electric_usage}; "
+                f"水表: {main.water_previous}→{main.water_current}, "
+                f"用量{main.water_usage}"
+            )
+
+            export_data.append({
+                '账期': main.billing_period,
+                '用户姓名': user_name,
+                '工号': user_student_id,
+                '部门': user_department,
+                '职位': user_position,
+                '房间号': room_label,
+                '抄表记录': meter_info,
+                '用户分摊水费': occ.water_fee,
+                '用户分摊电费': occ.electric_fee,
+                '用户分摊总金额': occ.total_fee,
+                '备注': ""
+            })
+        else:
+            # 多条记录：换宿用户，账期内在多个房间
+            room_labels = []
+            meter_parts = []
+            total_water = Decimal('0')
+            total_electric = Decimal('0')
+            total_fee = Decimal('0')
+            remark_details = []
+
+            for occ in occupant_list:
+                main = record_map.get(occ.record_id)
+                if not main:
+                    continue
+                room = room_map.get(main.room_id)
+                if not room:
+                    continue
+
+                room_label = f"{room.building}-{room.room_number}"
+                room_labels.append(room_label)
+
+                # 构建该房间的抄表信息
+                room_meter = (
+                    f"【{room_label}】电表: {main.electric_previous}→{main.electric_current}, "
+                    f"用量{main.electric_usage}; "
+                    f"水表: {main.water_previous}→{main.water_current}, "
+                    f"用量{main.water_usage}"
+                )
+                meter_parts.append(room_meter)
+
+                # 累计费用
+                total_water += Decimal(str(occ.water_fee or 0))
+                total_electric += Decimal(str(occ.electric_fee or 0))
+                total_fee += Decimal(str(occ.total_fee or 0))
+
+                # 备注明细
+                occ_total = Decimal(str(occ.total_fee or 0))
+                remark_details.append(f"{room_label}: 分摊总金额{occ_total:.2f}")
+
+            # 房间号用逗号连接
+            rooms_str = ", ".join(room_labels)
+            # 抄表记录用分号连接
+            meters_str = "; ".join(meter_parts)
+            # 备注格式
+            remark = f"换宿合并: {', '.join(remark_details)}"
+
+            # 获取账期（所有记录的账期相同）
+            billing_period_val = occupant_list[0].record_id and record_map.get(occupant_list[0].record_id)
+            period_str = billing_period_val.billing_period if billing_period_val else billing_period
+
+            export_data.append({
+                '账期': period_str,
+                '用户姓名': user_name,
+                '工号': user_student_id,
+                '部门': user_department,
+                '职位': user_position,
+                '房间号': rooms_str,
+                '抄表记录': meters_str,
+                '用户分摊水费': float(total_water),
+                '用户分摊电费': float(total_electric),
+                '用户分摊总金额': float(total_fee),
+                '备注': remark
+            })
+
+    return export_data
+
+
 @utility_room_bill_occupants_export_bp.route('/api/export_fee_data', methods=['GET'])
 @login_required
 @require_permission('utility.export')
@@ -378,6 +530,30 @@ def export_fee_data():
                                 merged_cell = worksheet.cell(row=start_row, column=col_idx)
                                 merged_cell.alignment = Alignment(vertical='center', horizontal='center')
                                 merged_cell.border = thin_border
+
+            # 创建第二个sheet：按用户费用汇总
+            user_summary_data = create_user_summary_export_data(billing_period)
+            if user_summary_data:
+                df_user = pd.DataFrame(user_summary_data)
+                df_user = df_user.sort_values(by=['用户姓名'])
+                df_user.to_excel(writer, index=False, sheet_name='按用户费用汇总')
+
+                # 获取第二个工作表对象
+                ws_user = writer.sheets['按用户费用汇总']
+
+                # 设置表头样式
+                for cell in ws_user[1]:
+                    cell.alignment = header_alignment
+                    cell.border = thin_border
+
+                # 设置数据单元格样式
+                max_row_user = ws_user.max_row
+                max_col_user = ws_user.max_column
+                for row in range(2, max_row_user + 1):
+                    for col in range(1, max_col_user + 1):
+                        cell = ws_user.cell(row=row, column=col)
+                        cell.alignment = data_alignment
+                        cell.border = thin_border
         
         output.seek(0)
         

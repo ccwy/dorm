@@ -540,14 +540,37 @@
             
             // 初始化页面 - 先加载账单周期数据
             loadBillingPeriods().then(() => {
-                // 检查是否有周期数据
-                if (hasPeriods) {
-                    // 自动选择最新的周期（第一个选项，排除"全部周期"）
-                    const firstPeriodOption = billingPeriodSelect.options[1];
-                    if (firstPeriodOption && !firstPeriodOption.disabled) {
-                        billingPeriodSelect.value = firstPeriodOption.value;
-                        loadRecords(); // 加载选中周期的数据
+                // �检查URL参数是否有billing_period，如果有则自动选中并加载数据
+                const urlParams = new URLSearchParams(window.location.search);
+                const periodParam = urlParams.get('billing_period');
+                if (periodParam) {
+                    billingPeriodSelect.value = periodParam;
+                    if (billingPeriodSelect.value === periodParam) {
+                        currentPage = 1;
+                        loadRecords();
                     } else {
+                        // URL参数指定的账期不存在，回退到默认选择
+                        if (hasPeriods) {
+                            const firstPeriodOption = billingPeriodSelect.options[1];
+                            if (firstPeriodOption && !firstPeriodOption.disabled) {
+                                billingPeriodSelect.value = firstPeriodOption.value;
+                                loadRecords();
+                            } else {
+                                showNoPeriodsState();
+                            }
+                        } else {
+                            showNoPeriodsState();
+                        }
+                    }
+                } else {
+                    // 检查是否有周期数据
+                    if (hasPeriods) {
+                        // 自动选择最新的周期（第一个选项，排除"全部周期"）
+                        const firstPeriodOption = billingPeriodSelect.options[1];
+                        if (firstPeriodOption && !firstPeriodOption.disabled) {
+                            billingPeriodSelect.value = firstPeriodOption.value;
+                            loadRecords(); // 加载选中周期的数据
+                        } else {
                         // 没有可用周期，显示空状态
                         showNoPeriodsState();
                     }
@@ -942,59 +965,39 @@
             
             // 删除单条记录
             function deleteRecord(id) {
-                fetch(`/utility-meter/${id}`, {
-                    method: 'DELETE',
-                })
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error('删除失败');
-                    }
-                    return response.json();
-                })
-                .then(data => {
-                    if (data.success) {
-                        showToast('删除成功', 'success');
-                        closeDeleteModal();
-                        loadRecords();
-                    } else {
-                        showToast(data.message, 'error');
-                    }
-                })
-                .catch(error => {
-                    console.error('删除失败:', error);
-                    showToast('删除失败，请重试', 'error');
-                });
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = `/utility-meter/${id}/delete`;
+                const billingPeriodInput = document.createElement('input');
+                billingPeriodInput.type = 'hidden';
+                billingPeriodInput.name = 'billing_period';
+                billingPeriodInput.value = billingPeriodSelect.value;
+                form.appendChild(billingPeriodInput);
+                document.body.appendChild(form);
+                form.submit();
             }
             
             // 批量删除记录
             function batchDeleteRecords(ids) {
-                fetch('/utility-meter/batch-delete', {
-                    method: 'DELETE',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ ids: ids }),
-                })
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error('批量删除失败');
-                    }
-                    return response.json();
-                })
-                .then(data => {
-                    if (data.success) {
-                        showToast(`成功删除 ${data.data.deleted_count} 条记录`, 'success');
-                        closeDeleteModal();
-                        selectAllCheckbox.checked = false;
-                        loadRecords();
-                    } else {
-                        showToast(data.message, 'error');
-                    }
-                })
-                .catch(error => {
-                    console.error('批量删除失败:', error);
-                    showToast('批量删除失败，请重试', 'error');
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = '/utility-meter/batch-delete';
+                // 添加每个id作为单独的hidden input
+                ids.forEach(id => {
+                    const input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = 'ids';
+                    input.value = id;
+                    form.appendChild(input);
                 });
+                // 添加billing_period隐藏字段
+                const billingPeriodInput = document.createElement('input');
+                billingPeriodInput.type = 'hidden';
+                billingPeriodInput.name = 'billing_period';
+                billingPeriodInput.value = billingPeriodSelect.value;
+                form.appendChild(billingPeriodInput);
+                document.body.appendChild(form);
+                form.submit();
             }
             
             // 刷新按钮事件
@@ -1123,42 +1126,11 @@
             // 确认删除账期按钮事件
             confirmDeleteBillingPeriodBtn.addEventListener('click', function() {
                 const selectedPeriod = billingPeriodSelect.value;
-                fetch(`/utility-meter/delete-billing-period/${selectedPeriod}`, {
-                    method: 'DELETE',
-                })
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error('删除账期失败');
-                    }
-                    return response.json();
-                })
-                .then(data => {
-                    if (data.success) {
-                        showToast('账单周期删除成功', 'success');
-                        closeDeleteBillingPeriodModal();
-                        // 重新加载周期数据并选择最新的
-                        loadBillingPeriods().then(() => {
-                            if (hasPeriods) {
-                                const firstPeriodOption = billingPeriodSelect.options[1];
-                                if (firstPeriodOption && !firstPeriodOption.disabled) {
-                                    billingPeriodSelect.value = firstPeriodOption.value;
-                                } else {
-                                    billingPeriodSelect.value = '';
-                                }
-                            } else {
-                                billingPeriodSelect.value = '';
-                            }
-                            currentPage = 1;
-                            loadRecords();
-                        });
-                    } else {
-                        showToast(data.message, 'error');
-                    }
-                })
-                .catch(error => {
-                    console.error('删除账期失败:', error);
-                    showToast('删除账期失败，请重试', 'error');
-                });
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = `/utility-meter/delete-billing-period/${selectedPeriod}`;
+                document.body.appendChild(form);
+                form.submit();
             });
             
             // 点击周期删除模态框背景关闭

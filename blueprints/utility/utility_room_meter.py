@@ -595,6 +595,9 @@ def utility_reading_manage():
         )
         building_list = []
     
+    # 获取URL参数中的billing_period
+    billing_period = request.args.get('billing_period', '')
+    
     # 补充页面访问日志
     log_operation(
         user_id=current_user.id,
@@ -603,7 +606,7 @@ def utility_reading_manage():
         action=f"访问抄表记录管理页面",
         result="成功"
     )
-    return render_template('utility_bill/utility_reading_manage.html',title=f"抄表记录管理", buildings=building_list)
+    return render_template('utility_bill/utility_reading_manage.html', title=f"抄表记录管理", buildings=building_list, billing_period=billing_period)
 
 # 修复：添加带ID参数的编辑页面路由
 @utility_room_meter_bp.route('/edit/<int:reading_id>', methods=['GET'])
@@ -647,7 +650,7 @@ def get_reading_detail(reading_id):
         }), 500
 
     
-@utility_room_meter_bp.route('/<int:reading_id>', methods=['DELETE'])
+@utility_room_meter_bp.route('/<int:reading_id>/delete', methods=['POST'])
 @login_required
 @require_permission('utility.delete')
 def delete_reading(reading_id):
@@ -664,7 +667,15 @@ def delete_reading(reading_id):
                 action=f"删除抄表记录 [记录ID: {reading_id}, 错误: 记录不存在]",
                 result="失败"
             )
-            return jsonify({'success': False, 'message': f'抄表记录ID不存在: {reading_id}'}), 404
+            flash(f'抄表记录ID不存在: {reading_id}', 'danger')
+            return redirect(url_for('utility_room_meter.utility_reading_manage'))
+        
+        # 获取billing_period用于redirect
+        billing_period = None
+        if reading.record_id:
+            bill_record = RoomUtilityRecord.query.get(reading.record_id)
+            if bill_record:
+                billing_period = bill_record.billing_period
         
         # 获取房间信息用于日志
         room = Room.query.get(reading.room_id)
@@ -683,11 +694,10 @@ def delete_reading(reading_id):
             result="成功"
         )
         
-        return jsonify({
-            'success': True,
-            'message': f'抄表记录 {reading_id} 已成功删除',
-            'data': {'deleted_id': reading_id}
-        })
+        flash(f'抄表记录 {reading_id} 已成功删除', 'success')
+        if billing_period:
+            return redirect(url_for('utility_room_meter.utility_reading_manage', billing_period=billing_period))
+        return redirect(url_for('utility_room_meter.utility_reading_manage'))
         
     except Exception as e:
         logging.error(f"删除抄表记录失败: {str(e)}\n{traceback.format_exc()}")
@@ -700,21 +710,19 @@ def delete_reading(reading_id):
             action=f"删除抄表记录 [记录ID: {reading_id}, 错误: {str(e)}]",
             result="失败"
         )
-        return jsonify({
-            'success': False,
-            'message': "删除抄表记录失败" if not Config.DEBUG else str(e)
-        }), 500
+        flash("删除抄表记录失败" if not Config.DEBUG else str(e), 'danger')
+        return redirect(url_for('utility_room_meter.utility_reading_manage'))
 
-@utility_room_meter_bp.route('/batch-delete', methods=['DELETE'])
+@utility_room_meter_bp.route('/batch-delete', methods=['POST'])
 @login_required
 @require_permission('utility.delete')
 def batch_delete_readings():
     """批量删除抄表记录"""
     try:
-        data = request.json
+        ids = request.form.getlist('ids')
         
         # 验证请求数据
-        if not data or 'ids' not in data or not isinstance(data['ids'], list):
+        if not ids:
             # 补充格式错误日志
             log_operation(
                 user_id=current_user.id,
@@ -723,12 +731,17 @@ def batch_delete_readings():
                 action=f"批量删除抄表记录 [错误: 请求格式错误]",
                 result="失败"
             )
-            return jsonify({
-                'success': False,
-                'message': '请求格式错误，应包含ids数组'
-            }), 400
+            flash('请求格式错误，应包含ids', 'danger')
+            return redirect(url_for('utility_room_meter.utility_reading_manage'))
             
-        if len(data['ids']) == 0:
+        # 将ids转为整数列表
+        try:
+            ids = [int(id_str) for id_str in ids]
+        except (ValueError, TypeError):
+            flash('记录ID格式错误', 'danger')
+            return redirect(url_for('utility_room_meter.utility_reading_manage'))
+            
+        if len(ids) == 0:
             # 补充空ID列表错误日志
             log_operation(
                 user_id=current_user.id,
@@ -737,28 +750,24 @@ def batch_delete_readings():
                 action=f"批量删除抄表记录 [错误: 未提供任何记录ID]",
                 result="失败"
             )
-            return jsonify({
-                'success': False,
-                'message': '请至少选择一条记录进行删除'
-            }), 400
+            flash('请至少选择一条记录进行删除', 'danger')
+            return redirect(url_for('utility_room_meter.utility_reading_manage'))
             
         # 限制最大批量删除数量
-        if len(data['ids']) > 100:
+        if len(ids) > 100:
             # 补充数量超限错误日志
             log_operation(
                 user_id=current_user.id,
                 module='utility',
                 operation_type='delete',
-                action=f"批量删除抄表记录 [错误: 记录数量超限{len(data['ids'])}]",
+                action=f"批量删除抄表记录 [错误: 记录数量超限{len(ids)}]",
                 result="失败"
             )
-            return jsonify({
-                'success': False,
-                'message': f'单次批量删除最多支持100条记录，当前为{len(data["ids"])}条'
-            }), 400
+            flash(f'单次批量删除最多支持100条记录，当前为{len(ids)}条', 'danger')
+            return redirect(url_for('utility_room_meter.utility_reading_manage'))
             
         # 查询所有要删除的记录
-        readings = UtilityMeterReading.query.filter(UtilityMeterReading.id.in_(data['ids'])).all()
+        readings = UtilityMeterReading.query.filter(UtilityMeterReading.id.in_(ids)).all()
         
         if not readings:
             # 补充无匹配记录错误日志
@@ -769,11 +778,16 @@ def batch_delete_readings():
                 action=f"批量删除抄表记录 [错误: 未找到匹配记录]",
                 result="失败"
             )
-            return jsonify({
-                'success': False,
-                'message': '未找到任何匹配的记录'
-            }), 404
+            flash('未找到任何匹配的记录', 'danger')
+            return redirect(url_for('utility_room_meter.utility_reading_manage'))
             
+        # 获取billing_period用于redirect（从第一条记录获取）
+        billing_period = None
+        if readings[0].record_id:
+            bill_record = RoomUtilityRecord.query.get(readings[0].record_id)
+            if bill_record:
+                billing_period = bill_record.billing_period
+        
         # 记录要删除的ID和相关信息用于日志
         deleted_ids = [reading.id for reading in readings]
         room_ids = set([reading.room_id for reading in readings])
@@ -795,14 +809,10 @@ def batch_delete_readings():
             result="成功"
         )
         
-        return jsonify({
-            'success': True,
-            'message': f'成功删除 {len(deleted_ids)} 条抄表记录',
-            'data': {
-                'deleted_ids': deleted_ids,
-                'deleted_count': len(deleted_ids)
-            }
-        })
+        flash(f'成功删除 {len(deleted_ids)} 条抄表记录', 'success')
+        if billing_period:
+            return redirect(url_for('utility_room_meter.utility_reading_manage', billing_period=billing_period))
+        return redirect(url_for('utility_room_meter.utility_reading_manage'))
         
     except Exception as e:
         logging.error(f"批量删除抄表记录失败: {str(e)}\n{traceback.format_exc()}")
@@ -815,13 +825,11 @@ def batch_delete_readings():
             action=f"批量删除抄表记录 [错误: {str(e)}]",
             result="失败"
         )
-        return jsonify({
-            'success': False,
-            'message': "批量删除抄表记录失败" if not Config.DEBUG else str(e)
-        }), 500
+        flash("批量删除抄表记录失败" if not Config.DEBUG else str(e), 'danger')
+        return redirect(url_for('utility_room_meter.utility_reading_manage'))
 
 
-@utility_room_meter_bp.route('/delete-billing-period/<string:year_month>', methods=['DELETE'])
+@utility_room_meter_bp.route('/delete-billing-period/<string:year_month>', methods=['POST'])
 @login_required
 @require_permission('utility.delete')
 def delete_readings_by_month(year_month):
@@ -841,10 +849,8 @@ def delete_readings_by_month(year_month):
                 action=f"按账期删除抄表记录 [错误: 日期格式错误 {year_month}]",
                 result="失败"
             )
-            return jsonify({
-                'success': False,
-                'message': '日期格式错误，请使用YYYY-MM格式'
-            }), 400
+            flash('日期格式错误，请使用YYYY-MM格式', 'danger')
+            return redirect(url_for('utility_room_meter.utility_reading_manage'))
         
         # 通过billing_period查找主表记录，获取record_id列表
         main_records = RoomUtilityRecord.query.filter(
@@ -859,11 +865,8 @@ def delete_readings_by_month(year_month):
                 action=f"按账期删除抄表记录 [账期: {year_month}, 结果: 无主表记录]",
                 result="成功"
             )
-            return jsonify({
-                'success': True,
-                'message': f'账期 {year_month} 内没有找到抄表记录',
-                'data': {'deleted_count': 0}
-            })
+            flash(f'账期 {year_month} 内没有找到抄表记录', 'info')
+            return redirect(url_for('utility_room_meter.utility_reading_manage'))
         
         # 提取主表record_id
         record_ids = [record.record_id for record in main_records]
@@ -881,11 +884,8 @@ def delete_readings_by_month(year_month):
                 action=f"按账期删除抄表记录 [账期: {year_month}, 结果: 无抄表记录]",
                 result="成功"
             )
-            return jsonify({
-                'success': True,
-                'message': f'账期 {year_month} 内没有找到抄表记录',
-                'data': {'deleted_count': 0}
-            })
+            flash(f'账期 {year_month} 内没有找到抄表记录', 'info')
+            return redirect(url_for('utility_room_meter.utility_reading_manage'))
         
         # 收集要删除的记录ID和涉及的房间信息（用于日志）
         deleted_ids = [reading.id for reading in readings]
@@ -907,15 +907,8 @@ def delete_readings_by_month(year_month):
                 result="成功"
             )
             
-            return jsonify({
-                'success': True,
-                'message': f'成功删除账期 {year_month} 内的 {len(deleted_ids)} 条抄表记录',
-                'data': {
-                    'deleted_ids': deleted_ids,
-                    'deleted_count': len(deleted_ids),
-                    'year_month': year_month
-                }
-            })
+            flash(f'成功删除账期 {year_month} 内的 {len(deleted_ids)} 条抄表记录', 'success')
+            return redirect(url_for('utility_room_meter.utility_reading_manage'))
         except Exception as e:
             db.session.rollback()
             logging.error(f"按账期删除抄表记录失败: {str(e)}\n{traceback.format_exc()}")
@@ -926,10 +919,8 @@ def delete_readings_by_month(year_month):
                 action=f"按账期删除抄表记录 [账期: {year_month}, 错误: {str(e)}]",
                 result="失败"
             )
-            return jsonify({
-                'success': False,
-                'message': "删除抄表记录失败" if not Config.DEBUG else str(e)
-            }), 500
+            flash("删除抄表记录失败" if not Config.DEBUG else str(e), 'danger')
+            return redirect(url_for('utility_room_meter.utility_reading_manage'))
             
     except Exception as e:
         logging.error(f"处理按账期删除请求失败: {str(e)}\n{traceback.format_exc()}")
@@ -940,10 +931,8 @@ def delete_readings_by_month(year_month):
             action=f"按账期删除抄表记录 [错误: {str(e)}]",
             result="失败"
         )
-        return jsonify({
-            'success': False,
-            'message': "处理删除请求失败" if not Config.DEBUG else str(e)
-        }), 500
+        flash("处理删除请求失败" if not Config.DEBUG else str(e), 'danger')
+        return redirect(url_for('utility_room_meter.utility_reading_manage'))
 
 
 # 新增：按账期查询抄表记录
@@ -1145,13 +1134,39 @@ def save_edited_reading(reading_id):
                 action=f"编辑抄表记录 [记录ID: {reading_id}, 错误: 记录不存在]",
                 result="失败"
             )
-            return jsonify({'success': False, 'message': f'抄表记录ID不存在: {reading_id}'}), 404
+            flash(f'抄表记录ID不存在: {reading_id}', 'danger')
+            return redirect(url_for('utility_room_meter.utility_reading_edit', reading_id=reading_id))
         
-        data = request.json
+        # 从request.form获取数据
+        data = {}
+        # 获取表单字段
+        reading_date = request.form.get('reading_date', '')
+        billing_period = request.form.get('billing_period', '')
+        water_current = request.form.get('water_current', '')
+        electric_current = request.form.get('electric_current', '')
+        water_meter_replaced = request.form.get('water_meter_replaced', 'false')
+        electric_meter_replaced = request.form.get('electric_meter_replaced', 'false')
+        notes = request.form.get('notes', '')
+        
+        if reading_date:
+            data['reading_date'] = reading_date
+        if water_current:
+            try:
+                data['water_current'] = float(water_current)
+            except ValueError:
+                pass
+        if electric_current:
+            try:
+                data['electric_current'] = float(electric_current)
+            except ValueError:
+                pass
+        data['water_meter_replaced'] = water_meter_replaced in ('true', 'True', '1')
+        data['electric_meter_replaced'] = electric_meter_replaced in ('true', 'True', '1')
+        if notes:
+            data['notes'] = notes
         
         # 处理账期变更：如果提供了billing_period，查找或创建对应的RoomUtilityRecord并更新record_id
-        if 'billing_period' in data and data['billing_period']:
-            billing_period = data.pop('billing_period')
+        if billing_period:
             try:
                 # 查找该房间对应账期的主表记录
                 bill_record = RoomUtilityRecord.get_by_room_and_period(reading.room_id, billing_period)
@@ -1164,7 +1179,8 @@ def save_edited_reading(reading_id):
                     logging.info(f"编辑抄表记录时自动创建账期主表记录: 房间{reading.room_id}, 账期{billing_period}")
             except Exception as e:
                 logging.error(f"处理账期变更失败: {str(e)}")
-                return jsonify({'success': False, 'message': f'账期变更失败: {str(e)}'}), 400
+                flash(f'账期变更失败: {str(e)}', 'danger')
+                return redirect(url_for('utility_room_meter.utility_reading_edit', reading_id=reading_id))
         
         # 验证必要字段
         if 'water_current' not in data and 'electric_current' not in data:
@@ -1176,10 +1192,8 @@ def save_edited_reading(reading_id):
                 action=f"编辑抄表记录 [记录ID: {reading_id}, 错误: 未提供水表或电表读数]",
                 result="失败"
             )
-            return jsonify({
-                'success': False,
-                'message': '至少需要提供一项水表或电表读数'
-            }), 400
+            flash('至少需要提供一项水表或电表读数', 'danger')
+            return redirect(url_for('utility_room_meter.utility_reading_edit', reading_id=reading_id))
         
         # 处理日期格式
         if 'reading_date' in data and data['reading_date']:
@@ -1198,10 +1212,8 @@ def save_edited_reading(reading_id):
                     action=f"编辑抄表记录 [记录ID: {reading_id}, 错误: 日期格式错误]",
                     result="失败"
                 )
-                return jsonify({
-                    'success': False,
-                    'message': '日期格式错误，请使用 yyyy-mm-dd 或 yyyy-mm-dd HH:MM 或 yyyy-mm-dd HH:MM:SS'
-                }), 400
+                flash('日期格式错误，请使用 yyyy-mm-dd 或 yyyy-mm-dd HH:MM 或 yyyy-mm-dd HH:MM:SS', 'danger')
+                return redirect(url_for('utility_room_meter.utility_reading_edit', reading_id=reading_id))
         
         # 调用模型的update方法更新记录
         updated_reading = reading.update(** data)
@@ -1222,11 +1234,8 @@ def save_edited_reading(reading_id):
             result="成功"
         )
         
-        return jsonify({
-            'success': True,
-            'message': f'抄表记录 {reading_id} 更新成功',
-            'data': updated_reading.to_dict()
-        })
+        flash('保存成功', 'success')
+        return redirect(url_for('utility_room_meter.utility_reading_edit', reading_id=reading_id))
         
     except ValueError as e:
         # 补充值错误日志
@@ -1237,7 +1246,8 @@ def save_edited_reading(reading_id):
             action=f"编辑抄表记录 [记录ID: {reading_id}, 错误: {str(e)}]",
             result="失败"
         )
-        return jsonify({'success': False, 'message': str(e)}), 400
+        flash(str(e), 'danger')
+        return redirect(url_for('utility_room_meter.utility_reading_edit', reading_id=reading_id))
     except Exception as e:
         logging.error(f"处理抄表记录编辑失败: {str(e)}\n{traceback.format_exc()}")
         db.session.rollback()
@@ -1249,10 +1259,8 @@ def save_edited_reading(reading_id):
             action=f"编辑抄表记录 [记录ID: {reading_id}, 错误: {str(e)}]",
             result="失败"
         )
-        return jsonify({
-            'success': False,
-            'message': "编辑抄表记录失败" if not Config.DEBUG else str(e)
-        }), 500
+        flash("编辑抄表记录失败" if not Config.DEBUG else str(e), 'danger')
+        return redirect(url_for('utility_room_meter.utility_reading_edit', reading_id=reading_id))
 
 
 

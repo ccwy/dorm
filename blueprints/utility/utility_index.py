@@ -137,6 +137,7 @@ def utility_room_checkout():
         # 获取查询参数用于日志
         checkout_date = request.args.get('date', '未指定')
         room_id = request.args.get('room_id', '未指定')
+        billing_period = request.args.get('billing_period', '')
         
         # 获取所有部门信息（去重并排序）
         departments_list = [d.name for d in Department.query.filter_by(status='正常').order_by(Department.name).all()]
@@ -153,7 +154,7 @@ def utility_room_checkout():
             action=f"访问退宿人员费用查询页面 [房间ID: {room_id}, 退宿日期: {checkout_date}]",#这里记载成功与失败的记录
             result="成功"#这里只有成功与失败
         )
-        return render_template('utility_bill/utility_room_checkout.html', title=f"退宿人员费用查询", departments=departments_list, buildings=buildings_list)
+        return render_template('utility_bill/utility_room_checkout.html', title=f"退宿人员费用查询", departments=departments_list, buildings=buildings_list, billing_period=billing_period)
     except Exception as e:
         logging.error(f"访问退宿人员费用查询页面失败: {str(e)}")
         log_operation(
@@ -173,7 +174,7 @@ def utility_room_checkout():
             buildings_list = []
             
         flash(str(e), 'danger')
-        return render_template('utility_bill/utility_room_checkout.html', title=f"退宿人员费用查询", departments=departments_list, buildings=buildings_list)
+        return render_template('utility_bill/utility_room_checkout.html', title=f"退宿人员费用查询", departments=departments_list, buildings=buildings_list, billing_period=billing_period)
 
 @utility_index_bp.route('/utility_room_checkout_edit')
 @login_required
