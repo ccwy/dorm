@@ -178,18 +178,26 @@
           </div>
           
           <div class="flex flex-wrap justify-center items-center gap-2">
-            <button onclick="window.location.href='{{ url_for('utility_index.utility_calculate_fees') }}'" class="bg-primary text-white px-5 py-2 rounded-md flex items-center btn-effect hover:bg-primary/90 transition-colors flex-shrink-0 justify-center">
-              房间费用
+            <button onclick="window.location.href='{{ url_for('utility_index.utility_calculate_fees') }}'" class="bg-primary text-white px-4 py-2 rounded-md flex items-center btn-effect hover:bg-primary/90 transition-colors flex-shrink-0 justify-center text-sm sm:text-base">
+              <i class="fa fa-building mr-1.5"></i>房间费用
             </button>
-            <button onclick="window.location.href='{{ url_for('utility_index.utility_room_checkout') }}'" class="bg-primary text-white px-5 py-2 rounded-md flex items-center btn-effect hover:bg-primary/90 transition-colors flex-shrink-0 justify-center">
-              退宿费用
+            <button onclick="window.location.href='{{ url_for('utility_index.utility_room_checkout') }}'" class="bg-indigo-600 text-white px-4 py-2 rounded-md flex items-center btn-effect hover:bg-indigo-700 transition-colors flex-shrink-0 justify-center text-sm sm:text-base">
+              <i class="fa fa-sign-out mr-1.5"></i>退宿费用
             </button>
-            <button onclick="window.location.href='{{ url_for('utility_user_records.user_records') }}'" class="bg-primary text-white px-5 py-2 rounded-md flex items-center btn-effect hover:bg-primary/90 transition-colors flex-shrink-0 justify-center">
-              费用查询
+            <button onclick="window.location.href='{{ url_for('utility_user_records.user_records') }}'" class="bg-teal-600 text-white px-4 py-2 rounded-md flex items-center btn-effect hover:bg-teal-700 transition-colors flex-shrink-0 justify-center text-sm sm:text-base">
+              <i class="fa fa-search mr-1.5"></i>费用查询
             </button>
-            <button onclick="window.location.href='{{ url_for('utility_room_meter.utility_reading_manage') }}'" class="bg-primary text-white px-5 py-2 rounded-md flex items-center btn-effect hover:bg-primary/90 transition-colors flex-shrink-0 justify-center">
-              抄表记录
+            <button onclick="window.location.href='{{ url_for('utility_room_meter.utility_reading_manage') }}'" class="bg-amber-600 text-white px-4 py-2 rounded-md flex items-center btn-effect hover:bg-amber-700 transition-colors flex-shrink-0 justify-center text-sm sm:text-base">
+              <i class="fa fa-book mr-1.5"></i>抄表记录
             </button>
+            <button type="button" id="topRefreshBtn" class="bg-green-600 text-white px-4 py-2 rounded-md flex items-center btn-effect hover:bg-green-700 transition-colors flex-shrink-0 justify-center text-sm sm:text-base">
+              <i class="fa fa-refresh mr-1.5"></i>刷新
+            </button>
+            {% if current_user.has_permission('utility.export') %}
+            <button type="button" id="topExportBtn" class="bg-cyan-600 text-white px-4 py-2 rounded-md flex items-center btn-effect hover:bg-cyan-700 transition-colors flex-shrink-0 justify-center text-sm sm:text-base">
+              <i class="fa fa-download mr-1.5"></i><span id="exportBtnText">导出</span>
+            </button>
+            {% endif %}
           </div>
         </div> 
         <!-- 第二行：p标签单独显示 -->
@@ -269,14 +277,6 @@
             {% if current_user.has_permission('utility.delete') %}
             <button type="button" id="clearCurrentBtn" class="flex-1 bg-warning hover:bg-warning/90 text-white text-sm py-2 px-3 rounded-lg transition-all-300 btn-hover-scale flex items-center justify-center">
               <i class="fa fa-eraser mr-1.5"></i>删除
-            </button>
-            {% endif %}
-            <button type="button" id="refreshBtn" class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-700 text-sm py-2 px-3 rounded-lg transition-all-300 btn-hover-scale flex items-center justify-center">
-              <i class="fa fa-refresh mr-1.5"></i>刷新
-            </button>
-            {% if current_user.has_permission('utility.export') %}
-            <button type="button" id="exportBtn" class="flex-1 bg-success hover:bg-success/90 text-white text-sm py-2 px-3 rounded-lg transition-all-300 btn-hover-scale flex items-center justify-center">
-              <i class="fa fa-download mr-1.5"></i>导出
             </button>
             {% endif %}
           </div>
@@ -427,7 +427,7 @@
       const billingPeriodSelect = document.getElementById('billingPeriod');
       const filterForm = document.getElementById('filterForm');
       const resetBtn = document.getElementById('resetBtn');
-      const exportBtn = document.getElementById('exportBtn');
+      const exportBtn = document.getElementById('topExportBtn');
       const calculateBtn = document.getElementById('calculateBtn');
       const clearCurrentBtn = document.getElementById('clearCurrentBtn');
       const prevPageBtn = document.getElementById('prevPage');
@@ -474,7 +474,7 @@
       }
       
       // 刷新按钮 - 实现真正的页面刷新
-      const refreshBtn = document.getElementById('refreshBtn');
+      const refreshBtn = document.getElementById('topRefreshBtn');
       refreshBtn.addEventListener('click', function() {
         window.location.reload(true); // true参数表示强制从服务器刷新，不使用缓存
       });
@@ -1038,7 +1038,7 @@
         return;
       }
       
-      const button = document.getElementById('exportBtn');
+      const button = document.getElementById('topExportBtn');
       const originalText = button.innerHTML;
       button.disabled = true;
       button.innerHTML = '<i class="fa fa-spinner fa-spin mr-1.5"></i>导出中...';

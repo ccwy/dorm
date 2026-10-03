@@ -375,43 +375,40 @@ def calculate_bill():
             flash(f'未找到{billing_period}的账单记录，请先创建', 'danger')
             return redirect(url_for('utility_index.utility_occupant_manage', billing_period=billing_period))
         
-        # 校验账期内是否存在任何有效住宿记录
+        # 获取账期日期范围，用于逐房间检查住宿记录
         start_date, end_date = RoomUtilityRecord.get_billing_period_dates(billing_period)
-        has_occupants = Dorm.query.filter(
-            Dorm.room_id.in_([r.room_id for r in main_records]),
-            Dorm.check_in_date < end_date,
-            db.or_(Dorm.check_out_date.is_(None), Dorm.check_out_date > start_date)
-        ).first() is not None
-        
-        if not has_occupants:
-            logging.warning(f"账期{billing_period}内无任何有效住宿记录，无需核算用户费用")
-            log_operation(
-                user_id=current_user.id,
-                module='utility',
-                operation_type='occupant_fee',
-                action=f"核算用户费用跳过 [账期: {billing_period}, 原因: 无有效住宿记录]",
-                result='warning'
-            )
-            flash(f'当前账期内无住宿记录，无需核算用户费用', 'warning')
-            return redirect(url_for('utility_index.utility_occupant_manage', billing_period=billing_period))
-        
+
         # 关键修复2：初始化全局补贴余额字典，跨房间共享
         global_subsidy_balances = {}
 
         # 再计算子表分摊
         updated_occupant = 0
         updated_room_count = 0  # 新增：统计处理的房间数量
+        skipped_rooms = []  # 记录跳过的房间
+
         for record in main_records:
+            # 逐房间检查是否有住宿记录
+            has_room_occupants = Dorm.query.filter(
+                Dorm.room_id == record.room_id,
+                Dorm.check_in_date < end_date,
+                db.or_(Dorm.check_out_date.is_(None), Dorm.check_out_date > start_date)
+            ).first() is not None
+
+            if not has_room_occupants:
+                skipped_rooms.append(record.room_id)
+                continue
+
             occupants, global_subsidy_balances = RoomUtilityOccupant.calculate_room_fee(
                 record.record_id,
                 user_subsidy_balances=global_subsidy_balances # 核心：共享同一个字典
-                )  
-            updated_occupant += len(occupants)
-            updated_room_count += 1  # 每处理一个主表记录，视为处理一个房间
-        
-        # 核算成功后，将主表记录状态更新为completed
-        for record in main_records:
-            record.status = 'completed'
+                )
+
+            if len(occupants) > 0:
+                record.status = 'completed'
+                updated_occupant += len(occupants)
+                updated_room_count += 1
+            else:
+                skipped_rooms.append(record.room_id)
         
         db.session.commit()
         # 记录成功日志
@@ -419,11 +416,15 @@ def calculate_bill():
             user_id=current_user.id,
             module='utility',
             operation_type='occupant_fee',
-            action=f"核算当期账单 [账期: {billing_period}, 房间数: {updated_room_count}, 更新子表记录数: {updated_occupant}]",
+            action=f"核算当期账单 [账期: {billing_period}, 房间数: {updated_room_count}, 更新子表记录数: {updated_occupant}, 跳过房间数: {len(skipped_rooms)}]",
             result="成功"
         )
-        
-        flash(f'{billing_period}的费用核算完成，共更新{updated_room_count}个房间，{updated_occupant}条人员记录', 'success')
+
+        # 构建提示消息
+        msg_parts = [f'{billing_period}的费用核算完成，共更新{updated_room_count}个房间，{updated_occupant}条人员记录']
+        if skipped_rooms:
+            msg_parts.append(f'跳过{len(skipped_rooms)}个无住宿记录的房间')
+        flash('，'.join(msg_parts), 'success' if updated_room_count > 0 else 'warning')
         return redirect(url_for('utility_index.utility_occupant_manage', billing_period=billing_period))
         
     except SQLAlchemyError as e:

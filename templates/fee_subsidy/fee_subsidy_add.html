@@ -473,7 +473,9 @@
             });
             
             // 保存按钮
-            document.getElementById('saveBtn').addEventListener('click', saveSubsidy);
+            document.getElementById('saveBtn').addEventListener('click', function() {
+                saveSubsidy(false);
+            });
             
             // 对话框按钮
             document.getElementById('dialogOkBtn').addEventListener('click', function() {
