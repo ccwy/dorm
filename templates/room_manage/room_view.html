@@ -486,15 +486,17 @@
                                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">用电减免度数(kWh)</th>
                                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">用电计费用量(kWh)</th>
                                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">电价(元/kWh)</th>
-                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">电费金额(元)</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">计费电费(元)</th>
                                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">原始用水量(m³)</th>
                                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">用水减免度数(m³)</th>
                                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">用水计费用量(m³)</th>
                                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">水价(元/m³)</th>
-                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">水费金额(元)</th>
-                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">房间级减免费用(元)</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">计费水费(元)</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">计费总费用(元)</th>
                                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">退宿费用(元)</th>
-                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">应付费用(元)</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">应付总费用(元)</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">房间级减免费用(元)</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">实际应付总费用(元)</th>
                             </tr>
                         </thead>
                         <tbody class="bg-white divide-y divide-gray-200">
@@ -517,14 +519,16 @@
                                         <td class="px-6 py-4 whitespace-nowrap">{{ record.water_billing_usage }}</td>
                                         <td class="px-6 py-4 whitespace-nowrap">{{ record.water_price }}</td>
                                         <td class="px-6 py-4 whitespace-nowrap">{{ record.billing_water_fee }}</td>
-                                        <td class="px-6 py-4 whitespace-nowrap">{{ record.room_reduction_fee }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap">{{ record.billing_total_fee }}</td>
                                         <td class="px-6 py-4 whitespace-nowrap">{{ record.checked_out_total_fee }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap">{{ record.receivable_total_fee }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap">{{ record.room_reduction_fee }}</td>
                                         <td class="px-6 py-4 whitespace-nowrap">{{ record.actual_total_fee }}</td>
                                     </tr>
                                 {% endfor %}
                             {% else %}
                                 <tr>
-                                    <td colspan="15" class="px-6 py-8 text-center text-gray-500">
+                                    <td colspan="17" class="px-6 py-8 text-center text-gray-500">
                                         <i class="fa fa-info-circle mr-2"></i>该房间暂无水电费记录
                                     </td>
                                 </tr>

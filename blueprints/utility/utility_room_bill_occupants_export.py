@@ -114,27 +114,27 @@ def create_fee_export_data(billing_period):
                 export_data.append({
                     '账期': main.billing_period,
                     '房间号': f"{room.building}{room.room_number}",
-                    '本期电表当前读数': main.electric_current,
-                    '本期电表上期读数': main.electric_previous,
-                    '本期电表用量': main.electric_usage,
-                    '减免电用量': main.electric_reduction,
-                    '计费电用量': main.electric_billing_usage,
-                    '电费单价': main.electric_price,
-                    '本期电费': main.total_electric_fee,
-                    '计费电费': main.billing_electric_fee,
-                    '本期水表当前读数': main.water_current,
-                    '本期水表上期读数': main.water_previous,
-                    '本期水表用量': main.water_usage,
-                    '减免水用量': main.water_reduction,
-                    '计费水用量': main.water_billing_usage,
-                    '水费单价': main.water_price,
-                    '本期水费': main.total_water_fee,
-                    '计费水费': main.billing_water_fee,
-                    '本期总费用': main.total_fee,
-                    '计费总费用': main.billing_total_fee,
-                    '退宿人员费用': main.checked_out_total_fee,
-                    '减免房间级费用': main.room_reduction_fee,
-                    '房间应付费用': main.actual_total_fee,
+                    '本期电表当前读数': occupant.electric_current,
+                    '本期电表上期读数': occupant.electric_previous,
+                    '本期电表用量': occupant.electric_usage,
+                    '减免电用量': occupant.electric_reduction,
+                    '计费电用量': occupant.electric_billing_usage,
+                    '电费单价': occupant.electric_price,
+                    '本期电费': occupant.total_electric_fee,
+                    '计费电费': occupant.billing_electric_fee,
+                    '本期水表当前读数': occupant.water_current,
+                    '本期水表上期读数': occupant.water_previous,
+                    '本期水表用量': occupant.water_usage,
+                    '减免水用量': occupant.water_reduction,
+                    '计费水用量': occupant.water_billing_usage,
+                    '水费单价': occupant.water_price,
+                    '本期水费': occupant.total_water_fee,
+                    '计费水费': occupant.billing_water_fee,
+                    '本期总费用': occupant.room_total_fee,
+                    '计费总费用': occupant.billing_total_fee,
+                    '退宿人员费用': occupant.checked_out_total_fee,
+                    '减免房间级费用': occupant.room_reduction_fee,
+                    '房间实际应付费用': occupant.actual_total_fee,
                     '分摊人员ID': user_id,
                     '分摊人员姓名': user_name,
                     '公司': user_company,
@@ -146,7 +146,7 @@ def create_fee_export_data(billing_period):
                     '分摊水费': occupant.water_fee,
                     '分摊总金额': occupant.total_fee,
                     '减免金额': occupant.user_reduction_fee,
-                    '分摊应付金额': occupant.payable_fee,
+                    '分摊实际应付': occupant.payable_fee,
                     '备注': ""
                 })
             else:
@@ -175,27 +175,27 @@ def create_fee_export_data(billing_period):
                 export_data.append({
                     '账期': main.billing_period,
                     '房间号': f"{room.building}{room.room_number}",
-                    '本期电表当前读数': main.electric_current,
-                    '本期电表上期读数': main.electric_previous,
-                    '本期电表用量': main.electric_usage,
-                    '减免电用量': main.electric_reduction,
-                    '计费电用量': main.electric_billing_usage,
-                    '电费单价': main.electric_price,
-                    '本期电费': main.total_electric_fee,
-                    '计费电费': main.billing_electric_fee,
-                    '本期水表当前读数': main.water_current,
-                    '本期水表上期读数': main.water_previous,
-                    '本期水表用量': main.water_usage,
-                    '减免水用量': main.water_reduction,
-                    '计费水用量': main.water_billing_usage,
-                    '水费单价': main.water_price,
-                    '本期水费': main.total_water_fee,
-                    '计费水费': main.billing_water_fee,
-                    '本期总费用': main.total_fee,
-                    '计费总费用': main.billing_total_fee,
-                    '退宿人员费用': main.checked_out_total_fee,
-                    '减免房间级费用': main.room_reduction_fee,
-                    '房间应付费用': main.actual_total_fee,
+                    '本期电表当前读数': occupant.electric_current,
+                    '本期电表上期读数': occupant.electric_previous,
+                    '本期电表用量': occupant.electric_usage,
+                    '减免电用量': occupant.electric_reduction,
+                    '计费电用量': occupant.electric_billing_usage,
+                    '电费单价': occupant.electric_price,
+                    '本期电费': occupant.total_electric_fee,
+                    '计费电费': occupant.billing_electric_fee,
+                    '本期水表当前读数': occupant.water_current,
+                    '本期水表上期读数': occupant.water_previous,
+                    '本期水表用量': occupant.water_usage,
+                    '减免水用量': occupant.water_reduction,
+                    '计费水用量': occupant.water_billing_usage,
+                    '水费单价': occupant.water_price,
+                    '本期水费': occupant.total_water_fee,
+                    '计费水费': occupant.billing_water_fee,
+                    '本期总费用': occupant.room_total_fee,
+                    '计费总费用': occupant.billing_total_fee,
+                    '退宿人员费用': occupant.checked_out_total_fee,
+                    '减免房间级费用': occupant.room_reduction_fee,
+                    '房间实际应付费用': occupant.actual_total_fee,
                     '分摊人员ID': user_id,
                     '分摊人员姓名': user_name,
                     '公司': user_company,
@@ -207,7 +207,7 @@ def create_fee_export_data(billing_period):
                     '分摊水费': float(water_fee_sum),
                     '分摊总金额': float(total_fee_sum),
                     '减免金额': float(user_reduction_fee_sum),
-                    '分摊应付金额': float(payable_fee_sum),
+                    '分摊实际应付': float(payable_fee_sum),
                     '备注': remark
                 })
     
@@ -278,12 +278,12 @@ def create_user_summary_export_data(billing_period):
 
             room_label = f"{room.building}{room.room_number}"
 
-            # 构建抄表记录
+            # 构建抄表记录（从子表同步字段获取）
             meter_info = (
-                f"电表: {main.electric_previous}→{main.electric_current}, "
-                f"用量{main.electric_usage}; "
-                f"水表: {main.water_previous}→{main.water_current}, "
-                f"用量{main.water_usage}"
+                f"电表: {occ.electric_previous}→{occ.electric_current}, "
+                f"用量{occ.electric_usage}; "
+                f"水表: {occ.water_previous}→{occ.water_current}, "
+                f"用量{occ.water_usage}"
             )
 
             export_data.append({
@@ -319,12 +319,12 @@ def create_user_summary_export_data(billing_period):
                 room_label = f"{room.building}-{room.room_number}"
                 room_labels.append(room_label)
 
-                # 构建该房间的抄表信息
+                # 构建该房间的抄表信息（从子表同步字段获取）
                 room_meter = (
-                    f"【{room_label}】电表: {main.electric_previous}→{main.electric_current}, "
-                    f"用量{main.electric_usage}; "
-                    f"水表: {main.water_previous}→{main.water_current}, "
-                    f"用量{main.water_usage}"
+                    f"【{room_label}】电表: {occ.electric_previous}→{occ.electric_current}, "
+                    f"用量{occ.electric_usage}; "
+                    f"水表: {occ.water_previous}→{occ.water_current}, "
+                    f"用量{occ.water_usage}"
                 )
                 meter_parts.append(room_meter)
 
@@ -452,7 +452,7 @@ def export_fee_data():
                 '账期', '房间号',
                 '本期电表当前读数', '本期电表上期读数', '本期电表用量', '减免电用量', '计费电用量', '电费单价','本期电费', '计费电费',
                 '本期水表当前读数', '本期水表上期读数', '本期水表用量', '减免水用量', '计费水用量', '水费单价','本期水费', '计费水费',
-                '本期总费用', '计费总费用', '退宿人员费用', '减免房间级费用', '房间应付费用'
+                '本期总费用', '计费总费用', '退宿人员费用', '减免房间级费用', '房间实际应付费用'
             ]
             
             # 存储列名到索引的映射（1-based）

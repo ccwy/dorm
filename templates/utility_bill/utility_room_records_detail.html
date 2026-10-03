@@ -283,7 +283,7 @@
         </div>
         
         <!-- 所有费用项目放在一行，使用响应式网格 -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
           <!-- 原始总费用 -->
           <div class="fee-item border-gray-100">
             <span class="text-sm text-gray-500">原始总费用</span>
@@ -296,22 +296,28 @@
             <span id="billing-total-fee" class="font-bold text-xl text-primary">¥136.03</span>
           </div>
           
-          <!-- 房间级费用减免 -->
-          <div class="fee-item border-green-100 bg-green-50">
-            <span class="text-sm text-green-700">房间级费用减免</span>
-            <span id="summary-room-reduction-fee" class="font-bold text-green-600">-¥20.00</span>
-          </div>
-          
           <!-- 退宿人员费用 -->
           <div class="fee-item border-gray-100">
             <span class="text-sm text-gray-500">退宿人员费用（已结算）</span>
             <span id="summary-checked-out-fee" class="font-bold text-secondary">¥33.60</span>
           </div>
           
-          <!-- 在住人员费用 -->
-          <div class="fee-item border-gray-100">
-            <span class="text-sm text-gray-500">在住人员费用（实际应收）</span>
-            <span id="summary-actual-fee" class="font-bold text-success">¥102.43</span>
+          <!-- 应付总费用 -->
+          <div class="fee-item border-blue-100 bg-blue-50">
+            <span class="text-sm text-blue-700">应付总费用</span>
+            <span id="summary-receivable-fee" class="font-bold text-blue-600">¥102.43</span>
+          </div>
+          
+          <!-- 房间级费用减免 -->
+          <div class="fee-item border-green-100 bg-green-50">
+            <span class="text-sm text-green-700">房间级费用减免</span>
+            <span id="summary-room-reduction-fee" class="font-bold text-green-600">-¥20.00</span>
+          </div>
+          
+          <!-- 实际应付总费用 -->
+          <div class="fee-item border-success/20 bg-success/5">
+            <span class="text-sm text-success">实际应付总费用</span>
+            <span id="summary-actual-fee" class="font-bold text-lg text-success">¥102.43</span>
           </div>
         </div>
       </div>
@@ -346,7 +352,7 @@
                   减免费用
                 </th>
                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  应付费用
+                  实际应付
                 </th>
                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   状态
@@ -420,7 +426,7 @@
                   减免费用
                 </th>
                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  应付费用
+                  实际应付
                 </th>
               </tr>
             </thead>
@@ -753,9 +759,10 @@
       safeSetTextContent('billing-total-fee', formatCurrency(data.total_fee.billing_total_fee));
       
       // 填充整合的费用信息
-      safeSetTextContent('summary-room-reduction-fee', formatCurrency(-Math.abs(data.total_fee.room_reduction_fee || 0)));
-      safeSetTextContent('summary-actual-fee', formatCurrency(data.actual_fee.total));
       safeSetTextContent('summary-checked-out-fee', formatCurrency(data.checked_out_fee.total));
+      safeSetTextContent('summary-receivable-fee', formatCurrency(data.receivable_fee.total));
+      safeSetTextContent('summary-room-reduction-fee', formatCurrency(-Math.abs(data.total_fee.room_reduction_fee || 0)));
+      safeSetTextContent('summary-actual-fee', formatCurrency(data.actual_total_fee));
       
       // 填充在住人员列表
       const currentTableBody = document.getElementById('current-occupants-table-body');

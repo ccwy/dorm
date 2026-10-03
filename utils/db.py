@@ -290,6 +290,7 @@ def _force_create_mysql_database(app, db_uri):
         logging.error(traceback.format_exc())
         return False
 
+
 def init_db(app: Flask, force_recreate=False):
     """初始化数据库（完全基于连接字符串判断数据库类型）"""
     global _is_initialized

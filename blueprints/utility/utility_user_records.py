@@ -17,12 +17,12 @@ from utils.log import log_operation
 from utils.auth import require_permission
 
 # 创建蓝图
-utility_user_records_detail_bp = Blueprint('utility_user_records_detail', __name__, url_prefix='/utility')
+utility_user_records_bp = Blueprint('utility_user_records', __name__, url_prefix='/utility')
 
-@utility_user_records_detail_bp.route('/user_records_detail')
+@utility_user_records_bp.route('/user_records')
 @login_required
 @require_permission('utility.view')
-def user_records_detail():
+def user_records():
     """
     用户水电费详情页面
     展示指定筛选条件下的用户水电费详情列表
@@ -306,13 +306,13 @@ def user_records_detail():
             }
         }
         
-        return render_template('utility_bill/utility_user_records_detail.html', **data)
+        return render_template('utility_bill/utility_user_records.html', **data)
         
     except Exception as e:
         logging.error(f"获取用户水电费详情失败: {str(e)}")
         flash(str(e), 'danger')
         return render_template(
-            'utility_bill/utility_user_records_detail.html',
+            'utility_bill/utility_user_records.html',
             title="用户水电费查询",
             users=[],
             total_count=0,
@@ -325,7 +325,7 @@ def user_records_detail():
             current_filters={}
         )
 
-@utility_user_records_detail_bp.route('/export_user_records_excel', methods=['GET'])
+@utility_user_records_bp.route('/export_user_records_excel', methods=['GET'])
 @login_required
 @require_permission('utility.export')
 def export_user_records_excel():
@@ -345,7 +345,7 @@ def export_user_records_excel():
         # 验证必填参数
         if not billing_period:
             flash('缺少必要参数', 'warning')
-            return redirect(url_for('utility_user_records_detail.user_records_detail'))
+            return redirect(url_for('utility_user_records.user_records'))
         
         # 构建查询 - 在住人员费用
         occupant_query = db.session.query(
@@ -532,7 +532,7 @@ def export_user_records_excel():
                 '类型': user_type_text,
                 '房间号': rooms_text,
                 '当月已住天数': stay_days_text,
-                '应付金额': round(user_data['total_fee'], 2),
+                '分摊总费用': round(user_data['total_fee'], 2),
                 '备注': remarks
             })
         
@@ -549,13 +549,13 @@ def export_user_records_excel():
         # 如果没有数据，返回提示
         if not export_data:
             flash('没有可导出的数据', 'warning')
-            return redirect(url_for('utility_user_records_detail.user_records_detail'))
+            return redirect(url_for('utility_user_records.user_records'))
         
         # 创建DataFrame
         df = pd.DataFrame(export_data)
         
         # 设置数值格式化
-        df['应付金额'] = df['应付金额'].apply(lambda x: f"{x:.2f}")
+        df['分摊总费用'] = df['分摊总费用'].apply(lambda x: f"{x:.2f}")
         
         # 创建Excel文件
         output = BytesIO()
@@ -640,4 +640,4 @@ def export_user_records_excel():
         except:
             pass
         flash(f'导出失败: {str(e)}', 'danger')
-        return redirect(url_for('utility_user_records_detail.user_records_detail'))
+        return redirect(url_for('utility_user_records.user_records'))

@@ -384,6 +384,7 @@ def dorm_query():
         department_filter = request.args.get('department', '', type=str).strip()
         gender_filter = request.args.get('gender', '', type=str).strip()
         building_filter = request.args.get('building', '', type=str).strip()
+        status_filter = request.args.get('status', 'active', type=str).strip()
         
         # 分页参数
         try:
@@ -400,11 +401,22 @@ def dorm_query():
         except ValueError:
             per_page = 20
         
-        # 构建查询，筛选出活跃的住宿记录
-        query = db.session.query(Dorm).filter(
-            Dorm.status == 'active',
-            Dorm.check_out_date.is_(None)
-        )
+        # 构建查询，根据状态筛选条件动态构建
+        query = db.session.query(Dorm)
+        
+        if status_filter == 'active':
+            # 在住：当前活跃记录
+            query = query.filter(
+                Dorm.status == 'active',
+                Dorm.check_out_date.is_(None)
+            )
+        elif status_filter == 'checked_out':
+            # 退宿：真正退宿的用户（排除换宿）
+            query = query.filter(
+                Dorm.status == 'checked_out',
+                Dorm.end_operation_type == 'checkout'
+            )
+        # 'all' 不添加status过滤条件，显示所有记录
         
         # 关联用户表和房间表
         query = query.join(User).join(Room)
@@ -495,6 +507,9 @@ def dorm_query():
                 'room_id': room.id,  # 添加房间ID，用于跳转详情页面
                 'room': room,  # 添加完整的room对象引用
                 'check_in_date': check_in_date,
+                'check_out_date': dorm.check_out_date,
+                'end_operation_type': dorm.end_operation_type,
+                'status': dorm.status,
                 'current_stay_days': current_stay_days,
                 'total_stay_days': total_stay_days,
                 'dorm_chain': dorm_chain  # 完整换宿链
@@ -517,7 +532,7 @@ def dorm_query():
         page_range = generate_page_range(page, pagination.pages)
         
         # 判断是否为空状态（没有任何筛选条件且没有数据）
-        is_empty_state = len(residents_data) == 0 and not any([search_query, department_filter, gender_filter, building_filter])
+        is_empty_state = len(residents_data) == 0 and not any([search_query, department_filter, gender_filter, building_filter]) and status_filter == 'active'
         
         # 返回渲染模板
         return render_template(
@@ -532,6 +547,7 @@ def dorm_query():
             department_filter=department_filter,
             gender_filter=gender_filter,
             building_filter=building_filter,
+            status_filter=status_filter,
             per_page=per_page,
             today=today,
             is_empty_state=is_empty_state
@@ -559,6 +575,7 @@ def dorm_query():
             department_filter='',
             gender_filter='',
             building_filter='',
+            status_filter='active',
             per_page=20,
             today=datetime.now()
         )

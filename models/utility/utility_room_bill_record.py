@@ -18,7 +18,7 @@ class RoomUtilityRecord(db.Model):
     - 新增和修改记录时必须提供价格配置参数
     - 主表删除时自动同步删除关联的退宿子表记录
     - 按账期抄表模式：billing_period(YYYY-MM)直接确定账期，start_date为月初第一天，end_date为月末最后一天
-    - 实际费用 = 总费用 - 已结算的退宿费用 - 减免费用
+    - 实际应付总费用 = 应付总费用 - 房间费用减免
     """
     __tablename__ = 'utility_room_bill_records'
 
@@ -48,15 +48,17 @@ class RoomUtilityRecord(db.Model):
     start_date = db.Column(
         db.DateTime, 
         nullable=False,
-        comment='费用周期起始日（闭区间，如2025-07-01 00:00:00）'
+        comment='账期周期起始日（闭区间，如2025-07-01 00:00:00）'
     )
     end_date = db.Column(
         db.DateTime, 
         nullable=False,
-        comment='费用周期结束日（闭区间，如2025-07-31 23:59:59）'
+        comment='账期周期结束日（闭区间，如2025-07-31 23:59:59）'
     )
+    electric_reading_date = db.Column(db.DateTime, nullable=True, comment='电表抄表日期')
+    water_reading_date = db.Column(db.DateTime, nullable=True, comment='水表抄表日期')
 
-    # 电费相关字段（单位：度）
+    # 电表读数相关字段（单位：度）
     electric_current = db.Column(
         db.Numeric(10, 2),
         comment='当前电费表读数（本次抄表时记录的数值）'
@@ -65,6 +67,7 @@ class RoomUtilityRecord(db.Model):
         db.Numeric(10, 2),
         comment='上期电费表读数（上一次抄表记录的数值）'
     )
+    # 实际用电量
     electric_usage = db.Column(
         db.Numeric(10, 2),
         comment='抄表电量（自动计算：current - previous，保留2位小数）'
@@ -75,7 +78,7 @@ class RoomUtilityRecord(db.Model):
         default=0.00,
         comment='用电量减免度数（可手动设置或根据规则自动计算）'
     )
-    # 新增：用电量计费用量（实际收费的用电量）
+    # 新增：用电量计费用量（实际收费的用电量），计费用量=实际用电量-用电量减免度数
     electric_billing_usage = db.Column(
         db.Numeric(10, 2),
         comment='用电量计费用量（electric_usage - electric_reduction，保留2位小数）'
@@ -85,7 +88,7 @@ class RoomUtilityRecord(db.Model):
         comment='电费单价（从系统配置获取，保留2位小数）'
     )
 
-    # 水费相关字段（单位：m³）
+    # 水表相关字段（单位：m³）
     water_current = db.Column(
         db.Numeric(10, 2),
         comment='当前水费表读数（本次抄表时记录的数值）'
@@ -94,6 +97,7 @@ class RoomUtilityRecord(db.Model):
         db.Numeric(10, 2),
         comment='上期水费表读数（上一次抄表记录的数值）'
     )
+    # 实际用水量
     water_usage = db.Column(
         db.Numeric(10, 2),
         comment='本抄表水量（自动计算：current - previous，保留2位小数）'
@@ -104,7 +108,7 @@ class RoomUtilityRecord(db.Model):
         default=0.00,
         comment='用水量减免度数（可手动设置或根据规则自动计算）'
     )
-    # 新增：用水量计费用量（实际收费的用水量）
+    # 新增：用水量计费用量（实际收费的用水量），计费用量=实际用水量-用水量减免度数
     water_billing_usage = db.Column(
         db.Numeric(10, 2),
         comment='用水量计费用量（water_usage - water_reduction，保留2位小数）'
@@ -114,7 +118,7 @@ class RoomUtilityRecord(db.Model):
         comment='水费单价（从系统配置获取，保留2位小数）'
     )
 
-    # 费用计算结果（单位：元）
+    # 原始费用计算结果（单位：元）
     total_electric_fee = db.Column(
         db.Numeric(10, 2),
         comment='抄表总电费金额（用抄表电量 × 电费单价，保留2位小数）'
@@ -142,23 +146,26 @@ class RoomUtilityRecord(db.Model):
         comment='计费用量总费用（billing_electric_fee + billing_water_fee，保留2位小数）'
     )
 
-    # 新增：费用减免
-    room_reduction_fee = db.Column(
-        db.Numeric(10, 2),
-        default=0.00,
-        comment='费用减免（特殊减免或者补贴，保留2位小数）'
-    )
-
     # 退宿费用累计字段
     checked_out_electric_fee = db.Column(db.Numeric(10, 2), default=0.0, comment='已结算的电费')
     checked_out_water_fee = db.Column(db.Numeric(10, 2), default=0.0, comment='已结算的水费')
     checked_out_total_fee = db.Column(db.Numeric(10, 2), comment='已结算总费用')
     
 
-    # 实际应收费用字段（实际费用 = 总费用 - 已结算的退宿费用 - 减免费用）
-    actual_electric_fee = db.Column(db.Numeric(10, 2), comment='实际应收电费')
-    actual_water_fee = db.Column(db.Numeric(10, 2), comment='实际应收水费')
-    actual_total_fee = db.Column(db.Numeric(10, 2), comment='实际应收总费用')
+    # 应付费用字段（应付费用 = 计费用量费用 - 已结算的退宿费用）
+    receivable_electric_fee = db.Column(db.Numeric(10, 2), comment='应付电费')
+    receivable_water_fee = db.Column(db.Numeric(10, 2), comment='应付水费')
+    receivable_total_fee = db.Column(db.Numeric(10, 2), comment='应付总费用')
+
+    # 新增：房间费用减免
+    room_reduction_fee = db.Column(
+        db.Numeric(10, 2),
+        default=0.00,
+        comment='费用减免（特殊减免或者补贴，保留2位小数）'
+    )
+
+    # 实际应付费用字段（实际应付总费用 = 应付总费用 - 房间费用减免）
+    actual_total_fee = db.Column(db.Numeric(10, 2), comment='实际应付总费用')
 
     remarks = db.Column(db.Text, nullable=True, comment='备注')
     
@@ -215,11 +222,14 @@ class RoomUtilityRecord(db.Model):
         """
         根据账期字符串计算起始日期和结束日期
         
+        支持自定义账期起始日：如果系统配置开启了自定义账期日，
+        则使用配置的起始日，否则使用自然月1号
+        
         参数:
             billing_period: 字符串('YYYY-MM')，表示账期
         
         返回:
-            tuple: (start_date, end_date)，分别为账期的起始日期（月初第一天）和结束日期（月末最后一天）
+            tuple: (start_date, end_date)，分别为账期的起始日期和结束日期
         """
         if not isinstance(billing_period, str):
             raise TypeError(f"账期参数必须是字符串('YYYY-MM')，当前类型：{type(billing_period)}")
@@ -229,10 +239,33 @@ class RoomUtilityRecord(db.Model):
         except (ValueError, AttributeError):
             raise ValueError(f"账期格式错误: {billing_period}，应为YYYY-MM")
         
-        # start_date = 该月第一天 00:00:00
-        start_date = datetime(year, month, 1, 0, 0, 0)
-        # end_date = 该月最后一天 23:59:59
-        end_date = cls.get_last_day(year, month)
+        # 检查是否启用自定义账期日
+        custom_enabled = SystemConfig.get_config('CUSTOM_BILLING_PERIOD_DAY_ENABLED')
+        custom_start_day = SystemConfig.get_config('CUSTOM_BILLING_PERIOD_START_DAY')
+        
+        if custom_enabled and custom_start_day:
+            # 启用了自定义账期日
+            start_day = custom_start_day if isinstance(custom_start_day, int) else int(custom_start_day)
+            start_day = max(1, min(31, start_day))  # 限制在1-31范围
+            
+            # 计算起始日期
+            # 如果start_day > 该月天数，则使用该月最后一天
+            last_day_of_month = cls.get_last_day(year, month).day
+            actual_start_day = min(start_day, last_day_of_month)
+            start_date = datetime(year, month, actual_start_day, 0, 0, 0)
+            
+            # 计算结束日期：下个月的起始日 - 1天
+            if month == 12:
+                next_year, next_month = year + 1, 1
+            else:
+                next_year, next_month = year, month + 1
+            last_day_of_next_month = cls.get_last_day(next_year, next_month).day
+            next_start_day = min(start_day, last_day_of_next_month)
+            end_date = datetime(next_year, next_month, next_start_day, 0, 0, 0) - timedelta(seconds=1)
+        else:
+            # 使用自然月
+            start_date = datetime(year, month, 1, 0, 0, 0)
+            end_date = cls.get_last_day(year, month)
         
         return start_date, end_date
 
@@ -301,12 +334,15 @@ class RoomUtilityRecord(db.Model):
             billing_water_fee=Decimal('0.00'),
             billing_total_fee=Decimal('0.00'),
             room_reduction_fee=Decimal('0.00'),  # 初始化费用减免
-            actual_electric_fee=Decimal('0.00'),
-            actual_water_fee=Decimal('0.00'),
+            receivable_electric_fee=Decimal('0.00'),
+            receivable_water_fee=Decimal('0.00'),
+            receivable_total_fee=Decimal('0.00'),
             actual_total_fee=Decimal('0.00'),
             checked_out_electric_fee=Decimal('0.00'),
             checked_out_water_fee=Decimal('0.00'),
-            checked_out_total_fee=Decimal('0.00')
+            checked_out_total_fee=Decimal('0.00'),
+            electric_reading_date=reading_date,  # 电表抄表日期
+            water_reading_date=reading_date  # 水表抄表日期
         )
         db.session.add(new_record)
         db.session.flush()
@@ -348,8 +384,9 @@ class RoomUtilityRecord(db.Model):
             water_billing_usage=Decimal('0.00'),  # 初始化用水量计费用量
             electric_price=Decimal('0.00'),
             water_price=Decimal('0.00'),
-            actual_electric_fee=Decimal('0.00'),
-            actual_water_fee=Decimal('0.00'),
+            receivable_electric_fee=Decimal('0.00'),
+            receivable_water_fee=Decimal('0.00'),
+            receivable_total_fee=Decimal('0.00'),
             actual_total_fee=Decimal('0.00'),
             total_electric_fee=Decimal('0.00'),
             total_water_fee=Decimal('0.00'),
@@ -362,7 +399,9 @@ class RoomUtilityRecord(db.Model):
             status='pending',
             checked_out_electric_fee=Decimal('0.00'),
             checked_out_water_fee=Decimal('0.00'),
-            checked_out_total_fee=Decimal('0.00')
+            checked_out_total_fee=Decimal('0.00'),
+            electric_reading_date=None,  # 电表抄表日期（新房间初始化时无抄表）
+            water_reading_date=None  # 水表抄表日期（新房间初始化时无抄表）
         )
         db.session.add(new_record)
         logging.info(f"为新房间{room_id}初始化{billing_period}期账单")
@@ -423,12 +462,15 @@ class RoomUtilityRecord(db.Model):
                     billing_water_fee=Decimal('0.00'),
                     billing_total_fee=Decimal('0.00'),
                     room_reduction_fee=Decimal('0.00'),  # 初始化费用减免
-                    actual_electric_fee=Decimal('0.00'),
-                    actual_water_fee=Decimal('0.00'),
+                    receivable_electric_fee=Decimal('0.00'),
+                    receivable_water_fee=Decimal('0.00'),
+                    receivable_total_fee=Decimal('0.00'),
                     actual_total_fee=Decimal('0.00'),
                     checked_out_electric_fee=Decimal('0.00'),
                     checked_out_water_fee=Decimal('0.00'),
-                    checked_out_total_fee=Decimal('0.00')
+                    checked_out_total_fee=Decimal('0.00'),
+                    electric_reading_date=None,  # 电表抄表日期（批量创建时无抄表）
+                    water_reading_date=None  # 水表抄表日期（批量创建时无抄表）
                 )
                 db.session.add(new_record)
                 created_count += 1
@@ -548,21 +590,26 @@ class RoomUtilityRecord(db.Model):
             super(RoomUtilityRecord, self).__setattr__('checked_out_total_fee', total_checked)
             self._internal_update = False  # 移到赋值后
             
-            # 核心修改：实际费用 = 总费用 - 已结算的退宿费用 - 减免费用
-            # 确保不出现负数（实际费用不能小于0）
-            self.actual_electric_fee = max(
+            # 核心修改：应付费用 = 计费用量费用 - 已结算的退宿费用
+            # 确保不出现负数（应付费用不能小于0）
+            self.receivable_electric_fee = max(
                 round(self.billing_electric_fee - (self.checked_out_electric_fee or Decimal('0.00')), 2),
                 Decimal('0.00')
             )
             
-            self.actual_water_fee = max(
+            self.receivable_water_fee = max(
                 round(self.billing_water_fee - (self.checked_out_water_fee or Decimal('0.00')), 2),
                 Decimal('0.00')
             )
             
-            # 计算实际总费用，减去减免费用
+            # 应付总费用 = 应付电费 + 应付水费
+            self.receivable_total_fee = round(
+                self.receivable_electric_fee + self.receivable_water_fee, 2
+            )
+            
+            # 实际应付总费用 = 应付总费用 - 房间费用减免
             self.actual_total_fee = max(
-                round(self.billing_total_fee - (self.checked_out_total_fee or Decimal('0.00')) - (self.room_reduction_fee or Decimal('0.00')), 2),
+                round(self.receivable_total_fee - (self.room_reduction_fee or Decimal('0.00')), 2),
                 Decimal('0.00')
             )
             
@@ -765,6 +812,8 @@ class RoomUtilityRecord(db.Model):
                 # 4. 如果没有初始读数点（全是普通抄表）→ 最早作上次读数，最晚作本次读数
                 # 5. 如果只有1条普通抄表 → 从历史账期查上期读数
 
+                electric_reading_date = None  # 追踪电表抄表日期
+
                 # 找最后一个换表/首次标记的记录（初始读数点）
                 last_electric_reset_index = -1
                 for i, r in enumerate(electric_readings_in_period):
@@ -782,22 +831,26 @@ class RoomUtilityRecord(db.Model):
                     if subsequent_electric_normal:
                         # 有后续普通抄表 → 最晚的作为本次读数
                         electric_current_value = Decimal(str(subsequent_electric_normal[-1].electric_current))
+                        electric_reading_date = subsequent_electric_normal[-1].reading_date
                         electric_usage = electric_current_value - first_electric_value
                         logging.info(f'房间{room_id}电表有换表记录(索引{last_electric_reset_index})，上次读数: {first_electric_value}, 本次读数: {electric_current_value}, 用量: {electric_usage}')
                     else:
                         # 没有后续普通抄表 → 不计费
                         electric_current_value = first_electric_value
+                        electric_reading_date = electric_readings_in_period[last_electric_reset_index].reading_date
                         electric_usage = Decimal('0')
                         logging.info(f'房间{room_id}电表换表后无后续普通抄表，不计费，上次读数=本次读数: {first_electric_value}')
                 elif len(electric_readings_in_period) >= 2:
                     # 没有初始读数点，全是普通抄表
                     first_electric_value = Decimal(str(electric_readings_in_period[0].electric_current))
                     electric_current_value = Decimal(str(electric_readings_in_period[-1].electric_current))
+                    electric_reading_date = electric_readings_in_period[-1].reading_date
                     electric_usage = electric_current_value - first_electric_value
                     logging.info(f'房间{room_id}电表全普通抄表，上次读数: {first_electric_value}, 本次读数: {electric_current_value}, 用量: {electric_usage}')
                 elif len(electric_readings_in_period) == 1:
                     # 单条普通抄表，从历史查上期读数
                     electric_current_value = Decimal(str(electric_readings_in_period[0].electric_current))
+                    electric_reading_date = electric_readings_in_period[0].reading_date
                     if getattr(electric_readings_in_period[0], 'electric_meter_replaced', False):
                         # 换表/首次抄表且无后续 → 不计费
                         first_electric_value = electric_current_value
@@ -838,6 +891,8 @@ class RoomUtilityRecord(db.Model):
                 # 4. 如果没有初始读数点（全是普通抄表）→ 最早作上次读数，最晚作本次读数
                 # 5. 如果只有1条普通抄表 → 从历史账期查上期读数
 
+                water_reading_date = None  # 追踪水表抄表日期
+
                 # 找最后一个换表/首次标记的记录（初始读数点）
                 last_water_reset_index = -1
                 for i, r in enumerate(water_readings_in_period):
@@ -855,22 +910,26 @@ class RoomUtilityRecord(db.Model):
                     if subsequent_water_normal:
                         # 有后续普通抄表 → 最晚的作为本次读数
                         water_current_value = Decimal(str(subsequent_water_normal[-1].water_current))
+                        water_reading_date = subsequent_water_normal[-1].reading_date
                         water_usage = water_current_value - first_water_value
                         logging.info(f'房间{room_id}水表有换表记录(索引{last_water_reset_index})，上次读数: {first_water_value}, 本次读数: {water_current_value}, 用量: {water_usage}')
                     else:
                         # 没有后续普通抄表 → 不计费
                         water_current_value = first_water_value
+                        water_reading_date = water_readings_in_period[last_water_reset_index].reading_date
                         water_usage = Decimal('0')
                         logging.info(f'房间{room_id}水表换表后无后续普通抄表，不计费，上次读数=本次读数: {first_water_value}')
                 elif len(water_readings_in_period) >= 2:
                     # 没有初始读数点，全是普通抄表
                     first_water_value = Decimal(str(water_readings_in_period[0].water_current))
                     water_current_value = Decimal(str(water_readings_in_period[-1].water_current))
+                    water_reading_date = water_readings_in_period[-1].reading_date
                     water_usage = water_current_value - first_water_value
                     logging.info(f'房间{room_id}水表全普通抄表，上次读数: {first_water_value}, 本次读数: {water_current_value}, 用量: {water_usage}')
                 elif len(water_readings_in_period) == 1:
                     # 单条普通抄表，从历史查上期读数
                     water_current_value = Decimal(str(water_readings_in_period[0].water_current))
+                    water_reading_date = water_readings_in_period[0].reading_date
                     if getattr(water_readings_in_period[0], 'water_meter_replaced', False):
                         # 换表/首次抄表且无后续 → 不计费
                         first_water_value = water_current_value
@@ -1046,6 +1105,10 @@ class RoomUtilityRecord(db.Model):
                 main_record.water_price = price_config['water_price']  # 保存当前单价
                 main_record.total_water_fee = water_fee
                 
+                # 写入抄表日期到主表
+                main_record.electric_reading_date = electric_reading_date
+                main_record.water_reading_date = water_reading_date
+                
                 main_record.total_fee = round(electric_fee + water_fee, 2)
                 
                 # 更新新增字段
@@ -1068,19 +1131,25 @@ class RoomUtilityRecord(db.Model):
                 super(RoomUtilityRecord, main_record).__setattr__('checked_out_total_fee', total_checked)
                 main_record._internal_update = False
                 
-                # 计算实际费用（实际费用 = 总费用 - 已结算的退宿费用 - 减免费用）
-                main_record.actual_electric_fee = max(
+                # 计算应付费用（应付费用 = 计费用量费用 - 已结算的退宿费用）
+                main_record.receivable_electric_fee = max(
                     round(main_record.billing_electric_fee - (main_record.checked_out_electric_fee or 0), 2),
                     0
                 )
                 
-                main_record.actual_water_fee = max(
+                main_record.receivable_water_fee = max(
                     round(main_record.billing_water_fee - (main_record.checked_out_water_fee or 0), 2),
                     0
                 )
                 
+                # 应付总费用 = 应付电费 + 应付水费
+                main_record.receivable_total_fee = round(
+                    main_record.receivable_electric_fee + main_record.receivable_water_fee, 2
+                )
+                
+                # 实际应付总费用 = 应付总费用 - 房间费用减免
                 main_record.actual_total_fee = max(
-                    round(main_record.billing_total_fee - (main_record.checked_out_total_fee or 0) - (main_record.room_reduction_fee or 0), 2),
+                    round(main_record.receivable_total_fee - (main_record.room_reduction_fee or 0), 2),
                     0
                 )
                 
@@ -1092,8 +1161,9 @@ class RoomUtilityRecord(db.Model):
                 if main_record.actual_total_fee <= Decimal('0.00'):
                     # 确保实际费用为0
                     main_record.actual_total_fee = Decimal('0.00')
-                    main_record.actual_electric_fee = Decimal('0.00')
-                    main_record.actual_water_fee = Decimal('0.00')
+                    main_record.receivable_electric_fee = Decimal('0.00')
+                    main_record.receivable_water_fee = Decimal('0.00')
+                    main_record.receivable_total_fee = Decimal('0.00')
                     
                     # 设置备注信息
                     current_remark = main_record.remark or ""
@@ -1182,18 +1252,23 @@ class RoomUtilityRecord(db.Model):
                 2
             )
             
-            # 重新计算实际费用（总费用 - 已结算的退宿费用 - 减免费用）
-            # 确保实际费用不会为负数（使用max函数）
-            self.actual_electric_fee = max(
-                round(self.billing_electric_fee  or Decimal('0.00') - self.checked_out_electric_fee  or Decimal('0.00'), 2),
+            # 重新计算应付费用（计费用量费用 - 已结算的退宿费用）
+            # 确保应付费用不会为负数（使用max函数）
+            self.receivable_electric_fee = max(
+                round((self.billing_electric_fee or Decimal('0.00')) - (self.checked_out_electric_fee or Decimal('0.00')), 2),
                 Decimal('0.00')
             )
-            self.actual_water_fee = max(
-                round(self.billing_water_fee  or Decimal('0.00') - self.checked_out_water_fee  or Decimal('0.00'), 2),
+            self.receivable_water_fee = max(
+                round((self.billing_water_fee or Decimal('0.00')) - (self.checked_out_water_fee or Decimal('0.00')), 2),
                 Decimal('0.00')
             )
+            # 应付总费用 = 应付电费 + 应付水费
+            self.receivable_total_fee = round(
+                self.receivable_electric_fee + self.receivable_water_fee, 2
+            )
+            # 实际应付总费用 = 应付总费用 - 房间费用减免
             self.actual_total_fee = max(
-                round(self.billing_total_fee  or Decimal('0.00') - self.checked_out_total_fee  or Decimal('0.00') - (self.room_reduction_fee or Decimal('0.00')), 2),
+                round(self.receivable_total_fee - (self.room_reduction_fee or Decimal('0.00')), 2),
                 Decimal('0.00')
             )
             # 更新状态和时间戳
@@ -1211,7 +1286,7 @@ class RoomUtilityRecord(db.Model):
                 f"房间{self.room_id}@{self.billing_period}退宿费用更新 - "
                 f"新增电费: {electric}, 累计电费: {self.checked_out_electric_fee} - "
                 f"新增水费: {water}, 累计水费: {self.checked_out_water_fee} - "
-                f"当前实际费用: {self.actual_total_fee}"
+                f"当前实际应付费用: {self.actual_total_fee}"
             )
             
             return True

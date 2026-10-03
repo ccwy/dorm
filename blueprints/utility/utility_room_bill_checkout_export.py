@@ -122,7 +122,7 @@ def export_checkout_records():
                 '个人计费总费用(元)': float(record.user_billing_total_fee) if record.user_billing_total_fee else 0,
                 '按比例分摊减免(元)': float(record.user_proportional_reduction) if record.user_proportional_reduction else 0,
                 '个人独立减免(元)': float(record.user_independent_reduction) if record.user_independent_reduction else 0,
-                '个人应付费用(元)': float(record.payable_fee) if record.payable_fee else 0,
+                '个人实际应付(元)': float(record.payable_fee) if record.payable_fee else 0,
                 '退宿状态': record.checkout_status if record.checkout_status else '',
                 '支付状态': record.payment_status if record.payment_status else ''
             })
@@ -139,7 +139,7 @@ def export_checkout_records():
             '计费水用量(m³)', '水费单价(元/m³)', '房间总水费(元)',
             '个人原始水费(元)', '个人计费水费(元)', '房间总费用(元)',
             '个人原始总费用(元)', '个人计费总费用(元)', 
-            '按比例分摊减免(元)', '个人独立减免(元)', '个人应付费用(元)'
+            '按比例分摊减免(元)', '个人独立减免(元)', '个人实际应付(元)'
         ]
         for col in float_columns:
             df[col] = df[col].apply(lambda x: f"{x:.2f}")

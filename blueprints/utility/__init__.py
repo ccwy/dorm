@@ -6,6 +6,6 @@ from .utility_room_bill_records import utility_room_bill_records_bp
 from .utility_room_bill_occupants import utility_room_bill_occupants_bp
 from .utility_room_bill_occupants_export import utility_room_bill_occupants_export_bp
 from .utility_room_bill_checkout import utility_room_bill_checkout_bp
-from .utility_user_records_detail import utility_user_records_detail_bp
+from .utility_user_records import utility_user_records_bp
 # 注意：utility_room_bill_checkout_edit, utility_room_bill_checkout_export, utility_room_bill_checkout_operations
 # 的路由直接注册在 utility_room_bill_checkout_bp 上，无需单独导出蓝图

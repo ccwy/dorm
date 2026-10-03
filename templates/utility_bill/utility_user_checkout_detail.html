@@ -201,18 +201,18 @@
                     <div class="p-6">
                         <!-- 原始费用 -->
                         <div class="mb-6">
-                            <h4 class="text-md font-medium text-gray-900 mb-3">房间总费用</h4>
+                            <h4 class="text-md font-medium text-gray-900 mb-3">房间原始费用</h4>
                             <div class="grid grid-cols-3 md:grid-cols-3 gap-4 text-center">
                                 <div class="bg-gray-50 p-4 rounded">
-                                    <p class="text-sm text-gray-500 mb-1">电费</p>
+                                    <p class="text-sm text-gray-500 mb-1">原始电费</p>
                                     <p class="text-lg font-semibold text-gray-900">{{ checkout_record.meter_electric_fee }} 元</p>
                                 </div>
                                 <div class="bg-gray-50 p-4 rounded">
-                                    <p class="text-sm text-gray-500 mb-1">水费</p>
+                                    <p class="text-sm text-gray-500 mb-1">原始水费</p>
                                     <p class="text-lg font-semibold text-gray-900">{{ checkout_record.meter_water_fee }} 元</p>
                                 </div>
                                 <div class="bg-gray-50 p-4 rounded">
-                                    <p class="text-sm text-gray-500 mb-1">合计</p>
+                                    <p class="text-sm text-gray-500 mb-1">原始总费用</p>
                                     <p class="text-lg font-semibold text-gray-900">{{ checkout_record.meter_total_fee }} 元</p>
                                 </div>
                                 
@@ -337,10 +337,10 @@
                         </div>
                         {% endif %}
                         
-                        <!-- 最终应付 -->
+                        <!-- 实际应付 -->
                         <div class="bg-blue-50 p-4 rounded border-l-4 border-primary">
                             <div class="flex justify-between items-center">
-                                <span class="text-xl font-semibold text-gray-900">最终应付金额</span>
+                                <span class="text-xl font-semibold text-gray-900">实际应付</span>
                                 <span class="text-3xl font-bold text-primary">{{ checkout_record.payable_fee }} 元</span>
                             </div>
                         </div>

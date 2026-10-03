@@ -84,7 +84,7 @@ class CheckoutUtilityRecord(db.Model):
     room_total_reduction = db.Column(db.Numeric(10, 2), default=0.00, comment='房间级总减免额度')  # 调整
     user_proportional_reduction = db.Column(db.Numeric(10, 2), default=0.00, comment='用户按比例分摊的减免')  # 新增，用户房间级按比例减免费用
     user_independent_reduction = db.Column(db.Numeric(10, 2), default=0.00, comment='个人级独立减免')  # 新增
-    payable_fee = db.Column(db.Numeric(10, 2), default=0.00, comment='用户应付费用')
+    payable_fee = db.Column(db.Numeric(10, 2), default=0.00, comment='用户实际应付')
 
     # 状态字段
     payment_status = db.Column(db.String(20), default='unpaid', comment='支付状态')

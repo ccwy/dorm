@@ -12,9 +12,9 @@ from datetime import datetime, timedelta  # 修正：移除date，保留datetime
 from collections import defaultdict
 from decimal import Decimal
 import logging  # 确保导入logging模块
-from sqlalchemy.exc import SQLAlchemyError
 from flask_login import login_required, current_user
 from models.fee_subsidy.fee_subsidy_usage import FeeSubsidyUsage  # 导入费用补贴子表
+from models.system_config.system_config import SystemConfig  # 系统配置
 # 导入权限装饰器
 from utils.auth import require_permission
 # 创建蓝图
@@ -195,19 +195,20 @@ def get_fee_records():
             check_in_str = actual_check_in.strftime('%Y-%m-%d %H:%M:%S')
             check_out_str = actual_check_out.strftime('%Y-%m-%d %H:%M:%S')
             
-            # 获取抄表信息
-            electric_reading = f"{main_record.electric_previous} → {main_record.electric_current}" if main_record.electric_previous and main_record.electric_current else ""
-            water_reading = f"{main_record.water_previous} → {main_record.water_current}" if main_record.water_previous and main_record.water_current else ""
+            # 获取抄表信息（从子表同步字段获取）
+            electric_reading = f"{occupant_record.electric_previous} → {occupant_record.electric_current}" if occupant_record.electric_previous and occupant_record.electric_current else ""
+            water_reading = f"{occupant_record.water_previous} → {occupant_record.water_current}" if occupant_record.water_previous and occupant_record.water_current else ""
             
             records.append({
                 'billing_period': main_record.billing_period,
                 'room_id': main_record.room_id,
-                'electric_fee': main_record.billing_electric_fee,
-                'water_fee': main_record.billing_water_fee,
-                'total_fee': main_record.billing_total_fee,
-                'checked_out_total_fee': main_record.checked_out_total_fee,
-                'actual_total_fee': main_record.actual_total_fee,
-                'room_reduction_fee': main_record.room_reduction_fee,# 新增：房间级减免费用
+                'electric_fee': occupant_record.billing_electric_fee,
+                'water_fee': occupant_record.billing_water_fee,
+                'total_fee': occupant_record.billing_total_fee,
+                'checked_out_total_fee': occupant_record.checked_out_total_fee,
+                'actual_total_fee': occupant_record.actual_total_fee,
+                'receivable_total_fee': (occupant_record.actual_electric_fee or 0) + (occupant_record.actual_water_fee or 0),
+                'room_reduction_fee': occupant_record.room_reduction_fee,# 新增：房间级减免费用
                 'user_name': user_name,
                 'user_id': occupant_record.user_id,
                 'department': user_department,  # 新增：部门信息
@@ -372,6 +373,26 @@ def calculate_bill():
                 result="失败"
             )
             flash(f'未找到{billing_period}的账单记录，请先创建', 'danger')
+            return redirect(url_for('utility_index.utility_occupant_manage', billing_period=billing_period))
+        
+        # 校验账期内是否存在任何有效住宿记录
+        start_date, end_date = RoomUtilityRecord.get_billing_period_dates(billing_period)
+        has_occupants = Dorm.query.filter(
+            Dorm.room_id.in_([r.room_id for r in main_records]),
+            Dorm.check_in_date < end_date,
+            db.or_(Dorm.check_out_date.is_(None), Dorm.check_out_date > start_date)
+        ).first() is not None
+        
+        if not has_occupants:
+            logging.warning(f"账期{billing_period}内无任何有效住宿记录，无需核算用户费用")
+            log_operation(
+                user_id=current_user.id,
+                module='utility',
+                operation_type='occupant_fee',
+                action=f"核算用户费用跳过 [账期: {billing_period}, 原因: 无有效住宿记录]",
+                result='warning'
+            )
+            flash(f'当前账期内无住宿记录，无需核算用户费用', 'warning')
             return redirect(url_for('utility_index.utility_occupant_manage', billing_period=billing_period))
         
         # 关键修复2：初始化全局补贴余额字典，跨房间共享
@@ -582,4 +603,74 @@ def delete_fee_record(occupant_id):
         return redirect(url_for('utility_index.utility_occupant_manage'))
 
 
-
+@utility_room_bill_occupants_bp.route('/<int:record_id>/occupant-edit-save', methods=['POST'])
+@login_required
+@require_permission('utility.edit')
+def occupant_edit_save(record_id):
+    """保存用户费用分摊编辑数据"""
+    billing_period = request.form.get('billing_period', '')
+    # 检查功能开关
+    if not SystemConfig.get_config_value('UTILITY_OCCUPANT_EDIT_ENABLED', False):
+        flash('直接编辑用户费用分摊功能未启用', 'warning')
+        return redirect(url_for('utility_index.utility_occupant_manage', billing_period=billing_period))
+    
+    try:
+        record = RoomUtilityRecord.query.get(record_id)
+        if not record:
+            flash(f'记录ID={record_id}不存在', 'danger')
+            return redirect(url_for('utility_index.utility_occupant_manage', billing_period=billing_period))
+        
+        # 获取表单数据
+        if not billing_period:
+            billing_period = record.billing_period
+        
+        # 获取所有在住人员记录
+        occupant_records = RoomUtilityOccupant.query.filter_by(record_id=record_id).all()
+        
+        updated_count = 0
+        for occupant in occupant_records:
+            occ_id = str(occupant.id)
+            stay_days = request.form.get(f'occupant_{occ_id}_stay_days')
+            electric_fee = request.form.get(f'occupant_{occ_id}_electric_fee')
+            water_fee = request.form.get(f'occupant_{occ_id}_water_fee')
+            user_reduction_fee = request.form.get(f'occupant_{occ_id}_user_reduction_fee')
+            payable_fee = request.form.get(f'occupant_{occ_id}_payable_fee')
+            
+            if stay_days is not None:
+                occupant.stay_days = int(stay_days) if stay_days else 0
+            if electric_fee is not None:
+                occupant.electric_fee = Decimal(electric_fee) if electric_fee else Decimal('0.00')
+            if water_fee is not None:
+                occupant.water_fee = Decimal(water_fee) if water_fee else Decimal('0.00')
+            # 自动计算分摊总费用 = 电费 + 水费
+            occupant.total_fee = (occupant.electric_fee or Decimal('0.00')) + (occupant.water_fee or Decimal('0.00'))
+            if user_reduction_fee is not None:
+                occupant.user_reduction_fee = Decimal(user_reduction_fee) if user_reduction_fee else Decimal('0.00')
+            if payable_fee is not None:
+                occupant.payable_fee = Decimal(payable_fee) if payable_fee else Decimal('0.00')
+            
+            updated_count += 1
+        
+        # 校验所有用户分摊总费用之和不超过房间应付总费用
+        total_occupant_fees = sum(
+            (occ.total_fee or Decimal('0.00')) for occ in occupant_records
+        )
+        room_actual_total = record.receivable_total_fee or Decimal('0.00')
+        if total_occupant_fees > room_actual_total:
+            db.session.rollback()
+            logging.warning(f"分摊总额校验失败: 记录ID={record_id}, 分摊总额={total_occupant_fees}, 房间应付总额={room_actual_total}")
+            flash(f'所有用户分摊总费用之和（¥{total_occupant_fees}）超过房间应付总费用（¥{room_actual_total}），请调整分摊金额', 'danger')
+            return redirect(url_for('utility_index.utility_occupant_edit', record_id=record_id, billing_period=billing_period))
+        
+        db.session.commit()
+        
+        log_operation(user_id=current_user.id, module='utility', operation_type='utility_edit',
+            action=f"编辑用户费用分摊数据 [记录ID: {record_id}]", result="成功")
+        
+        flash(f'成功更新 {updated_count} 条用户费用分摊记录', 'success')
+    except Exception as e:
+        db.session.rollback()
+        logging.error(f"保存用户费用分摊编辑失败: {str(e)}")
+        flash(f'保存失败: {str(e)}', 'danger')
+    
+    return redirect(url_for('utility_index.utility_occupant_edit', record_id=record_id, billing_period=billing_period))

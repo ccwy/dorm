@@ -432,21 +432,21 @@
                             
                             <!-- 费用信息 -->
                             <div>
-                                <p class="info-label">电费金额</p>
+                                <p class="info-label">原始电费</p>
                                 <p class="info-value text-primary font-medium">${safeToFixed(feeInfo.meter_electric_fee)} 元</p>
                             </div>
                             
                             <div>
-                                <p class="info-label">水费金额</p>
+                                <p class="info-label">原始水费</p>
                                 <p class="info-value text-primary font-medium">${safeToFixed(feeInfo.meter_water_fee)} 元</p>
                             </div>
                             
                             <div>
-                                <p class="info-label">总费用</p>
+                                <p class="info-label">原始总费用</p>
                                 <p class="info-value text-danger font-bold">${safeToFixed(feeInfo.meter_total_fee)} 元</p>
                             </div>
                             <div>
-                                <p class="info-label">分摊总费用</p>
+                                <p class="info-label">用户原始总费用</p>
                                 <p class="info-value text-danger font-bold">${safeToFixed(feeInfo.user_original_total_fee)} 元</p>
                             </div>
                             <div>
@@ -462,7 +462,7 @@
                                 <p class="info-value text-danger font-bold">${safeToFixed(feeInfo.user_independent_reduction || 0)} 元</p>
                             </div>
                             <div>
-                                <p class="info-label">个人应付</p>
+                                <p class="info-label">实际应付</p>
                                 <p class="info-value text-primary font-bold text-xl">${safeToFixed(feeInfo.payable_fee )} 元</p>
                             </div>
                         </div>
@@ -483,7 +483,7 @@
                                         <th class="px-4 py-3 bg-gray-50 text-left text-xs font-medium text-neutral uppercase tracking-wider">减免用量</th>
                                         <th class="px-4 py-3 bg-gray-50 text-left text-xs font-medium text-neutral uppercase tracking-wider">用户计费用量</th>
                                         <th class="px-4 py-3 bg-gray-50 text-left text-xs font-medium text-neutral uppercase tracking-wider">单价</th>
-                                        <th class="px-4 py-3 bg-gray-50 text-left text-xs font-medium text-neutral uppercase tracking-wider">总费用</th>
+                                        <th class="px-4 py-3 bg-gray-50 text-left text-xs font-medium text-neutral uppercase tracking-wider">原始总费用</th>
                                         <th class="px-4 py-3 bg-gray-50 text-left text-xs font-medium text-neutral uppercase tracking-wider">用户原始费用</th>
                                         <th class="px-4 py-3 bg-gray-50 text-left text-xs font-medium text-neutral uppercase tracking-wider">用户计费费用</th>
                                     </tr>

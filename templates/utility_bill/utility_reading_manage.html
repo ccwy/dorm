@@ -152,18 +152,34 @@
                             </div>
                             
                             <div class="flex flex-wrap justify-center items-center gap-2">
-                                <button onclick="window.location.href='{{ url_for('utility_index.utility_calculate_fees') }}'" class="bg-primary text-white px-5 py-2 rounded-md flex items-center btn-effect hover:bg-primary/90 transition-colors flex-shrink-0 justify-center">
-                                房间费用
+                                <button onclick="window.location.href='{{ url_for('utility_index.utility_calculate_fees') }}'" class="bg-primary text-white px-4 py-2 rounded-md flex items-center btn-effect hover:bg-primary/90 transition-colors flex-shrink-0 justify-center text-sm sm:text-base">
+                                    <i class="fa fa-building mr-1.5"></i>房间费用
                                 </button>
-                                <button onclick="window.location.href='{{ url_for('utility_index.utility_occupant_manage') }}'" class="bg-primary text-white px-5 py-2 rounded-md flex items-center btn-effect hover:bg-primary/90 transition-colors flex-shrink-0 justify-center">
-                                用户费用
+                                <button onclick="window.location.href='{{ url_for('utility_index.utility_occupant_manage') }}'" class="bg-amber-600 text-white px-4 py-2 rounded-md flex items-center btn-effect hover:bg-amber-700 transition-colors flex-shrink-0 justify-center text-sm sm:text-base">
+                                    <i class="fa fa-user mr-1.5"></i>用户费用
                                 </button>
-                                <button onclick="window.location.href='{{ url_for('utility_index.utility_room_checkout') }}'" class="bg-primary text-white px-5 py-2 rounded-md flex items-center btn-effect hover:bg-primary/90 transition-colors flex-shrink-0 justify-center">
-                                退宿费用
+                                <button onclick="window.location.href='{{ url_for('utility_index.utility_room_checkout') }}'" class="bg-indigo-600 text-white px-4 py-2 rounded-md flex items-center btn-effect hover:bg-indigo-700 transition-colors flex-shrink-0 justify-center text-sm sm:text-base">
+                                    <i class="fa fa-sign-out mr-1.5"></i>退宿费用
                                 </button>
-                                <button onclick="window.location.href='{{ url_for('utility_user_records_detail.user_records_detail') }}'" class="bg-primary text-white px-5 py-2 rounded-md flex items-center btn-effect hover:bg-primary/90 transition-colors flex-shrink-0 justify-center">
-                                费用查询
+                                <button onclick="window.location.href='{{ url_for('utility_user_records.user_records') }}'" class="bg-teal-600 text-white px-4 py-2 rounded-md flex items-center btn-effect hover:bg-teal-700 transition-colors flex-shrink-0 justify-center text-sm sm:text-base">
+                                    <i class="fa fa-search mr-1.5"></i>费用查询
                                 </button>
+                                <button type="button" id="resetFilter" class="bg-green-600 text-white px-4 py-2 rounded-md flex items-center btn-effect hover:bg-green-700 transition-colors flex-shrink-0 justify-center text-sm sm:text-base">
+                                    <i class="fa fa-refresh mr-1.5"></i>刷新
+                                </button>
+                                {% if current_user.has_permission('utility.import') %}
+                                <button type="button" id="importBtn" class="bg-orange-600 text-white px-4 py-2 rounded-md flex items-center btn-effect hover:bg-orange-700 transition-colors flex-shrink-0 justify-center text-sm sm:text-base">
+                                    <i class="fa fa-download mr-1.5"></i>导入
+                                </button>
+                                {% endif %}
+                                {% if current_user.has_permission('utility.export') %}
+                                <button type="button" id="exportBtn" class="bg-cyan-600 text-white px-4 py-2 rounded-md flex items-center btn-effect hover:bg-cyan-700 transition-colors flex-shrink-0 justify-center text-sm sm:text-base">
+                                    <i class="fa fa-upload mr-1.5"></i><span id="exportBtnText">导出</span>
+                                    <span id="exportingIndicator" class="ml-2 hidden">
+                                        <i class="fa fa-spinner fa-spin"></i>
+                                    </span>
+                                </button>
+                                {% endif %}
                             </div>
                         </div>
                         <!-- 第二行：p标签单独显示 -->
@@ -233,34 +249,24 @@
                         </div>
                 </div>
                 <div class="flex flex-wrap md:flex-nowrap items-center gap-2 md:col-span-2">
-                    <!-- 操作按钮组 - 与筛选框水平对齐，小屏幕自动换行，中屏幕及以上不换行 -->
-                    <div>
-                        <button type="button" id="resetFilter" class="px-3 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-bg flex items-center whitespace-nowrap text-sm">
-                            <i class="fa fa-refresh mr-1.5"></i>刷新
-                        </button>
-                    </div>    
-                    <div> 
-                        {% if current_user.has_permission('utility.import') %}
-                        <button type="button" id="importBtn" class="px-3 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-bg flex items-center whitespace-nowrap text-sm">
-                            <i class="fa fa-download mr-1.5"></i>导入
-                        </button>
-                        {% endif %}
-                    </div>
-                    <div>   
-                        {% if current_user.has_permission('utility.export') %}
-                        <button type="button" id="exportBtn" class="px-3 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-bg flex items-center whitespace-nowrap text-sm">
-                            <i class="fa fa-upload mr-1.5"></i><span id="exportBtnText">导出</span>
-                            <span id="exportingIndicator" class="ml-2 hidden">
-                                <i class="fa fa-spinner fa-spin"></i>
-                            </span>
-                        </button>
-                        {% endif %}
-                    </div>
+                    <!-- 操作按钮组 -->
                     <div>
                         <button type="button" id="addReadingBtn" class="px-3 py-2 bg-success text-white rounded-md hover:bg-success/90 transition-bg flex items-center hover-lift whitespace-nowrap text-sm">
                             <i class="fa fa-plus mr-1.5"></i>抄表登记
                         </button>
                     </div>
+                    {% if current_user.has_permission('utility.delete') %}
+                    <div>
+                        <button type="button" id="deleteBillingPeriod" class="px-3 py-2 bg-danger text-white rounded-md hover:bg-danger/90 transition-bg flex items-center whitespace-nowrap text-sm">
+                            <i class="fa fa-trash mr-1.5"></i>删除账期
+                        </button>
+                    </div>
+                    <div>
+                        <button id="batchDeleteBtn" class="px-3 py-2 bg-danger/80 text-white rounded-md hover:bg-danger/90 transition-bg flex items-center whitespace-nowrap text-sm" disabled>
+                            <i class="fa fa-trash-o mr-1.5"></i>批量删除
+                        </button>
+                    </div>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -271,27 +277,6 @@
             <div class="flex flex-wrap justify-between items-center p-4 border-b border-gray-200">
                 <div class="text-sm text-gray-500">
                     共 <span class="font-medium text-primary">0</span> 条记录
-                </div>
-                <div class="flex items-center space-x-3 mt-2 sm:mt-0">
-                    {% if current_user.has_permission('utility.delete') %}
-                    <button type="button" id="deleteBillingPeriod" class="px-3 py-2 border border-danger/30 text-danger rounded-md hover:bg-danger/5 transition-bg flex items-center whitespace-nowrap text-sm">
-                        <i class="fa fa-trash mr-1.5"></i>删除账期
-                    </button>
-                    <button id="batchDeleteBtn" class="px-3 py-1.5 text-danger border border-danger/30 rounded-md hover:bg-danger/5 transition-bg text-sm flex items-center" disabled>
-                        <i class="fa fa-trash-o mr-1.5"></i>批量删除
-                    </button>
-                    {% endif %}
-                    <div class="relative">
-                        <select id="pageSizeSelect" class="pl-3 pr-8 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-bg custom-select">
-                            <option value="10">10条/页</option>
-                            <option value="20">20条/页</option>
-                            <option value="50">50条/页</option>
-                            <option value="100">100条/页</option>
-                        </select>
-                        <div class="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
-                            <i class="fa fa-chevron-down text-gray-400 text-xs"></i>
-                        </div>
-                    </div>
                 </div>
             </div>
 
@@ -332,26 +317,30 @@
             </div>
 
             <!-- 分页 -->
-            <div class="px-4 py-3 flex flex-col sm:flex-row items-center justify-between border-t border-gray-200 sm:px-6">
-                <!-- 统计信息和页码信息 -->
-                <div class="w-full flex justify-between items-center mb-2 sm:mb-0">
-                    <div>
-                        <p class="text-sm text-gray-700">
-                            显示第 <span class="font-medium">0</span> 到 <span class="font-medium">0</span> 条，共 <span class="font-medium">0</span> 条记录
-                        </p>
+            <div class="px-6 py-4 bg-gray-50 border-t border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div class="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                    <div class="text-sm text-gray-700">
+                        显示第 <span class="font-medium">0</span> 到 <span class="font-medium">0</span> 条，共 <span class="font-medium">0</span> 条记录
                     </div>
-                    <div>
-                        <span class="text-sm text-gray-700" id="pageInfoDisplay">第 1 页 / 共 0 页</span>
+                    <div class="flex items-center space-x-2">
+                        <span class="text-sm text-gray-700">每页显示：</span>
+                        <select id="pageSizeSelect" class="px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
+                            <option value="10">10条/页</option>
+                            <option value="20" selected>20条/页</option>
+                            <option value="50">50条/页</option>
+                            <option value="100">100条/页</option>
+                        </select>
                     </div>
                 </div>
-                
-                <!-- 分页按钮 - 在中大屏幕上位于右侧，小屏幕上居中 -->
-                <div class="w-full flex sm:justify-end justify-center space-x-2">
-                    <button class="px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 pagination-prev opacity-50 cursor-not-allowed">
-                        上一页
+                <div class="flex space-x-1" id="paginationContainer">
+                    <button class="px-3 py-1 border border-gray-300 rounded bg-white text-gray-500 hover:bg-gray-50 pagination-prev opacity-50 cursor-not-allowed">
+                        <i class="fa fa-chevron-left"></i>
                     </button>
-                    <button class="px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 pagination-next opacity-50 cursor-not-allowed">
-                        下一页
+                    <div id="pageNumbers" class="flex space-x-1">
+                        <!-- 页码按钮将通过JS动态生成 -->
+                    </div>
+                    <button class="px-3 py-1 border border-gray-300 rounded bg-white text-gray-500 hover:bg-gray-50 pagination-next opacity-50 cursor-not-allowed">
+                        <i class="fa fa-chevron-right"></i>
                     </button>
                 </div>
             </div>
@@ -855,9 +844,6 @@
                 currentPage = paginationData.pagination.page;
                 const totalPages = paginationData.pagination.pages;
                 
-                // 更新当前页码和总页数显示
-                document.getElementById('pageInfoDisplay').textContent = `第 ${currentPage} 页 / 共 ${totalPages} 页`;
-                
                 // 更新上一页按钮状态
                 paginationPrev.classList.toggle('opacity-50', currentPage === 1);
                 paginationPrev.classList.toggle('cursor-not-allowed', currentPage === 1);
@@ -865,6 +851,70 @@
                 // 更新下一页按钮状态
                 paginationNext.classList.toggle('opacity-50', currentPage >= totalPages);
                 paginationNext.classList.toggle('cursor-not-allowed', currentPage >= totalPages);
+                
+                // 生成页码按钮
+                renderPageNumbers(currentPage, totalPages);
+            }
+            
+            // 渲染页码按钮
+            function renderPageNumbers(currentPg, totalPg) {
+                const container = document.getElementById('pageNumbers');
+                container.innerHTML = '';
+                
+                if (totalPg <= 1) return;
+                
+                // 计算显示的页码范围
+                const maxVisible = 5;
+                let startPage = Math.max(1, currentPg - 2);
+                let endPage = Math.min(totalPg, startPage + maxVisible - 1);
+                
+                // 调整起始页确保显示足够页码
+                if (endPage - startPage + 1 < maxVisible) {
+                    startPage = Math.max(1, endPage - maxVisible + 1);
+                }
+                
+                // 第一页
+                if (startPage > 1) {
+                    container.appendChild(createPageButton(1, currentPg));
+                    if (startPage > 2) {
+                        const ellipsis = document.createElement('span');
+                        ellipsis.className = 'px-3 py-1 text-gray-500';
+                        ellipsis.textContent = '...';
+                        container.appendChild(ellipsis);
+                    }
+                }
+                
+                // 中间页码
+                for (let i = startPage; i <= endPage; i++) {
+                    container.appendChild(createPageButton(i, currentPg));
+                }
+                
+                // 最后一页
+                if (endPage < totalPg) {
+                    if (endPage < totalPg - 1) {
+                        const ellipsis = document.createElement('span');
+                        ellipsis.className = 'px-3 py-1 text-gray-500';
+                        ellipsis.textContent = '...';
+                        container.appendChild(ellipsis);
+                    }
+                    container.appendChild(createPageButton(totalPg, currentPg));
+                }
+            }
+            
+            // 创建页码按钮
+            function createPageButton(pageNum, currentPg) {
+                const btn = document.createElement('button');
+                btn.textContent = pageNum;
+                if (pageNum === currentPg) {
+                    btn.className = 'px-3 py-1 border border-primary bg-primary text-white rounded';
+                } else {
+                    btn.className = 'px-3 py-1 border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 rounded';
+                    btn.addEventListener('click', function() {
+                        currentPage = pageNum;
+                        loadRecords();
+                    });
+                }
+                return btn;
             }
             
             // 绑定记录相关事件

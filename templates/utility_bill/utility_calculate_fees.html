@@ -62,17 +62,20 @@
                             </div>
                             
                             <div class="flex flex-wrap justify-center items-center gap-2">
-                                <button onclick="window.location.href='{{ url_for('utility_index.utility_occupant_manage') }}'" class="bg-primary text-white px-5 py-2 rounded-md flex items-center btn-effect hover:bg-primary/90 transition-colors flex-shrink-0 justify-center">
-                                用户费用
+                                <button onclick="window.location.href='{{ url_for('utility_index.utility_occupant_manage') }}'" class="bg-primary text-white px-4 py-2 rounded-md flex items-center btn-effect hover:bg-primary/90 transition-colors flex-shrink-0 justify-center text-sm sm:text-base">
+                                    <i class="fa fa-user mr-1.5"></i>用户费用
                                 </button>
-                                <button onclick="window.location.href='{{ url_for('utility_index.utility_room_checkout') }}'" class="bg-primary text-white px-5 py-2 rounded-md flex items-center btn-effect hover:bg-primary/90 transition-colors flex-shrink-0 justify-center">
-                                退宿费用
+                                <button onclick="window.location.href='{{ url_for('utility_index.utility_room_checkout') }}'" class="bg-amber-600 text-white px-4 py-2 rounded-md flex items-center btn-effect hover:bg-amber-700 transition-colors flex-shrink-0 justify-center text-sm sm:text-base">
+                                    <i class="fa fa-sign-out mr-1.5"></i>退宿费用
                                 </button>
-                                <button onclick="window.location.href='{{ url_for('utility_user_records_detail.user_records_detail') }}'" class="bg-primary text-white px-5 py-2 rounded-md flex items-center btn-effect hover:bg-primary/90 transition-colors flex-shrink-0 justify-center">
-                                费用查询
+                                <button onclick="window.location.href='{{ url_for('utility_user_records.user_records') }}'" class="bg-indigo-600 text-white px-4 py-2 rounded-md flex items-center btn-effect hover:bg-indigo-700 transition-colors flex-shrink-0 justify-center text-sm sm:text-base">
+                                    <i class="fa fa-search mr-1.5"></i>费用查询
                                 </button>
-                                <button onclick="window.location.href='{{ url_for('utility_room_meter.utility_reading_manage') }}'" class="bg-primary text-white px-5 py-2 rounded-md flex items-center btn-effect hover:bg-primary/90 transition-colors flex-shrink-0 justify-center">
-                                抄表记录
+                                <button onclick="window.location.href='{{ url_for('utility_room_meter.utility_reading_manage') }}'" class="bg-teal-600 text-white px-4 py-2 rounded-md flex items-center btn-effect hover:bg-teal-700 transition-colors flex-shrink-0 justify-center text-sm sm:text-base">
+                                    <i class="fa fa-book mr-1.5"></i>抄表记录
+                                </button>
+                                <button id="refreshBtn" class="bg-green-600 text-white px-4 py-2 rounded-md flex items-center btn-effect hover:bg-green-700 transition-colors flex-shrink-0 justify-center text-sm sm:text-base">
+                                    <i class="fa fa-refresh mr-1.5"></i>刷新
                                 </button>
                             </div>
                             </div>
@@ -128,7 +131,7 @@
                     <!-- 操作按钮 -->
                     <div class="w-full sm:w-auto flex flex-wrap items-center gap-2 mt-2 sm:mt-0">
                         {% if current_user.has_permission('utility.calculate') %}
-                        <button id="calculateBtn" class="px-3 py-1.5 sm:px-4 sm:py-2 bg-success text-white rounded-md hover:bg-success/90 flex items-center transition-custom text-sm sm:text-base" disabled>
+                        <button id="calculateBtn" class="px-3 py-1.5 sm:px-4 sm:py-2 bg-primary text-white rounded-md hover:bg-primary/90 flex items-center transition-custom text-sm sm:text-base" disabled>
                             <i class="fa fa-calculator mr-2"></i>核算费用
                         </button>
                         {% endif %}
@@ -141,16 +144,15 @@
                         </button>
                         {% endif %}
                         {% if current_user.has_permission('utility.calculate') %}
-                        <!-- 新增：生成空账期按钮 -->
-                        <button id="createEmptyPeriodBtn" class="px-3 py-1.5 sm:px-4 sm:py-2 bg-info text-white rounded-md hover:bg-info/90 flex items-center transition-custom text-sm sm:text-base">
+                        <!-- 生成空账期按钮 -->
+                        <button id="createEmptyPeriodBtn" class="px-3 py-1.5 sm:px-4 sm:py-2 bg-amber-600 text-white rounded-md hover:bg-amber-700 flex items-center transition-custom text-sm sm:text-base">
                             <i class="fa fa-plus mr-2"></i>生成空账期
                         </button>
-                        {% endif %}
-                        
-                        <!-- 新增：刷新按钮 -->
-                        <button id="refreshBtn" class="px-3 py-1.5 sm:px-4 sm:py-2 btn btn-primary flex items-center transition-custom text-sm sm:text-base">
-                            <i class="fa fa-refresh mr-2"></i>刷新
+                        <!-- 修改账期范围按钮 -->
+                        <button id="updatePeriodRangeBtn" class="px-3 py-1.5 sm:px-4 sm:py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 flex items-center transition-custom text-sm sm:text-base">
+                            <i class="fa fa-calendar mr-2"></i>修改账期范围
                         </button>
+                        {% endif %}
                     </div>
                 </div>
             </div>
@@ -187,15 +189,15 @@
                 </div>
             </div>
             <div class="bg-white p-4 rounded-lg shadow-sm">
-                <div class="text-sm text-gray-500">总电费(元)</div>
+                <div class="text-sm text-gray-500">计费电费(元)</div>
                 <div class="text-2xl font-bold text-warning" id="totalElectricity">0.00</div>
             </div>
             <div class="bg-white p-4 rounded-lg shadow-sm">
-                <div class="text-sm text-gray-500">总水费(元)</div>
+                <div class="text-sm text-gray-500">计费水费(元)</div>
                 <div class="text-2xl font-bold text-info" id="totalWater">0.00</div>
             </div>
             <div class="bg-white p-4 rounded-lg shadow-sm">
-                <div class="text-sm text-gray-500">总费用(元)</div>
+                <div class="text-sm text-gray-500">计费总费用(元)</div>
                 <div class="text-2xl font-bold text-success" id="totalAmount">0.00</div>
             </div>
         </div>
@@ -246,12 +248,13 @@
                             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">水实际用量</th>
                             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider fee-meter-reduction-column">水减免用量</th>
                             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider fee-meter-reduction-column">水计费用量</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">电费(元)</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">水费(元)</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">总费用(元)</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider fee-room-fee-column">减免费用(元)</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">计费电费(元)</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">计费水费(元)</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">计费总费用(元)</th>
                             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">退宿费用(元)</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">实际总费用(元)</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">应付总费用(元)</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider fee-room-fee-column">减免费用(元)</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">实际应付总费用(元)</th>
                             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">状态</th>
                             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
                         </tr>
@@ -305,18 +308,23 @@
         </div>
     </div>
 
-    <!-- 新增：生成空账期模态框 -->
+    <!-- 新增：批量生成空账期模态框 -->
     <div id="createPeriodModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
         <div class="bg-white rounded-lg p-6 w-full max-w-md">
             <div class="flex justify-between items-center mb-4">
-                <h3 class="text-lg font-semibold text-gray-900">生成空账期</h3>
+                <h3 class="text-lg font-semibold text-gray-900">批量生成空账期</h3>
                 <button id="closeCreatePeriodModal" class="text-gray-500 hover:text-gray-700">
                     <i class="fa fa-times"></i>
                 </button>
             </div>
+            <p class="text-sm text-gray-500 mb-4">选择起始和结束账期，将生成该范围内所有月份的空账期记录</p>
             <div class="mb-4">
-                <label for="newBillingPeriod" class="block text-sm font-medium text-gray-700 mb-1">选择账期 <span class="text-danger">*</span></label>
-                <input type="month" id="newBillingPeriod" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary">
+                <label for="startBillingPeriod" class="block text-sm font-medium text-gray-700 mb-1">起始账期 <span class="text-danger">*</span></label>
+                <input type="month" id="startBillingPeriod" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary">
+            </div>
+            <div class="mb-4">
+                <label for="endBillingPeriod" class="block text-sm font-medium text-gray-700 mb-1">结束账期 <span class="text-danger">*</span></label>
+                <input type="month" id="endBillingPeriod" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary">
             </div>
             <div class="flex justify-end space-x-3">
                 <button id="cancelCreatePeriodBtn" class="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 transition-custom">
@@ -324,6 +332,40 @@
                 </button>
                 <button id="confirmCreatePeriodBtn" class="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90 transition-custom">
                     确认生成
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 新增：修改账期范围模态框 -->
+    <div id="updatePeriodRangeModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-lg p-6 w-full max-w-md">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-semibold text-gray-900">修改账期范围</h3>
+                <button id="closeUpdatePeriodRangeModal" class="text-gray-500 hover:text-gray-700">
+                    <i class="fa fa-times"></i>
+                </button>
+            </div>
+            <div class="mb-4">
+                <label for="updateRangeBillingPeriod" class="block text-sm font-medium text-gray-700 mb-1">选择账期 <span class="text-danger">*</span></label>
+                <select id="updateRangeBillingPeriod" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary">
+                    <option value="">请选择账期</option>
+                </select>
+            </div>
+            <div class="mb-4">
+                <label for="updateRangeStartDate" class="block text-sm font-medium text-gray-700 mb-1">起始日期 <span class="text-danger">*</span></label>
+                <input type="date" id="updateRangeStartDate" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary">
+            </div>
+            <div class="mb-4">
+                <label for="updateRangeEndDate" class="block text-sm font-medium text-gray-700 mb-1">结束日期 <span class="text-danger">*</span></label>
+                <input type="date" id="updateRangeEndDate" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary">
+            </div>
+            <div class="flex justify-end space-x-3">
+                <button id="cancelUpdatePeriodRangeBtn" class="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 transition-custom">
+                    取消
+                </button>
+                <button id="confirmUpdatePeriodRangeBtn" class="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90 transition-custom">
+                    确认修改
                 </button>
             </div>
         </div>
@@ -340,6 +382,8 @@
     <script>
         // 权限标志
         const canDelete = {{ 'true' if current_user.has_permission('utility.delete') else 'false' }};
+        const canEditBill = {{ 'true' if get_config_value('UTILITY_BILL_EDIT_ENABLED', False) and current_user.has_permission('utility.edit') else 'false' }};
+        const canCalculate = {{ 'true' if current_user.has_permission('utility.calculate') else 'false' }};
 
         // 全局变量
         let currentBillingPeriod = '';
@@ -379,6 +423,8 @@
         const deleteAllBtn = document.getElementById('deleteAllBtn');
         // 新增：生成空账期按钮
         const createEmptyPeriodBtn = document.getElementById('createEmptyPeriodBtn');
+        // 新增：修改账期范围按钮
+        const updatePeriodRangeBtn = document.getElementById('updatePeriodRangeBtn');
         const periodInfo = document.getElementById('periodInfo');
         const periodRange = document.getElementById('periodRange');
         const meterCount = document.getElementById('meterCount');
@@ -412,12 +458,21 @@
         const modalTitle = document.getElementById('modalTitle');
         const modalMessage = document.getElementById('modalMessage');
         
-        // 新增：生成空账期模态框元素
+        // 新增：批量生成空账期模态框元素
         const createPeriodModal = document.getElementById('createPeriodModal');
         const closeCreatePeriodModal = document.getElementById('closeCreatePeriodModal');
         const cancelCreatePeriodBtn = document.getElementById('cancelCreatePeriodBtn');
         const confirmCreatePeriodBtn = document.getElementById('confirmCreatePeriodBtn');
-        const newBillingPeriodInput = document.getElementById('newBillingPeriod');
+        const startBillingPeriodInput = document.getElementById('startBillingPeriod');
+        const endBillingPeriodInput = document.getElementById('endBillingPeriod');
+        // 新增：修改账期范围模态框元素
+        const updatePeriodRangeModal = document.getElementById('updatePeriodRangeModal');
+        const closeUpdatePeriodRangeModal = document.getElementById('closeUpdatePeriodRangeModal');
+        const cancelUpdatePeriodRangeBtn = document.getElementById('cancelUpdatePeriodRangeBtn');
+        const confirmUpdatePeriodRangeBtn = document.getElementById('confirmUpdatePeriodRangeBtn');
+        const updateRangeBillingPeriodInput = document.getElementById('updateRangeBillingPeriod');
+        const updateRangeStartDateInput = document.getElementById('updateRangeStartDate');
+        const updateRangeEndDateInput = document.getElementById('updateRangeEndDate');
         
         // 通知元素
         const toast = document.getElementById('toast');
@@ -495,6 +550,13 @@
                         currentPage = 1;
                         updateActionButtons();
                         loadRecords();
+                    } else {
+                        // 账期已被删除，重置筛选框并清除URL参数
+                        billingPeriodSelect.value = '';
+                        const cleanUrl = new URL(window.location.href);
+                        cleanUrl.searchParams.delete('billing_period');
+                        history.replaceState(null, '', cleanUrl.pathname + cleanUrl.search);
+                        showToast('账期已不存在，请重新选择', 'warning');
                     }
                 }
             });
@@ -503,7 +565,8 @@
             const now = new Date();
             const year = now.getFullYear();
             const month = String(now.getMonth() + 1).padStart(2, '0');
-            newBillingPeriodInput.value = `${year}-${month}`;
+            startBillingPeriodInput.value = `${year}-${month}`;
+            endBillingPeriodInput.value = `${year}-${month}`;
         }
 
         // 加载楼栋列表
@@ -610,8 +673,13 @@
                 confirmModal.classList.remove('hidden');
             });
 
-            // 新增：生成空账期按钮事件
+            // 新增：批量生成空账期按钮事件
             createEmptyPeriodBtn.addEventListener('click', () => {
+                // 设置默认值：起始为当前月，结束为下个月
+                const now = new Date();
+                const currentMonth = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+                startBillingPeriodInput.value = currentMonth;
+                endBillingPeriodInput.value = currentMonth;
                 createPeriodModal.classList.remove('hidden');
             });
 
@@ -638,15 +706,77 @@
                 createPeriodModal.classList.add('hidden');
             });
 
-            // 新增：生成空账期模态框确认按钮
+            // 新增：批量生成空账期模态框确认按钮
             confirmCreatePeriodBtn.addEventListener('click', () => {
-                const newPeriod = newBillingPeriodInput.value;
-                if (!newPeriod) {
+                const startPeriod = startBillingPeriodInput.value;
+                const endPeriod = endBillingPeriodInput.value;
+                if (!startPeriod || !endPeriod) {
+                    showToast('请选择起始和结束账期', 'warning');
+                    return;
+                }
+                if (startPeriod > endPeriod) {
+                    showToast('起始账期不能大于结束账期', 'warning');
+                    return;
+                }
+                // 计算月份范围，不超过12个月
+                const startDate = new Date(startPeriod + '-01');
+                const endDate = new Date(endPeriod + '-01');
+                const monthDiff = (endDate.getFullYear() - startDate.getFullYear()) * 12 + (endDate.getMonth() - startDate.getMonth()) + 1;
+                if (monthDiff > 12) {
+                    showToast('账期范围不能超过12个月', 'warning');
+                    return;
+                }
+                // 生成月份列表
+                const periods = [];
+                let current = new Date(startDate);
+                while (current <= endDate) {
+                    periods.push(current.getFullYear() + '-' + String(current.getMonth() + 1).padStart(2, '0'));
+                    current.setMonth(current.getMonth() + 1);
+                }
+                createPeriodModal.classList.add('hidden');
+                createEmptyPeriod(periods);
+            });
+
+            // 新增：修改账期范围按钮事件
+            updatePeriodRangeBtn.addEventListener('click', () => {
+                // 重置表单
+                updateRangeBillingPeriodInput.value = '';
+                updateRangeStartDateInput.value = '';
+                updateRangeEndDateInput.value = '';
+                updatePeriodRangeModal.classList.remove('hidden');
+                // 加载账期列表
+                loadPeriodsForUpdateRange(currentBillingPeriod);
+            });
+
+            // 新增：修改账期范围模态框关闭按钮
+            closeUpdatePeriodRangeModal.addEventListener('click', () => {
+                updatePeriodRangeModal.classList.add('hidden');
+            });
+
+            // 新增：修改账期范围模态框取消按钮
+            cancelUpdatePeriodRangeBtn.addEventListener('click', () => {
+                updatePeriodRangeModal.classList.add('hidden');
+            });
+
+            // 新增：修改账期范围模态框确认按钮
+            confirmUpdatePeriodRangeBtn.addEventListener('click', () => {
+                const period = updateRangeBillingPeriodInput.value;
+                const startDate = updateRangeStartDateInput.value;
+                const endDate = updateRangeEndDateInput.value;
+                if (!period) {
                     showToast('请选择账期', 'warning');
                     return;
                 }
-                createPeriodModal.classList.add('hidden');
-                createEmptyPeriod(newPeriod);
+                if (!startDate || !endDate) {
+                    showToast('请选择起始日期和结束日期', 'warning');
+                    return;
+                }
+                if (startDate > endDate) {
+                    showToast('起始日期不能大于结束日期', 'warning');
+                    return;
+                }
+                updatePeriodRangeModal.classList.add('hidden');
+                updateBillingPeriodRange(period, startDate, endDate);
             });
 
             // 分页相关
@@ -705,21 +835,123 @@
             actionType = '';
         }
 
-        // 新增：生成空账期
-        function createEmptyPeriod(period) {
-            if (!period) {
+        // 新增：批量生成空账期
+        function createEmptyPeriod(periods) {
+            if (!periods || periods.length === 0) {
                 showToast('请选择账期', 'warning');
                 return;
             }
 
+            showLoading('正在批量生成空账期...');
             const form = document.createElement('form');
             form.method = 'POST';
             form.action = '/utility_room_bill_records_bp/create_empty_period';
             const input = document.createElement('input');
             input.type = 'hidden';
-            input.name = 'billing_period';
-            input.value = period;
+            input.name = 'billing_periods';
+            input.value = periods.join(',');
             form.appendChild(input);
+            document.body.appendChild(form);
+            form.submit();
+        }
+
+        // 加载账期列表到修改账期范围模态框的下拉框
+        async function loadPeriodsForUpdateRange(selectedPeriod) {
+            const select = updateRangeBillingPeriodInput;
+            // 保留占位选项，清除其余
+            select.innerHTML = '<option value="">请选择账期</option>';
+            select.disabled = true;
+            try {
+                const resp = await fetch('/utility_room_bill_records_bp/periods');
+                const data = await resp.json();
+                if (data.success && data.periods && data.periods.length > 0) {
+                    // 按倒序排列（最新账期在前）
+                    const periods = data.periods.sort().reverse();
+                    periods.forEach(p => {
+                        const opt = document.createElement('option');
+                        opt.value = p;
+                        opt.textContent = p;
+                        if (p === selectedPeriod) opt.selected = true;
+                        select.appendChild(opt);
+                    });
+                    // 如果有预选账期，自动触发联动加载日期
+                    if (selectedPeriod) {
+                        loadPeriodInfoForUpdateRange(selectedPeriod);
+                    }
+                } else if (data.success && (!data.periods || data.periods.length === 0)) {
+                    select.innerHTML = '<option value="">暂无可用账期</option>';
+                } else {
+                    select.innerHTML = '<option value="">加载失败</option>';
+                    showToast(data.error || '获取账期列表失败', 'error');
+                }
+            } catch (e) {
+                select.innerHTML = '<option value="">加载失败</option>';
+                showToast('获取账期列表失败: ' + e.message, 'error');
+            } finally {
+                select.disabled = false;
+            }
+        }
+
+        // 根据选中账期联动加载起止日期
+        async function loadPeriodInfoForUpdateRange(period) {
+            if (!period) {
+                updateRangeStartDateInput.value = '';
+                updateRangeEndDateInput.value = '';
+                return;
+            }
+            try {
+                const resp = await fetch('/utility_room_bill_records_bp/period-info/' + encodeURIComponent(period));
+                const data = await resp.json();
+                if (data.success && data.data) {
+                    // 日期格式转换：API返回ISO格式(YYYY-MM-DD或datetime)，取前10位即可
+                    if (data.data.start_date) {
+                        updateRangeStartDateInput.value = data.data.start_date.substring(0, 10);
+                    }
+                    if (data.data.end_date) {
+                        updateRangeEndDateInput.value = data.data.end_date.substring(0, 10);
+                    }
+                } else {
+                    updateRangeStartDateInput.value = '';
+                    updateRangeEndDateInput.value = '';
+                    showToast(data.error || '获取账期信息失败', 'warning');
+                }
+            } catch (e) {
+                updateRangeStartDateInput.value = '';
+                updateRangeEndDateInput.value = '';
+                showToast('获取账期信息失败: ' + e.message, 'error');
+            }
+        }
+
+        // 账期下拉框change事件：联动加载起止日期
+        updateRangeBillingPeriodInput.addEventListener('change', function() {
+            loadPeriodInfoForUpdateRange(this.value);
+        });
+
+        // 修改账期范围
+        function updateBillingPeriodRange(period, startDate, endDate) {
+            if (!period || !startDate || !endDate) {
+                showToast('请提供完整的参数', 'warning');
+                return;
+            }
+
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '/utility_room_bill_records_bp/update_billing_period_range';
+
+            const fields = [
+                { name: 'billing_period', value: period },
+                { name: 'start_date', value: startDate },
+                { name: 'end_date', value: endDate }
+            ];
+
+            fields.forEach(field => {
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = field.name;
+                input.value = field.value;
+                form.appendChild(input);
+            });
+
             document.body.appendChild(form);
             form.submit();
         }
@@ -1043,8 +1275,9 @@
                     <td class="px-6 py-4 whitespace-nowrap text-sm">${(Number(record.billing_electric_fee) || 0).toFixed(2)}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm">${(Number(record.billing_water_fee) || 0).toFixed(2)}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">${(Number(record.billing_total_fee) || 0).toFixed(2)}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium fee-room-fee-column">${(Number(record.room_reduction_fee) || 0).toFixed(2)}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">${(Number(record.checked_out_total_fee) || 0).toFixed(2)}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">${(Number(record.receivable_total_fee) || 0).toFixed(2)}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium fee-room-fee-column">${(Number(record.room_reduction_fee) || 0).toFixed(2)}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">${(Number(record.actual_total_fee) || 0).toFixed(2)}</td>
                     <td class="px-6 py-4 whitespace-nowrap">
                         <span class="px-2 py-1 text-xs rounded-full ${statusClass}">${statusText}</span>
@@ -1054,6 +1287,8 @@
                         <a href="{{ url_for('utility_index.utility_room_records_detail') }}?record_id=${record.record_id}" class="text-primary hover:text-blue-700 mr-3">
                             <i class="fa fa-eye"></i> 详情
                         </a>
+                        ${canCalculate ? `<a href="#" class="text-green-600 hover:text-green-700 mr-3 calculate-single-btn" data-record-id="${record.record_id}" data-billing-period="${record.billing_period}"><i class="fa fa-calculator"></i> 核算</a>` : ''}
+                        ${canEditBill ? `<a href="/utility/utility_room_bill_edit/${record.record_id}?billing_period=${record.billing_period}" class="text-amber-600 hover:text-amber-700 mr-3"><i class="fa fa-edit"></i> 编辑</a>` : ''}
                         ${canDelete ? `<button class="text-danger hover:text-red-700 delete-single-btn" data-record-id="${record.record_id}"><i class="fa fa-trash"></i> 删除</button>` : ''}
                     </td>
                 `;
@@ -1250,6 +1485,25 @@
                 toast.className = 'fixed bottom-4 right-4 px-6 py-3 rounded-md shadow-lg transform transition-all duration-300 translate-y-20 opacity-0 z-50 flex items-center';
             }, 3000);
         }
+
+        // 单条核算功能
+        document.addEventListener('click', function(e) {
+            const btn = e.target.closest('.calculate-single-btn');
+            if (!btn) return;
+            e.preventDefault();
+            const recordId = btn.dataset.recordId;
+            const billingPeriod = btn.dataset.billingPeriod;
+            
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '/utility_room_bill_records_bp/single_fee_bill';
+            form.innerHTML = `
+                <input type="hidden" name="billing_period" value="${billingPeriod}">
+                <input type="hidden" name="record_id" value="${recordId}">
+            `;
+            document.body.appendChild(form);
+            form.submit();
+        });
     </script>
 </body>
 </html>

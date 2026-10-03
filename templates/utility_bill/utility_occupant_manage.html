@@ -184,7 +184,7 @@
             <button onclick="window.location.href='{{ url_for('utility_index.utility_room_checkout') }}'" class="bg-primary text-white px-5 py-2 rounded-md flex items-center btn-effect hover:bg-primary/90 transition-colors flex-shrink-0 justify-center">
               退宿费用
             </button>
-            <button onclick="window.location.href='{{ url_for('utility_user_records_detail.user_records_detail') }}'" class="bg-primary text-white px-5 py-2 rounded-md flex items-center btn-effect hover:bg-primary/90 transition-colors flex-shrink-0 justify-center">
+            <button onclick="window.location.href='{{ url_for('utility_user_records.user_records') }}'" class="bg-primary text-white px-5 py-2 rounded-md flex items-center btn-effect hover:bg-primary/90 transition-colors flex-shrink-0 justify-center">
               费用查询
             </button>
             <button onclick="window.location.href='{{ url_for('utility_room_meter.utility_reading_manage') }}'" class="bg-primary text-white px-5 py-2 rounded-md flex items-center btn-effect hover:bg-primary/90 transition-colors flex-shrink-0 justify-center">
@@ -297,19 +297,19 @@
                 房间号
               </th>
               <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                电费
+                计费电费
               </th>
               <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                水费
+                计费水费
               </th>
               <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                总费用
+                计费总费用
               </th>
               <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 退宿总费用
               </th>
               <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                在住总费用
+                应付总费用
               </th>
               <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 姓名
@@ -321,10 +321,13 @@
                 减免金额
               </th>
               <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                个人应付金额
+                实际应付金额
               </th>
               <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 住宿天数
+              </th>
+              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                编辑
               </th>
               <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 操作
@@ -333,7 +336,7 @@
           </thead>
           <tbody id="feeRecordsTableBody" class="bg-white divide-y divide-gray-200">
             <tr>
-              <td colspan="13" class="px-6 py-8 text-center text-gray-500">
+              <td colspan="14" class="px-6 py-8 text-center text-gray-500">
                 <i class="fa fa-info-circle mr-2"></i>请选择账期并点击搜索查看数据
               </td>
             </tr>
@@ -387,6 +390,7 @@
   <script>
     // 权限标志
     const canDelete = {{ 'true' if current_user.has_permission('utility.delete') else 'false' }};
+    const canEditOccupant = {{ 'true' if get_config_value('UTILITY_OCCUPANT_EDIT_ENABLED', False) and current_user.has_permission('utility.edit') else 'false' }};
 
     // 全局变量增加房间信息缓存，避免重复请求
     let currentPage = 1;
@@ -544,7 +548,7 @@
       // 更新表头（减免金额是第10列，个人应付是第11列）
       const headers = document.querySelectorAll('thead th');
       if (headers[9]) headers[9].style.display = displayValue;  // 减免金额表头
-      if (headers[10]) headers[10].style.display = displayValue; // 个人应付金额表头
+      if (headers[10]) headers[10].style.display = displayValue; // 实际应付金额表头
       
       // 表体：使用 data-column 属性选择器，避免 rowspan 导致的 cell index 错位
       document.querySelectorAll('#feeRecordsTableBody td[data-column="reduction"]').forEach(cell => {
@@ -596,7 +600,7 @@
       const tableBody = document.getElementById('feeRecordsTableBody');
       
       // 显示加载状态
-      tableBody.innerHTML = '<tr><td colspan="13" class="px-6 py-8 text-center text-gray-500"><i class="fa fa-spinner fa-spin mr-2"></i>正在加载数据...</td></tr>';
+      tableBody.innerHTML = '<tr><td colspan="14" class="px-6 py-8 text-center text-gray-500"><i class="fa fa-spinner fa-spin mr-2"></i>正在加载数据...</td></tr>';
       
       const url = new URL('/utility_room_bill_occupants/api/fee_records', window.location.origin);
       url.searchParams.append('billingPeriod', billingPeriod);
@@ -645,12 +649,12 @@
               alert('数据异常警告：\n\n' + warningMsg + '\n\n请重新核算相关账单以修复数据');
             }
           } else {
-            tableBody.innerHTML = `<tr><td colspan="13" class="px-6 py-8 text-center text-danger"><i class="fa fa-exclamation-circle mr-2"></i>${data.message}</td></tr>`;
+            tableBody.innerHTML = `<tr><td colspan="14" class="px-6 py-8 text-center text-danger"><i class="fa fa-exclamation-circle mr-2"></i>${data.message}</td></tr>`;
           }
         })
         .catch(error => {
           console.error('获取费用记录失败:', error);
-          tableBody.innerHTML = '<tr><td colspan="13" class="px-6 py-8 text-center text-danger"><i class="fa fa-exclamation-circle mr-2"></i>加载数据失败，请重试</td></tr>';
+          tableBody.innerHTML = '<tr><td colspan="14" class="px-6 py-8 text-center text-danger"><i class="fa fa-exclamation-circle mr-2"></i>加载数据失败，请重试</td></tr>';
         });
     }
     
@@ -659,7 +663,7 @@
       const tableBody = document.getElementById('feeRecordsTableBody');
       
       if (records.length === 0) {
-        tableBody.innerHTML = '<tr><td colspan="13" class="px-6 py-8 text-center text-gray-500"><i class="fa fa-info-circle mr-2"></i>没有找到匹配的记录</td></tr>';
+        tableBody.innerHTML = '<tr><td colspan="14" class="px-6 py-8 text-center text-gray-500"><i class="fa fa-info-circle mr-2"></i>没有找到匹配的记录</td></tr>';
         return;
       }
       
@@ -719,17 +723,17 @@
                 ${firstRecord.building || '未知'}${firstRecord.room_number || '未知'}
               </a>(ID:${firstRecord.room_id})
             </td>`;
-            // 电费
+            // 计费电费
             html += `<td class="px-6 py-4 whitespace-nowrap" rowspan="${visibleRowCount}">
               <div class="text-sm font-medium text-gray-900">¥${formatFee(firstRecord.electric_fee).toFixed(2)}</div>
               <div class="text-xs text-gray-500">抄: ${firstRecord.electric_reading || '0'}</div>
             </td>`;
-            // 水费
+            // 计费水费
             html += `<td class="px-6 py-4 whitespace-nowrap" rowspan="${visibleRowCount}">
               <div class="text-sm font-medium text-gray-900">¥${formatFee(firstRecord.water_fee).toFixed(2)}</div>
               <div class="text-xs text-gray-500">抄: ${firstRecord.water_reading || '0'}</div>
             </td>`;
-            // 总费用
+            // 计费总费用
             html += `<td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900" rowspan="${visibleRowCount}">
               <div class="text-sm font-medium text-gray-900">¥${formatFee(firstRecord.total_fee).toFixed(2)}</div>
               <div class="text-xs text-gray-500">减: ¥${formatFee(firstRecord.room_reduction_fee || 0).toFixed(2)}</div>
@@ -738,9 +742,9 @@
             html += `<td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900" rowspan="${visibleRowCount}">
               ¥${formatFee(firstRecord.checked_out_total_fee).toFixed(2)}
             </td>`;
-            // 在住总费用
+            // 应付总费用
             html += `<td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900" rowspan="${visibleRowCount}">
-              ¥${formatFee(firstRecord.actual_total_fee).toFixed(2)}
+              ¥${formatFee(firstRecord.receivable_total_fee).toFixed(2)}
             </td>`;
             
             isFirstUserInRoom = false;
@@ -787,6 +791,9 @@
             ${!isMultiRecord && summary.check_in_date ? `<div class="text-xs text-gray-500">${summary.check_in_date.substring(0, 10)}→${summary.check_out_date.substring(0, 10)}</div>` : ''}
             ${isMultiRecord ? '<div class="text-xs text-gray-400">合计</div>' : ''}
           </td>`;
+          
+          // 编辑列（房间级rowspan，编辑是针对整个房间的所有人员分摊数据）
+          html += `${userIndex === 0 ? (canEditOccupant ? `<td class="px-6 py-4 whitespace-nowrap text-sm" rowspan="${visibleRowCount}"><a href="/utility/utility_occupant_edit/${firstRecord.record_id}?billing_period=${firstRecord.billing_period}" class="text-amber-600 hover:text-amber-700"><i class="fa fa-edit"></i> 编辑</a></td>` : `<td class="px-6 py-4 whitespace-nowrap text-sm" rowspan="${visibleRowCount}"></td>`) : ''}`;
           
           // 操作列（单条记录时汇总行显示删除按钮，多条记录时不显示，由明细行各自显示）
           html += `<td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
@@ -840,6 +847,9 @@
                   ${record.check_in_date.substring(0, 10)}→${record.check_out_date.substring(0, 10)}
                 </div>
               </td>`;
+              
+              // 编辑列（明细行不需要编辑按钮，编辑是针对整个房间的）
+              html += `${canEditOccupant ? `<td class="px-6 py-4 whitespace-nowrap text-sm"></td>` : ''}`;
               
               // 操作列
               html += `<td class="px-6 py-4 whitespace-nowrap text-sm font-medium">

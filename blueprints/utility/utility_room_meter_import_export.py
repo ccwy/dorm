@@ -175,6 +175,12 @@ def export_readings():
         readings = query.order_by(UtilityMeterReading.reading_date.desc()).all()
         record_count = len(readings)
 
+        # 检查是否有抄表记录数据
+        if not readings:
+            logging.warning(f"导出抄表记录：{billing_period}账期无抄表记录数据")
+            flash(f'{billing_period}账期没有可导出的抄表记录', 'warning')
+            return redirect(url_for('utility_room_meter.utility_reading_manage'))
+
         # 创建Excel工作簿
         wb = Workbook()
         ws = wb.active

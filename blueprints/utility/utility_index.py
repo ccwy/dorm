@@ -10,6 +10,9 @@ from utils.log import log_operation
 
 from utils.auth import require_permission
 from models.utility.utility_room_bill_checkout import CheckoutUtilityRecord # 退宿费用子表
+from models.utility.utility_room_meter import UtilityMeterReading  # 抄表记录子表
+from models.utility.utility_room_bill_occupant import RoomUtilityOccupant  # 在住人员分摊子表
+from models.system_config.system_config import SystemConfig  # 系统配置
 from models.dorm.dorm import Dorm  # 住宿记录模型（判断换宿）
 
 # 蓝图定义，前缀设为'/utility'便于区分系统其他模块
@@ -239,4 +242,84 @@ def utility_occupant_manage():
         logging.error(f"访问用户费用管理页面失败: {str(e)}")
         flash(str(e), 'danger')
         return render_template('utility_bill/utility_occupant_manage.html', billing_periods=[], buildings=[], departments=[], billing_period='', title=f"用户费用管理")
+
+@utility_index_bp.route('/utility_room_bill_edit/<int:record_id>', methods=['GET'])
+@login_required
+@require_permission('utility.edit')
+def utility_room_bill_edit(record_id):
+    """编辑房间水电费数据页面"""
+    # 检查功能开关
+    if not SystemConfig.get_config_value('UTILITY_BILL_EDIT_ENABLED', False):
+        flash('直接编辑房间水电费功能未启用，请在系统配置中开启', 'warning')
+        return redirect(url_for('utility_index.utility_calculate_fees'))
+    
+    try:
+        record = RoomUtilityRecord.query.get(record_id)
+        if not record:
+            flash(f'记录ID={record_id}不存在', 'danger')
+            return redirect(url_for('utility_index.utility_calculate_fees'))
+        
+        room = Room.query.get(record.room_id)
+        meter_readings = UtilityMeterReading.query.filter_by(record_id=record_id).order_by(UtilityMeterReading.reading_date).all()
+        occupant_records = RoomUtilityOccupant.query.filter_by(record_id=record_id).all()
+        checkout_records = CheckoutUtilityRecord.query.filter_by(record_id=record_id).all()
+        
+        # 获取账期参数
+        billing_period = request.args.get('billing_period', record.billing_period)
+        
+        log_operation(
+            user_id=current_user.id,
+            module='utility',
+            operation_type='utility_edit',
+            action=f"访问编辑房间水电费页面 [记录ID: {record_id}]",
+            result="成功"
+        )
+        
+        return render_template(
+            'utility_bill/utility_room_bill_edit.html',
+            title='编辑房间水电费',
+            record=record,
+            room=room,
+            meter_readings=meter_readings,
+            occupant_records=occupant_records,
+            checkout_records=checkout_records,
+            billing_period=billing_period
+        )
+    except Exception as e:
+        logging.error(f"加载编辑页面失败: {str(e)}")
+        flash(f'加载编辑页面失败: {str(e)}', 'danger')
+        billing_period = request.args.get('billing_period', '')
+        return redirect(url_for('utility_index.utility_calculate_fees', billing_period=billing_period))
+
+@utility_index_bp.route('/utility_occupant_edit/<int:record_id>', methods=['GET'])
+@login_required
+@require_permission('utility.edit')
+def utility_occupant_edit(record_id):
+    """编辑用户费用分摊数据页面"""
+    # 检查功能开关
+    if not SystemConfig.get_config_value('UTILITY_OCCUPANT_EDIT_ENABLED', False):
+        flash('直接编辑用户费用分摊功能未启用，请在系统配置中开启', 'warning')
+        return redirect(url_for('utility_index.utility_occupant_manage'))
+    
+    try:
+        record = RoomUtilityRecord.query.get(record_id)
+        if not record:
+            flash(f'记录ID={record_id}不存在', 'danger')
+            return redirect(url_for('utility_index.utility_occupant_manage'))
+        
+        room = Room.query.get(record.room_id)
+        occupant_records = RoomUtilityOccupant.query.filter_by(record_id=record_id).all()
+        
+        billing_period = request.args.get('billing_period', record.billing_period)
+        
+        log_operation(user_id=current_user.id, module='utility', operation_type='utility_edit',
+            action=f"访问编辑用户费用分摊页面 [记录ID: {record_id}]", result="成功")
+        
+        return render_template('utility_bill/utility_occupant_edit.html',
+            title='编辑用户费用分摊', record=record, room=room,
+            occupant_records=occupant_records, billing_period=billing_period)
+    except Exception as e:
+        logging.error(f"加载编辑页面失败: {str(e)}")
+        flash(f'加载编辑页面失败: {str(e)}', 'danger')
+        return redirect(url_for('utility_index.utility_occupant_manage'))
 

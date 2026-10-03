@@ -533,6 +533,38 @@ class SystemConfig(db.Model):
                 'sort_order': 70
             },
             {
+                'config_key': 'UTILITY_BILL_EDIT_ENABLED',
+                'config_value': 'True',
+                'config_type': 'bool',
+                'category': 'fee',
+                'description': '是否允许直接编辑房间水电费数据（关闭后隐藏编辑按钮）',
+                'sort_order': 75
+            },
+            {
+                'config_key': 'UTILITY_OCCUPANT_EDIT_ENABLED',
+                'config_value': 'True',
+                'config_type': 'bool',
+                'category': 'fee',
+                'description': '是否允许直接编辑用户费用分摊数据（关闭后隐藏编辑按钮）',
+                'sort_order': 76
+            },
+            {
+                'config_key': 'CUSTOM_BILLING_PERIOD_DAY_ENABLED',
+                'config_value': 'False',
+                'config_type': 'bool',
+                'category': 'fee',
+                'description': '是否启用自定义账期起始日（关闭则使用自然月1号作为账期起始日）',
+                'sort_order': 77
+            },
+            {
+                'config_key': 'CUSTOM_BILLING_PERIOD_START_DAY',
+                'config_value': '1',
+                'config_type': 'int',
+                'category': 'fee',
+                'description': '自定义账期起始日（1-31的整数，表示每月的第几天作为账期起始日）',
+                'sort_order': 78
+            },
+            {
                 'config_key': 'CHECKOUT_ROOM_CAPACITY_HALF_THRESHOLD',
                 'config_value': '4',
                 'config_type': 'int',
