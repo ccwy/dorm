@@ -1299,7 +1299,7 @@ class RoomUtilityRecord(db.Model):
                 self.status = 'pending'
                 logging.info(f"房间{self.room_id}@{self.billing_period}已结算费用清零，状态更新为pending")
             else:
-                self.status = 'calculated'
+                self.status = 'processing'
                 
             self.updated_at = datetime.now()
 
