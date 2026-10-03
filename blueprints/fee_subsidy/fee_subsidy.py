@@ -147,81 +147,34 @@ def add_record():
             data['water_reduction'] = float(data['water_reduction'])
         if data.get('is_enabled'):
             data['is_enabled'] = data['is_enabled'].lower() in ('true', '1', 'yes')
-        all_types = SystemConfig.get_config_value('ALLOWANCE_TYPES', [])
         
-        # 过滤费用类型
-        filtered_types = []
-        for fee_type in all_types:
-            if fee_type == '房间水电按用量减免' and not SystemConfig.get_config_value('FEE_METER_reduction', True):
-                continue
-            elif fee_type == '房间水电按金额减免' and not SystemConfig.get_config_value('FEE_ROOM_FEE', True):
-                continue
-            elif fee_type == '住宿补贴' and not SystemConfig.get_config_value('FEE_USER_FEE', True):
-                continue
-            elif fee_type == '外宿补贴' and not SystemConfig.get_config_value('lodging_allowance', True):
-                continue
-            filtered_types.append(fee_type)
-        
-        # 验证费用类型
-        if data.get('fee_type') not in filtered_types:
-            # 记录日志
-            logging.error(f'添加补贴记录失败：不支持的费用类型 - {data.get("fee_type")}')
-            raise ValueError(f"不支持的费用类型: {data.get('fee_type')}")
-            
-        
-        # 住宿补贴验证
-        if data.get('fee_type') == '住宿补贴':
-            user_id = data.get('user_id')
-            if not user_id:
-                # 记录日志
-                logging.error('添加住宿补贴失败：未指定用户ID')
-                raise ValueError("添加住宿补贴必须指定用户ID")
-    
-            # 通过Dorm中间表查询用户是否有住宿记录
-            from models.dorm.dorm import Dorm
-            has_accommodation = Dorm.query.filter(
-                Dorm.user_id == user_id,
-                Dorm.status.in_(['active', 'checked_in'])
-            ).first() is not None
-    
-            if not has_accommodation:
-                # 记录日志
-                logging.error(f'添加住宿补贴失败：用户{user_id}无住宿记录')
-                raise ValueError("用户无住宿记录，无法添加住宿补贴")
-            
+        # 住宿补贴与外宿补贴互斥验证（模型add_fee不包含此验证，需在此检查）
+        if data.get('fee_type') == '住宿补贴' and data.get('user_id'):
             # 检查是否已有外宿补贴
             has_lodging_allowance = FeeSubsidy.query.filter(
-                FeeSubsidy.user_id == user_id,
+                FeeSubsidy.user_id == data['user_id'],
                 FeeSubsidy.fee_type == '外宿补贴',
                 FeeSubsidy.is_enabled == True
             ).first() is not None
             
             if has_lodging_allowance:
-                # 记录日志
-                logging.error(f'添加住宿补贴失败：用户{user_id}已有外宿补贴')
+                logging.error(f'添加住宿补贴失败：用户{data["user_id"]}已有外宿补贴')
                 raise ValueError("用户已有外宿补贴，不能同时申请住宿补贴")
-  
-        # 外宿补贴验证
-        if data.get('fee_type') == '外宿补贴':
-            user_id = data.get('user_id')
-            if not user_id:
-                # 记录日志
-                logging.error('添加外宿补贴失败：未指定用户ID')
-                raise ValueError("添加外宿补贴必须指定用户ID")
-            
+        
+        # 外宿补贴与住宿补贴互斥验证
+        if data.get('fee_type') == '外宿补贴' and data.get('user_id'):
             # 检查是否已有住宿补贴
             has_accommodation_subsidy = FeeSubsidy.query.filter(
-                FeeSubsidy.user_id == user_id,
+                FeeSubsidy.user_id == data['user_id'],
                 FeeSubsidy.fee_type == '住宿补贴',
                 FeeSubsidy.is_enabled == True
             ).first() is not None
             
             if has_accommodation_subsidy:
-                # 记录日志
-                logging.error(f'添加外宿补贴失败：用户{user_id}已有住宿补贴')
+                logging.error(f'添加外宿补贴失败：用户{data["user_id"]}已有住宿补贴')
                 raise ValueError("用户已有住宿补贴，不能同时申请外宿补贴")
         
-        # 添加记录
+        # 添加记录（模型add_fee内部包含费用类型、用户状态、住宿状态等完整验证）
         data.pop('saveAndContinue', None)
         new_subsidy = FeeSubsidy.add_fee(data)
         db.session.commit()
@@ -251,7 +204,6 @@ def add_record():
         logging.error(f'添加补贴记录失败：{str(e)}')
         flash(f'添加补贴记录失败：{str(e)}', 'danger')
         return redirect(url_for('fee_subsidy.fee_subsidy_add'))
-    
 
 # 前端页面展示接口（支持筛选和搜索）
 @fee_subsidy_bp.route('/list', methods=['GET'])
@@ -602,10 +554,8 @@ def delete_record(subsidy_id):
            
             # 记录日志
             logging.error(f'禁用补贴失败：操作人ID不能为空，操作人ID：{operator_id}')    
-            return jsonify({
-                'success': False,
-                'message': '操作人ID不能为空'
-            }), 400
+            flash('操作人ID不能为空', 'danger')
+            return redirect(url_for('fee_subsidy.fee_subsidy_index'))
         
         # 调用模型的禁用方法
         result = FeeSubsidy.disabled_subsidy(subsidy_id, operator_id, reason)

@@ -1199,7 +1199,7 @@ class RoomUtilityRecord(db.Model):
                     
                     logging.info(f"房间{room_id}@{billing_period}实际费用为0，已添加备注信息")
                 
-                main_record.status = 'completed'
+                main_record.status = 'calculated'
                 main_record.updated_at = datetime.now()
                 
                 updated_count += 1

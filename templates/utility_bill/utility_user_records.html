@@ -496,12 +496,12 @@
       if (pageSize) queryParams.append('pageSize', pageSize);
       
       // 跳转到新的URL
-      window.location.href = '/utility/user_records_detail?' + queryParams.toString();
+      window.location.href = '{{ url_for("utility_user_records.user_records") }}?' + queryParams.toString();
     };
     
     // 刷新按钮点击事件
     document.getElementById('refreshBtn').addEventListener('click', function() {
-      window.location.href = '/utility/user_records_detail';
+      window.location.href = '{{ url_for("utility_user_records.user_records") }}';
     });
     
     // 导出按钮点击事件
