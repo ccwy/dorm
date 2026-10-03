@@ -205,10 +205,20 @@
             </div>
             
             <div class="p-4 border-b border-gray-200">
-                <div class="relative">
-                    <input type="text" id="userSearchInput" placeholder="输入姓名、工号、部门搜索"
-                           class="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all text-sm">
-                    <i class="fa fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                <div class="flex gap-2 items-center">
+                    <select id="userDepartmentFilter" class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all text-sm bg-white min-w-[120px]">
+                        <option value="">全部部门</option>
+                    </select>
+                    <select id="userGenderFilter" class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all text-sm bg-white min-w-[120px]">
+                        <option value="">全部性别</option>
+                        <option value="男">男</option>
+                        <option value="女">女</option>
+                    </select>
+                    <div class="relative flex-1">
+                        <input type="text" id="userSearchInput" placeholder="输入姓名、工号、部门搜索"
+                               class="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all text-sm">
+                        <i class="fa fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                    </div>
                 </div>
             </div>
             
@@ -217,17 +227,18 @@
                     <thead class="bg-gray-50 sticky top-0">
                         <tr>
                             <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style="width: 10%;">ID</th>
-                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style="width: 20%;">姓名</th>
-                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style="width: 20%;">住宿补贴</th>
-                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style="width: 20%;">外宿补贴</th>
-                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style="width: 20%;">房间号</th>
-                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style="width: 20%;">部门</th>
-                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style="width: 20%;">职位</th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style="width: 15%;">姓名</th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style="width: 10%;">性别</th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style="width: 15%;">住宿补贴</th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style="width: 15%;">外宿补贴</th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style="width: 15%;">房间号</th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style="width: 15%;">部门</th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style="width: 15%;">职位</th>
                         </tr>
                     </thead>
                     <tbody id="userSelectTableBody" class="bg-white divide-y divide-gray-200">
                         <tr>
-                            <td colspan="5" class="px-6 py-10 text-center text-gray-500">
+                            <td colspan="8" class="px-6 py-10 text-center text-gray-500">
                                 <i class="fa fa-spinner fa-spin mr-2"></i> 加载用户列表中...
                             </td>
                         </tr>
@@ -263,10 +274,21 @@
             </div>
             
             <div class="p-4 border-b border-gray-200">
-                <div class="relative">
-                    <input type="text" id="roomSearchInput" placeholder="输入楼栋、房间号搜索"
-                           class="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all text-sm">
-                    <i class="fa fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                <div class="flex gap-2 items-center">
+                    <select id="roomBuildingFilter" class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all text-sm bg-white min-w-[120px]">
+                        <option value="">全部楼栋</option>
+                    </select>
+                    <select id="roomGenderFilter" class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all text-sm bg-white min-w-[120px]">
+                        <option value="">全部性别</option>
+                        <option value="男">男</option>
+                        <option value="女">女</option>
+                        <option value="无限制">无限制</option>
+                    </select>
+                    <div class="relative flex-1">
+                        <input type="text" id="roomSearchInput" placeholder="输入房间号搜索"
+                               class="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all text-sm">
+                        <i class="fa fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                    </div>
                 </div>
             </div>
             
@@ -276,6 +298,7 @@
                         <tr>
                             <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
                             <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">房间号</th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">性别限制</th>
                             <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">类型</th>
                             <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">容量</th>
                             <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">按用量减免</th>
@@ -285,7 +308,7 @@
                     </thead>
                     <tbody id="roomSelectTableBody" class="bg-white divide-y divide-gray-200">
                         <tr>
-                            <td colspan="7" class="px-6 py-10 text-center text-gray-500">
+                            <td colspan="8" class="px-6 py-10 text-center text-gray-500">
                                 <i class="fa fa-spinner fa-spin mr-2"></i> 加载房间列表中...
                             </td>
                         </tr>
@@ -347,6 +370,7 @@
         let currentRoomPage = 1;
         let userTotalPages = 1;
         let roomTotalPages = 1;
+        let isSaveAndContinueMode = false;
         
         // 页面加载完成后初始化
         document.addEventListener('DOMContentLoaded', function() {
@@ -483,9 +507,8 @@
             // 对话框按钮
             document.getElementById('dialogOkBtn').addEventListener('click', function() {
                 document.getElementById('dialog').style.display = 'none';
-                if (document.getElementById('dialogIcon').classList.contains('text-success')) {
-                    // 只有在普通保存模式下才跳转到列表页
-                    // 继续添加模式下的跳转逻辑已在saveSubsidy函数中处理
+                if (!isSaveAndContinueMode) {
+                    // 普通保存模式下跳转到列表页
                     window.location.href = "{{ url_for('fee_subsidy.fee_subsidy_index') }}";
                 }
             });
@@ -512,6 +535,15 @@
                     currentUserPage = 1;
                     loadUsers();
                 }, 300);
+            });
+            
+            document.getElementById('userDepartmentFilter').addEventListener('change', function() {
+                currentUserPage = 1;
+                loadUsers();
+            });
+            document.getElementById('userGenderFilter').addEventListener('change', function() {
+                currentUserPage = 1;
+                loadUsers();
             });
             
             document.getElementById('prevUserPage').addEventListener('click', function() {
@@ -547,6 +579,48 @@
                 }, 300);
             });
             
+            document.getElementById('roomBuildingFilter').addEventListener('change', function() {
+                currentRoomPage = 1;
+                loadRooms();
+            });
+            
+            document.getElementById('roomGenderFilter').addEventListener('change', function() {
+                currentRoomPage = 1;
+                loadRooms();
+            });
+            
+            // 加载楼栋列表
+            fetch('/api/rooms/buildings')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.data && Array.isArray(data.data)) {
+                        const select = document.getElementById('roomBuildingFilter');
+                        data.data.forEach(building => {
+                            const option = document.createElement('option');
+                            option.value = building;
+                            option.textContent = building;
+                            select.appendChild(option);
+                        });
+                    }
+                })
+                .catch(error => { console.error('加载楼栋列表失败:', error); });
+            
+            // 加载部门列表
+            fetch('/api/departments/names')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.data && Array.isArray(data.data)) {
+                        const select = document.getElementById('userDepartmentFilter');
+                        data.data.forEach(dept => {
+                            const option = document.createElement('option');
+                            option.value = dept;
+                            option.textContent = dept;
+                            select.appendChild(option);
+                        });
+                    }
+                })
+                .catch(error => { console.error('加载部门列表失败:', error); });
+            
             document.getElementById('prevRoomPage').addEventListener('click', function() {
                 if (currentRoomPage > 1) {
                     currentRoomPage--;
@@ -568,7 +642,7 @@
             const tableBody = document.getElementById('userSelectTableBody');
             
             // 显示加载状态
-                    tableBody.innerHTML = '<tr><td colspan="7" class="px-6 py-10 text-center text-gray-500"><i class="fa fa-spinner fa-spin mr-2"></i> 加载中...</td></tr>';
+                    tableBody.innerHTML = '<tr><td colspan="8" class="px-6 py-10 text-center text-gray-500"><i class="fa fa-spinner fa-spin mr-2"></i> 加载中...</td></tr>';
             
             // 构建查询参数
             const params = new URLSearchParams();
@@ -576,6 +650,14 @@
             params.append('per_page', 20);
             if (search) {
                 params.append('query', search);
+            }
+            const deptFilter = document.getElementById('userDepartmentFilter');
+            if (deptFilter && deptFilter.value) {
+                params.append('department', deptFilter.value);
+            }
+            const genderFilter = document.getElementById('userGenderFilter');
+            if (genderFilter && genderFilter.value) {
+                params.append('gender', genderFilter.value);
             }
             
             // 调用用户搜索API
@@ -593,7 +675,8 @@
                     
                     const users = data.data.users || [];
                     const totalCount = data.data.count || 0;
-                    userTotalPages = Math.ceil(totalCount / 20);
+                    const perPage = data.data.per_page || 20;
+                    userTotalPages = Math.ceil(totalCount / perPage);
                     
                     // 更新总数显示
                     document.getElementById('userTotalCount').textContent = totalCount;
@@ -608,7 +691,7 @@
                     
                     // 渲染用户列表
                     if (users.length === 0) {
-                        tableBody.innerHTML = '<tr><td colspan="7" class="px-6 py-10 text-center text-gray-500"><i class="fa fa-info-circle mr-2"></i> 未找到匹配的用户</td></tr>';
+                        tableBody.innerHTML = '<tr><td colspan="8" class="px-6 py-10 text-center text-gray-500"><i class="fa fa-info-circle mr-2"></i> 未找到匹配的用户</td></tr>';
                         return;
                     }
                     
@@ -619,6 +702,7 @@
                             data-department="${user.department || ''}" data-position="${user.position || ''}">
                             <td class="px-4 py-3 text-sm text-gray-500 overflow-hidden text-overflow-ellipsis whitespace-nowrap">${user.id}</td>
                             <td class="px-4 py-3 text-sm font-medium text-gray-900 overflow-hidden text-overflow-ellipsis whitespace-nowrap">${user.name}</td>
+                            <td class="px-4 py-3 text-sm text-gray-500 overflow-hidden text-overflow-ellipsis whitespace-nowrap">${user.gender || '-'}</td>
                             <td class="px-4 py-3 text-sm text-gray-500 overflow-hidden text-overflow-ellipsis whitespace-nowrap">${user.reduction_fee ||'-'}</td>
                             <td class="px-4 py-3 text-sm text-gray-500 overflow-hidden text-overflow-ellipsis whitespace-nowrap">${user.lodging_allowance || '-'}</td>
                             <td class="px-4 py-3 text-sm text-gray-500 overflow-hidden text-overflow-ellipsis whitespace-nowrap">${user.room_full_identifier || '-'}</td>
@@ -654,7 +738,7 @@
                 })
                 .catch(error => {
                     console.error('加载用户失败:', error);
-                    tableBody.innerHTML = `<tr><td colspan="7" class="px-6 py-10 text-center text-danger"><i class="fa fa-exclamation-circle mr-2"></i> 加载失败: ${translateSystemError(error.message)}</td></tr>`;
+                    tableBody.innerHTML = `<tr><td colspan="8" class="px-6 py-10 text-center text-danger"><i class="fa fa-exclamation-circle mr-2"></i> 加载失败: ${translateSystemError(error.message)}</td></tr>`;
                 });
         }
         
@@ -664,15 +748,22 @@
             const tableBody = document.getElementById('roomSelectTableBody');
             
             // 显示加载状态
-            tableBody.innerHTML = '<tr><td colspan="7" class="px-6 py-10 text-center text-gray-500"><i class="fa fa-spinner fa-spin mr-2"></i> 加载中...</td></tr>';
+            tableBody.innerHTML = '<tr><td colspan="8" class="px-6 py-10 text-center text-gray-500"><i class="fa fa-spinner fa-spin mr-2"></i> 加载中...</td></tr>';
             
             // 构建查询参数
             const params = new URLSearchParams();
             params.append('page', currentRoomPage);
             params.append('per_page', 20);
             if (search) {
-                params.append('building', search);
                 params.append('room_number', search);
+            }
+            const buildingFilter = document.getElementById('roomBuildingFilter');
+            if (buildingFilter && buildingFilter.value) {
+                params.append('building', buildingFilter.value);
+            }
+            const genderFilter = document.getElementById('roomGenderFilter');
+            if (genderFilter && genderFilter.value) {
+                params.append('gender', genderFilter.value);
             }
             
             // 调用房间列表API
@@ -705,7 +796,7 @@
                     
                     // 渲染房间列表
                     if (rooms.length === 0) {
-                        tableBody.innerHTML = '<tr><td colspan="7" class="px-6 py-10 text-center text-gray-500"><i class="fa fa-info-circle mr-2"></i> 未找到匹配的房间</td></tr>';
+                        tableBody.innerHTML = '<tr><td colspan="8" class="px-6 py-10 text-center text-gray-500"><i class="fa fa-info-circle mr-2"></i> 未找到匹配的房间</td></tr>';
                         return;
                     }
                     
@@ -722,6 +813,7 @@
                             data-amount-reduction="${room.amount_reduction || 0}">
                             <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">${room.id}</td>
                             <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">${room.full_identifier || `${room.building}-${room.room_number}`}</td>
+                            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">${room.gender_restriction || '无限制'}</td>
                             <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">${room.room_type_display || room.room_type}</td>
                             <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">${room.capacity}</td>
                             <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">电：${room.electric_reduction || 0} kWh / 水：${room.water_reduction || 0} m³</td>
@@ -766,7 +858,7 @@
                 })
                 .catch(error => {
                     console.error('加载房间失败:', error);
-                    tableBody.innerHTML = `<tr><td colspan="7" class="px-6 py-10 text-center text-danger"><i class="fa fa-exclamation-circle mr-2"></i> 加载失败: ${translateSystemError(error.message)}</td></tr>`;
+                    tableBody.innerHTML = `<tr><td colspan="8" class="px-6 py-10 text-center text-danger"><i class="fa fa-exclamation-circle mr-2"></i> 加载失败: ${translateSystemError(error.message)}</td></tr>`;
                 });
         }
         
@@ -900,6 +992,7 @@
         
         // 保存补贴信息
         function saveSubsidy(saveAndContinue = false) {
+            isSaveAndContinueMode = saveAndContinue;
             const feeType = document.getElementById('formFeeType').value;
             
             // 处理生效时间格式，确保包含秒

@@ -115,13 +115,7 @@ def add_record():
                 'message': 'OPTIONS请求处理成功'
             }, 200
         except Exception as e:
-            log_operation(
-                user_id=current_user.id,
-                module='feesubsidy',
-                operation_type='feesub_api',
-                action=f"调用添加补贴OPTIONS接口失败: {str(e)}",
-                result="失败"
-            )
+
             logging.error(f'添加补贴记录失败：{str(e)}')
             return {'status': 'error', 'message': str(e)}, 500
 
@@ -247,14 +241,6 @@ def add_record():
     
     except Exception as e:
         db.session.rollback()
-        # 记录添加失败日志
-        log_operation(
-            user_id=current_user.id,
-            module='feesubsidy',
-            operation_type='feesub_add',
-            action=f"添加补贴失败: {str(e)}",
-            result="失败"
-        )
         # 记录日志
         logging.error(f'添加补贴记录失败：{str(e)}')
         return {
@@ -427,13 +413,7 @@ def get_list():
             }
         })
     except Exception as e:
-        log_operation(
-            user_id=current_user.id,
-            module='feesubsidy',
-            operation_type='feesub_api',
-            action=f"调用补贴列表接口失败: {str(e)}",
-            result="失败"
-        )
+
         # 记录日志
         logging.error(f'调用补贴列表接口失败：{str(e)}')
         return jsonify({
@@ -458,27 +438,13 @@ def get_periods():
         period_list = [p[0] for p in periods]
         # 记录日志
         logging.info(f'调用账期接口，获取到{len(period_list)}个账期')
-        # 记录接口调用日志
-        log_operation(
-            user_id=current_user.id,
-            module='feesubsidy',
-            operation_type='feesub_api',
-            action=f"调用账期接口，获取到{len(period_list)}个账期",
-            result="成功"
-        )
-        
+
         return jsonify({
             'success': True,
             'data': period_list
         })
     except Exception as e:
-        log_operation(
-            user_id=current_user.id,
-            module='feesubsidy',
-            operation_type='feesub_api',
-            action=f"调用账期接口失败: {str(e)}",
-            result="失败"
-        )
+
         # 记录日志
         logging.error(f'调用账期接口失败：{str(e)}')
         return jsonify({

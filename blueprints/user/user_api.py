@@ -92,13 +92,12 @@ def search_users():
         search_query = request.args.get('query', '').strip()
         
         # 获取分页参数
-        use_pagination = True
         try:
-            page = int(request.args.get('page', 0))
+            page = int(request.args.get('page', 1))
             if page < 1:
-                use_pagination = False
+                page = 1
         except ValueError:
-            use_pagination = False
+            page = 1
         
         try:
             per_page = int(request.args.get('per_page', 20))
@@ -107,15 +106,39 @@ def search_users():
         except ValueError:
             per_page = 20
         
+        # 获取筛选参数
+        department_name = request.args.get('department', '').strip()
+        department_id = None
+        if department_name:
+            dept_obj = Department.query.filter(Department.name == department_name).first()
+            if dept_obj:
+                department_id = dept_obj.id
+        
+        gender = None
+        gender_val = request.args.get('gender', '').strip()
+        if gender_val in ('男', '女'):
+            gender = gender_val
+        
         # 基础查询：默认返回所有用户
         query = User.query
         
+        # 应用筛选条件
+        if department_id is not None:
+            query = query.filter(User.department_id == department_id)
+        if gender is not None:
+            query = query.filter(User.gender == gender)
+        
         # 只有当查询词不为空时，才添加过滤条件
         if search_query:
+            # 使用子查询避免JOIN导致count重复计数
+            dept_subquery = Department.query.filter(
+                Department.name.ilike(f'%{search_query}%')
+            ).with_entities(Department.id).subquery()
+            
             query = query.filter(
                 or_(
                     User.name.ilike(f'%{search_query}%'),
-                    Department.name.ilike(f'%{search_query}%'),
+                    User.department_id.in_(dept_subquery),
                     User.position.ilike(f'%{search_query}%'),
                     User.phone.ilike(f'%{search_query}%'),
                     User.student_id.ilike(f'%{search_query}%')
@@ -125,14 +148,9 @@ def search_users():
         # 获取总记录数
         total_count = query.count()
         
-        # 执行查询（根据是否启用分页）
-        if use_pagination:
-            offset = (page - 1) * per_page
-            users = query.offset(offset).limit(per_page).all()
-        else:
-            users = query.all()
-            page = 1
-            per_page = total_count
+        # 执行分页查询
+        offset = (page - 1) * per_page
+        users = query.offset(offset).limit(per_page).all()
         
         # 处理返回数据
         result = []
@@ -163,25 +181,29 @@ def search_users():
                 'reduction_fee': user.reduction_fee,
             })
         
-        # 日志记录（根据是否使用分页）
-        if use_pagination:
-            action_desc = f"搜索用户信息 [查询词: {search_query}]，页码: {page}，每页数量: {per_page}"
-            log_info = f"搜索用户信息操作成功，查询词: {search_query}，页码: {page}，每页数量: {per_page}，返回用户数: {len(result)}"
-        else:
-            action_desc = f"搜索用户信息 [查询词: {search_query}]，返回全部结果"
-            log_info = f"搜索用户信息操作成功，查询词: {search_query}，返回全部用户数: {len(result)}"
+        # 日志记录
+        filter_parts = []
+        if department_name:
+            filter_parts.append(f"部门: {department_name}")
+        if gender is not None:
+            filter_parts.append(f"性别: {gender}")
+        filter_desc = "，".join(filter_parts) if filter_parts else "无"
+        action_desc = f"搜索用户信息 [查询词: {search_query}]，筛选: [{filter_desc}]，页码: {page}，每页数量: {per_page}"
+        log_info = f"搜索用户信息操作成功，查询词: {search_query}，筛选: [{filter_desc}]，页码: {page}，每页数量: {per_page}，总数: {total_count}，返回用户数: {len(result)}"
 
         logging.info(log_info)
         return jsonify({
             'success': True,
             'data': {
                 'count': total_count,
-                'users': result
+                'users': result,
+                'page': page,
+                'per_page': per_page
             }
         })
         
     except Exception as e:
-        logging.error(f"搜索用户信息操作失败，查询词: {search_query}，异常信息: {str(e)}")
+        logging.error(f"搜索用户信息操作失败，查询词: {search_query}，部门: {department_name}，性别: {gender}，异常信息: {str(e)}")
         return jsonify({
             'success': False,
             'message': f'搜索失败: {str(e)}'
