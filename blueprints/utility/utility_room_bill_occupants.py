@@ -356,7 +356,7 @@ def calculate_bill():
             
         # 获取该账期的所有主表记录（仅核算完成的）
         all_period_records = RoomUtilityRecord.get_by_period(None, period=billing_period)
-        main_records = [r for r in all_period_records if r.status == 'completed']
+        main_records = [r for r in all_period_records if r.status == 'calculated']
         skipped_count = len(all_period_records) - len(main_records)
         if skipped_count > 0:
             logging.info(f"账期{billing_period}：跳过{skipped_count}个未核算房间")
@@ -408,6 +408,10 @@ def calculate_bill():
                 )  
             updated_occupant += len(occupants)
             updated_room_count += 1  # 每处理一个主表记录，视为处理一个房间
+        
+        # 核算成功后，将主表记录状态更新为completed
+        for record in main_records:
+            record.status = 'completed'
         
         db.session.commit()
         # 记录成功日志

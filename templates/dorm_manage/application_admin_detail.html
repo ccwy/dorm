@@ -775,6 +775,7 @@
                                 const statusMap = {
                                     'pending': { icon: 'fa fa-exclamation-circle', color: 'text-orange-500', text: '待核算' },
                                     'processing': { icon: 'fa fa-info-circle', color: 'text-blue-500', text: '核算中' },
+                                    'calculated': { icon: 'fa fa-check-circle', color: 'text-indigo-500', text: '已核算' },
                                     'completed': { icon: 'fa fa-check-circle', color: 'text-green-600', text: '已完成' }
                                 };
                                 const s = statusMap[data.data.room_status] || statusMap['pending'];

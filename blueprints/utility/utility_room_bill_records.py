@@ -314,9 +314,9 @@ def create_record():  # 保持原有接口名称
             flash(f'未找到{billing_period}的主表记录，请先初始化主表', 'danger')
             return redirect(url_for('utility_index.utility_calculate_fees', billing_period=billing_period))
         
-        # 1.5 过滤掉状态为'completed'的记录
-        completed_records = [r for r in main_records if r.status == 'completed']
-        main_records = [r for r in main_records if r.status != 'completed']
+        # 1.5 过滤掉状态为'completed'或'calculated'的记录
+        completed_records = [r for r in main_records if r.status in ('completed', 'calculated')]
+        main_records = [r for r in main_records if r.status not in ('completed', 'calculated')]
         
         if completed_records:
             # 构建跳过记录的房间信息列表
@@ -327,7 +327,21 @@ def create_record():  # 保持原有接口名称
                 else:
                     skipped_rooms.append(f"房间ID={r.room_id}")
             skipped_info = '、'.join(skipped_rooms)
-            flash(f'以下记录已完成核算，已跳过：{skipped_info}', 'warning')
+            # 区分已完成和已核算的记录
+            completed_names = []
+            calculated_names = []
+            for r in completed_records:
+                name = f"{r.room.building}{r.room.room_number}" if r.room else f"房间ID={r.room_id}"
+                if r.status == 'completed':
+                    completed_names.append(name)
+                elif r.status == 'calculated':
+                    calculated_names.append(name)
+            messages = []
+            if completed_names:
+                messages.append(f"以下记录已完成核算：{'、'.join(completed_names)}")
+            if calculated_names:
+                messages.append(f"以下记录已核算（用户费用待核算）：{'、'.join(calculated_names)}")
+            flash(f'{"；".join(messages)}，已跳过', 'warning')
         
         if not main_records:
             flash('所有记录均已完成核算，无需重复操作', 'info')
@@ -410,13 +424,14 @@ def calculate_single_record():
             flash(f'记录账期与传入账期不一致', 'danger')
             return redirect(url_for('utility_index.utility_calculate_fees', billing_period=billing_period))
 
-        # 检查记录状态是否为已完成
-        if main_record.status == 'completed':
+        # 检查记录状态是否为已完成或已核算
+        if main_record.status in ('completed', 'calculated'):
             room_info = f"{main_record.room.building}{main_record.room.room_number}" if main_record.room else f"记录ID={record_id}"
+            status_text = '已完成核算' if main_record.status == 'completed' else '已核算（用户费用待核算）'
             logging.info(
-                f"单条核算跳过 [用户ID: {current_user.id}, 模块: utility, 操作: bill_update, 原因: {room_info}已完成核算]"
+                f"单条核算跳过 [用户ID: {current_user.id}, 模块: utility, 操作: bill_update, 原因: {room_info}{status_text}]"
             )
-            flash(f'{room_info}已完成核算，无需重复操作', 'warning')
+            flash(f'{room_info}{status_text}，无需重复操作', 'warning')
             return redirect(url_for('utility_index.utility_calculate_fees', billing_period=billing_period))
 
         # 查询该记录关联的抄表数据

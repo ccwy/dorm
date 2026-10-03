@@ -176,7 +176,7 @@ class RoomUtilityRecord(db.Model):
     status = db.Column(
         db.String(20), 
         default='pending',
-        comment='账单状态：pending-待处理/processing-核算中/completed-已完成'
+        comment='账单状态：pending-待核算/processing-核算中/calculated-已核算/completed-已完成'
     )
 
     # 时间戳（自动维护）
@@ -1299,7 +1299,7 @@ class RoomUtilityRecord(db.Model):
                 self.status = 'pending'
                 logging.info(f"房间{self.room_id}@{self.billing_period}已结算费用清零，状态更新为pending")
             else:
-                self.status = 'processing'
+                self.status = 'calculated'
                 
             self.updated_at = datetime.now()
 

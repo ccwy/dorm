@@ -94,8 +94,8 @@ class RoomUtilityOccupant(db.Model):
         if main_record.receivable_electric_fee is None or main_record.receivable_water_fee is None:
             raise ValueError(f"主表记录ID={record_id}的应付费用数据不完整")
         
-        if main_record.status != 'completed':
-            raise ValueError(f"主表记录ID={record_id}尚未核算完成（当前状态：{main_record.status}），跳过用户费用分摊")
+        if main_record.status not in ('calculated', 'completed'):
+            raise ValueError(f"主表记录ID={record_id}尚未核算完成（当前状态：{main_record.status}，需为calculated或completed），跳过用户费用分摊")
         
         # 清空旧记录
         cls.query.filter_by(record_id=record_id).delete()
@@ -280,7 +280,7 @@ class RoomUtilityOccupant(db.Model):
         # 按时间顺序获取该账期内所有房间的主表记录
         main_records = RoomUtilityRecord.query.filter(
             RoomUtilityRecord.billing_period == billing_period,
-            RoomUtilityRecord.status == 'completed'
+            RoomUtilityRecord.status == 'calculated'
         ).order_by(RoomUtilityRecord.start_date).all()
     
         # 初始化全局唯一的补贴余额字典
