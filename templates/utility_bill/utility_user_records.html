@@ -152,7 +152,7 @@
             <label for="billingPeriod" class="block text-sm font-medium text-gray-600">账期</label>
             <div class="relative">
               <select id="billingPeriod" class="w-full px-3 py-2 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary appearance-none">
-                <option value="">全部账期</option>
+                <option value="">请选择账期</option>
                 {% for period in billing_periods %}
                 <option value="{{ period }}" {% if current_filters.billing_period == period %}selected{% endif %}>{{ period }}</option>
                 {% endfor %}

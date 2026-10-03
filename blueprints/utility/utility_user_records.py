@@ -9,6 +9,7 @@ from models.utility.utility_room_bill_record import RoomUtilityRecord
 from models.utility.utility_room_bill_checkout import CheckoutUtilityRecord
 from models.utility.utility_room_bill_occupant import RoomUtilityOccupant
 import logging
+import re
 from io import BytesIO
 from datetime import datetime
 from urllib.parse import quote
@@ -18,6 +19,11 @@ from utils.auth import require_permission
 
 # 创建蓝图
 utility_user_records_bp = Blueprint('utility_user_records', __name__, url_prefix='/utility')
+
+
+def _natural_sort_key(s):
+    """自然排序键，将字符串中的数字部分按数值排序，如 'A栋101' < 'A栋102' < 'A栋201'"""
+    return [int(c) if c.isdigit() else c.lower() for c in re.split(r'(\d+)', str(s))]
 
 @utility_user_records_bp.route('/user_records')
 @login_required
@@ -123,7 +129,7 @@ def user_records():
         # 先处理在住人员数据
         if user_type != '退宿':
             # 查询所有符合条件的在住人员数据
-            occupant_result = occupant_query.order_by(User.id, Room.id).all()
+            occupant_result = occupant_query.order_by(Room.building, Room.room_number, User.id).all()
             total_count += len(occupant_result)
             
             # 处理在住人员数据
@@ -174,7 +180,7 @@ def user_records():
         # 再处理退宿人员数据
         if user_type != '在住':
             # 查询所有符合条件的退宿人员数据
-            checkout_result = checkout_query.order_by(User.id, Room.id).all()
+            checkout_result = checkout_query.order_by(Room.building, Room.room_number, User.id).all()
             total_count += len(checkout_result)
             
             # 处理退宿人员数据
@@ -259,7 +265,7 @@ def user_records():
             total_count = len(users_list)
         
         # 排序并计算总页数
-        users_list.sort(key=lambda x: x['user_id'])
+        users_list.sort(key=lambda x: (_natural_sort_key(x.get('room', '')), x['user_id']))
         total_pages = (total_count + page_size - 1) // page_size
         
         # 计算分页的起始和结束索引
@@ -426,7 +432,7 @@ def export_user_records_excel():
         
         # 先处理在住人员数据
         if user_type != '退宿':
-            occupant_result = occupant_query.order_by(User.id, Room.id).all()
+            occupant_result = occupant_query.order_by(Room.building, Room.room_number, User.id).all()
             
             # 处理在住人员数据
             for row in occupant_result:
@@ -457,7 +463,7 @@ def export_user_records_excel():
         
         # 再处理退宿人员数据
         if user_type != '在住':
-            checkout_result = checkout_query.order_by(User.id, Room.id).all()
+            checkout_result = checkout_query.order_by(Room.building, Room.room_number, User.id).all()
             
             # 处理退宿人员数据
             for row in checkout_result:
@@ -545,6 +551,9 @@ def export_user_records_excel():
             export_data = [item for item in export_data if item['类型'] == '退宿']
         elif user_type == '在住+换宿':
             export_data = [item for item in export_data if item['类型'] == '在住' or item['类型'] == '换宿']
+        
+        # 按房间号自然排序，同房间按用户ID排序
+        export_data.sort(key=lambda x: (_natural_sort_key(x['房间号']), x['用户ID']))
         
         # 如果没有数据，返回提示
         if not export_data:
