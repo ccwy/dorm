@@ -333,6 +333,7 @@
                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all">
             <option value="">请选择账期</option>
           </select>
+          <span id="create_billing_period_status" class="ml-2 text-sm"></span>
           <p class="text-xs text-gray-500 mt-1">选择本次退宿费用所属的账期</p>
         </div>
         
@@ -422,7 +423,44 @@
       const waterReadingInput = document.getElementById('waterReading');
       const calculateFeeCheckbox = document.getElementById('calculateFee');
       
-      // 分页相关元素
+      // 加载账期状态（创建退宿费用弹窗）
+      function loadCreateBillingPeriodStatus(period) {
+          const statusEl = document.getElementById('create_billing_period_status');
+          if (!period || !statusEl) {
+              if (statusEl) statusEl.innerHTML = '';
+              return;
+          }
+          let url = '/utility_room_bill_records_bp/period-info/' + encodeURIComponent(period);
+          const roomId = createRoomIdInput.value;
+          if (roomId) {
+              url += '?room_id=' + roomId;
+          }
+          fetch(url)
+              .then(response => response.json())
+              .then(data => {
+                  if (data && data.success && data.data && data.data.room_status) {
+                      const statusMap = {
+                          'pending': { icon: 'fa fa-exclamation-circle', color: 'text-orange-500', text: '待核算' },
+                          'processing': { icon: 'fa fa-info-circle', color: 'text-blue-500', text: '核算中' },
+                          'completed': { icon: 'fa fa-check-circle', color: 'text-green-600', text: '已完成' }
+                      };
+                      const s = statusMap[data.data.room_status] || statusMap['pending'];
+                      statusEl.innerHTML = '<i class="' + s.icon + ' mr-1"></i>' + s.text;
+                      statusEl.className = 'ml-2 text-sm ' + s.color;
+                  } else {
+                      statusEl.innerHTML = '';
+                  }
+              })
+              .catch(function() {
+                  statusEl.innerHTML = '';
+              });
+      }
+      
+      // 监听创建弹窗账期选择变化
+      createBillingPeriodSelect.addEventListener('change', function() {
+          loadCreateBillingPeriodStatus(this.value);
+      });
+            // 分页相关元素
       const prevPageBtn = document.getElementById('prevPage');
       const nextPageBtn = document.getElementById('nextPage');
       const currentPageEl = document.getElementById('currentPage');

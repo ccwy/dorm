@@ -449,6 +449,7 @@
                             class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500/50 text-sm">
                             <option value="">请选择账期</option>
                         </select>
+                        <span id="billing_period_status" class="ml-2 text-sm"></span>
 
                     </div>
                     <!-- 水电表读数确认 -->
@@ -755,6 +756,39 @@
             {% if application.application_type == 'checkout' and application.status == 'pending' %}
             const billingPeriodSelect = document.getElementById('admin_billing_period');
             if (billingPeriodSelect) {
+                // 加载账期状态
+                function loadBillingPeriodStatus(period) {
+                    const statusEl = document.getElementById('billing_period_status');
+                    if (!period || !statusEl) {
+                        if (statusEl) statusEl.innerHTML = '';
+                        return;
+                    }
+                    let url = '/utility_room_bill_records_bp/period-info/' + encodeURIComponent(period);
+                    const adminRoomId = {{ application.current_room.id if application.current_room else 'null' }};
+                    if (adminRoomId) {
+                        url += '?room_id=' + adminRoomId;
+                    }
+                    fetch(url)
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data && data.success && data.data && data.data.room_status) {
+                                const statusMap = {
+                                    'pending': { icon: 'fa fa-exclamation-circle', color: 'text-orange-500', text: '待核算' },
+                                    'processing': { icon: 'fa fa-info-circle', color: 'text-blue-500', text: '核算中' },
+                                    'completed': { icon: 'fa fa-check-circle', color: 'text-green-600', text: '已完成' }
+                                };
+                                const s = statusMap[data.data.room_status] || statusMap['pending'];
+                                statusEl.innerHTML = '<i class="' + s.icon + ' mr-1"></i>' + s.text;
+                                statusEl.className = 'ml-2 text-sm ' + s.color;
+                            } else {
+                                statusEl.innerHTML = '';
+                            }
+                        })
+                        .catch(function() {
+                            statusEl.innerHTML = '';
+                        });
+                }
+
                 fetch('{{ url_for("utility_room_bill_records_bp.get_periods") }}')
                     .then(response => response.json())
                     .then(response => {
@@ -770,9 +804,18 @@
                                 if (isSelected) option.selected = true;
                                 billingPeriodSelect.appendChild(option);
                             });
+                            // 加载默认选中账期的状态
+                            if (billingPeriodSelect.value) {
+                                loadBillingPeriodStatus(billingPeriodSelect.value);
+                            }
                         }
                     })
                     .catch(error => console.error('加载账期列表失败:', error));
+
+                // 监听账期选择变化
+                billingPeriodSelect.addEventListener('change', function() {
+                    loadBillingPeriodStatus(this.value);
+                });
             }
             {% endif %}
         });

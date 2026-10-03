@@ -96,6 +96,11 @@
           <i class="fa fa-arrow-left"></i>
         </button>
         <h2 class="text-[clamp(1.1rem,2vw,1.5rem)] font-semibold text-gray-800">{{ title }}<span id="record-id-display" class="text-gray-500 ml-2 text-base"></span></h2>
+        {% if current_user.has_permission('utility.edit') %}
+        <a id="edit-btn" href="#" class="ml-auto inline-flex items-center px-3 py-1.5 text-sm bg-amber-50 text-amber-600 border border-amber-200 rounded hover:bg-amber-100 hover:text-amber-700 transition-colors" style="display:none;">
+          <i class="fa fa-edit mr-1"></i> 编辑
+        </a>
+        {% endif %}
       </div>
       <p class="text-gray-500">查看房间的水电费明细及住宿人员信息</p>
     </div>
@@ -692,7 +697,7 @@
           const status = data.status || 'pending';
           const statusConfig = {
               'pending': { text: '待处理', class: 'bg-yellow-100 text-yellow-800' },
-              'processing': { text: '计算中', class: 'bg-blue-100 text-blue-800' },
+              'processing': { text: '核算中', class: 'bg-blue-100 text-blue-800' },
               'completed': { text: '已完成', class: 'bg-green-100 text-green-800' }
           };
           const config = statusConfig[status] || statusConfig['pending'];
@@ -914,6 +919,13 @@
       const recordIdDisplay = document.getElementById('record-id-display');
       if (recordIdDisplay && data && data.record_id) {
         recordIdDisplay.textContent = `(ID: ${data.record_id})`;
+      }
+      
+      // 设置编辑按钮链接
+      const editBtn = document.getElementById('edit-btn');
+      if (editBtn && data && data.record_id && data.billing_period) {
+        editBtn.href = `/utility/utility_room_bill_edit/${data.record_id}?billing_period=${data.billing_period}`;
+        editBtn.style.display = '';
       }
       
       // 加载抄表媒体文件

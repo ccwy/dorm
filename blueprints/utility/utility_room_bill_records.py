@@ -95,6 +95,16 @@ def get_period_info(period):
         electric_price = float(price_record.electric_price) if price_record and price_record.electric_price else 0
         water_price = float(price_record.water_price) if price_record and price_record.water_price else 0
 
+        # 查询该房间在该账期的状态（每个房间每个账期只有一条记录）
+        room_id = request.args.get('room_id', type=int)
+        room_status = None
+        if room_id:
+            room_record = RoomUtilityRecord.query.filter_by(
+                billing_period=period, room_id=room_id
+            ).first()
+            if room_record:
+                room_status = room_record.status
+
         return jsonify({
             'success': True,
             'data': {
@@ -109,7 +119,9 @@ def get_period_info(period):
                 'total_amount': float(sum_result.total_amount) if sum_result.total_amount else 0,
                 # 返回从总主表中提取的当前账期水电单价
                 'electric_price': electric_price,
-                'water_price': water_price
+                'water_price': water_price,
+                # 该房间在该账期的状态
+                'room_status': room_status
             }
         })
         
@@ -302,6 +314,25 @@ def create_record():  # 保持原有接口名称
             flash(f'未找到{billing_period}的主表记录，请先初始化主表', 'danger')
             return redirect(url_for('utility_index.utility_calculate_fees', billing_period=billing_period))
         
+        # 1.5 过滤掉状态为'completed'的记录
+        completed_records = [r for r in main_records if r.status == 'completed']
+        main_records = [r for r in main_records if r.status != 'completed']
+        
+        if completed_records:
+            # 构建跳过记录的房间信息列表
+            skipped_rooms = []
+            for r in completed_records:
+                if r.room:
+                    skipped_rooms.append(f"{r.room.building}{r.room.room_number}")
+                else:
+                    skipped_rooms.append(f"房间ID={r.room_id}")
+            skipped_info = '、'.join(skipped_rooms)
+            flash(f'以下记录已完成核算，已跳过：{skipped_info}', 'warning')
+        
+        if not main_records:
+            flash('所有记录均已完成核算，无需重复操作', 'info')
+            return redirect(url_for('utility_index.utility_calculate_fees', billing_period=billing_period))
+        
         # 2. 提取所有主表ID，查询关联的子表抄表记录
         main_record_ids = [record.record_id for record in main_records]
         meter_readings = UtilityMeterReading.query.filter(
@@ -377,6 +408,15 @@ def calculate_single_record():
                 f"单条核算失败 [用户ID: {current_user.id}, 模块: utility, 操作: bill_update, 原因: 记录ID={record_id}的账期{main_record.billing_period}与传入账期{billing_period}不一致]"
             )
             flash(f'记录账期与传入账期不一致', 'danger')
+            return redirect(url_for('utility_index.utility_calculate_fees', billing_period=billing_period))
+
+        # 检查记录状态是否为已完成
+        if main_record.status == 'completed':
+            room_info = f"{main_record.room.building}{main_record.room.room_number}" if main_record.room else f"记录ID={record_id}"
+            logging.info(
+                f"单条核算跳过 [用户ID: {current_user.id}, 模块: utility, 操作: bill_update, 原因: {room_info}已完成核算]"
+            )
+            flash(f'{room_info}已完成核算，无需重复操作', 'warning')
             return redirect(url_for('utility_index.utility_calculate_fees', billing_period=billing_period))
 
         # 查询该记录关联的抄表数据

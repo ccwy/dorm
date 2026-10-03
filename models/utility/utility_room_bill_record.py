@@ -176,7 +176,7 @@ class RoomUtilityRecord(db.Model):
     status = db.Column(
         db.String(20), 
         default='pending',
-        comment='账单状态：pending-待处理/processing-计算中/completed-已完成'
+        comment='账单状态：pending-待处理/processing-核算中/completed-已完成'
     )
 
     # 时间戳（自动维护）

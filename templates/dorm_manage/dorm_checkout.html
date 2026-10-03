@@ -471,6 +471,7 @@
                                         class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
                                     <!-- 账期选项将通过JavaScript动态加载 -->
                                 </select>
+                                <span id="billing_period_status" class="ml-2 text-sm"></span>
                                 <p class="text-xs text-gray-500 mt-1">选择本次退宿抄表所属的账期</p>
                             </div>
                             <div class="md:col-span-4">
@@ -544,6 +545,43 @@
                     });
             }
             loadBillingPeriods();
+            
+            // 加载账期状态
+            function loadBillingPeriodStatus(period) {
+                const statusEl = document.getElementById('billing_period_status');
+                if (!period || !statusEl) {
+                    if (statusEl) statusEl.innerHTML = '';
+                    return;
+                }
+                let url = '/utility_room_bill_records_bp/period-info/' + encodeURIComponent(period);
+                if (roomId) {
+                    url += '?room_id=' + roomId;
+                }
+                fetch(url)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data && data.success && data.data && data.data.room_status) {
+                            const statusMap = {
+                                'pending': { icon: 'fa fa-exclamation-circle', color: 'text-orange-500', text: '待核算' },
+                                'processing': { icon: 'fa fa-info-circle', color: 'text-blue-500', text: '核算中' },
+                                'completed': { icon: 'fa fa-check-circle', color: 'text-green-600', text: '已完成' }
+                            };
+                            const s = statusMap[data.data.room_status] || statusMap['pending'];
+                            statusEl.innerHTML = '<i class="' + s.icon + ' mr-1"></i>' + s.text;
+                            statusEl.className = 'ml-2 text-sm ' + s.color;
+                        } else {
+                            statusEl.innerHTML = '';
+                        }
+                    })
+                    .catch(function() {
+                        statusEl.innerHTML = '';
+                    });
+            }
+            
+            // 监听账期选择变化
+            billingPeriodSelect.addEventListener('change', function() {
+                loadBillingPeriodStatus(this.value);
+            });
             
             // 获取用户ID和房间ID（从后端获取）
             const userId = "{{ user.id }}";
