@@ -100,17 +100,28 @@
           
           <div class="flex flex-wrap justify-center items-center gap-2">
             <button onclick="window.location.href='{{ url_for('utility_index.utility_calculate_fees') }}'" class="bg-primary text-white px-5 py-2 rounded-md flex items-center btn-effect hover:bg-primary/90 transition-colors flex-shrink-0 justify-center">
-              房间费用
+              <i class="fa fa-building mr-2"></i>房间费用
             </button>
-            <button onclick="window.location.href='{{ url_for('utility_index.utility_occupant_manage') }}'" class="bg-primary text-white px-5 py-2 rounded-md flex items-center btn-effect hover:bg-primary/90 transition-colors flex-shrink-0 justify-center">
-            用户费用
+            <button onclick="window.location.href='{{ url_for('utility_index.utility_occupant_manage') }}'" class="bg-indigo-600 text-white px-5 py-2 rounded-md flex items-center btn-effect hover:bg-indigo-600/90 transition-colors flex-shrink-0 justify-center">
+              <i class="fa fa-users mr-2"></i>用户费用
             </button>
-            <button onclick="window.location.href='{{ url_for('utility_index.utility_room_checkout') }}'" class="bg-primary text-white px-5 py-2 rounded-md flex items-center btn-effect hover:bg-primary/90 transition-colors flex-shrink-0 justify-center">
-              退宿费用
+            <button onclick="window.location.href='{{ url_for('utility_index.utility_room_checkout') }}'" class="bg-teal-600 text-white px-5 py-2 rounded-md flex items-center btn-effect hover:bg-teal-600/90 transition-colors flex-shrink-0 justify-center">
+              <i class="fa fa-sign-out mr-2"></i>退宿费用
             </button>
-            <button onclick="window.location.href='{{ url_for('utility_room_meter.utility_reading_manage') }}'" class="bg-primary text-white px-5 py-2 rounded-md flex items-center btn-effect hover:bg-primary/90 transition-colors flex-shrink-0 justify-center">
-              抄表记录
+            <button onclick="window.location.href='{{ url_for('utility_room_meter.utility_reading_manage') }}'" class="bg-amber-600 text-white px-5 py-2 rounded-md flex items-center btn-effect hover:bg-amber-600/90 transition-colors flex-shrink-0 justify-center">
+              <i class="fa fa-book mr-2"></i>抄表记录
             </button>
+            <button type="button" id="topRefreshBtn" class="bg-green-600 text-white px-5 py-2 rounded-md flex items-center btn-effect hover:bg-green-600/90 transition-colors flex-shrink-0 justify-center">
+              <i class="fa fa-refresh mr-2"></i>刷新
+            </button>
+            {% if current_user.has_permission('utility.export') %}
+            <button type="button" id="topExportBtn" class="bg-cyan-600 text-white px-5 py-2 rounded-md flex items-center btn-effect hover:bg-cyan-600/90 transition-colors flex-shrink-0 justify-center">
+              <i class="fa fa-download mr-2"></i><span id="topExportBtnText">导出</span>
+              <span id="exportingIndicator" class="hidden ml-2">
+                <i class="fa fa-circle-o-notch fa-spin"></i> 导出中...
+              </span>
+            </button>
+            {% endif %}
           </div>
         </div> 
         <!-- 第二行：p标签单独显示 -->
@@ -219,30 +230,7 @@
           </div>
         
 
-          <!-- 操作按钮 -->
-          <div class="flex gap-2 space-y-0 items-center">
-            <button 
-              type="button" 
-              id="refreshBtn" 
-              class="px-4 py-[6px] h-[45px] border border-gray-200 rounded-md text-gray-600 hover:bg-gray-50 transition-bg flex items-center justify-center"
-            >
-              <i class="fa fa-refresh mr-2"></i>
-              刷新
-            </button>
-            {% if current_user.has_permission('utility.export') %}
-            <button 
-              type="button" 
-              id="exportBtn" 
-              class="px-4 py-[6px] h-[45px] border border-primary text-primary rounded-md hover:bg-primary/5 transition-bg flex items-center justify-center"
-            >
-              <i class="fa fa-download mr-2"></i>
-              <span id="exportBtnText">导出</span>
-              <span id="exportingIndicator" class="hidden ml-2">
-                <i class="fa fa-circle-o-notch fa-spin"></i> 导出中...
-              </span>
-            </button>
-            {% endif %}
-          </div>
+
         </div>
       </form>
     </div>
@@ -500,12 +488,12 @@
     };
     
     // 刷新按钮点击事件
-    document.getElementById('refreshBtn').addEventListener('click', function() {
+    document.getElementById('topRefreshBtn').addEventListener('click', function() {
       window.location.href = '{{ url_for("utility_user_records.user_records") }}';
     });
     
     // 导出按钮点击事件
-    const exportBtnEl = document.getElementById('exportBtn');
+    const exportBtnEl = document.getElementById('topExportBtn');
     if (exportBtnEl) {
     exportBtnEl.addEventListener('click', function() {
       // 获取筛选条件
@@ -532,9 +520,9 @@
       if (search) queryParams.append('search', search);
       
       // 显示导出中状态
-      const exportBtnText = document.getElementById('exportBtnText');
+      const exportBtnText = document.getElementById('topExportBtnText');
       const exportingIndicator = document.getElementById('exportingIndicator');
-      const exportBtn = document.getElementById('exportBtn');
+      const exportBtn = document.getElementById('topExportBtn');
       
       exportBtnText.textContent = '';
       exportingIndicator.classList.remove('hidden');

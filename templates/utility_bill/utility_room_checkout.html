@@ -87,17 +87,25 @@
           
           <div class="flex flex-wrap justify-center items-center gap-2">
             <button onclick="window.location.href='{{ url_for('utility_index.utility_calculate_fees') }}'" class="bg-primary text-white px-5 py-2 rounded-md flex items-center btn-effect hover:bg-primary/90 transition-colors flex-shrink-0 justify-center">
-              房间费用
+              <i class="fa fa-building mr-2"></i>房间费用
             </button>
-            <button onclick="window.location.href='{{ url_for('utility_index.utility_occupant_manage') }}'" class="bg-primary text-white px-5 py-2 rounded-md flex items-center btn-effect hover:bg-primary/90 transition-colors flex-shrink-0 justify-center">
-              用户费用
+            <button onclick="window.location.href='{{ url_for('utility_index.utility_occupant_manage') }}'" class="bg-indigo-600 text-white px-5 py-2 rounded-md flex items-center btn-effect hover:bg-indigo-600/90 transition-colors flex-shrink-0 justify-center">
+              <i class="fa fa-users mr-2"></i>用户费用
             </button>
-            <button onclick="window.location.href='{{ url_for('utility_user_records.user_records') }}'" class="bg-primary text-white px-5 py-2 rounded-md flex items-center btn-effect hover:bg-primary/90 transition-colors flex-shrink-0 justify-center">
-              费用查询
+            <button onclick="window.location.href='{{ url_for('utility_user_records.user_records') }}'" class="bg-teal-600 text-white px-5 py-2 rounded-md flex items-center btn-effect hover:bg-teal-600/90 transition-colors flex-shrink-0 justify-center">
+              <i class="fa fa-search mr-2"></i>费用查询
             </button>
-            <button onclick="window.location.href='{{ url_for('utility_room_meter.utility_reading_manage') }}'" class="bg-primary text-white px-5 py-2 rounded-md flex items-center btn-effect hover:bg-primary/90 transition-colors flex-shrink-0 justify-center">
-              抄表记录
+            <button onclick="window.location.href='{{ url_for('utility_room_meter.utility_reading_manage') }}'" class="bg-amber-600 text-white px-5 py-2 rounded-md flex items-center btn-effect hover:bg-amber-600/90 transition-colors flex-shrink-0 justify-center">
+              <i class="fa fa-book mr-2"></i>抄表记录
             </button>
+            <button type="button" id="refreshBtn" class="bg-green-600 text-white px-5 py-2 rounded-md flex items-center btn-effect hover:bg-green-600/90 transition-colors flex-shrink-0 justify-center">
+              <i class="fa fa-refresh mr-2"></i>刷新
+            </button>
+            {% if current_user.has_permission('utility.export') %}
+            <button type="button" id="exportBtn" class="bg-cyan-600 text-white px-5 py-2 rounded-md flex items-center btn-effect hover:bg-cyan-600/90 transition-colors flex-shrink-0 justify-center">
+              <i class="fa fa-download mr-2"></i>导出
+            </button>
+            {% endif %}
           </div>
         </div>
     
@@ -127,8 +135,8 @@
           // 阻止表单默认提交行为，防止回车刷新页面
           document.getElementById('filterForm').addEventListener('submit', function(e) {
             e.preventDefault();
-            // 触发搜索按钮点击事件
-            document.getElementById('searchBtn').click();
+            // 触发搜索
+            if (typeof performSearch === 'function') performSearch();
           });
         </script>
         <!-- 使用flex布局确保垂直对齐 -->
@@ -177,16 +185,6 @@
           
           <!-- 按钮组 -->
           <div class="flex flex-wrap gap-2 md:w-4/6 justify-start">
-            <button type="button" id="searchBtn" class="px-4 py-2 bg-primary text-white rounded-md flex items-center space-x-1 btn-hover text-sm">
-              <i class="fa fa-search"></i>
-              <span>搜索</span>
-            </button>
-            
-            <button type="button" id="refreshBtn" class="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-md flex items-center space-x-1 btn-hover text-sm">
-              <i class="fa fa-refresh"></i>
-              <span>刷新</span>
-            </button>
-            
             <button type="button" id="deletePeriodBtn" class="px-4 py-2 bg-danger text-white rounded-md flex items-center space-x-1 btn-hover text-sm">
               <i class="fa fa-trash"></i>
               <span>删除当前账期</span>
@@ -197,14 +195,6 @@
               <i class="fa fa-trash-o"></i>
               <span>批量删除</span>
             </button>
-            
-            <!-- 导出按钮 -->
-            {% if current_user.has_permission('utility.export') %}
-            <button type="button" id="exportBtn" class="px-4 py-2 bg-success text-white rounded-md flex items-center space-x-1 btn-hover text-sm">
-              <i class="fa fa-download"></i>
-              <span>导出</span>
-            </button>
-            {% endif %}
           </div>
         </div>
         
@@ -407,10 +397,10 @@
       // 权限标志
       const canEdit = {{ 'true' if current_user.has_permission('utility.edit') else 'false' }};
       const canDelete = {{ 'true' if current_user.has_permission('utility.delete') else 'false' }};
-      const searchBtn = document.getElementById('searchBtn');
       const departmentSelect = document.getElementById('department');
       const buildingSelect = document.getElementById('building');
       const searchInput = document.getElementById('searchInput');
+      const exportBtn = document.getElementById('exportBtn');
       
       // 新增记录模态框相关元素
       const createUserIdInput = document.getElementById('createUserId');
@@ -481,7 +471,7 @@
       pageSizeSelect.addEventListener('change', function() {
         pageSize = parseInt(this.value);
         currentPage = 1; // 重置为第一页
-        searchBtn.click(); // 重新调用搜索接口获取新一页数据
+        performSearch(); // 重新调用搜索接口获取新一页数据
       });
       
       // 当前选中的账期
@@ -495,24 +485,32 @@
         currentBillPeriod = this.value;
         // 只有选择了具体账期才自动查询
         if (this.value) {
-          searchBtn.click();
+                    performSearch();
         }
       });
       
       // 部门选择变化时自动查询
       departmentSelect.addEventListener('change', function() {
-        searchBtn.click();
+                performSearch();
       });
       
       // 楼栋选择变化时自动查询
       buildingSelect.addEventListener('change', function() {
-        searchBtn.click();
+                performSearch();
       });
       
-      // 为搜索框添加回车键触发搜索功能
+      // 搜索框防抖自动搜索 + 回车搜索
+      let searchDebounceTimer = null;
+      searchInput.addEventListener('input', function() {
+        clearTimeout(searchDebounceTimer);
+        searchDebounceTimer = setTimeout(function() {
+          performSearch();
+        }, 300);
+      });
       searchInput.addEventListener('keyup', function(event) {
         if (event.key === 'Enter') {
-          searchBtn.click();
+          clearTimeout(searchDebounceTimer);
+          performSearch();
         }
       });
       
@@ -571,7 +569,7 @@
                   currentBillPeriod = data.periods[0];
                 }
                 // 自动触发搜索
-                searchBtn.click();
+                performSearch();
               }
             } else {
               throw new Error('账期数据格式不正确');
@@ -635,8 +633,8 @@
         return { type: 'name', confidence: 50 };
       }
       
-      // 筛选按钮事件
-      searchBtn.addEventListener('click', function() {
+      // 搜索函数
+      function performSearch() {
         // 重置为第一页
         currentPage = 1;
         // 清空ID映射表
@@ -756,7 +754,7 @@
                     <div class="flex flex-col items-center">
                       <i class="fa fa-exclamation-circle text-3xl mb-2 text-danger"></i>
                       <p>查询失败: ${error.message}</p>
-                      <button onclick="document.getElementById('searchBtn').click()" class="mt-2 text-primary hover:underline">
+                      <button onclick="performSearch()" class="mt-2 text-primary hover:underline">
                         重试
                       </button>
                     </div>
@@ -764,7 +762,7 @@
                 </tr>
           `;
         });
-      });
+      }
       // 渲染当前页数据 - 修复排序问题的核心函数
       function renderCurrentPageData() {
         // 清空表格
@@ -1149,7 +1147,7 @@
         prevPageBtn.addEventListener('click', () => {
           if (currentPage > 1) {
             currentPage--;
-            searchBtn.click(); // 重新调用搜索接口获取新一页数据
+                        performSearch(); // 重新调用搜索接口获取新一页数据
           }
         });
         
@@ -1157,7 +1155,7 @@
         nextPageBtn.addEventListener('click', () => {
           if (currentPage < totalPages) {
             currentPage++;
-            searchBtn.click(); // 重新调用搜索接口获取新一页数据
+                        performSearch(); // 重新调用搜索接口获取新一页数据
           }
         });
       

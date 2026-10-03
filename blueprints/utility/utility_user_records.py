@@ -24,8 +24,8 @@ utility_user_records_bp = Blueprint('utility_user_records', __name__, url_prefix
 @require_permission('utility.view')
 def user_records():
     """
-    用户水电费详情页面
-    展示指定筛选条件下的用户水电费详情列表
+    用户水电费明细查询
+    展示指定筛选条件下的用户水电费明细列表
     通过在住人员费用子表和退宿人员费用子表返回的用户id和房间id查询对应用户信息和房间信息
     账期通过费用主表获取
     """
@@ -288,7 +288,7 @@ def user_records():
             
         # 准备模板数据
         data = {
-            'title': "用户水电费查询",
+            'title': "用户水电费明细查询",
             'users': paginated_users,
             'total_count': total_count,
             'current_page': page,
@@ -313,7 +313,7 @@ def user_records():
         flash(str(e), 'danger')
         return render_template(
             'utility_bill/utility_user_records.html',
-            title="用户水电费查询",
+            title="用户水电费明细查询",
             users=[],
             total_count=0,
             current_page=1,

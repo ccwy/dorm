@@ -209,12 +209,12 @@ def utility_user_checkout_detail():
                           billing_period=billing_period,
                           is_transfer=is_transfer)
     
-# 房间人员费用明细页面
+# 核算用户水电费页面
 @utility_index_bp.route('/utility_occupant_manage')
 @login_required
 @require_permission('utility.view')
 def utility_occupant_manage():
-    """加载房间人员费用明细页面"""
+    """核算用户水电费页面"""
     try:
         # 获取查询参数用于日志
         billing_period = request.args.get('billing_period', '')
@@ -235,14 +235,14 @@ def utility_occupant_manage():
             user_id=current_user.id,
             module='utility',#这里记载模块
             operation_type='records',#这里记载类型
-            action=f"访问用户费用管理页面 [账期: {billing_period}, 房间ID: {room_id}, 加载账期数量: {len(billing_periods)}, 加载楼栋数量: {len(building_list)}, 加载部门数量: {len(department_list)}]",#这里记载成功与失败的记录
+            action=f"访问核算用户水电费页面 [账期: {billing_period}, 房间ID: {room_id}, 加载账期数量: {len(billing_periods)}, 加载楼栋数量: {len(building_list)}, 加载部门数量: {len(department_list)}]",#这里记载成功与失败的记录
             result="成功"#这里只有成功与失败
         )
-        return render_template('utility_bill/utility_occupant_manage.html', billing_periods=billing_periods, buildings=building_list, departments=department_list, billing_period=billing_period, title=f"用户费用管理")
+        return render_template('utility_bill/utility_occupant_manage.html', billing_periods=billing_periods, buildings=building_list, departments=department_list, billing_period=billing_period, title=f"核算用户水电费")
     except Exception as e:
-        logging.error(f"访问用户费用管理页面失败: {str(e)}")
+        logging.error(f"访问核算用户水电费页面失败: {str(e)}")
         flash(str(e), 'danger')
-        return render_template('utility_bill/utility_occupant_manage.html', billing_periods=[], buildings=[], departments=[], billing_period='', title=f"用户费用管理")
+        return render_template('utility_bill/utility_occupant_manage.html', billing_periods=[], buildings=[], departments=[], billing_period='', title=f"核算用户水电费")
 
 @utility_index_bp.route('/utility_room_bill_edit/<int:record_id>', methods=['GET'])
 @login_required
