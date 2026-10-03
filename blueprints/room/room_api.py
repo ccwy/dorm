@@ -7,7 +7,6 @@ from models.dorm.dorm import Dorm
 from models.user.user import User
 from config import Config
 from flask_login import login_required, current_user
-from utils.log import log_operation
 from models.system_config.system_config import SystemConfig  # 新增：导入系统配置模型
 from utils.room_photo import RoomPhotoManager
 

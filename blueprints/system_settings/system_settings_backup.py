@@ -86,13 +86,7 @@ def create_backup():
         })
     except Exception as e:
         logging.error(f"创建备份失败: {str(e)}")
-        log_operation(
-            user_id=current_user.id if current_user.is_authenticated else 0,
-            action=f"创建系统备份失败, {str(e)}",
-            module="backup",
-            operation_type="create_backup",
-            result="失败"
-        )
+        
         return jsonify({
             "success": False,
             "message": f"创建备份失败: {str(e)}"
@@ -232,13 +226,7 @@ def delete_backup(filename):
         })
     except Exception as e:
         logging.error(f"删除备份失败: {str(e)}")
-        log_operation(
-            user_id=current_user.id if current_user.is_authenticated else 0,
-            action=f"删除系统备份失败: {str(e)}",
-            module="backup",
-            operation_type="delete_backup",
-            result="失败"
-        )
+        
         return jsonify({
             "success": False,
             "message": f"删除备份失败: {str(e)}"
@@ -283,13 +271,7 @@ def delete_backup_batch():
             })
         except Exception as e:
             logging.error(f"批量删除备份失败: {str(e)}")
-            log_operation(
-                user_id=current_user.id if current_user.is_authenticated else 0,
-                action=f"批量删除备份失败: {str(e)}",
-                module="backup",
-                operation_type="delete_backup",
-                result="失败"
-            )
+            
             return jsonify({
                 "success": False,
                 "message": f"批量删除备份失败: {str(e)}"
@@ -351,13 +333,7 @@ def clear_all_backups():
             })
         except Exception as e:
             logging.error(f"清空所有备份失败: {str(e)}")
-            log_operation(
-                user_id=current_user.id if current_user.is_authenticated else 0,
-                action=f"清空所有备份失败: {str(e)}",
-                module="backup",
-                operation_type="delete_backup",
-                result="失败"
-            )
+            
             return jsonify({
                 "success": False,
                 "message": f"清空所有备份失败: {str(e)}"
@@ -481,13 +457,7 @@ def restore_backup(filename):
         })
     except Exception as e:
         logging.error(f"恢复备份失败: {str(e)}")
-        log_operation(
-            user_id=current_admin_id,
-            action=f"从备份恢复数据失败: {str(e)}",
-            module="backup",
-            operation_type="restore_backup",
-            result="失败"
-        )
+        
         return jsonify({
             "success": False,
             "message": f"恢复备份失败: {str(e)}"
@@ -628,13 +598,7 @@ def restore_from_upload():
         })
     except Exception as e:
         logging.error(f"从上传文件恢复备份失败: {str(e)}")
-        log_operation(
-            user_id=current_admin_id,
-            action=f"从上传文件恢复数据失败: {str(e)}",
-            module="backup",
-            operation_type="restore_backup",
-            result="失败"
-        )
+        
         return jsonify({
             "success": False,
             "message": f"恢复备份失败: {str(e)}"
@@ -704,17 +668,8 @@ def download_backup(filename):
         
     except Exception as e:
         logging.error(f"下载备份文件失败: {str(e)}")
-        log_operation(
-            user_id=current_user.id if current_user.is_authenticated else 0,
-            action=f"下载备份文件失败: {str(e)}",
-            module="backup",
-            operation_type="download_backup",
-            result="失败"
-        )
+        
         return jsonify({
             "success": False,
             "message": f"下载备份文件失败: {str(e)}"
         }), 500
-
-
-

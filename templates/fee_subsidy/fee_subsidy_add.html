@@ -84,7 +84,19 @@
                 </div>
             </div>
         </div>
-        
+        <!-- 消息提示区域 -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        <div class="flash-messages mb-6">
+            {% for category, message in messages %}
+            <div class="p-4 rounded-md mb-2 {% if category == 'success' %}bg-green-100 text-green-800{% elif category == 'error' or category == 'danger' %}bg-red-100 text-red-800{% elif category == 'warning' %}bg-yellow-100 text-yellow-800{% else %}bg-blue-100 text-blue-800{% endif %}">
+                <button type="button" class="float-right ml-2 text-gray-500 hover:text-gray-700" onclick="this.parentElement.remove()">×</button>
+                {{ message | safe }}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    {% endwith %}
         <!-- 表单卡片 -->
         <div class="bg-white rounded-lg card-shadow p-6 mb-6 fade-in" style="animation-delay: 100ms;">
             <form id="subsidyForm" class="space-y-6">
@@ -365,7 +377,7 @@
 
     <script>
         // 全局变量
-        let allowedFeeTypes = [];
+        let allowedFeeTypes = {{ allowed_fee_types | tojson }};
         let currentUserPage = 1;
         let currentRoomPage = 1;
         let userTotalPages = 1;
@@ -385,53 +397,12 @@
             const formattedDateTime = `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
             document.getElementById('formEffectiveDate').value = formattedDateTime;
             
-            // 加载允许的费用类型
-            loadAllowedFeeTypes();
+            // 填充费用类型下拉菜单
+            populateFeeTypeSelect();
             
             // 绑定事件监听器
             bindEventListeners();
         });
-        
-        // 从后端加载允许的费用类型
-        function loadAllowedFeeTypes() {
-            fetch('/fee_subsidy/add', {
-                method: 'OPTIONS',
-                headers: {
-                    'Accept': 'application/json; charset=utf-8',
-                    'Content-Type': 'application/json; charset=utf-8'
-                }
-            })
-            .then(response => response.text().then(text => ({
-                status: response.status,
-                text: text
-            })))
-            .then(({status, text}) => {
-                if (status !== 200) {
-                    throw new Error(`服务器响应错误: 状态码 ${status}`);
-                }
-                if (!text.trim()) {
-                    throw new Error('服务器返回空内容');
-                }
-                try {
-                    // 尝试解析JSON前先处理可能的BOM字符
-                    const cleanedText = text.replace(/^\uFEFF/, '');
-                    const data = JSON.parse(cleanedText);
-                    if (!data.allowed_types || !data.allowed_types.length) {
-                        throw new Error("配置中未设置费用类型，请联系管理员");
-                    }
-                    allowedFeeTypes = data.allowed_types;
-                    populateFeeTypeSelect();
-                } catch (e) {
-                    throw new Error(`数据解析失败: ${e.message}\n原始响应: ${text.substring(0, 100)}...`);
-                }
-            })
-            .catch(error => {
-                console.error('加载费用类型失败:', error);
-                allowedFeeTypes = ['加载失败，请刷新页面重试'];
-                populateFeeTypeSelect();
-                showDialog(false, '初始化错误', error.message);
-            });
-        }
         
         // 填充费用类型下拉菜单
         function populateFeeTypeSelect() {
@@ -507,10 +478,6 @@
             // 对话框按钮
             document.getElementById('dialogOkBtn').addEventListener('click', function() {
                 document.getElementById('dialog').style.display = 'none';
-                if (!isSaveAndContinueMode) {
-                    // 普通保存模式下跳转到列表页
-                    window.location.href = "{{ url_for('fee_subsidy.fee_subsidy_index') }}";
-                }
             });
             
             // 继续添加按钮
@@ -992,7 +959,6 @@
         
         // 保存补贴信息
         function saveSubsidy(saveAndContinue = false) {
-            isSaveAndContinueMode = saveAndContinue;
             const feeType = document.getElementById('formFeeType').value;
             
             // 处理生效时间格式，确保包含秒
@@ -1037,71 +1003,33 @@
                 return;
             }
             
-            // 发送保存请求
-            const saveBtn = document.getElementById('saveBtn');
-            saveBtn.innerHTML = '<i class="fa fa-spinner fa-spin mr-2"></i> 保存中...';
-            saveBtn.disabled = true;
+            // 创建表单并提交
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '{{ url_for("fee_subsidy.add_record") }}';
             
-            fetch('{{ url_for('fee_subsidy.add_record') }}', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json; charset=utf-8',
-                    'Accept': 'application/json; charset=utf-8'
-                },
-                body: JSON.stringify(data)
-            })
-            .then(response => {
-                // 统一处理响应解析
-                return response.text().then(text => {
-                    try {
-                        // 尝试解析JSON
-                        const jsonData = JSON.parse(text);
-                        return {
-                            ok: response.ok,
-                            data: jsonData
-                        };
-                    } catch (e) {
-                        // 非JSON响应处理（系统级错误）
-                        return {
-                            ok: response.ok,
-                            data: {
-                                success: false,
-                                message: translateSystemError(text || `服务器返回非JSON响应 (状态码: ${response.status})`)
-                            }
-                        };
-                    }
-                });
-            })
-            .then(result => {
-                if (result.ok && result.data.success) {
-                    if (saveAndContinue) {
-                        // 显示保存成功提示
-                        showDialog(true, '操作成功', result.data.message || '费用补贴信息已成功保存');
-                        // 清空表单以便继续添加
-                        setTimeout(() => {
-                            document.getElementById('dialog').style.display = 'none';
-                            resetForm();
-                        }, 1000);
-                    } else {
-                        // 正常保存后显示对话框
-                        showDialog(true, '操作成功', result.data.message || '费用补贴信息已成功保存');
-                    }
-                } else {
-                    // 直接使用后端返回的错误信息，不进行翻译
-                    // 后端已经在raise ValueError时返回了具体的业务错误提示
-                    const errorMsg = result.data.message || '保存失败，请重试';
-                    showDialog(false, '保存失败', errorMsg);
+            // 添加所有数据字段作为隐藏输入
+            for (const [key, value] of Object.entries(data)) {
+                if (value !== null && value !== undefined) {
+                    const input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = key;
+                    input.value = value;
+                    form.appendChild(input);
                 }
-            })
-            .catch(error => {
-                console.error('保存费用补贴出错:', error);
-                // 网络层面的错误才进行翻译
-                showDialog(false, '通信错误', translateSystemError(error.message || '保存过程中发生错误'));
-            })
-            .finally(() => {
-                saveBtn.innerHTML = '<i class="fa fa-save mr-2"></i> 保存';
-                saveBtn.disabled = false;
-            });
+            }
+            
+            // 添加 saveAndContinue 标记
+            if (saveAndContinue) {
+                const continueInput = document.createElement('input');
+                continueInput.type = 'hidden';
+                continueInput.name = 'saveAndContinue';
+                continueInput.value = 'true';
+                form.appendChild(continueInput);
+            }
+            
+            document.body.appendChild(form);
+            form.submit();
         }
     </script>
 </body>

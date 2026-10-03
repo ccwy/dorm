@@ -5,7 +5,6 @@ from models.dorm.dorm import Dorm
 from models.room.room import Room
 from models.department.department import Department
 from flask_login import login_required, current_user
-from utils.log import log_operation
 import datetime
 from sqlalchemy import or_
 

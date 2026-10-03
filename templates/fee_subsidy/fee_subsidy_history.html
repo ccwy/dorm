@@ -320,6 +320,7 @@
         let totalPages = 1;
         let totalItems = 0;
         let isLoading = false; // 防止重复提交
+        let allowedFeeTypes = {{ allowed_fee_types | tojson }};
         
         // 页面加载完成后初始化
         document.addEventListener('DOMContentLoaded', function() {
@@ -563,37 +564,17 @@
                     departmentSelect.classList.remove('select-loading');
                 });
             
-            // 恢复原始费用类型加载方式（使用OPTIONS请求）
+            // 使用模板变量加载费用类型
             const feeTypeSelect = document.getElementById('feeType');
-            fetch('/fee_subsidy/add', { method: 'OPTIONS' })
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error(`加载费用类型失败: ${response.statusText}`);
-                    }
-                    return response.json();
-                })
-                .then(data => {
-                    if (data.status === 'success' && data.allowed_types) {
-                        feeTypeSelect.innerHTML = '<option value="">全部类型</option>';
-                        data.allowed_types.sort((a, b) => a.localeCompare(b));
-                        data.allowed_types.forEach(type => {
-                            const option = document.createElement('option');
-                            option.value = type;
-                            option.textContent = type;
-                            feeTypeSelect.appendChild(option);
-                        });
-                    } else {
-                        throw new Error('加载费用类型数据失败');
-                    }
-                })
-                .catch(error => {
-                    console.error('加载费用类型失败:', error);
-                    // 移除硬编码选项，仅显示错误提示
-                    feeTypeSelect.innerHTML = '<option value="">全部类型</option><option value="" disabled>加载失败，请刷新页面</option>';
-                })
-                .finally(() => {
-                    feeTypeSelect.classList.remove('select-loading');
-                });
+            feeTypeSelect.innerHTML = '<option value="">全部类型</option>';
+            allowedFeeTypes.sort((a, b) => a.localeCompare(b));
+            allowedFeeTypes.forEach(type => {
+                const option = document.createElement('option');
+                option.value = type;
+                option.textContent = type;
+                feeTypeSelect.appendChild(option);
+            });
+            feeTypeSelect.classList.remove('select-loading');
         }
         
         // 从数据库加载历史记录数据

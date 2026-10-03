@@ -80,13 +80,7 @@ def create_universal_backup():
 
     except Exception as e:
         logging.error(f"创建通用备份失败: {str(e)}")
-        log_operation(
-            user_id=current_user.id if current_user.is_authenticated else 0,
-            action=f"创建通用备份失败: {str(e)}",
-            module="backup",
-            operation_type="create_backup",
-            result="失败"
-        )
+        
         return jsonify({
             "success": False,
             "message": f"创建通用备份失败: {str(e)}"
@@ -180,13 +174,7 @@ def restore_universal_backup():
 
     except Exception as e:
         logging.error(f"恢复通用备份失败: {str(e)}")
-        log_operation(
-            user_id=admin_user_id,
-            action=f"从通用备份恢复数据失败: {str(e)}",
-            module="backup",
-            operation_type="restore_backup",
-            result="失败"
-        )
+        
         return jsonify({
             "success": False,
             "message": f"恢复通用备份失败: {str(e)}"
@@ -326,13 +314,7 @@ def restore_universal_backup_from_file(filename):
 
     except Exception as e:
         logging.error(f"从文件恢复通用备份失败: {str(e)}")
-        log_operation(
-            user_id=admin_user_id,
-            action=f"从通用备份文件 {filename} 恢复数据失败: {str(e)}",
-            module="backup",
-            operation_type="restore_backup",
-            result="失败"
-        )
+        
         return jsonify({
             "success": False,
             "message": f"恢复通用备份失败: {str(e)}"

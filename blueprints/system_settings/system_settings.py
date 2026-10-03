@@ -443,13 +443,7 @@ def update_configs():
     except Exception as e:
         db.session.rollback()
         logging.error(f"更新配置失败: {str(e)}")
-        log_operation(
-            user_id=current_user.id if current_user.is_authenticated else 0,
-            action=f"更新{category}模块配置失败,{str(e)}",
-            module='system',
-            operation_type='config_update',
-            result="失败 "
-        )
+        
         return jsonify({
             "success": False,
             "message": f"更新配置失败: {str(e)}"
@@ -508,13 +502,7 @@ def initialize_module_configs(category):
     except Exception as e:
         db.session.rollback()
         logging.error(f"初始化{category}模块配置失败: {str(e)}")
-        log_operation(
-            user_id=current_user.id if current_user.is_authenticated else 0,
-            action=f"初始化{category}模块配置失败,{str(e)}",
-            module='system',
-            operation_type='initialize',
-            result="失败"
-        )
+        
         return jsonify({
             "success": False,
             "message": f"初始化配置失败: {str(e)}"
@@ -564,13 +552,7 @@ def initialize_all_configs():
         })
     except Exception as e:
         logging.error(f"初始化所有模块配置失败: {str(e)}")
-        log_operation(
-            user_id=current_user.id if current_user.is_authenticated else 0,
-            action=f"初始化所有模块默认配置失败,{str(e)}",
-            module="system",
-            operation_type="initialize",
-            result="失败"
-        )
+        
         return jsonify({
             "success": False,
             "message": f"初始化配置失败: {str(e)}"
