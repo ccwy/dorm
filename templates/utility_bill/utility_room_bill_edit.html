@@ -110,6 +110,8 @@
                     <span class="info-value">
                         {% if record.status == 'completed' %}
                         <span class="text-green-600">已完成</span>
+                        {% elif record.status == 'calculated' %}
+                        <span class="badge bg-success">已核算</span>
                         {% elif record.status == 'processing' %}
                         <span class="text-yellow-600">核算中</span>
                         {% else %}
@@ -333,6 +335,7 @@
                         <select name="status" class="w-full px-3 py-2 border rounded form-input-focus">
                             <option value="pending" {% if record.status == 'pending' %}selected{% endif %}>待处理</option>
                             <option value="processing" {% if record.status == 'processing' %}selected{% endif %}>核算中</option>
+                            <option value="calculated" {% if record.status == 'calculated' %}selected{% endif %}>已核算</option>
                             <option value="completed" {% if record.status == 'completed' %}selected{% endif %}>已完成</option>
                         </select>
                     </div>
