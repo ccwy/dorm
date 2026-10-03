@@ -26,13 +26,6 @@ def get_user(user_id):
         # 查询指定ID的用户
         user = User.query.get(user_id)
         if not user:
-            log_operation(
-                user_id=current_user.id,
-                module='user',
-                operation_type='user_api',
-                action=f"尝试获取用户信息 [ID: {user_id}]，失败: 用户不存在",
-                result="失败"
-            )
             logging.error(f"获取用户信息操作失败，用户ID: {user_id}，异常信息: 用户不存在")
             return jsonify({
                 'success': False,
@@ -77,14 +70,7 @@ def get_user(user_id):
             'created_at': process_field_value('created_at', user.created_at),
             'updated_at': process_field_value('updated_at', user.updated_at)
         }
-        
-        log_operation(
-            user_id=current_user.id,
-            module='user',
-            operation_type='user_api',
-            action=f"获取用户信息 [ID: {user_id}, 姓名: {user.name}]",
-            result="成功"
-        )
+
         logging.info(f"获取用户信息操作成功，用户ID: {user_id}，姓名: {user.name}")
         return jsonify({
             'success': True,
@@ -92,13 +78,6 @@ def get_user(user_id):
         })
         
     except Exception as e:
-        log_operation(
-            user_id=current_user.id,
-            module='user',
-            operation_type='user_api',
-            action=f"尝试获取用户信息 [ID: {user_id}]，失败: {str(e)}",
-            result="失败"
-        )
         logging.error(f"获取用户信息操作失败，用户ID: {user_id}，异常信息: {str(e)}")
         return jsonify({
             'success': False,
@@ -191,14 +170,7 @@ def search_users():
         else:
             action_desc = f"搜索用户信息 [查询词: {search_query}]，返回全部结果"
             log_info = f"搜索用户信息操作成功，查询词: {search_query}，返回全部用户数: {len(result)}"
-        
-        log_operation(
-            user_id=current_user.id,
-            module='user',
-            operation_type='user_api',
-            action=action_desc,
-            result="成功"
-        )
+
         logging.info(log_info)
         return jsonify({
             'success': True,
@@ -209,13 +181,6 @@ def search_users():
         })
         
     except Exception as e:
-        log_operation(
-            user_id=current_user.id,
-            module='user',
-            operation_type='user_api',
-            action=f"尝试搜索用户信息 [查询词: {search_query}]，失败: {str(e)}",
-            result="失败"
-        )
         logging.error(f"搜索用户信息操作失败，查询词: {search_query}，异常信息: {str(e)}")
         return jsonify({
             'success': False,

@@ -77,6 +77,7 @@ PERMISSIONS = {
         'name': '水电费管理',
         'actions': {
             'view': '查看',
+            'create': '新增',
             'manage': '管理',
             'reading': '抄表',
             'calculate': '核算',

@@ -144,31 +144,11 @@ def get_room_detail(room_id):
             "message": "查询成功"
         }
         
-        log_operation(
-            user_id=current_user.id,
-            module='room',
-            operation_type='room_api',
-            action=f"查询房间详情 [ID: {room_id}]，入住{len(occupants)}人",
-            result="成功"
-        )
-        
         return jsonify(response)
         
     except Exception as e:
         error_detail = f"房间详情接口错误（room_id={room_id}）: {str(e)}\n堆栈: {traceback.format_exc()}"
         logging.error(error_detail)
-        
-        try:
-            log_operation(
-                user_id=getattr(current_user, 'id', "未知"),
-                module='room',
-                operation_type='room_api',
-                action=f"查询房间详情 [ID: {room_id}]失败: {str(e)}",
-                result="失败"
-            )
-        except Exception as log_err:
-            logging.error(f"记录日志失败: {str(log_err)}")
-        
         return jsonify({
             "success": False,
             "data": None,
@@ -372,31 +352,11 @@ def get_rooms():
             "message": "查询成功"
         }
 
-        log_operation(
-            user_id=getattr(current_user, 'id', "未知"),
-            module='room',
-            operation_type='room_api',
-            action=f"调用房间列表接口成功，返回{len(room_list)}条数据",
-            result="成功"
-        )
-        
         return jsonify(response)
 
     except Exception as e:
         error_detail = f"房间列表接口错误: {str(e)}\n堆栈: {traceback.format_exc()}"
         logging.error(error_detail)
-        
-        try:
-            log_operation(
-                user_id=getattr(current_user, 'id', "未知"),
-                module='room',
-                operation_type='room_api',
-                action=f"调用房间列表接口失败: {str(e)}",
-                result="失败"
-            )
-        except Exception as log_err:
-            logging.error(f"记录日志失败: {str(log_err)}")
-        
         return jsonify({
             "success": False,
             "data": None,
@@ -600,31 +560,12 @@ def get_buildings():
             "message": "查询成功"
         }
         
-        log_operation(
-            user_id=getattr(current_user, 'id', "未知"),
-            module='room',
-            operation_type='room_api',
-            action=f"调用获取楼栋列表接口成功，返回{len(building_list)}条数据",
-            result="成功"
-        )
-        
         return jsonify(response)
         
     except Exception as e:
         error_detail = f"获取楼栋列表接口错误: {str(e)}\n堆栈: {traceback.format_exc()}"
         logging.error(error_detail)
-        
-        try:
-            log_operation(
-                user_id=getattr(current_user, 'id', "未知"),
-                module='room',
-                operation_type='room_api',
-                action=f"调用获取楼栋列表接口失败: {str(e)}",
-                result="失败"
-            )
-        except Exception as log_err:
-            logging.error(f"记录日志失败: {str(log_err)}")
-        
+
         return jsonify({
             "success": False,
             "data": None,

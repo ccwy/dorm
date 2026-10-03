@@ -311,21 +311,6 @@ def import_readings():
             logging.error(f"导入文件失败{msg}")
             return jsonify({"success": False, "message": msg}), 401
 
-        # 获取必填的billing_period参数
-        billing_period = request.form.get('billing_period', '').strip()
-        if not billing_period:
-            msg = "缺少必填参数billing_period（格式：YYYY-MM）"
-            logging.error(f"导入文件失败{msg}")
-            return jsonify({"success": False, "message": msg}), 400
-        
-        # 验证billing_period格式
-        try:
-            datetime.strptime(billing_period, '%Y-%m')
-        except ValueError:
-            msg = f"billing_period格式错误：{billing_period}，请使用YYYY-MM格式"
-            logging.error(f"导入文件失败{msg}")
-            return jsonify({"success": False, "message": msg}), 400
-
         if 'file' not in request.files:
             msg = "未上传文件"
             log_operation(
@@ -377,7 +362,8 @@ def import_readings():
         # 验证必要表头（忽略未知表头及内容）
         required_headers = [
             "抄表日期时间", "楼栋", "宿舍号",
-            "水表本次读数", "电表本次读数"
+            "水表本次读数", "电表本次读数",
+            "账期(YYYY-MM)"
         ]
         
         # 获取实际表头
@@ -404,6 +390,13 @@ def import_readings():
         
         # 记录所有表头索引，用于后续数据读取
         header_indices = {header: idx for idx, header in enumerate(actual_headers)}
+        
+        # 检查Excel中是否存在账期列
+        billing_period_header = None
+        for header_name in ['账期(YYYY-MM)', '账期']:
+            if header_name in header_indices:
+                billing_period_header = header_name
+                break
 
         # 处理数据
         success_count = 0
@@ -414,6 +407,7 @@ def import_readings():
         # 先收集所有行数据和抄表日期时间值
         non_empty_rows = []
         reading_date_values = []
+        billing_period_values = []
         
         for row_num, row in enumerate(ws.iter_rows(min_row=2, values_only=True), 2):
             # 检查是否有实际数据（至少一个单元格有值）
@@ -426,6 +420,13 @@ def import_readings():
                     reading_date_values.append(row[reading_date_idx])
                 else:
                     reading_date_values.append(None)
+                # 尝试获取账期值
+                if billing_period_header:
+                    billing_period_idx = header_indices.get(billing_period_header)
+                    if billing_period_idx is not None and billing_period_idx < len(row):
+                        billing_period_values.append(row[billing_period_idx])
+                    else:
+                        billing_period_values.append(None)
         log_data["记录总数"] = total_records
         
         # 批量解析抄表日期时间
@@ -439,6 +440,36 @@ def import_readings():
                 'message': f'批量解析抄表日期时间失败：{str(e)}',
                 'error_details': []
             }), 500
+        
+        # 批量解析账期（账期列是必填的，billing_period_header一定存在）
+        parsed_billing_periods = None
+        if billing_period_values:
+            try:
+                parsed_billing_dates = excel_date_utils.parse_excel_date(
+                    billing_period_values, field_name='账期', raise_error=False
+                )
+                # 将解析后的datetime格式化为YYYY-MM字符串
+                parsed_billing_periods = []
+                for dt in parsed_billing_dates:
+                    if dt is not None:
+                        parsed_billing_periods.append(dt.strftime('%Y-%m'))
+                    else:
+                        parsed_billing_periods.append(None)
+            except Exception as e:
+                logging.error(f"批量解析账期失败：{str(e)}")
+                return jsonify({
+                    'success': False,
+                    'message': f'批量解析账期失败：{str(e)}',
+                    'error_details': []
+                }), 500
+        
+        # 获取第一个非None的账期值
+        first_billing_period = None
+        if parsed_billing_periods:
+            for bp in parsed_billing_periods:
+                if bp is not None:
+                    first_billing_period = bp
+                    break
         
         # 处理非空行数据
         for idx, (row_num, row) in enumerate(non_empty_rows):
@@ -489,6 +520,14 @@ def import_readings():
                     # 记录日志
                     logging.error(f"第{row_num}行抄表日期时间为空或无效")
                     raise ValueError("抄表日期时间不能为空或无效")
+
+                # 确定当前行的账期：从Excel账期列中取值
+                billing_period = None
+                if parsed_billing_periods:
+                    billing_period = parsed_billing_periods[idx]
+                if not billing_period:
+                    logging.error(f"第{row_num}行账期为空")
+                    raise ValueError("账期不能为空，请在Excel账期列中填写正确的账期")
 
                 # 查找房间
                 room = Room.query.filter_by(
@@ -558,6 +597,7 @@ def import_readings():
             "total_count": total_records,  # 新增：返回实际处理的总记录数
             "success_count": success_count,
             "fail_count": fail_count,
+            "billing_period": first_billing_period,
             "errors": error_records if fail_count > 0 else None
         })
 

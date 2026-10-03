@@ -75,7 +75,7 @@
          <!-- 页面标题和描述 -->
         <div class="mb-8 fade-in">
             <div class="flex items-center mb-4">
-            <button type="button" onclick="window.location.href='{{ url_for('utility_room_meter.utility_reading_manage') }}'" class="text-gray-600 hover:text-primary transition-all-300 mr-4">
+            <button type="button" onclick="var bp=document.getElementById('billingPeriod').value;window.location.href='{{ url_for('utility_room_meter.utility_reading_manage') }}'+(bp?'?billing_period='+encodeURIComponent(bp):'')" class="text-gray-600 hover:text-primary transition-all-300 mr-4">
                 <i class="fa fa-arrow-left"></i>
             </button>
             <h2 class="text-[clamp(1.5rem,3vw,2rem)] font-bold text-gray-800">{{ title }}(ID:<span id="recordId"></span>)</h2>
@@ -709,7 +709,7 @@
             // 返回和取消按钮事件 - 直接返回上一页，不显示确认弹窗
             
             document.getElementById('cancelBtn').addEventListener('click', () => {
-                window.location.href = '{{ url_for('utility_room_meter.utility_reading_manage') }}';
+                var bp=document.getElementById('billingPeriod').value;window.location.href='{{ url_for('utility_room_meter.utility_reading_manage') }}'+(bp?'?billing_period='+encodeURIComponent(bp):'');
             });
             
             // 为是否换表下拉框添加事件监听器

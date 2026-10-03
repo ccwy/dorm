@@ -63,7 +63,7 @@
     <main class="container mx-auto px-4 py-6">
         <div class="flex justify-between items-center mb-6">
             <div class="flex items-center">
-                <button type="button" onclick="window.location.href='{{ url_for('utility_room_meter.utility_reading_manage') }}'" class="text-primary hover:text-primary/80 mr-2">
+                <button type="button" onclick="var bp=document.getElementById('billingPeriod').value;window.location.href='{{ url_for('utility_room_meter.utility_reading_manage') }}'+(bp?'?billing_period='+encodeURIComponent(bp):'')" class="text-primary hover:text-primary/80 mr-2">
                     <i class="fa fa-arrow-left"></i>
                 </button>
                 <h2 class="text-2xl font-semibold text-dark">{{ title }}</h2>
@@ -402,7 +402,19 @@
                     {% endif %}
                     
                     <div class="flex justify-end gap-3 mt-4">
-                        <a href="{{ url_for('utility_room_meter.utility_reading_manage') }}" class="px-6 py-2 border border-gray-300 rounded-md hover:bg-gray-50">取消</a>
+                        <a id="cancelLink" href="{{ url_for('utility_room_meter.utility_reading_manage') }}" class="px-6 py-2 border border-gray-300 rounded-md hover:bg-gray-50">取消</a>
+                        <script>
+                        (function(){
+                            var sel=document.getElementById('billingPeriod');
+                            var link=document.getElementById('cancelLink');
+                            function updateLink(){
+                                var bp=sel.value;
+                                link.href='{{ url_for("utility_room_meter.utility_reading_manage") }}'+(bp?'?billing_period='+encodeURIComponent(bp):'');
+                            }
+                            sel.addEventListener('change',updateLink);
+                            updateLink();
+                        })();
+                        </script>
                         <button type="submit" id="saveAllWithValuesBtn" 
                                 class="px-6 py-2 bg-primary text-white rounded-md hover:bg-primary/90">
                             保存有读数的记录

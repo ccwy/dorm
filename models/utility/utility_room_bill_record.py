@@ -57,6 +57,8 @@ class RoomUtilityRecord(db.Model):
     )
     electric_reading_date = db.Column(db.DateTime, nullable=True, comment='电表抄表日期')
     water_reading_date = db.Column(db.DateTime, nullable=True, comment='水表抄表日期')
+    electric_previous_reading_date = db.Column(db.DateTime, nullable=True, comment='上次电表抄表日期')
+    water_previous_reading_date = db.Column(db.DateTime, nullable=True, comment='上次水表抄表日期')
 
     # 电表读数相关字段（单位：度）
     electric_current = db.Column(
@@ -70,7 +72,7 @@ class RoomUtilityRecord(db.Model):
     # 实际用电量
     electric_usage = db.Column(
         db.Numeric(10, 2),
-        comment='抄表电量（自动计算：current - previous，保留2位小数）'
+        comment='抄表用电量（自动计算：current - previous，保留2位小数）'
     )
     # 新增：用电量减免度数
     electric_reduction = db.Column(
@@ -100,7 +102,7 @@ class RoomUtilityRecord(db.Model):
     # 实际用水量
     water_usage = db.Column(
         db.Numeric(10, 2),
-        comment='本抄表水量（自动计算：current - previous，保留2位小数）'
+        comment='抄表用水量（自动计算：current - previous，保留2位小数）'
     )
     # 新增：用水量减免度数
     water_reduction = db.Column(
@@ -342,7 +344,9 @@ class RoomUtilityRecord(db.Model):
             checked_out_water_fee=Decimal('0.00'),
             checked_out_total_fee=Decimal('0.00'),
             electric_reading_date=reading_date,  # 电表抄表日期
-            water_reading_date=reading_date  # 水表抄表日期
+            water_reading_date=reading_date,  # 水表抄表日期
+            electric_previous_reading_date=None,  # 上次电表抄表日期
+            water_previous_reading_date=None  # 上次水表抄表日期
         )
         db.session.add(new_record)
         db.session.flush()
@@ -401,7 +405,9 @@ class RoomUtilityRecord(db.Model):
             checked_out_water_fee=Decimal('0.00'),
             checked_out_total_fee=Decimal('0.00'),
             electric_reading_date=None,  # 电表抄表日期（新房间初始化时无抄表）
-            water_reading_date=None  # 水表抄表日期（新房间初始化时无抄表）
+            water_reading_date=None,  # 水表抄表日期（新房间初始化时无抄表）
+            electric_previous_reading_date=None,  # 上次电表抄表日期
+            water_previous_reading_date=None  # 上次水表抄表日期
         )
         db.session.add(new_record)
         logging.info(f"为新房间{room_id}初始化{billing_period}期账单")
@@ -470,7 +476,9 @@ class RoomUtilityRecord(db.Model):
                     checked_out_water_fee=Decimal('0.00'),
                     checked_out_total_fee=Decimal('0.00'),
                     electric_reading_date=None,  # 电表抄表日期（批量创建时无抄表）
-                    water_reading_date=None  # 水表抄表日期（批量创建时无抄表）
+                    water_reading_date=None,  # 水表抄表日期（批量创建时无抄表）
+                    electric_previous_reading_date=None,  # 上次电表抄表日期
+                    water_previous_reading_date=None  # 上次水表抄表日期
                 )
                 db.session.add(new_record)
                 created_count += 1
@@ -813,6 +821,7 @@ class RoomUtilityRecord(db.Model):
                 # 5. 如果只有1条普通抄表 → 从历史账期查上期读数
 
                 electric_reading_date = None  # 追踪电表抄表日期
+                electric_previous_reading_date = None  # 追踪上次电表抄表日期
 
                 # 找最后一个换表/首次标记的记录（初始读数点）
                 last_electric_reset_index = -1
@@ -823,6 +832,7 @@ class RoomUtilityRecord(db.Model):
                 if last_electric_reset_index >= 0:
                     # 有初始读数点（换表或首次抄表）
                     first_electric_value = Decimal(str(electric_readings_in_period[last_electric_reset_index].electric_current))
+                    electric_previous_reading_date = electric_readings_in_period[last_electric_reset_index].reading_date
                     
                     # 在初始读数点之后找普通抄表记录
                     subsequent_electric_normal = [r for r in electric_readings_in_period[last_electric_reset_index + 1:] 
@@ -843,6 +853,7 @@ class RoomUtilityRecord(db.Model):
                 elif len(electric_readings_in_period) >= 2:
                     # 没有初始读数点，全是普通抄表
                     first_electric_value = Decimal(str(electric_readings_in_period[0].electric_current))
+                    electric_previous_reading_date = electric_readings_in_period[0].reading_date
                     electric_current_value = Decimal(str(electric_readings_in_period[-1].electric_current))
                     electric_reading_date = electric_readings_in_period[-1].reading_date
                     electric_usage = electric_current_value - first_electric_value
@@ -869,11 +880,13 @@ class RoomUtilityRecord(db.Model):
                             .first()
                         if prev_electric_reading:
                             first_electric_value = Decimal(str(prev_electric_reading.electric_current))
+                            electric_previous_reading_date = prev_electric_reading.reading_date
                             electric_usage = electric_current_value - first_electric_value
                             logging.info(f'房间{room_id}电表单条普通抄表，上期读数来自历史账期: {first_electric_value}, 用量: {electric_usage}')
                         else:
                             # 无历史记录（首次抄表）→ 不计费
                             first_electric_value = electric_current_value
+                            electric_previous_reading_date = electric_reading_date
                             electric_usage = Decimal('0')
                             logging.info(f'房间{room_id}电表首次抄表且无后续抄表，不计费')
                 else:
@@ -881,6 +894,7 @@ class RoomUtilityRecord(db.Model):
                     first_electric_value = Decimal('0')
                     electric_current_value = Decimal('0')
                     electric_usage = Decimal('0')
+                    electric_previous_reading_date = None
                     logging.info(f'房间{room_id}无本期电表抄表记录')
                 
                 # ---- 水表读数计算 ----
@@ -892,6 +906,7 @@ class RoomUtilityRecord(db.Model):
                 # 5. 如果只有1条普通抄表 → 从历史账期查上期读数
 
                 water_reading_date = None  # 追踪水表抄表日期
+                water_previous_reading_date = None  # 追踪上次水表抄表日期
 
                 # 找最后一个换表/首次标记的记录（初始读数点）
                 last_water_reset_index = -1
@@ -902,6 +917,7 @@ class RoomUtilityRecord(db.Model):
                 if last_water_reset_index >= 0:
                     # 有初始读数点（换表或首次抄表）
                     first_water_value = Decimal(str(water_readings_in_period[last_water_reset_index].water_current))
+                    water_previous_reading_date = water_readings_in_period[last_water_reset_index].reading_date
                     
                     # 在初始读数点之后找普通抄表记录
                     subsequent_water_normal = [r for r in water_readings_in_period[last_water_reset_index + 1:] 
@@ -922,6 +938,7 @@ class RoomUtilityRecord(db.Model):
                 elif len(water_readings_in_period) >= 2:
                     # 没有初始读数点，全是普通抄表
                     first_water_value = Decimal(str(water_readings_in_period[0].water_current))
+                    water_previous_reading_date = water_readings_in_period[0].reading_date
                     water_current_value = Decimal(str(water_readings_in_period[-1].water_current))
                     water_reading_date = water_readings_in_period[-1].reading_date
                     water_usage = water_current_value - first_water_value
@@ -948,11 +965,13 @@ class RoomUtilityRecord(db.Model):
                             .first()
                         if prev_water_reading:
                             first_water_value = Decimal(str(prev_water_reading.water_current))
+                            water_previous_reading_date = prev_water_reading.reading_date
                             water_usage = water_current_value - first_water_value
                             logging.info(f'房间{room_id}水表单条普通抄表，上期读数来自历史账期: {first_water_value}, 用量: {water_usage}')
                         else:
                             # 无历史记录（首次抄表）→ 不计费
                             first_water_value = water_current_value
+                            water_previous_reading_date = water_reading_date
                             water_usage = Decimal('0')
                             logging.info(f'房间{room_id}水表首次抄表且无后续抄表，不计费')
                 else:
@@ -960,6 +979,7 @@ class RoomUtilityRecord(db.Model):
                     first_water_value = Decimal('0')
                     water_current_value = Decimal('0')
                     water_usage = Decimal('0')
+                    water_previous_reading_date = None
                     logging.info(f'房间{room_id}无本期水表抄表记录')
 
                 # 获取房间表计量程配置
@@ -1092,6 +1112,7 @@ class RoomUtilityRecord(db.Model):
 
                 # 更新主表字段
                 main_record.electric_previous = first_electric_value
+                main_record.electric_previous_reading_date = electric_previous_reading_date
                 main_record.electric_current = electric_current_value
                 main_record.electric_usage = round(electric_usage, 2)
                 main_record.electric_billing_usage = electric_billing_usage  # 更新计费用量
@@ -1099,6 +1120,7 @@ class RoomUtilityRecord(db.Model):
                 main_record.total_electric_fee = electric_fee
                 
                 main_record.water_previous = first_water_value
+                main_record.water_previous_reading_date = water_previous_reading_date
                 main_record.water_current = water_current_value
                 main_record.water_usage = water_usage
                 main_record.water_billing_usage = water_billing_usage  # 更新计费用量

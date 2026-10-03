@@ -598,10 +598,9 @@
                         
                         // 添加周期选项
                         data.periods.forEach(period => {
-                            const [year, month] = period.split('-');
                             const option = document.createElement('option');
                             option.value = period;
-                            option.textContent = `${year}年${month}月`;
+                            option.textContent = period;
                             billingPeriodSelect.appendChild(option);
                         });
                     } else {
@@ -751,9 +750,6 @@
                     if (record.reading_type === 2) {
                         readingTypeText = '退宿抄表';
                         readingTypeClass = 'bg-yellow-100 text-yellow-800';
-                    } else if (!record.prev_reading) {
-                        readingTypeText = '首次抄表';
-                        readingTypeClass = 'bg-green-100 text-green-800';
                     }
                     
                     // 格式化日期
@@ -1456,9 +1452,14 @@
                                 // 可以根据需要决定是否显示错误详情，这里简化为只显示成功信息
                             }
                             
-                            // 延迟一小段时间后刷新整个页面，确保数据完全更新
+                            // 延迟一小段时间后刷新页面，确保数据完全更新
                             setTimeout(() => {
-                                location.reload();
+                                if (data.billing_period) {
+                                    const baseUrl = window.location.pathname;
+                                    window.location.href = baseUrl + '?billing_period=' + encodeURIComponent(data.billing_period);
+                                } else {
+                                    location.reload();
+                                }
                             }, 3000);
                         }, 80);
                     } else {

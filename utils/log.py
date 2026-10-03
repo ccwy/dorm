@@ -100,6 +100,8 @@ OPERATION_TYPE_MAP = {
     ('utility', 'checkout_edit'): '编辑退宿费用',
     ('utility', 'occupant_fee'): '在住费用',
     ('utility', 'records'): '访问页面',
+    ('utility', 'create'): '新增',
+    ('utility', 'clear'): '清空',
     #补贴管理
     ('feesubsidy', 'records'): '访问页面',
     ('feesubsidy', 'feesub_api'): '调用接口页面',

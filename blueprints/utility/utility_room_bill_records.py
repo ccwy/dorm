@@ -32,15 +32,7 @@ def get_periods():
         # 查询系统中所有不重复的账期
         periods = db.session.query(RoomUtilityRecord.billing_period).distinct().all()
         period_list = [p[0] for p in periods if p[0]]  # 过滤空值，格式化为列表
-        
-       # 记录日志
-        log_operation(
-            user_id=current_user.id,
-            module="utility",
-            operation_type="utility_api",
-            action=f"获取所有可用账期列表 [账期数量: {len(period_list)}]",
-            result="成功"
-        )
+
         return jsonify({
             'success': True,
             'periods': period_list
@@ -102,14 +94,7 @@ def get_period_info(period):
         price_record = RoomUtilityRecord.query.filter_by(billing_period=period).first()
         electric_price = float(price_record.electric_price) if price_record and price_record.electric_price else 0
         water_price = float(price_record.water_price) if price_record and price_record.water_price else 0
-        # 记录查询成功日志
-        log_operation(
-            user_id=current_user.id,
-            module="utility",
-            operation_type="utility_api",
-            action=f"查询账期信息 [账期: {period}, 记录数: {total_records}, 抄表数: {meter_records_count}]",
-            result="成功"
-        )
+
         return jsonify({
             'success': True,
             'data': {
@@ -270,14 +255,6 @@ def get_records_by_period():
                 'meter_readings': sub_records
             })
             
-        # 记录操作日志
-        log_operation(
-            user_id=current_user.id,
-            module="utility",
-            operation_type="utility_api",
-            action=f"按账期查询房间水电费记录 [房间ID: {room_id}, 账期: {period}, 年份: {year}, 月份: {month}, 记录数: {len(result)}]",
-            result="成功"
-        )
         return jsonify({
             'success': True,
             'data': result,
@@ -420,6 +397,9 @@ def calculate_single_record():
         )
         db.session.commit()
 
+        # 构建房间信息
+        room_info = f"{main_record.room.building}{main_record.room.room_number}" if main_record.room else f"记录ID={record_id}"
+
         # 记录操作日志
         log_operation(
             user_id=current_user.id,
@@ -428,17 +408,20 @@ def calculate_single_record():
             action=f"单条核算：记录ID={record_id}，账期{billing_period}，更新{updated_count}条记录",
             result="成功"
         )
-        flash(f'单条核算完成，更新{updated_count}条记录', 'success')
+        flash(f'{room_info}核算完成，更新{updated_count}条记录', 'success')
         return redirect(url_for('utility_index.utility_calculate_fees', billing_period=billing_period))
 
     except Exception as e:
         db.session.rollback()
         traceback.print_exc()
 
+        # 构建房间信息（异常时main_record可能已加载）
+        room_info = f"{main_record.room.building}{main_record.room.room_number}" if main_record and main_record.room else f"记录ID={record_id}"
+
         logging.error(
             f"单条核算处理失败 [用户ID: {current_user.id}, 模块: utility, 操作: bill_update, 错误: {str(e)}]"
         )
-        flash(f'单条核算处理失败: {str(e)}', 'danger')
+        flash(f'{room_info}核算失败: {str(e)}', 'danger')
         billing_period = request.form.get('billing_period', '')
         return redirect(url_for('utility_index.utility_calculate_fees', billing_period=billing_period))
 
@@ -454,7 +437,7 @@ def delete_single_record(record_id):
         if not record:
             # 记录失败日志
             logging.warning(
-                f"删除单条记录失败 [用户ID: {current_user.id}, 模块: utility, 操作: delete, 记录ID: {record_id}, 原因: 记录不存在]"
+                f"删除单条记录失败 [用户ID: {current_user.id}, 模块: utility, 操作: clear, 记录ID: {record_id}, 原因: 记录不存在]"
             )
             flash(f'记录ID={record_id}不存在', 'danger')
             billing_period = request.form.get('billing_period', '')
@@ -479,7 +462,7 @@ def delete_single_record(record_id):
         log_operation(
             user_id=current_user.id,
             module='utility',
-            operation_type="delete",
+            operation_type="clear",
             action=f"删除单条记录 [记录ID: {record_id}, 房间ID: {room_id}, 账期: {billing_period}], "
                    f"连带删除补贴记录数量: {subsidy_deleted_count}",
             result="成功"
@@ -496,7 +479,7 @@ def delete_single_record(record_id):
         db.session.rollback()
         # 记录错误日志
         logging.error(
-            f"删除单条记录失败 [用户ID: {current_user.id}, 模块: utility, 操作: delete, 记录ID: {record_id}, 错误: {str(e)}]"
+            f"删除单条记录失败 [用户ID: {current_user.id}, 模块: utility, 操作: clear, 记录ID: {record_id}, 错误: {str(e)}]"
         )
         flash(f'删除失败: {str(e)}', 'danger')
         billing_period = request.form.get('billing_period', '')
@@ -515,7 +498,7 @@ def batch_delete_records():
         if not record_ids:
             # 记录参数错误日志
             logging.warning(
-                f"批量删除记录失败 [用户ID: {current_user.id}, 模块: utility, 操作: delete, 原因: 未提供record_ids参数]"
+                f"批量删除记录失败 [用户ID: {current_user.id}, 模块: utility, 操作: clear, 原因: 未提供record_ids参数]"
             )
             flash('请提供要删除的记录ID列表', 'danger')
             billing_period = request.form.get('billing_period', '')
@@ -529,7 +512,7 @@ def batch_delete_records():
             if not record:
                 # 记录错误日志
                 logging.warning(
-                    f"批量删除记录失败 [用户ID: {current_user.id}, 模块: utility, 操作: delete, 记录ID: {record_id}, 原因: 记录不存在]"
+                    f"批量删除记录失败 [用户ID: {current_user.id}, 模块: utility, 操作: clear, 记录ID: {record_id}, 原因: 记录不存在]"
                 )
                 flash(f'记录ID={record_id}不存在，无法删除', 'danger')
                 billing_period = request.form.get('billing_period', '')
@@ -563,7 +546,7 @@ def batch_delete_records():
         log_operation(
             user_id=current_user.id,
             module='utility',
-            operation_type="delete",
+            operation_type="clear",
             action=f"批量删除记录 [删除数量: {len(deleted_ids)}, 删除ID列表: {deleted_ids}, "
                    f"连带删除补贴记录数量: {total_subsidy_deleted}]",
             result="成功"
@@ -576,7 +559,7 @@ def batch_delete_records():
         db.session.rollback()
         # 记录错误日志
         logging.error(
-            f"批量删除记录失败 [用户ID: {current_user.id}, 模块: utility, 操作: delete, record_ids: {str(request.form.getlist('record_ids[]'))}, 错误: {str(e)}]"
+            f"批量删除记录失败 [用户ID: {current_user.id}, 模块: utility, 操作: clear, record_ids: {str(request.form.getlist('record_ids[]'))}, 错误: {str(e)}]"
         )
         flash(f'删除失败: {str(e)}', 'danger')
         billing_period = request.form.get('billing_period', '')
@@ -591,7 +574,7 @@ def delete_period_records():
         period = request.form.get('billing_period')
         if not period:
             logging.warning(
-                f"按账期删除记录失败 [用户ID: {current_user.id}, 模块: utility, 操作: delete, 原因: 未提供账期参数]"
+                f"按账期删除记录失败 [用户ID: {current_user.id}, 模块: utility, 操作: clear, 原因: 未提供账期参数]"
             )
             flash('请提供账期参数', 'danger')
             return redirect(url_for('utility_index.utility_calculate_fees'))
@@ -627,7 +610,7 @@ def delete_period_records():
         log_operation(
             user_id=current_user.id,
             module='utility',
-            operation_type="delete",
+            operation_type="clear",
             action=f"按账期删除记录 [账期: {period}, 删除数量: {deleted_count}, 连带删除补贴记录数量: {total_subsidy_deleted}]",
             result="成功"
         )
@@ -637,7 +620,7 @@ def delete_period_records():
     except Exception as e:
         db.session.rollback()
         logging.error(
-            f"按账期删除记录失败 [用户ID: {current_user.id}, 模块: utility, 操作: delete, 账期: {request.form.get('billing_period')}, 错误: {str(e)}]"
+            f"按账期删除记录失败 [用户ID: {current_user.id}, 模块: utility, 操作: clear, 账期: {request.form.get('billing_period')}, 错误: {str(e)}]"
         )
         flash(f'删除失败: {str(e)}', 'danger')
         billing_period = request.form.get('billing_period', '')
@@ -653,7 +636,7 @@ def clear_period_data():
         if not period:
             # 记录参数错误日志
             logging.warning(
-                f"清空账期数据失败 [用户ID: {current_user.id}, 模块: utility, 操作: delete, 原因: 未提供账期参数]"
+                f"清空账期数据失败 [用户ID: {current_user.id}, 模块: utility, 操作: clear, 原因: 未提供账期参数]"
             )
             flash('请提供账期参数（billing_period）', 'danger')
             return redirect(url_for('utility_index.utility_calculate_fees'))
@@ -663,7 +646,7 @@ def clear_period_data():
         if not records:
             # 记录失败日志
             logging.warning(
-                f"清空账期数据失败 [用户ID: {current_user.id}, 模块: utility, 操作: delete, 账期: {period}, 原因: 未找到主表记录]"
+                f"清空账期数据失败 [用户ID: {current_user.id}, 模块: utility, 操作: clear, 账期: {period}, 原因: 未找到主表记录]"
             )
             flash(f'未找到{period}的主表记录', 'danger')
             return redirect(url_for('utility_index.utility_calculate_fees', billing_period=period))
@@ -699,25 +682,19 @@ def clear_period_data():
             record.electric_billing_usage = Decimal('0.00') # 新增：用电量计费用量（实际收费的用电量）
             record.water_previous = Decimal('0.00')
             record.water_current = Decimal('0.00')
-            record.water_usage = Decimal('0.00') # 新增：用水量减免度数
-            record.water_reduction = Decimal('0.00') # 新增：用水量计费用量（实际收费的用水量）
+            record.water_usage = Decimal('0.00') # 用水量
+            record.water_reduction = Decimal('0.00') # 新增：用水量减免度数
             record.water_billing_usage = Decimal('0.00')
+            
+            # 清除抄表日期
+            record.electric_reading_date = None
+            record.water_reading_date = None
+            record.electric_previous_reading_date = None
+            record.water_previous_reading_date = None
             
             # 清除水电费单价
             record.electric_price = Decimal('0.00')
             record.water_price = Decimal('0.00')
-
-            # 关键修改：临时开启内部更新标志，绕过字段保护
-            try:
-                # 开启内部更新模式
-                record._internal_update = True
-                # 重置受保护的应付费用字段
-                record.receivable_electric_fee = Decimal('0.00')
-                record.receivable_water_fee = Decimal('0.00')
-                record.receivable_total_fee = Decimal('0.00')
-            finally:
-                # 确保无论是否出错，都关闭内部更新模式
-                record._internal_update = False
 
             # 清除费用核算信息
             record.total_electric_fee = Decimal('0.00')
@@ -730,6 +707,7 @@ def clear_period_data():
             record.receivable_water_fee = Decimal('0.00')
             record.receivable_total_fee = Decimal('0.00')
             record.room_reduction_fee = Decimal('0.00') # 新增：费用减免
+            record.actual_total_fee = Decimal('0.00')
 
             # 重置状态为待核算
             record.status = 'pending'
@@ -743,7 +721,7 @@ def clear_period_data():
         log_operation(
             user_id=current_user.id,
             module='utility',
-            operation_type="delete",
+            operation_type="clear",
             action=f"清空账期数据 [账期: {period}, 主表清除数量: {cleared_count}, 在住人员子表删除数量: {room_utility_occupant_deleted}，补贴子表删除数量: {subsidy_usage_deleted}]",
             result="成功"
         )
@@ -754,7 +732,100 @@ def clear_period_data():
         db.session.rollback()
         # 记录错误日志
         logging.error(
-            f"清空账期数据失败 [用户ID: {current_user.id}, 模块: utility, 操作: delete, 账期: {request.form.get('billing_period')}, 错误: {str(e)}]"
+            f"清空账期数据失败 [用户ID: {current_user.id}, 模块: utility, 操作: clear, 账期: {request.form.get('billing_period')}, 错误: {str(e)}]"
+        )
+        flash(f'清空失败: {str(e)}', 'danger')
+        billing_period = request.form.get('billing_period', '')
+        return redirect(url_for('utility_index.utility_calculate_fees', billing_period=billing_period))
+
+
+@utility_room_bill_records_bp.route('/<int:record_id>/clear', methods=['POST'])
+@login_required
+@require_permission('utility.delete')
+def clear_single_record(record_id):
+    """清空单条账单记录的抄表和费用数据（保留记录，保留退宿费用字段）"""
+    try:
+        record = RoomUtilityRecord.get_by_id(record_id)
+        if not record:
+            logging.warning(
+                f"清空单条记录失败 [用户ID: {current_user.id}, 模块: utility, 操作: clear, 记录ID: {record_id}, 原因: 记录不存在]"
+            )
+            flash(f'记录ID={record_id}不存在', 'danger')
+            billing_period = request.form.get('billing_period', '')
+            return redirect(url_for('utility_index.utility_calculate_fees', billing_period=billing_period))
+
+        billing_period = record.billing_period
+        room_id = record.room_id
+
+        # 删除关联的在住人员费用子表记录
+        RoomUtilityOccupant.query.filter(
+            RoomUtilityOccupant.record_id == record_id
+        ).delete(synchronize_session=False)
+
+        # 删除对应账期+房间的费用补贴子表记录
+        FeeSubsidyUsage.query.filter(
+            FeeSubsidyUsage.room_id == room_id,
+            FeeSubsidyUsage.billing_period == billing_period,
+            FeeSubsidyUsage.is_checkout.in_([2, 3])
+        ).delete(synchronize_session=False)
+
+        # 清空抄表读数信息
+        record.electric_previous = Decimal('0.00')
+        record.electric_current = Decimal('0.00')
+        record.electric_usage = Decimal('0.00')
+        record.electric_reduction = Decimal('0.00')
+        record.electric_billing_usage = Decimal('0.00')
+        record.water_previous = Decimal('0.00')
+        record.water_current = Decimal('0.00')
+        record.water_usage = Decimal('0.00')
+        record.water_reduction = Decimal('0.00')
+        record.water_billing_usage = Decimal('0.00')
+
+        # 清空抄表日期
+        record.electric_reading_date = None
+        record.water_reading_date = None
+        record.electric_previous_reading_date = None
+        record.water_previous_reading_date = None
+
+        # 清空水电费单价
+        record.electric_price = Decimal('0.00')
+        record.water_price = Decimal('0.00')
+
+        # 清空费用核算信息
+        record.total_electric_fee = Decimal('0.00')
+        record.total_water_fee = Decimal('0.00')
+        record.total_fee = Decimal('0.00')
+        record.billing_electric_fee = Decimal('0.00')
+        record.billing_water_fee = Decimal('0.00')
+        record.billing_total_fee = Decimal('0.00')
+        record.receivable_electric_fee = Decimal('0.00')
+        record.receivable_water_fee = Decimal('0.00')
+        record.receivable_total_fee = Decimal('0.00')
+        record.room_reduction_fee = Decimal('0.00')
+        record.actual_total_fee = Decimal('0.00')
+
+        # 重置状态为待核算
+        record.status = 'pending'
+        record.updated_at = datetime.now()
+
+        # 注意：保留 checked_out_electric_fee、checked_out_water_fee、checked_out_total_fee
+
+        db.session.commit()
+
+        log_operation(
+            user_id=current_user.id,
+            module='utility',
+            operation_type="clear",
+            action=f"清空单条记录 [记录ID: {record_id}, 房间ID: {room_id}, 账期: {billing_period}]",
+            result="成功"
+        )
+        flash('记录已成功清空', 'success')
+        return redirect(url_for('utility_index.utility_calculate_fees', billing_period=billing_period))
+
+    except Exception as e:
+        db.session.rollback()
+        logging.error(
+            f"清空单条记录失败 [用户ID: {current_user.id}, 模块: utility, 操作: clear, 记录ID: {record_id}, 错误: {str(e)}]"
         )
         flash(f'清空失败: {str(e)}', 'danger')
         billing_period = request.form.get('billing_period', '')
@@ -994,7 +1065,7 @@ def update_billing_period_range():
         log_operation(
             user_id=current_user.id,
             module='utility',
-            operation_type='bill_update',
+            operation_type='create',
             action=f"修改账期范围 [账期: {billing_period}, 起始: {start_date_str}, 结束: {end_date_str}, 记录数: {len(records)}]",
             result="成功"
         )
@@ -1093,7 +1164,7 @@ def create_empty_period_records():
             log_operation(
                 user_id=current_user.id,
                 module='utility',
-                operation_type='bill_update',
+                operation_type='create',
                 action=f"批量创建空记录 [账期: {', '.join(success_periods)}, 创建数量: {total_created}, 跳过: {len(skipped_periods)}]",
                 result="成功"
             )
@@ -1113,6 +1184,120 @@ def create_empty_period_records():
         flash(f'创建失败: {str(e)}', 'danger')
         billing_period = request.form.get('billing_periods', request.form.get('billing_period', ''))
         return redirect(url_for('utility_index.utility_calculate_fees', billing_period=billing_period.split(',')[0] if billing_period else ''))
+
+@utility_room_bill_records_bp.route('/create_single_room_record', methods=['POST'])
+@login_required
+@require_permission('utility.create')
+def create_single_room_record():
+    """为指定账期的单个房间创建空账单记录"""
+    try:
+        billing_period = request.form.get('billing_period', '').strip()
+        room_id = request.form.get('room_id', '').strip()
+        room_number = request.form.get('room_number', '').strip()
+        building = request.form.get('building', '').strip()
+
+        if not billing_period:
+            flash('请提供账期参数', 'danger')
+            return redirect(url_for('utility_index.utility_calculate_fees'))
+
+        # 优先使用 room_id 查找房间
+        room = None
+        if room_id:
+            room = Room.query.get(room_id)
+        if not room:
+            if not room_number:
+                flash('请选择房间', 'danger')
+                return redirect(url_for('utility_index.utility_calculate_fees', billing_period=billing_period))
+            # 兼容旧方式：通过楼栋+房间号查找
+            if building:
+                room = Room.query.filter_by(building=building, room_number=room_number).first()
+            else:
+                room = Room.query.filter_by(room_number=room_number).first()
+
+        room_desc = f"{room.building}-{room.room_number}" if room else (f"{building}-{room_number}" if building else room_number)
+
+        if not room:
+            logging.warning(
+                f"创建单房间空账单失败 [用户ID: {current_user.id}, 模块: utility, 操作: bill_update, 房间: {room_desc}, 原因: 房间不存在]"
+            )
+            flash(f'房间 {room_desc} 不存在', 'danger')
+            return redirect(url_for('utility_index.utility_calculate_fees', billing_period=billing_period))
+
+        # 验证账期格式
+        try:
+            datetime.strptime(billing_period, '%Y-%m')
+        except ValueError:
+            flash(f'账期格式错误：{billing_period}，应为YYYY-MM', 'danger')
+            return redirect(url_for('utility_index.utility_calculate_fees', billing_period=billing_period))
+
+        # 检查该房间是否已有此账期的记录
+        if RoomUtilityRecord.exists_by_room_and_period(room.id, billing_period):
+            logging.info(
+                f"创建单房间空账单跳过 [用户ID: {current_user.id}, 模块: utility, 操作: bill_update, 房间: {room_desc}, 账期: {billing_period}, 原因: 记录已存在]"
+            )
+            flash(f'房间 {room_desc} 在 {billing_period} 账期已有记录，跳过创建', 'warning')
+            return redirect(url_for('utility_index.utility_calculate_fees', billing_period=billing_period))
+
+        # 创建空记录
+        start_date, end_date = RoomUtilityRecord.get_billing_period_dates(billing_period)
+        new_record = RoomUtilityRecord(
+            room_id=room.id,
+            billing_period=billing_period,
+            start_date=start_date,
+            end_date=end_date,
+            status='pending',
+            electric_current=Decimal('0.00'),
+            electric_previous=Decimal('0.00'),
+            water_current=Decimal('0.00'),
+            water_previous=Decimal('0.00'),
+            electric_usage=Decimal('0.00'),
+            water_usage=Decimal('0.00'),
+            electric_reduction=Decimal('0.00'),
+            electric_billing_usage=Decimal('0.00'),
+            water_reduction=Decimal('0.00'),
+            water_billing_usage=Decimal('0.00'),
+            electric_price=Decimal('0.00'),
+            water_price=Decimal('0.00'),
+            total_electric_fee=Decimal('0.00'),
+            total_water_fee=Decimal('0.00'),
+            total_fee=Decimal('0.00'),
+            billing_electric_fee=Decimal('0.00'),
+            billing_water_fee=Decimal('0.00'),
+            billing_total_fee=Decimal('0.00'),
+            room_reduction_fee=Decimal('0.00'),
+            receivable_electric_fee=Decimal('0.00'),
+            receivable_water_fee=Decimal('0.00'),
+            receivable_total_fee=Decimal('0.00'),
+            actual_total_fee=Decimal('0.00'),
+            checked_out_electric_fee=Decimal('0.00'),
+            checked_out_water_fee=Decimal('0.00'),
+            checked_out_total_fee=Decimal('0.00'),
+            electric_reading_date=None,
+            water_reading_date=None,
+            electric_previous_reading_date=None,
+            water_previous_reading_date=None
+        )
+        db.session.add(new_record)
+        db.session.commit()
+
+        log_operation(
+            user_id=current_user.id,
+            module='utility',
+            operation_type='create',
+            action=f"创建单房间空账单 [房间: {room_desc}, 房间ID: {room.id}, 账期: {billing_period}]",
+            result="成功"
+        )
+        flash(f'成功为房间 {room_desc} 创建 {billing_period} 账期空账单', 'success')
+        return redirect(url_for('utility_index.utility_calculate_fees', billing_period=billing_period))
+
+    except Exception as e:
+        db.session.rollback()
+        logging.error(
+            f"创建单房间空账单失败 [用户ID: {current_user.id}, 模块: utility, 操作: bill_update, 账期: {request.form.get('billing_period', '')}, 房间号: {request.form.get('room_number', '')}, 错误: {str(e)}]"
+        )
+        flash(f'创建失败: {str(e)}', 'danger')
+        billing_period = request.form.get('billing_period', '')
+        return redirect(url_for('utility_index.utility_calculate_fees', billing_period=billing_period))
 
 @utility_room_bill_records_bp.route('/record_details/<int:record_id>', methods=['GET'])
 @login_required
@@ -1281,14 +1466,7 @@ def get_record_details(record_id):
                 'meter_records': meter_records
             }
         }
-        # 记录查询成功日志
-        log_operation(
-            user_id=current_user.id,
-            module='utility',
-            operation_type="utility_api",
-            action=f"查询记录详情 [记录ID: {record_id}, 房间ID: {main_record.room_id}, 账期: {main_record.billing_period}, 在住人数: {len(current_occupants)}, 退宿人数: {len(checkout_occupants)}]",
-            result="成功"
-        )
+
         return jsonify(result)
         
     except Exception as e:
@@ -1352,19 +1530,41 @@ def edit_save_bill_record(record_id):
             record.billing_water_fee = Decimal(request.form.get('billing_water_fee', '0'))
         if request.form.get('billing_total_fee') is not None:
             record.billing_total_fee = Decimal(request.form.get('billing_total_fee', '0'))
-        if request.form.get('checked_out_total_fee') is not None:
-            record.checked_out_total_fee = Decimal(request.form.get('checked_out_total_fee', '0'))
+        if request.form.get('status'):
+            record.status = request.form.get('status')
+        if request.form.get('remarks') is not None:
+            record.remarks = request.form.get('remarks')
+        
+        # 保存抄表日期和本次读数
+        if request.form.get('electric_reading_date'):
+            try:
+                record.electric_reading_date = datetime.strptime(request.form.get('electric_reading_date'), '%Y-%m-%d')
+            except ValueError:
+                pass
+        else:
+            record.electric_reading_date = None
+        if request.form.get('water_reading_date'):
+            try:
+                record.water_reading_date = datetime.strptime(request.form.get('water_reading_date'), '%Y-%m-%d')
+            except ValueError:
+                pass
+        else:
+            record.water_reading_date = None
+        # 保存本次读数（上次读数为只读，不从表单保存）
+        if request.form.get('electric_current') is not None:
+            record.electric_current = Decimal(request.form.get('electric_current', '0'))
+        if request.form.get('water_current') is not None:
+            record.water_current = Decimal(request.form.get('water_current', '0'))
+        
+        # 直接保存前端计算的应付费用和实际应付费用
         if request.form.get('receivable_electric_fee') is not None:
             record.receivable_electric_fee = Decimal(request.form.get('receivable_electric_fee', '0'))
         if request.form.get('receivable_water_fee') is not None:
             record.receivable_water_fee = Decimal(request.form.get('receivable_water_fee', '0'))
         if request.form.get('receivable_total_fee') is not None:
             record.receivable_total_fee = Decimal(request.form.get('receivable_total_fee', '0'))
-        if request.form.get('status'):
-            record.status = request.form.get('status')
-        if request.form.get('remarks') is not None:
-            record.remarks = request.form.get('remarks')
-        
+        if request.form.get('actual_total_fee') is not None:
+            record.actual_total_fee = Decimal(request.form.get('actual_total_fee', '0'))
 
         db.session.commit()
         
@@ -1372,7 +1572,7 @@ def edit_save_bill_record(record_id):
             user_id=current_user.id,
             module='utility',
             operation_type='utility_edit',
-            action=f"直接编辑房间水电费记录 [记录ID: {record_id}]",
+            action=f"编辑房间水电费记录 [记录ID: {record_id}]",
             result="成功"
         )
         

@@ -11,7 +11,6 @@ from utils.log import log_operation
 from utils.auth import require_permission
 from models.utility.utility_room_bill_checkout import CheckoutUtilityRecord # 退宿费用子表
 from models.utility.utility_room_meter import UtilityMeterReading  # 抄表记录子表
-from models.utility.utility_room_bill_occupant import RoomUtilityOccupant  # 在住人员分摊子表
 from models.system_config.system_config import SystemConfig  # 系统配置
 from models.dorm.dorm import Dorm  # 住宿记录模型（判断换宿）
 
@@ -73,12 +72,14 @@ def utility_calculate_fees():
             action=f"访问核算房间水电费页面",#这里记载成功与失败的记录
             result="成功"#这里只有成功与失败
         )
-        return render_template('utility_bill/utility_calculate_fees.html', title=f"核算房间水电费", billing_period=billing_period)
+        rooms = Room.query.order_by(Room.building, Room.room_number).all()
+        return render_template('utility_bill/utility_calculate_fees.html', title=f"核算房间水电费", billing_period=billing_period, rooms=rooms)
     except Exception as e:
         logging.error(f"访问核算房间水电费页面失败: {str(e)}")
         flash(str(e), 'danger')
         billing_period = request.args.get('billing_period', '')
-        return render_template('utility_bill/utility_calculate_fees.html', title=f"核算房间水电费", billing_period=billing_period)
+        rooms = Room.query.order_by(Room.building, Room.room_number).all()
+        return render_template('utility_bill/utility_calculate_fees.html', title=f"核算房间水电费", billing_period=billing_period, rooms=rooms)
 
 @utility_index_bp.route('/utility_room_records_detail')
 @login_required
@@ -260,9 +261,6 @@ def utility_room_bill_edit(record_id):
             return redirect(url_for('utility_index.utility_calculate_fees'))
         
         room = Room.query.get(record.room_id)
-        meter_readings = UtilityMeterReading.query.filter_by(record_id=record_id).order_by(UtilityMeterReading.reading_date).all()
-        occupant_records = RoomUtilityOccupant.query.filter_by(record_id=record_id).all()
-        checkout_records = CheckoutUtilityRecord.query.filter_by(record_id=record_id).all()
         
         # 获取账期参数
         billing_period = request.args.get('billing_period', record.billing_period)
@@ -280,9 +278,6 @@ def utility_room_bill_edit(record_id):
             title='编辑房间水电费',
             record=record,
             room=room,
-            meter_readings=meter_readings,
-            occupant_records=occupant_records,
-            checkout_records=checkout_records,
             billing_period=billing_period
         )
     except Exception as e:
@@ -308,7 +303,6 @@ def utility_occupant_edit(record_id):
             return redirect(url_for('utility_index.utility_occupant_manage'))
         
         room = Room.query.get(record.room_id)
-        occupant_records = RoomUtilityOccupant.query.filter_by(record_id=record_id).all()
         
         billing_period = request.args.get('billing_period', record.billing_period)
         
@@ -317,7 +311,7 @@ def utility_occupant_edit(record_id):
         
         return render_template('utility_bill/utility_occupant_edit.html',
             title='编辑用户费用分摊', record=record, room=room,
-            occupant_records=occupant_records, billing_period=billing_period)
+            billing_period=billing_period)
     except Exception as e:
         logging.error(f"加载编辑页面失败: {str(e)}")
         flash(f'加载编辑页面失败: {str(e)}', 'danger')

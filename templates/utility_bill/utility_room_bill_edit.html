@@ -125,52 +125,66 @@
             <input type="hidden" name="electric_usage" id="electric_usage" value="{{ record.electric_usage if record.electric_usage is not none else 0 }}">
             <input type="hidden" name="water_usage" id="water_usage" value="{{ record.water_usage if record.water_usage is not none else 0 }}">
 
-            <!-- 抄表记录编辑区 -->
-            {% if meter_readings %}
+            <!-- 抄表记录区（从主表获取） -->
             <div class="bg-white rounded-xl shadow-md p-6 mb-6">
                 <h3 class="text-lg font-semibold mb-4 border-b pb-2">抄表记录</h3>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-sm">
-                        <thead>
-                            <tr class="bg-gray-50">
-                                <th class="px-3 py-2 text-left">抄表日期</th>
-                                <th class="px-3 py-2 text-center">电表当前读数</th>
-                                <th class="px-3 py-2 text-center">电表上次读数</th>
-                                <th class="px-3 py-2 text-center">水表当前读数</th>
-                                <th class="px-3 py-2 text-center">水表上次读数</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for reading in meter_readings %}
-                            <tr class="border-b">
-                                <td class="px-3 py-2">{{ reading.reading_date.strftime('%Y-%m-%d') if reading.reading_date else '-' }}</td>
-                                <td class="px-3 py-2">
-                                    <input type="number" step="0.01" name="reading_{{ reading.id }}_electric_current"
-                                           value="{{ reading.electric_current if reading.electric_current is not none else '' }}"
-                                           class="w-full px-2 py-1 border rounded text-center form-input-focus">
-                                </td>
-                                <td class="px-3 py-2">
-                                    <input type="number" step="0.01" name="reading_{{ reading.id }}_electric_previous"
-                                           value="{{ reading.electric_previous if reading.electric_previous is not none else '' }}"
-                                           class="w-full px-2 py-1 border rounded text-center form-input-focus">
-                                </td>
-                                <td class="px-3 py-2">
-                                    <input type="number" step="0.01" name="reading_{{ reading.id }}_water_current"
-                                           value="{{ reading.water_current if reading.water_current is not none else '' }}"
-                                           class="w-full px-2 py-1 border rounded text-center form-input-focus">
-                                </td>
-                                <td class="px-3 py-2">
-                                    <input type="number" step="0.01" name="reading_{{ reading.id }}_water_previous"
-                                           value="{{ reading.water_previous if reading.water_previous is not none else '' }}"
-                                           class="w-full px-2 py-1 border rounded text-center form-input-focus">
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- 电表抄表信息 -->
+                    <div class="border rounded-lg p-4">
+                        <h4 class="text-base font-semibold mb-3 text-gray-700">电表</h4>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <span class="info-label block mb-1">上次抄表日期</span>
+                                <span class="info-value">{{ record.electric_previous_reading_date.strftime('%Y-%m-%d') if record.electric_previous_reading_date else '-' }}</span>
+                            </div>
+                            <div>
+                                <span class="info-label block mb-1">本次抄表日期</span>
+                                <input type="date" name="electric_reading_date" id="electric_reading_date"
+                                       value="{{ record.electric_reading_date.strftime('%Y-%m-%d') if record.electric_reading_date else '' }}"
+                                       class="w-full px-3 py-2 border rounded form-input-focus">
+                            </div>
+                            <div>
+                                <span class="info-label block mb-1">上次读数（度）</span>
+                                <span class="info-value">{{ record.electric_previous if record.electric_previous is not none else '0' }}</span>
+                            </div>
+                            <div>
+                                <label class="info-label block mb-1">本次读数（度）</label>
+                                <input type="number" step="0.01" name="electric_current" id="electric_current_input"
+                                       value="{{ record.electric_current if record.electric_current is not none else '' }}"
+                                       class="w-full px-3 py-2 border rounded form-input-focus"
+                                       oninput="calculateUsageFromMainRecord()">
+                            </div>
+                        </div>
+                    </div>
+                    <!-- 水表抄表信息 -->
+                    <div class="border rounded-lg p-4">
+                        <h4 class="text-base font-semibold mb-3 text-gray-700">水表</h4>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <span class="info-label block mb-1">上次抄表日期</span>
+                                <span class="info-value">{{ record.water_previous_reading_date.strftime('%Y-%m-%d') if record.water_previous_reading_date else '-' }}</span>
+                            </div>
+                            <div>
+                                <span class="info-label block mb-1">本次抄表日期</span>
+                                <input type="date" name="water_reading_date" id="water_reading_date"
+                                       value="{{ record.water_reading_date.strftime('%Y-%m-%d') if record.water_reading_date else '' }}"
+                                       class="w-full px-3 py-2 border rounded form-input-focus">
+                            </div>
+                            <div>
+                                <span class="info-label block mb-1">上次读数（m³）</span>
+                                <span class="info-value">{{ record.water_previous if record.water_previous is not none else '0' }}</span>
+                            </div>
+                            <div>
+                                <label class="info-label block mb-1">本次读数（m³）</label>
+                                <input type="number" step="0.01" name="water_current" id="water_current_input"
+                                       value="{{ record.water_current if record.water_current is not none else '' }}"
+                                       class="w-full px-3 py-2 border rounded form-input-focus"
+                                       oninput="calculateUsageFromMainRecord()">
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
-            {% endif %}
 
             <!-- 用量（只读展示） -->
             <div class="bg-white rounded-xl shadow-md p-6 mb-6">
@@ -181,24 +195,34 @@
                         <span class="info-value" id="display_electric_usage">{{ record.electric_usage if record.electric_usage is not none else 0 }}</span>
                     </div>
                     <div>
-                        <span class="info-label block mb-1">电减免用量（度）</span>
-                        <span class="info-value">{{ record.electric_reduction if record.electric_reduction is not none else 0 }}</span>
+                        <label class="info-label block mb-1">电减免用量（度）</label>
+                        <input type="number" step="0.01" name="electric_reduction" id="electric_reduction"
+                               value="{{ record.electric_reduction if record.electric_reduction is not none else 0 }}"
+                               class="w-full px-3 py-2 border rounded form-input-focus"
+                               oninput="calculateBillingUsage()">
                     </div>
                     <div>
                         <span class="info-label block mb-1">电计费用量（度）</span>
-                        <span class="info-value">{{ record.electric_billing_usage if record.electric_billing_usage is not none else 0 }}</span>
+                        <span class="info-value" id="display_electric_billing_usage">{{ record.electric_billing_usage if record.electric_billing_usage is not none else 0 }}</span>
+                        <input type="hidden" name="electric_billing_usage" id="electric_billing_usage_hidden"
+                               value="{{ record.electric_billing_usage if record.electric_billing_usage is not none else 0 }}">
                     </div>
                     <div>
                         <span class="info-label block mb-1">水原始用量（m³）</span>
                         <span class="info-value" id="display_water_usage">{{ record.water_usage if record.water_usage is not none else 0 }}</span>
                     </div>
                     <div>
-                        <span class="info-label block mb-1">水减免用量（m³）</span>
-                        <span class="info-value">{{ record.water_reduction if record.water_reduction is not none else 0 }}</span>
+                        <label class="info-label block mb-1">水减免用量（m³）</label>
+                        <input type="number" step="0.01" name="water_reduction" id="water_reduction"
+                               value="{{ record.water_reduction if record.water_reduction is not none else 0 }}"
+                               class="w-full px-3 py-2 border rounded form-input-focus"
+                               oninput="calculateBillingUsage()">
                     </div>
                     <div>
                         <span class="info-label block mb-1">水计费用量（m³）</span>
-                        <span class="info-value">{{ record.water_billing_usage if record.water_billing_usage is not none else 0 }}</span>
+                        <span class="info-value" id="display_water_billing_usage">{{ record.water_billing_usage if record.water_billing_usage is not none else 0 }}</span>
+                        <input type="hidden" name="water_billing_usage" id="water_billing_usage_hidden"
+                               value="{{ record.water_billing_usage if record.water_billing_usage is not none else 0 }}">
                     </div>
                 </div>
             </div>
@@ -209,49 +233,22 @@
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <label class="info-label block mb-1">电费单价（元/度）</label>
-                        <input type="number" step="0.01" name="electric_price"
+                        <input type="number" step="0.01" name="electric_price" id="electric_price"
                                value="{{ record.electric_price if record.electric_price is not none else '' }}"
-                               class="w-full px-3 py-2 border rounded form-input-focus">
+                               class="w-full px-3 py-2 border rounded form-input-focus"
+                               oninput="calculateBillingFees()">
                     </div>
                     <div>
                         <label class="info-label block mb-1">水费单价（元/m³）</label>
-                        <input type="number" step="0.01" name="water_price"
+                        <input type="number" step="0.01" name="water_price" id="water_price"
                                value="{{ record.water_price if record.water_price is not none else '' }}"
-                               class="w-full px-3 py-2 border rounded form-input-focus">
+                               class="w-full px-3 py-2 border rounded form-input-focus"
+                               oninput="calculateBillingFees()">
                     </div>
                 </div>
             </div>
 
-            <!-- 用量减免编辑区 -->
-            <div class="bg-white rounded-xl shadow-md p-6 mb-6">
-                <h3 class="text-lg font-semibold mb-4 border-b pb-2">用量与减免</h3>
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div>
-                        <label class="info-label block mb-1">用电量减免（度）</label>
-                        <input type="number" step="0.01" name="electric_reduction"
-                               value="{{ record.electric_reduction if record.electric_reduction is not none else 0 }}"
-                               class="w-full px-3 py-2 border rounded form-input-focus">
-                    </div>
-                    <div>
-                        <label class="info-label block mb-1">用水量减免（m³）</label>
-                        <input type="number" step="0.01" name="water_reduction"
-                               value="{{ record.water_reduction if record.water_reduction is not none else 0 }}"
-                               class="w-full px-3 py-2 border rounded form-input-focus">
-                    </div>
-                    <div>
-                        <label class="info-label block mb-1">用电计费用量（度）</label>
-                        <input type="number" step="0.01" name="electric_billing_usage"
-                               value="{{ record.electric_billing_usage if record.electric_billing_usage is not none else 0 }}"
-                               class="w-full px-3 py-2 border rounded form-input-focus">
-                    </div>
-                    <div>
-                        <label class="info-label block mb-1">用水计费用量（m³）</label>
-                        <input type="number" step="0.01" name="water_billing_usage"
-                               value="{{ record.water_billing_usage if record.water_billing_usage is not none else 0 }}"
-                               class="w-full px-3 py-2 border rounded form-input-focus">
-                    </div>
-                </div>
-            </div>
+
 
             <!-- 费用编辑区 -->
             <div class="bg-white rounded-xl shadow-md p-6 mb-6">
@@ -261,15 +258,13 @@
                         <label class="info-label block mb-1">计费电费（元）</label>
                         <input type="number" step="0.01" name="billing_electric_fee" id="billing_electric_fee"
                                value="{{ record.billing_electric_fee if record.billing_electric_fee is not none else 0 }}"
-                               class="w-full px-3 py-2 border rounded form-input-focus"
-                               oninput="calculateBillingTotalFee()">
+                               class="w-full px-3 py-2 border rounded bg-gray-100 cursor-not-allowed" readonly>
                     </div>
                     <div>
                         <label class="info-label block mb-1">计费水费（元）</label>
                         <input type="number" step="0.01" name="billing_water_fee" id="billing_water_fee"
                                value="{{ record.billing_water_fee if record.billing_water_fee is not none else 0 }}"
-                               class="w-full px-3 py-2 border rounded form-input-focus"
-                               oninput="calculateBillingTotalFee()">
+                               class="w-full px-3 py-2 border rounded bg-gray-100 cursor-not-allowed" readonly>
                     </div>
                     <div>
                         <label class="info-label block mb-1">计费总费用（元）</label>
@@ -278,24 +273,34 @@
                                class="w-full px-3 py-2 border rounded bg-gray-100 cursor-not-allowed" readonly>
                     </div>
                     <div>
-                        <label class="info-label block mb-1">退宿已结算费用（元）</label>
-                        <input type="number" step="0.01" name="checked_out_total_fee"
+                        <label class="info-label block mb-1">退宿已结算电费（元）</label>
+                        <input type="number" step="0.01" name="checked_out_electric_fee" id="checked_out_electric_fee"
+                               value="{{ record.checked_out_electric_fee if record.checked_out_electric_fee is not none else 0 }}"
+                               class="w-full px-3 py-2 border rounded bg-gray-100 cursor-not-allowed" readonly>
+                    </div>
+                    <div>
+                        <label class="info-label block mb-1">退宿已结算水费（元）</label>
+                        <input type="number" step="0.01" name="checked_out_water_fee" id="checked_out_water_fee"
+                               value="{{ record.checked_out_water_fee if record.checked_out_water_fee is not none else 0 }}"
+                               class="w-full px-3 py-2 border rounded bg-gray-100 cursor-not-allowed" readonly>
+                    </div>
+                    <div>
+                        <label class="info-label block mb-1">退宿已结算总费用（元）</label>
+                        <input type="number" step="0.01" name="checked_out_total_fee" id="checked_out_total_fee"
                                value="{{ record.checked_out_total_fee if record.checked_out_total_fee is not none else 0 }}"
-                               class="w-full px-3 py-2 border rounded form-input-focus">
+                               class="w-full px-3 py-2 border rounded bg-gray-100 cursor-not-allowed" readonly>
                     </div>
                     <div>
                         <label class="info-label block mb-1">应付电费（元）</label>
                         <input type="number" step="0.01" name="receivable_electric_fee" id="receivable_electric_fee"
                                value="{{ record.receivable_electric_fee if record.receivable_electric_fee is not none else 0 }}"
-                               class="w-full px-3 py-2 border rounded form-input-focus"
-                               oninput="calculateReceivableTotalFee()">
+                               class="w-full px-3 py-2 border rounded bg-gray-100 cursor-not-allowed" readonly>
                     </div>
                     <div>
                         <label class="info-label block mb-1">应付水费（元）</label>
                         <input type="number" step="0.01" name="receivable_water_fee" id="receivable_water_fee"
                                value="{{ record.receivable_water_fee if record.receivable_water_fee is not none else 0 }}"
-                               class="w-full px-3 py-2 border rounded form-input-focus"
-                               oninput="calculateReceivableTotalFee()">
+                               class="w-full px-3 py-2 border rounded bg-gray-100 cursor-not-allowed" readonly>
                     </div>
                     <div>
                         <label class="info-label block mb-1">应付总费用（元）</label>
@@ -339,95 +344,9 @@
                 </div>
             </div>
 
-            <!-- 在住人员分摊编辑区 -->
-            {% if occupant_records %}
-            <div class="bg-white rounded-xl shadow-md p-6 mb-6">
-                <h3 class="text-lg font-semibold mb-4 border-b pb-2">在住人员分摊</h3>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-sm">
-                        <thead>
-                            <tr class="bg-gray-50">
-                                <th class="px-3 py-2 text-left">姓名</th>
-                                <th class="px-3 py-2 text-center">住宿天数</th>
-                                <th class="px-3 py-2 text-center">分摊电费</th>
-                                <th class="px-3 py-2 text-center">分摊水费</th>
-                                <th class="px-3 py-2 text-center">分摊总费用</th>
-                                <th class="px-3 py-2 text-center">减免费用（元）</th>
-                                <th class="px-3 py-2 text-center">实际应付（元）</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for occupant in occupant_records %}
-                            <tr class="border-b">
-                                <td class="px-3 py-2">
-                                    {% if occupant.user %}
-                                    {{ occupant.user.name }}
-                                    {% else %}
-                                    用户ID:{{ occupant.user_id }}
-                                    {% endif %}
-                                </td>
-                                <td class="px-3 py-2 text-center">{{ occupant.stay_days or 0 }}</td>
-                                <td class="px-3 py-2 text-center">{{ occupant.electric_fee or 0 }}</td>
-                                <td class="px-3 py-2 text-center">{{ occupant.water_fee or 0 }}</td>
-                                <td class="px-3 py-2 text-center">{{ occupant.total_fee or 0 }}</td>
-                                <td class="px-3 py-2">
-                                    <input type="number" step="0.01" name="occupant_{{ occupant.id }}_user_reduction_fee"
-                                           value="{{ occupant.user_reduction_fee if occupant.user_reduction_fee is not none else 0 }}"
-                                           class="w-full px-2 py-1 border rounded text-center form-input-focus">
-                                </td>
-                                <td class="px-3 py-2">
-                                    <input type="number" step="0.01" name="occupant_{{ occupant.id }}_payable_fee"
-                                           value="{{ occupant.payable_fee if occupant.payable_fee is not none else 0 }}"
-                                           class="w-full px-2 py-1 border rounded text-center form-input-focus">
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-            {% endif %}
 
-            <!-- 退宿费用编辑区 -->
-            {% if checkout_records %}
-            <div class="bg-white rounded-xl shadow-md p-6 mb-6">
-                <h3 class="text-lg font-semibold mb-4 border-b pb-2">退宿费用</h3>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-sm">
-                        <thead>
-                            <tr class="bg-gray-50">
-                                <th class="px-3 py-2 text-left">姓名</th>
-                                <th class="px-3 py-2 text-center">计费电费</th>
-                                <th class="px-3 py-2 text-center">计费水费</th>
-                                <th class="px-3 py-2 text-center">计费总费用</th>
-                                <th class="px-3 py-2 text-center">实际应付（元）</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for checkout in checkout_records %}
-                            <tr class="border-b">
-                                <td class="px-3 py-2">
-                                    {% if checkout.user %}
-                                    {{ checkout.user.name }}
-                                    {% else %}
-                                    用户ID:{{ checkout.user_id }}
-                                    {% endif %}
-                                </td>
-                                <td class="px-3 py-2 text-center">{{ checkout.electric_fee or 0 }}</td>
-                                <td class="px-3 py-2 text-center">{{ checkout.water_fee or 0 }}</td>
-                                <td class="px-3 py-2 text-center">{{ checkout.total_fee or 0 }}</td>
-                                <td class="px-3 py-2">
-                                    <input type="number" step="0.01" name="checkout_{{ checkout.id }}_payable_fee"
-                                           value="{{ checkout.payable_fee if checkout.payable_fee is not none else 0 }}"
-                                           class="w-full px-2 py-1 border rounded text-center form-input-focus">
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-            {% endif %}
+
+
 
             <!-- 保存按钮 -->
             <div class="mt-6 flex justify-end">
@@ -456,11 +375,82 @@
         return Math.round(val * 100) / 100;
     }
 
+    // 计算计费用量 = 原始用量 - 减免用量
+    function calculateBillingUsage() {
+        var electricUsage = safeParseFloat(document.getElementById('display_electric_usage').textContent);
+        var electricReduction = safeParseFloat(document.getElementById('electric_reduction').value);
+        var electricBilling = formatNum(Math.max(electricUsage - electricReduction, 0));
+
+        var waterUsage = safeParseFloat(document.getElementById('display_water_usage').textContent);
+        var waterReduction = safeParseFloat(document.getElementById('water_reduction').value);
+        var waterBilling = formatNum(Math.max(waterUsage - waterReduction, 0));
+
+        // 更新展示
+        var displayElectricBilling = document.getElementById('display_electric_billing_usage');
+        var displayWaterBilling = document.getElementById('display_water_billing_usage');
+        if (displayElectricBilling) displayElectricBilling.textContent = electricBilling;
+        if (displayWaterBilling) displayWaterBilling.textContent = waterBilling;
+
+        // 更新隐藏字段（用于表单提交）
+        document.getElementById('electric_billing_usage_hidden').value = electricBilling;
+        document.getElementById('water_billing_usage_hidden').value = waterBilling;
+
+        // 计费用量变化 → 重新计算计费水电费
+        calculateBillingFees();
+    }
+
+    // 计算计费水电费 = 单价 × 计费用量
+    function calculateBillingFees() {
+        var electricPrice = safeParseFloat(document.getElementById('electric_price').value);
+        var waterPrice = safeParseFloat(document.getElementById('water_price').value);
+        var electricBillingUsage = safeParseFloat(document.getElementById('electric_billing_usage_hidden').value);
+        var waterBillingUsage = safeParseFloat(document.getElementById('water_billing_usage_hidden').value);
+
+        var billingElectricFee = formatNum(electricPrice * electricBillingUsage);
+        var billingWaterFee = formatNum(waterPrice * waterBillingUsage);
+
+        document.getElementById('billing_electric_fee').value = billingElectricFee;
+        document.getElementById('billing_water_fee').value = billingWaterFee;
+
+        // 计费水电费变化 → 重新计算计费总费用
+        calculateBillingTotalFee();
+    }
+
     // 计算计费总费用 = 计费电费 + 计费水费
     function calculateBillingTotalFee() {
         var electricFee = safeParseFloat(document.getElementById('billing_electric_fee').value);
         var waterFee = safeParseFloat(document.getElementById('billing_water_fee').value);
         document.getElementById('billing_total_fee').value = formatNum(electricFee + waterFee);
+
+        // 计费总费用变化 → 重新计算应付水电费
+        calculateReceivableFees();
+    }
+
+    // 计算退宿已结算总费用 = 退宿已结算电费 + 退宿已结算水费
+    function calculateCheckedOutTotalFee() {
+        var checkedOutElectricFee = safeParseFloat(document.getElementById('checked_out_electric_fee').value);
+        var checkedOutWaterFee = safeParseFloat(document.getElementById('checked_out_water_fee').value);
+        document.getElementById('checked_out_total_fee').value = formatNum(checkedOutElectricFee + checkedOutWaterFee);
+
+        // 退宿已结算费用变化 → 重新计算应付水电费
+        calculateReceivableFees();
+    }
+
+    // 计算应付水电费 = 计费水电费 - 退宿已结算水电费
+    function calculateReceivableFees() {
+        var billingElectricFee = safeParseFloat(document.getElementById('billing_electric_fee').value);
+        var billingWaterFee = safeParseFloat(document.getElementById('billing_water_fee').value);
+        var checkedOutElectricFee = safeParseFloat(document.getElementById('checked_out_electric_fee').value);
+        var checkedOutWaterFee = safeParseFloat(document.getElementById('checked_out_water_fee').value);
+
+        var receivableElectricFee = formatNum(Math.max(billingElectricFee - checkedOutElectricFee, 0));
+        var receivableWaterFee = formatNum(Math.max(billingWaterFee - checkedOutWaterFee, 0));
+
+        document.getElementById('receivable_electric_fee').value = receivableElectricFee;
+        document.getElementById('receivable_water_fee').value = receivableWaterFee;
+
+        // 应付水电费变化 → 重新计算应付总费用
+        calculateReceivableTotalFee();
     }
 
     // 计算应付总费用 = 应付电费 + 应付水费
@@ -476,37 +466,20 @@
     function calculateActualTotalFee() {
         var receivableTotal = safeParseFloat(document.getElementById('receivable_total_fee').value);
         var roomReduction = safeParseFloat(document.getElementById('room_reduction_fee').value);
-        document.getElementById('actual_total_fee').value = formatNum(receivableTotal - roomReduction);
+        document.getElementById('actual_total_fee').value = formatNum(Math.max(receivableTotal - roomReduction, 0));
     }
 
-    // 计算用量并更新隐藏字段和展示
-    function calculateUsageFromReadings() {
-        // 从抄表记录编辑区获取主表读数
-        // 抄表记录表格中的读数编辑的是主表字段
-        var electricCurrentInputs = document.querySelectorAll('input[name^="reading_"][name$="_electric_current"]');
-        var electricPreviousInputs = document.querySelectorAll('input[name^="reading_"][name$="_electric_previous"]');
-        var waterCurrentInputs = document.querySelectorAll('input[name^="reading_"][name$="_water_current"]');
-        var waterPreviousInputs = document.querySelectorAll('input[name^="reading_"][name$="_water_previous"]');
+    // 从主表读数计算用量并更新隐藏字段和展示
+    function calculateUsageFromMainRecord() {
+        // 电用量：本次读数 - 上次读数
+        var electricCurrentVal = safeParseFloat(document.getElementById('electric_current_input').value);
+        var electricPreviousVal = safeParseFloat('{{ record.electric_previous if record.electric_previous is not none else 0 }}');
+        var electricUsage = formatNum(electricCurrentVal - electricPreviousVal);
 
-        // 电用量：取最后一行的 current - previous
-        var electricUsage = 0;
-        if (electricCurrentInputs.length > 0 && electricPreviousInputs.length > 0) {
-            var lastCurrent = electricCurrentInputs[electricCurrentInputs.length - 1];
-            var lastPrevious = electricPreviousInputs[electricPreviousInputs.length - 1];
-            var currentVal = safeParseFloat(lastCurrent.value);
-            var previousVal = safeParseFloat(lastPrevious.value);
-            electricUsage = formatNum(currentVal - previousVal);
-        }
-
-        // 水用量：取最后一行的 current - previous
-        var waterUsage = 0;
-        if (waterCurrentInputs.length > 0 && waterPreviousInputs.length > 0) {
-            var lastCurrent = waterCurrentInputs[waterCurrentInputs.length - 1];
-            var lastPrevious = waterPreviousInputs[waterPreviousInputs.length - 1];
-            var currentVal = safeParseFloat(lastCurrent.value);
-            var previousVal = safeParseFloat(lastPrevious.value);
-            waterUsage = formatNum(currentVal - previousVal);
-        }
+        // 水用量：本次读数 - 上次读数
+        var waterCurrentVal = safeParseFloat(document.getElementById('water_current_input').value);
+        var waterPreviousVal = safeParseFloat('{{ record.water_previous if record.water_previous is not none else 0 }}');
+        var waterUsage = formatNum(waterCurrentVal - waterPreviousVal);
 
         // 更新隐藏字段
         document.getElementById('electric_usage').value = electricUsage;
@@ -517,27 +490,14 @@
         var displayWater = document.getElementById('display_water_usage');
         if (displayElectric) displayElectric.textContent = electricUsage;
         if (displayWater) displayWater.textContent = waterUsage;
+
+        // 用量变化后重新计算计费用量
+        calculateBillingUsage();
     }
 
-    // 为抄表记录编辑区的读数输入框绑定事件
-    function bindReadingInputs() {
-        var readingInputs = document.querySelectorAll('input[name^="reading_"]');
-        readingInputs.forEach(function(input) {
-            var name = input.name;
-            if (name.endsWith('_electric_current') || name.endsWith('_electric_previous') ||
-                name.endsWith('_water_current') || name.endsWith('_water_previous')) {
-                input.addEventListener('input', calculateUsageFromReadings);
-            }
-        });
-    }
-
-    // 页面加载时绑定事件
+    // 页面加载时初始计算一次（完整联动链）
     document.addEventListener('DOMContentLoaded', function() {
-        bindReadingInputs();
-        // 初始计算一次
-        calculateBillingTotalFee();
-        calculateActualTotalFee();
-        calculateUsageFromReadings();
+        calculateUsageFromMainRecord();
     });
     </script>
 </body>
