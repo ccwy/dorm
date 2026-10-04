@@ -5,6 +5,23 @@ from decimal import Decimal
 import logging
 from models.user.user import User  # 导入User模型
 
+def _clean_number(value):
+    """将Decimal转换为干净的数值：整数不带.0，小数保留有效位"""
+    if value is None:
+        return None
+    from decimal import Decimal
+    if isinstance(value, Decimal):
+        # 检查是否有小数部分
+        if value == value.to_integral_value():
+            return int(value)
+        else:
+            return float(value)
+    # 如果已经是float/int，同样处理
+    f = float(value)
+    if f == int(f):
+        return int(f)
+    return f
+
 class UtilityMeterReading(db.Model):
     __tablename__ = 'utility_room_meter_readings'
     
@@ -556,25 +573,6 @@ class UtilityMeterReading(db.Model):
     def to_dict(self):
         from models.user.user import User
         from .utility_room_bill_record import RoomUtilityRecord
-        # 直接过滤查询最新的正常抄表记录（排除当前记录）
-        # 以自身抄表日期为基准，查询该日期之前的最新正常抄表记录（排除当前记录）
-        latest_normal_water = UtilityMeterReading.query\
-            .filter_by(room_id=self.room_id)\
-            .filter(UtilityMeterReading.water_current.isnot(None))\
-            .filter(UtilityMeterReading.reading_type == 1)\
-            .filter(UtilityMeterReading.id != self.id)\
-            .filter(UtilityMeterReading.reading_date <= self.reading_date)\
-            .order_by(UtilityMeterReading.reading_date.desc(), UtilityMeterReading.id.desc())\
-            .first()
-        
-        latest_normal_electric = UtilityMeterReading.query\
-            .filter_by(room_id=self.room_id)\
-            .filter(UtilityMeterReading.electric_current.isnot(None))\
-            .filter(UtilityMeterReading.reading_type == 1)\
-            .filter(UtilityMeterReading.id != self.id)\
-            .filter(UtilityMeterReading.reading_date <= self.reading_date)\
-            .order_by(UtilityMeterReading.reading_date.desc(), UtilityMeterReading.id.desc())\
-            .first()
 
         # 获取主表账期信息
         billing_period = None
@@ -591,18 +589,20 @@ class UtilityMeterReading(db.Model):
             'building': self.room.building if self.room else None,
             'room_number': self.room.room_number if self.room else None,
             'water': {
-                'current': float(self.water_current) if self.water_current else None,
-                'previous': float(latest_normal_water.water_current) if latest_normal_water else None, # 上次读数
-                'usage': float(self.water_usage) if self.water_usage else None,          # 自动计算的用量
+                'current': _clean_number(self.water_current) if self.water_current else None,
+                'previous': _clean_number(self.water_previous) if self.water_previous else None,
+                'usage': _clean_number(self.water_usage) if self.water_usage else None,
                 'replaced': self.water_meter_replaced,
-                'sequence': self.water_meter_sequence,  # 新增：换表次数
+                'sequence': self.water_meter_sequence,
+                'is_first': self.water_meter_replaced and self.water_meter_sequence == 0,
             },
             'electric': {
-                'current': float(self.electric_current) if self.electric_current else None,
-                'previous': float(latest_normal_electric.electric_current) if latest_normal_electric else None,  # 上次读数
-                'usage': float(self.electric_usage) if self.electric_usage else None,          # 自动计算的用量
+                'current': _clean_number(self.electric_current) if self.electric_current else None,
+                'previous': _clean_number(self.electric_previous) if self.electric_previous else None,
+                'usage': _clean_number(self.electric_usage) if self.electric_usage else None,
                 'replaced': self.electric_meter_replaced,
-                'sequence': self.electric_meter_sequence,  # 新增：换表次数
+                'sequence': self.electric_meter_sequence,
+                'is_first': self.electric_meter_replaced and self.electric_meter_sequence == 0,
             },
             'notes': self.notes,
             'reading_type': self.reading_type,

@@ -18,6 +18,27 @@ from utils.auth import require_permission
 utility_room_meter_bp = Blueprint('utility_room_meter', __name__, url_prefix='/utility-meter')
 
 
+def generate_page_range(current_page, total_pages, show_pages=5):
+    if total_pages <= show_pages:
+        return list(range(1, total_pages + 1))
+    half = show_pages // 2
+    start = max(1, current_page - half)
+    end = min(total_pages, start + show_pages - 1)
+    if end - start < show_pages - 1:
+        start = max(1, end - show_pages + 1)
+    page_range = []
+    if start > 1:
+        page_range.append(1)
+        if start > 2:
+            page_range.append('...')
+    page_range.extend(range(start, end + 1))
+    if end < total_pages:
+        if end < total_pages - 1:
+            page_range.append('...')
+        page_range.append(total_pages)
+    return page_range
+
+
 # 页面路由 - 模板路径: templates/utility_bill
 @utility_room_meter_bp.route('/utility_reading', methods=['GET', 'POST'])
 @login_required
@@ -235,13 +256,7 @@ def utility_reading():
                         
                 except Exception as e:
                     logging.error(f"处理批量抄表记录提交失败: {str(e)}")
-                    log_operation(
-                        user_id=current_user.id,
-                        module='utility',
-                        operation_type='meter',
-                        action=f"处理批量抄表记录提交 [错误: {str(e)}]",
-                        result="失败"
-                    )
+                    
                     flash(f"批量处理失败：{str(e)}", "danger")
                     return redirect(url_for('utility_room_meter.utility_reading', building=building_filter, search_room=search_room, page=page, billing_period=billing_period))
             else:
@@ -258,26 +273,14 @@ def utility_reading():
                 
                 # 验证必要参数
                 if not room_id:
-                    log_operation(
-                        user_id=current_user.id,
-                        module='utility',
-                        operation_type='meter',
-                        action=f"保存抄表记录 [错误: 未提供房间ID]",
-                        result="失败"
-                    )
+                    
                     logging.error(f"保存抄表记录 [错误: 未提供房间ID]")
                     flash("保存失败：未提供房间ID", "danger")
                     return redirect(url_for('utility_room_meter.utility_reading', building=building_filter, search_room=search_room, page=page, billing_period=billing_period))
                 
                 # 验证billing_period参数（必填）
                 if not billing_period:
-                    log_operation(
-                        user_id=current_user.id,
-                        module='utility',
-                        operation_type='meter',
-                        action=f"保存抄表记录 [错误: 未提供账期参数]",
-                        result="失败"
-                    )
+                    
                     logging.error(f"保存抄表记录 [错误: 未提供账期参数]")
                     flash("保存失败：未提供账期参数（billing_period）", "danger")
                     return redirect(url_for('utility_room_meter.utility_reading', building=building_filter, search_room=search_room, page=page, billing_period=billing_period))
@@ -286,13 +289,7 @@ def utility_reading():
                 try:
                     datetime.strptime(billing_period, '%Y-%m')
                 except ValueError:
-                    log_operation(
-                        user_id=current_user.id,
-                        module='utility',
-                        operation_type='meter',
-                        action=f"保存抄表记录 [错误: 账期格式错误: {billing_period}]",
-                        result="失败"
-                    )
+                    
                     logging.error(f"保存抄表记录 [错误: 账期格式错误: {billing_period}]")
                     flash("保存失败：账期格式错误，请使用YYYY-MM格式", "danger")
                     return redirect(url_for('utility_room_meter.utility_reading', building=building_filter, search_room=search_room, page=page, billing_period=billing_period))
@@ -300,13 +297,7 @@ def utility_reading():
                 # 验证房间是否存在
                 room = Room.query.get(room_id)
                 if not room:
-                    log_operation(
-                        user_id=current_user.id,
-                        module='utility',
-                        operation_type='meter',
-                        action=f"保存抄表记录 [错误: 房间ID不存在: {room_id}]",
-                        result="失败"
-                    )
+                    
                     logging.error(f"保存抄表记录 [错误: 房间ID不存在: {room_id}]")
                     flash(f"保存失败：房间ID {room_id} 不存在", "danger")
                     return redirect(url_for('utility_room_meter.utility_reading', building=building_filter, search_room=search_room, page=page, billing_period=billing_period))
@@ -323,13 +314,7 @@ def utility_reading():
                             try:
                                 reading_date = datetime.strptime(reading_date_str, '%Y-%m-%d')
                             except ValueError:
-                                log_operation(
-                                    user_id=current_user.id,
-                                    module='utility',
-                                    operation_type='meter',
-                                    action=f"保存抄表记录 [错误: 日期格式错误]",
-                                    result="失败"
-                                )
+                                
                                 logging.error(f"保存抄表记录 [错误: 日期格式错误]")
                                 flash("保存失败：日期格式错误，请使用 yyyy-mm-dd 或 yyyy-mm-dd HH:MM 或 yyyy-mm-dd HH:MM:SS", "danger")
                                 return redirect(url_for('utility_room_meter.utility_reading', building=building_filter, search_room=search_room, page=page, billing_period=billing_period))
@@ -340,13 +325,7 @@ def utility_reading():
                 
                 # 验证至少有一个读数
                 if water_current_float is None and electric_current_float is None:
-                    log_operation(
-                        user_id=current_user.id,
-                        module='utility',
-                        operation_type='meter',
-                        action=f"保存抄表记录 [错误: 未提供任何读数]",
-                        result="失败"
-                    )
+                    
                     logging.error(f"保存抄表记录 [错误: 未提供任何读数]")
                     flash("保存失败：至少需要提供一项水表或电表读数", "danger")
                     return redirect(url_for('utility_room_meter.utility_reading', building=building_filter, search_room=search_room, page=page, billing_period=billing_period))
@@ -394,25 +373,13 @@ def utility_reading():
                 except Exception as e:
                     db.session.rollback()
                     logging.error(f"创建抄表记录失败: {str(e)}")
-                    log_operation(
-                        user_id=current_user.id,
-                        module='utility',
-                        operation_type='meter',
-                        action=f"创建抄表记录 [错误: {str(e)}]",
-                        result="失败"
-                    )
+                    
                     flash(f"保存失败：{str(e)}", "danger")
                     return redirect(url_for('utility_room_meter.utility_reading', building=building_filter, search_room=search_room, page=page, billing_period=billing_period))
                     
         except Exception as e:
             logging.error(f"处理抄表记录提交失败: {str(e)}")
-            log_operation(
-                user_id=current_user.id,
-                module='utility',
-                operation_type='meter',
-                action=f"处理抄表记录提交 [错误: {str(e)}]",
-                result="失败"
-            )
+            
             flash(f"处理失败：{str(e)}", "danger")
             return redirect(url_for('utility_room_meter.utility_reading', building=building_filter, search_room=search_room, page=page, billing_period=billing_period))
     
@@ -536,13 +503,7 @@ def utility_reading():
         
     except Exception as e:
         logging.error(f"访问抄表登记页面失败: {str(e)}")
-        log_operation(
-            user_id=current_user.id,
-            module='utility',
-            operation_type='records',
-            action=f"访问抄表登记页面 [错误: {str(e)}]",
-            result="失败"
-        )
+        
         # 出现异常时返回基本页面，确保前端能正常显示
 
         current_datetime = datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
@@ -567,36 +528,98 @@ def utility_reading_manage():
     """抄表记录管理页面"""
     # 从Room模型获取去重后的楼栋数据
     try:
-        # 使用distinct()获取不重复的楼栋名称
         buildings = db.session.query(Room.building).distinct().all()
-        # 提取楼栋名称并排序
         building_list = [building[0] for building in buildings if building[0]]
-        # 智能排序：提取数字部分进行排序
         import re
         building_list.sort(key=lambda x: [int(c) if c.isdigit() else c for c in re.split(r'(\d+)', x)])
-        
-        # 补充查询楼栋成功日志
-        log_operation(
-            user_id=current_user.id,
-            module='utility',
-            operation_type='records',
-            action=f"获取楼栋列表 [共{len(building_list)}个楼栋]",
-            result="成功"
-        )
     except Exception as e:
-        # 处理异常
         logging.error(f"获取楼栋列表失败: {str(e)}")
-        log_operation(
-            user_id=current_user.id,
-            module='utility',
-            operation_type='records',
-            action=f"获取楼栋列表 [错误: {str(e)}]",
-            result="失败"
-        )
         building_list = []
     
-    # 获取URL参数中的billing_period
+    # 获取筛选参数
     billing_period = request.args.get('billing_period', '')
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 20, type=int)
+    search = request.args.get('search', '').strip()
+    reading_type = request.args.get('reading_type', type=int)
+    building = request.args.get('building', '').strip()
+    
+    # 查询账期列表
+    try:
+        periods_raw = db.session.query(RoomUtilityRecord.billing_period).distinct().all()
+        period_list = [p[0] for p in periods_raw if p[0]]
+        period_list.sort(reverse=True)  # 最新的在前
+    except Exception as e:
+        logging.error(f"获取账期列表失败: {str(e)}")
+        period_list = []
+    
+    # 查询抄表记录数据
+    records = []
+    pagination = None
+    
+    if billing_period:
+        try:
+            datetime.strptime(billing_period, '%Y-%m')
+        except ValueError:
+            flash('账期格式错误，请使用YYYY-MM格式', 'error')
+            billing_period = ''
+    
+    if billing_period:
+        try:
+            # 查询主表记录
+            main_records = RoomUtilityRecord.query.filter(
+                RoomUtilityRecord.billing_period == billing_period
+            ).all()
+            
+            if main_records:
+                record_ids = [record.record_id for record in main_records]
+                
+                # 基础查询：连接抄表记录和房间表
+                query = db.session.query(UtilityMeterReading, Room).join(
+                    Room, UtilityMeterReading.room_id == Room.id
+                )
+                
+                # 按主表record_id筛选抄表记录
+                query = query.filter(UtilityMeterReading.record_id.in_(record_ids))
+                
+                # 抄表类型筛选
+                if reading_type is not None:
+                    query = query.filter(UtilityMeterReading.reading_type == reading_type)
+                
+                # 搜索逻辑：只匹配房间号
+                if search:
+                    query = query.filter(Room.room_number == search)
+                
+                # 楼栋筛选
+                if building:
+                    query = query.filter(Room.building == building)
+                
+                # 分页查询
+                pagination = query.order_by(Room.id).paginate(
+                    page=page, per_page=per_page, error_out=False
+                )
+                
+                # 构建record_id到主表billing_period的映射
+                record_period_map = {r.record_id: r.billing_period for r in main_records}
+                
+                for record, room in pagination.items:
+                    prev_record = UtilityMeterReading.query.filter(
+                        UtilityMeterReading.room_id == record.room_id,
+                        UtilityMeterReading.reading_date < record.reading_date,
+                        UtilityMeterReading.reading_type == 1
+                    ).order_by(UtilityMeterReading.reading_date.desc()).first()
+                    
+                    record_dict = record.to_dict()
+                    record_dict['prev_reading'] = prev_record.to_dict() if prev_record else None
+                    record_dict['billing_period'] = record_period_map.get(record.record_id, billing_period)
+                    record_dict['归属_month'] = record_period_map.get(record.record_id, billing_period)
+                    record_dict['room_number'] = room.room_number
+                    record_dict['room_building'] = room.building
+                    record_dict['room_id'] = room.id
+                    records.append(record_dict)
+        except Exception as e:
+            logging.error(f"查询抄表记录失败: {str(e)}\n{traceback.format_exc()}")
+            flash(f'查询抄表记录失败: {str(e)}', 'error')
     
     # 补充页面访问日志
     log_operation(
@@ -606,7 +629,22 @@ def utility_reading_manage():
         action=f"访问抄表记录管理页面",
         result="成功"
     )
-    return render_template('utility_bill/utility_reading_manage.html', title=f"抄表记录管理", buildings=building_list, billing_period=billing_period)
+    
+    # 生成页码范围
+    page_range = generate_page_range(page, pagination.pages if pagination else 1)
+    
+    return render_template('utility_bill/utility_reading_manage.html',
+        title="抄表记录管理",
+        buildings=building_list,
+        billing_period=billing_period,
+        periods=period_list,
+        records=records,
+        pagination=pagination,
+        page_range=page_range,
+        search=search,
+        reading_type=reading_type,
+        building=building,
+        per_page=per_page)
 
 # 修复：添加带ID参数的编辑页面路由
 @utility_room_meter_bp.route('/edit/<int:reading_id>', methods=['GET'])

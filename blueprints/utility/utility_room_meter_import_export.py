@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify, make_response, flash, redirect, url_for
+from flask import Blueprint, request, make_response, flash, redirect, url_for
 from utils.db import db
 from datetime import datetime
 import logging
@@ -306,11 +306,6 @@ def import_readings():
     }
     
     try:
-        if not current_user.is_authenticated:
-            msg = "请先登录系统"
-            logging.error(f"导入文件失败{msg}")
-            return jsonify({"success": False, "message": msg}), 401
-
         if 'file' not in request.files:
             msg = "未上传文件"
             log_operation(
@@ -321,7 +316,8 @@ def import_readings():
                 result="失败"
             )
             logging.error(f"导入文件失败{msg}")
-            return jsonify({"success": False, "message": msg}), 400
+            flash(msg, 'danger')
+            return redirect(url_for('utility_room_meter.utility_reading_manage'))
 
         file = request.files['file']
         log_data["文件名"] = file.filename
@@ -336,7 +332,8 @@ def import_readings():
                 result="失败"
             )
             logging.error(f"导入文件失败{msg}")
-            return jsonify({"success": False, "message": msg}), 400
+            flash(msg, 'danger')
+            return redirect(url_for('utility_room_meter.utility_reading_manage'))
 
         if not file.filename.endswith(('.xlsx', '.xls')):
             msg = "仅支持Excel文件(.xlsx, .xls)"
@@ -348,7 +345,8 @@ def import_readings():
                 result="失败"
             )
             logging.error(f"导入文件失败{msg}")
-            return jsonify({"success": False, "message": msg}), 400
+            flash(msg, 'danger')
+            return redirect(url_for('utility_room_meter.utility_reading_manage'))
 
         # 关键修复1：将文件流转换为BytesIO对象
         file_content = file.read()  # 读取文件内容为字节流
@@ -386,10 +384,23 @@ def import_readings():
                 result="失败"
             )
             logging.error(f"导入文件失败{msg}")
-            return jsonify({"success": False, "message": msg}), 400
+            flash(msg, 'danger')
+            return redirect(url_for('utility_room_meter.utility_reading_manage'))
         
         # 记录所有表头索引，用于后续数据读取
         header_indices = {header: idx for idx, header in enumerate(actual_headers)}
+        
+        # 列名兼容：将带备注的列名映射到标准列名
+        header_alias_map = {
+            '记录ID': ['记录ID（批量更新必填）', '记录ID(批量更新必填)'],
+            '账期(YYYY-MM)': ['账期（YYYY-MM）'],
+        }
+        for standard_name, aliases in header_alias_map.items():
+            if standard_name not in header_indices:
+                for alias in aliases:
+                    if alias in header_indices:
+                        header_indices[standard_name] = header_indices[alias]
+                        break
         
         # 检查Excel中是否存在账期列
         billing_period_header = None
@@ -435,11 +446,8 @@ def import_readings():
         except Exception as e:
             # 记录日志
             logging.error(f"批量解析抄表日期时间失败：{str(e)}")
-            return jsonify({
-                'success': False,
-                'message': f'批量解析抄表日期时间失败：{str(e)}',
-                'error_details': []
-            }), 500
+            flash(f'批量解析抄表日期时间失败：{str(e)}', 'danger')
+            return redirect(url_for('utility_room_meter.utility_reading_manage'))
         
         # 批量解析账期（账期列是必填的，billing_period_header一定存在）
         parsed_billing_periods = None
@@ -457,11 +465,8 @@ def import_readings():
                         parsed_billing_periods.append(None)
             except Exception as e:
                 logging.error(f"批量解析账期失败：{str(e)}")
-                return jsonify({
-                    'success': False,
-                    'message': f'批量解析账期失败：{str(e)}',
-                    'error_details': []
-                }), 500
+                flash(f'批量解析账期失败：{str(e)}', 'danger')
+                return redirect(url_for('utility_room_meter.utility_reading_manage'))
         
         # 获取第一个非None的账期值
         first_billing_period = None
@@ -471,6 +476,9 @@ def import_readings():
                     first_billing_period = bp
                     break
         
+        # 收集导入的账期，用于导入后跳转
+        imported_periods = set()
+
         # 处理非空行数据
         for idx, (row_num, row) in enumerate(non_empty_rows):
             try:
@@ -528,6 +536,7 @@ def import_readings():
                 if not billing_period:
                     logging.error(f"第{row_num}行账期为空")
                     raise ValueError("账期不能为空，请在Excel账期列中填写正确的账期")
+                imported_periods.add(billing_period)
 
                 # 查找房间
                 room = Room.query.filter_by(
@@ -591,15 +600,29 @@ def import_readings():
         
         logging.info(f"抄表记录导入完成，成功{success_count}条，失败{fail_count}条，共处理{total_records}条")
 
-        return jsonify({
-            "success": True,
-            "message": f"导入完成，成功{success_count}条，失败{fail_count}条",
-            "total_count": total_records,  # 新增：返回实际处理的总记录数
-            "success_count": success_count,
-            "fail_count": fail_count,
-            "billing_period": first_billing_period,
-            "errors": error_records if fail_count > 0 else None
-        })
+        if fail_count > 0:
+            if success_count > 0:
+                message = f"导入部分成功：共处理{total_records}条，成功{success_count}条，失败{fail_count}条"
+                if error_records:
+                    error_details = [f"第{e['row']}行: {e['error']}" for e in error_records[:5]]
+                    message += "<br>" + "<br>".join(error_details)
+                    if len(error_records) > 5:
+                        message += f"<br>... 还有 {len(error_records)-5} 条错误"
+                flash(message, 'warning')
+            else:
+                message = f"导入全部失败：共{fail_count}条记录处理失败"
+                if error_records:
+                    error_details = [f"第{e['row']}行: {e['error']}" for e in error_records[:5]]
+                    message += "<br>" + "<br>".join(error_details)
+                    if len(error_records) > 5:
+                        message += f"<br>... 还有 {len(error_records)-5} 条错误"
+                flash(message, 'danger')
+        else:
+            message = f"导入全部成功：共处理{total_records}条，成功{success_count}条"
+            flash(message, 'success')
+        if imported_periods:
+            return redirect(url_for('utility_room_meter.utility_reading_manage', billing_period=sorted(imported_periods)[0]))
+        return redirect(url_for('utility_room_meter.utility_reading_manage'))
 
     except SQLAlchemyError as e:
         db.session.rollback()
@@ -612,7 +635,8 @@ def import_readings():
             action=f"导入失败{error_msg}",
             result="失败"
         )
-        return jsonify({"success": False, "message": error_msg}), 500
+        flash(error_msg, 'danger')
+        return redirect(url_for('utility_room_meter.utility_reading_manage'))
     except Exception as e:
         error_msg = f"导入失败: {str(e)}"
         logging.error(error_msg)
@@ -623,7 +647,8 @@ def import_readings():
             action=f"导入失败{error_msg}",
             result="失败"
         )
-        return jsonify({"success": False, "message": error_msg}), 500
+        flash(error_msg, 'danger')
+        return redirect(url_for('utility_room_meter.utility_reading_manage'))
 
 # 批量更新抄表记录接口（确保触发自动同步逻辑）
 @utility_room_meter_import_export_bp.route('/batch_update', methods=['POST'])
@@ -632,23 +657,21 @@ def import_readings():
 def batch_update():
     """批量更新抄表记录（自动同步上次读数）"""
     try:
-        if not current_user.is_authenticated:
-            msg = "请先登录系统"
-            logging.error(msg)
-            return jsonify({"success": False, "message": msg}), 401
-
         if 'file' not in request.files:
             logging.error("未上传文件")
-            return jsonify({'success': False, 'message': '未上传文件'}), 400
+            flash('未上传文件', 'danger')
+            return redirect(url_for('utility_room_meter.utility_reading_manage'))
 
         file = request.files['file']
         if file.filename == '':
             logging.error("未选择文件") 
-            return jsonify({'success': False, 'message': '请选择有效的Excel文件'}), 400
+            flash('请选择有效的Excel文件', 'danger')
+            return redirect(url_for('utility_room_meter.utility_reading_manage'))
 
         if not file.filename.endswith(('.xlsx', '.xls')):
             logging.error("文件格式错误")   
-            return jsonify({'success': False, 'message': '文件格式错误，请上传Excel文件'}), 400
+            flash('文件格式错误，请上传Excel文件', 'danger')
+            return redirect(url_for('utility_room_meter.utility_reading_manage'))
 
         # 关键修复2：将文件流转换为BytesIO对象
         file_content = file.read()  # 读取文件内容为字节流
@@ -658,13 +681,34 @@ def batch_update():
         # 读取Excel文件（使用转换后的BytesIO对象）
         df = pd.read_excel(file_bytes)
         
+        # 列名兼容映射：支持带备注的列名和简写列名
+        column_aliases = {
+            '记录ID': ['记录ID（批量更新必填）', '记录ID(批量更新必填)', '记录ID'],
+            '账期(YYYY-MM)': ['账期(YYYY-MM)', '账期（YYYY-MM）', '账期'],
+            '水表是否更换': ['水表是否更换', '水表更换'],
+            '电表是否更换': ['电表是否更换', '电表更换'],
+        }
+        
+        # 构建列名映射：将实际列名映射到标准列名
+        column_mapping = {}
+        for standard_name, aliases in column_aliases.items():
+            for alias in aliases:
+                if alias in df.columns:
+                    column_mapping[alias] = standard_name
+                    break
+        
+        # 重命名列以统一标准
+        if column_mapping:
+            df = df.rename(columns=column_mapping)
+        
         # 验证必要的表头
-        required_columns = ['记录ID（批量更新必填）', '抄表日期时间', '楼栋', '宿舍号']
+        required_columns = ['记录ID', '抄表日期时间', '楼栋', '宿舍号']
         missing_columns = [col for col in required_columns if col not in df.columns]
         if missing_columns:
             error_msg = f'Excel缺少必要的列：{", ".join(missing_columns)}'
             logging.error(error_msg)
-            return jsonify({'success': False, 'message': error_msg}), 400
+            flash(error_msg, 'danger')
+            return redirect(url_for('utility_room_meter.utility_reading_manage'))
 
         # 预处理数据
         success_count = 0
@@ -672,6 +716,7 @@ def batch_update():
         errors = []
         processed_ids = {}  # 缓存已处理的ID，提高效率
         actual_updated = 0  # 记录实际发生变化的记录数
+        imported_periods = set()  # 收集更新的账期，用于跳转
 
         # 批量提取所有抄表日期时间值
         reading_date_values = []
@@ -685,11 +730,8 @@ def batch_update():
         except Exception as e:
             # 记录日志
             logging.error(f"批量解析抄表日期时间失败：{str(e)}")
-            return jsonify({
-                'success': False,
-                'message': f'批量解析抄表日期时间失败：{str(e)}',
-                'errors': []
-            }), 500
+            flash(f'批量解析抄表日期时间失败：{str(e)}', 'danger')
+            return redirect(url_for('utility_room_meter.utility_reading_manage'))
 
         # 开始数据库事务
         try:
@@ -697,7 +739,7 @@ def batch_update():
                 row_num = index + 2
                 try:
                     # 提取记录ID
-                    record_id_str = str(row['记录ID（批量更新必填）']).strip()
+                    record_id_str = str(row['记录ID']).strip()
                     if not record_id_str:
                         logging.error("记录ID不能为空（批量更新必须提供）")
                         raise ValueError("记录ID不能为空（批量更新必须提供）")
@@ -736,6 +778,13 @@ def batch_update():
                     if not reading:
                         logging.error(f"第{row_num}行记录ID {record_id} 不存在")
                         raise ValueError(f'记录ID {record_id} 不存在')
+                    
+                    # 收集账期用于跳转
+                    if reading.record_id:
+                        from models.utility.utility_room_bill_record import RoomUtilityRecord
+                        bill_record = RoomUtilityRecord.query.get(reading.record_id)
+                        if bill_record and bill_record.billing_period:
+                            imported_periods.add(bill_record.billing_period)
                     
                     # 验证楼栋宿舍匹配
                     room = Room.query.get(reading.room_id)
@@ -839,15 +888,11 @@ def batch_update():
             db.session.rollback()
             logging.error(f'批量处理失败: {str(e)}')
             raise e
-        return jsonify({
-            'success': True,
-            'message': f'批量处理完成，成功{success_count}条，失败{fail_count}条，实际更新{actual_updated}条',
-            'total_count': success_count + fail_count,  # 新增：总记录数
-            'success_count': success_count,
-            'fail_count': fail_count,
-            'actual_updated': actual_updated,
-            'errors': errors if errors else None
-        })
+        success_msg = f'批量处理完成，成功{success_count}条，失败{fail_count}条，实际更新{actual_updated}条'
+        flash(success_msg, 'success')
+        if imported_periods:
+            return redirect(url_for('utility_room_meter.utility_reading_manage', billing_period=sorted(imported_periods)[0]))
+        return redirect(url_for('utility_room_meter.utility_reading_manage'))
 
     except SQLAlchemyError as e:
         db.session.rollback()
@@ -860,8 +905,8 @@ def batch_update():
                     action=error_msg,
                     result="失败"
                 )
-            
-        return jsonify({'success': False, 'message': error_msg}), 500
+        flash(error_msg, 'danger')
+        return redirect(url_for('utility_room_meter.utility_reading_manage'))
     except Exception as e:
         error_msg = f'处理文件失败: {str(e)}'
         logging.error(error_msg)
@@ -872,4 +917,5 @@ def batch_update():
                     action=error_msg,
                     result="失败"
                 )
-        return jsonify({'success': False, 'message': error_msg}), 500
+        flash(error_msg, 'danger')
+        return redirect(url_for('utility_room_meter.utility_reading_manage'))
