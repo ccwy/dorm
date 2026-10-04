@@ -199,15 +199,6 @@ def import_rooms():
             logging.error(f'导入房间数据失败：文件类型无效，当前文件类型：.{file_ext}')
             return redirect(url_for('room.manage'))
         
-        # 限制文件大小（10MB）
-        file.seek(0, os.SEEK_END)
-        file_size = file.tell()
-        file.seek(0)
-        if file_size > 10 * 1024 * 1024:
-            flash('文件大小超过限制（最大10MB）', 'danger')
-            logging.error('导入房间数据失败：文件大小超过限制（最大10MB）')
-            return redirect(url_for('room.manage'))
-        
         try:
             file_content = file.read()
             file_bytes = BytesIO(file_content)
