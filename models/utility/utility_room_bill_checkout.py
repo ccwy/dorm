@@ -566,7 +566,9 @@ class CheckoutUtilityRecord(db.Model):
     def update_checkout_record(self, new_electric_reading=None, new_water_reading=None,
                               user_period_days=None, total_period_days=None,
                               electric_price=None, water_price=None,
-                              user_proportional_reduction=None, user_independent_reduction=None):
+                              user_proportional_reduction=None, user_independent_reduction=None,
+                              user_reduction_electric=None, user_reduction_water=None,
+                              remarks=None):
         """更新退宿记录，支持可选的单价和减免覆盖"""
         try:
             # 1. 验证主记录和房间信息
@@ -691,13 +693,13 @@ class CheckoutUtilityRecord(db.Model):
                 if self.electric_previous is not None and self.electric_reading is not None:
                     electric_max = Decimal(str(room.electric_meter_max)) if room.electric_meter_max else Decimal('9999.99')
                     raw_usage = self.electric_reading - self.electric_previous
-                    self.meter_electric_usage = (electric_max - self.electric_previous) + self.electric_reading if raw_usage < 0 else raw_usage
+                    self.meter_electric_usage = raw_usage if raw_usage >= 0 else Decimal('0')
                     self.meter_electric_fee = round(self.meter_electric_usage * electric_price, 2)
                 
                 if self.water_previous is not None and self.water_reading is not None:
                     water_max = Decimal(str(room.water_meter_max)) if room.water_meter_max else Decimal('9999.99')
                     raw_usage = self.water_reading - self.water_previous
-                    self.meter_water_usage = (water_max - self.water_previous) + self.water_reading if raw_usage < 0 else raw_usage
+                    self.meter_water_usage = raw_usage if raw_usage >= 0 else Decimal('0')
                     self.meter_water_fee = round(self.meter_water_usage * water_price, 2)
                 
                 self.meter_total_fee = round(self.meter_electric_fee + self.meter_water_fee, 2)
@@ -823,6 +825,30 @@ class CheckoutUtilityRecord(db.Model):
                 # 个人级独立减免
                 self.user_independent_reduction = subsidies['user_total_reduction']
                 
+                # 用户手动覆盖减免用量（在计费用量计算之前）
+                if user_reduction_electric is not None:
+                    try:
+                        manual_electric_reduction = Decimal(str(user_reduction_electric))
+                        if manual_electric_reduction < 0:
+                            raise ValueError("电减免用量不能为负数")
+                        if manual_electric_reduction > self.user_original_electric_usage:
+                            raise ValueError("电减免用量不能超过用户原始用量")
+                        self.user_reduction_electric = round(manual_electric_reduction, 2)
+                        logging.info(f"使用用户指定的电减免用量: {self.user_reduction_electric}")
+                    except (InvalidOperation, TypeError):
+                        raise ValueError("电减免用量必须是有效的数字")
+                if user_reduction_water is not None:
+                    try:
+                        manual_water_reduction = Decimal(str(user_reduction_water))
+                        if manual_water_reduction < 0:
+                            raise ValueError("水减免用量不能为负数")
+                        if manual_water_reduction > self.user_original_water_usage:
+                            raise ValueError("水减免用量不能超过用户原始用量")
+                        self.user_reduction_water = round(manual_water_reduction, 2)
+                        logging.info(f"使用用户指定的水减免用量: {self.user_reduction_water}")
+                    except (InvalidOperation, TypeError):
+                        raise ValueError("水减免用量必须是有效的数字")
+                
                 # 6.7 计算用户计费用量（减免后）
                 self.user_billing_electric_usage = self.user_original_electric_usage
                 self.user_billing_water_usage = self.user_original_water_usage
@@ -946,6 +972,8 @@ class CheckoutUtilityRecord(db.Model):
             self.updated_at = datetime.now()
             main_record.updated_at = datetime.now()
             self.natural_days = natural_days
+            if remarks is not None:
+                self.remarks = remarks
 
             db.session.commit()
             logging.info(f"退宿记录更新成功: ID={self.id}, 主表ID={main_record.record_id}")

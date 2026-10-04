@@ -271,8 +271,8 @@ class UtilityMeterReading(db.Model):
         room = Room.query.get_or_404(room_id)
         
         # 量程默认值
-        electric_max = getattr(room, 'electric_meter_max', 9999.99)
-        water_max = getattr(room, 'water_meter_max', 9999.99)
+        electric_max = getattr(room, 'electric_meter_max', Decimal('9999.99'))
+        water_max = getattr(room, 'water_meter_max', Decimal('9999.99'))
         
         # 水表验证与计算
         water_previous = None
@@ -283,7 +283,7 @@ class UtilityMeterReading(db.Model):
             if reading_type == 1:  # 新增类型判断
                 if not water_meter_replaced and last_water:
                     if water_current < last_water.water_current:
-                        if not (last_water.water_current > water_max * 0.9 and water_current < water_max * 0.1):
+                        if not (last_water.water_current > water_max * Decimal('0.9') and water_current < water_max * Decimal('0.1')):
                             raise ValueError(f"水表当前读数({water_current})不能小于上次读数({last_water.water_current})，除非标记表具更换或表计归零")
             
             # 确定上次读数（核心：使用跨账期的历史记录）
@@ -304,7 +304,7 @@ class UtilityMeterReading(db.Model):
             if reading_type == 1:  # 新增类型判断
                 if not electric_meter_replaced and last_electric:
                     if electric_current < last_electric.electric_current:
-                        if not (last_electric.electric_current > electric_max * 0.9 and electric_current < electric_max * 0.1):
+                        if not (last_electric.electric_current > electric_max * Decimal('0.9') and electric_current < electric_max * Decimal('0.1')):
                             raise ValueError(f"电表当前读数({electric_current})不能小于上次读数({last_electric.electric_current})，除非标记表具更换或表计归零")
             
             # 确定上次读数（核心：使用跨账期的历史记录）
@@ -358,8 +358,8 @@ class UtilityMeterReading(db.Model):
                 updated_fields.append(key)
 
         room = Room.query.get_or_404(self.room_id)
-        electric_max = getattr(room, 'electric_meter_max', 9999.99)
-        water_max = getattr(room, 'water_meter_max', 9999.99)
+        electric_max = getattr(room, 'electric_meter_max', Decimal('9999.99'))
+        water_max = getattr(room, 'water_meter_max', Decimal('9999.99'))
         
         # 处理时间更新的特殊验证
         if 'reading_date' in kwargs:
@@ -403,7 +403,7 @@ class UtilityMeterReading(db.Model):
                         .first()
                 
                 if last_water and new_water_current < last_water.water_current:
-                    if not (last_water.water_current > water_max * 0.9 and new_water_current < water_max * 0.1):
+                    if not (last_water.water_current > water_max * Decimal('0.9') and new_water_current < water_max * Decimal('0.1')):
                         raise ValueError(f"水表当前读数({new_water_current})不能小于上次读数({last_water.water_current})，除非标记表具更换或表计归零")
             
             self.water_current = new_water_current
@@ -461,7 +461,7 @@ class UtilityMeterReading(db.Model):
                         .first()
                 
                 if last_electric and new_electric_current < last_electric.electric_current:
-                    if not (last_electric.electric_current > electric_max * 0.9 and new_electric_current < electric_max * 0.1):
+                    if not (last_electric.electric_current > electric_max * Decimal('0.9') and new_electric_current < electric_max * Decimal('0.1')):
                         raise ValueError(f"电表当前读数({new_electric_current})不能小于上次读数({last_electric.electric_current})，除非标记表具更换或表计归零")
             
             self.electric_current = new_electric_current

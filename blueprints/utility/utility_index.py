@@ -149,26 +149,200 @@ def utility_room_checkout():
 @login_required
 @require_permission('utility.edit')
 def utility_room_checkout_edit():
-    """编辑退宿人员费用页面"""
+    """编辑退宿人员费用页面（服务端渲染）"""
+    from datetime import datetime
+    
+    checkout_id = request.args.get('id', type=int)
+    if not checkout_id:
+        flash('参数错误，缺少退宿记录ID', 'danger')
+        return redirect(url_for('utility_index.utility_home'))
+    
     try:
-        # 获取查询参数用于日志
-        record_id = request.args.get('record_id', '未指定')
-        user_id = request.args.get('user_id', '未指定')
+        # 1. 获取子表记录
+        checkout_record = CheckoutUtilityRecord.query.get(checkout_id)
+        if not checkout_record:
+            log_operation(
+                user_id=current_user.id,
+                module='utility',
+                operation_type='utility_api',
+                action=f"查询退宿修改数据 [退宿记录ID: {checkout_id}]，退宿记录不存在",
+                result="失败"
+            )
+            flash(f'退宿记录ID={checkout_id}不存在', 'danger')
+            return redirect(url_for('utility_index.utility_home'))
         
+        # 2. 获取关联的主表和房间信息
+        main_record = RoomUtilityRecord.query.get(checkout_record.record_id)
+        if not main_record:
+            flash('关联的主账单记录不存在', 'danger')
+            return redirect(url_for('utility_index.utility_home'))
+        
+        room = Room.query.get(main_record.room_id)
+        if not room:
+            flash('关联的房间不存在', 'danger')
+            return redirect(url_for('utility_index.utility_home'))
+        
+        # 3. 获取用户和住宿记录信息
+        dorm_record = None
+        if checkout_record.dorm_id:
+            dorm_record = Dorm.query.get(checkout_record.dorm_id)
+        
+        if not dorm_record:
+            dorm_record = Dorm.query.filter_by(
+                user_id=checkout_record.user_id,
+                room_id=room.id,
+                status='checked_out'
+            ).order_by(Dorm.check_out_date.desc()).first()
+        
+        user = User.query.get(checkout_record.user_id)
+        if not user:
+            flash('用户信息不存在', 'danger')
+            return redirect(url_for('utility_index.utility_home'))
+        
+        # 4. 判断是否为换宿
+        is_transfer = dorm_record.end_operation_type in ('transfer', 'exchange') if dorm_record and dorm_record.end_operation_type else False
+        
+        # 5. 获取室友信息
+        roommates = []
+        period_start = main_record.start_date
+        period_end = main_record.end_date
+        
+        all_dorm_records = Dorm.query.filter(
+            Dorm.room_id == room.id,
+            Dorm.user_id != checkout_record.user_id
+        ).all()
+        
+        unique_user_ids = set()
+        for dorm in all_dorm_records:
+            if dorm.user_id not in unique_user_ids:
+                unique_user_ids.add(dorm.user_id)
+                dorm_chain = dorm.dorm_chain
+                has_valid_stay = False
+                relevant_dorm = None
+                period_days = 0
+                earliest_checkin = None
+                latest_checkout = None
+                has_active_stay = False
+                
+                for chain_dorm in dorm_chain:
+                    chain_checkin = chain_dorm.check_in_date
+                    chain_checkout = chain_dorm.check_out_date or datetime.now()
+                    
+                    if (chain_dorm.room_id == room.id and 
+                        chain_checkin <= period_end and 
+                        chain_checkout >= period_start):
+                        
+                        transfer_details = chain_dorm.get_transfer_details()
+                        has_early_transfer = False
+                        
+                        if transfer_details['next']:
+                            next_checkin = transfer_details['next']['check_in']
+                            if isinstance(next_checkin, datetime) and period_start < next_checkin < period_end:
+                                has_early_transfer = True
+                        
+                        if not has_early_transfer:
+                            has_valid_stay = True
+                            if relevant_dorm is None:
+                                relevant_dorm = chain_dorm
+                            
+                            # 累加该段住宿天数（与模型逻辑一致，使用.date()避免时间部分导致天数偏少）
+                            stay_start = max(chain_checkin, period_start)
+                            stay_end = min(
+                                chain_dorm.check_out_date or checkout_record.checkout_date,
+                                checkout_record.checkout_date,
+                                period_end
+                            )
+                            
+                            if stay_start <= stay_end:
+                                # 同日换宿：入住和退宿为同一天时不计天数
+                                if chain_dorm.check_out_date is not None and chain_dorm.check_in_date.date() == chain_dorm.check_out_date.date():
+                                    days = 0
+                                else:
+                                    days = (stay_end.date() - stay_start.date()).days + 1
+                                period_days += days
+                            
+                            # 跟踪最早的入住日期
+                            if earliest_checkin is None or chain_checkin < earliest_checkin:
+                                earliest_checkin = chain_checkin
+                            
+                            # 跟踪最晚的退宿日期和在住状态
+                            if chain_dorm.check_out_date is None:
+                                has_active_stay = True
+                            elif latest_checkout is None or chain_dorm.check_out_date > latest_checkout:
+                                latest_checkout = chain_dorm.check_out_date
+                
+                if has_valid_stay and relevant_dorm:
+                    rm_user = User.query.get(dorm.user_id)
+                    if rm_user:
+                        transfer_details = relevant_dorm.get_transfer_details()
+                        has_transfer = bool(transfer_details['prev'] or transfer_details['next'])
+                        
+                        # 判断状态：有在住段或最晚退宿日期晚于账期结束则为在住
+                        if has_active_stay or (latest_checkout is not None and latest_checkout > period_end):
+                            status_text = "在住"
+                            status_type = "success"
+                            actual_checkin = earliest_checkin
+                            actual_checkout = None
+                        else:
+                            status_text = "已退宿"
+                            status_type = "neutral"
+                            actual_checkin = earliest_checkin
+                            actual_checkout = latest_checkout
+                        
+                        if (actual_checkout is not None and 
+                            (actual_checkout < actual_checkin or actual_checkout < period_start)):
+                            continue
+                        
+                        transfer_prev_room = None
+                        transfer_next_room = None
+                        
+                        if transfer_details['prev'] and not (transfer_details['next'] and transfer_details['next']['check_in'] <= period_end):
+                            transfer_prev_room = transfer_details['prev']['room_number']
+                        
+                        if transfer_details['next'] and transfer_details['next']['check_in'] <= period_end:
+                            transfer_next_room = transfer_details['next']['room_number']
+                        
+                        roommates.append({
+                            "user_id": rm_user.id,
+                            "name": rm_user.name,
+                            "check_in_date": actual_checkin,
+                            "check_out_date": actual_checkout,
+                            "status_text": status_text,
+                            "status_type": status_type,
+                            "has_transfer": has_transfer,
+                            "transfer_prev_room": transfer_prev_room,
+                            "transfer_next_room": transfer_next_room,
+                            "period_days": period_days,
+                        })
+        
+        roommates.sort(key=lambda x: x["check_in_date"] if x["check_in_date"] else datetime.min)
+        
+        # 6. 记录日志
         log_operation(
             user_id=current_user.id,
-            module='utility',#这里记载模块
-            operation_type='checkout_edit',#这里记载类型
-            action=f"访问编辑退宿人员费用页面 [记录ID: {record_id}, 用户ID: {user_id}]",#这里记载成功与失败的记录
-            result="成功"#这里只有成功与失败
+            module='utility',
+            operation_type='checkout_edit',
+            action=f"访问编辑退宿人员费用页面 [退宿记录ID: {checkout_id}]",
+            result="成功"
         )
-        return render_template('utility_bill/utility_room_checkout_edit.html', title=f"编辑退宿人员费用")
+        
+        return render_template('utility_bill/utility_room_checkout_edit.html',
+                              title=f"编辑退宿人员费用-{user.name}(ID:{user.id})",
+                              checkout_record=checkout_record,
+                              user=user,
+                              room=room,
+                              main_record=main_record,
+                              dorm_record=dorm_record,
+                              is_transfer=is_transfer,
+                              roommates=roommates,
+                              billing_period=main_record.billing_period)
+    
     except Exception as e:
-        logging.error(f"访问编辑退宿人员费用页面失败: {str(e)}")
-        flash(str(e), 'danger')
-        return render_template('utility_bill/utility_room_checkout_edit.html', title=f"编辑退宿人员费用")
+        logging.error(f"访问编辑退宿人员费用页面失败: {str(e)}", exc_info=True)
+        flash(f'加载页面失败: {str(e)}', 'danger')
+        return redirect(url_for('utility_index.utility_home'))
 
-# 退宿费用计算结果页面
+# 退宿费用计算详情结果页面
 @utility_index_bp.route('/utility_user_checkout_detail')
 @login_required
 @require_permission('utility.user_checkout_detail')
@@ -202,7 +376,7 @@ def utility_user_checkout_detail():
     
     # 渲染费用结果页面
     return render_template('utility_bill/utility_user_checkout_detail.html', 
-                          title=f"退宿费用核算-{user.name}(ID:{user.id})",
+                          title=f"退宿费用核算详情-{user.name}(ID:{user.id})",
                           checkout_record=checkout_record, 
                           user=user, 
                           room=room,

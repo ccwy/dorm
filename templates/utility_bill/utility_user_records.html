@@ -339,7 +339,11 @@
               </td>
               <td class="px-6 py-4 border-b border-gray-100">
                 <div class="space-y-1">
+                  {% if user.type == '退宿' and user.checkout_id %}
+                  <a href="/utility/utility_user_checkout_detail?id={{ user.checkout_id }}" class="font-medium text-danger hover:underline cursor-pointer">￥{{ "%.2f"|format(user.total_fee) }}</a>
+                  {% else %}
                   <div class="font-medium text-danger">￥{{ "%.2f"|format(user.total_fee) }}</div>
+                  {% endif %}
                   {% if user.is_multi_room %}
                   <div id="fee-detail-{{ loop.index }}" class="fee-detail-enter text-gray-600">
                     {% for detail in user.fee_details %}

@@ -78,6 +78,7 @@ def user_records():
             User.gender,
             Department.name.label('department'),
             User.position,
+            CheckoutUtilityRecord.id.label('checkout_id'),
             CheckoutUtilityRecord.record_id,
             CheckoutUtilityRecord.room_id,
             CheckoutUtilityRecord.payable_fee,
@@ -222,17 +223,22 @@ def user_records():
                     users_data[user_id]['fee_details'] = []
                 # 获取记录ID（从CheckoutUtilityRecord中获取）
                 record_id = row.record_id  # 使用属性访问方式，避免索引位置变化的风险
+                checkout_id = row.checkout_id
                 users_data[user_id]['fee_details'].append({
                     'room': room_info,
                     'room_id': room_id,
                     'fee': float(row.payable_fee or 0),
                     'days': f"{row.user_period_days}天",
-                    'record_id': record_id
+                    'record_id': record_id,
+                    'checkout_id': checkout_id
                 })
                 
                 # 保存第一条记录的ID作为用户主记录ID，用于账期链接
                 if 'record_id' not in users_data[user_id]:
                     users_data[user_id]['record_id'] = record_id
+                # 保存checkout_id用于跳转退宿详情
+                if 'checkout_id' not in users_data[user_id]:
+                    users_data[user_id]['checkout_id'] = checkout_id
         
         # 对用户数据进行处理，添加多房间标识和换宿判断
         users_list = []
@@ -388,6 +394,7 @@ def export_user_records_excel():
             Department.company.label('company'),
             Department.name.label('department'),
             User.position,
+            CheckoutUtilityRecord.id.label('checkout_id'),
             CheckoutUtilityRecord.record_id,
             CheckoutUtilityRecord.room_id,
             CheckoutUtilityRecord.payable_fee,
