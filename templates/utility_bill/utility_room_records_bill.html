@@ -74,6 +74,11 @@
                                 <button onclick="window.location.href='{{ url_for('utility_room_meter.utility_reading_manage') }}'" class="bg-teal-600 text-white px-4 py-2 rounded-md flex items-center btn-effect hover:bg-teal-700 transition-colors flex-shrink-0 justify-center text-sm sm:text-base">
                                     <i class="fa fa-book mr-1.5"></i>抄表记录
                                 </button>
+                                {% if current_user.has_permission('utility.export') %}
+                                <a id="exportBillLink" href="/utility_room_bill_records_export/api/export" class="bg-warning text-white px-4 py-2 rounded-md flex items-center btn-effect hover:bg-warning/90 transition-colors flex-shrink-0 justify-center text-sm sm:text-base no-underline">
+                                    <i class="fa fa-download mr-1.5"></i>导出
+                                </a>
+                                {% endif %}
                                 <button id="refreshBtn" class="bg-green-600 text-white px-4 py-2 rounded-md flex items-center btn-effect hover:bg-green-700 transition-colors flex-shrink-0 justify-center text-sm sm:text-base">
                                     <i class="fa fa-refresh mr-1.5"></i>刷新
                                 </button>
@@ -617,6 +622,7 @@
                         currentBillingPeriod = periodParam;
                         currentPage = 1;
                         updateActionButtons();
+                        updateExportLink(periodParam);
                         loadRecords();
                     } else {
                         // 账期已被删除，重置筛选框并清除URL参数
@@ -675,6 +681,7 @@
                 currentBillingPeriod = e.target.value;
                 currentPage = 1;  // 重置为第一页
                 updateActionButtons();
+                updateExportLink(e.target.value);
                 loadRecords();  // 自动加载数据
             });
 
@@ -1137,6 +1144,14 @@
             calculateBtn.disabled = !hasPeriod;
             clearPeriodBtn.disabled = !hasPeriod;
             deleteAllBtn.disabled = !hasPeriod;
+        }
+
+        // 更新导出链接
+        function updateExportLink(period) {
+            const exportBillLink = document.getElementById('exportBillLink');
+            if (exportBillLink) {
+                exportBillLink.href = '/utility_room_bill_records_export/api/export?billing_period=' + encodeURIComponent(period);
+            }
         }
 
         // 加载账期列表
