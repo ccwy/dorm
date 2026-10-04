@@ -862,6 +862,16 @@ def batch_update():
                         continue
                     room.room_type = room_type_text
 
+                # 处理房间级别
+                room_level_val = row.get('房间级别')
+                if pd.notna(room_level_val) and str(room_level_val).strip():
+                    room_level_text = str(room_level_val).strip()
+                    valid_room_levels = Room.get_valid_room_levels() or []
+                    if valid_room_levels and room_level_text not in valid_room_levels:
+                        error_list.append(f"第{row_num}行：房间级别 '{room_level_text}' 无效，有效级别为：{', '.join(valid_room_levels)}")
+                        continue
+                    room.room_level = room_level_text
+
                 # 处理容量
                 capacity_val = str(row.get('容量', '')).strip() if pd.notna(row.get('容量', '')) else ''
                 if capacity_val:

@@ -351,7 +351,7 @@ def import_users():
         # 必填列（缺失时报错）
         required_columns = ['姓名', '性别']
         # 可选列（缺失时不报错）
-        optional_columns = ['工号', '用户名', '密码', '角色', '公司', '部门', '职位', '身份证号码', '身份证地址', '出生日期', '手机号', '紧急联系人', '紧急联系人电话', '入职日期', '是否激活账号', '是否允许登录', '类别', '备注']
+        optional_columns = ['工号', '用户名', '密码', '角色', '公司', '部门', '职位', '身份证号码', '身份证地址', '外宿地址', '联系电话', '紧急联系人', '紧急联系人电话', '入职日期', '是否激活账号', '是否允许登录', '人员类别', '备注', '状态', '民族', '婚姻状态']
         
         # 所有可能需要识别的标准列名
         all_known_columns = set(required_columns) | set(optional_columns)
@@ -762,7 +762,7 @@ def update_users():
         # 必填列（缺失时报错）
         required_columns = ['用户ID']
         # 可选列（缺失时不报错）
-        optional_columns = ['姓名', '性别', '工号', '用户名', '密码', '角色', '公司', '部门', '职位', '身份证号码', '身份证地址', '出生日期', '手机号', '紧急联系人', '紧急联系人电话', '入职日期', '是否激活账号', '是否允许登录', '类别', '备注']
+        optional_columns = ['姓名', '性别', '工号', '用户名', '密码', '角色', '公司', '部门', '职位', '身份证号码', '身份证地址', '外宿地址', '联系电话', '紧急联系人', '紧急联系人电话', '入职日期', '是否激活账号', '是否允许登录', '人员类别', '备注', '状态', '民族', '婚姻状态']
         # 列名别名映射：将Excel中可能出现的列名映射到标准列名
         column_alias_map = {
             '用户ID': ['用户ID（批量更新必填）', '用户ID(批量更新必填)', 'ID', 'id'],
@@ -830,8 +830,11 @@ def update_users():
         excel_username_set = set()
         excel_student_id_set = set()
         
+        # 预加载角色映射，避免循环内DB查询（修复：角色需要从名称映射到role_id）
+        all_roles = Role.query.order_by(Role.sort_order).all()
+        role_name_to_id = {r.name: r.id for r in all_roles}
+        
         for idx, row in df.iterrows():
-            user_data = {}
             # 提取用户ID（处理pandas将数字读取为float的问题）
             raw_uid = row['用户ID']
             if pd.isna(raw_uid):
@@ -860,8 +863,8 @@ def update_users():
                         logging.warning(f"批量更新用户数据操作，第{idx+2}行：用户名'{username}'在Excel中重复")
                     else:
                         excel_username_set.add(username)
-
-            # 验证工号唯一性
+                        # 修复：验证通过后必须将username写入user_data，否则用户名永远不会被更新
+                        user_data['username'] = username
             if '工号' in row and pd.notna(row['工号']):
                 student_id = str(row['工号']).strip()
                 if student_id:
@@ -880,8 +883,8 @@ def update_users():
 
             # 处理其他字段
             for col in excel_columns:
-                # 跳过已经处理过的字段
-                if col in ['用户ID', '用户名', '工号']:
+                # 跳过已经处理过的字段（角色需单独映射role_id，不走通用处理）
+                if col in ['用户ID', '用户名', '工号', '角色']:
                     continue
                 if col in display_to_field:
                     field_name = display_to_field[col]
@@ -890,10 +893,21 @@ def update_users():
                         # 使用公共函数统一处理字段值转换
                         processed = _process_field_value(field_name, value, parsed_hire_dates, idx)
                         if processed is not None:
-                            # 姓名为空字符串时不修改（空值=不修改，有值=修改）
-                            if field_name == 'name' and isinstance(processed, str) and not processed.strip():
+                            # 修复：空字符串视为未填写，跳过更新（保持原值不变）
+                            if isinstance(processed, str) and not processed.strip():
                                 continue
                             user_data[field_name] = processed
+            
+            # 修复：角色字段需从角色名称映射到role_id（模型层fields_to_update使用role_id而非role）
+            if '角色' in row and pd.notna(row['角色']):
+                role_val = str(row['角色']).strip()
+                if role_val:  # 空字符串跳过，保持原值不变
+                    role_id = role_name_to_id.get(role_val)
+                    if role_id is not None:
+                        user_data['role_id'] = role_id
+                    else:
+                        error_list.append(f"第{idx+2}行：角色'{role_val}'不存在")
+                        logging.warning(f"批量更新用户数据操作，第{idx+2}行：角色'{role_val}'不存在")
             
             # 同步公司和部门到部门管理模块
             _sync_company_department(user_data, '批量更新用户数据操作', f'第{idx+2}行：')
