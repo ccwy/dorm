@@ -22,6 +22,7 @@ from .utility import (
     utility_room_bill_records_bp,
     utility_room_bill_occupants_bp,
     utility_room_bill_occupants_export_bp,
+    utility_room_bill_records_export_bp,
     utility_room_bill_checkout_bp,
     utility_user_records_bp
 )

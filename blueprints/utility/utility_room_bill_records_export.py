@@ -2,7 +2,6 @@ from flask import Blueprint, request, send_file, flash, redirect, url_for
 from flask_login import login_required, current_user
 from utils.auth import require_permission
 from models.utility.utility_room_bill_record import RoomUtilityRecord
-from models import db
 import io
 import logging
 import pandas as pd
