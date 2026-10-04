@@ -845,7 +845,7 @@ def batch_update():
                     ).order_by(UtilityMeterReading.reading_date.desc()).first()
                     new_date = update_data.get('reading_date', reading.reading_date)
                     if prev_record and new_date < prev_record.reading_date:
-                        error_msg = f"第{row_num}行记录ID {record_id}：抄表日期({new_date.strftime('%Y-%m-%d')})不能早于同房间上次记录日期({prev_record.reading_date.strftime('%Y-%m-%d'))}"
+                        error_msg = f"第{row_num}行记录ID {record_id}：抄表日期({new_date.strftime('%Y-%m-%d')})不能早于同房间上次记录日期({prev_record.reading_date.strftime('%Y-%m-%d')}"
                         logging.warning(f"批量更新抄表记录校验失败: {error_msg}")
                         raise ValueError(error_msg)
 
