@@ -12,6 +12,7 @@ utility_room_bill_records_export_bp = Blueprint('utility_room_bill_records_expor
 STATUS_MAP = {'pending': '待核算', 'processing': '核算中', 'calculated': '已核算', 'completed': '已完成'}
 
 COLUMN_MAP = [
+    ('index', '序号'),
     ('room_number', '房间号'),
     ('billing_period', '账期'),
     ('start_date', '开始日期'),
@@ -80,10 +81,12 @@ def export():
         logging.info(f"用户 {current_user.id} 开始导出 {billing_period} 账期费用主表数据，共 {len(records)} 条记录")
 
         rows = []
-        for record in records:
+        for idx, record in enumerate(records, start=1):
             row = {}
             for field, _ in COLUMN_MAP:
-                if field == 'room_number':
+                if field == 'index':
+                    row[field] = idx
+                elif field == 'room_number':
                     row[field] = record.room.room_number if record.room else ''
                 elif field == 'status':
                     row[field] = STATUS_MAP.get(getattr(record, field), '')
