@@ -41,10 +41,10 @@ def download_template():
         # 表头（不含抄表人字段，增加账期列）
         headers = [
             "记录ID（批量更新必填）", "账期(YYYY-MM)", "抄表日期时间", "楼栋", "宿舍号",
+            "抄表类型",
             "水表本次读数", "水表是否更换",
              "电表本次读数", "电表是否更换",
-             "备注",
-             "抄表类型"
+             "备注"
         ]
         ws.append(headers)
 
@@ -60,12 +60,12 @@ def download_template():
             "2024-06-01 10:30:00",  # 抄表日期时间
             "3",  # 楼栋
             "305",  # 宿舍号
+            "退宿抄表",  # 抄表类型
             "567.2",  # 水表本次读数
             "否",  # 水表是否更换
             "1234.0",  # 电表本次读数
             "否",  # 电表是否更换
-            "",  # 备注
-            "退宿抄表"  # 抄表类型
+            ""  # 备注
         ])
         
         ws.append([
@@ -74,16 +74,16 @@ def download_template():
             "2024-06-30 10:30:00",  # 抄表日期时间
             "3",  # 楼栋
             "306",  # 宿舍号
+            "正常抄表",  # 抄表类型
             "590.1",  # 水表本次读数
             "是",  # 水表是否更换
             "1300.2",  # 电表本次读数
             "否",  # 电表是否更换
-            "更换新表",  # 备注
-            "正常抄表"  # 抄表类型
+            "更换新表"  # 备注
         ])
 
         # 调整列宽
-        column_widths = [18, 15, 25, 8, 8, 12, 15, 12, 15, 20, 15]
+        column_widths = [18, 15, 25, 8, 8, 15, 12, 15, 12, 15, 20]
         for col, width in enumerate(column_widths, 1):
             ws.column_dimensions[get_column_letter(col)].width = width
 
@@ -357,12 +357,27 @@ def import_readings():
         wb = load_workbook(file_bytes, data_only=True)
         ws = wb.active
 
-        # 验证必要表头（忽略未知表头及内容）
-        required_headers = [
+        # 白名单模式：只识别必填列和可选列，其余列全部自动忽略
+        # 必填列（缺失时报错）
+        required_columns = [
             "抄表日期时间", "楼栋", "宿舍号",
             "水表本次读数", "电表本次读数",
             "账期(YYYY-MM)"
         ]
+        # 可选列（缺失时不报错）
+        optional_columns = [
+            "水表是否更换", "电表是否更换",
+            "抄表类型", "备注"
+        ]
+        # 列名别名映射：将Excel中可能出现的列名映射到标准列名
+        column_alias_map = {
+            '账期(YYYY-MM)': ['账期（YYYY-MM）', '账期'],
+            '抄表日期时间': ['抄表日期'],
+            '水表是否更换': ['水表更换'],
+            '电表是否更换': ['电表更换'],
+        }
+        # 所有可能需要识别的标准列名
+        all_known_columns = set(required_columns) | set(optional_columns)
         
         # 获取实际表头
         actual_headers = []
@@ -372,8 +387,31 @@ def import_readings():
             else:
                 actual_headers.append("")
         
-        # 检查所有必要表头是否存在
-        missing_headers = [header for header in required_headers if header not in actual_headers]
+        # 构建header_indices：只保留白名单中的列，其余自动忽略
+        header_indices = {}
+        ignored_headers = []
+        for idx, header in enumerate(actual_headers):
+            if not header:
+                continue
+            # 先检查是否直接匹配标准列名
+            if header in all_known_columns:
+                header_indices[header] = idx
+            else:
+                # 再检查是否匹配某个标准列名的别名
+                matched = False
+                for standard_name, aliases in column_alias_map.items():
+                    if header in aliases:
+                        header_indices[standard_name] = idx
+                        matched = True
+                        break
+                if not matched:
+                    ignored_headers.append(header)
+        
+        if ignored_headers:
+            logging.info(f'导入抄表记录：自动忽略未识别列 {ignored_headers}')
+        
+        # 检查所有必填列是否存在
+        missing_headers = [col for col in required_columns if col not in header_indices]
         if missing_headers:
             msg = f"缺少必要的表头: {', '.join(missing_headers)}"
             log_operation(
@@ -387,27 +425,8 @@ def import_readings():
             flash(msg, 'danger')
             return redirect(url_for('utility_room_meter.utility_reading_manage'))
         
-        # 记录所有表头索引，用于后续数据读取
-        header_indices = {header: idx for idx, header in enumerate(actual_headers)}
-        
-        # 列名兼容：将带备注的列名映射到标准列名
-        header_alias_map = {
-            '记录ID': ['记录ID（批量更新必填）', '记录ID(批量更新必填)'],
-            '账期(YYYY-MM)': ['账期（YYYY-MM）'],
-        }
-        for standard_name, aliases in header_alias_map.items():
-            if standard_name not in header_indices:
-                for alias in aliases:
-                    if alias in header_indices:
-                        header_indices[standard_name] = header_indices[alias]
-                        break
-        
-        # 检查Excel中是否存在账期列
-        billing_period_header = None
-        for header_name in ['账期(YYYY-MM)', '账期']:
-            if header_name in header_indices:
-                billing_period_header = header_name
-                break
+        # 账期列（白名单模式已将别名映射到标准列名，直接使用标准列名）
+        billing_period_header = '账期(YYYY-MM)' if '账期(YYYY-MM)' in header_indices else None
 
         # 处理数据
         success_count = 0
@@ -482,16 +501,23 @@ def import_readings():
         # 处理非空行数据
         for idx, (row_num, row) in enumerate(non_empty_rows):
             try:
-                # 动态获取各列数据（忽略未知表头）
-                reading_date_value = row[header_indices.get("抄表日期时间")]
-                building = row[header_indices.get("楼栋")]
-                room_number = row[header_indices.get("宿舍号")]
-                water_curr = row[header_indices.get("水表本次读数")]
-                water_replaced = row[header_indices.get("水表是否更换")]
-                notes = row[header_indices.get("备注")]
-                electric_curr = row[header_indices.get("电表本次读数")]
-                electric_replaced = row[header_indices.get("电表是否更换")]
-                reading_type_str = row[header_indices.get("抄表类型")]
+                # 动态获取各列数据（白名单模式，可选列缺失时返回None）
+                def get_cell(row, col_name):
+                    """安全获取单元格值，列不存在时返回None"""
+                    idx = header_indices.get(col_name)
+                    if idx is not None and idx < len(row):
+                        return row[idx]
+                    return None
+
+                reading_date_value = get_cell(row, "抄表日期时间")
+                building = get_cell(row, "楼栋")
+                room_number = get_cell(row, "宿舍号")
+                water_curr = get_cell(row, "水表本次读数")
+                water_replaced = get_cell(row, "水表是否更换")
+                notes = get_cell(row, "备注")
+                electric_curr = get_cell(row, "电表本次读数")
+                electric_replaced = get_cell(row, "电表是否更换")
+                reading_type_str = get_cell(row, "抄表类型")
                 
                 # 解析抄表类型
                 reading_type_map = {
@@ -681,33 +707,58 @@ def batch_update():
         # 读取Excel文件（使用转换后的BytesIO对象）
         df = pd.read_excel(file_bytes)
         
-        # 列名兼容映射：支持带备注的列名和简写列名
-        column_aliases = {
-            '记录ID': ['记录ID（批量更新必填）', '记录ID(批量更新必填)', '记录ID'],
-            '账期(YYYY-MM)': ['账期(YYYY-MM)', '账期（YYYY-MM）', '账期'],
-            '水表是否更换': ['水表是否更换', '水表更换'],
-            '电表是否更换': ['电表是否更换', '电表更换'],
-            '抄表日期时间': ['抄表日期时间', '抄表日期'],
+        # 白名单模式：只识别必填列和可选列，其余列全部自动忽略
+        # 必填列（缺失时报错）
+        required_columns = ['记录ID']
+        # 可选列（缺失时不报错）
+        optional_columns = [
+            '抄表日期时间', 
+            '抄表类型', '水表本次读数', '水表是否更换',
+            '电表本次读数', '电表是否更换', '备注'
+        ]
+        # 列名别名映射：将Excel中可能出现的列名映射到标准列名
+        column_alias_map = {
+            '记录ID': ['记录ID（批量更新必填）', '记录ID(批量更新必填)', 'ID', 'id'],
+            '抄表日期时间': ['抄表日期'],
+            '水表是否更换': ['水表更换'],
+            '电表是否更换': ['电表更换'],
         }
-        
-        # 构建列名映射：将实际列名映射到标准列名
+        # 所有可能需要识别的标准列名
+        all_known_columns = set(required_columns) | set(optional_columns)
+
+        # 构建列名映射：只保留白名单中的列，其余自动忽略
         column_mapping = {}
-        for standard_name, aliases in column_aliases.items():
-            for alias in aliases:
-                if alias in df.columns:
-                    column_mapping[alias] = standard_name
+        ignored_columns = []
+        for col in df.columns:
+            # 先检查是否直接匹配标准列名
+            if col in all_known_columns:
+                continue  # 标准列名无需映射
+            # 再检查是否匹配某个标准列名的别名
+            matched = False
+            for standard_name, aliases in column_alias_map.items():
+                if col in aliases:
+                    column_mapping[col] = standard_name
+                    matched = True
                     break
-        
-        # 重命名列以统一标准
+            if not matched:
+                ignored_columns.append(col)
+
+        if ignored_columns:
+            logging.info(f'批量更新：自动忽略未识别列 {ignored_columns}')
+
+        # 重命名列以统一标准，并只保留白名单中的列
         if column_mapping:
             df = df.rename(columns=column_mapping)
+        whitelist_columns = [col for col in df.columns if col in all_known_columns]
+        df = df[whitelist_columns]
 
-        # 只读列：这些列不可通过批量更新修改
-        readonly_columns = ['创建时间', '更新时间']
-        readonly_found = [col for col in readonly_columns if col in df.columns]
-        if readonly_found:
-            logging.info(f'批量更新：跳过只读列 {readonly_found}，这些字段不可修改')
-            df = df.drop(columns=readonly_found)
+        # 验证必要的表头
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            error_msg = f'Excel缺少必要的列：{", ".join(missing_columns)}'
+            logging.error(error_msg)
+            flash(error_msg, 'danger')
+            return redirect(url_for('utility_room_meter.utility_reading_manage'))
 
         # 批量解析抄表日期时间（可选列，空值跳过）
         parsed_reading_dates = {}
@@ -719,15 +770,6 @@ def batch_update():
                 logging.error(f"批量解析抄表日期时间失败：{str(e)}")
                 flash(f'批量解析抄表日期时间失败：{str(e)}', 'danger')
                 return redirect(url_for('utility_room_meter.utility_reading_manage'))
-
-        # 验证必要的表头
-        required_columns = ['记录ID']
-        missing_columns = [col for col in required_columns if col not in df.columns]
-        if missing_columns:
-            error_msg = f'Excel缺少必要的列：{", ".join(missing_columns)}'
-            logging.error(error_msg)
-            flash(error_msg, 'danger')
-            return redirect(url_for('utility_room_meter.utility_reading_manage'))
 
         # 预处理数据
         success_count = 0

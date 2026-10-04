@@ -540,8 +540,8 @@ def generate_import_template():
         
         # 表头（带*标记）
         headers = [
-            "费用类型*", "金额*", "减免用电量*", "减免用水量*",
-            "姓名*", "楼栋*", "房间号*", "生效时间*", "变更原因"
+            "费用类型*", "生效时间*", "变更原因", "金额*", "减免用电量*", "减免用水量*",
+            "姓名*", "楼栋*", "房间号*"
         ]
         
         # 写入表头样式
@@ -571,27 +571,27 @@ def generate_import_template():
         for amount_type in amount_types:
             examples.append({
                 "费用类型*": amount_type,
+                "生效时间*": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "变更原因": f"{amount_type}（示例）",
                 "金额*": 500.00 if '补贴' in amount_type else 300.00,
                 "减免用电量*": "",
                 "减免用水量*": "",
                 "姓名*": "张三",
                 "楼栋*": "A楼栋",
-                "房间号*": "102",
-                "生效时间*": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                "变更原因": f"{amount_type}（示例）"
+                "房间号*": "102"
             })
         
         for water_type in water_electric_types:
             examples.append({
                 "费用类型*": water_type,
+                "生效时间*": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "变更原因": f"{water_type}（示例）",
                 "金额*": "" if '用量' in water_type else 200.00,
                 "减免用电量*": 50.0 if '用量' in water_type else "",
                 "减免用水量*": 10.0 if '用量' in water_type else "",
                 "姓名*": "",
                 "楼栋*": "A楼栋",
-                "房间号*": "101",
-                "生效时间*": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                "变更原因": f"{water_type}（示例）"
+                "房间号*": "101"
             })
         
         # 写入示例数据

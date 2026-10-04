@@ -347,26 +347,49 @@ def import_users():
         df, excel_columns, display_to_field = _read_excel_with_dtype(file_bytes)
         logging.info('开始导入用户')
         
-        # 忽略ID列（导入时只创建新记录，不使用ID）
+        # 白名单模式：只识别必填列和可选列，其余列全部自动忽略
+        # 必填列（缺失时报错）
+        required_columns = ['姓名', '性别']
+        # 可选列（缺失时不报错）
+        optional_columns = ['工号', '用户名', '密码', '角色', '公司', '部门', '职位', '身份证号码', '身份证地址', '出生日期', '手机号', '紧急联系人', '紧急联系人电话', '入职日期', '是否激活账号', '是否允许登录', '类别', '备注']
+        
+        # 所有可能需要识别的标准列名
+        all_known_columns = set(required_columns) | set(optional_columns)
+
+        # 构建列名映射：只保留白名单中的列，其余自动忽略
+        column_mapping = {}
+        ignored_columns = []
         for col in df.columns:
-            if col in ['用户ID', '用户ID（批量更新必填）', '用户ID(批量更新必填)', 'ID', 'id']:
-                df = df.drop(columns=[col])
+            # 先检查是否直接匹配标准列名
+            if col in all_known_columns:
+                continue  # 标准列名无需映射
+            # 再检查是否匹配某个标准列名的别名
+            matched = False
+            for standard_name, aliases in column_alias_map.items():
+                if col in aliases:
+                    column_mapping[col] = standard_name
+                    matched = True
+                    break
+            if not matched:
+                ignored_columns.append(col)
+
+        if ignored_columns:
+            logging.info(f'导入用户数据：自动忽略未识别列 {ignored_columns}')
+
+        # 重命名列以统一标准，并只保留白名单中的列（用户ID为别名映射列，导入时忽略）
+        if column_mapping:
+            df = df.rename(columns=column_mapping)
+        whitelist_columns = [col for col in df.columns if col in all_known_columns]
+        df = df[whitelist_columns]
         excel_columns = df.columns.tolist()
-        
-        # 检查必要字段（显示名）
-        required_display = ['姓名', '性别']
-        if not all(req in excel_columns for req in required_display):
-            missing = [req for req in required_display if req not in excel_columns]
-            msg = f'Excel缺少必要列：{", ".join(missing)}'
+
+        # 验证必要列
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            msg = f'Excel缺少必要列：{", ".join(missing_columns)}'
             flash(msg, 'danger')
-            logging.error(f"导入用户数据操作，Excel缺少必要列：{', '.join(missing)}")
+            logging.error(f"导入用户数据操作，Excel缺少必要列：{', '.join(missing_columns)}")
             return redirect(url_for('user.manage'))
-        
-        # 提示未识别字段
-        extra_cols = [col for col in excel_columns if col not in display_to_field.keys()]
-        if extra_cols:
-            flash(f'忽略未识别字段：{", ".join(extra_cols)}', 'warning')
-            logging.warning(f"导入用户数据操作，Excel包含未识别字段：{', '.join(extra_cols)}")
 
         # 一次性读取数据库中已存在的工号和用户名（优化点）
         existing_data = User.query.with_entities(User.student_id, User.username).all()
@@ -735,20 +758,52 @@ def update_users():
         # 读取Excel并构建dtype字典
         df, excel_columns, display_to_field = _read_excel_with_dtype(file_bytes)
         
-        # 检查必要字段（用户ID）
-        required_display = ['用户ID']
-        if not all(req in excel_columns for req in required_display):
-            missing = [req for req in required_display if req not in excel_columns]
-            msg = f'Excel缺少必要列：{" ".join(missing)}'
+        # 白名单模式：只识别必填列和可选列，其余列全部自动忽略
+        # 必填列（缺失时报错）
+        required_columns = ['用户ID']
+        # 可选列（缺失时不报错）
+        optional_columns = ['姓名', '性别', '工号', '用户名', '密码', '角色', '公司', '部门', '职位', '身份证号码', '身份证地址', '出生日期', '手机号', '紧急联系人', '紧急联系人电话', '入职日期', '是否激活账号', '是否允许登录', '类别', '备注']
+        # 列名别名映射：将Excel中可能出现的列名映射到标准列名
+        column_alias_map = {
+            '用户ID': ['用户ID（批量更新必填）', '用户ID(批量更新必填)', 'ID', 'id'],
+        }
+        # 所有可能需要识别的标准列名
+        all_known_columns = set(required_columns) | set(optional_columns)
+
+        # 构建列名映射：只保留白名单中的列，其余自动忽略
+        column_mapping = {}
+        ignored_columns = []
+        for col in df.columns:
+            # 先检查是否直接匹配标准列名
+            if col in all_known_columns:
+                continue  # 标准列名无需映射
+            # 再检查是否匹配某个标准列名的别名
+            matched = False
+            for standard_name, aliases in column_alias_map.items():
+                if col in aliases:
+                    column_mapping[col] = standard_name
+                    matched = True
+                    break
+            if not matched:
+                ignored_columns.append(col)
+
+        if ignored_columns:
+            logging.info(f'批量更新用户数据：自动忽略未识别列 {ignored_columns}')
+
+        # 重命名列以统一标准，并只保留白名单中的列
+        if column_mapping:
+            df = df.rename(columns=column_mapping)
+        whitelist_columns = [col for col in df.columns if col in all_known_columns]
+        df = df[whitelist_columns]
+        excel_columns = list(df.columns)
+
+        # 验证必要列
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            msg = f'Excel缺少必要列：{", ".join(missing_columns)}'
             flash(msg, 'danger')
-            logging.error(f"批量更新用户数据操作，Excel缺少必要列：{', '.join(missing)}")
+            logging.error(f"批量更新用户数据操作，Excel缺少必要列：{', '.join(missing_columns)}")
             return redirect(url_for('user.manage'))
-        
-        # 提示未识别字段
-        extra_cols = [col for col in excel_columns if col not in display_to_field.keys() and col != '用户ID']
-        if extra_cols:
-            flash(f'忽略未识别字段：{" ".join(extra_cols)}', 'warning')
-            logging.warning(f"批量更新用户数据操作，Excel包含未识别字段：{', '.join(extra_cols)}")
         
         # 收集要更新的数据
         user_data_list = []

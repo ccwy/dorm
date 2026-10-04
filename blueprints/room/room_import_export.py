@@ -46,7 +46,7 @@ def export():
             flash('没有可导出的房间数据', 'info')
             return redirect(url_for('room.manage'))
         
-        # 准备导出数据
+        # 准备房间导出数据
         logging.debug('开始准备导出数据')
         data = []
         for room in rooms:
@@ -104,13 +104,36 @@ def export():
                 logging.error(f'处理房间ID={room.id}时出错: {str(e)}', exc_info=True)
                 raise
             
-        logging.debug(f'数据准备完成，共{len(data)}条记录')
+        logging.debug(f'房间数据准备完成，共{len(data)}条记录')
         
-        # 生成Excel
-        df = pd.DataFrame(data)
+        # 准备设施数据（Sheet 2）
+        logging.debug('开始准备设施数据')
+        facility_data = []
+        all_facilities = RoomFacility.query.order_by(RoomFacility.room_id).all()
+        for facility in all_facilities:
+            room = Room.query.get(facility.room_id)
+            if room:
+                facility_data.append({
+                    '设施ID': facility.id,
+                    '房间ID': facility.room_id,
+                    '楼栋': room.building,
+                    '房间号': room.room_number,
+                    '设施名称': facility.name,
+                    '设施数量': facility.quantity,
+                    '设施状态': facility.status,
+                    '设施备注': facility.remark or '',
+                    '创建时间': facility.created_at.strftime('%Y-%m-%d %H:%M:%S'),
+                    '更新时间': facility.updated_at.strftime('%Y-%m-%d %H:%M:%S')
+                })
+        logging.debug(f'设施数据准备完成，共{len(facility_data)}条记录')
+        
+        # 生成Excel（多sheet）
+        df_rooms = pd.DataFrame(data)
+        df_facilities = pd.DataFrame(facility_data)
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            df.to_excel(writer, index=False, sheet_name='房间数据')
+            df_rooms.to_excel(writer, index=False, sheet_name='房间数据')
+            df_facilities.to_excel(writer, index=False, sheet_name='设施数据')
         
         output.seek(0)
         filename = f"房间数据导出_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
@@ -121,10 +144,10 @@ def export():
             user_id=current_user.id,
             module='room',
             operation_type='batch_import_export',
-            action=f"导出房间数据，共 {len(rooms)} 条记录",
+            action=f"导出房间数据，共 {len(rooms)} 条记录，设施数据 {len(all_facilities)} 条记录",
             result="成功"
         )
-        logging.info(f'用户{current_user.id}成功导出房间数据')
+        logging.info(f'用户{current_user.id}成功导出房间数据和设施数据')
         
         return send_file(
             output,
@@ -201,13 +224,45 @@ def import_rooms():
             logging.error(f'导入房间数据失败：文件解析失败 - {detailed_error}')
             return redirect(url_for('room.manage'))
         
-        # 忽略ID列
-        for col in ['ID', 'id']:
-            if col in df.columns:
-                df = df.drop(columns=[col])
-        
-        # 验证必要列
+        # 白名单模式：只识别必填列和可选列，其余列全部自动忽略
+        # 必填列（缺失时报错）
         required_columns = ['楼栋', '房间号', '房间类型', '容量', '性别限制']
+        # 可选列（缺失时不报错）
+        optional_columns = ['地址', '房间级别', '状态', '对外租金', '成本租金', '电表最大量程', '水表最大量程', '房间设施', '备注', '添加时间']
+        # 列名别名映射：将Excel中可能出现的列名映射到标准列名
+        column_alias_map = {
+            '房间ID': ['房间ID（批量更新必填）', '房间ID(批量更新必填)', 'ID', 'id'],
+        }
+        # 所有可能需要识别的标准列名
+        all_known_columns = set(required_columns) | set(optional_columns)
+
+        # 构建列名映射：只保留白名单中的列，其余自动忽略
+        column_mapping = {}
+        ignored_columns = []
+        for col in df.columns:
+            # 先检查是否直接匹配标准列名
+            if col in all_known_columns:
+                continue  # 标准列名无需映射
+            # 再检查是否匹配某个标准列名的别名
+            matched = False
+            for standard_name, aliases in column_alias_map.items():
+                if col in aliases:
+                    column_mapping[col] = standard_name
+                    matched = True
+                    break
+            if not matched:
+                ignored_columns.append(col)
+
+        if ignored_columns:
+            logging.info(f'导入房间数据：自动忽略未识别列 {ignored_columns}')
+
+        # 重命名列以统一标准，并只保留白名单中的列（房间ID为别名映射列，导入时忽略）
+        if column_mapping:
+            df = df.rename(columns=column_mapping)
+        whitelist_columns = [col for col in df.columns if col in all_known_columns]
+        df = df[whitelist_columns]
+
+        # 验证必要列
         missing_columns = [col for col in required_columns if col not in df.columns]
         if missing_columns:
             flash(f'导入失败：文件缺少必要的列 - {", ".join(missing_columns)}', 'danger')
@@ -518,21 +573,21 @@ def download_template():
             "地址": ["XX路XX号X单元101室", "YY路YY号Y单元202室", ""],
             "房间类型": [valid_room_types[0], "", ""],
             "房间级别": [valid_room_levels[0], "", ""],
-            "容量": [4, 2, 6],
             "性别限制": ["男", "女", "无限制"],
+            "容量": [4, 2, 6],
             "状态": ["可用", "维护中", ""],
             "对外租金": [800.00, 1200.00, ""],
             "成本租金": [500.00, 700.00, ""],
-            "电表最大量程": [9999.99, "", ""],
-            "水表最大量程": [9999.99, "", ""],
-            "添加时间": [datetime.now().strftime('%Y-%m-%d %H:%M:%S'), 
-                         (datetime.now() - timedelta(days=7)).strftime('%Y-%m-%d %H:%M:%S'), 
-                         ""],
             "房间设施": [
                 f"{valid_facilities[0]}:2,{valid_facilities[1]}:1",
                 f"{valid_facilities[0]}:2,{valid_facilities[1]}:1,{valid_facilities[2]}:1",
                 ""
             ],
+            "电表最大量程": [9999.99, "", ""],
+            "水表最大量程": [9999.99, "", ""],
+            "添加时间": [datetime.now().strftime('%Y-%m-%d %H:%M:%S'), 
+                         (datetime.now() - timedelta(days=7)).strftime('%Y-%m-%d %H:%M:%S'), 
+                         ""],
             "备注": ["朝南，带阳台", "", ""]
         }
         
@@ -553,15 +608,15 @@ def download_template():
             "文本（可留空）",
             f"*必填项，必须是：{', '.join(valid_room_types)}",
             f"可选值: {', '.join(valid_room_levels)}（可留空）",
-            "*必填项，必须为正整数",
             f"可选值: {', '.join(['男', '女', '无限制'])}",
+            "*必填项，必须为正整数",
             f"可选值: {', '.join([status_mapping.get(s.value, s.value) for s in RoomStatus])}",
             "非负数（可留空，默认为0）",
             "非负数（可留空，默认为0）",
+            f"格式：设施名:数量,设施名:数量（有效设施：{', '.join(valid_facilities[:5])}...）",
             "非负数（可留空，默认9999.99）",
             "非负数（可留空，默认9999.99）",
             "日期时间（可留空，格式示例：YYYY-MM-DD HH:MM:SS）",
-            f"格式：设施名:数量,设施名:数量（有效设施：{', '.join(valid_facilities[:5])}...）",
             "文本（可留空）"
         ]
         df.loc[-1] = instructions
@@ -572,7 +627,7 @@ def download_template():
         with pd.ExcelWriter(output, engine='openpyxl') as writer:
             df.to_excel(writer, index=False, sheet_name='房间数据导入模板')
             worksheet = writer.sheets['房间数据导入模板']
-            column_widths = [18, 12, 10, 30, 12, 12, 8, 12, 10, 12, 12, 16, 16, 20, 30, 20]
+            column_widths = [18, 12, 10, 30, 12, 12, 12, 8, 10, 12, 12, 30, 16, 16, 20, 20]
             for i, width in enumerate(column_widths, 1):
                 worksheet.column_dimensions[chr(64 + i)].width = width
             for cell in worksheet[1]:
@@ -647,34 +702,45 @@ def batch_update():
             logging.error(f'批量更新房间数据失败：文件解析失败 - {detailed_error}')
             return redirect(url_for('room.manage'))
 
-        # 列名兼容映射：支持带备注的列名和简写列名
-        column_aliases = {
-            '房间ID': ['房间ID（批量更新必填）', '房间ID(批量更新必填)', '房间ID'],
+        # 白名单模式：只识别必填列和可选列，其余列全部自动忽略
+        # 必填列（缺失时报错）
+        required_columns = ['房间ID']
+        # 可选列（缺失时不报错）
+        optional_columns = ['楼栋', '房间号', '地址', '房间类型', '房间级别', '性别限制', '容量', '状态', '对外租金', '成本租金', '房间设施', '电表最大量程', '水表最大量程', '备注', '添加时间']
+        # 列名别名映射：将Excel中可能出现的列名映射到标准列名
+        column_alias_map = {
+            '房间ID': ['房间ID（批量更新必填）', '房间ID(批量更新必填)', 'ID', 'id'],
         }
+        # 所有可能需要识别的标准列名
+        all_known_columns = set(required_columns) | set(optional_columns)
 
-        # 只读列：这些列不可通过批量更新修改
-        readonly_columns = ['创建时间', '更新时间']
-
-        # 构建列名映射：将实际列名映射到标准列名
+        # 构建列名映射：只保留白名单中的列，其余自动忽略
         column_mapping = {}
-        for standard_name, aliases in column_aliases.items():
-            for alias in aliases:
-                if alias in df.columns:
-                    column_mapping[alias] = standard_name
+        ignored_columns = []
+        for col in df.columns:
+            # 先检查是否直接匹配标准列名
+            if col in all_known_columns:
+                continue  # 标准列名无需映射
+            # 再检查是否匹配某个标准列名的别名
+            matched = False
+            for standard_name, aliases in column_alias_map.items():
+                if col in aliases:
+                    column_mapping[col] = standard_name
+                    matched = True
                     break
+            if not matched:
+                ignored_columns.append(col)
 
-        # 重命名列以统一标准
+        if ignored_columns:
+            logging.info(f'批量更新房间数据：自动忽略未识别列 {ignored_columns}')
+
+        # 重命名列以统一标准，并只保留白名单中的列
         if column_mapping:
             df = df.rename(columns=column_mapping)
-
-        # 移除只读列（创建时间、更新时间不可修改）
-        readonly_found = [col for col in readonly_columns if col in df.columns]
-        if readonly_found:
-            logging.info(f'批量更新：跳过只读列 {readonly_found}，这些字段不可修改')
-            df = df.drop(columns=readonly_found)
+        whitelist_columns = [col for col in df.columns if col in all_known_columns]
+        df = df[whitelist_columns]
 
         # 验证必要列
-        required_columns = ['房间ID']
         missing_columns = [col for col in required_columns if col not in df.columns]
         if missing_columns:
             flash(f'导入失败：文件缺少必要的列 - {", " .join(missing_columns)}', 'danger')
@@ -956,58 +1022,4 @@ def batch_update():
         flash(detailed_error, 'danger')
         return redirect(url_for('room.manage'))
 
-@room_import_export_bp.route('/export_facilities', methods=['GET'])
-@login_required
-@require_permission('room.export')
-def export_facilities():
-    """
-    导出设施列表数据（按room_id排序，每个设施单独一行）
-    """
-    try:
-        # 获取所有设施数据，按room_id排序
-        facilities = RoomFacility.query.order_by(RoomFacility.room_id).all()
-        
-        # 准备导出数据
-        data = []
-        for facility in facilities:
-            # 获取关联的房间信息
-            room = Room.query.get(facility.room_id)
-            if room:
-                facility_data = {
-                    '设施ID': facility.id,
-                    '房间ID': facility.room_id,
-                    '楼栋': room.building,
-                    '房间号': room.room_number,
-                    '设施名称': facility.name,
-                    '设施数量': facility.quantity,
-                    '设施状态': facility.status,
-                    '设施备注': facility.remark or '',
-                    '创建时间': facility.created_at.strftime('%Y-%m-%d %H:%M:%S'),
-                    '更新时间': facility.updated_at.strftime('%Y-%m-%d %H:%M:%S')
-                }
-                data.append(facility_data)
-        
-        # 创建DataFrame并导出为Excel
-        df = pd.DataFrame(data)
-        output = io.BytesIO()
-        with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            df.to_excel(writer, index=False, sheet_name='设施数据')
-        output.seek(0)
-        log_operation(
-            user_id=current_user.id,
-            module='room',
-            operation_type='batch_import_export',
-            action=f"导出设施数据成功，共{len(facilities)}条记录",
-            result="成功"
-        )
-        # 记录日志
-        logging.info(f"导出设施数据成功，共{len(facilities)}条记录")
-        
-        # 返回文件
-        filename = f"房间设设施导出_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
-        return send_file(output, download_name=filename, as_attachment=True)
-        
-    except Exception as e:
-        logging.error(f"导出设施数据失败: {str(e)}")
-        flash('导出设施数据失败，请重试', 'error')
-        return redirect(url_for('room.manage'))
+

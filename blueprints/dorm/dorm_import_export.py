@@ -214,13 +214,7 @@ def export_residents():
         return response
 
     except Exception as e:
-        log_operation(
-            user_id=current_user.id,
-            module='dorm',
-            operation_type='batch_import_export',
-            action=f"导出失败: {str(e)}",
-            result="失败"
-        )
+       
         # 记录日志
         logging.error(f'导出人员数据失败：{str(e)}，操作人ID：{current_user.id}')
         flash(f'导出人员数据失败: {str(e)}', 'danger')
@@ -266,16 +260,6 @@ def import_residents():
             logging.error(f'导入在住人员数据失败：{error_msg}，操作人ID：{current_user.id}')
             return redirect(url_for('dorm.dorm_query'))
         
-        # 检查文件大小（限制10MB）
-        if file.content_length > 10 * 1024 * 1024:
-            error_msg = '文件大小不能超过10MB'
-            if is_ajax:
-                return jsonify({"success": False, "message": error_msg}), 400
-            flash(error_msg, 'danger')
-            # 记录日志
-            logging.error(f'导入在住人员数据失败：{error_msg}，操作人ID：{current_user.id}')    
-            return redirect(url_for('dorm.dorm_query'))
-        
         # 读取Excel文件
         try:
             # 读取Excel文件的第一个工作表
@@ -285,8 +269,45 @@ def import_residents():
             file_bytes.seek(0)  # 重置指针到开头
             df = pd.read_excel(file_bytes)
             
-            # 检查必要的列是否存在
+            # 白名单模式：只识别必填列和可选列，其余列全部自动忽略
+            # 必填列（缺失时报错）
             required_columns = ['姓名', '楼栋', '房间号', '入住日期']
+            # 可选列（缺失时不报错）
+            optional_columns = ['备注']
+            # 列名别名映射：将Excel中可能出现的列名映射到标准列名
+            column_alias_map = {
+                '备注': ['备注（可选）', '备注(可选)'],
+            }
+            # 所有可能需要识别的标准列名
+            all_known_columns = set(required_columns) | set(optional_columns)
+
+            # 构建列名映射：只保留白名单中的列，其余自动忽略
+            column_mapping = {}
+            ignored_columns = []
+            for col in df.columns:
+                # 先检查是否直接匹配标准列名
+                if col in all_known_columns:
+                    continue  # 标准列名无需映射
+                # 再检查是否匹配某个标准列名的别名
+                matched = False
+                for standard_name, aliases in column_alias_map.items():
+                    if col in aliases:
+                        column_mapping[col] = standard_name
+                        matched = True
+                        break
+                if not matched:
+                    ignored_columns.append(col)
+
+            if ignored_columns:
+                logging.info(f'导入在住人员数据：自动忽略未识别列 {ignored_columns}')
+
+            # 重命名列以统一标准，并只保留白名单中的列
+            if column_mapping:
+                df = df.rename(columns=column_mapping)
+            whitelist_columns = [col for col in df.columns if col in all_known_columns]
+            df = df[whitelist_columns]
+            
+            # 检查必要的列是否存在
             missing_columns = [col for col in required_columns if col not in df.columns]
             
             if missing_columns:
@@ -476,13 +497,23 @@ def import_residents():
                         logging.error(f'导入在住人员数据失败：{room.building}{room.room_number}房间无可用床位，操作人ID：{current_user.id}')
                         continue
                     
+                    # 获取备注（可选列，安全访问）
+                    remark = ''
+                    if '备注' in df.columns:
+                        remark_val = row.get('备注', '')
+                        if remark_val is not None and str(remark_val).strip() and str(remark_val).strip() != 'nan':
+                            remark = str(remark_val).strip()
+                    
                     # 创建分配记录
+                    remarks_parts = [f'批量导入分配，导入时间：{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}']
+                    if remark:
+                        remarks_parts.append(f'备注：{remark}')
                     Dorm.create_allocation(
                         user_id=user.id,
                         room_id=room.id,
                         bed_id=available_bed.id,
                         check_in_date=check_in_date,  # 已改为datetime类型
-                        remarks=f'批量导入分配，导入时间：{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}'
+                        remarks='，'.join(remarks_parts)
                     )
                     # 记录日志
                     logging.info(f'导入在住人员数据成功,导入时间：{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}，操作人ID：{current_user.id}')
