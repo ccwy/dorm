@@ -564,8 +564,10 @@ class CheckoutUtilityRecord(db.Model):
             raise
 
     def update_checkout_record(self, new_electric_reading=None, new_water_reading=None,
-                              user_period_days=None, total_period_days=None):
-        """更新退宿记录"""
+                              user_period_days=None, total_period_days=None,
+                              electric_price=None, water_price=None,
+                              user_proportional_reduction=None, user_independent_reduction=None):
+        """更新退宿记录，支持可选的单价和减免覆盖"""
         try:
             # 1. 验证主记录和房间信息
             main_record = RoomUtilityRecord.query.get(self.record_id)
@@ -654,10 +656,29 @@ class CheckoutUtilityRecord(db.Model):
 
             # 6. 补贴计算
             if usage_updated or days_updated:
-                # 6.1 获取价格配置
+                # 6.1 获取价格配置（如果用户手动指定了单价，则使用用户指定的值）
                 price_config = self.get_price_config_from_system()
-                electric_price = Decimal(str(price_config['electric_price']))
-                water_price = Decimal(str(price_config['water_price']))
+                
+                if electric_price is not None:
+                    try:
+                        electric_price = Decimal(str(electric_price))
+                        if electric_price < 0:
+                            raise ValueError("电费单价不能为负数")
+                    except (InvalidOperation, TypeError):
+                        raise ValueError("电费单价必须是有效的数字")
+                else:
+                    electric_price = Decimal(str(price_config['electric_price']))
+                
+                if water_price is not None:
+                    try:
+                        water_price = Decimal(str(water_price))
+                        if water_price < 0:
+                            raise ValueError("水费单价不能为负数")
+                    except (InvalidOperation, TypeError):
+                        raise ValueError("水费单价必须是有效的数字")
+                else:
+                    water_price = Decimal(str(price_config['water_price']))
+                
                 self.electric_price = electric_price
                 self.water_price = water_price
 
@@ -830,6 +851,32 @@ class CheckoutUtilityRecord(db.Model):
                 # 实际减免金额 = min(个人级总补贴金额, 房间级减免后剩余费用)
                 self.user_independent_reduction = min(subsidies['user_total_reduction'], after_room_reduction)
                 self.user_independent_reduction = round(self.user_independent_reduction, 2)
+                
+                # 如果用户手动指定了减免值，覆盖计算值
+                if user_proportional_reduction is not None:
+                    try:
+                        manual_proportional = Decimal(str(user_proportional_reduction))
+                        if manual_proportional < 0:
+                            raise ValueError("房间级费用减免不能为负数")
+                        self.user_proportional_reduction = round(manual_proportional, 2)
+                        # 重新计算减免后金额
+                        after_room_reduction = self.user_billing_total_fee - self.user_proportional_reduction
+                        after_room_reduction = Decimal('0.00') if after_room_reduction < 0 else after_room_reduction
+                        logging.info(f"使用用户指定的房间级减免: {self.user_proportional_reduction}")
+                    except (InvalidOperation, TypeError):
+                        raise ValueError("房间级费用减免必须是有效的数字")
+
+                if user_independent_reduction is not None:
+                    try:
+                        manual_independent = Decimal(str(user_independent_reduction))
+                        if manual_independent < 0:
+                            raise ValueError("个人级费用减免不能为负数")
+                        # 个人级减免不能超过房间减免后金额
+                        self.user_independent_reduction = min(round(manual_independent, 2), after_room_reduction)
+                        self.user_independent_reduction = round(self.user_independent_reduction, 2)
+                        logging.info(f"使用用户指定的个人级减免: {self.user_independent_reduction}")
+                    except (InvalidOperation, TypeError):
+                        raise ValueError("个人级费用减免必须是有效的数字")
                 
                 # 计算最终应付费用
                 self.payable_fee = after_room_reduction - self.user_independent_reduction

@@ -244,6 +244,9 @@
                 document.getElementById('feeForm').addEventListener('submit', handleFormSubmit);
                 document.getElementById('cancelButton').addEventListener('click', handleCancel);
                 
+                // 绑定实时重算事件
+                bindRecalcEvents();
+                
             } catch (error) {
                 console.error('加载数据失败:', error);
                 showError(error.message || '加载数据失败，请重试');
@@ -388,15 +391,31 @@
                                 <p class="info-value">${data.meter_data?.water?.previous_reading || 0} m³</p>
                             </div>
                             
-                            <!-- 单价信息 -->
+                            <!-- 单价信息（可编辑） -->
                             <div>
-                                <p class="info-label">电费单价</p>
-                                <p class="info-value">${data.meter_data?.electric?.electric_price || 0} 元/kWh</p>
+                                <label for="electricPrice" class="block info-label mb-1">电费单价</label>
+                                <div class="relative">
+                                    <input type="number" step="0.01" min="0" id="electricPrice" name="electric_price"
+                                        value="${data.meter_data?.electric?.electric_price || 0}"
+                                        placeholder="请输入单价"
+                                        class="w-full px-4 py-2 border border-gray-300 rounded-md form-input-focus">
+                                    <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-neutral">
+                                        <span>元/kWh</span>
+                                    </div>
+                                </div>
                             </div>
                             
                             <div>
-                                <p class="info-label">水费单价</p>
-                                <p class="info-value">${data.meter_data?.water?.water_price || 0} 元/m³</p>
+                                <label for="waterPrice" class="block info-label mb-1">水费单价</label>
+                                <div class="relative">
+                                    <input type="number" step="0.01" min="0" id="waterPrice" name="water_price"
+                                        value="${data.meter_data?.water?.water_price || 0}"
+                                        placeholder="请输入单价"
+                                        class="w-full px-4 py-2 border border-gray-300 rounded-md form-input-focus">
+                                    <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-neutral">
+                                        <span>元/m³</span>
+                                    </div>
+                                </div>
                             </div>
                             
                             <!-- 本次抄表记录输入 -->
@@ -433,37 +452,53 @@
                             <!-- 费用信息 -->
                             <div>
                                 <p class="info-label">原始电费</p>
-                                <p class="info-value text-primary font-medium">${safeToFixed(feeInfo.meter_electric_fee)} 元</p>
+                                <p class="info-value text-primary font-medium" id="displayMeterElectricFee">${safeToFixed(feeInfo.meter_electric_fee)} 元</p>
                             </div>
                             
                             <div>
                                 <p class="info-label">原始水费</p>
-                                <p class="info-value text-primary font-medium">${safeToFixed(feeInfo.meter_water_fee)} 元</p>
+                                <p class="info-value text-primary font-medium" id="displayMeterWaterFee">${safeToFixed(feeInfo.meter_water_fee)} 元</p>
                             </div>
                             
                             <div>
                                 <p class="info-label">原始总费用</p>
-                                <p class="info-value text-danger font-bold">${safeToFixed(feeInfo.meter_total_fee)} 元</p>
+                                <p class="info-value text-danger font-bold" id="displayMeterTotalFee">${safeToFixed(feeInfo.meter_total_fee)} 元</p>
                             </div>
                             <div>
                                 <p class="info-label">用户原始总费用</p>
-                                <p class="info-value text-danger font-bold">${safeToFixed(feeInfo.user_original_total_fee)} 元</p>
+                                <p class="info-value text-danger font-bold" id="displayUserOriginalTotalFee">${safeToFixed(feeInfo.user_original_total_fee)} 元</p>
                             </div>
                             <div>
                                 <p class="info-label">计费总费用</p>
-                                <p class="info-value text-danger font-bold">${safeToFixed(feeInfo.user_billing_total_fee)} 元</p>
+                                <p class="info-value text-danger font-bold" id="displayUserBillingTotalFee">${safeToFixed(feeInfo.user_billing_total_fee)} 元</p>
                             </div>
                             <div>
-                                <p class="info-label">房间级费用减免</p>
-                                <p class="info-value text-danger font-bold">${safeToFixed(feeInfo.user_proportional_reduction || 0)} 元</p>
+                                <label for="userProportionalReduction" class="block info-label mb-1">房间级费用减免</label>
+                                <div class="relative">
+                                    <input type="number" step="0.01" min="0" id="userProportionalReduction" name="user_proportional_reduction"
+                                        value="${safeToFixed(feeInfo.user_proportional_reduction || 0)}"
+                                        placeholder="请输入减免金额"
+                                        class="w-full px-4 py-2 border border-gray-300 rounded-md form-input-focus">
+                                    <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-neutral">
+                                        <span>元</span>
+                                    </div>
+                                </div>
                             </div>
                             <div>
-                                <p class="info-label">个人级费用减免</p>
-                                <p class="info-value text-danger font-bold">${safeToFixed(feeInfo.user_independent_reduction || 0)} 元</p>
+                                <label for="userIndependentReduction" class="block info-label mb-1">个人级费用减免</label>
+                                <div class="relative">
+                                    <input type="number" step="0.01" min="0" id="userIndependentReduction" name="user_independent_reduction"
+                                        value="${safeToFixed(feeInfo.user_independent_reduction || 0)}"
+                                        placeholder="请输入减免金额"
+                                        class="w-full px-4 py-2 border border-gray-300 rounded-md form-input-focus">
+                                    <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-neutral">
+                                        <span>元</span>
+                                    </div>
+                                </div>
                             </div>
                             <div>
                                 <p class="info-label">实际应付</p>
-                                <p class="info-value text-primary font-bold text-xl">${safeToFixed(feeInfo.payable_fee )} 元</p>
+                                <p class="info-value text-primary font-bold text-xl" id="displayPayableFee">${safeToFixed(feeInfo.payable_fee )} 元</p>
                             </div>
                         </div>
                     </div>
@@ -512,16 +547,16 @@
                                             <div class="text-sm">${data.meter_data?.electric?.electric_billing_usage || 0} kWh</div>
                                         </td>
                                         <td class="px-4 py-3 whitespace-nowrap">
-                                            <div class="text-sm">${data.meter_data?.electric?.electric_price || 0} 元/kWh</div>
+                                            <div class="text-sm" id="tableElectricPrice">${data.meter_data?.electric?.electric_price || 0} 元/kWh</div>
                                         </td>
                                         <td class="px-4 py-3 whitespace-nowrap">
-                                            <div class="text-sm">${safeToFixed(feeInfo.meter_electric_fee)} 元</div>
+                                            <div class="text-sm" id="tableMeterElectricFee">${safeToFixed(feeInfo.meter_electric_fee)} 元</div>
                                         </td>
                                         <td class="px-4 py-3 whitespace-nowrap">
-                                            <div class="text-sm">${safeToFixed(data.meter_data?.electric?.user_original_electric_fee)} 元</div>
+                                            <div class="text-sm" id="tableUserOriginalElectricFee">${safeToFixed(data.meter_data?.electric?.user_original_electric_fee)} 元</div>
                                         </td>
                                         <td class="px-4 py-3 whitespace-nowrap">
-                                            <div class="text-sm">${safeToFixed(data.meter_data?.electric?.user_billing_electric_fee)} 元</div>
+                                            <div class="text-sm" id="tableUserBillingElectricFee">${safeToFixed(data.meter_data?.electric?.user_billing_electric_fee)} 元</div>
                                         </td>
                                     </tr>
                                     <tr class="hover:bg-gray-50 transition-colors">
@@ -547,16 +582,16 @@
                                             <div class="text-sm">${data.meter_data?.water?.user_billing_water_usage || 0} m³</div>
                                         </td>
                                         <td class="px-4 py-3 whitespace-nowrap">
-                                            <div class="text-sm">${data.meter_data?.water?.water_price || 0} 元/m³</div>
+                                            <div class="text-sm" id="tableWaterPrice">${data.meter_data?.water?.water_price || 0} 元/m³</div>
                                         </td>
                                         <td class="px-4 py-3 whitespace-nowrap">
-                                            <div class="text-sm">${safeToFixed(feeInfo.meter_water_fee)} 元</div>
+                                            <div class="text-sm" id="tableMeterWaterFee">${safeToFixed(feeInfo.meter_water_fee)} 元</div>
                                         </td>
                                         <td class="px-4 py-3 whitespace-nowrap">
-                                            <div class="text-sm">${safeToFixed(data.meter_data?.water?.user_original_water_fee)} 元</div>
+                                            <div class="text-sm" id="tableUserOriginalWaterFee">${safeToFixed(data.meter_data?.water?.user_original_water_fee)} 元</div>
                                         </td>
                                         <td class="px-4 py-3 whitespace-nowrap">
-                                            <div class="text-sm">${safeToFixed(data.meter_data?.water?.user_billing_water_fee)} 元</div>
+                                            <div class="text-sm" id="tableUserBillingWaterFee">${safeToFixed(data.meter_data?.water?.user_billing_water_fee)} 元</div>
                                         </td>
                                     </tr>
                                     <tr class="bg-gray-50">
@@ -567,13 +602,13 @@
                                             <div class="text-sm font-bold">-</div>
                                         </td>
                                         <td class="px-4 py-3 whitespace-nowrap">
-                                            <div class="text-sm font-bold">${safeToFixed(feeInfo.meter_total_fee)} 元</div>
+                                            <div class="text-sm font-bold" id="tableMeterTotalFee">${safeToFixed(feeInfo.meter_total_fee)} 元</div>
                                         </td>
                                         <td class="px-4 py-3 whitespace-nowrap">
-                                            <div class="text-sm font-bold">${safeToFixed((feeInfo.user_original_total_fee || 0))} 元</div>
+                                            <div class="text-sm font-bold" id="tableUserOriginalTotalFee">${safeToFixed((feeInfo.user_original_total_fee || 0))} 元</div>
                                         </td>
                                         <td class="px-4 py-3 whitespace-nowrap">
-                                            <div class="text-sm font-bold">${safeToFixed((feeInfo.user_billing_total_fee || 0))} 元</div>
+                                            <div class="text-sm font-bold" id="tableUserBillingTotalFee">${safeToFixed((feeInfo.user_billing_total_fee || 0))} 元</div>
                                         </td>
                                     </tr>
                                 </tbody>
@@ -602,6 +637,81 @@
         }
         
         // 渲染费用明细卡片函数已移除，现在在renderContentCard中直接渲染费用明细内容
+        
+        // 实时重算费用
+        function recalculateFees() {
+            const electricPrice = parseFloat(document.getElementById('electricPrice').value) || 0;
+            const waterPrice = parseFloat(document.getElementById('waterPrice').value) || 0;
+            const proportionalReduction = parseFloat(document.getElementById('userProportionalReduction').value) || 0;
+            let independentReduction = parseFloat(document.getElementById('userIndependentReduction').value) || 0;
+            
+            // 从原始数据获取用量（不随单价变化）
+            const electricUsage = parseFloat(originalData.meter_data?.electric?.meter_electric_usage) || 0;
+            const waterUsage = parseFloat(originalData.meter_data?.water?.meter_water_usage) || 0;
+            const userOriginalElectricUsage = parseFloat(originalData.meter_data?.electric?.user_original_electric_usage) || 0;
+            const userOriginalWaterUsage = parseFloat(originalData.meter_data?.water?.user_original_water_usage) || 0;
+            const userBillingElectricUsage = parseFloat(originalData.meter_data?.electric?.electric_billing_usage) || 0;
+            const userBillingWaterUsage = parseFloat(originalData.meter_data?.water?.user_billing_water_usage) || 0;
+            
+            // 计算费用
+            const meterElectricFee = electricUsage * electricPrice;
+            const meterWaterFee = waterUsage * waterPrice;
+            const meterTotalFee = meterElectricFee + meterWaterFee;
+            
+            const userOriginalElectricFee = userOriginalElectricUsage * electricPrice;
+            const userOriginalWaterFee = userOriginalWaterUsage * waterPrice;
+            const userOriginalTotalFee = userOriginalElectricFee + userOriginalWaterFee;
+            
+            const userBillingElectricFee = userBillingElectricUsage * electricPrice;
+            const userBillingWaterFee = userBillingWaterUsage * waterPrice;
+            const userBillingTotalFee = userBillingElectricFee + userBillingWaterFee;
+            
+            // 应用减免
+            const afterRoomReduction = Math.max(0, userBillingTotalFee - proportionalReduction);
+            // 个人级减免不能超过房间减免后金额
+            const actualIndependentReduction = Math.min(independentReduction, afterRoomReduction);
+            const payableFee = Math.max(0, afterRoomReduction - actualIndependentReduction);
+            
+            // 更新汇总区域显示
+            document.getElementById('displayMeterElectricFee').textContent = safeToFixed(meterElectricFee) + ' 元';
+            document.getElementById('displayMeterWaterFee').textContent = safeToFixed(meterWaterFee) + ' 元';
+            document.getElementById('displayMeterTotalFee').textContent = safeToFixed(meterTotalFee) + ' 元';
+            document.getElementById('displayUserOriginalTotalFee').textContent = safeToFixed(userOriginalTotalFee) + ' 元';
+            document.getElementById('displayUserBillingTotalFee').textContent = safeToFixed(userBillingTotalFee) + ' 元';
+            document.getElementById('displayPayableFee').textContent = safeToFixed(payableFee) + ' 元';
+            
+            // 更新费用明细表格
+            document.getElementById('tableElectricPrice').textContent = electricPrice.toFixed(2) + ' 元/kWh';
+            document.getElementById('tableWaterPrice').textContent = waterPrice.toFixed(2) + ' 元/m³';
+            document.getElementById('tableMeterElectricFee').textContent = safeToFixed(meterElectricFee) + ' 元';
+            document.getElementById('tableUserOriginalElectricFee').textContent = safeToFixed(userOriginalElectricFee) + ' 元';
+            document.getElementById('tableUserBillingElectricFee').textContent = safeToFixed(userBillingElectricFee) + ' 元';
+            document.getElementById('tableMeterWaterFee').textContent = safeToFixed(meterWaterFee) + ' 元';
+            document.getElementById('tableUserOriginalWaterFee').textContent = safeToFixed(userOriginalWaterFee) + ' 元';
+            document.getElementById('tableUserBillingWaterFee').textContent = safeToFixed(userBillingWaterFee) + ' 元';
+            document.getElementById('tableMeterTotalFee').textContent = safeToFixed(meterTotalFee) + ' 元';
+            document.getElementById('tableUserOriginalTotalFee').textContent = safeToFixed(userOriginalTotalFee) + ' 元';
+            document.getElementById('tableUserBillingTotalFee').textContent = safeToFixed(userBillingTotalFee) + ' 元';
+            
+            // 验证：个人级减免不能超过房间减免后金额
+            const indepInput = document.getElementById('userIndependentReduction');
+            if (independentReduction > afterRoomReduction) {
+                indepInput.setCustomValidity('个人级减免不能超过房间减免后金额（' + safeToFixed(afterRoomReduction) + '元）');
+            } else {
+                indepInput.setCustomValidity('');
+            }
+        }
+        
+        // 绑定实时重算事件
+        function bindRecalcEvents() {
+            const inputs = ['electricPrice', 'waterPrice', 'userProportionalReduction', 'userIndependentReduction'];
+            inputs.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.addEventListener('input', recalculateFees);
+                }
+            });
+        }
         
         // 处理表单提交
         async function handleFormSubmit(e) {

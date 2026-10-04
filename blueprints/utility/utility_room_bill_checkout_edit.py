@@ -329,6 +329,10 @@ def update_checkout_data(checkout_id):
         # 1. 获取表单数据
         new_electric_reading = request.form.get('new_electric_reading')
         new_water_reading = request.form.get('new_water_reading')
+        electric_price = request.form.get('electric_price')
+        water_price = request.form.get('water_price')
+        user_proportional_reduction = request.form.get('user_proportional_reduction')
+        user_independent_reduction = request.form.get('user_independent_reduction')
         
         if new_electric_reading is None and new_water_reading is None:
             log_operation(
@@ -356,11 +360,22 @@ def update_checkout_data(checkout_id):
         
         # 3. 仅提取需要更新的抄表参数（已从表单获取）
         
-        # 4. 调用模型方法更新退宿记录（仅传递抄表参数）
-        updated_record = checkout_record.update_checkout_record(
-            new_electric_reading=new_electric_reading,
-            new_water_reading=new_water_reading
-        )
+        # 4. 调用模型方法更新退宿记录（传递抄表参数和可选的单价/减免参数）
+        update_kwargs = {
+            'new_electric_reading': new_electric_reading,
+            'new_water_reading': new_water_reading
+        }
+        # 如果用户提供了单价或减免值，传递到模型层
+        if electric_price is not None and electric_price != '':
+            update_kwargs['electric_price'] = electric_price
+        if water_price is not None and water_price != '':
+            update_kwargs['water_price'] = water_price
+        if user_proportional_reduction is not None and user_proportional_reduction != '':
+            update_kwargs['user_proportional_reduction'] = user_proportional_reduction
+        if user_independent_reduction is not None and user_independent_reduction != '':
+            update_kwargs['user_independent_reduction'] = user_independent_reduction
+        
+        updated_record = checkout_record.update_checkout_record(**update_kwargs)
         
         # 5. 同步更新对应的抄表记录（reading_type=2表示退宿抄表）
         meter_reading = UtilityMeterReading.query.filter_by(
@@ -390,7 +405,7 @@ def update_checkout_data(checkout_id):
             user_id=current_user.id,
             module='utility',
             operation_type='checkout_fee',
-            action=f"更新退宿记录 [退宿记录ID: {checkout_id}, 新电表读数: {new_electric_reading}, 新水表读数: {new_water_reading}]，退宿费用已更新，抄表记录已同步",
+            action=f"更新退宿记录 [退宿记录ID: {checkout_id}, 新电表读数: {new_electric_reading}, 新水表读数: {new_water_reading}, 电费单价: {electric_price}, 水费单价: {water_price}, 房间级减免: {user_proportional_reduction}, 个人级减免: {user_independent_reduction}]，退宿费用已更新，抄表记录已同步",
             result="成功"
         )
         flash('退宿费用已成功更新，抄表记录已同步更新', 'success')
