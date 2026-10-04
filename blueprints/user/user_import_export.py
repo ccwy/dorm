@@ -735,8 +735,8 @@ def update_users():
         # 读取Excel并构建dtype字典
         df, excel_columns, display_to_field = _read_excel_with_dtype(file_bytes)
         
-        # 检查必要字段（用户ID和姓名）
-        required_display = ['用户ID', '姓名']
+        # 检查必要字段（用户ID）
+        required_display = ['用户ID']
         if not all(req in excel_columns for req in required_display):
             missing = [req for req in required_display if req not in excel_columns]
             msg = f'Excel缺少必要列：{" ".join(missing)}'
@@ -832,6 +832,9 @@ def update_users():
                         # 使用公共函数统一处理字段值转换
                         processed = _process_field_value(field_name, value, parsed_hire_dates, idx)
                         if processed is not None:
+                            # 姓名为空字符串时不修改（空值=不修改，有值=修改）
+                            if field_name == 'name' and isinstance(processed, str) and not processed.strip():
+                                continue
                             user_data[field_name] = processed
             
             # 同步公司和部门到部门管理模块
@@ -858,6 +861,21 @@ def update_users():
             # 调用模型的批量更新方法
             update_result = User.batch_update_users(user_data_list, department_cache=department_cache)
             
+            # 全有或全无策略：任何行更新失败则全部回滚
+            if update_result['failed']:
+                db.session.rollback()
+                fail_errors = []
+                for fail in update_result['failed']:
+                    fail_msg = f"行号：{fail['row']}，错误：{', '.join(fail['errors'])}"
+                    fail_errors.append(fail_msg)
+                    logging.error(f"批量更新用户数据操作：{fail_msg}")
+                message = f"数据更新失败，已全部回滚：共{len(fail_errors)}条错误<br>" + "<br>".join(fail_errors[:5])
+                if len(fail_errors) > 5:
+                    message += f"<br>... 还有 {len(fail_errors)-5} 条错误"
+                flash(message, 'danger')
+                logging.error(f'批量更新用户数据失败：共{len(fail_errors)}条错误，已全部回滚')
+                return redirect(url_for('user.manage'))
+            
             # 合并提交结果
             commit_result = _commit_batch_result(
                 update_result, current_user,
@@ -868,18 +886,6 @@ def update_users():
             
             if commit_result is None:
                 return redirect(url_for('user.manage'))
-            
-            # 如果有失败记录，显示失败详情
-            if update_result['failed']:
-                fail_errors = []
-                for fail in update_result['failed']:
-                    fail_msg = f"行号：{fail['row']}，错误：{', '.join(fail['errors'])}"
-                    fail_errors.append(fail_msg)
-                    logging.error(f"批量更新用户数据操作：{fail_msg}")
-                message = f"部分数据更新失败：共{len(fail_errors)}条错误<br>" + "<br>".join(fail_errors[:5])
-                if len(fail_errors) > 5:
-                    message += f"<br>... 还有 {len(fail_errors)-5} 条错误"
-                flash(message, 'warning')
         
         except Exception as e:
             # 事务回滚

@@ -636,15 +636,6 @@ def batch_update():
             logging.error(f'批量更新房间数据失败：文件类型无效，当前文件类型：.{file_ext}')
             return redirect(url_for('room.manage'))
 
-        # 限制文件大小（10MB）
-        file.seek(0, os.SEEK_END)
-        file_size = file.tell()
-        file.seek(0)
-        if file_size > 10 * 1024 * 1024:
-            flash('文件大小超过限制（最大10MB）', 'danger')
-            logging.error('批量更新房间数据失败：文件大小超过限制（最大10MB）')
-            return redirect(url_for('room.manage'))
-
         try:
             file_content = file.read()
             file_bytes = BytesIO(file_content)
@@ -661,6 +652,9 @@ def batch_update():
             '房间ID': ['房间ID（批量更新必填）', '房间ID(批量更新必填)', '房间ID'],
         }
 
+        # 只读列：这些列不可通过批量更新修改
+        readonly_columns = ['创建时间', '更新时间']
+
         # 构建列名映射：将实际列名映射到标准列名
         column_mapping = {}
         for standard_name, aliases in column_aliases.items():
@@ -673,8 +667,14 @@ def batch_update():
         if column_mapping:
             df = df.rename(columns=column_mapping)
 
+        # 移除只读列（创建时间、更新时间不可修改）
+        readonly_found = [col for col in readonly_columns if col in df.columns]
+        if readonly_found:
+            logging.info(f'批量更新：跳过只读列 {readonly_found}，这些字段不可修改')
+            df = df.drop(columns=readonly_found)
+
         # 验证必要列
-        required_columns = ['房间ID', '楼栋', '房间号']
+        required_columns = ['房间ID']
         missing_columns = [col for col in required_columns if col not in df.columns]
         if missing_columns:
             flash(f'导入失败：文件缺少必要的列 - {", " .join(missing_columns)}', 'danger')
@@ -695,6 +695,9 @@ def batch_update():
             '维护中': RoomStatus.MAINTENANCE.value,
             '已关闭': RoomStatus.CLOSED.value
         }
+
+        # 获取有效的设施列表
+        valid_facilities = RoomFacility.get_all_valid_facilities() or []
 
         # 预处理数据
         success_count = 0
@@ -722,11 +725,12 @@ def batch_update():
                     error_list.append(f"第{row_num}行：房间ID必须是数字，当前值：{record_id_str}")
                     continue
 
-                # 提取楼栋和房间号（允许更新）
-                building = str(row['楼栋']).strip() if pd.notna(row['楼栋']) else ''
-                room_number_val = row['房间号']
+                # 提取楼栋和房间号（可选字段，空值=不修改）
+                building_val = row.get('楼栋')
+                building = str(building_val).strip() if pd.notna(building_val) and str(building_val).strip() else ''
+                room_number_val = row.get('房间号')
                 room_number = ''
-                if pd.notna(room_number_val):
+                if pd.notna(room_number_val) and str(room_number_val).strip():
                     try:
                         room_number_int = int(float(str(room_number_val).strip()))
                         room_number = str(room_number_int)
@@ -873,6 +877,42 @@ def batch_update():
                 if address_val:
                     room.address = address_val
 
+                # 处理房间设施（格式：设施名:数量,设施名:数量）
+                facilities_val = row.get('房间设施')
+                facilities_str = str(facilities_val).strip() if pd.notna(facilities_val) and str(facilities_val).strip() else ''
+                if facilities_str:
+                    facilities = []
+                    facility_parse_error = False
+                    facility_items = facilities_str.split(',')
+                    for item in facility_items:
+                        if ':' in item:
+                            name, quantity_str = item.split(':', 1)
+                            name = name.strip()
+                            quantity_str = quantity_str.strip()
+                            # 验证设施名称是否有效
+                            if name not in valid_facilities:
+                                error_list.append(
+                                    f"第{row_num}行：设施 '{name}' 无效，有效设施为：{', '.join(valid_facilities[:5])}..."
+                                )
+                                facility_parse_error = True
+                                break
+                            try:
+                                quantity = int(quantity_str)
+                                if quantity > 0:
+                                    facilities.append({'name': name, 'quantity': quantity})
+                            except ValueError:
+                                error_list.append(f"第{row_num}行：设施 '{name}' 的数量必须为整数")
+                                facility_parse_error = True
+                                break
+                    if not facility_parse_error and facilities:
+                        try:
+                            result = RoomFacility.bulk_update_facilities(room.id, facilities, remark="批量更新设施")
+                            if not result:
+                                error_list.append(f"第{row_num}行：房间ID {room.id} 的设施更新失败")
+                        except Exception as e:
+                            error_list.append(f"第{row_num}行：设施处理失败 - {str(e)}")
+                            logging.error(f'批量更新房间ID {room.id} 设施处理失败 - {str(e)}')
+
                 # 处理水电表最大量程
                 try:
                     electric_max_val = row.get('电表最大量程')
@@ -905,29 +945,15 @@ def batch_update():
         # 提交事务
         db.session.commit()
 
-        log_operation(
-            user_id=current_user.id,
-            module='room',
-            operation_type='batch_import_export',
-            action=f"批量更新房间数据，成功{success_count}条",
-            result="成功"
-        )
-        logging.info(f'批量更新房间数据成功，共更新{success_count}条记录')
+        logging.info(f'批量更新房间数据成功，共更新{success_count}条记录，操作人：{current_user.id}')
         flash(f"批量更新完成，成功更新{success_count}条记录", 'success')
         return redirect(url_for('room.manage'))
 
     except Exception as e:
         db.session.rollback()
         detailed_error = f"批量更新过程出错：{str(e)}"
-        log_operation(
-            user_id=current_user.id,
-            module='room',
-            operation_type='batch_import_export',
-            action=f"房间数据批量更新失败: {detailed_error}\n{traceback.format_exc()}",
-            result="失败"
-        )
+        logging.error(f'批量更新房间数据失败：{detailed_error}，操作人：{current_user.id}\n{traceback.format_exc()}')
         flash(detailed_error, 'danger')
-        logging.error(f'批量更新房间数据失败：{detailed_error}')
         return redirect(url_for('room.manage'))
 
 @room_import_export_bp.route('/export_facilities', methods=['GET'])

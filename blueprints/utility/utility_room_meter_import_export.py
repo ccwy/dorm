@@ -701,7 +701,14 @@ def batch_update():
         # 重命名列以统一标准
         if column_mapping:
             df = df.rename(columns=column_mapping)
-        
+
+        # 只读列：这些列不可通过批量更新修改
+        readonly_columns = ['创建时间', '更新时间']
+        readonly_found = [col for col in readonly_columns if col in df.columns]
+        if readonly_found:
+            logging.info(f'批量更新：跳过只读列 {readonly_found}，这些字段不可修改')
+            df = df.drop(columns=readonly_found)
+
         # 批量解析抄表日期时间（可选列，空值跳过）
         parsed_reading_dates = {}
         if '抄表日期时间' in df.columns:
@@ -725,7 +732,6 @@ def batch_update():
         # 预处理数据
         success_count = 0
         fail_count = 0
-        validation_warnings = []  # 收集部分校验失败的警告信息
         errors = []
         processed_ids = {}  # 缓存已处理的ID，提高效率
         actual_updated = 0  # 记录实际发生变化的记录数
@@ -859,8 +865,7 @@ def batch_update():
                                 if prev_water and update_data['water_current'] < prev_water.water_current:
                                     error_msg = f"第{row_num}行记录ID {record_id}：水表本次读数({update_data['water_current']})不能小于上次读数({prev_water.water_current})，除非标记表具更换"
                                     logging.warning(f"批量更新抄表记录校验失败: {error_msg}")
-                                    validation_warnings.append(error_msg)
-                                    del update_data['water_current']
+                                    raise ValueError(error_msg)
                         # 电表读数校验
                         if 'electric_current' in update_data:
                             electric_replaced = update_data.get('electric_meter_replaced', reading.electric_meter_replaced)
@@ -874,8 +879,7 @@ def batch_update():
                                 if prev_electric and update_data['electric_current'] < prev_electric.electric_current:
                                     error_msg = f"第{row_num}行记录ID {record_id}：电表本次读数({update_data['electric_current']})不能小于上次读数({prev_electric.electric_current})，除非标记表具更换"
                                     logging.warning(f"批量更新抄表记录校验失败: {error_msg}")
-                                    validation_warnings.append(error_msg)
-                                    del update_data['electric_current']
+                                    raise ValueError(error_msg)
 
                     # 调用模型的update方法（自动同步上次读数和用量）
                     reading.update(** update_data)
@@ -900,6 +904,17 @@ def batch_update():
                     )
                 
 
+            # 全有或全无策略：如果有任何错误，回滚全部并提示
+            if errors:
+                db.session.rollback()
+                error_details = [f"第{e['row']}行（记录ID {e['record_id']}）：{e['error']}" for e in errors[:5]]
+                message = f"数据验证失败：共{len(errors)}条错误<br>" + "<br>".join(error_details)
+                if len(errors) > 5:
+                    message += f"<br>... 还有 {len(errors) - 5} 条错误"
+                flash(message, 'danger')
+                logging.error(f'批量更新抄表记录失败：数据验证失败，共{len(errors)}条错误')
+                return redirect(url_for('utility_room_meter.utility_reading_manage'))
+
             # 提交事务（确保模型计算的字段被保存）
             db.session.commit()
 
@@ -907,23 +922,17 @@ def batch_update():
                 user_id=current_user.id,
                 module="utility",
                 operation_type="batch_import_export",
-                action=f'抄表记录批量处理完成，成功{success_count}条，失败{fail_count}条，实际更新{actual_updated}条',
+                action=f'抄表记录批量处理完成，成功{success_count}条，实际更新{actual_updated}条',
                 result="成功"
             )
-            logging.info(f'抄表记录批量处理完成，成功{success_count}条，失败{fail_count}条，实际更新{actual_updated}条')
+            logging.info(f'抄表记录批量处理完成，成功{success_count}条，实际更新{actual_updated}条')
         except Exception as e:
             db.session.rollback()
             logging.error(f'批量处理失败: {str(e)}')
             raise e
-        success_msg = f'批量处理完成，成功{success_count}条，失败{fail_count}条，实际更新{actual_updated}条'
-        if validation_warnings:
-            # 有部分校验失败的警告
-            warning_details = "<br>".join(validation_warnings[:5])
-            if len(validation_warnings) > 5:
-                warning_details += f"<br>... 还有 {len(validation_warnings) - 5} 条警告"
-            flash(f'{success_msg}<br><b>校验警告：</b><br>{warning_details}', 'warning')
-        else:
-            flash(success_msg, 'success')
+
+        success_msg = f'批量处理完成，成功{success_count}条，实际更新{actual_updated}条'
+        flash(success_msg, 'success')
         if imported_periods:
             return redirect(url_for('utility_room_meter.utility_reading_manage', billing_period=sorted(imported_periods)[0]))
         return redirect(url_for('utility_room_meter.utility_reading_manage'))
