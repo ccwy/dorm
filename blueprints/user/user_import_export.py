@@ -73,10 +73,10 @@ def _read_excel_with_dtype(file_bytes):
     return df, excel_columns, display_to_field
 
 
-def _batch_parse_hire_dates(df):
+def _batch_parse_hire_dates(df, raise_error=True):
     """批量解析入职日期，返回 parsed_hire_dates。失败时抛出异常由调用方处理。"""
     hire_date_values = df.get('入职日期', pd.Series([None] * len(df)))
-    parsed_hire_dates = excel_date_utils.parse_excel_date(hire_date_values, field_name='入职日期')
+    parsed_hire_dates = excel_date_utils.parse_excel_date(hire_date_values, field_name='入职日期', raise_error=raise_error)
     logging.info("日期时间解析成功")
     return parsed_hire_dates
 
@@ -412,9 +412,9 @@ def import_users():
         default_role = Role.query.filter_by(code='user').first()
         default_role_id = default_role.id if default_role else None
         
-        # 提取所有入职时间值进行批量解析
+        # 提取所有入职时间值进行批量解析（入职日期为可选字段，空值允许）
         try:
-            parsed_hire_dates = _batch_parse_hire_dates(df)
+            parsed_hire_dates = _batch_parse_hire_dates(df, raise_error=False)
         except Exception as e:
             msg = f'批量解析入职日期失败：{str(e)}'
             flash(msg, 'danger')
@@ -812,14 +812,8 @@ def update_users():
         # 预加载部门缓存，避免批量更新时循环内DB查询
         department_cache = _build_department_cache()
         
-        # 提取所有入职时间值进行批量解析
-        try:
-            parsed_hire_dates = _batch_parse_hire_dates(df)
-        except Exception as e:
-            msg = f'批量解析入职日期失败：{str(e)}'
-            flash(msg, 'danger')
-            logging.error(f'批量解析入职日期失败：{str(e)}')
-            return redirect(url_for('user.manage'))
+        # 提取所有入职时间值进行批量解析（入职日期为可选字段，空值允许）
+        parsed_hire_dates = _batch_parse_hire_dates(df, raise_error=False)
         
         error_list = []
         # 获取现有用户的用户名和工号映射关系，用于验证唯一性
@@ -835,6 +829,7 @@ def update_users():
         role_name_to_id = {r.name: r.id for r in all_roles}
         
         for idx, row in df.iterrows():
+            user_data = {}  # 每行初始化
             # 提取用户ID（处理pandas将数字读取为float的问题）
             raw_uid = row['用户ID']
             if pd.isna(raw_uid):
