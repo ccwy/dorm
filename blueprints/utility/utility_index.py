@@ -442,7 +442,7 @@ def utility_room_bill_edit(record_id):
         log_operation(
             user_id=current_user.id,
             module='utility',
-            operation_type='utility_edit',
+            operation_type='records',
             action=f"访问编辑房间水电费页面 [记录ID: {record_id}]",
             result="成功"
         )

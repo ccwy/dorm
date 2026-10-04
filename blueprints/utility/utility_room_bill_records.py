@@ -1031,14 +1031,7 @@ def search_records():
                 'updated_at': record.updated_at.isoformat() if record.updated_at else None,
                 'meter_readings': sub_records
             })
-        # 记录查询成功日志
-        log_operation(
-            user_id=current_user.id,
-            module='utility',
-            operation_type="utility_api",
-            action=f"搜索记录 [房间ID: {room_id}, 账期: {billing_period}, 状态: {status}, 开始日期: {start_date}, 结束日期: {end_date}, 页码: {page}, 每页数量: {per_page}, 总记录数: {total}]",
-            result="成功"
-        )
+        
         return jsonify({
             'success': True,
             'data': result,
