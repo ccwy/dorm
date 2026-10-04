@@ -390,7 +390,8 @@ class UtilityMeterReading(db.Model):
         if 'water_current' in kwargs:
             new_water_current = kwargs['water_current']
             
-            if not self.water_meter_replaced:
+            # 仅类型1（正常抄表）需要校验读数合理性，类型2（退宿抄表）跳过
+            if not self.water_meter_replaced and self.reading_type == 1:
                 # 修复：不传递record_id，获取所有历史记录
                 last_water = self.get_latest_water_reading(self.room_id)
                 if last_water and last_water.id == self.id:
@@ -448,7 +449,8 @@ class UtilityMeterReading(db.Model):
         if 'electric_current' in kwargs:
             new_electric_current = kwargs['electric_current']
             
-            if not self.electric_meter_replaced:
+            # 仅类型1（正常抄表）需要校验读数合理性，类型2（退宿抄表）跳过
+            if not self.electric_meter_replaced and self.reading_type == 1:
                 # 修复：不传递record_id
                 last_electric = self.get_latest_electric_reading(self.room_id)
                 if last_electric and last_electric.id == self.id:
