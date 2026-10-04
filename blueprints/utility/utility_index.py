@@ -10,6 +10,7 @@ from utils.log import log_operation
 
 from utils.auth import require_permission
 from models.utility.utility_room_bill_checkout import CheckoutUtilityRecord # 退宿费用子表
+from models.utility.utility_room_bill_occupant import RoomUtilityOccupant # 在住人员费用分摊子表
 from models.utility.utility_room_meter import UtilityMeterReading  # 抄表记录子表
 from models.system_config.system_config import SystemConfig  # 系统配置
 from models.dorm.dorm import Dorm  # 住宿记录模型（判断换宿）
@@ -480,12 +481,19 @@ def utility_occupant_edit(record_id):
         
         billing_period = request.args.get('billing_period', record.billing_period)
         
+        # 查询在住人员费用分摊记录，按用户名排序
+        occupant_records = (RoomUtilityOccupant.query
+            .filter_by(record_id=record_id)
+            .join(User, RoomUtilityOccupant.user_id == User.id)
+            .order_by(User.username)
+            .all())
+        
         log_operation(user_id=current_user.id, module='utility', operation_type='utility_edit',
             action=f"访问编辑用户费用分摊页面 [记录ID: {record_id}]", result="成功")
         
         return render_template('utility_bill/utility_occupant_edit.html',
             title='编辑用户费用分摊', record=record, room=room,
-            billing_period=billing_period)
+            billing_period=billing_period, occupant_records=occupant_records)
     except Exception as e:
         logging.error(f"加载编辑页面失败: {str(e)}")
         flash(f'加载编辑页面失败: {str(e)}', 'danger')

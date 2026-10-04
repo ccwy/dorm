@@ -99,8 +99,16 @@
                     <span class="info-value">{{ record.billing_period }}</span>
                 </div>
                 <div>
+                    <span class="info-label">账期范围：</span>
+                    <span class="info-value">{% if record.start_date and record.end_date %}{{ record.start_date.strftime('%Y-%m-%d') }} ~ {{ record.end_date.strftime('%Y-%m-%d') }}{% elif record.start_date %}{{ record.start_date.strftime('%Y-%m-%d') }} ~{% elif record.end_date %}~ {{ record.end_date.strftime('%Y-%m-%d') }}{% else %}未设置{% endif %}</span>
+                </div>
+                <div>
                     <span class="info-label">房间号：</span>
                     <span class="info-value">{{ room.building }}{{ room.room_number if room else '未知' }}</span>
+                </div>
+                <div>
+                    <span class="info-label">费用计算总天数：</span>
+                    <span class="info-value">{{ occupant_records|map(attribute='stay_days')|sum }} 天</span>
                 </div>
             </div>
             <!-- 费用计算链条 -->
@@ -124,10 +132,6 @@
                         <span class="info-value">¥{{ "%.2f"|format(record.checked_out_total_fee or 0) }}</span>
                     </div>
                     <div>
-                        <span class="info-label">房间减免费用：</span>
-                        <span class="info-value">¥{{ "%.2f"|format(record.room_reduction_fee or 0) }}</span>
-                    </div>
-                    <div>
                         <span class="info-label">应付电费：</span>
                         <span class="info-value text-primary font-medium">¥{{ "%.2f"|format(record.receivable_electric_fee or 0) }}</span>
                     </div>
@@ -138,6 +142,14 @@
                     <div>
                         <span class="info-label">应付总费用：</span>
                         <span class="info-value text-primary font-bold">¥{{ "%.2f"|format(record.receivable_total_fee or 0) }}</span>
+                    </div>
+                    <div>
+                        <span class="info-label">房间减免费用：</span>
+                        <span class="info-value">¥{{ "%.2f"|format(record.room_reduction_fee or 0) }}</span>
+                    </div>
+                    <div>
+                        <span class="info-label">实际应付总费用：</span>
+                        <span class="info-value text-primary font-bold">¥{{ "%.2f"|format(record.actual_total_fee or 0) }}</span>
                     </div>
                 </div>
                 <div class="mt-2 text-xs text-gray-400">
@@ -158,6 +170,7 @@
                         <thead>
                             <tr class="bg-gray-50">
                                 <th class="px-3 py-2 text-left">姓名</th>
+                                <th class="px-3 py-2 text-center">分摊比例</th>
                                 <th class="px-3 py-2 text-center">住宿天数</th>
                                 <th class="px-3 py-2 text-center">分摊电费</th>
                                 <th class="px-3 py-2 text-center">分摊水费</th>
@@ -169,49 +182,69 @@
                         <tbody>
                             {% for occupant in occupant_records %}
                             <tr class="border-b occupant-row" data-occupant-id="{{ occupant.id }}">
-                                <td class="px-3 py-2">
+                                <td class="px-3 py-2 text-center">
                                     {% if occupant.user %}
                                     {{ occupant.user.name }}
                                     {% else %}
                                     用户ID:{{ occupant.user_id }}
                                     {% endif %}
                                 </td>
-                                <td class="px-3 py-2">
+                                <td class="px-3 py-2 text-center">
+                                    <span class="share-ratio text-sm text-gray-600">0.00%</span>
+                                </td>
+                                <td class="px-3 py-2 text-center">
                                     <input type="number" step="1" name="occupant_{{ occupant.id }}_stay_days"
                                            value="{{ occupant.stay_days if occupant.stay_days is not none else 0 }}"
-                                           class="w-full px-3 py-2 border rounded form-input-focus">
+                                           data-initial="{{ occupant.stay_days if occupant.stay_days is not none else 0 }}"
+                                           class="w-full px-3 py-2 border rounded form-input-focus stay-days-input"
+                                           oninput="updateShareRatios()">
                                 </td>
-                                <td class="px-3 py-2">
-                                    <input type="number" step="0.01" name="occupant_{{ occupant.id }}_electric_fee"
+                                <td class="px-3 py-2 text-center">
+                                    <span class="electric-fee text-sm">{{ "%.2f"|format(occupant.electric_fee or 0) }}</span>
+                                    <input type="hidden" name="occupant_{{ occupant.id }}_electric_fee"
                                            value="{{ occupant.electric_fee if occupant.electric_fee is not none else 0 }}"
-                                           class="w-full px-3 py-2 border rounded form-input-focus electric-fee-input"
-                                           oninput="recalcRow(this)">
+                                           data-initial="{{ occupant.electric_fee if occupant.electric_fee is not none else 0 }}">
                                 </td>
-                                <td class="px-3 py-2">
-                                    <input type="number" step="0.01" name="occupant_{{ occupant.id }}_water_fee"
+                                <td class="px-3 py-2 text-center">
+                                    <span class="water-fee text-sm">{{ "%.2f"|format(occupant.water_fee or 0) }}</span>
+                                    <input type="hidden" name="occupant_{{ occupant.id }}_water_fee"
                                            value="{{ occupant.water_fee if occupant.water_fee is not none else 0 }}"
-                                           class="w-full px-3 py-2 border rounded form-input-focus water-fee-input"
-                                           oninput="recalcRow(this)">
+                                           data-initial="{{ occupant.water_fee if occupant.water_fee is not none else 0 }}">
                                 </td>
-                                <td class="px-3 py-2">
-                                    <input type="number" step="0.01" name="occupant_{{ occupant.id }}_total_fee"
+                                <td class="px-3 py-2 text-center">
+                                    <span class="total-fee text-sm">{{ "%.2f"|format(occupant.total_fee or 0) }}</span>
+                                    <input type="hidden" name="occupant_{{ occupant.id }}_total_fee"
                                            value="{{ occupant.total_fee if occupant.total_fee is not none else 0 }}"
-                                           class="w-full px-3 py-2 border rounded bg-gray-100 form-input-focus total-fee-input"
-                                           readonly>
+                                           data-initial="{{ occupant.total_fee if occupant.total_fee is not none else 0 }}">
                                 </td>
-                                <td class="px-3 py-2">
+                                <td class="px-3 py-2 text-center">
                                     <input type="number" step="0.01" name="occupant_{{ occupant.id }}_user_reduction_fee"
                                            value="{{ occupant.user_reduction_fee if occupant.user_reduction_fee is not none else 0 }}"
-                                           class="w-full px-3 py-2 border rounded form-input-focus">
+                                           data-initial="{{ occupant.user_reduction_fee if occupant.user_reduction_fee is not none else 0 }}"
+                                           class="w-full px-3 py-2 border rounded form-input-focus reduction-fee-input"
+                                           oninput="recalcPayable(this)">
                                 </td>
-                                <td class="px-3 py-2">
-                                    <input type="number" step="0.01" name="occupant_{{ occupant.id }}_payable_fee"
+                                <td class="px-3 py-2 text-center">
+                                    <span class="payable-fee text-sm">{{ "%.2f"|format(occupant.payable_fee or 0) }}</span>
+                                    <input type="hidden" name="occupant_{{ occupant.id }}_payable_fee"
                                            value="{{ occupant.payable_fee if occupant.payable_fee is not none else 0 }}"
-                                           class="w-full px-3 py-2 border rounded form-input-focus">
+                                           data-initial="{{ occupant.payable_fee if occupant.payable_fee is not none else 0 }}">
                                 </td>
                             </tr>
                             {% endfor %}
                         </tbody>
+                        <tfoot>
+                            <tr class="bg-gray-50 font-medium">
+                                <td class="px-3 py-2 text-center">合计</td>
+                                <td class="px-3 py-2 text-center"><span id="sum-ratio">100.00%</span></td>
+                                <td class="px-3 py-2 text-center"><span id="sum-stay-days">{{ occupant_records|map(attribute='stay_days')|sum }}</span></td>
+                                <td class="px-3 py-2 text-center"><span id="sum-electric-fee">{{ "%.2f"|format(occupant_records|map(attribute='electric_fee')|sum or 0) }}</span></td>
+                                <td class="px-3 py-2 text-center"><span id="sum-water-fee">{{ "%.2f"|format(occupant_records|map(attribute='water_fee')|sum or 0) }}</span></td>
+                                <td class="px-3 py-2 text-center"><span id="sum-total-fee">{{ "%.2f"|format(occupant_records|map(attribute='total_fee')|sum or 0) }}</span></td>
+                                <td class="px-3 py-2 text-center"><span id="sum-reduction-fee">{{ "%.2f"|format(occupant_records|map(attribute='user_reduction_fee')|sum or 0) }}</span></td>
+                                <td class="px-3 py-2 text-center"><span id="sum-payable-fee">{{ "%.2f"|format(occupant_records|map(attribute='payable_fee')|sum or 0) }}</span></td>
+                            </tr>
+                        </tfoot>
                     </table>
                 </div>
             </div>
@@ -226,6 +259,9 @@
                 <a href="{{ url_for('utility_index.utility_occupant_manage', billing_period=billing_period) }}" class="bg-white border border-neutral text-neutral px-6 py-2 rounded-lg mr-3 inline-flex items-center btn-effect">
                     取消
                 </a>
+                <button type="button" id="reset-btn" class="bg-gray-100 text-gray-700 px-6 py-2 rounded-lg mr-3 inline-flex items-center btn-effect hover:bg-gray-200" onclick="resetForm()">
+                    重置
+                </button>
                 <button type="submit" id="submit-btn" class="bg-primary text-white px-6 py-2 rounded-lg hover:bg-primary/90 btn-effect">
                     <i class="fa fa-save mr-2"></i>保存修改
                 </button>
@@ -239,58 +275,187 @@
 <script>
 // 房间应付总费用（从主表获取）
 const ROOM_RECEIVABLE_TOTAL_FEE = {{ "%.2f"|format(record.receivable_total_fee or 0) }};
+// 费用计算总天数（所有在住人员stay_days之和，编辑时不变）
+const TOTAL_STAY_DAYS = {{ occupant_records|map(attribute='stay_days')|sum }};
+// 房间应付电费
+const ROOM_RECEIVABLE_ELECTRIC_FEE = {{ "%.2f"|format(record.receivable_electric_fee or 0) }};
+// 房间应付水费
+const ROOM_RECEIVABLE_WATER_FEE = {{ "%.2f"|format(record.receivable_water_fee or 0) }};
 
-// 重新计算单行分摊总费用
-function recalcRow(input) {
+// 更新所有行的分摊比例、水电费联动、应付费用
+function updateShareRatios() {
+    const rows = document.querySelectorAll('.occupant-row');
+    let currentTotalDays = 0;
+    const stayDaysValues = [];
+    const warningEl = document.getElementById('total-fee-warning');
+    const submitBtn = document.getElementById('submit-btn');
+
+    // 第一轮：收集所有住宿天数，验证总和
+    rows.forEach(row => {
+        const stayDaysInput = row.querySelector('.stay-days-input');
+        let stayDays = parseInt(stayDaysInput.value) || 0;
+        if (stayDays < 0) {
+            stayDays = 0;
+            stayDaysInput.value = 0;
+        }
+        stayDaysValues.push(stayDays);
+        currentTotalDays += stayDays;
+    });
+
+    // 验证住宿天数之和是否等于总天数
+    if (currentTotalDays !== TOTAL_STAY_DAYS) {
+        warningEl.textContent = `住宿天数之和（${currentTotalDays}天）必须等于费用计算总天数（${TOTAL_STAY_DAYS}天），请调整住宿天数`;
+        warningEl.classList.remove('hidden');
+        submitBtn.disabled = true;
+        submitBtn.classList.add('opacity-50', 'cursor-not-allowed');
+    } else {
+        // 天数验证通过，继续校验费用
+        warningEl.classList.add('hidden');
+        submitBtn.disabled = false;
+        submitBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+    }
+
+    // 第二轮：更新分摊比例、水电费、总费用、应付费用
+    rows.forEach((row, index) => {
+        const ratioSpan = row.querySelector('.share-ratio');
+        const electricFeeEl = row.querySelector('.electric-fee');
+        const electricFeeInput = row.querySelector('input[name*="_electric_fee"]');
+        const waterFeeEl = row.querySelector('.water-fee');
+        const waterFeeInput = row.querySelector('input[name*="_water_fee"]');
+        const totalFeeEl = row.querySelector('.total-fee');
+        const totalFeeInput = row.querySelector('input[name*="_total_fee"]');
+        const reductionInput = row.querySelector('.reduction-fee-input');
+        const payableFeeEl = row.querySelector('.payable-fee');
+        const payableFeeInput = row.querySelector('input[name*="_payable_fee"]');
+        
+        let ratio = 0;
+        if (currentTotalDays > 0) {
+            ratio = stayDaysValues[index] / currentTotalDays;
+            ratioSpan.textContent = (ratio * 100).toFixed(2) + '%';
+        } else {
+            ratioSpan.textContent = '0.00%';
+        }
+        
+        // 根据分摊比例联动计算水电费
+        const electricFee = ROOM_RECEIVABLE_ELECTRIC_FEE * ratio;
+        const waterFee = ROOM_RECEIVABLE_WATER_FEE * ratio;
+        electricFeeEl.textContent = electricFee.toFixed(2);
+        electricFeeInput.value = electricFee.toFixed(2);
+        waterFeeEl.textContent = waterFee.toFixed(2);
+        waterFeeInput.value = waterFee.toFixed(2);
+        const totalFee = electricFee + waterFee;
+        totalFeeEl.textContent = totalFee.toFixed(2);
+        totalFeeInput.value = totalFee.toFixed(2);
+        
+        // 重算应付费用
+        const reduction = parseFloat(reductionInput.value) || 0;
+        const payable = totalFee - reduction;
+        payableFeeEl.textContent = Math.max(0, payable).toFixed(2);
+        payableFeeInput.value = Math.max(0, payable).toFixed(2);
+    });
+    
+    // 更新汇总行
+    updateSummaryRow();
+
+    // 天数验证通过时，再校验费用
+    if (currentTotalDays === TOTAL_STAY_DAYS) {
+        validateTotalFees();
+    }
+}
+
+// 重新计算单行实际应付费用
+function recalcPayable(input) {
     const row = input.closest('tr');
-    const electricInput = row.querySelector('.electric-fee-input');
-    const waterInput = row.querySelector('.water-fee-input');
-    const totalInput = row.querySelector('.total-fee-input');
+    const totalFeeInput = row.querySelector('input[name*="_total_fee"]');
+    const reductionInput = row.querySelector('.reduction-fee-input');
+    const payableFeeEl = row.querySelector('.payable-fee');
+    const payableFeeInput = row.querySelector('input[name*="_payable_fee"]');
     
-    const electric = parseFloat(electricInput.value) || 0;
-    const water = parseFloat(waterInput.value) || 0;
-    totalInput.value = (electric + water).toFixed(2);
+    const total = parseFloat(totalFeeInput.value) || 0;
+    const reduction = parseFloat(reductionInput.value) || 0;
+    const payable = total - reduction;
+    payableFeeEl.textContent = Math.max(0, payable).toFixed(2);
+    payableFeeInput.value = Math.max(0, payable).toFixed(2);
     
+    // 更新汇总行
+    updateSummaryRow();
+
+    // 重新验证
     validateTotalFees();
 }
 
 // 校验所有用户分摊总费用不超过房间应付总费用
 function validateTotalFees() {
-    const totalFeeInputs = document.querySelectorAll('.total-fee-input');
+    const totalFeeInputs = document.querySelectorAll('input[name*="_total_fee"]');
     let sum = 0;
     totalFeeInputs.forEach(input => {
         sum += parseFloat(input.value) || 0;
     });
     
     const warningEl = document.getElementById('total-fee-warning');
-    const submitBtn = document.getElementById('submit-btn');
-    
-    if (sum > ROOM_RECEIVABLE_TOTAL_FEE) {
-        warningEl.textContent = `所有用户分摊总费用之和（¥${sum.toFixed(2)}）超过房间应付总费用（¥${ROOM_RECEIVABLE_TOTAL_FEE.toFixed(2)}），请调整分摊金额`;
-        warningEl.classList.remove('hidden');
-        submitBtn.disabled = true;
-        submitBtn.classList.add('opacity-50', 'cursor-not-allowed');
-    } else {
-        warningEl.classList.add('hidden');
-        submitBtn.disabled = false;
-        submitBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+    // 费用校验仅在需要时显示（天数验证优先）
+    if (sum - ROOM_RECEIVABLE_TOTAL_FEE > 1) {
+        // 仅当天数验证通过时才显示费用警告
+        const currentTotalDays = Array.from(document.querySelectorAll('.stay-days-input'))
+            .reduce((sum, input) => sum + (parseInt(input.value) || 0), 0);
+        if (currentTotalDays === TOTAL_STAY_DAYS) {
+            warningEl.textContent = `所有用户分摊总费用之和（¥${sum.toFixed(2)}）超出房间应付总费用（¥${ROOM_RECEIVABLE_TOTAL_FEE.toFixed(2)}）1元以上，请检查分摊金额`;
+            warningEl.classList.remove('hidden');
+        }
     }
+}
+
+// 更新汇总行
+function updateSummaryRow() {
+    const rows = document.querySelectorAll('.occupant-row');
+    let sumStayDays = 0, sumElectric = 0, sumWater = 0, sumTotal = 0, sumReduction = 0, sumPayable = 0;
+    rows.forEach(row => {
+        sumStayDays += parseInt(row.querySelector('.stay-days-input').value) || 0;
+        sumElectric += parseFloat(row.querySelector('input[name*="_electric_fee"]').value) || 0;
+        sumWater += parseFloat(row.querySelector('input[name*="_water_fee"]').value) || 0;
+        sumTotal += parseFloat(row.querySelector('input[name*="_total_fee"]').value) || 0;
+        sumReduction += parseFloat(row.querySelector('.reduction-fee-input').value) || 0;
+        sumPayable += parseFloat(row.querySelector('input[name*="_payable_fee"]').value) || 0;
+    });
+    document.getElementById('sum-stay-days').textContent = sumStayDays;
+    document.getElementById('sum-electric-fee').textContent = sumElectric.toFixed(2);
+    document.getElementById('sum-water-fee').textContent = sumWater.toFixed(2);
+    document.getElementById('sum-total-fee').textContent = sumTotal.toFixed(2);
+    document.getElementById('sum-reduction-fee').textContent = sumReduction.toFixed(2);
+    document.getElementById('sum-payable-fee').textContent = sumPayable.toFixed(2);
+    // �累加分摊比例并更新合计
+    let sumRatio = 0;
+    document.querySelectorAll('.share-ratio').forEach(el => {
+        const val = parseFloat(el.textContent);
+        if (!isNaN(val)) sumRatio += val;
+    });
+    document.getElementById('sum-ratio').textContent = sumRatio.toFixed(2) + '%';
+}
+
+// 重置表单到初始值
+function resetForm() {
+    const rows = document.querySelectorAll('.occupant-row');
+    rows.forEach(row => {
+        const inputs = row.querySelectorAll('input');
+        inputs.forEach(input => {
+            if (input.hasAttribute('data-initial')) {
+                input.value = input.getAttribute('data-initial');
+            }
+        });
+    });
+    // 重新计算分摊比例和水电费
+    updateShareRatios();
+    // 更新汇总行
+    updateSummaryRow();
+    // 清除天数验证警告
+    const warningEl = document.getElementById('total-fee-warning');
+    warningEl.classList.add('hidden');
 }
 
 // 页面加载时初始化计算
 document.addEventListener('DOMContentLoaded', function() {
-    // 初始化所有行的总费用
-    document.querySelectorAll('.occupant-row').forEach(row => {
-        const electricInput = row.querySelector('.electric-fee-input');
-        const waterInput = row.querySelector('.water-fee-input');
-        const totalInput = row.querySelector('.total-fee-input');
-        
-        const electric = parseFloat(electricInput.value) || 0;
-        const water = parseFloat(waterInput.value) || 0;
-        totalInput.value = (electric + water).toFixed(2);
-    });
-    
-    validateTotalFees();
+    // 初始化分摊比例、水电费联动、应付费用
+    updateShareRatios();
 });
 </script>
 </body>

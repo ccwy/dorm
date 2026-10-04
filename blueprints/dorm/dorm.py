@@ -12,6 +12,7 @@ import logging
 from sqlalchemy import func  # 新增：导入聚合函数
 # 导入require_permission装饰器
 from utils.auth import require_permission
+from models.utility.utility_room_bill_checkout import CheckoutUtilityRecord  # 导入退宿费用记录模型
 
 # 定义dorm蓝图
 dorm_bp = Blueprint(
@@ -493,6 +494,8 @@ def dorm_query():
                         total_stay_days += delta_days + 1
             
             # 构建人员数据
+            # 查询退宿费用记录ID（用于跳转到退宿费用核算详情页）
+            checkout_utility_record = CheckoutUtilityRecord.query.filter_by(dorm_id=dorm.id).first() if dorm.check_out_date else None
             resident_info = {
                 'id': user.id,
                 'name': user.name,
@@ -512,7 +515,8 @@ def dorm_query():
                 'status': dorm.status,
                 'current_stay_days': current_stay_days,
                 'total_stay_days': total_stay_days,
-                'dorm_chain': dorm_chain  # 完整换宿链
+                'dorm_chain': dorm_chain,  # 完整换宿链
+                'checkout_utility_record_id': checkout_utility_record.id if checkout_utility_record else None
             }
             
             residents_data.append(resident_info)

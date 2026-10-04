@@ -406,7 +406,11 @@
                                     <td class="px-6 py-3 whitespace-nowrap">{{ resident.check_in_date.strftime('%Y-%m-%d') }}</td>
                                     <td class="px-6 py-3 whitespace-nowrap">
                                         {% if resident.check_out_date %}
-                                            {{ resident.check_out_date.strftime('%Y-%m-%d') }}
+                                            {% if resident.checkout_utility_record_id %}
+                                                <a href="/utility/utility_user_checkout_detail?id={{ resident.checkout_utility_record_id }}" class="text-primary hover:underline cursor-pointer">{{ resident.check_out_date.strftime('%Y-%m-%d') }}</a>
+                                            {% else %}
+                                                {{ resident.check_out_date.strftime('%Y-%m-%d') }}
+                                            {% endif %}
                                         {% else %}
                                             <span class="text-green-600">未退宿</span>
                                         {% endif %}

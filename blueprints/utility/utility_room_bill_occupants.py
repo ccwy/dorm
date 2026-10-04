@@ -2,7 +2,7 @@ from flask import Blueprint, request, jsonify, flash, redirect, url_for
 from models.utility.utility_room_bill_record import RoomUtilityRecord      #导入主表模型
 from models.utility.utility_room_bill_occupant import RoomUtilityOccupant  #导入子表模型
 from models.dorm.dorm import Dorm
-from models.user.user import User  # 假设存在用户模型
+from models.user.user import User
 from models.department.department import Department
 from utils.db import db
 from sqlalchemy.exc import SQLAlchemyError
@@ -232,14 +232,7 @@ def get_fee_records():
                 'user_summary': user_summary,
             })
         
-        # 记录成功日志
-        log_operation(
-            user_id=current_user.id,
-            module='utility',
-            operation_type='utility_api',
-            action=f"查询费用明细 [账期: {billing_period}, 搜索关键词: {search_keyword}, 页码: {page}]",
-            result="成功"
-        )
+        
         
         # 返回分页数据
         return jsonify({
@@ -259,14 +252,7 @@ def get_fee_records():
         
     except Exception as e:
         logging.error(f"获取费用记录失败: {str(e)}")
-        # 记录失败日志
-        log_operation(
-            user_id=current_user.id,
-            module='utility',
-            operation_type='utility_api',
-            action=f"查询费用明细失败 [错误: {str(e)}]",
-            result="失败"
-        )
+        
         return jsonify({'success': False, 'message': f'获取数据失败: {str(e)}'}), 500
     
 # 加载账单数据
@@ -633,13 +619,14 @@ def occupant_edit_save(record_id):
         occupant_records = RoomUtilityOccupant.query.filter_by(record_id=record_id).all()
         
         updated_count = 0
+        # 在修改前记录原始总天数，用于后续校验
+        original_total_stay_days = sum(occ.stay_days or 0 for occ in occupant_records)
         for occupant in occupant_records:
             occ_id = str(occupant.id)
             stay_days = request.form.get(f'occupant_{occ_id}_stay_days')
             electric_fee = request.form.get(f'occupant_{occ_id}_electric_fee')
             water_fee = request.form.get(f'occupant_{occ_id}_water_fee')
             user_reduction_fee = request.form.get(f'occupant_{occ_id}_user_reduction_fee')
-            payable_fee = request.form.get(f'occupant_{occ_id}_payable_fee')
             
             if stay_days is not None:
                 occupant.stay_days = int(stay_days) if stay_days else 0
@@ -651,20 +638,31 @@ def occupant_edit_save(record_id):
             occupant.total_fee = (occupant.electric_fee or Decimal('0.00')) + (occupant.water_fee or Decimal('0.00'))
             if user_reduction_fee is not None:
                 occupant.user_reduction_fee = Decimal(user_reduction_fee) if user_reduction_fee else Decimal('0.00')
-            if payable_fee is not None:
-                occupant.payable_fee = Decimal(payable_fee) if payable_fee else Decimal('0.00')
+            # 自动计算实际应付 = 分摊总费用 - 减免费用
+            occupant.payable_fee = max(
+                (occupant.total_fee or Decimal('0.00')) - (occupant.user_reduction_fee or Decimal('0.00')),
+                Decimal('0.00')
+            )
             
             updated_count += 1
+        
+        # 校验所有用户住宿天数之和等于费用计算总天数
+        current_total_stay_days = sum(occ.stay_days or 0 for occ in occupant_records)
+        if current_total_stay_days != original_total_stay_days:
+            db.session.rollback()
+            logging.warning(f"住宿天数校验失败: 记录ID={record_id}, 修改后总天数={current_total_stay_days}, 原始总天数={original_total_stay_days}")
+            flash(f'所有用户住宿天数之和（{current_total_stay_days}天）必须等于费用计算总天数（{original_total_stay_days}天），请调整住宿天数', 'danger')
+            return redirect(url_for('utility_index.utility_occupant_edit', record_id=record_id, billing_period=billing_period))
         
         # 校验所有用户分摊总费用之和不超过房间应付总费用
         total_occupant_fees = sum(
             (occ.total_fee or Decimal('0.00')) for occ in occupant_records
         )
         room_actual_total = record.receivable_total_fee or Decimal('0.00')
-        if total_occupant_fees > room_actual_total:
+        if total_occupant_fees - room_actual_total > Decimal('1.00'):
             db.session.rollback()
-            logging.warning(f"分摊总额校验失败: 记录ID={record_id}, 分摊总额={total_occupant_fees}, 房间应付总额={room_actual_total}")
-            flash(f'所有用户分摊总费用之和（¥{total_occupant_fees}）超过房间应付总费用（¥{room_actual_total}），请调整分摊金额', 'danger')
+            logging.warning(f"分摊总额校验失败: 记录ID={record_id}, 分摊总额={total_occupant_fees}, 房间应付总额={room_actual_total}, 超出1元以上")
+            flash(f'所有用户分摊总费用之和（¥{total_occupant_fees}）超出房间应付总费用（¥{room_actual_total}）1元以上，请调整分摊金额', 'danger')
             return redirect(url_for('utility_index.utility_occupant_edit', record_id=record_id, billing_period=billing_period))
         
         db.session.commit()
