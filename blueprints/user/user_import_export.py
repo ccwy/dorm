@@ -832,16 +832,19 @@ def update_users():
         
         for idx, row in df.iterrows():
             user_data = {}
-            # 添加用户ID
-            if '用户ID' in row and pd.notna(row['用户ID']):
-                try:
-                    user_data['id'] = int(row['用户ID'])
-                except ValueError:
-                    logging.warning(f"批量更新用户数据操作，第{idx+2}行：用户ID格式无效")
-                    continue
-            else:
+            # 提取用户ID（处理pandas将数字读取为float的问题）
+            raw_uid = row['用户ID']
+            if pd.isna(raw_uid):
                 logging.warning(f"批量更新用户数据操作，第{idx+2}行：用户ID为空")
                 continue
+            elif isinstance(raw_uid, float):
+                user_data['id'] = int(raw_uid)
+            else:
+                try:
+                    user_data['id'] = int(str(raw_uid).strip())
+                except (ValueError, TypeError):
+                    logging.warning(f"批量更新用户数据操作，第{idx+2}行：用户ID格式无效")
+                    continue
             
             # 验证用户名唯一性
             if '用户名' in row and pd.notna(row['用户名']):

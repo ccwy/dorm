@@ -778,8 +778,14 @@ def batch_update():
         for index, row in df.iterrows():
             row_num = index + 2
             try:
-                # 提取房间ID
-                record_id_str = str(row['房间ID']).strip()
+                # 提取房间ID（处理pandas将数字读取为float的问题）
+                raw_id = row['房间ID']
+                if pd.isna(raw_id):
+                    record_id_str = ''
+                elif isinstance(raw_id, float):
+                    record_id_str = str(int(raw_id))
+                else:
+                    record_id_str = str(raw_id).strip()
                 if not record_id_str:
                     error_list.append(f"第{row_num}行：房间ID不能为空（批量更新必须提供）")
                     continue

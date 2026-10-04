@@ -766,8 +766,14 @@ def batch_update():
             for index, row in df.iterrows():
                 row_num = index + 2
                 try:
-                    # 提取记录ID
-                    record_id_str = str(row['记录ID']).strip()
+                    # 提取记录ID（处理pandas将数字读取为float的问题）
+                    raw_id = row['记录ID']
+                    if pd.isna(raw_id):
+                        record_id_str = ''
+                    elif isinstance(raw_id, float):
+                        record_id_str = str(int(raw_id))
+                    else:
+                        record_id_str = str(raw_id).strip()
                     if not record_id_str:
                         logging.error("记录ID不能为空（批量更新必须提供）")
                         raise ValueError("记录ID不能为空（批量更新必须提供）")
@@ -793,7 +799,7 @@ def batch_update():
                         raise ValueError(f'记录ID {record_id} 不存在')
                     
                     # 提取抄表日期时间（可选，空值时不修改）
-                    reading_datetime = parsed_reading_dates.get(index) if parsed_reading_dates else None
+                    reading_datetime = parsed_reading_dates[index] if parsed_reading_dates and index < len(parsed_reading_dates) else None
                     
                     # 收集账期用于跳转
                     if reading.record_id:
