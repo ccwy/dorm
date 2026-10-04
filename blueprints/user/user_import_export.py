@@ -347,6 +347,12 @@ def import_users():
         df, excel_columns, display_to_field = _read_excel_with_dtype(file_bytes)
         logging.info('开始导入用户')
         
+        # 忽略ID列（导入时只创建新记录，不使用ID）
+        for col in df.columns:
+            if col in ['用户ID', '用户ID（批量更新必填）', '用户ID(批量更新必填)', 'ID', 'id']:
+                df = df.drop(columns=[col])
+        excel_columns = df.columns.tolist()
+        
         # 检查必要字段（显示名）
         required_display = ['姓名', '性别']
         if not all(req in excel_columns for req in required_display):
@@ -596,6 +602,7 @@ def import_template():
         # 准备模板数据（示例数据）
         sample_data = [
             {
+                "用户ID（批量更新必填）": "",
                 "姓名": "张三",
                 "性别": "男",
                 "用户名": "张三",
@@ -621,6 +628,7 @@ def import_template():
                 "密码": "123321"  # 默认密码
             },
             {
+                "用户ID（批量更新必填）": "1",
                 "姓名": "李四",
                 "性别": "女",
                 "用户名": "李四",
@@ -745,11 +753,7 @@ def update_users():
         # 收集要更新的数据
         user_data_list = []
         
-        # 获取现有用户的用户名和工号映射关系，用于验证唯一性
-        existing_users = User.query.with_entities(User.id, User.username, User.student_id).all()
-        username_to_id = {user.username: user.id for user in existing_users if user.username}
-        student_id_to_id = {user.student_id: user.id for user in existing_users if user.student_id}
-        
+
         # 预加载部门缓存，避免批量更新时循环内DB查询
         department_cache = _build_department_cache()
         
@@ -762,7 +766,12 @@ def update_users():
             logging.error(f'批量解析入职日期失败：{str(e)}')
             return redirect(url_for('user.manage'))
         
-        # 用于跟踪Excel文件内已处理的用户名和工号，防止表格内部重复
+        error_list = []
+        # 获取现有用户的用户名和工号映射关系，用于验证唯一性
+        existing_users = User.query.all()
+        username_to_id = {user.username: user.id for user in existing_users if user.username}
+        student_id_to_id = {user.student_id: user.id for user in existing_users if user.student_id}
+        # Excel内部去重跟踪集合
         excel_username_set = set()
         excel_student_id_set = set()
         
@@ -783,34 +792,34 @@ def update_users():
             if '用户名' in row and pd.notna(row['用户名']):
                 username = str(row['用户名']).strip()
                 if username:
-                    # 检查数据库中是否存在该用户名且不属于当前用户
+                    # 数据库唯一性检查
                     if username in username_to_id and username_to_id[username] != user_data['id']:
+                        error_list.append(f"第{idx+2}行：用户名'{username}'已被其他用户使用")
                         logging.warning(f"批量更新用户数据操作，第{idx+2}行：用户名'{username}'已被其他用户使用")
-                        continue
-                    # 检查当前Excel文件中是否已经出现过该用户名
-                    if username in excel_username_set:
-                        logging.warning(f"批量更新用户数据操作，第{idx+2}行：用户名'{username}'在Excel文件中重复出现")
-                        continue
-                    # 添加到已处理集合
-                    excel_username_set.add(username)
-                    user_data['username'] = username
-            
+                    # Excel内部唯一性检查
+                    elif username in excel_username_set:
+                        error_list.append(f"第{idx+2}行：用户名'{username}'在Excel中重复")
+                        logging.warning(f"批量更新用户数据操作，第{idx+2}行：用户名'{username}'在Excel中重复")
+                    else:
+                        excel_username_set.add(username)
+
             # 验证工号唯一性
             if '工号' in row and pd.notna(row['工号']):
                 student_id = str(row['工号']).strip()
                 if student_id:
-                    # 检查数据库中是否存在该工号且不属于当前用户
+                    # 数据库唯一性检查
                     if student_id in student_id_to_id and student_id_to_id[student_id] != user_data['id']:
+                        error_list.append(f"第{idx+2}行：工号'{student_id}'已被其他用户使用")
                         logging.warning(f"批量更新用户数据操作，第{idx+2}行：工号'{student_id}'已被其他用户使用")
-                        continue
-                    # 检查当前Excel文件中是否已经出现过该工号
-                    if student_id in excel_student_id_set:
-                        logging.warning(f"批量更新用户数据操作，第{idx+2}行：工号'{student_id}'在Excel文件中重复出现")
-                        continue
-                    # 添加到已处理集合
-                    excel_student_id_set.add(student_id)
-                    user_data['student_id'] = student_id
+                    # Excel内部唯一性检查
+                    elif student_id in excel_student_id_set:
+                        error_list.append(f"第{idx+2}行：工号'{student_id}'在Excel中重复")
+                        logging.warning(f"批量更新用户数据操作，第{idx+2}行：工号'{student_id}'在Excel中重复")
+                    else:
+                        excel_student_id_set.add(student_id)
+                        user_data['student_id'] = student_id
             
+
             # 处理其他字段
             for col in excel_columns:
                 # 跳过已经处理过的字段
@@ -830,6 +839,14 @@ def update_users():
             
             if user_data:
                 user_data_list.append(user_data)
+        
+        if error_list:
+            message = f"数据验证失败：共{len(error_list)}条错误<br>" + "<br>".join(error_list[:5])
+            if len(error_list) > 5:
+                message += f"<br>... 还有 {len(error_list)-5} 条错误"
+            flash(message, 'danger')
+            logging.error(f'批量更新用户数据失败：数据验证失败，共{len(error_list)}条错误')
+            return redirect(url_for('user.manage'))
         
         if not user_data_list:
             msg = 'Excel中没有可更新的有效数据'
@@ -854,8 +871,15 @@ def update_users():
             
             # 如果有失败记录，显示失败详情
             if update_result['failed']:
+                fail_errors = []
                 for fail in update_result['failed']:
-                    logging.error(f"批量更新用户失败，行号：{fail['row']}，错误：{', '.join(fail['errors'])}")
+                    fail_msg = f"行号：{fail['row']}，错误：{', '.join(fail['errors'])}"
+                    fail_errors.append(fail_msg)
+                    logging.error(f"批量更新用户数据操作：{fail_msg}")
+                message = f"部分数据更新失败：共{len(fail_errors)}条错误<br>" + "<br>".join(fail_errors[:5])
+                if len(fail_errors) > 5:
+                    message += f"<br>... 还有 {len(fail_errors)-5} 条错误"
+                flash(message, 'warning')
         
         except Exception as e:
             # 事务回滚

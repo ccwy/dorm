@@ -392,9 +392,10 @@
                             
                             <div class="mb-6">
                                 <label class="inline-flex items-center">
-                                    <input type="checkbox" name="override" value="1" class="form-checkbox text-primary">
-                                    <span class="ml-2 text-gray-700">覆盖已有数据</span>
+                                    <input type="checkbox" id="overrideCheckbox" name="override" value="1" class="form-checkbox text-primary">
+                                    <span class="ml-2 text-gray-700">批量更新数据</span>
                                 </label>
+                                <p id="overrideHint" class="text-xs text-gray-500 mt-1 ml-6 hidden">批量更新需包含ID列</p>
                             </div>
                             
                             <div class="flex justify-end gap-3">
@@ -476,6 +477,21 @@
             const importLoadingContent = document.getElementById('importLoadingContent');
             const importSuccessContent = document.getElementById('importSuccessContent');
             
+            // 批量更新数据复选框切换action
+            const overrideCheckbox = document.getElementById('overrideCheckbox');
+            const overrideHint = document.getElementById('overrideHint');
+            if (overrideCheckbox && importForm) {
+                overrideCheckbox.addEventListener('change', function() {
+                    if (this.checked) {
+                        importForm.action = '{{ url_for("room_import_export.batch_update") }}';
+                        overrideHint.classList.remove('hidden');
+                    } else {
+                        importForm.action = '{{ url_for("room_import_export.import_rooms") }}';
+                        overrideHint.classList.add('hidden');
+                    }
+                });
+            }
+
             // 打开模态框
             if (importBtn) {
             importBtn.addEventListener('click', function() {
@@ -484,6 +500,14 @@
                 importInitialContent.classList.remove('hidden');
                 importLoadingContent.classList.add('hidden');
                 importSuccessContent.classList.add('hidden');
+                // 重置复选框状态
+                if (overrideCheckbox) {
+                    overrideCheckbox.checked = false;
+                }
+                if (overrideHint) {
+                    overrideHint.classList.add('hidden');
+                }
+                importForm.action = '{{ url_for("room_import_export.import_rooms") }}';
                 // 阻止页面滚动
                 document.body.style.overflow = 'hidden';
             });

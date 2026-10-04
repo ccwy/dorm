@@ -4,6 +4,8 @@ import logging
 from utils.db import db
 from models.room.room import Room, RoomStatus
 from models.room.room_facility import RoomFacility  # 导入房间设施模型
+from models.dorm.dorm import Dorm
+from models.user.user import User
 from flask_login import login_required, current_user
 from utils.auth import require_permission
 from utils.log import log_operation
@@ -14,6 +16,7 @@ import traceback
 from models.system_config.system_config import SystemConfig
 from io import BytesIO
 from utils.excel_date_utils import excel_date_utils
+from decimal import Decimal
 
 # 创建导入导出专用蓝图
 room_import_export_bp = Blueprint(
@@ -398,9 +401,8 @@ def import_rooms():
             logging.error(f'导入房间数据失败：数据验证失败，共{len(error_records)}条错误')
             return redirect(url_for('room.manage'))
         
-        # 调用模型的批量创建或更新方法
-        override = 'override' in request.form
-        success_create, success_update, model_errors, created_rooms = Room.bulk_create_or_update(rooms_data, override)
+        # 调用模型的批量创建方法（始终只创建，不更新）
+        success_create, success_update, model_errors, created_rooms = Room.bulk_create_or_update(rooms_data, override=False)
         
         # 处理设施数据 - 为新创建或更新的房间添加设施
         facility_errors = []
@@ -510,6 +512,7 @@ def download_template():
         
         # 模板数据生成
         template_data = {
+            "房间ID（批量更新必填）": ["", "1", ""],
             "楼栋": ["A栋", "B栋", "C栋"],
             "房间号": ["101", "202", "303"],
             "地址": ["XX路XX号X单元101室", "YY路YY号Y单元202室", ""],
@@ -544,6 +547,7 @@ def download_template():
         # 创建模板DataFrame
         df = pd.DataFrame(template_data)
         instructions = [
+            "新增时留空，更新时必填",
             "*必填项（导入时会校验非空）",
             "*必填项（导入时会校验非空）",
             "文本（可留空）",
@@ -568,7 +572,7 @@ def download_template():
         with pd.ExcelWriter(output, engine='openpyxl') as writer:
             df.to_excel(writer, index=False, sheet_name='房间数据导入模板')
             worksheet = writer.sheets['房间数据导入模板']
-            column_widths = [12, 10, 30, 12, 12, 8, 12, 10, 12, 12, 16, 16, 20, 30, 20]
+            column_widths = [18, 12, 10, 30, 12, 12, 8, 12, 10, 12, 12, 16, 16, 20, 30, 20]
             for i, width in enumerate(column_widths, 1):
                 worksheet.column_dimensions[chr(64 + i)].width = width
             for cell in worksheet[1]:
@@ -604,6 +608,326 @@ def download_template():
             result="失败"
         )
         flash('模板下载失败，请联系管理员', 'danger')
+        return redirect(url_for('room.manage'))
+
+@room_import_export_bp.route('/batch_update', methods=['POST'])
+@login_required
+@require_permission('room.edit')
+def batch_update():
+    """批量更新房间数据（基于房间ID）"""
+    try:
+        logging.debug('开始批量更新房间数据')
+        if 'file' not in request.files:
+            flash('请选择要导入的文件', 'danger')
+            logging.error('批量更新房间数据失败：未选择文件')
+            return redirect(url_for('room.manage'))
+
+        file = request.files['file']
+        if file.filename == '':
+            flash('请选择要导入的文件', 'danger')
+            logging.error('批量更新房间数据失败：未选择文件')
+            return redirect(url_for('room.manage'))
+
+        # 文件类型验证
+        allowed_extensions = {'xlsx', 'xls'}
+        file_ext = file.filename.rsplit('.', 1)[1].lower() if '.' in file.filename else ''
+        if file_ext not in allowed_extensions:
+            flash(f'请上传Excel格式的文件（.xlsx 或 .xls），当前文件类型：.{file_ext}', 'danger')
+            logging.error(f'批量更新房间数据失败：文件类型无效，当前文件类型：.{file_ext}')
+            return redirect(url_for('room.manage'))
+
+        # 限制文件大小（10MB）
+        file.seek(0, os.SEEK_END)
+        file_size = file.tell()
+        file.seek(0)
+        if file_size > 10 * 1024 * 1024:
+            flash('文件大小超过限制（最大10MB）', 'danger')
+            logging.error('批量更新房间数据失败：文件大小超过限制（最大10MB）')
+            return redirect(url_for('room.manage'))
+
+        try:
+            file_content = file.read()
+            file_bytes = BytesIO(file_content)
+            file_bytes.seek(0)
+            df = pd.read_excel(file_bytes)
+        except Exception as e:
+            detailed_error = f"文件解析失败：{str(e)}"
+            flash(detailed_error, 'danger')
+            logging.error(f'批量更新房间数据失败：文件解析失败 - {detailed_error}')
+            return redirect(url_for('room.manage'))
+
+        # 列名兼容映射：支持带备注的列名和简写列名
+        column_aliases = {
+            '房间ID': ['房间ID（批量更新必填）', '房间ID(批量更新必填)', '房间ID'],
+        }
+
+        # 构建列名映射：将实际列名映射到标准列名
+        column_mapping = {}
+        for standard_name, aliases in column_aliases.items():
+            for alias in aliases:
+                if alias in df.columns:
+                    column_mapping[alias] = standard_name
+                    break
+
+        # 重命名列以统一标准
+        if column_mapping:
+            df = df.rename(columns=column_mapping)
+
+        # 验证必要列
+        required_columns = ['房间ID', '楼栋', '房间号']
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            flash(f'导入失败：文件缺少必要的列 - {", " .join(missing_columns)}', 'danger')
+            logging.error(f'批量更新房间数据失败：文件缺少必要的列 - {", ".join(missing_columns)}')
+            return redirect(url_for('room.manage'))
+
+        # 获取有效的配置数据
+        valid_room_types = Room.get_valid_room_types()
+        if not valid_room_types:
+            flash('系统配置中未设置有效的房间类型，请先配置房间类型', 'danger')
+            logging.error('批量更新房间数据失败：系统配置中未设置有效的房间类型')
+            return redirect(url_for('room.manage'))
+
+        # 状态映射
+        STATUS_MAPPING = {
+            '可用': RoomStatus.AVAILABLE.value,
+            '已满': RoomStatus.FULL.value,
+            '维护中': RoomStatus.MAINTENANCE.value,
+            '已关闭': RoomStatus.CLOSED.value
+        }
+
+        # 预处理数据
+        success_count = 0
+        error_list = []
+        processed_ids = {}  # 缓存已处理的ID，提高效率
+
+        # 预加载楼栋+房间号映射，用于唯一性校验
+        existing_rooms = Room.query.all()
+        building_room_to_id = {(r.building, r.room_number): r.id for r in existing_rooms if r.building and r.room_number}
+        excel_building_room_set = set()  # 跟踪Excel内部的楼栋+房间号组合
+
+        for index, row in df.iterrows():
+            row_num = index + 2
+            try:
+                # 提取房间ID
+                record_id_str = str(row['房间ID']).strip()
+                if not record_id_str:
+                    error_list.append(f"第{row_num}行：房间ID不能为空（批量更新必须提供）")
+                    continue
+
+                # 验证ID格式
+                try:
+                    record_id = int(record_id_str)
+                except ValueError:
+                    error_list.append(f"第{row_num}行：房间ID必须是数字，当前值：{record_id_str}")
+                    continue
+
+                # 提取楼栋和房间号（允许更新）
+                building = str(row['楼栋']).strip() if pd.notna(row['楼栋']) else ''
+                room_number_val = row['房间号']
+                room_number = ''
+                if pd.notna(room_number_val):
+                    try:
+                        room_number_int = int(float(str(room_number_val).strip()))
+                        room_number = str(room_number_int)
+                    except ValueError:
+                        room_number = str(room_number_val).strip()
+
+                # 通过ID查询房间（使用缓存）
+                cache_key = f"id_{record_id}"
+                if cache_key not in processed_ids:
+                    room = Room.query.get(record_id)
+                    processed_ids[cache_key] = room
+                room = processed_ids[cache_key]
+
+                # 验证房间存在性
+                if not room:
+                    error_list.append(f"第{row_num}行：房间ID {record_id} 不存在")
+                    continue
+
+                # 楼栋+房间号唯一性校验（先校验再赋值）
+                new_building = building if building else room.building
+                new_room_number = room_number if room_number else room.room_number
+                building_room_error = False
+                if new_building and new_room_number:
+                    combo = (new_building, new_room_number)
+                    # 有修改楼栋或房间号时，校验新组合的唯一性
+                    if building or room_number:
+                        # 数据库唯一性校验
+                        existing_id = building_room_to_id.get(combo)
+                        if existing_id is not None and existing_id != record_id:
+                            error_list.append(f"第{row_num}行：房间ID {record_id} 的楼栋+房间号({new_building}-{new_room_number})与数据库中已有记录冲突")
+                            logging.warning(f"批量更新房间ID {record_id} 楼栋+房间号({new_building}-{new_room_number})与数据库中已有记录冲突")
+                            building_room_error = True
+                        # Excel内部唯一性校验
+                        elif combo in excel_building_room_set:
+                            error_list.append(f"第{row_num}行：房间ID {record_id} 的楼栋+房间号({new_building}-{new_room_number})与Excel中其他行冲突")
+                            logging.warning(f"批量更新房间ID {record_id} 楼栋+房间号({new_building}-{new_room_number})与Excel中其他行冲突")
+                            building_room_error = True
+                        else:
+                            excel_building_room_set.add(combo)
+                    else:
+                        # 未修改楼栋/房间号，仍需跟踪组合防止其他行冲突
+                        excel_building_room_set.add(combo)
+
+                # 更新楼栋和房间号（校验通过才赋值）
+                if not building_room_error:
+                    if building:
+                        room.building = building
+                    if room_number:
+                        room.room_number = room_number
+
+                # 处理房间类型
+                room_type_val = row.get('房间类型')
+                if pd.notna(room_type_val) and str(room_type_val).strip():
+                    room_type_text = str(room_type_val).strip()
+                    if room_type_text not in valid_room_types:
+                        error_list.append(f"第{row_num}行：房间类型 '{room_type_text}' 无效，有效类型为：{', '.join(valid_room_types)}")
+                        continue
+                    room.room_type = room_type_text
+
+                # 处理容量
+                capacity_val = str(row.get('容量', '')).strip() if pd.notna(row.get('容量', '')) else ''
+                if capacity_val:
+                    try:
+                        capacity = int(capacity_val)
+                        if capacity <= 0:
+                            error_list.append(f"第{row_num}行：容量必须为正整数")
+                            continue
+                        if capacity < room.current_occupancy:
+                            error_list.append(f"第{row_num}行：房间容量({capacity})不能低于当前入住人数({room.current_occupancy})")
+                            logging.warning(f"批量更新房间ID {room.id} 容量校验失败: 容量{capacity} < 当前入住{room.current_occupancy}")
+                        else:
+                            room.capacity = capacity
+                    except ValueError:
+                        error_list.append(f'第{row_num}行：容量必须是整数，当前值：{capacity_val}')
+                        continue
+
+                # 处理性别限制
+                gender_val = row.get('性别限制')
+                if pd.notna(gender_val) and str(gender_val).strip():
+                    gender_text = str(gender_val).strip()
+                    valid_gender_restrictions = Room.get_valid_gender_restrictions()
+                    if gender_text in valid_gender_restrictions:
+                        # 校验性别限制与入住人员是否冲突
+                        if room.current_occupancy > 0 and gender_text != room.gender_restriction:
+                            # 查询该房间当前入住用户的性别
+                            active_dorms = Dorm.query.filter_by(room_id=room.id, status='active').all()
+                            occupant_genders = set()
+                            for dorm in active_dorms:
+                                user = User.query.get(dorm.user_id)
+                                if user and user.gender:
+                                    occupant_genders.add(user.gender)
+                            
+                            # 检查冲突
+                            conflict = False
+                            if room.gender_restriction == '男' and '男' in occupant_genders and gender_text == '女':
+                                conflict = True
+                                conflict_msg = f"第{row_num}行：房间 {room.building}-{room.room_number} 有男性入住，不能改为\"女\""
+                            elif room.gender_restriction == '女' and '女' in occupant_genders and gender_text == '男':
+                                conflict = True
+                                conflict_msg = f"第{row_num}行：房间 {room.building}-{room.room_number} 有女性入住，不能改为\"男\""
+                            elif room.gender_restriction == '无限制' and occupant_genders and gender_text in ('男', '女'):
+                                conflict = True
+                                conflict_msg = f"第{row_num}行：房间 {room.building}-{room.room_number} 有不同性别入住，不能改为\"{gender_text}\""
+                            
+                            if conflict:
+                                error_list.append(conflict_msg)
+                                logging.warning(f"批量更新房间ID {room.id} 性别限制冲突: {conflict_msg}")
+                            else:
+                                room.gender_restriction = gender_text
+                        else:
+                            room.gender_restriction = gender_text
+
+                # 处理状态
+                status_val = row.get('状态')
+                if pd.notna(status_val) and str(status_val).strip():
+                    status_text = str(status_val).strip()
+                    if status_text in STATUS_MAPPING:
+                        new_status = STATUS_MAPPING[status_text]
+                        # 检查是否有人住宿且尝试设置为关闭状态
+                        if new_status == RoomStatus.CLOSED.value and room.current_occupancy > 0:
+                            error_list.append(f"第{row_num}行：房间 {room.building}-{room.room_number} 有人住宿，无法设置为关闭状态")
+                            continue
+                        room.status = new_status
+
+                # 处理租金
+                try:
+                    external_rent_val = row.get('对外租金')
+                    if pd.notna(external_rent_val) and str(external_rent_val).strip():
+                        room.external_rent = Decimal(str(external_rent_val))
+                    cost_rent_val = row.get('成本租金')
+                    if pd.notna(cost_rent_val) and str(cost_rent_val).strip():
+                        room.cost_rent = Decimal(str(cost_rent_val))
+                except (ValueError, TypeError):
+                    error_list.append(f"第{row_num}行：租金必须为有效的数字")
+                    continue
+
+                # 处理备注
+                remark_val = str(row.get('备注', '')).strip() if pd.notna(row.get('备注', '')) else ''
+                if remark_val:
+                    room.remark = remark_val
+
+                # 处理地址
+                address_val = str(row.get('地址', '')).strip() if pd.notna(row.get('地址', '')) else ''
+                if address_val:
+                    room.address = address_val
+
+                # 处理水电表最大量程
+                try:
+                    electric_max_val = row.get('电表最大量程')
+                    if pd.notna(electric_max_val) and str(electric_max_val).strip():
+                        room.electric_meter_max = Decimal(str(electric_max_val))
+                    water_max_val = row.get('水表最大量程')
+                    if pd.notna(water_max_val) and str(water_max_val).strip():
+                        room.water_meter_max = Decimal(str(water_max_val))
+                except (ValueError, TypeError):
+                    error_list.append(f"第{row_num}行：水电表最大量程必须为有效的数字")
+                    continue
+
+                success_count += 1
+
+            except Exception as e:
+                error_list.append(f"第{row_num}行：数据处理失败 - {str(e)}")
+                logging.error(f'批量更新房间数据失败：第{row_num}行数据处理失败 - {str(e)}')
+                continue
+
+        # 如果有错误，回滚并返回
+        if error_list:
+            db.session.rollback()
+            message = f"数据验证失败：共{len(error_list)}条错误<br>" + "<br>".join(error_list[:5])
+            if len(error_list) > 5:
+                message += f"<br>... 还有 {len(error_list)-5} 条错误"
+            flash(message, 'danger')
+            logging.error(f'批量更新房间数据失败：数据验证失败，共{len(error_list)}条错误')
+            return redirect(url_for('room.manage'))
+
+        # 提交事务
+        db.session.commit()
+
+        log_operation(
+            user_id=current_user.id,
+            module='room',
+            operation_type='batch_import_export',
+            action=f"批量更新房间数据，成功{success_count}条",
+            result="成功"
+        )
+        logging.info(f'批量更新房间数据成功，共更新{success_count}条记录')
+        flash(f"批量更新完成，成功更新{success_count}条记录", 'success')
+        return redirect(url_for('room.manage'))
+
+    except Exception as e:
+        db.session.rollback()
+        detailed_error = f"批量更新过程出错：{str(e)}"
+        log_operation(
+            user_id=current_user.id,
+            module='room',
+            operation_type='batch_import_export',
+            action=f"房间数据批量更新失败: {detailed_error}\n{traceback.format_exc()}",
+            result="失败"
+        )
+        flash(detailed_error, 'danger')
+        logging.error(f'批量更新房间数据失败：{detailed_error}')
         return redirect(url_for('room.manage'))
 
 @room_import_export_bp.route('/export_facilities', methods=['GET'])

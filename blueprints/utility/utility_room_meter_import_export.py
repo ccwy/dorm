@@ -687,6 +687,7 @@ def batch_update():
             '账期(YYYY-MM)': ['账期(YYYY-MM)', '账期（YYYY-MM）', '账期'],
             '水表是否更换': ['水表是否更换', '水表更换'],
             '电表是否更换': ['电表是否更换', '电表更换'],
+            '抄表日期时间': ['抄表日期时间', '抄表日期'],
         }
         
         # 构建列名映射：将实际列名映射到标准列名
@@ -701,8 +702,19 @@ def batch_update():
         if column_mapping:
             df = df.rename(columns=column_mapping)
         
+        # 批量解析抄表日期时间（可选列，空值跳过）
+        parsed_reading_dates = {}
+        if '抄表日期时间' in df.columns:
+            reading_date_values = df['抄表日期时间'].tolist()
+            try:
+                parsed_reading_dates = excel_date_utils.parse_excel_date(reading_date_values, field_name='抄表日期时间')
+            except Exception as e:
+                logging.error(f"批量解析抄表日期时间失败：{str(e)}")
+                flash(f'批量解析抄表日期时间失败：{str(e)}', 'danger')
+                return redirect(url_for('utility_room_meter.utility_reading_manage'))
+
         # 验证必要的表头
-        required_columns = ['记录ID', '抄表日期时间', '楼栋', '宿舍号']
+        required_columns = ['记录ID']
         missing_columns = [col for col in required_columns if col not in df.columns]
         if missing_columns:
             error_msg = f'Excel缺少必要的列：{", ".join(missing_columns)}'
@@ -713,25 +725,11 @@ def batch_update():
         # 预处理数据
         success_count = 0
         fail_count = 0
+        validation_warnings = []  # 收集部分校验失败的警告信息
         errors = []
         processed_ids = {}  # 缓存已处理的ID，提高效率
         actual_updated = 0  # 记录实际发生变化的记录数
         imported_periods = set()  # 收集更新的账期，用于跳转
-
-        # 批量提取所有抄表日期时间值
-        reading_date_values = []
-        for index, row in df.iterrows():
-            reading_date_str = str(row['抄表日期时间']).strip() if pd.notna(row['抄表日期时间']) else None
-            reading_date_values.append(reading_date_str)
-        
-        # 批量解析抄表日期时间
-        try:
-            parsed_reading_dates = excel_date_utils.parse_excel_date(reading_date_values, field_name='抄表日期时间')
-        except Exception as e:
-            # 记录日志
-            logging.error(f"批量解析抄表日期时间失败：{str(e)}")
-            flash(f'批量解析抄表日期时间失败：{str(e)}', 'danger')
-            return redirect(url_for('utility_room_meter.utility_reading_manage'))
 
         # 开始数据库事务
         try:
@@ -751,21 +749,6 @@ def batch_update():
                         logging.error(f"记录ID格式错误，当前值: {record_id_str}")
                         raise ValueError(f"记录ID必须是数字，当前值: {record_id_str}")
 
-                    # 提取基础信息
-                    building = str(row['楼栋']).strip()
-                    room_number = str(row['宿舍号']).strip()
-                    reading_date_str = str(row['抄表日期时间']).strip()
-                        
-                    if not all([building, room_number, reading_date_str]):
-                        logging.error(f"第{row_num}行数据缺失楼栋、宿舍号或抄表日期时间")
-                        raise ValueError(f'楼栋、宿舍号和抄表日期时间不能为空')
-
-                    # 使用批量解析的日期
-                    reading_datetime = parsed_reading_dates[index]
-                    if not reading_datetime:
-                        logging.error(f"第{row_num}行抄表日期时间为空或无效")
-                        raise ValueError("抄表日期时间不能为空或无效")
-
                     # 通过ID查询记录
                     cache_key = f"id_{record_id}"
                     if cache_key not in processed_ids:
@@ -779,6 +762,9 @@ def batch_update():
                         logging.error(f"第{row_num}行记录ID {record_id} 不存在")
                         raise ValueError(f'记录ID {record_id} 不存在')
                     
+                    # 提取抄表日期时间（可选，空值时不修改）
+                    reading_datetime = parsed_reading_dates.get(index) if parsed_reading_dates else None
+                    
                     # 收集账期用于跳转
                     if reading.record_id:
                         from models.utility.utility_room_bill_record import RoomUtilityRecord
@@ -786,22 +772,14 @@ def batch_update():
                         if bill_record and bill_record.billing_period:
                             imported_periods.add(bill_record.billing_period)
                     
-                    # 验证楼栋宿舍匹配
-                    room = Room.query.get(reading.room_id)
-                    if not room or room.building != building or room.room_number != room_number:
-                        logging.error(f"第{row_num}行记录ID {record_id} 与楼栋{building}宿舍{room_number}不匹配")
-                        raise ValueError(f'记录ID {record_id} 与楼栋{building}宿舍{room_number}不匹配')
-                    
-                    # 验证日期
-                    if reading.reading_date.date() != reading_datetime.date():
-                        logging.error(f"第{row_num}行记录ID {record_id} 与抄表日期时间不匹配（必须为同一天）")
-                        raise ValueError(f'记录ID {record_id} 与抄表日期时间不匹配（必须为同一天）')
 
                     # 提取更新字段（仅传递需要更新的字段，由模型处理同步逻辑）
                     update_data = {
                         'meter_reader_id': current_user.id,  # 默认当前用户
-                        'reading_date': reading_datetime  # 确保时间精确
                     }
+                    # 抄表日期时间（可选，有值时才更新）
+                    if reading_datetime:
+                        update_data['reading_date'] = reading_datetime
                     
                     # 处理水表数据（触发模型自动同步上次读数）
                     if pd.notna(row.get('水表本次读数')):
@@ -820,8 +798,12 @@ def batch_update():
                             raise ValueError("电表本次读数必须是数字")
                     
                     # 处理更换标记（影响模型同步逻辑，支持"首次抄表"值）
-                    update_data['water_meter_replaced'] = str(row.get('水表是否更换', '')).lower() in ['是', 'true', '1', '首次抄表']
-                    update_data['electric_meter_replaced'] = str(row.get('电表是否更换', '')).lower() in ['是', 'true', '1', '首次抄表']
+                    water_replace_val = str(row.get('水表是否更换', '')).strip() if pd.notna(row.get('水表是否更换', '')) else ''
+                    if water_replace_val:
+                        update_data['water_meter_replaced'] = water_replace_val.lower() in ['是', 'true', '1', '首次抄表']
+                    electric_replace_val = str(row.get('电表是否更换', '')).strip() if pd.notna(row.get('电表是否更换', '')) else ''
+                    if electric_replace_val:
+                        update_data['electric_meter_replaced'] = electric_replace_val.lower() in ['是', 'true', '1', '首次抄表']
                     
                     # 处理备注
                     notes = str(row.get('备注', '')).strip() or None
@@ -849,6 +831,51 @@ def batch_update():
                                 raise ValueError(f"无效的抄表类型: {reading_type_str}，请使用'正常抄表'或'退宿抄表'")
                         
                         update_data['reading_type'] = reading_type
+
+                    # 业务校验1：抄表日期不能早于同房间上次记录
+                    prev_record = UtilityMeterReading.query.filter(
+                        UtilityMeterReading.room_id == reading.room_id,
+                        UtilityMeterReading.id != reading.id,
+                    ).order_by(UtilityMeterReading.reading_date.desc()).first()
+                    new_date = update_data.get('reading_date', reading.reading_date)
+                    if prev_record and new_date < prev_record.reading_date:
+                        error_msg = f"第{row_num}行记录ID {record_id}：抄表日期({new_date.strftime('%Y-%m-%d')})不能早于同房间上次记录日期({prev_record.reading_date.strftime('%Y-%m-%d'))}"
+                        logging.warning(f"批量更新抄表记录校验失败: {error_msg}")
+                        raise ValueError(error_msg)
+
+                    # 业务校验2：未换表时本次读数不能小于上次读数（退宿抄表不校验）
+                    final_reading_type = update_data.get('reading_type', reading.reading_type)
+                    if final_reading_type != 2:  # 非退宿抄表才校验读数
+                        # 水表读数校验
+                        if 'water_current' in update_data:
+                            water_replaced = update_data.get('water_meter_replaced', reading.water_meter_replaced)
+                            if not water_replaced:
+                                prev_water = UtilityMeterReading.query.filter(
+                                    UtilityMeterReading.room_id == reading.room_id,
+                                    UtilityMeterReading.id != reading.id,
+                                    UtilityMeterReading.water_current.isnot(None),
+                                    UtilityMeterReading.reading_date < update_data.get('reading_date', reading.reading_date),
+                                ).order_by(UtilityMeterReading.reading_date.desc()).first()
+                                if prev_water and update_data['water_current'] < prev_water.water_current:
+                                    error_msg = f"第{row_num}行记录ID {record_id}：水表本次读数({update_data['water_current']})不能小于上次读数({prev_water.water_current})，除非标记表具更换"
+                                    logging.warning(f"批量更新抄表记录校验失败: {error_msg}")
+                                    validation_warnings.append(error_msg)
+                                    del update_data['water_current']
+                        # 电表读数校验
+                        if 'electric_current' in update_data:
+                            electric_replaced = update_data.get('electric_meter_replaced', reading.electric_meter_replaced)
+                            if not electric_replaced:
+                                prev_electric = UtilityMeterReading.query.filter(
+                                    UtilityMeterReading.room_id == reading.room_id,
+                                    UtilityMeterReading.id != reading.id,
+                                    UtilityMeterReading.electric_current.isnot(None),
+                                    UtilityMeterReading.reading_date < update_data.get('reading_date', reading.reading_date),
+                                ).order_by(UtilityMeterReading.reading_date.desc()).first()
+                                if prev_electric and update_data['electric_current'] < prev_electric.electric_current:
+                                    error_msg = f"第{row_num}行记录ID {record_id}：电表本次读数({update_data['electric_current']})不能小于上次读数({prev_electric.electric_current})，除非标记表具更换"
+                                    logging.warning(f"批量更新抄表记录校验失败: {error_msg}")
+                                    validation_warnings.append(error_msg)
+                                    del update_data['electric_current']
 
                     # 调用模型的update方法（自动同步上次读数和用量）
                     reading.update(** update_data)
@@ -889,7 +916,14 @@ def batch_update():
             logging.error(f'批量处理失败: {str(e)}')
             raise e
         success_msg = f'批量处理完成，成功{success_count}条，失败{fail_count}条，实际更新{actual_updated}条'
-        flash(success_msg, 'success')
+        if validation_warnings:
+            # 有部分校验失败的警告
+            warning_details = "<br>".join(validation_warnings[:5])
+            if len(validation_warnings) > 5:
+                warning_details += f"<br>... 还有 {len(validation_warnings) - 5} 条警告"
+            flash(f'{success_msg}<br><b>校验警告：</b><br>{warning_details}', 'warning')
+        else:
+            flash(success_msg, 'success')
         if imported_periods:
             return redirect(url_for('utility_room_meter.utility_reading_manage', billing_period=sorted(imported_periods)[0]))
         return redirect(url_for('utility_room_meter.utility_reading_manage'))
