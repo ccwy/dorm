@@ -656,7 +656,7 @@ class User(UserMixin, db.Model):
                 logging.error(f"批量更新用户操作，第{row_num}行：用户重复更新，已跳过")
             
             # 检查必填字段（性别）
-            required_fields = ['gender']
+            required_fields = []
             for field in required_fields:
                 if field in user_data and not user_data[field]:
                     errors.append(f"必填字段为空: {field}")
