@@ -302,15 +302,56 @@ def import_records():
         wb = openpyxl.load_workbook(file_content, data_only=True)
         ws = wb.active
         
-        # 读取表头并移除*标记
-        headers = []
+        # 白名单模式：只识别必填列和可选列，其余列全部自动忽略
+        # 必填列（缺失时报错）
+        required_columns = [
+            '费用类型', '金额', '减免用水量', '减免用电量', '姓名', '楼栋', '房间号', '生效时间'
+        ]
+        # 可选列（缺失时不报错）
+        optional_columns = [
+            '变更原因'
+        ]
+        # 列名别名映射：将Excel中可能出现的列名映射到标准列名
+        column_alias_map = {
+            '减免用电量': ['减免用电', '电费减免量'],
+            '减免用水量': ['减免用水', '水费减免量'],
+        }
+        # 所有可能需要识别的标准列名
+        all_known_columns = set(required_columns) | set(optional_columns)
+
+        # 读取表头并移除*标记，同时构建白名单过滤
+        actual_headers = []
         for cell in ws[1]:
             header_value = str(cell.value).strip().replace('*', '') if cell.value else ''
-            headers.append(header_value)
-        
-        # 验证基础表头（包含楼栋和房间号）
-        required_headers = ['费用类型', '金额', '减免用水量', '减免用电量', '姓名', '楼栋', '房间号', '生效时间']
-        missing_headers = [h for h in required_headers if h not in headers]
+            actual_headers.append(header_value)
+
+        # 构建headers列表：只保留白名单中的列，其余自动忽略
+        headers = []
+        ignored_headers = []
+        for header in actual_headers:
+            if not header:
+                headers.append('')
+                continue
+            # 先检查是否直接匹配标准列名
+            if header in all_known_columns:
+                headers.append(header)
+            else:
+                # 再检查是否匹配某个标准列名的别名
+                matched = False
+                for standard_name, aliases in column_alias_map.items():
+                    if header in aliases:
+                        headers.append(standard_name)
+                        matched = True
+                        break
+                if not matched:
+                    headers.append('')
+                    ignored_headers.append(header)
+
+        if ignored_headers:
+            logging.info(f'导入费用补贴记录：自动忽略未识别列 {ignored_headers}')
+
+        # 检查所有必填列是否存在
+        missing_headers = [col for col in required_columns if col not in headers]
         if missing_headers:
             # 记录日志
             logging.error(f'Excel文件缺少必要的列：{",".join(missing_headers)}')
