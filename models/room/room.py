@@ -302,14 +302,13 @@ class Room(db.Model):
                 if new_capacity <= 0:
                     return None, "容量必须为正整数"
                 
+                # 有入住用户时，容量不能低于当前已住人数
+                if self.current_occupancy > 0 and new_capacity < self.current_occupancy:
+                    return None, f"有用户入住时，容纳人数不能低于当前已住人数({self.current_occupancy}人)"
+                
                 # 调整床位
                 Room._adjust_beds_for_room(self, new_capacity)
                 self.capacity = new_capacity
-                
-                # 检查入住人数是否超过新容量
-                if self.current_occupancy > new_capacity:
-                    self.current_occupancy = new_capacity
-                    self.status = RoomStatus.FULL.value
             
            # 处理房间地址更新
             if 'address' in data:
@@ -339,6 +338,12 @@ class Room(db.Model):
             if 'gender_restriction' in data:
                 valid_gender_restrictions = self.get_valid_gender_restrictions()
                 if data['gender_restriction'] in valid_gender_restrictions:
+                    # 有入住用户时，不能改为对立性别
+                    if self.current_occupancy > 0:
+                        if self.gender_restriction == '男' and data['gender_restriction'] == '女':
+                            return None, "当前房间有男性入住，不能将性别限制改为女"
+                        elif self.gender_restriction == '女' and data['gender_restriction'] == '男':
+                            return None, "当前房间有女性入住，不能将性别限制改为男"
                     self.gender_restriction = data['gender_restriction']
                 
             if 'status' in data:

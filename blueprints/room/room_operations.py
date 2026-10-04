@@ -248,21 +248,104 @@ def edit(id):
             
             # 检查房间当前是否有人入住（与前端判断条件保持一致）
             has_occupants = room.current_occupancy > 0
-            
-            # 如果有用户入住，不允许修改性别限制、容量、状态和房间类型
-            # 注意：前端在这种情况下会禁用这些字段，表单不会提交这些值
-            # 所以必须使用数据库中已有的值，而不是尝试从请求中获取
+
+            # 始终从表单获取值
+            update_data['gender_restriction'] = request.form.get('gender_restriction', '无限制')
+            update_data['capacity'] = int(request.form.get('capacity', 4))
+            update_data['status'] = request.form.get('status', RoomStatus.AVAILABLE.value)
+            update_data['room_type'] = request.form.get('room_type', default_room_type)
+
+            # 有用户入住时的条件验证
             if has_occupants or has_active_dorm:
-                update_data['gender_restriction'] = room.gender_restriction
-                update_data['capacity'] = room.capacity
-                update_data['status'] = room.status
-                update_data['room_type'] = room.room_type
-            else:
-                # 没有用户入住时，使用表单提交的值
-                update_data['gender_restriction'] = request.form.get('gender_restriction', '无限制')
-                update_data['capacity'] = int(request.form.get('capacity', 4))
-                update_data['status'] = request.form.get('status', RoomStatus.AVAILABLE.value)
-                update_data['room_type'] = request.form.get('room_type', default_room_type)
+                # 1. 容量不能低于当前已住人数
+                if update_data['capacity'] < room.current_occupancy:
+                    flash(f'有用户入住时，容纳人数不能低于当前已住人数({room.current_occupancy}人)', 'danger')
+                    media_files = RoomPhotoManager.get_media_files(room.id)
+                    return render_template(
+                        'room_manage/room_edit.html',
+                        title=f"编辑房间 - {room.building}{room.room_number}",
+                        room=room,
+                        room_types=room_types,
+                        room_levels=room_levels,
+                        gender_restrictions=Room.get_valid_gender_restrictions(),
+                        valid_facilities=valid_facilities,
+                        current_facilities=current_facilities,
+                        buildings=buildings,
+                        media_files=media_files
+                    )
+                
+                # 2. 房间类型对应的容量不能低于当前已住人数
+                room_type_capacity_map = {
+                    '单人间': 1, '双人间': 2, '三人间': 3, '四人间': 4,
+                    '五人间': 5, '六人间': 6, '七人间': 7, '八人间': 8
+                }
+                new_room_type = update_data['room_type']
+                if new_room_type in room_type_capacity_map and room_type_capacity_map[new_room_type] < room.current_occupancy:
+                    flash(f'有用户入住时，不能修改为容纳人数低于当前已住人数({room.current_occupancy}人)的房间类型', 'danger')
+                    media_files = RoomPhotoManager.get_media_files(room.id)
+                    return render_template(
+                        'room_manage/room_edit.html',
+                        title=f"编辑房间 - {room.building}{room.room_number}",
+                        room=room,
+                        room_types=room_types,
+                        room_levels=room_levels,
+                        gender_restrictions=Room.get_valid_gender_restrictions(),
+                        valid_facilities=valid_facilities,
+                        current_facilities=current_facilities,
+                        buildings=buildings,
+                        media_files=media_files
+                    )
+                
+                # 3. 房间状态不能改为已关闭
+                if update_data['status'] == RoomStatus.CLOSED.value:
+                    flash('有用户入住时，不能将房间状态修改为已关闭', 'danger')
+                    media_files = RoomPhotoManager.get_media_files(room.id)
+                    return render_template(
+                        'room_manage/room_edit.html',
+                        title=f"编辑房间 - {room.building}{room.room_number}",
+                        room=room,
+                        room_types=room_types,
+                        room_levels=room_levels,
+                        gender_restrictions=Room.get_valid_gender_restrictions(),
+                        valid_facilities=valid_facilities,
+                        current_facilities=current_facilities,
+                        buildings=buildings,
+                        media_files=media_files
+                    )
+                
+                # 4. 性别限制不能改为对立性别
+                new_gender = update_data['gender_restriction']
+                current_gender = room.gender_restriction
+                if current_gender == '男' and new_gender == '女':
+                    flash('当前房间有男性入住，不能将性别限制改为女', 'danger')
+                    media_files = RoomPhotoManager.get_media_files(room.id)
+                    return render_template(
+                        'room_manage/room_edit.html',
+                        title=f"编辑房间 - {room.building}{room.room_number}",
+                        room=room,
+                        room_types=room_types,
+                        room_levels=room_levels,
+                        gender_restrictions=Room.get_valid_gender_restrictions(),
+                        valid_facilities=valid_facilities,
+                        current_facilities=current_facilities,
+                        buildings=buildings,
+                        media_files=media_files
+                    )
+                elif current_gender == '女' and new_gender == '男':
+                    flash('当前房间有女性入住，不能将性别限制改为男', 'danger')
+                    media_files = RoomPhotoManager.get_media_files(room.id)
+                    return render_template(
+                        'room_manage/room_edit.html',
+                        title=f"编辑房间 - {room.building}{room.room_number}",
+                        room=room,
+                        room_types=room_types,
+                        room_levels=room_levels,
+                        gender_restrictions=Room.get_valid_gender_restrictions(),
+                        valid_facilities=valid_facilities,
+                        current_facilities=current_facilities,
+                        buildings=buildings,
+                        media_files=media_files
+                    )
             
             # 调用模型的update方法
             logging.info(f"尝试编辑房间数据: {update_data}")

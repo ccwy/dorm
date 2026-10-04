@@ -73,14 +73,13 @@
                         <div>
                             <label for="gender_restriction" class="block text-sm font-medium text-gray-700 mb-1">性别限制 <span class="text-red-500">*</span></label>
                             <select id="gender_restriction" name="gender_restriction" required
-                                    class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
-                                    {% if room.current_occupancy > 0 %}disabled{% endif %}>
-                                <option value="男" {% if room.gender_restriction == '男' %}selected{% endif %}>男</option>
-                                <option value="女" {% if room.gender_restriction == '女' %}selected{% endif %}>女</option>
+                                    class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                                <option value="男" {% if room.gender_restriction == '男' %}selected{% endif %} {% if room.current_occupancy > 0 and room.gender_restriction == '女' %}disabled{% endif %}>男</option>
+                                <option value="女" {% if room.gender_restriction == '女' %}selected{% endif %} {% if room.current_occupancy > 0 and room.gender_restriction == '男' %}disabled{% endif %}>女</option>
                                 <option value="无限制" {% if room.gender_restriction == '无限制' %}selected{% endif %}>无限制</option>
                             </select>
                             {% if room.current_occupancy > 0 %}
-                            <p class="ml-2 text-xs text-amber-500">* 有用户入住，不可修改性别限制</p>
+                            <p class="ml-2 text-xs text-amber-500">* 有用户入住时，不能将性别限制改为对立性别</p>
                             {% endif %}
                         </div>
                         
@@ -106,8 +105,7 @@
                         <div>
                             <label for="room_type" class="block text-sm font-medium text-gray-700 mb-1">房间类型 <span class="text-red-500">*</span></label>
                             <select id="room_type" name="room_type" required
-                                    class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
-                                    {% if room.current_occupancy > 0 %} disabled {% endif %}>
+                                    class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
                                 {% if room_types and room_types|length > 0 %}
                                     {% for room_type in room_types %}
                                         <option value="{{ room_type }}" {% if room.room_type == room_type %}selected{% endif %}>
@@ -119,18 +117,17 @@
                                 {% endif %}
                             </select>
                             {% if room.current_occupancy > 0 %}
-                            <p class="ml-2 text-xs text-amber-500">* 有用户入住，不可修改房间类型</p>
+                            <p class="ml-2 text-xs text-amber-500">* 有用户入住时，不能修改为容量低于已住人数的房间类型</p>
                             {% endif %}
                         </div>
 
                         <div>
                             <label for="capacity" class="block text-sm font-medium text-gray-700 mb-1">容纳人数 <span class="text-red-500">*</span></label>
-                            <input type="number" id="capacity" name="capacity" min="1" value="{{ room.capacity }}" required
-                                   class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
-                                   {% if room.current_occupancy > 0 %}readonly title="有用户入住，不可修改容纳人数"{% endif %}>
-                            
+                            <input type="number" id="capacity" name="capacity" min="{% if room.current_occupancy > 0 %}{{ room.current_occupancy }}{% else %}1{% endif %}" value="{{ room.capacity }}" required
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+
                                 {% if room.current_occupancy > 0 %}
-                                <p class="ml-2 text-xs text-amber-500">* 有用户入住，不可修改容纳人数</p>
+                                <p class="ml-2 text-xs text-amber-500">* 有用户入住时，容纳人数不能低于当前已住人数({{ room.current_occupancy }}人)</p>
                                 {% else %}
                                 <p class="text-xs text-gray-500 mt-1">根据房间类型填写标准容纳人数</p>
                                 {% endif %}
@@ -140,15 +137,14 @@
                         <div>
                             <label for="status" class="block text-sm font-medium text-gray-700 mb-1">房间状态 <span class="text-red-500">*</span></label>
                             <select id="status" name="status" required
-                                    class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
-                                    {% if room.current_occupancy > 0 %} disabled {% endif %}>
+                                    class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
                                 <option value="available" {% if room.status == 'available' %}selected{% endif %}>可用</option>
                                 <option value="full" {% if room.status == 'full' %}selected{% endif %}>已满</option>
                                 <option value="maintenance" {% if room.status == 'maintenance' %}selected{% endif %}>维修中</option>
-                                <option value="closed" {% if room.status == 'closed' %}selected{% endif %}>已关闭</option>
+                                <option value="closed" {% if room.status == 'closed' %}selected{% endif %} {% if room.current_occupancy > 0 %}disabled{% endif %}>已关闭</option>
                             </select>
                             {% if room.current_occupancy > 0 %}
-                            <p class="ml-2 text-xs text-amber-500">* 有用户入住，不可修改房间状态</p>
+                            <p class="ml-2 text-xs text-amber-500">* 有用户入住时，不能将房间状态修改为已关闭</p>
                             {% endif %}
                         </div>
                          
@@ -418,23 +414,44 @@
             
             // 房间类型变化时自动填充容量
             roomTypeSelect.addEventListener('change', function() {
-                if (parseInt(document.getElementById('currentOccupancy').value) === 0) {
-                    const roomTypeMap = {
-                        '单人间': 1,
-                        '双人间': 2,
-                        '三人间': 3,
-                        '四人间': 4,
-                        '五人间': 5,
-                        '六人间': 6,
-                        '七人间': 7,
-                        '八人间': 8
-                    };
-                    
-                    if (roomTypeMap[this.value]) {
-                        capacityInput.value = roomTypeMap[this.value];
+                const currentOccupancy = parseInt(document.getElementById('currentOccupancy').value);
+                const roomTypeMap = {
+                    '单人间': 1,
+                    '双人间': 2,
+                    '三人间': 3,
+                    '四人间': 4,
+                    '五人间': 5,
+                    '六人间': 6,
+                    '七人间': 7,
+                    '八人间': 8
+                };
+                
+                if (roomTypeMap[this.value]) {
+                    const mappedCapacity = roomTypeMap[this.value];
+                    // 有入住用户时，仅当映射容量 >= 已住人数时才自动填充
+                    if (currentOccupancy === 0 || mappedCapacity >= currentOccupancy) {
+                        capacityInput.value = mappedCapacity;
+                    } else if (currentOccupancy > 0) {
+                        // 提示用户该房间类型容量不足
+                        alert(`当前已住${currentOccupancy}人，${this.value}的标准容量(${mappedCapacity}人)低于已住人数，请手动调整容纳人数`);
                     }
                 }
             });
+            
+            // 有入住用户时，禁用容量低于已住人数的房间类型选项
+            if (parseInt(document.getElementById('currentOccupancy').value) > 0) {
+                const currentOccupancy = parseInt(document.getElementById('currentOccupancy').value);
+                const roomTypeOptions = roomTypeSelect.querySelectorAll('option');
+                roomTypeOptions.forEach(function(option) {
+                    const roomTypeCapacityMap = {
+                        '单人间': 1, '双人间': 2, '三人间': 3, '四人间': 4,
+                        '五人间': 5, '六人间': 6, '七人间': 7, '八人间': 8
+                    };
+                    if (roomTypeCapacityMap[option.value] && roomTypeCapacityMap[option.value] < currentOccupancy) {
+                        option.disabled = true;
+                    }
+                });
+            }
             
             // 表单提交处理
             form.addEventListener('submit', function(e) {
