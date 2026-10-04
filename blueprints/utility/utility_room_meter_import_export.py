@@ -414,13 +414,7 @@ def import_readings():
         missing_headers = [col for col in required_columns if col not in header_indices]
         if missing_headers:
             msg = f"缺少必要的表头: {', '.join(missing_headers)}"
-            log_operation(
-                user_id=current_user.id,
-                module="utility",
-                operation_type="batch_import_export",
-                action=f"导入失败{msg}",
-                result="失败"
-            )
+            
             logging.error(f"导入文件失败{msg}")
             flash(msg, 'danger')
             return redirect(url_for('utility_room_meter.utility_reading_manage'))
@@ -461,7 +455,7 @@ def import_readings():
         
         # 批量解析抄表日期时间
         try:
-            parsed_reading_dates = excel_date_utils.parse_excel_date(reading_date_values, field_name='抄表日期时间')
+            parsed_reading_dates = excel_date_utils.parse_excel_date(reading_date_values, field_name='抄表日期时间', raise_error=False)
         except Exception as e:
             # 记录日志
             logging.error(f"批量解析抄表日期时间失败：{str(e)}")
@@ -654,25 +648,13 @@ def import_readings():
         db.session.rollback()
         error_msg = f"数据库错误: {str(e)}"
         logging.error(error_msg)
-        log_operation(
-            user_id=current_user.id,
-            module="utility",
-            operation_type="batch_import_export",
-            action=f"导入失败{error_msg}",
-            result="失败"
-        )
+        
         flash(error_msg, 'danger')
         return redirect(url_for('utility_room_meter.utility_reading_manage'))
     except Exception as e:
         error_msg = f"导入失败: {str(e)}"
         logging.error(error_msg)
-        log_operation(
-            user_id=current_user.id,
-            module="utility",
-            operation_type="batch_import_export",
-            action=f"导入失败{error_msg}",
-            result="失败"
-        )
+        
         flash(error_msg, 'danger')
         return redirect(url_for('utility_room_meter.utility_reading_manage'))
 
@@ -765,7 +747,7 @@ def batch_update():
         if '抄表日期时间' in df.columns:
             reading_date_values = df['抄表日期时间'].tolist()
             try:
-                parsed_reading_dates = excel_date_utils.parse_excel_date(reading_date_values, field_name='抄表日期时间')
+                parsed_reading_dates = excel_date_utils.parse_excel_date(reading_date_values, field_name='抄表日期时间', raise_error=False)
             except Exception as e:
                 logging.error(f"批量解析抄表日期时间失败：{str(e)}")
                 flash(f'批量解析抄表日期时间失败：{str(e)}', 'danger')
@@ -937,14 +919,7 @@ def batch_update():
                         'error': error_msg
                     })
                     logging.warning(f'批量更新行{row_num}失败: {error_msg}')
-                    log_operation(
-                        user_id=current_user.id,
-                        module="utility",
-                        operation_type="batch_import_export",
-                        action=f'批量更新行{row_num}失败: {error_msg}',
-                        result="失败"
-                    )
-                
+                    
 
             # 全有或全无策略：如果有任何错误，回滚全部并提示
             if errors:
@@ -983,24 +958,12 @@ def batch_update():
         db.session.rollback()
         error_msg = f'数据库操作失败: {str(e)}'
         logging.error(error_msg)
-        log_operation(
-                    user_id=current_user.id,
-                    module="utility",
-                    operation_type="batch_import_export",
-                    action=error_msg,
-                    result="失败"
-                )
+        
         flash(error_msg, 'danger')
         return redirect(url_for('utility_room_meter.utility_reading_manage'))
     except Exception as e:
         error_msg = f'处理文件失败: {str(e)}'
         logging.error(error_msg)
-        log_operation(
-                    user_id=current_user.id,
-                    module="utility",
-                    operation_type="batch_import_export",
-                    action=error_msg,
-                    result="失败"
-                )
+        
         flash(error_msg, 'danger')
         return redirect(url_for('utility_room_meter.utility_reading_manage'))
