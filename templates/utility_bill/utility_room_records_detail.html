@@ -925,7 +925,7 @@
       // 设置编辑按钮链接
       const editBtn = document.getElementById('edit-btn');
       if (editBtn && data && data.record_id && data.billing_period) {
-        editBtn.href = `/utility/utility_room_bill_edit/${data.record_id}?billing_period=${data.billing_period}`;
+        editBtn.href = `/utility/utility_room_records_edit/${data.record_id}?billing_period=${data.billing_period}`;
         editBtn.style.display = '';
       }
       

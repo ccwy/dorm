@@ -61,14 +61,14 @@
             <div class="flex flex-col md:flex-row md:items-center md:justify-between">
                 <div>
                     <div class="flex items-center">
-                        <a href="{{ url_for('utility_index.utility_calculate_fees', billing_period=billing_period) }}" class="text-gray-600 hover:text-primary transition-colors mr-4">
+                        <a href="{{ url_for('utility_index.utility_room_records_bill', billing_period=billing_period) }}" class="text-gray-600 hover:text-primary transition-colors mr-4">
                             <i class="fa fa-arrow-left"></i>
                         </a>
                         <h2 class="text-[clamp(1.5rem,3vw,2rem)] font-bold">{{ title }}</h2>
                     </div>
                 </div>
                 <div class="mt-4 md:mt-0">
-                    <a href="{{ url_for('utility_index.utility_calculate_fees', billing_period=billing_period) }}" class="bg-white border border-neutral text-neutral px-4 py-2 rounded-md mr-2 inline-flex items-center btn-effect">
+                    <a href="{{ url_for('utility_index.utility_room_records_bill', billing_period=billing_period) }}" class="bg-white border border-neutral text-neutral px-4 py-2 rounded-md mr-2 inline-flex items-center btn-effect">
                         <i class="fa fa-arrow-left mr-2"></i>返回列表
                     </a>
                 </div>
@@ -353,7 +353,7 @@
 
             <!-- 保存按钮 -->
             <div class="mt-6 flex justify-end">
-                <a href="{{ url_for('utility_index.utility_calculate_fees', billing_period=billing_period) }}" class="bg-white border border-neutral text-neutral px-6 py-2 rounded-lg mr-3 inline-flex items-center btn-effect">
+                <a href="{{ url_for('utility_index.utility_room_records_bill', billing_period=billing_period) }}" class="bg-white border border-neutral text-neutral px-6 py-2 rounded-lg mr-3 inline-flex items-center btn-effect">
                     取消
                 </a>
                 <button type="submit" class="bg-primary text-white px-6 py-2 rounded-lg hover:bg-primary/90 btn-effect">

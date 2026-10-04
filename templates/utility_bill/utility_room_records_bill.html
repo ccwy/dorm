@@ -1470,7 +1470,7 @@
                             <i class="fa fa-eye"></i> 详情
                         </a>
                         ${canCalculate ? `<a href="#" class="text-green-600 hover:text-green-700 mr-3 calculate-single-btn" data-record-id="${record.record_id}" data-billing-period="${record.billing_period}" data-room-info="${roomInfo.building}${roomInfo.room_number}"><i class="fa fa-calculator"></i> 核算</a>` : ''}
-                        ${canEditBill ? `<a href="/utility/utility_room_bill_edit/${record.record_id}?billing_period=${record.billing_period}" class="text-amber-600 hover:text-amber-700 mr-3"><i class="fa fa-edit"></i> 编辑</a>` : ''}
+                        ${canEditBill ? `<a href="/utility/utility_room_records_edit/${record.record_id}?billing_period=${record.billing_period}" class="text-amber-600 hover:text-amber-700 mr-3"><i class="fa fa-edit"></i> 编辑</a>` : ''}
                         ${canDelete ? `<button class="text-blue-600 hover:text-blue-700 clear-single-btn mr-3" data-record-id="${record.record_id}"><i class="fa fa-eraser"></i> 清空</button>` : ''}
                         ${canDelete ? `<button class="text-danger hover:text-red-700 delete-single-btn" data-record-id="${record.record_id}"><i class="fa fa-trash"></i> 删除</button>` : ''}
                     </td>

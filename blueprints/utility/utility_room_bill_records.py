@@ -300,7 +300,7 @@ def create_record():  # 保持原有接口名称
                 f"核算失败 [用户ID: {current_user.id}, 模块: utility, 操作: bill_update, 原因: 缺少必要参数：calculate和billing_period为必填项]"
             )
             flash('缺少必要参数：calculate和billing_period为必填项', 'danger')
-            return redirect(url_for('utility_index.utility_calculate_fees', billing_period=billing_period or ''))
+            return redirect(url_for('utility_index.utility_room_records_bill', billing_period=billing_period or ''))
         
         # 1. 查询该账期的所有主表记录
         main_records = RoomUtilityRecord.query.filter_by(
@@ -312,7 +312,7 @@ def create_record():  # 保持原有接口名称
                 f"核算失败 [用户ID: {current_user.id}, 模块: utility, 操作: bill_update, 原因: 未找到{billing_period}的主表记录，请先确保主表已初始化]"
             )
             flash(f'未找到{billing_period}的主表记录，请先初始化主表', 'danger')
-            return redirect(url_for('utility_index.utility_calculate_fees', billing_period=billing_period))
+            return redirect(url_for('utility_index.utility_room_records_bill', billing_period=billing_period))
         
         # 1.5 过滤掉状态为'completed'或'calculated'的记录
         completed_records = [r for r in main_records if r.status in ('completed', 'calculated')]
@@ -345,7 +345,7 @@ def create_record():  # 保持原有接口名称
         
         if not main_records:
             flash('所有记录均已完成核算，无需重复操作', 'info')
-            return redirect(url_for('utility_index.utility_calculate_fees', billing_period=billing_period))
+            return redirect(url_for('utility_index.utility_room_records_bill', billing_period=billing_period))
         
         # 2. 提取所有主表ID，查询关联的子表抄表记录
         main_record_ids = [record.record_id for record in main_records]
@@ -356,7 +356,7 @@ def create_record():  # 保持原有接口名称
         
         if not meter_readings:
             flash(f'{billing_period}的主表记录未关联任何抄表数据，请先完成抄表', 'danger')
-            return redirect(url_for('utility_index.utility_calculate_fees', billing_period=billing_period))
+            return redirect(url_for('utility_index.utility_room_records_bill', billing_period=billing_period))
         
         # 3. 调用模型层的批量更新方法（核心逻辑完全由模型层处理）
         updated_count = RoomUtilityRecord.batch_update_from_meter(
@@ -375,7 +375,7 @@ def create_record():  # 保持原有接口名称
             result="成功"
         )
         flash(f'费用核算完成，共更新{updated_count}条主表记录', 'success')
-        return redirect(url_for('utility_index.utility_calculate_fees', billing_period=billing_period))
+        return redirect(url_for('utility_index.utility_room_records_bill', billing_period=billing_period))
         
     except Exception as e:
         db.session.rollback()
@@ -386,7 +386,7 @@ def create_record():  # 保持原有接口名称
         )
         flash(f'核算处理失败: {str(e)}', 'danger')
         billing_period = request.form.get('billing_period', '')
-        return redirect(url_for('utility_index.utility_calculate_fees', billing_period=billing_period))
+        return redirect(url_for('utility_index.utility_room_records_bill', billing_period=billing_period))
 
 
 # 单条核算接口
@@ -405,7 +405,7 @@ def calculate_single_record():
                 f"单条核算失败 [用户ID: {current_user.id}, 模块: utility, 操作: bill_update, 原因: 缺少必要参数：record_id和billing_period为必填项]"
             )
             flash('缺少必要参数：record_id和billing_period为必填项', 'danger')
-            return redirect(url_for('utility_index.utility_calculate_fees', billing_period=billing_period or ''))
+            return redirect(url_for('utility_index.utility_room_records_bill', billing_period=billing_period or ''))
 
         # 查询指定记录
         main_record = RoomUtilityRecord.query.get(record_id)
@@ -414,7 +414,7 @@ def calculate_single_record():
                 f"单条核算失败 [用户ID: {current_user.id}, 模块: utility, 操作: bill_update, 原因: 记录ID={record_id}不存在]"
             )
             flash(f'记录ID={record_id}不存在', 'danger')
-            return redirect(url_for('utility_index.utility_calculate_fees', billing_period=billing_period))
+            return redirect(url_for('utility_index.utility_room_records_bill', billing_period=billing_period))
 
         # 验证记录的账期与传入账期一致
         if main_record.billing_period != billing_period:
@@ -422,7 +422,7 @@ def calculate_single_record():
                 f"单条核算失败 [用户ID: {current_user.id}, 模块: utility, 操作: bill_update, 原因: 记录ID={record_id}的账期{main_record.billing_period}与传入账期{billing_period}不一致]"
             )
             flash(f'记录账期与传入账期不一致', 'danger')
-            return redirect(url_for('utility_index.utility_calculate_fees', billing_period=billing_period))
+            return redirect(url_for('utility_index.utility_room_records_bill', billing_period=billing_period))
 
         # 检查记录状态是否为已完成或已核算
         if main_record.status in ('completed', 'calculated'):
@@ -432,7 +432,7 @@ def calculate_single_record():
                 f"单条核算跳过 [用户ID: {current_user.id}, 模块: utility, 操作: bill_update, 原因: {room_info}{status_text}]"
             )
             flash(f'{room_info}{status_text}，无需重复操作', 'warning')
-            return redirect(url_for('utility_index.utility_calculate_fees', billing_period=billing_period))
+            return redirect(url_for('utility_index.utility_room_records_bill', billing_period=billing_period))
 
         # 查询该记录关联的抄表数据
         meter_readings = UtilityMeterReading.query.filter(
@@ -442,7 +442,7 @@ def calculate_single_record():
 
         if not meter_readings:
             flash(f'该记录未关联任何抄表数据，请先完成抄表', 'danger')
-            return redirect(url_for('utility_index.utility_calculate_fees', billing_period=billing_period))
+            return redirect(url_for('utility_index.utility_room_records_bill', billing_period=billing_period))
 
         # 调用模型层的批量更新方法（传入单条记录列表）
         updated_count = RoomUtilityRecord.batch_update_from_meter(
@@ -464,7 +464,7 @@ def calculate_single_record():
             result="成功"
         )
         flash(f'{room_info}核算完成，更新{updated_count}条记录', 'success')
-        return redirect(url_for('utility_index.utility_calculate_fees', billing_period=billing_period))
+        return redirect(url_for('utility_index.utility_room_records_bill', billing_period=billing_period))
 
     except Exception as e:
         db.session.rollback()
@@ -478,7 +478,7 @@ def calculate_single_record():
         )
         flash(f'{room_info}核算失败: {str(e)}', 'danger')
         billing_period = request.form.get('billing_period', '')
-        return redirect(url_for('utility_index.utility_calculate_fees', billing_period=billing_period))
+        return redirect(url_for('utility_index.utility_room_records_bill', billing_period=billing_period))
 
 
 @utility_room_bill_records_bp.route('/<int:record_id>/delete', methods=['POST'])
@@ -496,7 +496,7 @@ def delete_single_record(record_id):
             )
             flash(f'记录ID={record_id}不存在', 'danger')
             billing_period = request.form.get('billing_period', '')
-            return redirect(url_for('utility_index.utility_calculate_fees', billing_period=billing_period))
+            return redirect(url_for('utility_index.utility_room_records_bill', billing_period=billing_period))
         
         # 保存记录信息用于日志
         room_id = record.room_id
@@ -528,7 +528,7 @@ def delete_single_record(record_id):
             f"连带删除补贴记录{subsidy_deleted_count}条"
         )
         flash('记录已成功删除', 'success')
-        return redirect(url_for('utility_index.utility_calculate_fees', billing_period=billing_period))
+        return redirect(url_for('utility_index.utility_room_records_bill', billing_period=billing_period))
         
     except Exception as e:
         db.session.rollback()
@@ -538,7 +538,7 @@ def delete_single_record(record_id):
         )
         flash(f'删除失败: {str(e)}', 'danger')
         billing_period = request.form.get('billing_period', '')
-        return redirect(url_for('utility_index.utility_calculate_fees', billing_period=billing_period))
+        return redirect(url_for('utility_index.utility_room_records_bill', billing_period=billing_period))
 
 
 
@@ -557,7 +557,7 @@ def batch_delete_records():
             )
             flash('请提供要删除的记录ID列表', 'danger')
             billing_period = request.form.get('billing_period', '')
-            return redirect(url_for('utility_index.utility_calculate_fees', billing_period=billing_period))
+            return redirect(url_for('utility_index.utility_room_records_bill', billing_period=billing_period))
         
         # 验证所有记录存在并收集关联信息
         records = []
@@ -571,7 +571,7 @@ def batch_delete_records():
                 )
                 flash(f'记录ID={record_id}不存在，无法删除', 'danger')
                 billing_period = request.form.get('billing_period', '')
-                return redirect(url_for('utility_index.utility_calculate_fees', billing_period=billing_period))
+                return redirect(url_for('utility_index.utility_room_records_bill', billing_period=billing_period))
             records.append(record)
             room_period_pairs.append((record.room_id, record.billing_period))
         
@@ -608,7 +608,7 @@ def batch_delete_records():
         )
         flash(f'成功删除{len(deleted_ids)}条记录', 'success')
         billing_period = records[0].billing_period if records else request.form.get('billing_period', '')
-        return redirect(url_for('utility_index.utility_calculate_fees', billing_period=billing_period))
+        return redirect(url_for('utility_index.utility_room_records_bill', billing_period=billing_period))
         
     except Exception as e:
         db.session.rollback()
@@ -618,7 +618,7 @@ def batch_delete_records():
         )
         flash(f'删除失败: {str(e)}', 'danger')
         billing_period = request.form.get('billing_period', '')
-        return redirect(url_for('utility_index.utility_calculate_fees', billing_period=billing_period))
+        return redirect(url_for('utility_index.utility_room_records_bill', billing_period=billing_period))
 
 @utility_room_bill_records_bp.route('/delete-period', methods=['POST'])
 @login_required
@@ -632,13 +632,13 @@ def delete_period_records():
                 f"按账期删除记录失败 [用户ID: {current_user.id}, 模块: utility, 操作: clear, 原因: 未提供账期参数]"
             )
             flash('请提供账期参数', 'danger')
-            return redirect(url_for('utility_index.utility_calculate_fees'))
+            return redirect(url_for('utility_index.utility_room_records_bill'))
         
         # 查询该账期的所有主表记录
         records = RoomUtilityRecord.query.filter_by(billing_period=period).all()
         if not records:
             flash(f'账期{period}没有记录可删除', 'danger')
-            return redirect(url_for('utility_index.utility_calculate_fees', billing_period=period))
+            return redirect(url_for('utility_index.utility_room_records_bill', billing_period=period))
         
         # 收集关联信息用于删除补贴记录
         room_period_pairs = [(record.room_id, record.billing_period) for record in records]
@@ -670,7 +670,7 @@ def delete_period_records():
             result="成功"
         )
         flash(f'成功删除{period}账期的所有记录，共{deleted_count}条', 'success')
-        return redirect(url_for('utility_index.utility_calculate_fees', billing_period=period))
+        return redirect(url_for('utility_index.utility_room_records_bill', billing_period=period))
         
     except Exception as e:
         db.session.rollback()
@@ -679,7 +679,7 @@ def delete_period_records():
         )
         flash(f'删除失败: {str(e)}', 'danger')
         billing_period = request.form.get('billing_period', '')
-        return redirect(url_for('utility_index.utility_calculate_fees', billing_period=billing_period))
+        return redirect(url_for('utility_index.utility_room_records_bill', billing_period=billing_period))
 
 @utility_room_bill_records_bp.route('/clear-period', methods=['POST'])
 @login_required
@@ -694,7 +694,7 @@ def clear_period_data():
                 f"清空账期数据失败 [用户ID: {current_user.id}, 模块: utility, 操作: clear, 原因: 未提供账期参数]"
             )
             flash('请提供账期参数（billing_period）', 'danger')
-            return redirect(url_for('utility_index.utility_calculate_fees'))
+            return redirect(url_for('utility_index.utility_room_records_bill'))
         
         # 查询该账期的所有主表记录
         records = RoomUtilityRecord.query.filter_by(billing_period=period).all()
@@ -704,7 +704,7 @@ def clear_period_data():
                 f"清空账期数据失败 [用户ID: {current_user.id}, 模块: utility, 操作: clear, 账期: {period}, 原因: 未找到主表记录]"
             )
             flash(f'未找到{period}的主表记录', 'danger')
-            return redirect(url_for('utility_index.utility_calculate_fees', billing_period=period))
+            return redirect(url_for('utility_index.utility_room_records_bill', billing_period=period))
 
         # 提取所有主表记录ID，用于删除关联子表
         record_ids = [record.record_id for record in records]
@@ -781,7 +781,7 @@ def clear_period_data():
             result="成功"
         )
         flash(f'成功清空{period}账期数据', 'success')
-        return redirect(url_for('utility_index.utility_calculate_fees', billing_period=period))
+        return redirect(url_for('utility_index.utility_room_records_bill', billing_period=period))
         
     except Exception as e:
         db.session.rollback()
@@ -791,7 +791,7 @@ def clear_period_data():
         )
         flash(f'清空失败: {str(e)}', 'danger')
         billing_period = request.form.get('billing_period', '')
-        return redirect(url_for('utility_index.utility_calculate_fees', billing_period=billing_period))
+        return redirect(url_for('utility_index.utility_room_records_bill', billing_period=billing_period))
 
 
 @utility_room_bill_records_bp.route('/<int:record_id>/clear', methods=['POST'])
@@ -807,7 +807,7 @@ def clear_single_record(record_id):
             )
             flash(f'记录ID={record_id}不存在', 'danger')
             billing_period = request.form.get('billing_period', '')
-            return redirect(url_for('utility_index.utility_calculate_fees', billing_period=billing_period))
+            return redirect(url_for('utility_index.utility_room_records_bill', billing_period=billing_period))
 
         billing_period = record.billing_period
         room_id = record.room_id
@@ -875,7 +875,7 @@ def clear_single_record(record_id):
             result="成功"
         )
         flash('记录已成功清空', 'success')
-        return redirect(url_for('utility_index.utility_calculate_fees', billing_period=billing_period))
+        return redirect(url_for('utility_index.utility_room_records_bill', billing_period=billing_period))
 
     except Exception as e:
         db.session.rollback()
@@ -884,7 +884,7 @@ def clear_single_record(record_id):
         )
         flash(f'清空失败: {str(e)}', 'danger')
         billing_period = request.form.get('billing_period', '')
-        return redirect(url_for('utility_index.utility_calculate_fees', billing_period=billing_period))
+        return redirect(url_for('utility_index.utility_room_records_bill', billing_period=billing_period))
 
 
 @utility_room_bill_records_bp.route('/search', methods=['GET'])
@@ -1071,7 +1071,7 @@ def update_billing_period_range():
                 f"修改账期范围失败 [用户ID: {current_user.id}, 模块: utility, 操作: bill_update, 原因: 参数缺失, billing_period={billing_period}, start_date={start_date_str}, end_date={end_date_str}]"
             )
             flash('请提供完整的参数（账期、起始日期、结束日期）', 'danger')
-            return redirect(url_for('utility_index.utility_calculate_fees', billing_period=billing_period or ''))
+            return redirect(url_for('utility_index.utility_room_records_bill', billing_period=billing_period or ''))
 
         # 解析日期
         try:
@@ -1082,7 +1082,7 @@ def update_billing_period_range():
                 f"修改账期范围失败 [用户ID: {current_user.id}, 模块: utility, 操作: bill_update, 账期: {billing_period}, 原因: 日期格式错误]"
             )
             flash('日期格式错误，应为YYYY-MM-DD', 'danger')
-            return redirect(url_for('utility_index.utility_calculate_fees', billing_period=billing_period))
+            return redirect(url_for('utility_index.utility_room_records_bill', billing_period=billing_period))
 
         # 验证日期范围合法性
         if start_date > end_date:
@@ -1090,7 +1090,7 @@ def update_billing_period_range():
                 f"修改账期范围失败 [用户ID: {current_user.id}, 模块: utility, 操作: bill_update, 账期: {billing_period}, 原因: 起始日期大于结束日期]"
             )
             flash('起始日期不能大于结束日期', 'danger')
-            return redirect(url_for('utility_index.utility_calculate_fees', billing_period=billing_period))
+            return redirect(url_for('utility_index.utility_room_records_bill', billing_period=billing_period))
 
         # 查询该账期所有记录
         records = RoomUtilityRecord.query.filter_by(billing_period=billing_period).all()
@@ -1099,7 +1099,7 @@ def update_billing_period_range():
                 f"修改账期范围失败 [用户ID: {current_user.id}, 模块: utility, 操作: bill_update, 账期: {billing_period}, 原因: 该账期无记录]"
             )
             flash(f'账期{billing_period}不存在任何记录', 'danger')
-            return redirect(url_for('utility_index.utility_calculate_fees', billing_period=billing_period))
+            return redirect(url_for('utility_index.utility_room_records_bill', billing_period=billing_period))
 
         # 批量更新 start_date 和 end_date
         # end_date 设为当天 23:59:59
@@ -1118,7 +1118,7 @@ def update_billing_period_range():
             result="成功"
         )
         flash(f'成功修改账期{billing_period}的日期范围（{start_date_str} 至 {end_date_str}），共{len(records)}条记录', 'success')
-        return redirect(url_for('utility_index.utility_calculate_fees', billing_period=billing_period))
+        return redirect(url_for('utility_index.utility_room_records_bill', billing_period=billing_period))
 
     except Exception as e:
         db.session.rollback()
@@ -1127,7 +1127,7 @@ def update_billing_period_range():
         )
         flash(f'修改失败: {str(e)}', 'danger')
         billing_period = request.form.get('billing_period', '')
-        return redirect(url_for('utility_index.utility_calculate_fees', billing_period=billing_period))
+        return redirect(url_for('utility_index.utility_room_records_bill', billing_period=billing_period))
 
 
 @utility_room_bill_records_bp.route('/create_empty_period', methods=['POST'])
@@ -1153,14 +1153,14 @@ def create_empty_period_records():
                 f"创建空账期记录失败 [用户ID: {current_user.id}, 模块: utility, 操作: bill_update, 原因: 未提供账期参数]"
             )
             flash('请提供账期参数（billing_periods，格式：YYYY-MM，多个用逗号分隔）', 'danger')
-            return redirect(url_for('utility_index.utility_calculate_fees'))
+            return redirect(url_for('utility_index.utility_room_records_bill'))
         
         # 解析账期列表
         billing_periods = [p.strip() for p in billing_periods_str.split(',') if p.strip()]
         
         if not billing_periods:
             flash('请提供有效的账期参数', 'danger')
-            return redirect(url_for('utility_index.utility_calculate_fees'))
+            return redirect(url_for('utility_index.utility_room_records_bill'))
         
         # 验证每个账期格式
         for bp in billing_periods:
@@ -1171,7 +1171,7 @@ def create_empty_period_records():
                     f"创建空账期记录失败 [用户ID: {current_user.id}, 模块: utility, 操作: bill_update, 账期: {bp}, 原因: 账期格式错误]"
                 )
                 flash(f'账期格式错误：{bp}，应为YYYY-MM', 'danger')
-                return redirect(url_for('utility_index.utility_calculate_fees', billing_period=billing_periods[0]))
+                return redirect(url_for('utility_index.utility_room_records_bill', billing_period=billing_periods[0]))
         
         # 批量处理每个账期
         total_created = 0
@@ -1222,7 +1222,7 @@ def create_empty_period_records():
         else:
             flash('未生成任何记录', 'warning')
         
-        return redirect(url_for('utility_index.utility_calculate_fees', billing_period=last_billing_period))
+        return redirect(url_for('utility_index.utility_room_records_bill', billing_period=last_billing_period))
         
     except Exception as e:
         db.session.rollback()
@@ -1231,7 +1231,7 @@ def create_empty_period_records():
         )
         flash(f'创建失败: {str(e)}', 'danger')
         billing_period = request.form.get('billing_periods', request.form.get('billing_period', ''))
-        return redirect(url_for('utility_index.utility_calculate_fees', billing_period=billing_period.split(',')[0] if billing_period else ''))
+        return redirect(url_for('utility_index.utility_room_records_bill', billing_period=billing_period.split(',')[0] if billing_period else ''))
 
 @utility_room_bill_records_bp.route('/create_single_room_record', methods=['POST'])
 @login_required
@@ -1246,7 +1246,7 @@ def create_single_room_record():
 
         if not billing_period:
             flash('请提供账期参数', 'danger')
-            return redirect(url_for('utility_index.utility_calculate_fees'))
+            return redirect(url_for('utility_index.utility_room_records_bill'))
 
         # 优先使用 room_id 查找房间
         room = None
@@ -1255,7 +1255,7 @@ def create_single_room_record():
         if not room:
             if not room_number:
                 flash('请选择房间', 'danger')
-                return redirect(url_for('utility_index.utility_calculate_fees', billing_period=billing_period))
+                return redirect(url_for('utility_index.utility_room_records_bill', billing_period=billing_period))
             # 兼容旧方式：通过楼栋+房间号查找
             if building:
                 room = Room.query.filter_by(building=building, room_number=room_number).first()
@@ -1269,14 +1269,14 @@ def create_single_room_record():
                 f"创建单房间空账单失败 [用户ID: {current_user.id}, 模块: utility, 操作: bill_update, 房间: {room_desc}, 原因: 房间不存在]"
             )
             flash(f'房间 {room_desc} 不存在', 'danger')
-            return redirect(url_for('utility_index.utility_calculate_fees', billing_period=billing_period))
+            return redirect(url_for('utility_index.utility_room_records_bill', billing_period=billing_period))
 
         # 验证账期格式
         try:
             datetime.strptime(billing_period, '%Y-%m')
         except ValueError:
             flash(f'账期格式错误：{billing_period}，应为YYYY-MM', 'danger')
-            return redirect(url_for('utility_index.utility_calculate_fees', billing_period=billing_period))
+            return redirect(url_for('utility_index.utility_room_records_bill', billing_period=billing_period))
 
         # 检查该房间是否已有此账期的记录
         if RoomUtilityRecord.exists_by_room_and_period(room.id, billing_period):
@@ -1284,7 +1284,7 @@ def create_single_room_record():
                 f"创建单房间空账单跳过 [用户ID: {current_user.id}, 模块: utility, 操作: bill_update, 房间: {room_desc}, 账期: {billing_period}, 原因: 记录已存在]"
             )
             flash(f'房间 {room_desc} 在 {billing_period} 账期已有记录，跳过创建', 'warning')
-            return redirect(url_for('utility_index.utility_calculate_fees', billing_period=billing_period))
+            return redirect(url_for('utility_index.utility_room_records_bill', billing_period=billing_period))
 
         # 创建空记录
         start_date, end_date = RoomUtilityRecord.get_billing_period_dates(billing_period)
@@ -1336,7 +1336,7 @@ def create_single_room_record():
             result="成功"
         )
         flash(f'成功为房间 {room_desc} 创建 {billing_period} 账期空账单', 'success')
-        return redirect(url_for('utility_index.utility_calculate_fees', billing_period=billing_period))
+        return redirect(url_for('utility_index.utility_room_records_bill', billing_period=billing_period))
 
     except Exception as e:
         db.session.rollback()
@@ -1345,7 +1345,7 @@ def create_single_room_record():
         )
         flash(f'创建失败: {str(e)}', 'danger')
         billing_period = request.form.get('billing_period', '')
-        return redirect(url_for('utility_index.utility_calculate_fees', billing_period=billing_period))
+        return redirect(url_for('utility_index.utility_room_records_bill', billing_period=billing_period))
 
 @utility_room_bill_records_bp.route('/record_details/<int:record_id>', methods=['GET'])
 @login_required
@@ -1540,7 +1540,7 @@ def edit_save_bill_record(record_id):
             f"直接编辑房间水电费记录失败 [用户ID: {current_user.id}, 模块: utility, 操作: utility_edit, 记录ID: {record_id}, 原因: 功能未启用]"
         )
         flash('直接编辑房间水电费功能未启用', 'warning')
-        return redirect(url_for('utility_index.utility_calculate_fees'))
+        return redirect(url_for('utility_index.utility_room_records_bill'))
     
     try:
         record = RoomUtilityRecord.query.get(record_id)
@@ -1549,7 +1549,7 @@ def edit_save_bill_record(record_id):
                 f"直接编辑房间水电费记录失败 [用户ID: {current_user.id}, 模块: utility, 操作: utility_edit, 记录ID: {record_id}, 原因: 记录不存在]"
             )
             flash(f'记录ID={record_id}不存在', 'danger')
-            return redirect(url_for('utility_index.utility_calculate_fees'))
+            return redirect(url_for('utility_index.utility_room_records_bill'))
         
         billing_period = request.form.get('billing_period', record.billing_period)
         
@@ -1625,7 +1625,7 @@ def edit_save_bill_record(record_id):
         )
         
         flash('保存成功', 'success')
-        return redirect(url_for('utility_index.utility_room_bill_edit', record_id=record_id, billing_period=billing_period))
+        return redirect(url_for('utility_index.utility_room_records_edit', record_id=record_id, billing_period=billing_period))
         
     except Exception as e:
         db.session.rollback()
@@ -1633,4 +1633,4 @@ def edit_save_bill_record(record_id):
             f"直接编辑房间水电费记录失败 [用户ID: {current_user.id}, 模块: utility, 操作: utility_edit, 记录ID: {record_id}, 错误: {str(e)}]"
         )
         flash(f'保存失败: {str(e)}', 'danger')
-        return redirect(url_for('utility_index.utility_room_bill_edit', record_id=record_id, billing_period=request.form.get('billing_period', '')))
+        return redirect(url_for('utility_index.utility_room_records_edit', record_id=record_id, billing_period=request.form.get('billing_period', '')))

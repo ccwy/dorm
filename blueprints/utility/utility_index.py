@@ -58,10 +58,10 @@ def utility_index():
 
 
 # 水电费核算页面
-@utility_index_bp.route('/utility_calculate_fees', methods=['GET'])
+@utility_index_bp.route('/utility_room_records_bill', methods=['GET'])
 @login_required
 @require_permission('utility.view')
-def utility_calculate_fees():
+def utility_room_records_bill():
     """核算房间水电费页面（已修正模板文件名）"""
     try:
         billing_period = request.args.get('billing_period', '')
@@ -73,13 +73,13 @@ def utility_calculate_fees():
             result="成功"#这里只有成功与失败
         )
         rooms = Room.query.order_by(Room.building, Room.room_number).all()
-        return render_template('utility_bill/utility_calculate_fees.html', title=f"核算房间水电费", billing_period=billing_period, rooms=rooms)
+        return render_template('utility_bill/utility_room_records_bill.html', title=f"核算房间水电费", billing_period=billing_period, rooms=rooms)
     except Exception as e:
         logging.error(f"访问核算房间水电费页面失败: {str(e)}")
         flash(str(e), 'danger')
         billing_period = request.args.get('billing_period', '')
         rooms = Room.query.order_by(Room.building, Room.room_number).all()
-        return render_template('utility_bill/utility_calculate_fees.html', title=f"核算房间水电费", billing_period=billing_period, rooms=rooms)
+        return render_template('utility_bill/utility_room_records_bill.html', title=f"核算房间水电费", billing_period=billing_period, rooms=rooms)
 
 @utility_index_bp.route('/utility_room_records_detail')
 @login_required
@@ -418,21 +418,21 @@ def utility_occupant_manage():
         flash(str(e), 'danger')
         return render_template('utility_bill/utility_occupant_manage.html', billing_periods=[], buildings=[], departments=[], billing_period='', title=f"核算用户水电费")
 
-@utility_index_bp.route('/utility_room_bill_edit/<int:record_id>', methods=['GET'])
+@utility_index_bp.route('/utility_room_records_edit/<int:record_id>', methods=['GET'])
 @login_required
 @require_permission('utility.edit')
-def utility_room_bill_edit(record_id):
+def utility_room_records_edit(record_id):
     """编辑房间水电费数据页面"""
     # 检查功能开关
     if not SystemConfig.get_config_value('UTILITY_BILL_EDIT_ENABLED', False):
         flash('直接编辑房间水电费功能未启用，请在系统配置中开启', 'warning')
-        return redirect(url_for('utility_index.utility_calculate_fees'))
+        return redirect(url_for('utility_index.utility_room_records_bill'))
     
     try:
         record = RoomUtilityRecord.query.get(record_id)
         if not record:
             flash(f'记录ID={record_id}不存在', 'danger')
-            return redirect(url_for('utility_index.utility_calculate_fees'))
+            return redirect(url_for('utility_index.utility_room_records_bill'))
         
         room = Room.query.get(record.room_id)
         
@@ -448,7 +448,7 @@ def utility_room_bill_edit(record_id):
         )
         
         return render_template(
-            'utility_bill/utility_room_bill_edit.html',
+            'utility_bill/utility_room_records_edit.html',
             title='编辑房间水电费',
             record=record,
             room=room,
@@ -458,7 +458,7 @@ def utility_room_bill_edit(record_id):
         logging.error(f"加载编辑页面失败: {str(e)}")
         flash(f'加载编辑页面失败: {str(e)}', 'danger')
         billing_period = request.args.get('billing_period', '')
-        return redirect(url_for('utility_index.utility_calculate_fees', billing_period=billing_period))
+        return redirect(url_for('utility_index.utility_room_records_bill', billing_period=billing_period))
 
 @utility_index_bp.route('/utility_occupant_edit/<int:record_id>', methods=['GET'])
 @login_required
