@@ -837,15 +837,11 @@ def batch_update():
                     water_replace_val = str(row.get('水表是否更换', '')).strip() if pd.notna(row.get('水表是否更换', '')) else ''
                     if water_replace_val:
                         update_data['water_meter_replaced'] = water_replace_val.lower() in ['是', 'true', '1', '首次抄表']
-                    else:
-                        # 列为空时保留原记录的换表状态，防止update()中自动设置逻辑误触发
-                        update_data['water_meter_replaced'] = reading.water_meter_replaced
+                    # 空值时不传递water_meter_replaced，遵循"空值保持原值"原则
                     electric_replace_val = str(row.get('电表是否更换', '')).strip() if pd.notna(row.get('电表是否更换', '')) else ''
                     if electric_replace_val:
                         update_data['electric_meter_replaced'] = electric_replace_val.lower() in ['是', 'true', '1', '首次抄表']
-                    else:
-                        # 列为空时保留原记录的换表状态，防止update()中自动设置逻辑误触发
-                        update_data['electric_meter_replaced'] = reading.electric_meter_replaced
+                    # 空值时不传递electric_meter_replaced，遵循"空值保持原值"原则
                     
                     # 处理备注
                     notes = str(row.get('备注', '')).strip() or None

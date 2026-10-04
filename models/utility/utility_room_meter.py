@@ -374,6 +374,10 @@ class UtilityMeterReading(db.Model):
         # 延迟导入
         from models.room.room import Room
         
+        # 跟踪换表标记是否本次新设置（True→True不算，False→True才算）
+        water_replaced_newly_set = False
+        electric_replaced_newly_set = False
+        
         updated_fields = []
         original_values = {}
             
@@ -405,10 +409,14 @@ class UtilityMeterReading(db.Model):
             self.reading_date = new_date
         
         if 'water_meter_replaced' in kwargs:
+            old_water_replaced = self.water_meter_replaced
             self.water_meter_replaced = kwargs['water_meter_replaced']
+            water_replaced_newly_set = self.water_meter_replaced and not old_water_replaced
         
         if 'electric_meter_replaced' in kwargs:
+            old_electric_replaced = self.electric_meter_replaced
             self.electric_meter_replaced = kwargs['electric_meter_replaced']
+            electric_replaced_newly_set = self.electric_meter_replaced and not old_electric_replaced
         
         # ===== 新方案：更新时同步sequence =====
         # 处理水表更新
@@ -436,7 +444,7 @@ class UtilityMeterReading(db.Model):
             
             self.water_current = new_water_current
             
-            if self.water_meter_replaced:
+            if water_replaced_newly_set:
                 self.water_previous = self.water_current
                 self.water_usage = 0
                 # 更新sequence：换表时获取最大sequence + 1
@@ -470,6 +478,7 @@ class UtilityMeterReading(db.Model):
                         self.water_meter_sequence = 0
                         # 首次抄表自动设置换表标记
                         self.water_meter_replaced = True
+                        water_replaced_newly_set = True
                 else:
                     if self.reading_type == 2:
                         # 退宿抄表：直接计算用量，负值设为0（退宿场景不需要归零计算）
@@ -505,7 +514,7 @@ class UtilityMeterReading(db.Model):
             
             self.electric_current = new_electric_current
             
-            if self.electric_meter_replaced:
+            if electric_replaced_newly_set:
                 self.electric_previous = self.electric_current
                 self.electric_usage = 0
                 # 更新sequence：换表时获取最大sequence + 1
@@ -539,6 +548,7 @@ class UtilityMeterReading(db.Model):
                         self.electric_meter_sequence = 0
                         # 首次抄表自动设置换表标记
                         self.electric_meter_replaced = True
+                        electric_replaced_newly_set = True
                 else:
                     if self.reading_type == 2:
                         # 退宿抄表：直接计算用量，负值设为0（退宿场景不需要归零计算）
