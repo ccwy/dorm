@@ -166,12 +166,14 @@ class CheckoutUtilityRecord(db.Model):
             # 退宿场景：本期所有抄表记录都是"上次读数"的候选，"本次读数"是退宿读数（参数传入）
             # 因此直接获取最新的抄表记录值作为上次读数，与房间费用核算处的语义不同
             # （房间费用核算处：本期记录中最早=上次，最晚=本次）
+            # 时间锁：只获取退宿日期之前的抄表记录，防止读到退宿后的数据
+            # 退宿场景不参与换表或表计归零逻辑
             electric_previous = Decimal('0')
             water_previous = Decimal('0')
 
             # ---- 电表上次读数 ----
             # 使用跨账期查询方法，自动处理换表记录（只取换表后的最新读数）
-            last_electric_reading = UtilityMeterReading.get_latest_electric_reading(room_id)
+            last_electric_reading = UtilityMeterReading.get_latest_electric_reading(room_id, before_date=checkout_date)
             if last_electric_reading:
                 electric_previous = Decimal(str(last_electric_reading.electric_current))
                 logging.info(f'退宿：房间{room_id}电表上次读数(跨账期): {electric_previous}, 读数日期: {last_electric_reading.reading_date}')
@@ -183,7 +185,7 @@ class CheckoutUtilityRecord(db.Model):
 
             # ---- 水表上次读数 ----
             # 使用跨账期查询方法，自动处理换表记录（只取换表后的最新读数）
-            last_water_reading = UtilityMeterReading.get_latest_water_reading(room_id)
+            last_water_reading = UtilityMeterReading.get_latest_water_reading(room_id, before_date=checkout_date)
             if last_water_reading:
                 water_previous = Decimal(str(last_water_reading.water_current))
                 logging.info(f'退宿：房间{room_id}水表上次读数(跨账期): {water_previous}, 读数日期: {last_water_reading.reading_date}')
@@ -194,6 +196,12 @@ class CheckoutUtilityRecord(db.Model):
                 logging.info(f'退宿：房间{room_id}水表无历史读数记录，上次读数设为退宿读数: {water_previous}')
 
             logging.info(f"上期抄表记录: 电={electric_previous}, 水={water_previous}")
+
+            # 获取价格配置（无论是否计算费用都需记录单价）
+            price_config = cls.get_price_config_from_system()
+            electric_price = Decimal(str(price_config['electric_price']))
+            water_price = Decimal(str(price_config['water_price']))
+            logging.info(f"价格配置: 电{electric_price}, 水{water_price}")
 
             # 2. 初始化费用相关临时变量
             user_original_electric_usage = Decimal('0.00')
@@ -373,22 +381,18 @@ class CheckoutUtilityRecord(db.Model):
 
                 # 6. 费用计算
             
-                # 6.1 获取价格配置
-                price_config = cls.get_price_config_from_system()
-                electric_price = Decimal(str(price_config['electric_price']))
-                water_price = Decimal(str(price_config['water_price']))
-                logging.info(f"价格配置: 电{electric_price}, 水{water_price}")
-
-                # 6.2 计算房间总抄表用量（房间级原始数据）
+                # 6.1 计算房间总抄表用量（房间级原始数据）
                 # electric_previous 和 water_previous 已在1.5节中根据同账期抄表记录正确计算
                 meter_electric_usage = round(electric_reading - electric_previous, 2)
                 meter_water_usage = round(water_reading - water_previous, 2)
                 
-                # 处理电表翻转
+                # 退宿场景：不参与换表或表计归零逻辑，负值置0（数据异常保护）
                 if meter_electric_usage < 0:
-                    meter_electric_usage = (electric_meter_max - electric_previous) + electric_reading
+                    logging.warning(f"退宿电表用量为负(electric_reading={electric_reading}, electric_previous={electric_previous})，置为0")
+                    meter_electric_usage = Decimal('0')
                 if meter_water_usage < 0:
-                    meter_water_usage = (water_meter_max - water_previous) + water_reading
+                    logging.warning(f"退宿水表用量为负(water_reading={water_reading}, water_previous={water_previous})，置为0")
+                    meter_water_usage = Decimal('0')
                 
                 # 计算房间总抄表费用
                 meter_electric_fee = round(meter_electric_usage * electric_price, 2)
@@ -484,8 +488,8 @@ class CheckoutUtilityRecord(db.Model):
                 user_billing_water_usage=user_billing_water_usage,
                 
                 # 价格信息
-                electric_price=electric_price if calculate_fee else Decimal('0.00'),
-                water_price=water_price if calculate_fee else Decimal('0.00'),
+                electric_price=electric_price,
+                water_price=water_price,
                 
                 # 费用计算
                 user_original_electric_fee=user_original_electric_fee,

@@ -433,7 +433,7 @@
                                        value="{{ request.form.electric_current if request.method == 'POST' else '' }}"
                                        class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
                                 {% if last_electric_reading %}
-                                    <p class="text-xs text-gray-500 mt-1">上次读数：{{ last_electric_reading.value }} kWh（{{ last_electric_reading.date }}）</p>
+                                    <p id="electricPreviousInfo" class="text-xs text-gray-500 mt-1">上次读数：<span id="electricPreviousValue">{{ last_electric_reading.value }}</span> kWh（<span id="electricPreviousDate">{{ last_electric_reading.date }}</span>）</p>
                                 {% endif %}
                             </div>
 
@@ -444,7 +444,7 @@
                                        value="{{ request.form.water_current if request.method == 'POST' else '' }}"
                                        class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
                                 {% if last_water_reading %}
-                                    <p class="text-xs text-gray-500 mt-1">上次读数：{{ last_water_reading.value }} m³（{{ last_water_reading.date }}）</p>
+                                    <p id="waterPreviousInfo" class="text-xs text-gray-500 mt-1">上次读数：<span id="waterPreviousValue">{{ last_water_reading.value }}</span> m³（<span id="waterPreviousDate">{{ last_water_reading.date }}</span>）</p>
                                 {% endif %}
                             </div>
 
@@ -466,12 +466,12 @@
                                 <p class="text-xs text-gray-500 mt-1">自离退宿时，不会计算费用</p>
                             </div>
                             <div>
-                                <label for="billing_period" class="block text-sm font-medium text-gray-700 mb-1">账期 <span class="text-red-500">*</span></label>
+                                <label for="billing_period" class="block text-sm font-medium text-gray-700 mb-1">账期 <span class="text-red-500">*</span><span id="billing_period_status" class="ml-2 text-sm"></span></label>
                                 <select id="billing_period" name="billing_period" required
                                         class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
                                     <!-- 账期选项将通过JavaScript动态加载 -->
                                 </select>
-                                <span id="billing_period_status" class="ml-2 text-sm"></span>
+                                
                                 <p class="text-xs text-gray-500 mt-1">选择本次退宿抄表所属的账期</p>
                             </div>
                             <div class="md:col-span-4">
@@ -597,6 +597,8 @@
                 checkOutDateInput.addEventListener('change', function() {
                     updateMonthStayDays();
                     updateSubsidyInfo();
+                    // 退宿日期变更时，重新获取上次抄表记录（时间锁）
+                    fetchLatestReadings(roomId, checkOutDateInput.value);
                 });
                 
                 // 页面加载时立即计算一次初始值
@@ -677,6 +679,43 @@
                     })
                     .catch(error => {
                         // 静默处理错误
+                    });
+            }
+
+            // 获取房间最新水电表抄表记录（时间锁：只获取退宿日期之前的记录）
+            function fetchLatestReadings(roomId, checkoutDate) {
+                const electricPreviousInfo = document.getElementById('electricPreviousInfo');
+                const electricPreviousValue = document.getElementById('electricPreviousValue');
+                const electricPreviousDate = document.getElementById('electricPreviousDate');
+                const waterPreviousInfo = document.getElementById('waterPreviousInfo');
+                const waterPreviousValue = document.getElementById('waterPreviousValue');
+                const waterPreviousDate = document.getElementById('waterPreviousDate');
+                
+                if (!roomId || !checkoutDate) return;
+                
+                let url = `/utility_room_bill_checkout/get_latest_readings?room_id=${roomId}&checkout_date=${encodeURIComponent(checkoutDate)}`;
+                fetch(url)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success && data.data) {
+                            if (data.data.electric_previous !== null && data.data.electric_previous !== undefined) {
+                                if (electricPreviousValue) electricPreviousValue.textContent = data.data.electric_previous;
+                                if (electricPreviousDate) electricPreviousDate.textContent = data.data.electric_reading_date ? data.data.electric_reading_date.replace('T', ' ') : '';
+                                if (electricPreviousInfo) electricPreviousInfo.classList.remove('hidden');
+                            } else {
+                                if (electricPreviousInfo) electricPreviousInfo.classList.add('hidden');
+                            }
+                            if (data.data.water_previous !== null && data.data.water_previous !== undefined) {
+                                if (waterPreviousValue) waterPreviousValue.textContent = data.data.water_previous;
+                                if (waterPreviousDate) waterPreviousDate.textContent = data.data.water_reading_date ? data.data.water_reading_date.replace('T', ' ') : '';
+                                if (waterPreviousInfo) waterPreviousInfo.classList.remove('hidden');
+                            } else {
+                                if (waterPreviousInfo) waterPreviousInfo.classList.add('hidden');
+                            }
+                        }
+                    })
+                    .catch(err => {
+                        console.error('获取上次抄表记录失败:', err);
                     });
             }
         });

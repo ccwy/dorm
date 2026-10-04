@@ -267,7 +267,9 @@
                                 placeholder="请输入当前水表读数"
                                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
                             {% if last_water_reading %}
-                            <p class="text-xs text-gray-500 mt-1">上次读数：{{ last_water_reading.value }} m³（{{ last_water_reading.date }}）</p>
+                            <p id="waterPreviousInfo" class="text-xs text-gray-500 mt-1">上次读数：<span id="waterPreviousValue">{{ last_water_reading.value }}</span> m³（<span id="waterPreviousDate">{{ last_water_reading.date }}</span>）</p>
+                            {% else %}
+                            <p id="waterPreviousInfo" class="text-xs text-gray-500 mt-1 hidden">上次读数：<span id="waterPreviousValue"></span> m³（<span id="waterPreviousDate"></span>）</p>
                             {% endif %}
                         </div>
                         <div>
@@ -278,7 +280,9 @@
                                 placeholder="请输入当前电表读数"
                                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
                             {% if last_electric_reading %}
-                            <p class="text-xs text-gray-500 mt-1">上次读数：{{ last_electric_reading.value }} kWh（{{ last_electric_reading.date }}）</p>
+                            <p id="electricPreviousInfo" class="text-xs text-gray-500 mt-1">上次读数：<span id="electricPreviousValue">{{ last_electric_reading.value }}</span> kWh（<span id="electricPreviousDate">{{ last_electric_reading.date }}</span>）</p>
+                            {% else %}
+                            <p id="electricPreviousInfo" class="text-xs text-gray-500 mt-1 hidden">上次读数：<span id="electricPreviousValue"></span> kWh（<span id="electricPreviousDate"></span>）</p>
                             {% endif %}
                         </div>
                         {% endif %}
@@ -469,8 +473,57 @@
             }
             {% endif %}
 
-            // 表单提交验证
+            // 退宿日期变更时，重新获取上次抄表记录（时间锁）
+            {% if application_type == 'checkout' %}
+            const checkoutRoomId = {{ current_room.id if current_room else 'null' }};
+            const checkOutDateInput = document.getElementById('check_out_date');
+            if (checkOutDateInput && checkoutRoomId) {
+                checkOutDateInput.addEventListener('change', function() {
+                    fetchLatestReadings(checkoutRoomId, checkOutDateInput.value);
+                });
+            }
 
+            // 获取房间最新水电表抄表记录（时间锁：只获取退宿日期之前的记录）
+            function fetchLatestReadings(roomId, checkoutDate) {
+                const electricPreviousInfo = document.getElementById('electricPreviousInfo');
+                const electricPreviousValue = document.getElementById('electricPreviousValue');
+                const electricPreviousDate = document.getElementById('electricPreviousDate');
+                const waterPreviousInfo = document.getElementById('waterPreviousInfo');
+                const waterPreviousValue = document.getElementById('waterPreviousValue');
+                const waterPreviousDate = document.getElementById('waterPreviousDate');
+                
+                if (!roomId || !checkoutDate) return;
+                
+                let url = `/utility_room_bill_checkout/get_latest_readings?room_id=${roomId}&checkout_date=${encodeURIComponent(checkoutDate)}`;
+                fetch(url)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success && data.data) {
+                            if (data.data.electric_previous !== null && data.data.electric_previous !== undefined) {
+                                if (electricPreviousValue) electricPreviousValue.textContent = data.data.electric_previous;
+                                if (electricPreviousDate) electricPreviousDate.textContent = data.data.electric_reading_date ? data.data.electric_reading_date.replace('T', ' ') : '';
+                                if (electricPreviousInfo) electricPreviousInfo.classList.remove('hidden');
+                            } else {
+                                if (electricPreviousValue) electricPreviousValue.textContent = '暂无记录';
+                                if (electricPreviousDate) electricPreviousDate.textContent = '';
+                                if (electricPreviousInfo) electricPreviousInfo.classList.remove('hidden');
+                            }
+                            if (data.data.water_previous !== null && data.data.water_previous !== undefined) {
+                                if (waterPreviousValue) waterPreviousValue.textContent = data.data.water_previous;
+                                if (waterPreviousDate) waterPreviousDate.textContent = data.data.water_reading_date ? data.data.water_reading_date.replace('T', ' ') : '';
+                                if (waterPreviousInfo) waterPreviousInfo.classList.remove('hidden');
+                            } else {
+                                if (waterPreviousValue) waterPreviousValue.textContent = '暂无记录';
+                                if (waterPreviousDate) waterPreviousDate.textContent = '';
+                                if (waterPreviousInfo) waterPreviousInfo.classList.remove('hidden');
+                            }
+                        }
+                    })
+                    .catch(err => {
+                        console.error('获取上次抄表记录失败:', err);
+                    });
+            }
+            {% endif %}
 
             // 表单提交验证
             $('#applicationForm').on('submit', function(e) {

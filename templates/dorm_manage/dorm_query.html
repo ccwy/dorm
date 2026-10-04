@@ -426,7 +426,13 @@
                                             <i class="fa fa-sign-out mr-1"></i>退宿
                                         </button>
                                         {% else %}
-                                        <span class="text-gray-400 text-sm">已退宿</span>
+                                        
+                                            {% if resident.checkout_utility_record_id %}
+                                            <a href="/utility/utility_user_checkout_detail?id={{ resident.checkout_utility_record_id }}" class="text-primary hover:underline cursor-pointer">已退宿</a>
+                                            {% else %}
+                                            <span class="text-gray-400 text-sm">已退宿</span>
+                                            {% endif %}
+                                        
                                         {% endif %}
                                     </td>
                                 </tr>

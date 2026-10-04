@@ -898,8 +898,10 @@ def checkout():
             
             # 获取上次抄表记录值
             # 使用模型中已有的方法获取最新正常抄表记录
-            latest_water = UtilityMeterReading.get_latest_water_reading(current_room.id)
-            latest_electric = UtilityMeterReading.get_latest_electric_reading(current_room.id)
+            # 传入 before_date 时间锁，确保只读取退宿日期之前的抄表记录
+            checkout_before_date = datetime.now()
+            latest_water = UtilityMeterReading.get_latest_water_reading(current_room.id, before_date=checkout_before_date)
+            latest_electric = UtilityMeterReading.get_latest_electric_reading(current_room.id, before_date=checkout_before_date)
             
             # 准备传递给前端的数据，包含时间信息
             if latest_water and latest_water.water_current:

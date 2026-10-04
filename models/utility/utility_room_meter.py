@@ -82,17 +82,28 @@ class UtilityMeterReading(db.Model):
     
     # 水表最新记录查询 - 修复核心：移除record_id过滤，获取房间所有历史记录
     @classmethod
-    def get_latest_water_reading(cls, room_id):
-            """获取指定房间最新的有效水表记录（跨账期查询）"""
+    def get_latest_water_reading(cls, room_id, before_date=None):
+            """获取指定房间最新的有效水表记录（跨账期查询）
+            
+            Args:
+                room_id: 房间ID
+                before_date: 可选，只查询此日期之前的抄表记录（用于退宿费用核算的时间锁）
+                            提供此参数时跳过换表记录过滤逻辑
+            """
             query = cls.query.filter_by(room_id=room_id)\
                              .filter(cls.water_current.isnot(None))\
                              .filter(cls.reading_type == 1)\
                              .order_by(cls.reading_date.desc(), cls.id.desc())
             
-            # 处理水表更换记录
-            latest_replace = query.filter(cls.water_meter_replaced == True).first()
-            if latest_replace:
-                query = query.filter(cls.reading_date >= latest_replace.reading_date)
+            # 时间锁：退宿费用核算时，只查询退宿日期之前的抄表记录
+            if before_date:
+                query = query.filter(cls.reading_date < before_date)
+            
+            # 处理水表更换记录（退宿场景不参与换表逻辑，跳过此过滤）
+            if not before_date:
+                latest_replace = query.filter(cls.water_meter_replaced == True).first()
+                if latest_replace:
+                    query = query.filter(cls.reading_date >= latest_replace.reading_date)
             
             latest = query.first()
             if latest:
@@ -105,17 +116,28 @@ class UtilityMeterReading(db.Model):
     
     # 电表最新记录查询 - 修复核心：移除record_id过滤
     @classmethod
-    def get_latest_electric_reading(cls, room_id):
-            """获取指定房间最新的有效电表记录（跨账期查询）"""
+    def get_latest_electric_reading(cls, room_id, before_date=None):
+            """获取指定房间最新的有效电表记录（跨账期查询）
+            
+            Args:
+                room_id: 房间ID
+                before_date: 可选，只查询此日期之前的抄表记录（用于退宿费用核算的时间锁）
+                            提供此参数时跳过换表记录过滤逻辑
+            """
             query = cls.query.filter_by(room_id=room_id)\
                              .filter(cls.electric_current.isnot(None))\
                              .filter(cls.reading_type == 1)\
                              .order_by(cls.reading_date.desc(), cls.id.desc())
             
-            # 处理电表更换记录
-            latest_replace = query.filter(cls.electric_meter_replaced == True).first()
-            if latest_replace:
-                query = query.filter(cls.reading_date >= latest_replace.reading_date)
+            # 时间锁：退宿费用核算时，只查询退宿日期之前的抄表记录
+            if before_date:
+                query = query.filter(cls.reading_date < before_date)
+            
+            # 处理电表更换记录（退宿场景不参与换表逻辑，跳过此过滤）
+            if not before_date:
+                latest_replace = query.filter(cls.electric_meter_replaced == True).first()
+                if latest_replace:
+                    query = query.filter(cls.reading_date >= latest_replace.reading_date)
             
             latest = query.first()
             if latest:

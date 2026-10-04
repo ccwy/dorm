@@ -191,8 +191,8 @@ def application_detail(id):
         last_water_reading = None
         last_electric_reading = None
         if application.application_type == 'checkout' and current_dorm and current_dorm.room_id:
-            latest_water = UtilityMeterReading.get_latest_water_reading(current_dorm.room_id)
-            latest_electric = UtilityMeterReading.get_latest_electric_reading(current_dorm.room_id)
+            latest_water = UtilityMeterReading.get_latest_water_reading(current_dorm.room_id, before_date=datetime.now())
+            latest_electric = UtilityMeterReading.get_latest_electric_reading(current_dorm.room_id, before_date=datetime.now())
             if latest_water and latest_water.water_current is not None:
                 last_water_reading = {
                     'value': float(latest_water.water_current),

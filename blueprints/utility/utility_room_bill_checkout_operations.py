@@ -208,7 +208,6 @@ def create_checkout_record():
 
 @utility_room_bill_checkout_bp.route('/get_latest_readings', methods=['GET'])
 @login_required
-@require_permission('utility.view')
 def get_latest_readings():
     """获取房间最新的水电表抄表记录（用于新增退宿费用时显示上次读数）"""
     try:
@@ -216,9 +215,23 @@ def get_latest_readings():
         if not room_id:
             return jsonify({'success': False, 'message': '缺少房间ID参数'}), 400
 
+        # 解析退宿日期时间锁参数（可选）
+        checkout_date = None
+        checkout_date_str = request.args.get('checkout_date', '').strip()
+        if checkout_date_str:
+            from datetime import datetime
+            for fmt in ('%Y-%m-%d %H:%M:%S', '%Y-%m-%dT%H:%M:%S', '%Y-%m-%d %H:%M', '%Y-%m-%dT%H:%M', '%Y-%m-%d'):
+                try:
+                    checkout_date = datetime.strptime(checkout_date_str, fmt)
+                    break
+                except ValueError:
+                    continue
+            if checkout_date is None:
+                return jsonify({'success': False, 'message': '退宿日期格式无效，应为 YYYY-MM-DD 或 YYYY-MM-DD HH:MM:SS'}), 400
+
         # 使用跨账期查询方法获取最新抄表记录
-        latest_electric = UtilityMeterReading.get_latest_electric_reading(room_id)
-        latest_water = UtilityMeterReading.get_latest_water_reading(room_id)
+        latest_electric = UtilityMeterReading.get_latest_electric_reading(room_id, before_date=checkout_date)
+        latest_water = UtilityMeterReading.get_latest_water_reading(room_id, before_date=checkout_date)
 
         return jsonify({
             'success': True,

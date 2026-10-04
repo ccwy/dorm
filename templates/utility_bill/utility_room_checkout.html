@@ -1307,8 +1307,8 @@
           createBillingPeriodSelect.value = '';
         }
         
-        // 获取上次抄表记录并显示
-        fetchLatestReadings(roomId);
+        // 获取上次抄表记录并显示（传入退宿日期作为时间锁）
+        fetchLatestReadings(roomId, originalCheckoutDate);
         
         // 显示模态框
         createRecordModal.classList.remove('hidden');
@@ -1316,7 +1316,7 @@
       }
       
       // 获取房间最新抄表记录
-      function fetchLatestReadings(roomId) {
+      function fetchLatestReadings(roomId, checkoutDate) {
         const electricPreviousInfo = document.getElementById('electricPreviousInfo');
         const electricPreviousValue = document.getElementById('electricPreviousValue');
         const electricPreviousDate = document.getElementById('electricPreviousDate');
@@ -1328,7 +1328,11 @@
         electricPreviousInfo.classList.add('hidden');
         waterPreviousInfo.classList.add('hidden');
         
-        fetch(`/utility_room_bill_checkout/get_latest_readings?room_id=${roomId}`)
+        let url = `/utility_room_bill_checkout/get_latest_readings?room_id=${roomId}`;
+        if (checkoutDate) {
+          url += `&checkout_date=${encodeURIComponent(checkoutDate)}`;
+        }
+        fetch(url)
           .then(response => response.json())
           .then(data => {
             if (data.success && data.data) {
