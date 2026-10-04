@@ -88,6 +88,9 @@ def update_checkout_data(checkout_id):
         if meter_reading:
             # 更新抄表记录中的读数
             update_params = {}
+            # 显式传递原换表状态，防止update()中自动设置逻辑误触发
+            update_params['water_meter_replaced'] = meter_reading.water_meter_replaced
+            update_params['electric_meter_replaced'] = meter_reading.electric_meter_replaced
             if new_electric_reading is not None:
                 try:
                     update_params['electric_current'] = Decimal(new_electric_reading)
