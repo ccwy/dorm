@@ -465,9 +465,11 @@ class UtilityMeterReading(db.Model):
                 # 首次抄表判断：如果没有历史记录（last_water为None），用量始终为0
                 if last_water is None:
                     self.water_usage = 0
-                    self.water_meter_sequence = 0
-                    # 首次抄表自动设置换表标记
-                    self.water_meter_replaced = True
+                    # 只有当kwargs中未显式提供water_meter_replaced时，才自动设置（兼容创建场景）
+                    if 'water_meter_replaced' not in kwargs:
+                        self.water_meter_sequence = 0
+                        # 首次抄表自动设置换表标记
+                        self.water_meter_replaced = True
                 else:
                     if self.reading_type == 2:
                         # 退宿抄表：直接计算用量，负值设为0（退宿场景不需要归零计算）
@@ -532,9 +534,11 @@ class UtilityMeterReading(db.Model):
                 # 首次抄表判断：如果没有历史记录（last_electric为None），用量始终为0
                 if last_electric is None:
                     self.electric_usage = 0
-                    self.electric_meter_sequence = 0
-                    # 首次抄表自动设置换表标记
-                    self.electric_meter_replaced = True
+                    # 只有当kwargs中未显式提供electric_meter_replaced时，才自动设置（兼容创建场景）
+                    if 'electric_meter_replaced' not in kwargs:
+                        self.electric_meter_sequence = 0
+                        # 首次抄表自动设置换表标记
+                        self.electric_meter_replaced = True
                 else:
                     if self.reading_type == 2:
                         # 退宿抄表：直接计算用量，负值设为0（退宿场景不需要归零计算）
