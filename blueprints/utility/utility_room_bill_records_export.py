@@ -2,6 +2,7 @@ from flask import Blueprint, request, send_file, flash, redirect, url_for
 from flask_login import login_required, current_user
 from utils.auth import require_permission
 from models.utility.utility_room_bill_record import RoomUtilityRecord
+from datetime import datetime
 import io
 import logging
 import pandas as pd
@@ -105,7 +106,7 @@ def export():
             df.to_excel(writer, index=False, sheet_name='费用主表')
         output.seek(0)
 
-        filename = f'费用主表_{billing_period}.xlsx'
+        filename = f'费用主表_{billing_period}_{datetime.now()}.xlsx'
         logging.info(f"用户 {current_user.id} 成功导出 {billing_period} 账期费用主表数据，共 {len(records)} 条记录，文件名: {filename}")
 
         return send_file(output, mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',

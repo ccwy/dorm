@@ -74,14 +74,15 @@
                                 <button onclick="window.location.href='{{ url_for('utility_room_meter.utility_reading_manage') }}'" class="bg-teal-600 text-white px-4 py-2 rounded-md flex items-center btn-effect hover:bg-teal-700 transition-colors flex-shrink-0 justify-center text-sm sm:text-base">
                                     <i class="fa fa-book mr-1.5"></i>抄表记录
                                 </button>
+                                
+                                <button id="refreshBtn" class="bg-green-600 text-white px-4 py-2 rounded-md flex items-center btn-effect hover:bg-green-700 transition-colors flex-shrink-0 justify-center text-sm sm:text-base">
+                                    <i class="fa fa-refresh mr-1.5"></i>刷新
+                                </button>
                                 {% if current_user.has_permission('utility.export') %}
                                 <a id="exportBillLink" href="/utility_room_bill_records_export/api/export" class="bg-warning text-white px-4 py-2 rounded-md flex items-center btn-effect hover:bg-warning/90 transition-colors flex-shrink-0 justify-center text-sm sm:text-base no-underline">
                                     <i class="fa fa-download mr-1.5"></i>导出
                                 </a>
                                 {% endif %}
-                                <button id="refreshBtn" class="bg-green-600 text-white px-4 py-2 rounded-md flex items-center btn-effect hover:bg-green-700 transition-colors flex-shrink-0 justify-center text-sm sm:text-base">
-                                    <i class="fa fa-refresh mr-1.5"></i>刷新
-                                </button>
                             </div>
                             </div>
                             

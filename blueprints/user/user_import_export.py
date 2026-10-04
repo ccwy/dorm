@@ -221,13 +221,7 @@ def _commit_batch_result(result, current_user, operation_type, summary_template,
         
     except Exception as e:
         db.session.rollback()
-        log_operation(
-            user_id=current_user.id,
-            module='user',
-            operation_type='batch_import_export',
-            action=f"尝试{operation_type}用户数据失败: {str(e)}",
-            result="失败"
-        )
+        
         flash(f'数据提交失败: {str(e)}', 'danger')
         logging.error(f"{operation_type}用户数据操作，提交数据库失败: {str(e)}")
         return None
@@ -313,13 +307,7 @@ def export_users():
         )
     
     except Exception as e:
-        log_operation(
-            user_id=current_user.id,
-            module='user',
-            operation_type='batch_import_export',
-            action=f"尝试导出用户数据失败: {str(e)}",
-            result="失败"
-        )
+        
         flash(f'导出失败: {str(e)}', 'danger')
         logging.error(f"导出用户数据操作失败，异常信息: {str(e)}")
         return redirect(url_for('user.manage'))
@@ -599,13 +587,7 @@ def import_users():
     except Exception as e:
         # 发生异常时回滚事务
         db.session.rollback()
-        log_operation(
-            user_id=current_user.id,
-            module='user',
-            operation_type='batch_import_export',
-            action=f"尝试导入用户数据失败: {str(e)}",
-            result="失败"
-        )
+        
         msg = f'导入失败: {str(e)}'
         flash(msg, 'danger')
         logging.error(f"导入用户数据操作，导入失败: {str(e)}", exc_info=True)
@@ -727,13 +709,7 @@ def import_template():
         )
     
     except Exception as e:
-        log_operation(
-            user_id=current_user.id,
-            module='user',
-            operation_type='batch_import_export',
-            action=f"尝试生成用户导入模板失败: {str(e)}",
-            result="失败"
-        )
+        
         flash(f'生成模板失败: {str(e)}', 'danger')
         logging.error(f"下载用户导入模板操作失败，异常信息: {str(e)}")
         return redirect(url_for('user.manage'))
@@ -957,13 +933,7 @@ def update_users():
         except Exception as e:
             # 事务回滚
             db.session.rollback()
-            log_operation(
-                user_id=current_user.id,
-                module='user',
-                operation_type='batch_import_export',
-                action=f"尝试批量更新用户数据失败: {str(e)}",
-                result="失败"
-            )
+            
             msg = f'数据提交失败: {str(e)}'
             flash(msg, 'danger')
             logging.error(f"批量更新用户数据操作，提交数据库失败: {str(e)}")
@@ -974,13 +944,7 @@ def update_users():
     except Exception as e:
         # 发生异常时回滚事务
         db.session.rollback()
-        log_operation(
-            user_id=current_user.id,
-            module='user',
-            operation_type='batch_import_export',
-            action=f"尝试批量更新用户数据失败: {str(e)}",
-            result="失败"
-        )
+        
         msg = f'更新失败: {str(e)}'
         flash(msg, 'danger')
         logging.error(f"批量更新用户数据操作，更新失败: {str(e)}", exc_info=True)
