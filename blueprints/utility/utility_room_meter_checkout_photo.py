@@ -8,10 +8,10 @@ from utils.auth import require_permission
 from utils.log import log_operation
 from utils.media.room_meter_checkout_photo import room_meter_checkout_photo_manager
 
-utility_checkout_photo_bp = Blueprint('utility_checkout_photo', __name__, url_prefix='/utility-checkout')
+utility_room_meter_checkout_photo_bp = Blueprint('utility_room_meter_checkout_photo', __name__, url_prefix='/utility-checkout')
 
 
-@utility_checkout_photo_bp.route('/upload_media', methods=['POST'])
+@utility_room_meter_checkout_photo_bp.route('/upload_media', methods=['POST'])
 @login_required
 @require_permission('utility.edit')
 def upload_checkout_media():
@@ -78,7 +78,7 @@ def upload_checkout_media():
         return jsonify({'success': False, 'message': f'上传失败: {str(e)}'})
 
 
-@utility_checkout_photo_bp.route('/media/<billing_period>/<room_id>/checkout/<user_id>/<filename>')
+@utility_room_meter_checkout_photo_bp.route('/media/<billing_period>/<room_id>/checkout/<user_id>/<filename>')
 @login_required
 @require_permission('utility.view')
 def serve_checkout_media(billing_period, room_id, user_id, filename):
@@ -127,7 +127,7 @@ def serve_checkout_media(billing_period, room_id, user_id, filename):
         return jsonify({'success': False, 'message': f'访问失败: {str(e)}'}), 500
 
 
-@utility_checkout_photo_bp.route('/delete_media', methods=['POST'])
+@utility_room_meter_checkout_photo_bp.route('/delete_media', methods=['POST'])
 @login_required
 @require_permission('utility.edit')
 def delete_checkout_media():
@@ -180,7 +180,7 @@ def delete_checkout_media():
         return jsonify({'success': False, 'message': f'删除失败: {str(e)}'})
 
 
-@utility_checkout_photo_bp.route('/get_media_files', methods=['GET'])
+@utility_room_meter_checkout_photo_bp.route('/get_media_files', methods=['GET'])
 @login_required
 @require_permission('utility.view')
 def get_checkout_media_files():
