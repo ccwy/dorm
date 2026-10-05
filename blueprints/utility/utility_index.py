@@ -14,6 +14,8 @@ from models.utility.utility_room_bill_occupant import RoomUtilityOccupant # 在�
 from models.utility.utility_room_meter import UtilityMeterReading  # 抄表记录子表
 from models.system_config.system_config import SystemConfig  # 系统配置
 from models.dorm.dorm import Dorm  # 住宿记录模型（判断换宿）
+from utils.media.room_meter_photo import RoomMeterManager  # 抄表照片管理
+from utils.media.room_meter_checkout_photo import RoomMeterCheckoutPhotoManager  # 退宿照片管理
 
 # 蓝图定义，前缀设为'/utility'便于区分系统其他模块
 utility_index_bp = Blueprint('utility_index', __name__, url_prefix='/utility')
@@ -171,6 +173,42 @@ def utility_room_records_detail():
                 'payable_fee': float(subrecord.payable_fee or 0)
             })
 
+        # 获取抄表照片
+        meter_media_files = RoomMeterManager.get_media_files(
+            billing_period=main_record.billing_period,
+            room_id=main_record.room_id
+        )
+        meter_media = []
+        for f in meter_media_files:
+            meter_media.append({
+                'filename': f['filename'],
+                'type': f['type'],
+                'url': RoomMeterManager.get_media_url(f['filename'], main_record.billing_period, main_record.room_id),
+                'upload_time': f['upload_time'].strftime('%Y-%m-%d %H:%M') if f.get('upload_time') else ''
+            })
+
+        # 获取退宿人员照片
+        checkout_media = {}
+        for co in checkout_occupants:
+            user_id = co['user_id']
+            files = RoomMeterCheckoutPhotoManager.get_media_files(
+                billing_period=main_record.billing_period,
+                room_id=main_record.room_id,
+                user_id=user_id
+            )
+            if files:
+                checkout_media[user_id] = {
+                    'user_name': co['user_name'],
+                    'files': []
+                }
+                for f in files:
+                    checkout_media[user_id]['files'].append({
+                        'filename': f['filename'],
+                        'type': f['type'],
+                        'url': RoomMeterCheckoutPhotoManager.get_media_url(f['filename'], main_record.billing_period, main_record.room_id, user_id),
+                        'upload_time': f['upload_time'].strftime('%Y-%m-%d %H:%M') if f.get('upload_time') else ''
+                    })
+
         # 整理抄表记录信息
         meter_records = {
             'electric': {
@@ -226,7 +264,9 @@ def utility_room_records_detail():
                 'water': float(main_record.checked_out_water_fee or 0),
                 'total': float(main_record.checked_out_total_fee or 0)
             },
-            'meter_records': meter_records
+            'meter_records': meter_records,
+            'meter_media': meter_media,
+            'checkout_media': checkout_media
         }
 
         log_operation(

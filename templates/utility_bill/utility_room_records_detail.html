@@ -49,6 +49,15 @@
   </style>
   
   <style>
+    dialog::backdrop {
+      background: rgba(0, 0, 0, 0.8);
+    }
+    dialog[open] {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: auto;
+    }
     /* 基础动画效果 */
     .fade-in {
       animation: fadeIn 0.5s ease-in-out;
@@ -495,11 +504,115 @@
       </div>
       {% endif %}
     </div>
-
+    
+    <!-- 抄表记录照片 -->
+    {% if record_data.meter_media or (record_data.checkout_media and record_data.checkout_media|length > 0) %}
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4">
+      {% set ns = namespace(checkout_total=0) %}
+      {% for user_id, media_data in (record_data.checkout_media or {}).items() %}
+        {% set ns.checkout_total = ns.checkout_total + media_data.files|length %}
+      {% endfor %}
+      <h3 class="text-lg font-semibold text-gray-800 mb-3">
+        <i class="fa fa-camera mr-2 text-gray-500"></i>抄表记录照片
+        <span class="text-sm text-gray-500 ml-2">({{ (record_data.meter_media or [])|length + ns.checkout_total }}张)</span>
+      </h3>
+      <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+        {% for file in (record_data.meter_media or []) %}
+        <div class="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+          {% if file.type == 'image' %}
+          <div class="relative h-48 overflow-hidden cursor-pointer" onclick="showImage('{{ file.url }}')">
+            <img src="{{ file.url }}" alt="抄表照片" class="w-full h-full object-cover">
+          </div>
+          {% else %}
+          <div class="relative h-48 overflow-hidden cursor-pointer" onclick="showVideo('{{ file.url }}')">
+            <video class="w-full h-full object-cover" preload="metadata">
+              <source src="{{ file.url }}" type="video/mp4">
+            </video>
+            <div class="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30">
+              <i class="fa fa-play-circle text-white text-4xl opacity-80"></i>
+            </div>
+          </div>
+          {% endif %}
+          <div class="p-2 text-xs text-gray-600 truncate" title="{{ file.filename }}">
+            {{ file.filename }}
+            {% if file.upload_time %}<br>{{ file.upload_time }}{% endif %}
+          </div>
+        </div>
+        {% endfor %}
+        {% for user_id, media_data in (record_data.checkout_media or {}).items() %}
+        {% for file in media_data.files %}
+        <div class="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+          {% if file.type == 'image' %}
+          <div class="relative h-48 overflow-hidden cursor-pointer" onclick="showImage('{{ file.url }}')">
+            <img src="{{ file.url }}" alt="退宿抄表照片" class="w-full h-full object-cover">
+          </div>
+          {% else %}
+          <div class="relative h-48 overflow-hidden cursor-pointer" onclick="showVideo('{{ file.url }}')">
+            <video class="w-full h-full object-cover" preload="metadata">
+              <source src="{{ file.url }}" type="video/mp4">
+            </video>
+            <div class="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30">
+              <i class="fa fa-play-circle text-white text-4xl opacity-80"></i>
+            </div>
+          </div>
+          {% endif %}
+          <div class="p-2 text-xs text-gray-600 truncate" title="{{ file.filename }}">
+            {{ file.filename }}
+            {% if file.upload_time %}<br>{{ file.upload_time }}{% endif %}
+            <div class="text-xs text-blue-600">退宿: {{ media_data.user_name }} (ID: {{ user_id }})</div>
+          </div>
+        </div>
+        {% endfor %}
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+    
     {% endif %}
   </main>
   
+  <!-- 图片预览对话框 -->
+  <dialog id="imageDialog" class="max-w-4xl w-full p-0 bg-transparent" onclick="if(event.target===this)this.close()">
+    <div class="relative">
+      <button onclick="document.getElementById('imageDialog').close()" class="absolute top-2 right-2 text-white text-2xl z-10 w-8 h-8 flex items-center justify-center bg-black bg-opacity-50 rounded-full hover:bg-opacity-70">&times;</button>
+      <img id="dialogImage" src="" alt="预览" class="w-full max-h-[80vh] object-contain">
+    </div>
+  </dialog>
+
+  <!-- 视频预览对话框 -->
+  <dialog id="videoDialog" class="max-w-4xl w-full p-0 bg-transparent" onclick="if(event.target===this)this.close()">
+    <div class="relative">
+      <button onclick="document.getElementById('videoDialog').close()" class="absolute top-2 right-2 text-white text-2xl z-10 w-8 h-8 flex items-center justify-center bg-black bg-opacity-50 rounded-full hover:bg-opacity-70">&times;</button>
+      <video id="dialogVideo" controls class="w-full max-h-[80vh]">
+        <source id="dialogVideoSource" src="" type="video/mp4">
+      </video>
+    </div>
+  </dialog>
+
   <!-- 页脚 -->
   {% include 'footer.html' %}
+
+<script>
+function showImage(url) {
+  document.getElementById('dialogImage').src = url;
+  document.getElementById('imageDialog').showModal();
+}
+function showVideo(url) {
+  var v = document.getElementById('dialogVideo');
+  document.getElementById('dialogVideoSource').src = url;
+  v.load();
+  v.play().catch(function() {});
+  document.getElementById('videoDialog').showModal();
+}
+document.getElementById('videoDialog').addEventListener('close', function() {
+  document.getElementById('dialogVideo').pause();
+});
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    document.getElementById('imageDialog').close();
+    document.getElementById('videoDialog').close();
+  }
+});
+</script>
 </body>
 </html>

@@ -64,7 +64,7 @@
                         <a href="{{ url_for('utility_index.utility_room_records_bill', billing_period=billing_period) }}" class="text-gray-600 hover:text-primary transition-colors mr-4">
                             <i class="fa fa-arrow-left"></i>
                         </a>
-                        <h2 class="text-[clamp(1.5rem,3vw,2rem)] font-bold">{{ title }}</h2>
+                        <h2 class="text-[clamp(1.5rem,3vw,2rem)] font-bold">{{ title }}<span class="text-gray-500 ml-2 text-base font-normal">(ID: {{ record.record_id }})</span></h2>
                     </div>
                 </div>
                 <div class="mt-4 md:mt-0">
@@ -91,7 +91,17 @@
 
         <!-- 房间基本信息卡片 -->
         <div class="bg-white rounded-xl shadow-md p-6 mb-6">
-            <h3 class="text-lg font-semibold mb-4 border-b pb-2">房间信息 <span class="text-sm font-normal text-gray-500 ml-2">记录ID：{{ record.record_id }}</span></h3>
+            <h3 class="text-lg font-semibold mb-4 border-b pb-2">房间信息
+  {% if record.status == 'completed' %}
+  <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 ml-2">已完成</span>
+  {% elif record.status == 'calculated' %}
+  <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800 ml-2">已核算</span>
+  {% elif record.status == 'processing' %}
+  <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 ml-2">核算中</span>
+  {% else %}
+  <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 ml-2">待处理</span>
+  {% endif %}
+</h3>
             <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
                 <div>
                     <span class="info-label">房间号：</span>
@@ -105,20 +115,7 @@
                     <span class="info-label">账期范围：</span>
                     <span class="info-value">{{ record.start_date.strftime('%Y-%m-%d') if record.start_date else '-' }} 至 {{ record.end_date.strftime('%Y-%m-%d') if record.end_date else '-' }}</span>
                 </div>
-                <div>
-                    <span class="info-label">状态：</span>
-                    <span class="info-value">
-                        {% if record.status == 'completed' %}
-                        <span class="text-green-600">已完成</span>
-                        {% elif record.status == 'calculated' %}
-                        <span class="badge bg-success">已核算</span>
-                        {% elif record.status == 'processing' %}
-                        <span class="text-yellow-600">核算中</span>
-                        {% else %}
-                        <span class="text-gray-600">待处理</span>
-                        {% endif %}
-                    </span>
-                </div>
+
             </div>
         </div>
 
