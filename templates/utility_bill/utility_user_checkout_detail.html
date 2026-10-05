@@ -95,7 +95,7 @@
                             </div>
                             <div>
                                 <h4 class="text-sm text-gray-500">归属账期</h4>
-                                <p class="font-medium">{{ billing_period }}</p>
+                                <p class="font-medium"><a href="{{ url_for('utility_index.utility_room_records_detail') }}?record_id={{ checkout_record.record_id }}" class="text-primary hover:text-primary/80 hover:underline">{{ billing_period }}</a></p>
                             </div>
                             <div>
                                 <h4 class="text-sm text-gray-500">入住日期</h4>
