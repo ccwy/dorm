@@ -22,20 +22,20 @@ class RoomMeterCheckoutPhotoManager:
         # 检查是否是Docker环境
         if os.environ.get('DOCKER_ENV') == 'true':
             # Docker环境下，数据存储在/data目录
-            media_root = '/data/room_meter_photo'
+            media_root = '/data/photo/room_meter_photo'
         # 检查是否是Android环境
         elif os.environ.get('ANDROID_ENV', 'false').lower() == 'true':
-            media_root = os.path.join(os.environ.get('APP_DATA_DIR', '/data'), 'room_meter_photo')
+            media_root = os.path.join(os.environ.get('APP_DATA_DIR', '/data'), 'photo', 'room_meter_photo')
         # 检查是否是PyInstaller打包环境
         elif getattr(sys, 'frozen', False):
             # 获取打包后可执行文件所在目录
             app_dir = os.path.dirname(os.path.abspath(sys.executable))
-            # 在可执行文件同级目录创建data/room_meter_photo
-            media_root = os.path.join(app_dir, 'data', 'room_meter_photo')
+            # 在可执行文件同级目录创建data/photo/room_meter_photo
+            media_root = os.path.join(app_dir, 'data', 'photo', 'room_meter_photo')
         else:
             # 开发环境下使用相对路径
             app_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-            media_root = os.path.join(app_root, 'data', 'room_meter_photo')
+            media_root = os.path.join(app_root, 'data', 'photo', 'room_meter_photo')
         
         # 确保目录存在
         os.makedirs(media_root, exist_ok=True)
@@ -55,7 +55,7 @@ class RoomMeterCheckoutPhotoManager:
             str: 退宿照片目录的绝对路径
         """
         media_root = RoomMeterCheckoutPhotoManager.get_media_root_dir()
-        # 构建目录路径：data/room_meter_photo/{账期}/{房间ID}/checkout/{用户ID}
+        # 构建目录路径：data/photo/room_meter_photo/{账期}/{房间ID}/checkout/{用户ID}
         checkout_dir = os.path.join(
             media_root,
             secure_filename(billing_period),
@@ -310,7 +310,7 @@ class RoomMeterCheckoutPhotoManager:
         """获取临时上传目录的根目录
         
         临时文件存储在 media_root 的 __temp__ 子目录下，
-        按 room_id/checkout/user_id 组织：data/room_meter_photo/__temp__/{room_id}/checkout/{user_id}/
+        按 room_id/checkout/user_id 组织：data/photo/room_meter_photo/__temp__/{room_id}/checkout/{user_id}/
         
         Args:
             create: 是否自动创建目录，默认True。查询时传False避免空目录产生。
