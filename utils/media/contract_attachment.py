@@ -40,7 +40,7 @@ class ContractAttachmentManager:
             app_dir = os.path.dirname(os.path.abspath(sys.executable))
             media_root = os.path.join(app_dir, 'data', 'photo', 'contract_attachments')
         else:
-            app_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            app_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
             media_root = os.path.join(app_root, 'data', 'photo', 'contract_attachments')
 
         os.makedirs(media_root, exist_ok=True)

@@ -36,7 +36,7 @@ class TicketPhotoManager:
             media_root = os.path.join(app_dir, 'data', 'photo', 'ticket_photo')
         else:
             # 开发环境下使用相对路径
-            app_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            app_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
             media_root = os.path.join(app_root, 'data', 'photo', 'ticket_photo')
         
         # 确保目录存在

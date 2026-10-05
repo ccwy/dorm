@@ -925,13 +925,14 @@
                                 ${canEdit ? `<a href="javascript:void(0)" onclick="checkout_id(${occupant.id})" class="text-primary hover:underline">${formatCurrency(occupant.payable_fee)}</a>` : formatCurrency(occupant.payable_fee)}
               </td>
               <td class="px-6 py-4 whitespace-nowrap text-sm">
-                <button type="button" onclick="loadCheckoutMediaFiles('${data.billing_period}', '${data.room_info.room_id}', '${occupant.id}')" class="text-primary hover:underline text-sm">
+                <button type="button" data-billing-period="${data.billing_period}" data-room-id="${data.room_info.room_id}" data-checkout-id="${occupant.id}" onclick="loadCheckoutMediaFiles(this.dataset.billingPeriod, this.dataset.roomId, this.dataset.checkoutId)" class="text-primary hover:underline text-sm">
                   <i class="fa fa-image mr-1"></i>查看照片
                 </button>
               </td>
             `;
             
             checkoutTableBody.appendChild(row);
+          });
           
           // 计算退宿人员汇总
           calculateCheckoutSummary(data.checkout_occupants);
@@ -1070,7 +1071,7 @@
               html += `
                 <div class="media-item bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow">
                   <div class="relative h-48 overflow-hidden">
-                    <img src="${file.url}" alt="抄表照片" class="w-full h-full object-cover cursor-pointer" onclick="showImageModal('${file.url}')">
+                    <img src="${file.url}" alt="抄表照片" class="w-full h-full object-cover cursor-pointer" data-url="${file.url}" onclick="showImageModal(this.dataset.url)">
                   </div>
                   <div class="p-2 text-xs text-gray-600">
                     文件名：${file.filename}<br>
@@ -1089,7 +1090,7 @@
                       您的浏览器不支持视频播放
                     </video>
                     <!-- 播放图标覆盖层 - 添加点击事件 -->
-                    <div class="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30 cursor-pointer z-0" onclick="openVideoModal('${file.url}')">
+                    <div class="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30 cursor-pointer z-0" data-url="${file.url}" onclick="openVideoModal(this.dataset.url)">
                       <i class="fa fa-play-circle text-white text-4xl opacity-80"></i>
                     </div>
                   </div>
@@ -1276,7 +1277,7 @@
               html += `
                 <div class="media-item bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow">
                   <div class="relative h-48 overflow-hidden">
-                    <img src="${file.url}" alt="退宿照片" class="w-full h-full object-cover cursor-pointer" onclick="showImageModal('${file.url}')">
+                    <img src="${file.url}" alt="退宿照片" class="w-full h-full object-cover cursor-pointer" data-url="${file.url}" onclick="showImageModal(this.dataset.url)">
                   </div>
                   <div class="p-2 text-xs text-gray-600">
                     文件名：${file.filename}<br>
@@ -1292,7 +1293,7 @@
                       <source src="${file.url}" type="video/mp4">
                       您的浏览器不支持视频播放
                     </video>
-                    <div class="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30 cursor-pointer z-0" onclick="openVideoModal('${file.url}')">
+                    <div class="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30 cursor-pointer z-0" data-url="${file.url}" onclick="openVideoModal(this.dataset.url)">
                       <i class="fa fa-play-circle text-white text-4xl opacity-80"></i>
                     </div>
                   </div>

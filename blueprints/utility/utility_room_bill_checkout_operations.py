@@ -16,7 +16,7 @@ from .utility_room_bill_checkout import utility_room_bill_checkout_bp  # 导入�
 from models.fee_subsidy.fee_subsidy_usage import FeeSubsidyUsage  # 导入费用补贴使用记录模型
 # 导入权限装饰器
 from utils.auth import require_permission
-from utils.media.checkout_photo import checkout_photo_manager  # 导入退宿照片管理器
+from utils.media.room_meter_checkout_photo import checkout_photo_manager  # 导入退宿照片管理器
 
 @utility_room_bill_checkout_bp.route('/create', methods=['POST'])
 @login_required

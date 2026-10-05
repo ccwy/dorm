@@ -6,7 +6,7 @@ from datetime import datetime
 from flask_login import login_required, current_user
 from utils.auth import require_permission
 from utils.log import log_operation
-from utils.media.checkout_photo import checkout_photo_manager
+from utils.media.room_meter_checkout_photo import checkout_photo_manager
 
 utility_checkout_photo_bp = Blueprint('utility_checkout_photo', __name__, url_prefix='/utility-checkout')
 
