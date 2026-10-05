@@ -11,7 +11,7 @@ from models.department.department import Department
 from models.fixed_asset.fixed_asset import FixedAsset
 from models.fixed_asset.asset_operation_record import AssetOperationRecord
 from models.supply.supply_item import SupplyItem
-from utils.asset_photo import AssetPhotoManager
+from utils.media.asset_photo import AssetPhotoManager
 from config import Config
 from models.room.room import Room
 from models.user.user import User

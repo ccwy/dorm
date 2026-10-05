@@ -9,7 +9,7 @@ from models.utility.utility_room_bill_record import RoomUtilityRecord
 from config import Config
 from flask_login import login_required, current_user
 from utils.log import log_operation
-from utils.room_meter_photo import room_meter_manager
+from utils.media.room_meter_photo import room_meter_manager
 import traceback
 from datetime import datetime
 

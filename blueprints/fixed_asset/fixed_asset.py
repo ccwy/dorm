@@ -11,7 +11,7 @@ from models.user.user import User
 from models.supply.supplier import Supplier
 from models.supply.storage_location import StorageLocation
 from models.supply.supply_item import SupplyItem
-from utils.asset_photo import AssetPhotoManager
+from utils.media.asset_photo import AssetPhotoManager
 from flask_login import login_required, current_user
 from utils.log import log_operation
 from utils.auth import require_permission

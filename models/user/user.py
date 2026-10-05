@@ -240,7 +240,7 @@ class User(UserMixin, db.Model):
             from models.utility.utility_room_bill_occupant import RoomUtilityOccupant
             # 导入留言相关模型和工具
             from models.ticket.ticket import Ticket
-            from utils.ticket_photo import ticket_photo_manager
+            from utils.media.ticket_photo import ticket_photo_manager
             
             # 检查当前操作人是否为超级管理员（拥有级联删除权限）
             is_super = current_user.is_authenticated and current_user.user_role and current_user.user_role.code == 'super_admin'

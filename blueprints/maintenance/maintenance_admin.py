@@ -4,7 +4,7 @@ from models.maintenance import MaintenanceOrder, MaintenanceReply
 from models.user.user import User
 from models.role import Role
 from models.system_config.system_config import SystemConfig
-from utils.maintenance_photo import MaintenancePhotoManager
+from utils.media.maintenance_photo import MaintenancePhotoManager
 from flask_login import login_required, current_user
 from sqlalchemy import or_
 from sqlalchemy.orm import joinedload

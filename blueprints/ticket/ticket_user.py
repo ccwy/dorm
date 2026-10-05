@@ -140,7 +140,7 @@ def ticket_detail(ticket_id):
         replies = TicketReply.query.filter_by(ticket_id=ticket_id).order_by(TicketReply.created_at).all()
         
         # 获取留言媒体文件
-        from utils.ticket_photo import TicketPhotoManager
+        from utils.media.ticket_photo import TicketPhotoManager
         media_files = TicketPhotoManager.get_media_files(ticket_id)
         
         # 记录操作日志
@@ -315,7 +315,7 @@ def serve_ticket_media(ticket_id, filename):
             abort(403)
         
         # 导入TicketPhotoManager类
-        from utils.ticket_photo import TicketPhotoManager
+        from utils.media.ticket_photo import TicketPhotoManager
         
         # 获取文件的完整路径
         file_path = TicketPhotoManager.get_file_path(filename, ticket_id)
@@ -412,7 +412,7 @@ def upload_ticket_media(ticket_id):
         file.seek(0)  # 重置文件指针
         
         # 导入TicketPhotoManager类
-        from utils.ticket_photo import TicketPhotoManager
+        from utils.media.ticket_photo import TicketPhotoManager
         
         # 上传文件
         uploaded_filename = TicketPhotoManager.upload_file(file, ticket_id)
@@ -468,7 +468,7 @@ def delete_ticket_media(ticket_id, filename):
             return redirect(url_for('ticket_user.ticket_detail', ticket_id=ticket_id))
         
         # 导入TicketPhotoManager类
-        from utils.ticket_photo import TicketPhotoManager
+        from utils.media.ticket_photo import TicketPhotoManager
         
         # 检查文件是否存在
         file_path = TicketPhotoManager.get_file_path(filename, ticket_id)

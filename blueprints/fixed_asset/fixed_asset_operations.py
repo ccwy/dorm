@@ -6,7 +6,7 @@ from models.fixed_asset.asset_operation_record import AssetOperationRecord
 from models.fixed_asset.asset_inventory import AssetInventory
 from models.fixed_asset.asset_inventory_detail import AssetInventoryDetail
 from utils.log import log_operation
-from utils.asset_photo import AssetPhotoManager
+from utils.media.asset_photo import AssetPhotoManager
 from utils.auth import require_permission
 from models.system_config.system_config import SystemConfig
 from models.department.department import Department

@@ -345,7 +345,7 @@ def detail(todo_id):
     
     # 获取媒体文件，添加错误处理
     try:
-        from utils.todo_photo import TodoMediaManager
+        from utils.media.todo_photo import TodoMediaManager
         media_files = TodoMediaManager.get_media_files(todo_id)
     except Exception as e:
         logging.error(f"获取待办事项媒体文件时发生错误: {str(e)}")

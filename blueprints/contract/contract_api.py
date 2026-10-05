@@ -9,7 +9,7 @@ from utils.auth import require_permission
 from models.contract.contract import Contract
 from models.contract.contract_operation_record import ContractOperationRecord
 from models.supply.supplier import Supplier
-from utils.contract_attachment import ContractAttachmentManager
+from utils.media.contract_attachment import ContractAttachmentManager
 from sqlalchemy.orm import aliased
 from datetime import datetime
 

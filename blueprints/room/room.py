@@ -10,7 +10,7 @@ import logging
 from utils.auth import require_permission
 from models.utility.utility_room_bill_record import RoomUtilityRecord
 from models.room.room_facility import RoomFacility  # 新增：导入房间设施模型
-from utils.room_photo import RoomPhotoManager
+from utils.media.room_photo import RoomPhotoManager
 
 # 定义蓝图
 room_bp = Blueprint(

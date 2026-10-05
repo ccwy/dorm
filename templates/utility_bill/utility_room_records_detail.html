@@ -433,6 +433,9 @@
                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   实际应付
                 </th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  照片
+                </th>
               </tr>
             </thead>
             <tbody id="checkout-occupants-table-body" class="bg-white divide-y divide-gray-200">
@@ -463,6 +466,7 @@
                 <td class="px-6 py-4 whitespace-nowrap font-bold" id="checkout-summary-total-payable">
                   ¥0.00
                 </td>
+                <td class="px-6 py-4 whitespace-nowrap"></td>
               </tr>
             </tfoot>
           </table>
@@ -507,6 +511,33 @@
         <i class="fa fa-times"></i>
       </button>
       <video id="modalVideo" controls autoplay class="max-w-full max-h-[80vh] object-contain"></video>
+    </div>
+  </div>
+  
+  <!-- 退宿照片查看模态框 -->
+  <div id="checkoutPhotoModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50 hidden">
+    <div class="bg-white rounded-lg shadow-xl w-full max-w-4xl mx-4 max-h-[90vh] flex flex-col">
+      <div class="flex items-center justify-between p-4 border-b">
+        <h3 class="text-lg font-semibold text-gray-800">退宿照片/视频</h3>
+        <button type="button" onclick="closeCheckoutPhotoModal()" class="text-gray-400 hover:text-gray-600">
+          <i class="fa fa-times text-xl"></i>
+        </button>
+      </div>
+      <div id="checkoutPhotoContent" class="p-6 overflow-y-auto flex-1">
+        <div id="checkoutPhotoLoading" class="text-center py-8">
+          <i class="fa fa-spinner fa-spin text-3xl text-primary mb-2"></i>
+          <p class="text-gray-500">加载中...</p>
+        </div>
+        <div id="checkoutPhotoGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 hidden"></div>
+        <div id="checkoutPhotoEmpty" class="text-center py-8 text-gray-500 hidden">
+          <i class="fa fa-file-image-o text-4xl mb-2"></i>
+          <p>暂无退宿照片/视频</p>
+        </div>
+        <div id="checkoutPhotoError" class="text-center py-8 text-red-500 hidden">
+          <i class="fa fa-exclamation-circle text-4xl mb-2"></i>
+          <p>加载退宿照片/视频失败</p>
+        </div>
+      </div>
     </div>
   </div>
       <!-- 页脚 -->
@@ -893,10 +924,14 @@
               <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-secondary">
                                 ${canEdit ? `<a href="javascript:void(0)" onclick="checkout_id(${occupant.id})" class="text-primary hover:underline">${formatCurrency(occupant.payable_fee)}</a>` : formatCurrency(occupant.payable_fee)}
               </td>
+              <td class="px-6 py-4 whitespace-nowrap text-sm">
+                <button type="button" onclick="loadCheckoutMediaFiles('${data.billing_period}', '${data.room_info.room_id}', '${occupant.id}')" class="text-primary hover:underline text-sm">
+                  <i class="fa fa-image mr-1"></i>查看照片
+                </button>
+              </td>
             `;
             
             checkoutTableBody.appendChild(row);
-          });
           
           // 计算退宿人员汇总
           calculateCheckoutSummary(data.checkout_occupants);
@@ -1202,6 +1237,110 @@
           closeVideoModal();
         }
       });
+    });
+    
+    // ===== 退宿照片查看功能 =====
+    
+    // 加载退宿照片文件列表
+    async function loadCheckoutMediaFiles(billingPeriod, roomId, checkoutId) {
+      const modal = document.getElementById('checkoutPhotoModal');
+      const loading = document.getElementById('checkoutPhotoLoading');
+      const grid = document.getElementById('checkoutPhotoGrid');
+      const empty = document.getElementById('checkoutPhotoEmpty');
+      const error = document.getElementById('checkoutPhotoError');
+      
+      // 显示模态框和加载状态
+      modal.classList.remove('hidden');
+      loading.classList.remove('hidden');
+      grid.classList.add('hidden');
+      empty.classList.add('hidden');
+      error.classList.add('hidden');
+      document.body.style.overflow = 'hidden';
+      
+      try {
+        const response = await fetch(`/utility-checkout/get_media_files?billing_period=${billingPeriod}&room_id=${roomId}&checkout_id=${checkoutId}`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include'
+        });
+        
+        const result = await response.json();
+        
+        loading.classList.add('hidden');
+        
+        if (result.success && result.files && result.files.length > 0) {
+          let html = '';
+          result.files.forEach(file => {
+            const isImage = file.type === 'image';
+            if (isImage) {
+              html += `
+                <div class="media-item bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                  <div class="relative h-48 overflow-hidden">
+                    <img src="${file.url}" alt="退宿照片" class="w-full h-full object-cover cursor-pointer" onclick="showImageModal('${file.url}')">
+                  </div>
+                  <div class="p-2 text-xs text-gray-600">
+                    文件名：${file.filename}<br>
+                    上传时间：${new Date(file.upload_time).toLocaleString()}
+                  </div>
+                </div>
+              `;
+            } else {
+              html += `
+                <div class="media-item bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                  <div class="relative h-48 overflow-hidden">
+                    <video class="w-full h-full object-cover" poster="" preload="metadata">
+                      <source src="${file.url}" type="video/mp4">
+                      您的浏览器不支持视频播放
+                    </video>
+                    <div class="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30 cursor-pointer z-0" onclick="openVideoModal('${file.url}')">
+                      <i class="fa fa-play-circle text-white text-4xl opacity-80"></i>
+                    </div>
+                  </div>
+                  <div class="p-2 text-xs text-gray-600">
+                    文件名：${file.filename}<br>
+                    上传时间：${new Date(file.upload_time).toLocaleString()}
+                  </div>
+                </div>
+              `;
+            }
+          });
+          grid.innerHTML = html;
+          grid.classList.remove('hidden');
+        } else {
+          empty.classList.remove('hidden');
+        }
+      } catch (err) {
+        console.error('加载退宿照片失败:', err);
+        loading.classList.add('hidden');
+        error.classList.remove('hidden');
+      }
+    }
+    
+    // 关闭退宿照片模态框
+    function closeCheckoutPhotoModal() {
+      const modal = document.getElementById('checkoutPhotoModal');
+      modal.classList.add('hidden');
+      document.body.style.overflow = '';
+    }
+    
+    // 点击ESC关闭退宿照片模态框
+    document.addEventListener('keydown', function(event) {
+      const modal = document.getElementById('checkoutPhotoModal');
+      if (event.key === 'Escape' && modal && !modal.classList.contains('hidden')) {
+        closeCheckoutPhotoModal();
+      }
+    });
+    
+    // 点击背景关闭退宿照片模态框
+    document.addEventListener('DOMContentLoaded', function() {
+      const modal = document.getElementById('checkoutPhotoModal');
+      if (modal) {
+        modal.addEventListener('click', function(event) {
+          if (event.target === modal) {
+            closeCheckoutPhotoModal();
+          }
+        });
+      }
     });
   </script>
 </body>

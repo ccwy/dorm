@@ -10,7 +10,7 @@ from datetime import datetime
 from utils.auth import require_permission
 import logging
 import os
-from utils.ticket_photo import ticket_photo_manager
+from utils.media.ticket_photo import ticket_photo_manager
 from utils.log import log_operation
 
 # 创建管理端留言蓝图

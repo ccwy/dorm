@@ -403,6 +403,37 @@
                     class="w-full px-4 py-2 border border-gray-300 rounded-md form-input-focus">{{ checkout_record.remarks or '' }}</textarea>
             </div>
 
+            <!-- 退宿照片/视频管理区 -->
+            <div class="bg-white rounded-xl shadow-sm p-6 mb-6 card-hover">
+                <div class="flex items-center mb-4">
+                    <div class="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center mr-2">
+                        <i class="fa fa-camera text-primary"></i>
+                    </div>
+                    <h3 class="text-lg font-semibold">退宿照片/视频</h3>
+                </div>
+                
+                {% if current_user.has_permission('utility.edit') %}
+                <!-- 上传按钮 -->
+                <div class="mb-4">
+                    <label class="inline-flex items-center px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90 cursor-pointer btn-effect">
+                        <i class="fa fa-upload mr-2"></i>上传照片/视频
+                        <input type="file" id="checkoutFileInput" class="hidden" accept="image/*,video/*" onchange="uploadCheckoutFile()">
+                    </label>
+                    <span id="checkoutUploadStatus" class="ml-3 text-sm text-gray-500 hidden">
+                        <i class="fa fa-spinner fa-spin mr-1"></i>上传中...
+                    </span>
+                </div>
+                {% endif %}
+                
+                <!-- 已上传媒体预览 -->
+                <div id="checkoutMediaPreviewContainer" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 mt-4">
+                    <div id="checkoutNoMediaMessage" class="col-span-full text-center py-6 text-gray-500">
+                        <i class="fa fa-file-image-o text-4xl mb-2"></i>
+                        <p>暂无退宿照片/视频</p>
+                    </div>
+                </div>
+            </div>
+
             <!-- 操作按钮 -->
             <div class="flex justify-end space-x-3 pt-4">
                 <button type="button" class="px-6 py-2 border border-neutral text-neutral rounded-md hover:bg-gray-50 transition-colors btn-effect" onclick="window.history.back()">
@@ -425,6 +456,26 @@
     <div id="errorToast" class="fixed bottom-6 right-6 bg-danger text-white px-6 py-3 rounded-lg shadow-lg transform translate-y-20 opacity-0 transition-all duration-300 flex items-center">
         <i class="fa fa-exclamation-circle mr-2"></i>
         <span id="errorToastText">操作失败，请重试</span>
+    </div>
+
+    <!-- 图片预览模态框 -->
+    <div id="checkoutImageModal" class="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 hidden">
+        <div class="relative max-w-[90%] max-h-[90%]">
+            <button type="button" onclick="closeCheckoutImageModal()" class="absolute -top-12 right-0 text-white text-2xl hover:text-gray-300 transition-colors">
+                <i class="fa fa-times"></i>
+            </button>
+            <img id="checkoutModalImage" src="" alt="原图预览" class="max-w-full max-h-[80vh] object-contain">
+        </div>
+    </div>
+    
+    <!-- 视频播放模态框 -->
+    <div id="checkoutVideoModal" class="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 hidden">
+        <div class="relative max-w-[90%] max-h-[90%]">
+            <button type="button" onclick="closeCheckoutVideoModal()" class="absolute -top-12 right-0 text-white text-2xl hover:text-gray-300 transition-colors">
+                <i class="fa fa-times"></i>
+            </button>
+            <video id="checkoutModalVideo" controls autoplay class="max-w-full max-h-[80vh] object-contain"></video>
+        </div>
     </div>
 
     <!-- 页脚 -->
@@ -588,6 +639,215 @@
                 toast.classList.add('translate-y-20', 'opacity-0');
             }, 3000);
         }
+
+        // ===== 退宿照片/视频管理 =====
+        var checkoutBillingPeriod = '{{ billing_period }}';
+        var checkoutRoomId = '{{ room.id }}';
+        var checkoutId = '{{ checkout_record.id }}';
+        
+        // 页面加载时获取退宿照片列表
+        document.addEventListener('DOMContentLoaded', function() {
+            loadCheckoutMediaFiles();
+        });
+        
+        // 加载退宿照片文件列表
+        async function loadCheckoutMediaFiles() {
+            try {
+                var response = await fetch('/utility-checkout/get_media_files?billing_period=' + checkoutBillingPeriod + '&room_id=' + checkoutRoomId + '&checkout_id=' + checkoutId, {
+                    method: 'GET',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include'
+                });
+                
+                var result = await response.json();
+                var container = document.getElementById('checkoutMediaPreviewContainer');
+                container.innerHTML = '';
+                
+                if (result.success && result.files && result.files.length > 0) {
+                    var html = '';
+                    result.files.forEach(function(file) {
+                        var isImage = file.type === 'image';
+                        if (isImage) {
+                            html += '<div class="media-item bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow">';
+                            html += '  <div class="relative h-48 overflow-hidden">';
+                            html += '    <img src="' + file.url + '" alt="退宿照片" class="w-full h-full object-cover cursor-pointer" onclick="showCheckoutImageModal(\'' + file.url + '\')">';
+                            html += '  </div>';
+                            html += '  <div class="p-2 text-xs text-gray-600">';
+                            html += '    文件名：' + file.filename + '<br>';
+                            html += '    上传时间：' + new Date(file.upload_time).toLocaleString();
+                            html += '  </div>';
+                            {% if current_user.has_permission('utility.edit') %}
+                            html += '  <div class="p-2 pt-0">';
+                            html += '    <button type="button" onclick="deleteCheckoutFile(\'' + file.filename + '\')" class="text-red-500 hover:text-red-700 text-xs"><i class="fa fa-trash-o mr-1"></i>删除</button>';
+                            html += '  </div>';
+                            {% endif %}
+                            html += '</div>';
+                        } else {
+                            html += '<div class="media-item bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow">';
+                            html += '  <div class="relative h-48 overflow-hidden">';
+                            html += '    <video class="w-full h-full object-cover" poster="" preload="metadata">';
+                            html += '      <source src="' + file.url + '" type="video/mp4">';
+                            html += '      您的浏览器不支持视频播放';
+                            html += '    </video>';
+                            html += '    <div class="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30 cursor-pointer z-0" onclick="openCheckoutVideoModal(\'' + file.url + '\')">';
+                            html += '      <i class="fa fa-play-circle text-white text-4xl opacity-80"></i>';
+                            html += '    </div>';
+                            html += '  </div>';
+                            html += '  <div class="p-2 text-xs text-gray-600">';
+                            html += '    文件名：' + file.filename + '<br>';
+                            html += '    上传时间：' + new Date(file.upload_time).toLocaleString();
+                            html += '  </div>';
+                            {% if current_user.has_permission('utility.edit') %}
+                            html += '  <div class="p-2 pt-0">';
+                            html += '    <button type="button" onclick="deleteCheckoutFile(\'' + file.filename + '\')" class="text-red-500 hover:text-red-700 text-xs"><i class="fa fa-trash-o mr-1"></i>删除</button>';
+                            html += '  </div>';
+                            {% endif %}
+                            html += '</div>';
+                        }
+                    });
+                    container.innerHTML = html;
+                } else {
+                    container.innerHTML = '<div id="checkoutNoMediaMessage" class="col-span-full text-center py-6 text-gray-500"><i class="fa fa-file-image-o text-4xl mb-2"></i><p>暂无退宿照片/视频</p></div>';
+                }
+            } catch (error) {
+                console.error('加载退宿照片失败:', error);
+                var container = document.getElementById('checkoutMediaPreviewContainer');
+                container.innerHTML = '<div class="col-span-full text-center py-6 text-red-500"><i class="fa fa-exclamation-circle text-4xl mb-2"></i><p>加载退宿照片/视频失败</p></div>';
+            }
+        }
+        
+        // 上传退宿照片/视频
+        async function uploadCheckoutFile() {
+            var fileInput = document.getElementById('checkoutFileInput');
+            var statusSpan = document.getElementById('checkoutUploadStatus');
+            
+            if (!fileInput.files || fileInput.files.length === 0) return;
+            
+            var file = fileInput.files[0];
+            var formData = new FormData();
+            formData.append('file', file);
+            formData.append('billing_period', checkoutBillingPeriod);
+            formData.append('room_id', checkoutRoomId);
+            formData.append('checkout_id', checkoutId);
+            
+            statusSpan.classList.remove('hidden');
+            
+            try {
+                var response = await fetch('/utility-checkout/upload_media', {
+                    method: 'POST',
+                    body: formData,
+                    credentials: 'include'
+                });
+                
+                var result = await response.json();
+                
+                if (result.success) {
+                    loadCheckoutMediaFiles();
+                } else {
+                    alert('上传失败: ' + result.message);
+                }
+            } catch (error) {
+                console.error('上传退宿照片失败:', error);
+                alert('上传失败: ' + error.message);
+            } finally {
+                statusSpan.classList.add('hidden');
+                fileInput.value = '';
+            }
+        }
+        
+        // 删除退宿照片/视频
+        async function deleteCheckoutFile(filename) {
+            if (!confirm('确定要删除文件 "' + filename + '" 吗？')) return;
+            
+            try {
+                var response = await fetch('/utility-checkout/delete_media', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        billing_period: checkoutBillingPeriod,
+                        room_id: checkoutRoomId,
+                        checkout_id: checkoutId,
+                        filename: filename
+                    }),
+                    credentials: 'include'
+                });
+                
+                var result = await response.json();
+                
+                if (result.success) {
+                    loadCheckoutMediaFiles();
+                } else {
+                    alert('删除失败: ' + result.message);
+                }
+            } catch (error) {
+                console.error('删除退宿照片失败:', error);
+                alert('删除失败: ' + error.message);
+            }
+        }
+        
+        // 显示图片预览模态框
+        function showCheckoutImageModal(imageUrl) {
+            var modal = document.getElementById('checkoutImageModal');
+            var modalImage = document.getElementById('checkoutModalImage');
+            modalImage.src = imageUrl;
+            modal.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        }
+        
+        // 关闭图片预览模态框
+        function closeCheckoutImageModal() {
+            var modal = document.getElementById('checkoutImageModal');
+            modal.classList.add('hidden');
+            document.body.style.overflow = '';
+        }
+        
+        // 打开视频播放模态框
+        function openCheckoutVideoModal(videoUrl) {
+            var videoModal = document.getElementById('checkoutVideoModal');
+            var modalVideo = document.getElementById('checkoutModalVideo');
+            if (videoModal && modalVideo) {
+                modalVideo.src = videoUrl;
+                videoModal.classList.remove('hidden');
+                document.body.style.overflow = 'hidden';
+            }
+        }
+        
+        // 关闭视频播放模态框
+        function closeCheckoutVideoModal() {
+            var videoModal = document.getElementById('checkoutVideoModal');
+            var modalVideo = document.getElementById('checkoutModalVideo');
+            if (videoModal && modalVideo) {
+                modalVideo.pause();
+                modalVideo.src = '';
+                videoModal.classList.add('hidden');
+                document.body.style.overflow = '';
+            }
+        }
+        
+        // ESC键关闭模态框
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                closeCheckoutImageModal();
+                closeCheckoutVideoModal();
+            }
+        });
+        
+        // 点击背景关闭模态框
+        document.addEventListener('DOMContentLoaded', function() {
+            var imageModal = document.getElementById('checkoutImageModal');
+            var videoModal = document.getElementById('checkoutVideoModal');
+            
+            if (imageModal) {
+                imageModal.addEventListener('click', function(event) {
+                    if (event.target === imageModal) closeCheckoutImageModal();
+                });
+            }
+            if (videoModal) {
+                videoModal.addEventListener('click', function(event) {
+                    if (event.target === videoModal) closeCheckoutVideoModal();
+                });
+            }
+        });
     </script>
 </body>
 </html>

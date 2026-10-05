@@ -688,7 +688,7 @@ class RoomUtilityRecord(db.Model):
             
             # 调用工具删除该账期和房间的抄表记录照片
             try:
-                from utils.room_meter_photo import room_meter_manager
+                from utils.media.room_meter_photo import room_meter_manager
                 logging.info(f"尝试删除账期 {billing_period} 下房间 {room_id} 的抄表记录照片")
                 result = room_meter_manager.delete_media_by_billing_period(billing_period, room_id)
                 if result:

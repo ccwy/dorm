@@ -9,7 +9,7 @@ from models.system_config.system_config import SystemConfig
 from flask_login import login_required, current_user
 from utils.log import log_operation
 from utils.auth import require_permission
-from utils.contract_attachment import ContractAttachmentManager
+from utils.media.contract_attachment import ContractAttachmentManager
 import logging
 import re
 from datetime import date, timedelta

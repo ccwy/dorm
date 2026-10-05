@@ -504,7 +504,7 @@ class Room(db.Model):
             
             # 2.4 同步删除房间抄表记录照片（确保在费用主记录和抄表记录删除前能获取账期）
             try:
-                from utils.room_meter_photo import room_meter_manager
+                from utils.media.room_meter_photo import room_meter_manager
                 
                 # 使用工具类的方法删除房间所有抄表记录照片
                 logging.info(f"尝试删除房间 {self.id} 的所有抄表记录照片")
@@ -556,7 +556,7 @@ class Room(db.Model):
             
             # 3. 同步删除房间照片
             try:
-                from utils.room_photo import room_photo_manager
+                from utils.media.room_photo import room_photo_manager
                 
                 # 使用RoomPhotoManager提供的方法删除整个房间的媒体目录
                 success = room_photo_manager.delete_room_directory(self.id)

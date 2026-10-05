@@ -90,7 +90,7 @@ def execute_with_context(app, func):
 def cleanup_maintenance_temp_files():
     """清理超过24小时的维修临时文件"""
     try:
-        from utils.maintenance_photo import MaintenancePhotoManager
+        from utils.media.maintenance_photo import MaintenancePhotoManager
         result = MaintenancePhotoManager.cleanup_old_temp_files(max_age_hours=24)
         if result['deleted_files'] > 0 or result['deleted_dirs'] > 0:
             logging.info(f"维修临时文件定时清理: 删除 {result['deleted_files']} 个文件, "

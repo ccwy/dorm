@@ -8,7 +8,7 @@ from models.user.user import User
 from config import Config
 from flask_login import login_required, current_user
 from models.system_config.system_config import SystemConfig  # 新增：导入系统配置模型
-from utils.room_photo import RoomPhotoManager
+from utils.media.room_photo import RoomPhotoManager
 
 room_api_bp = Blueprint('room_api', __name__, url_prefix='/api/rooms')
 

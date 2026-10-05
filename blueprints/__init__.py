@@ -24,7 +24,8 @@ from .utility import (
     utility_room_bill_occupants_export_bp,
     utility_room_bill_records_export_bp,
     utility_room_bill_checkout_bp,
-    utility_user_records_bp
+    utility_user_records_bp,
+    utility_checkout_photo_bp
 )
 
 from .fee_subsidy import fee_subsidy_bp, fee_subsidy_import_export_bp  # 补贴蓝图（含导入导出）

@@ -7,7 +7,7 @@ from models.supply.supplier import Supplier
 from models.supply.storage_location import StorageLocation
 from utils.log import log_operation
 from utils.auth import require_permission
-from utils.contract_attachment import ContractAttachmentManager
+from utils.media.contract_attachment import ContractAttachmentManager
 import logging
 import traceback
 from datetime import datetime, date

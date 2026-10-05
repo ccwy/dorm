@@ -9,7 +9,7 @@ import logging
 from .room import room_bp  # 导入room蓝图
 import traceback
 from models.system_config.system_config import SystemConfig  # 新增：导入系统配置模型
-from utils.room_photo import RoomPhotoManager
+from utils.media.room_photo import RoomPhotoManager
 from datetime import datetime
 
 from utils.auth import require_permission

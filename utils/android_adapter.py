@@ -131,7 +131,8 @@ def ensure_data_dirs(data_dir):
     │   ├── contract_attachments/ ← 合同附件
     │   ├── room_meter_photo/ ← 水电表照片
     │   ├── todo_photo/      ← 待办照片
-    │   └── ticket_photo/    ← 工单照片
+    │   ├── ticket_photo/    ← 工单照片
+    │   └── checkout_photo/   ← 退宿照片
     ├── file_sharing/        ← 文件共享
     └── backups/             ← 数据库备份
     """
@@ -146,6 +147,7 @@ def ensure_data_dirs(data_dir):
         'photo/room_meter_photo',
         'photo/todo_photo',
         'photo/ticket_photo',
+        'photo/checkout_photo',
         'file_sharing',
         'backups',
         'logs',
