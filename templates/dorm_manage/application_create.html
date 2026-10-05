@@ -667,6 +667,7 @@
                     loadCheckoutPhotos();
                 } catch (error) { console.error('删除退宿照片失败:', error); alert(error.message || '删除失败'); }
             }
+            window.deleteCheckoutPhoto = deleteCheckoutPhoto;
 
             // 清理当前用户所有退宿临时照片
             async function clearCheckoutPhotos() {
@@ -688,10 +689,12 @@
                 document.getElementById('checkoutPreviewImage').src = url;
                 document.getElementById('checkoutImagePreviewModal').classList.remove('hidden');
             }
+            window.showCheckoutPhotoPreview = showCheckoutPhotoPreview;
 
             function closeCheckoutImagePreview() {
                 document.getElementById('checkoutImagePreviewModal').classList.add('hidden');
             }
+            window.closeCheckoutImagePreview = closeCheckoutImagePreview;
 
             // 初始化退宿照片上传事件
             (function initCheckoutPhotoEvents() {
