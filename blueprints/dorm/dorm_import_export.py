@@ -67,6 +67,8 @@ def export_residents():
 
         # 准备在住人员数据
         active_data = []
+        # 准备退宿人员数据
+        checkout_data = []
         # 准备全部人员数据（含退宿）
         all_data = []
         
@@ -148,6 +150,10 @@ def export_residents():
             }
             all_data.append(full_record)
             
+            # 退宿记录（用于"退宿人员"表）
+            if dorm.status != 'active':
+                checkout_data.append(full_record)
+            
             # 在住记录（用于"在住人员"表）
             if dorm.status == 'active':
                 active_record = {
@@ -161,21 +167,24 @@ def export_residents():
                 active_data.append(active_record)
         
         # 检查是否有数据可导出
-        if not all_data and not active_data:
+        if not all_data and not active_data and not checkout_data:
             flash('没有找到符合条件的人员数据', 'warning')
             return redirect(url_for('dorm.dorm_query'))
         
-        # 为两个表添加序号列
+        # 为三个表添加序号列
         for idx, record in enumerate(active_data, 1):
+            record['序号'] = idx
+        for idx, record in enumerate(checkout_data, 1):
             record['序号'] = idx
         for idx, record in enumerate(all_data, 1):
             record['序号'] = idx
         
         # 调整列顺序：序号在最前面
         active_columns = ['序号', '姓名', '性别', '年龄', '公司', '部门', '职位', '楼栋', '房间号', '入住日期', '住宿天数', '累计住宿天数']
+        checkout_columns = ['序号', '姓名', '性别', '年龄', '公司', '部门', '职位', '楼栋', '房间号', '入住日期', '退宿日期', '状态', '住宿天数', '累计住宿天数']
         all_columns = ['序号', '姓名', '性别', '年龄', '公司', '部门', '职位', '楼栋', '房间号', '入住日期', '退宿日期', '状态', '住宿天数', '累计住宿天数']
         
-        # 生成Excel文件（包含两个工作表）
+        # 生成Excel文件（包含三个工作表）
         output = BytesIO()
         with pd.ExcelWriter(output, engine='openpyxl') as writer:
             # 在住人员表
@@ -184,6 +193,12 @@ def export_residents():
                 # 按指定列顺序输出
                 df_active = df_active[active_columns]
                 df_active.to_excel(writer, index=False, sheet_name='在住人员')
+            # 退宿人员表
+            if checkout_data:
+                df_checkout = pd.DataFrame(checkout_data)
+                # 按指定列顺序输出
+                df_checkout = df_checkout[checkout_columns]
+                df_checkout.to_excel(writer, index=False, sheet_name='退宿人员')
             # 全部人员表
             if all_data:
                 df_all = pd.DataFrame(all_data)
@@ -206,11 +221,11 @@ def export_residents():
             user_id=current_user.id,
             module='dorm',
             operation_type='batch_import_export',
-            action=f"成功: {len(active_data)}条在住记录, {len(all_data)}条全部记录",
+            action=f"成功: {len(active_data)}条在住记录, {len(checkout_data)}条退宿记录, {len(all_data)}条全部记录",
             result="成功"
         )
         # 记录日志
-        logging.info(f'成功导出人员数据，共导出{len(active_data)}条在住记录，{len(all_data)}条全部记录，操作人ID：{current_user.id}')
+        logging.info(f'成功导出人员数据，共导出{len(active_data)}条在住记录，{len(checkout_data)}条退宿记录，{len(all_data)}条全部记录，操作人ID：{current_user.id}')
         return response
 
     except Exception as e:
@@ -725,18 +740,14 @@ def export_room_residents():
         export_data = []
         for idx, room in enumerate(rooms, 1):
             room_records = dorm_records_by_room.get(room.id, [])
-            residents_info = []
+            resident_names = []
             
             for record in room_records:
                 user = user_map.get(record.user_id)
                 if user:
-                    check_in = record.check_in_date.strftime('%Y-%m-%d') if record.check_in_date else '未知'
-                    dept = user.department if user.department else ''
-                    pos = user.position if user.position else ''
-                    sid = user.student_id if user.student_id else ''
-                    residents_info.append(f"{user.name} | {sid} | {dept} | {pos} | {check_in}")
+                    resident_names.append(user.name)
             
-            residents_str = '\n'.join(residents_info) if residents_info else '无'
+            residents_str = '、'.join(resident_names) if resident_names else '无'
             
             export_data.append({
                 '序号': idx,
@@ -771,11 +782,7 @@ def export_room_residents():
             worksheet.column_dimensions['F'].width = 50  # 居住人员
             worksheet.column_dimensions['G'].width = 15  # 备注
             
-            # 设置居住人员列自动换行
-            from openpyxl.styles import Alignment as XlAlignment
-            for row in worksheet.iter_rows(min_row=2, max_row=worksheet.max_row, min_col=6, max_col=6):
-                for cell in row:
-                    cell.alignment = XlAlignment(wrap_text=True, vertical='top')
+
         
         output.seek(0)
         
@@ -798,13 +805,7 @@ def export_room_residents():
         return response
         
     except Exception as e:
-        log_operation(
-            user_id=current_user.id,
-            module='dorm',
-            operation_type='batch_import_export',
-            action=f"按房间导出在住人员数据失败: {str(e)}",
-            result="失败"
-        )
+        
         logging.error(f'按房间导出在住人员数据失败：{str(e)}，操作人ID：{current_user.id}')
         flash(f'导出房间在住人员数据失败: {str(e)}', 'danger')
         return redirect(url_for('dorm.dorm_room_query'))
