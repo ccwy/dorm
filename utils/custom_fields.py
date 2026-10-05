@@ -9,6 +9,51 @@ from models.system_config.system_config import SystemConfig
 from utils.db import db
 
 
+def cleanup_custom_field_from_models(category: str, field_key: str) -> int:
+    """
+    删除自定义字段定义后，同步清理模型中对应字段的值
+    
+    Args:
+        category: 'user' 或 'room'
+        field_key: 要清理的字段key
+    
+    Returns:
+        清清理的记录数
+    """
+    try:
+        if category == 'user':
+            from models.user.user import User
+            model_class = User
+        elif category == 'room':
+            from models.room.room import Room
+            model_class = Room
+        else:
+            return 0
+        
+        # 查询所有有custom_fields数据的记录
+        records = model_class.query.filter(
+            model_class.custom_fields.isnot(None),
+            model_class.custom_fields != ''
+        ).all()
+        
+        cleaned_count = 0
+        for record in records:
+            custom_data = deserialize_custom_fields(record.custom_fields)
+            if field_key in custom_data:
+                del custom_data[field_key]
+                record.custom_fields = serialize_custom_fields(custom_data)
+                cleaned_count += 1
+        
+        if cleaned_count > 0:
+            db.session.commit()
+        
+        return cleaned_count
+    except Exception as e:
+        db.session.rollback()
+        logging.error(f"清理自定义字段值失败 ({category}/{field_key}): {e}")
+        return 0
+
+
 def get_custom_field_definitions(category: str) -> List[Dict[str, Any]]:
     """
     获取指定模块的自定义字段定义列表

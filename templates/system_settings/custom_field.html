@@ -67,6 +67,12 @@
                     <button onclick="location.reload();" class="btn-hover bg-secondary text-white px-4 py-2 rounded-md flex items-center">
                         <i class="fa fa-refresh mr-2"></i>刷新页面
                     </button>
+                    <button id="batchDeleteBtn" class="btn-hover bg-danger text-white px-4 py-2 rounded-md flex items-center disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                        <i class="fa fa-trash mr-2"></i>批量删除
+                    </button>
+                    <button id="deleteAllBtn" class="btn-hover bg-danger/80 text-white px-4 py-2 rounded-md flex items-center">
+                        <i class="fa fa-trash-o mr-2"></i>删除全部
+                    </button>
                 </div>
             </div>
         </div>
@@ -94,6 +100,11 @@
                 <table class="min-w-full divide-y divide-gray-200">
                     <thead class="bg-gray-50">
                         <tr>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                <div class="flex items-center">
+                                    <input type="checkbox" id="selectAll" class="form-checkbox text-primary">
+                                </div>
+                            </th>
                             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">序号</th>
                             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">模块归属</th>
                             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">字段Key</th>
@@ -101,12 +112,16 @@
                             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">类型</th>
                             <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">必填</th>
                             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">默认值</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">描述</th>
                             <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
                         </tr>
                     </thead>
                     <tbody class="bg-white divide-y divide-gray-200">
                         {% for field in all_fields %}
                         <tr class="hover:bg-gray-50">
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <input type="checkbox" class="form-checkbox text-primary field-checkbox" value="{{ field.module }}:{{ field.field_key }}">
+                            </td>
                             <td class="px-6 py-4 whitespace-nowrap text-gray-500">{{ loop.index }}</td>
                             <td class="px-6 py-4 whitespace-nowrap">
                                 {% if field.module == 'user' %}
@@ -132,6 +147,7 @@
                                 {% if field.required %}<span class="text-green-600 font-bold">✓</span>{% else %}<span class="text-gray-300">-</span>{% endif %}
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-gray-500">{{ field.default_value or '-' }}</td>
+                            <td class="px-6 py-4 text-gray-500 text-sm max-w-xs truncate" title="{{ field.description or '' }}">{{ field.description or '-' }}</td>
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <div class="flex items-center justify-center gap-1">
                                     <form method="POST" action="{{ url_for('system_settings.custom_field_move') }}" class="inline">
@@ -150,14 +166,14 @@
                                             <i class="fa fa-arrow-down text-xs"></i>
                                         </button>
                                     </form>
-                                    <button onclick="editField('{{ field.module }}', '{{ field.field_key }}', '{{ field.label }}', '{{ field.type }}', {{ 'true' if field.required else 'false' }}, '{{ field.default_value or '' }}', '{{ ','.join(field.options) if field.type == 'select' and field.options else '' }}', {{ field.sort_order or loop.index }})" class="text-amber-500 hover:text-amber-600 p-1 btn-effect" title="编辑">
-                                        <i class="fa fa-pencil text-xs"></i>
+                                    <button onclick="editField('{{ field.module }}', '{{ field.field_key }}', '{{ field.label }}', '{{ field.type }}', {{ 'true' if field.required else 'false' }}, '{{ field.default_value or '' }}', '{{ ','.join(field.options) if field.type == 'select' and field.options else '' }}', {{ field.sort_order or loop.index }}, '{{ field.description or '' }}')\" class="btn-effect bg-amber-500 text-white px-2 py-1 rounded-md text-sm flex items-center" title="编辑">
+                                        <i class="fa fa-pencil mr-1"></i>编辑
                                     </button>
-                                    <form method="POST" action="{{ url_for('system_settings.custom_field_delete') }}" class="inline" onsubmit="return confirm('确定要删除字段 \'{{ field.label }}\' 吗？')">
+                                    <form method="POST" action="{{ url_for('system_settings.custom_field_delete') }}" class="inline" onsubmit="return confirm('确定要删除字段 \'{{ field.label }}\' 吗？删除后，所有{{ '用户' if field.module == 'user' else '房间' }}记录中该字段的值也将被清除。')">
                                         <input type="hidden" name="field_key" value="{{ field.field_key }}">
                                         <input type="hidden" name="module" value="{{ field.module }}">
-                                        <button type="submit" class="text-red-400 hover:text-red-600 p-1 btn-effect" title="删除">
-                                            <i class="fa fa-trash text-xs"></i>
+                                        <button type="submit" class="btn-effect bg-red-500 text-white px-2 py-1 rounded-md text-sm flex items-center" title="删除">
+                                            <i class="fa fa-trash mr-1"></i>删除
                                         </button>
                                     </form>
                                 </div>
@@ -216,6 +232,10 @@
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">默认值</label>
                     <input type="text" name="default_value" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition duration-200" placeholder="可选">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">描述</label>
+                    <textarea name="description" rows="2" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition duration-200" placeholder="字段的描述说明，将在填写表单时显示为提示"></textarea>
                 </div>
                 <div id="add-options-area" class="hidden">
                     <label class="block text-sm font-medium text-gray-700 mb-1">选项列表（逗号分隔）</label>
@@ -280,6 +300,10 @@
                     <label class="block text-sm font-medium text-gray-700 mb-1">默认值</label>
                     <input type="text" name="default_value" id="edit-default-value" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition duration-200">
                 </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">描述</label>
+                    <textarea name="description" id="edit-description" rows="2" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition duration-200" placeholder="字段的描述说明，将在填写表单时显示为提示"></textarea>
+                </div>
                 <div class="flex items-center gap-6">
                     <label class="flex items-center text-sm text-gray-700">
                         <input type="checkbox" name="required" id="edit-required" class="w-4 h-4 text-primary rounded mr-2">必填
@@ -296,6 +320,15 @@
             </form>
         </div>
     </div>
+
+    <!-- 批量删除表单 -->
+    <form id="batchDeleteForm" method="POST" action="{{ url_for('system_settings.custom_field_batch_delete') }}" class="hidden">
+        <div id="batchDeleteFieldsContainer"></div>
+    </form>
+
+    <!-- 删除全部表单 -->
+    <form id="deleteAllForm" method="POST" action="{{ url_for('system_settings.custom_field_delete_all') }}" class="hidden">
+    </form>
 
     {% include 'footer.html' %}
 
@@ -317,7 +350,7 @@
         }
 
         // 编辑字段
-        function editField(module, key, label, type, required, defaultValue, options, sortOrder) {
+        function editField(module, key, label, type, required, defaultValue, options, sortOrder, description) {
             document.getElementById('edit-original-key').value = key;
             document.getElementById('edit-original-module').value = module;
             document.getElementById('edit-module').value = module;
@@ -328,6 +361,7 @@
             document.getElementById('edit-default-value').value = defaultValue;
             document.getElementById('edit-options').value = options;
             document.getElementById('edit-sort-order').value = sortOrder;
+            document.getElementById('edit-description').value = description;
             toggleOptions(document.getElementById('edit-type'), 'edit-options-area');
             document.getElementById('editModal').classList.remove('hidden');
         }
@@ -344,6 +378,85 @@
         document.getElementById('editModal').addEventListener('click', function(e) {
             if (e.target === e.currentTarget) closeEditModal();
         });
+
+        // ==================== 批量删除和删除全部逻辑 ====================
+        (function() {
+            const selectAllCheckbox = document.getElementById('selectAll');
+            const checkboxes = document.querySelectorAll('.field-checkbox');
+            const batchDeleteBtn = document.getElementById('batchDeleteBtn');
+            const batchDeleteForm = document.getElementById('batchDeleteForm');
+            const batchDeleteFieldsContainer = document.getElementById('batchDeleteFieldsContainer');
+            const deleteAllBtn = document.getElementById('deleteAllBtn');
+            const deleteAllForm = document.getElementById('deleteAllForm');
+
+            // 更新批量删除按钮状态
+            function updateBatchButtonState() {
+                const anyChecked = Array.from(checkboxes).some(cb => cb.checked);
+                if (batchDeleteBtn) batchDeleteBtn.disabled = !anyChecked;
+            }
+
+            // 全选功能
+            if (selectAllCheckbox) {
+                selectAllCheckbox.addEventListener('change', function() {
+                    checkboxes.forEach(checkbox => checkbox.checked = this.checked);
+                    updateBatchButtonState();
+                });
+            }
+
+            // 单个选择框变化事件
+            checkboxes.forEach(checkbox => {
+                checkbox.addEventListener('change', function() {
+                    if (selectAllCheckbox) {
+                        selectAllCheckbox.checked = Array.from(checkboxes).every(cb => cb.checked);
+                    }
+                    updateBatchButtonState();
+                });
+            });
+
+            // 批量删除点击事件
+            if (batchDeleteBtn) {
+                batchDeleteBtn.addEventListener('click', function() {
+                    if (!this.disabled) {
+                        const selectedItems = Array.from(checkboxes)
+                            .filter(cb => cb.checked)
+                            .map(cb => cb.value);
+                        
+                        if (confirm('确定要批量删除选中的 ' + selectedItems.length + ' 个自定义字段吗？\n删除后，所有对应模块记录中该字段的值也将被清除。')) {
+                            batchDeleteFieldsContainer.innerHTML = '';
+                            
+                            selectedItems.forEach(item => {
+                                const [module, fieldKey] = item.split(':');
+                                const moduleInput = document.createElement('input');
+                                moduleInput.type = 'hidden';
+                                moduleInput.name = 'items[]';
+                                moduleInput.value = item;
+                                batchDeleteFieldsContainer.appendChild(moduleInput);
+                            });
+                            
+                            batchDeleteForm.submit();
+                        }
+                    }
+                });
+            }
+
+            // 删除全部点击事件
+            if (deleteAllBtn) {
+                deleteAllBtn.addEventListener('click', function() {
+                    const confirmDelete = confirm(
+                        '警告：此操作将删除所有自定义字段定义！\n' +
+                        '删除后，所有用户和房间记录中对应字段的值也将被清除。\n' +
+                        '此操作不可撤销，确定要执行吗？'
+                    );
+                    
+                    if (confirmDelete) {
+                        deleteAllForm.submit();
+                    }
+                });
+            }
+
+            // 初始化按钮状态
+            updateBatchButtonState();
+        })();
     </script>
 </body>
 </html>

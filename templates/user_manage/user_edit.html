@@ -378,6 +378,9 @@
                                    {% if custom_field_values and custom_field_values.get(field_def.field_key) %}checked{% endif %}
                                    class="form-checkbox text-primary h-4 w-4">
                             {% endif %}
+                            {% if field_def.description %}
+                            <p class="text-xs text-gray-400 mt-1">{{ field_def.description }}</p>
+                            {% endif %}
                         </div>
                     {% endfor %}
                     </div>

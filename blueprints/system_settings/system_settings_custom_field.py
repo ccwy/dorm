@@ -1,7 +1,7 @@
 from flask import request, jsonify, redirect, url_for, render_template, flash
 from flask_login import login_required, current_user
 from utils.auth import require_permission
-from utils.custom_fields import get_custom_field_definitions, save_custom_field_definitions, get_all_custom_field_definitions
+from utils.custom_fields import get_custom_field_definitions, save_custom_field_definitions, get_all_custom_field_definitions, cleanup_custom_field_from_models
 from utils.log import log_operation
 from .system_settings import system_config_bp
 import logging
@@ -34,6 +34,7 @@ def custom_field_add():
     sort_order = request.form.get('sort_order', 0, type=int)
     default_value = request.form.get('default_value', '').strip()
     options_str = request.form.get('options', '').strip()
+    description = request.form.get('description', '').strip()
 
     # 校验
     if not field_key or not re.match(r'^[a-zA-Z][a-zA-Z0-9_]*$', field_key):
@@ -62,6 +63,7 @@ def custom_field_add():
         'required': required,
         'sort_order': sort_order or len(fields) + 1,
         'default_value': default_value,
+        'description': description,
     }
     if field_type == 'select' and options_str:
         new_field['options'] = [opt.strip() for opt in options_str.split(',') if opt.strip()]
@@ -94,6 +96,7 @@ def custom_field_edit():
     sort_order = request.form.get('sort_order', 0, type=int)
     default_value = request.form.get('default_value', '').strip()
     options_str = request.form.get('options', '').strip()
+    description = request.form.get('description', '').strip()
 
     # 校验
     if not field_key or not re.match(r'^[a-zA-Z][a-zA-Z0-9_]*$', field_key):
@@ -128,6 +131,7 @@ def custom_field_edit():
         'required': required,
         'sort_order': sort_order,
         'default_value': default_value,
+        'description': description,
     }
     if field_type == 'select' and options_str:
         updated_field['options'] = [opt.strip() for opt in options_str.split(',') if opt.strip()]
@@ -163,12 +167,88 @@ def custom_field_delete():
 
     success = save_custom_field_definitions(module, fields, current_user.id)
     if success:
+        # 同步清理模型中对应字段的值
+        cleanup_custom_field_from_models(module, field_key)
         log_operation(user_id=current_user.id, module='system', operation_type='delete',
                      action=f"删除{module}自定义字段 '{field_key}'", result="成功")
         flash(f"字段 '{field_key}' 删除成功", 'success')
     else:
         flash("删除字段失败", 'error')
 
+    return redirect(url_for('system_settings.custom_field_page'))
+
+
+@system_config_bp.route('/custom-field/batch-delete', methods=['POST'])
+@login_required
+@require_permission('system_settings.manage')
+def custom_field_batch_delete():
+    """批量删除自定义字段"""
+    items = request.form.getlist('items[]')
+    
+    if not items:
+        flash('未选择要删除的字段', 'error')
+        return redirect(url_for('system_settings.custom_field_page'))
+    
+    # 按module分组
+    deleted_keys = {}
+    for item in items:
+        parts = item.split(':')
+        if len(parts) == 2:
+            module, field_key = parts
+            if module not in deleted_keys:
+                deleted_keys[module] = []
+            deleted_keys[module].append(field_key)
+    
+    total_deleted = 0
+    for module, keys in deleted_keys.items():
+        fields = get_custom_field_definitions(module)
+        original_count = len(fields)
+        fields = [f for f in fields if f.get('field_key') not in keys]
+        deleted_count = original_count - len(fields)
+        
+        if deleted_count > 0:
+            success = save_custom_field_definitions(module, fields, current_user.id)
+            if success:
+                # 同步清理模型中对应字段的值
+                for field_key in keys:
+                    cleanup_custom_field_from_models(module, field_key)
+                total_deleted += deleted_count
+                log_operation(user_id=current_user.id, module='system', operation_type='delete',
+                             action=f"批量删除{module}自定义字段: {keys}", result="成功")
+    
+    if total_deleted > 0:
+        flash(f"成功删除 {total_deleted} 个字段", 'success')
+    else:
+        flash("未找到要删除的字段", 'error')
+    
+    return redirect(url_for('system_settings.custom_field_page'))
+
+
+@system_config_bp.route('/custom-field/delete-all', methods=['POST'])
+@login_required
+@require_permission('system_settings.manage')
+def custom_field_delete_all():
+    """删除全部自定义字段"""
+    total_deleted = 0
+    for module in ('user', 'room'):
+        fields = get_custom_field_definitions(module)
+        if fields:
+            # 收集所有要清理的字段key
+            keys_to_cleanup = [f.get('field_key') for f in fields]
+            success = save_custom_field_definitions(module, [], current_user.id)
+            if success:
+                # 同步清理模型中对应字段的值
+                for field_key in keys_to_cleanup:
+                    cleanup_custom_field_from_models(module, field_key)
+                total_deleted += len(fields)
+                log_operation(user_id=current_user.id, module='system', operation_type='delete',
+                             action=f"删除全部{module}自定义字段", result="成功")
+    
+    if total_deleted > 0:
+        flash(f"成功删除全部 {total_deleted} 个字段", 'success')
+    else:
+        flash("没有可删除的字段", 'warning')
+    
     return redirect(url_for('system_settings.custom_field_page'))
 
 
@@ -375,6 +455,8 @@ def delete_custom_field(category, field_key):
         # 保存更新后的字段定义
         success = save_custom_field_definitions(category, fields, current_user.id)
         if success:
+            # 同步清理模型中对应字段的值
+            cleanup_custom_field_from_models(category, field_key)
             log_operation(
                 user_id=current_user.id,
                 module='system',
