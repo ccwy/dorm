@@ -415,14 +415,23 @@
                 {% if current_user.has_permission('utility.edit') %}
                 <!-- 上传按钮 -->
                 <div class="mb-4">
-                    <label class="inline-flex items-center px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90 cursor-pointer btn-effect">
+                    <label id="checkoutUploadLabel" class="inline-flex items-center px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90 cursor-pointer btn-effect">
                         <i class="fa fa-upload mr-2"></i>上传照片/视频
-                        <input type="file" id="checkoutFileInput" class="hidden" accept="image/*,video/*" onchange="uploadCheckoutFile()">
+                        <input type="file" id="checkoutFileInput" class="hidden" accept="image/*,video/*" multiple onchange="uploadCheckoutFile()">
                     </label>
-                    <span id="checkoutUploadStatus" class="ml-3 text-sm text-gray-500 hidden">
-                        <i class="fa fa-spinner fa-spin mr-1"></i>上传中...
-                    </span>
                 </div>
+                <!-- 上传进度条 -->
+                <div id="checkoutUploadProgressContainer" class="hidden bg-white rounded-lg shadow-sm p-4 mb-4">
+                    <div class="flex items-center justify-between mb-2">
+                        <span id="checkoutUploadStatusText" class="text-sm font-medium text-gray-700">上传中...</span>
+                        <span id="checkoutUploadProgressPercentage" class="text-sm text-gray-500">0%</span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-2">
+                        <div id="checkoutUploadProgressBar" class="bg-green-500 h-2 rounded-full" style="width: 0%"></div>
+                    </div>
+                </div>
+                <!-- 上传结果反馈消息 -->
+                <div id="checkoutUploadFeedback" class="hidden px-4 py-3 rounded-md mb-4"></div>
                 {% endif %}
                 
                 <!-- 已上传媒体预览 -->
@@ -671,16 +680,16 @@
                             html += '<div class="media-item bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow">';
                             html += '  <div class="relative h-48 overflow-hidden">';
                             html += '    <img src="' + file.url + '" alt="退宿照片" class="w-full h-full object-cover cursor-pointer" onclick="showCheckoutImageModal(\'' + file.url + '\')">';
+                            {% if current_user.has_permission('utility.edit') %}
+                            html += '    <button type="button" class="absolute top-3 right-3 bg-transparent text-red-500 hover:text-white hover:bg-red-500 rounded-full p-2 shadow-lg border border-transparent transition-all duration-300 hover:translate-y-[-2px]" onclick="deleteCheckoutFile(\'' + file.filename + '\')">';
+                            html += '      <i class="fa fa-trash-o fa-lg"></i>';
+                            html += '    </button>';
+                            {% endif %}
                             html += '  </div>';
                             html += '  <div class="p-2 text-xs text-gray-600">';
                             html += '    文件名：' + file.filename + '<br>';
                             html += '    上传时间：' + new Date(file.upload_time).toLocaleString();
                             html += '  </div>';
-                            {% if current_user.has_permission('utility.edit') %}
-                            html += '  <div class="p-2 pt-0">';
-                            html += '    <button type="button" onclick="deleteCheckoutFile(\'' + file.filename + '\')" class="text-red-500 hover:text-red-700 text-xs"><i class="fa fa-trash-o mr-1"></i>删除</button>';
-                            html += '  </div>';
-                            {% endif %}
                             html += '</div>';
                         } else {
                             html += '<div class="media-item bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow">';
@@ -692,16 +701,16 @@
                             html += '    <div class="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30 cursor-pointer z-0" onclick="openCheckoutVideoModal(\'' + file.url + '\')">';
                             html += '      <i class="fa fa-play-circle text-white text-4xl opacity-80"></i>';
                             html += '    </div>';
+                            {% if current_user.has_permission('utility.edit') %}
+                            html += '    <button type="button" class="absolute top-3 right-3 bg-transparent text-red-500 hover:text-white hover:bg-red-500 rounded-full p-2 shadow-lg border border-transparent transition-all duration-300 hover:translate-y-[-2px] z-10" onclick="deleteCheckoutFile(\'' + file.filename + '\')">';
+                            html += '      <i class="fa fa-trash-o fa-lg"></i>';
+                            html += '    </button>';
+                            {% endif %}
                             html += '  </div>';
                             html += '  <div class="p-2 text-xs text-gray-600">';
                             html += '    文件名：' + file.filename + '<br>';
                             html += '    上传时间：' + new Date(file.upload_time).toLocaleString();
                             html += '  </div>';
-                            {% if current_user.has_permission('utility.edit') %}
-                            html += '  <div class="p-2 pt-0">';
-                            html += '    <button type="button" onclick="deleteCheckoutFile(\'' + file.filename + '\')" class="text-red-500 hover:text-red-700 text-xs"><i class="fa fa-trash-o mr-1"></i>删除</button>';
-                            html += '  </div>';
-                            {% endif %}
                             html += '</div>';
                         }
                     });
@@ -716,43 +725,87 @@
             }
         }
         
-        // 上传退宿照片/视频
+        // 上传退宿照片/视频（批量上传）
         async function uploadCheckoutFile() {
             var fileInput = document.getElementById('checkoutFileInput');
-            var statusSpan = document.getElementById('checkoutUploadStatus');
+            var uploadLabel = document.getElementById('checkoutUploadLabel');
+            var progressContainer = document.getElementById('checkoutUploadProgressContainer');
+            var progressBar = document.getElementById('checkoutUploadProgressBar');
+            var progressPercentage = document.getElementById('checkoutUploadProgressPercentage');
+            var statusText = document.getElementById('checkoutUploadStatusText');
+            var feedback = document.getElementById('checkoutUploadFeedback');
             
             if (!fileInput.files || fileInput.files.length === 0) return;
             
-            var file = fileInput.files[0];
-            var formData = new FormData();
-            formData.append('file', file);
-            formData.append('billing_period', checkoutBillingPeriod);
-            formData.append('room_id', checkoutRoomId);
-            formData.append('user_id', checkoutUserId);
+            var totalFiles = fileInput.files.length;
+            var uploadedCount = 0;
+            var successCount = 0;
             
-            statusSpan.classList.remove('hidden');
+            // 禁用上传按钮
+            uploadLabel.classList.add('opacity-50', 'pointer-events-none');
+            // 显示进度条
+            progressContainer.classList.remove('hidden');
+            // 隐藏之前的反馈
+            feedback.classList.add('hidden');
+            // 初始化进度
+            progressBar.style.width = '0%';
+            progressPercentage.textContent = '0%';
+            statusText.textContent = '正在上传文件 1/' + totalFiles;
             
-            try {
-                var response = await fetch('/utility-checkout/upload_media', {
-                    method: 'POST',
-                    body: formData,
-                    credentials: 'include'
-                });
+            // 遍历所有文件逐个上传
+            for (var i = 0; i < totalFiles; i++) {
+                var file = fileInput.files[i];
+                statusText.textContent = '正在上传文件 ' + (i + 1) + '/' + totalFiles + ': ' + file.name;
                 
-                var result = await response.json();
+                var formData = new FormData();
+                formData.append('file', file);
+                formData.append('billing_period', checkoutBillingPeriod);
+                formData.append('room_id', checkoutRoomId);
+                formData.append('user_id', checkoutUserId);
                 
-                if (result.success) {
-                    loadCheckoutMediaFiles();
-                } else {
-                    alert('上传失败: ' + result.message);
+                try {
+                    var response = await fetch('/utility-checkout/upload_media', {
+                        method: 'POST',
+                        body: formData,
+                        credentials: 'include'
+                    });
+                    
+                    var result = await response.json();
+                    
+                    if (result.success) {
+                        successCount++;
+                    } else {
+                        console.error('上传失败:', file.name, result.message);
+                    }
+                } catch (error) {
+                    console.error('上传退宿照片失败:', file.name, error);
                 }
-            } catch (error) {
-                console.error('上传退宿照片失败:', error);
-                alert('上传失败: ' + error.message);
-            } finally {
-                statusSpan.classList.add('hidden');
-                fileInput.value = '';
+                
+                uploadedCount++;
+                var percentage = Math.round((uploadedCount / totalFiles) * 100);
+                progressBar.style.width = percentage + '%';
+                progressPercentage.textContent = percentage + '%';
+                statusText.textContent = '已上传 ' + uploadedCount + '/' + totalFiles + ' 个文件，成功 ' + successCount + ' 个';
             }
+            
+            // 上传完成，显示结果反馈
+            if (successCount === totalFiles) {
+                feedback.textContent = '上传完成: 成功上传 ' + successCount + '/' + totalFiles + ' 个文件';
+                feedback.className = 'px-4 py-3 bg-green-100 text-green-800 rounded-md mb-4';
+            } else {
+                feedback.textContent = '上传完成: 成功 ' + successCount + '/' + totalFiles + ' 个文件，失败 ' + (totalFiles - successCount) + ' 个文件';
+                feedback.className = 'px-4 py-3 bg-yellow-100 text-yellow-800 rounded-md mb-4';
+            }
+            feedback.classList.remove('hidden');
+            
+            // 恢复上传按钮
+            uploadLabel.classList.remove('opacity-50', 'pointer-events-none');
+            fileInput.value = '';
+            
+            // 延迟刷新页面
+            setTimeout(function() {
+                location.reload();
+            }, 1500);
         }
         
         // 删除退宿照片/视频
