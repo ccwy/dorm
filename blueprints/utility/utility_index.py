@@ -88,22 +88,159 @@ def utility_room_records_bill():
 def utility_room_records_detail():
     """显示房间费用记录查询页面"""
     try:
-        # 获取查询参数用于日志
-        room_id = request.args.get('room_id', '未指定')
-        billing_period = request.args.get('billing_period', '')
-        
+        # 从URL参数获取record_id
+        record_id = request.args.get('record_id', type=int)
+        if not record_id:
+            log_operation(
+                user_id=current_user.id,
+                module='utility',
+                operation_type='records',
+                action="访问房间水电费查询页面失败：缺少record_id参数",
+                result="失败"
+            )
+            return render_template('utility_bill/utility_room_records_detail.html', title="房间水电费查询", error='缺少必要参数record_id')
+
+        # 获取主表记录
+        main_record = RoomUtilityRecord.get_by_id(record_id)
+        if not main_record:
+            log_operation(
+                user_id=current_user.id,
+                module='utility',
+                operation_type='records',
+                action=f"访问房间水电费查询页面失败：记录ID={record_id}不存在",
+                result="失败"
+            )
+            return render_template('utility_bill/utility_room_records_detail.html', title="房间水电费查询", error='记录不存在')
+
+        # 获取房间信息
+        room = Room.query.get(main_record.room_id)
+        room_info = {
+            'room_id': main_record.room_id,
+            'room_number': room.room_number if room else '未知',
+            'building': room.building if room else '未知',
+            'capacity': room.capacity if room else 0,
+            'current_occupancy': room.current_occupancy if room else 0
+        }
+
+        # 获取在住人员分摊记录
+        resident_subrecords = RoomUtilityOccupant.query.filter_by(record_id=record_id).all()
+        if not resident_subrecords:
+            logging.warning(f"记录ID={record_id}的子表分摊记录不存在，可能是生成阶段出现问题")
+
+        current_occupants = []
+        for subrecord in resident_subrecords:
+            user = User.query.get(subrecord.user_id)
+            user_name = user.name if user else f'未知用户({subrecord.user_id})'
+            dorm = Dorm.query.filter(
+                Dorm.user_id == subrecord.user_id,
+                Dorm.room_id == main_record.room_id
+            ).first()
+            current_occupants.append({
+                'user_id': subrecord.user_id,
+                'user_name': user_name,
+                'stay_days': subrecord.stay_days,
+                'electric_fee': float(subrecord.electric_fee or 0),
+                'water_fee': float(subrecord.water_fee or 0),
+                'total_fee': float(subrecord.total_fee or 0),
+                'user_reduction_fee': float(subrecord.user_reduction_fee or 0),
+                'payable_fee': float(subrecord.payable_fee or 0),
+                'is_transferred': dorm and dorm.check_out_date is not None and main_record.start_date <= dorm.check_out_date <= main_record.end_date
+            })
+
+        # 获取退宿人员费用记录
+        checkout_occupants = []
+        checkout_subrecords = CheckoutUtilityRecord.query.filter_by(record_id=record_id).all()
+        for subrecord in checkout_subrecords:
+            user = User.query.get(subrecord.user_id)
+            checkout_occupants.append({
+                'id': subrecord.id,
+                'user_id': subrecord.user_id,
+                'user_name': user.name if user else f'未知用户({subrecord.user_id})',
+                'checkout_date': subrecord.checkout_date.isoformat() if subrecord.checkout_date else None,
+                'user_period_days': subrecord.user_period_days,
+                'user_original_electric_fee': float(subrecord.user_original_electric_fee or 0),
+                'user_original_water_fee': float(subrecord.user_original_water_fee or 0),
+                'user_original_total_fee': float(subrecord.user_original_total_fee or 0),
+                'user_billing_electric_fee': float(subrecord.user_billing_electric_fee or 0),
+                'user_billing_water_fee': float(subrecord.user_billing_water_fee or 0),
+                'user_billing_total_fee': float(subrecord.user_billing_total_fee or 0),
+                'user_proportional_reduction': float(subrecord.user_proportional_reduction or 0),
+                'user_independent_reduction': float(subrecord.user_independent_reduction or 0),
+                'user_reduction_electric': float(subrecord.user_reduction_electric or 0),
+                'user_reduction_water': float(subrecord.user_reduction_water or 0),
+                'payable_fee': float(subrecord.payable_fee or 0)
+            })
+
+        # 整理抄表记录信息
+        meter_records = {
+            'electric': {
+                'previous_reading': float(main_record.electric_previous or 0),
+                'current_reading': float(main_record.electric_current or 0),
+                'usage': float(main_record.electric_usage or 0),
+                'electric_reduction': float(main_record.electric_reduction or 0),
+                'electric_billing_usage': float(main_record.electric_billing_usage or 0),
+                'unit_price': float(main_record.electric_price or 0),
+                'total_cost': float(main_record.total_electric_fee or 0)
+            },
+            'water': {
+                'previous_reading': float(main_record.water_previous or 0),
+                'current_reading': float(main_record.water_current or 0),
+                'usage': float(main_record.water_usage or 0),
+                'water_reduction': float(main_record.water_reduction or 0),
+                'water_billing_usage': float(main_record.water_billing_usage or 0),
+                'unit_price': float(main_record.water_price or 0),
+                'total_cost': float(main_record.total_water_fee or 0)
+            }
+        }
+
+        # 构建传递给模板的数据
+        record_data = {
+            'record_id': main_record.record_id,
+            'billing_period': main_record.billing_period,
+            'start_date': main_record.start_date.isoformat(),
+            'end_date': main_record.end_date.isoformat(),
+            'status': main_record.status,
+            'room_info': room_info,
+            'total_occupants': len(current_occupants) + len(checkout_occupants),
+            'current_occupants_count': len(current_occupants),
+            'checkout_occupants_count': len(checkout_occupants),
+            'current_occupants': current_occupants,
+            'checkout_occupants': checkout_occupants,
+            'total_fee': {
+                'electric': float(main_record.total_electric_fee or 0),
+                'water': float(main_record.total_water_fee or 0),
+                'total': float(main_record.total_fee or 0),
+                'billing_electric_fee': float(main_record.billing_electric_fee or 0),
+                'billing_water_fee': float(main_record.billing_water_fee or 0),
+                'billing_total_fee': float(main_record.billing_total_fee or 0),
+                'room_reduction_fee': float(main_record.room_reduction_fee or 0)
+            },
+            'receivable_fee': {
+                'electric': float(main_record.receivable_electric_fee or 0),
+                'water': float(main_record.receivable_water_fee or 0),
+                'total': float(main_record.receivable_total_fee or (main_record.receivable_electric_fee + main_record.receivable_water_fee) or 0)
+            },
+            'actual_total_fee': float(main_record.actual_total_fee or 0),
+            'checked_out_fee': {
+                'electric': float(main_record.checked_out_electric_fee or 0),
+                'water': float(main_record.checked_out_water_fee or 0),
+                'total': float(main_record.checked_out_total_fee or 0)
+            },
+            'meter_records': meter_records
+        }
+
         log_operation(
             user_id=current_user.id,
-            module='utility',#这里记载模块
-            operation_type='records',#这里记载类型
-            action=f"访问房间水电费查询页面 [房间ID: {room_id}, 账期: {billing_period}]",#这里记载成功与失败的记录
-            result="成功"#这里只有成功与失败
+            module='utility',
+            operation_type='records',
+            action=f"访问房间水电费查询页面 [记录ID: {record_id}, 房间: {room_info['room_number']}, 账期: {main_record.billing_period}]",
+            result="成功"
         )
-        return render_template('utility_bill/utility_room_records_detail.html', title=f"房间水电费查询")
+        return render_template('utility_bill/utility_room_records_detail.html', title="房间水电费查询", record_data=record_data)
+
     except Exception as e:
-        logging.error(f"访问房间水电费查询页面失败: {str(e)}")
-        flash(str(e), 'danger')
-        return render_template('utility_bill/utility_room_records_detail.html', title=f"房间水电费查询")
+        logging.error(f"访问房间水电费查询页面失败: {str(e)}", exc_info=True)
+        return render_template('utility_bill/utility_room_records_detail.html', title="房间水电费查询", error=str(e))
 
 @utility_index_bp.route('/utility_room_checkout')
 @login_required
