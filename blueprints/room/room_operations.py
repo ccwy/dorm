@@ -15,6 +15,7 @@ from datetime import datetime
 
 from utils.auth import require_permission
 from models.room.room_facility import RoomFacility  # 新增：导入房间设施模型
+from utils.custom_fields import get_custom_field_definitions, parse_custom_fields_data, validate_custom_fields, serialize_custom_fields, deserialize_custom_fields
 
 # 获取所有有效的楼栋列表（供内部使用）
 def get_buildings_from_config():
@@ -60,6 +61,8 @@ def add():
     buildings = get_buildings_from_config()
     # 获取所有有效设施（用于前端展示）
     valid_facilities = RoomFacility.get_valid_facilities_for_display()
+    # 获取房间自定义字段定义
+    custom_field_defs = get_custom_field_definitions('room.custom_field')
 
     if request.method == 'POST':
         try:
@@ -110,6 +113,22 @@ def add():
                 except ValueError:
                     logging.error(f'无效的创建时间格式: {created_at_str}')
             
+            # 处理自定义字段
+            custom_data = parse_custom_fields_data(request.form, custom_field_defs)
+            custom_errors = validate_custom_fields(custom_data, custom_field_defs)
+            if custom_errors:
+                for err in custom_errors:
+                    flash(err, 'danger')
+                return render_template('room_manage/room_add.html', 
+                    title="添加房间",
+                    room_types=room_types,
+                    room_levels=room_levels,
+                    gender_restrictions=Room.get_valid_gender_restrictions(),
+                    valid_facilities=valid_facilities,
+                    buildings=buildings,
+                    custom_field_defs=custom_field_defs)
+            room_data['custom_fields'] = serialize_custom_fields(custom_data)
+            
             # 调用模型的create方法（实际创建房间）
             logging.info(f"尝试添加房间数据: {room_data}")
             new_room, error = Room.create(room_data)
@@ -119,7 +138,8 @@ def add():
                 return render_template('room_manage/room_add.html', 
                     facilities=valid_facilities,
                     room_types=room_types,
-                    buildings=buildings)
+                    buildings=buildings,
+                    custom_field_defs=custom_field_defs)
 
             # 房间创建成功后，添加设施
             RoomFacility.bulk_update_facilities(
@@ -163,7 +183,8 @@ def add():
                     room_levels=room_levels,
                     gender_restrictions=Room.get_valid_gender_restrictions(),
                     valid_facilities=valid_facilities,  # 传递有效设施列表
-                    buildings=buildings  # 传递楼栋列表到前端
+                    buildings=buildings,  # 传递楼栋列表到前端
+                    custom_field_defs=custom_field_defs
             )
     # 记录访问日志
     log_operation(
@@ -185,7 +206,8 @@ def add():
         gender_restrictions=Room.get_valid_gender_restrictions(),
         valid_facilities=valid_facilities,  # 传递有效设施列表
         buildings=buildings,  # 传递楼栋列表到前端
-        current_time=current_time  # 传递当前时间作为默认值
+        current_time=current_time,  # 传递当前时间作为默认值
+        custom_field_defs=custom_field_defs
     )
     
 @room_bp.route('/edit/<int:id>', methods=['GET', 'POST'])
@@ -207,9 +229,15 @@ def edit(id):
     current_facilities = RoomFacility.query.filter_by(room_id=room.id).all()
     # 转换为前端需要的格式
     current_facilities = [{'name': f.name, 'quantity': f.quantity} for f in current_facilities]
+    # 获取房间自定义字段定义
+    custom_field_defs = get_custom_field_definitions('room.custom_field')
+    # 反序列化当前房间的自定义字段值
+    custom_field_values = deserialize_custom_fields(room.custom_fields)
 
     if request.method == 'POST':
         try:
+            # 在POST处理开始时解析自定义字段数据（用于验证错误时保留用户输入）
+            form_custom_data = parse_custom_fields_data(request.form, custom_field_defs)
             # 检查是否有活跃住宿记录
             has_active_dorm = Dorm.query.filter_by(room_id=id, status='active').first() is not None
             # 处理设施数据（名称+数量）
@@ -272,7 +300,9 @@ def edit(id):
                         valid_facilities=valid_facilities,
                         current_facilities=current_facilities,
                         buildings=buildings,
-                        media_files=media_files
+                        media_files=media_files,
+                        custom_field_defs=custom_field_defs,
+                        custom_field_values=form_custom_data
                     )
                 
                 # 2. 房间类型对应的容量不能低于当前已住人数
@@ -294,7 +324,9 @@ def edit(id):
                         valid_facilities=valid_facilities,
                         current_facilities=current_facilities,
                         buildings=buildings,
-                        media_files=media_files
+                        media_files=media_files,
+                        custom_field_defs=custom_field_defs,
+                        custom_field_values=form_custom_data
                     )
                 
                 # 3. 房间状态不能改为已关闭
@@ -311,7 +343,9 @@ def edit(id):
                         valid_facilities=valid_facilities,
                         current_facilities=current_facilities,
                         buildings=buildings,
-                        media_files=media_files
+                        media_files=media_files,
+                        custom_field_defs=custom_field_defs,
+                        custom_field_values=form_custom_data
                     )
                 
                 # 4. 性别限制不能改为对立性别
@@ -330,7 +364,9 @@ def edit(id):
                         valid_facilities=valid_facilities,
                         current_facilities=current_facilities,
                         buildings=buildings,
-                        media_files=media_files
+                        media_files=media_files,
+                        custom_field_defs=custom_field_defs,
+                        custom_field_values=form_custom_data
                     )
                 elif current_gender == '女' and new_gender == '男':
                     flash('当前房间有女性入住，不能将性别限制改为男', 'danger')
@@ -345,8 +381,33 @@ def edit(id):
                         valid_facilities=valid_facilities,
                         current_facilities=current_facilities,
                         buildings=buildings,
-                        media_files=media_files
+                        media_files=media_files,
+                        custom_field_defs=custom_field_defs,
+                        custom_field_values=form_custom_data
                     )
+            
+            # 处理自定义字段
+            custom_data = parse_custom_fields_data(request.form, custom_field_defs)
+            custom_errors = validate_custom_fields(custom_data, custom_field_defs)
+            if custom_errors:
+                for err in custom_errors:
+                    flash(err, 'danger')
+                media_files = RoomPhotoManager.get_media_files(room.id)
+                return render_template(
+                    'room_manage/room_edit.html',
+                    title=f"编辑房间 - {room.building}{room.room_number}",
+                    room=room,
+                    room_types=room_types,
+                    room_levels=room_levels,
+                    gender_restrictions=Room.get_valid_gender_restrictions(),
+                    valid_facilities=valid_facilities,
+                    current_facilities=current_facilities,
+                    buildings=buildings,
+                    media_files=media_files,
+                    custom_field_defs=custom_field_defs,
+                    custom_field_values=form_custom_data
+                )
+            update_data['custom_fields'] = serialize_custom_fields(custom_data)
             
             # 调用模型的update方法
             logging.info(f"尝试编辑房间数据: {update_data}")
@@ -364,7 +425,9 @@ def edit(id):
                     valid_facilities=valid_facilities,  # 所有有效设施
                     current_facilities=current_facilities,  # 当前房间的设施（含数量）
                     buildings=buildings,  # 传递宿舍楼列表
-                    media_files=media_files  # 传递房间媒体文件
+                    media_files=media_files,  # 传递房间媒体文件
+                    custom_field_defs=custom_field_defs,
+                    custom_field_values=form_custom_data
                 )
 
             # 调用批量更新方法处理设施
@@ -418,7 +481,9 @@ def edit(id):
         valid_facilities=valid_facilities,  # 所有有效设施
         current_facilities=current_facilities,  # 当前房间的设施（含数量）
         buildings=buildings,  # 传递宿舍楼列表
-        media_files=media_files  # 传递房间媒体文件
+        media_files=media_files,  # 传递房间媒体文件
+        custom_field_defs=custom_field_defs,
+        custom_field_values=custom_field_values
     )
 
 # 删除房间 - 详细日志版本

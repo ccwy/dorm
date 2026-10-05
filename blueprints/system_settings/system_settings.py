@@ -16,6 +16,7 @@ from models.utility.utility_room_meter import UtilityMeterReading
 from models.system_config.system_config import SystemConfig  # 系统配置模型
 from utils.log import log_operation
 from utils.auth import require_permission  # 从独立模块导入权限装饰器
+from utils.custom_fields import get_custom_field_definitions, save_custom_field_definitions, get_all_custom_field_definitions
 from config import Config
 from utils.db_config import DatabaseConfig  # 导入DatabaseConfig类用于读取本地JSON配置
 
@@ -38,7 +39,8 @@ MODULES = [
     {"name": "合同管理配置", "category": "contract", "icon": "file-text-o"},
     {"name": "后勤维修配置", "category": "maintenance", "icon": "wrench"},
     #{"name": "日志管理配置", "category": "log", "icon": "history"},
-    {"name": "备份配置", "category": "system.backup", "icon": "history"}
+    {"name": "备份配置", "category": "system.backup", "icon": "history"},
+    {"name": "自定义字段", "category": "custom_field", "icon": "puzzle-piece"}
 ]
 
 from . import system_settings_backup  # 数据备份模块
@@ -157,7 +159,12 @@ def get_modules():
                 continue
             
             category = module['category']
-            config_count = SystemConfig.query.filter_by(category=category).count()
+            if category == 'custom_field':
+                config_count = SystemConfig.query.filter(
+                    SystemConfig.category.like('%.custom_field')
+                ).count()
+            else:
+                config_count = SystemConfig.query.filter_by(category=category).count()
             module_copy = module.copy()  # 复制模块对象，避免修改原始数据
             module_copy['has_config'] = config_count > 0
             filtered_modules.append(module_copy)
@@ -766,3 +773,273 @@ def _format_size(size_bytes):
         size /= 1024
         i += 1
     return f"{size:.1f} {units[i]}"
+
+
+# ==================== 自定义字段管理API ====================
+
+@system_config_bp.route('/api/custom-fields/<category>', methods=['GET'])
+@login_required
+@require_permission('system_settings.manage')
+def get_custom_fields(category):
+    """获取自定义字段定义列表"""
+    try:
+        if category not in ('user', 'room'):
+            return jsonify({
+                "success": False,
+                "message": f"不支持的自定义字段类别: {category}"
+            }), 400
+
+        fields = get_custom_field_definitions(category)
+        return jsonify({
+            "success": True,
+            "data": fields
+        })
+    except Exception as e:
+        logging.error(f"获取自定义字段定义失败 ({category}): {str(e)}")
+        return jsonify({
+            "success": False,
+            "message": f"获取自定义字段定义失败: {str(e)}"
+        }), 500
+
+
+@system_config_bp.route('/api/custom-fields/<category>/save', methods=['POST'])
+@login_required
+@require_permission('system_settings.manage')
+def save_custom_fields(category):
+    """保存自定义字段定义（整体保存，包含增删改排序）"""
+    try:
+        if category not in ('user', 'room'):
+            return jsonify({
+                "success": False,
+                "message": f"不支持的自定义字段类别: {category}"
+            }), 400
+
+        data = request.get_json()
+        fields = data.get('fields', [])
+
+        # 基本校验
+        if not isinstance(fields, list):
+            return jsonify({
+                "success": False,
+                "message": "字段定义必须为数组"
+            }), 400
+
+        # 校验每个字段定义
+        field_keys = set()
+        for i, field in enumerate(fields):
+            if not isinstance(field, dict):
+                return jsonify({
+                    "success": False,
+                    "message": f"第{i+1}个字段定义格式错误"
+                }), 400
+
+            field_key = field.get('field_key', '').strip()
+            if not field_key:
+                return jsonify({
+                    "success": False,
+                    "message": f"第{i+1}个字段的key不能为空"
+                }), 400
+
+            # 检查key格式（只允许字母、数字、下划线）
+            import re
+            if not re.match(r'^[a-zA-Z][a-zA-Z0-9_]*$', field_key):
+                return jsonify({
+                    "success": False,
+                    "message": f"字段key '{field_key}' 格式错误，只能以字母开头，包含字母、数字和下划线"
+                }), 400
+
+            # 检查key唯一性
+            if field_key in field_keys:
+                return jsonify({
+                    "success": False,
+                    "message": f"字段key '{field_key}' 重复"
+                }), 400
+            field_keys.add(field_key)
+
+            label = field.get('label', '').strip()
+            if not label:
+                return jsonify({
+                    "success": False,
+                    "message": f"字段 '{field_key}' 的标签不能为空"
+                }), 400
+
+            field_type = field.get('type', 'text')
+            if field_type not in ('text', 'number', 'select', 'date', 'checkbox', 'textarea'):
+                return jsonify({
+                    "success": False,
+                    "message": f"字段 '{field_key}' 的类型 '{field_type}' 不支持"
+                }), 400
+
+            # select类型必须有options
+            if field_type == 'select':
+                options = field.get('options', [])
+                if not options or not isinstance(options, list):
+                    return jsonify({
+                        "success": False,
+                        "message": f"字段 '{field_key}' 为select类型，必须提供选项列表"
+                    }), 400
+
+        # 保存字段定义
+        success = save_custom_field_definitions(category, fields, current_user.id)
+        if success:
+            log_operation(
+                user_id=current_user.id,
+                module='system',
+                operation_type='update',
+                action=f"保存{category}自定义字段定义",
+                result="成功"
+            )
+            return jsonify({
+                "success": True,
+                "message": "自定义字段定义保存成功"
+            })
+        else:
+            return jsonify({
+                "success": False,
+                "message": "保存自定义字段定义失败"
+            }), 500
+
+    except Exception as e:
+        logging.error(f"保存自定义字段定义失败 ({category}): {str(e)}")
+        return jsonify({
+            "success": False,
+            "message": f"保存自定义字段定义失败: {str(e)}"
+        }), 500
+
+
+@system_config_bp.route('/api/custom-fields/<category>/delete/<field_key>', methods=['POST'])
+@login_required
+@require_permission('system_settings.manage')
+def delete_custom_field(category, field_key):
+    """删除单个自定义字段定义"""
+    try:
+        if category not in ('user', 'room'):
+            return jsonify({
+                "success": False,
+                "message": f"不支持的自定义字段类别: {category}"
+            }), 400
+
+        # 获取当前字段定义列表
+        fields = get_custom_field_definitions(category)
+
+        # 查找并删除指定字段
+        original_count = len(fields)
+        fields = [f for f in fields if f.get('field_key') != field_key]
+
+        if len(fields) == original_count:
+            return jsonify({
+                "success": False,
+                "message": f"未找到字段 '{field_key}'"
+            }), 404
+
+        # 保存更新后的字段定义
+        success = save_custom_field_definitions(category, fields, current_user.id)
+        if success:
+            log_operation(
+                user_id=current_user.id,
+                module='system',
+                operation_type='delete',
+                action=f"删除{category}自定义字段 '{field_key}'",
+                result="成功"
+            )
+            return jsonify({
+                "success": True,
+                "message": f"字段 '{field_key}' 删除成功"
+            })
+        else:
+            return jsonify({
+                "success": False,
+                "message": "删除字段失败"
+            }), 500
+
+    except Exception as e:
+        logging.error(f"删除自定义字段定义失败 ({category}/{field_key}): {str(e)}")
+        return jsonify({
+            "success": False,
+            "message": f"删除自定义字段定义失败: {str(e)}"
+        }), 500
+
+
+# ==================== 合并自定义字段管理API（用户+房间） ====================
+
+@system_config_bp.route('/api/custom-fields/all', methods=['GET'])
+@login_required
+@require_permission('system_settings.manage')
+def get_all_custom_fields():
+    """获取所有自定义字段定义列表（用户+房间）"""
+    try:
+        all_fields = get_all_custom_field_definitions()
+        return jsonify({"success": True, "data": all_fields})
+    except Exception as e:
+        logging.error(f"获取所有自定义字段定义失败: {str(e)}")
+        return jsonify({"success": False, "message": f"获取自定义字段定义失败: {str(e)}"}), 500
+
+
+@system_config_bp.route('/api/custom-fields/save-all', methods=['POST'])
+@login_required
+@require_permission('system_settings.manage')
+def save_all_custom_fields():
+    """保存所有自定义字段定义（按module拆分保存）"""
+    try:
+        data = request.get_json()
+        fields = data.get('fields', [])
+
+        if not isinstance(fields, list):
+            return jsonify({"success": False, "message": "字段定义必须为数组"}), 400
+
+        # 校验每个字段定义
+        field_keys = set()
+        for i, field in enumerate(fields):
+            if not isinstance(field, dict):
+                return jsonify({"success": False, "message": f"第{i+1}个字段定义格式错误"}), 400
+
+            field_key = field.get('field_key', '').strip()
+            if not field_key:
+                return jsonify({"success": False, "message": f"第{i+1}个字段的key不能为空"}), 400
+
+            import re
+            if not re.match(r'^[a-zA-Z][a-zA-Z0-9_]*$', field_key):
+                return jsonify({"success": False, "message": f"字段key '{field_key}' 格式错误，只能以字母开头，包含字母、数字和下划线"}), 400
+
+            # module校验
+            module = field.get('module', '')
+            if module not in ('user', 'room'):
+                return jsonify({"success": False, "message": f"字段 '{field_key}' 的使用模块必须为'用户'或'房间'"}), 400
+
+            # 同一模块内key唯一性
+            module_key = f"{module}:{field_key}"
+            if module_key in field_keys:
+                return jsonify({"success": False, "message": f"模块'{module}'中字段key '{field_key}' 重复"}), 400
+            field_keys.add(module_key)
+
+            label = field.get('label', '').strip()
+            if not label:
+                return jsonify({"success": False, "message": f"字段 '{field_key}' 的标签不能为空"}), 400
+
+            field_type = field.get('type', 'text')
+            if field_type not in ('text', 'number', 'select', 'date', 'checkbox', 'textarea'):
+                return jsonify({"success": False, "message": f"字段 '{field_key}' 的类型不支持"}), 400
+
+            if field_type == 'select':
+                options = field.get('options', [])
+                if not options or not isinstance(options, list):
+                    return jsonify({"success": False, "message": f"字段 '{field_key}' 为select类型，必须提供选项列表"}), 400
+
+        # 按module拆分，并移除module属性（避免冗余存储）
+        user_fields = [{k: v for k, v in f.items() if k != 'module'} for f in fields if f.get('module') == 'user']
+        room_fields = [{k: v for k, v in f.items() if k != 'module'} for f in fields if f.get('module') == 'room']
+
+        # 分别保存
+        success_user = save_custom_field_definitions('user', user_fields, current_user.id)
+        success_room = save_custom_field_definitions('room', room_fields, current_user.id)
+
+        if success_user and success_room:
+            log_operation(user_id=current_user.id, module='system', operation_type='update',
+                         action="保存所有自定义字段定义", result="成功")
+            return jsonify({"success": True, "message": "自定义字段定义保存成功"})
+        else:
+            return jsonify({"success": False, "message": "保存自定义字段定义失败"}), 500
+
+    except Exception as e:
+        logging.error(f"保存所有自定义字段定义失败: {str(e)}")
+        return jsonify({"success": False, "message": f"保存自定义字段定义失败: {str(e)}"}), 500

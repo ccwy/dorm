@@ -12,6 +12,7 @@ from sqlalchemy import or_
 from datetime import datetime, date
 
 from utils.auth import require_permission
+from utils.custom_fields import get_custom_field_definitions, deserialize_custom_fields
 import logging
 
 # 创建蓝图
@@ -306,6 +307,8 @@ def view(id):
     current_time = datetime.now()
     current_time_formatted = format_datetime(current_time)
     logging.info(f"加载用户详情数据成功，用户ID: {id}")
+    custom_field_defs = get_custom_field_definitions('user.custom_field')
+    custom_field_values = deserialize_custom_fields(user.custom_fields)
     return render_template(
         'user_manage/user_view.html',
         title=f"查看用户 - {user.name}",
@@ -323,6 +326,8 @@ def view(id):
         utility_records=utility_records,  # 新增：传递水电费记录
         roommates=roommates,  # 新增：传递室友信息
         ticket_records=ticket_records,  # 新增：传递留言记录
-        operation_records=operation_records  # 新增：传递操作记录
+        operation_records=operation_records,  # 新增：传递操作记录
+        custom_field_defs=custom_field_defs,
+        custom_field_values=custom_field_values,
     )
 

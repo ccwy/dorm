@@ -132,6 +132,98 @@
                     </div>
                 </div>
 
+                <!-- 自定义字段管理区域 - 仅在自定义字段模块显示 -->
+                <div id="customFieldSection" class="config-card p-6 mt-6 hidden">
+                    <h3 class="text-lg font-medium mb-4 flex items-center">
+                        <i class="fa fa-puzzle-piece text-primary mr-2"></i>自定义字段管理
+                    </h3>
+                    <p class="text-sm text-gray-500 mb-4">添加、编辑、删除和排序自定义字段。拖拽字段行可调整顺序。</p>
+                    
+                    <!-- 操作按钮 -->
+                    <div class="flex gap-3 mb-4">
+                        <button id="addCustomFieldBtn" class="btn-primary text-sm flex items-center">
+                            <i class="fa fa-plus mr-2"></i>添加字段
+                        </button>
+                    </div>
+
+                    <!-- 字段列表 -->
+                    <div id="customFieldList" class="space-y-2">
+                        <!-- 动态生成 -->
+                    </div>
+
+                    <!-- 空状态 -->
+                    <div id="customFieldEmpty" class="flex flex-col items-center justify-center py-8 text-center text-gray-500 hidden">
+                        <i class="fa fa-puzzle-piece text-4xl mb-3 text-gray-300"></i>
+                        <p>暂无自定义字段，点击上方按钮添加</p>
+                    </div>
+                </div>
+
+                <!-- 自定义字段编辑模态框 -->
+                <div id="customFieldModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+                    <div class="bg-white rounded-lg max-w-lg w-full mx-4 shadow-xl">
+                        <div class="p-5 border-b border-gray-200 flex justify-between items-center">
+                            <h3 id="customFieldModalTitle" class="text-lg font-medium text-gray-900">添加自定义字段</h3>
+                            <button id="closeCustomFieldModal" class="text-gray-400 hover:text-gray-600">
+                                <i class="fa fa-times"></i>
+                            </button>
+                        </div>
+                        <div class="p-5 space-y-4">
+                            <input type="hidden" id="cfEditIndex" value="-1">
+                            <div>
+                                <label for="cfModule" class="block text-sm font-medium text-gray-700 mb-1">使用模块 <span class="text-red-500">*</span></label>
+                                <select id="cfModule" class="form-input">
+                                    <option value="user">用户管理</option>
+                                    <option value="room">房间管理</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="cfKey" class="block text-sm font-medium text-gray-700 mb-1">字段Key <span class="text-red-500">*</span></label>
+                                <input type="text" id="cfKey" class="form-input" placeholder="英文标识符，如 blood_type">
+                                <p class="text-xs text-gray-500 mt-1">只能以字母开头，包含字母、数字和下划线</p>
+                            </div>
+                            <div>
+                                <label for="cfLabel" class="block text-sm font-medium text-gray-700 mb-1">字段标签 <span class="text-red-500">*</span></label>
+                                <input type="text" id="cfLabel" class="form-input" placeholder="中文显示名，如 血型">
+                            </div>
+                            <div>
+                                <label for="cfType" class="block text-sm font-medium text-gray-700 mb-1">字段类型 <span class="text-red-500">*</span></label>
+                                <select id="cfType" class="form-input">
+                                    <option value="text">文本(text)</option>
+                                    <option value="number">数字(number)</option>
+                                    <option value="select">下拉选择(select)</option>
+                                    <option value="date">日期(date)</option>
+                                    <option value="checkbox">复选框(checkbox)</option>
+                                    <option value="textarea">多行文本(textarea)</option>
+                                </select>
+                            </div>
+                            <!-- select类型的选项编辑区 -->
+                            <div id="cfOptionsArea" class="hidden">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">选项列表 <span class="text-red-500">*</span></label>
+                                <div id="cfOptionsList" class="space-y-2 mb-2">
+                                    <!-- 动态生成选项行 -->
+                                </div>
+                                <button id="addCfOptionBtn" type="button" class="text-sm text-primary hover:text-primary/80 flex items-center">
+                                    <i class="fa fa-plus mr-1"></i>添加选项
+                                </button>
+                            </div>
+                            <div class="flex items-center gap-4">
+                                <div class="flex items-center">
+                                    <input type="checkbox" id="cfRequired" class="w-4 h-4 text-primary rounded">
+                                    <label for="cfRequired" class="ml-2 text-sm text-gray-700">是否必填</label>
+                                </div>
+                            </div>
+                            <div>
+                                <label for="cfSortOrder" class="block text-sm font-medium text-gray-700 mb-1">排序号</label>
+                                <input type="number" id="cfSortOrder" class="form-input" value="1" min="1" step="1">
+                            </div>
+                        </div>
+                        <div class="p-5 border-t border-gray-200 flex justify-end gap-3">
+                            <button id="cancelCustomFieldBtn" class="btn-secondary">取消</button>
+                            <button id="confirmCustomFieldBtn" class="btn-primary">确定</button>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- 备份管理区域 - 仅在备份模块显示 -->
                 <div id="backupSection" class="config-card p-6 mt-6 hidden">
                     <h3 class="text-lg font-medium mb-4 flex items-center">
@@ -422,6 +514,25 @@
             // 对话框事件
             document.getElementById('dialogCancelBtn').addEventListener('click', hideConfirmDialog);
             document.getElementById('dialogConfirmBtn').addEventListener('click', executeConfirmedAction);
+
+            // 自定义字段管理事件绑定
+            document.getElementById('addCustomFieldBtn').addEventListener('click', () => openCustomFieldModal(-1));
+            document.getElementById('closeCustomFieldModal').addEventListener('click', closeCustomFieldModal);
+            document.getElementById('cancelCustomFieldBtn').addEventListener('click', closeCustomFieldModal);
+            document.getElementById('confirmCustomFieldBtn').addEventListener('click', confirmCustomField);
+            document.getElementById('cfType').addEventListener('change', toggleCfOptionsArea);
+            document.getElementById('addCfOptionBtn').addEventListener('click', () => {
+                const opts = collectCfOptions();
+                opts.push('');
+                renderCfOptions(opts);
+                // 聚焦到新添加的输入框
+                const inputs = document.getElementById('cfOptionsList').querySelectorAll('.cf-option-input');
+                if (inputs.length > 0) inputs[inputs.length - 1].focus();
+            });
+            // 自定义字段模态框点击背景关闭
+            document.getElementById('customFieldModal').addEventListener('click', (e) => {
+                if (e.target === e.currentTarget) closeCustomFieldModal();
+            });
         });
 
         // 新增：下载备份文件
@@ -1033,7 +1144,15 @@
             if (initModuleBtn) initModuleBtn.disabled = false;
             
             // 加载模块配置
-            loadModuleConfigs(module.category);
+            // 判断是否为自定义字段模块
+            if (module.category === 'custom_field') {
+                document.getElementById('configContent').classList.add('hidden');
+                loadAllCustomFields();
+            } else {
+                document.getElementById('configContent').classList.remove('hidden');
+                document.getElementById('customFieldSection').classList.add('hidden');
+                loadModuleConfigs(module.category);
+            }
             
             // 显示或隐藏备份区域
             if (module.category === 'system.backup' && hasManagePermission) {
@@ -1277,6 +1396,12 @@
         // 保存配置更改
         function saveConfigChanges() {
             if (!currentModule) return;
+            
+            // 自定义字段模块使用专用保存逻辑
+            if (currentModule.category === 'custom_field') {
+                saveCustomFieldChanges();
+                return;
+            }
             
             // 收集表单数据
             const formData = {};
@@ -2196,6 +2321,300 @@
                 confirmedAction(forceClear);
             }
             hideConfirmDialog();
+        }
+
+        // ==================== 自定义字段管理 ====================
+        let customFields = []; // 当前自定义字段定义列表
+
+        // 加载所有自定义字段定义（用户+房间）
+        function loadAllCustomFields() {
+            const section = document.getElementById('customFieldSection');
+            section.classList.remove('hidden');
+            
+            const listEl = document.getElementById('customFieldList');
+            listEl.innerHTML = '<div class="flex justify-center py-6"><i class="fa fa-spinner fa-spin text-2xl text-gray-300"></i></div>';
+            document.getElementById('customFieldEmpty').classList.add('hidden');
+
+            fetch('/system/api/custom-fields/all')
+                .then(response => response.json().catch(() => { throw new Error('无法解析响应'); }).then(data => {
+                    if (!response.ok) throw new Error(data?.message || `HTTP ${response.status}`);
+                    return data;
+                }))
+                .then(data => {
+                    if (data.success) {
+                        customFields = data.data || [];
+                        renderCustomFields();
+                    } else {
+                        showToast('加载自定义字段失败: ' + data.message, 'error');
+                    }
+                })
+                .catch(error => {
+                    console.error('加载自定义字段错误:', error);
+                    showToast(error.message, 'error');
+                });
+        }
+
+        // 渲染自定义字段列表
+        function renderCustomFields() {
+            const listEl = document.getElementById('customFieldList');
+            const emptyEl = document.getElementById('customFieldEmpty');
+
+            if (customFields.length === 0) {
+                listEl.innerHTML = '';
+                emptyEl.classList.remove('hidden');
+                return;
+            }
+
+            emptyEl.classList.add('hidden');
+            const typeLabels = { text: '文本', number: '数字', select: '下拉选择', date: '日期', checkbox: '复选框', textarea: '多行文本' };
+            const moduleLabels = { user: '用户', room: '房间' };
+
+            let html = '';
+            customFields.forEach((field, index) => {
+                html += `
+                <div class="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-100 hover:border-primary/30 transition-colors cf-field-row" draggable="true" data-index="${index}">
+                    <span class="text-gray-400 cursor-move" title="拖拽排序"><i class="fa fa-bars"></i></span>
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <span class="font-medium text-gray-800">${escapeHtml(field.label || field.field_key)}</span>
+                            <code class="text-xs bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded">${escapeHtml(field.field_key)}</code>
+                            <span class="text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded">${moduleLabels[field.module] || field.module}</span>
+                            <span class="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">${typeLabels[field.type] || field.type}</span>
+                            ${field.required ? '<span class="text-xs bg-red-100 text-red-700 px-1.5 py-0.5 rounded">必填</span>' : ''}
+                            ${field.type === 'select' && field.options ? '<span class="text-xs bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded">' + field.options.length + '个选项</span>' : ''}
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button class="btn-effect bg-amber-500 text-white px-2 py-1 rounded-md text-sm flex items-center cf-edit-btn" data-index="${index}" title="编辑"><i class="fa fa-pencil mr-1"></i>编辑</button>
+                        <button class="btn-effect bg-red-500 text-white px-2 py-1 rounded-md text-sm flex items-center cf-delete-btn" data-index="${index}" title="删除"><i class="fa fa-trash mr-1"></i>删除</button>
+                    </div>
+                </div>`;
+            });
+            listEl.innerHTML = html;
+
+            // 绑定编辑/删除按钮事件
+            listEl.querySelectorAll('.cf-edit-btn').forEach(btn => {
+                btn.addEventListener('click', () => openCustomFieldModal(parseInt(btn.dataset.index)));
+            });
+            listEl.querySelectorAll('.cf-delete-btn').forEach(btn => {
+                btn.addEventListener('click', () => deleteCustomFieldByIndex(parseInt(btn.dataset.index)));
+            });
+
+            // 绑定拖拽排序事件
+            initCustomFieldDragSort();
+        }
+
+        // HTML转义
+        function escapeHtml(str) {
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        // 拖拽排序
+        function initCustomFieldDragSort() {
+            const listEl = document.getElementById('customFieldList');
+            let dragIndex = null;
+
+            listEl.querySelectorAll('.cf-field-row').forEach(row => {
+                row.addEventListener('dragstart', (e) => {
+                    dragIndex = parseInt(row.dataset.index);
+                    row.classList.add('opacity-50');
+                    e.dataTransfer.effectAllowed = 'move';
+                });
+                row.addEventListener('dragend', () => {
+                    row.classList.remove('opacity-50');
+                    dragIndex = null;
+                    listEl.querySelectorAll('.cf-field-row').forEach(r => r.classList.remove('border-primary', 'border-2'));
+                });
+                row.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                    row.classList.add('border-primary', 'border-2');
+                });
+                row.addEventListener('dragleave', () => {
+                    row.classList.remove('border-primary', 'border-2');
+                });
+                row.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    const dropIndex = parseInt(row.dataset.index);
+                    if (dragIndex !== null && dragIndex !== dropIndex) {
+                        // 交换位置
+                        const item = customFields.splice(dragIndex, 1)[0];
+                        customFields.splice(dropIndex, 0, item);
+                        // 更新sort_order
+                        customFields.forEach((f, i) => f.sort_order = i + 1);
+                        renderCustomFields();
+                    }
+                });
+            });
+        }
+
+        // 打开自定义字段模态框
+        function openCustomFieldModal(editIndex = -1) {
+            const modal = document.getElementById('customFieldModal');
+            const title = document.getElementById('customFieldModalTitle');
+            const isEdit = editIndex >= 0;
+
+            title.textContent = isEdit ? '编辑自定义字段' : '添加自定义字段';
+            document.getElementById('cfEditIndex').value = editIndex;
+
+            if (isEdit) {
+                const field = customFields[editIndex];
+                document.getElementById('cfKey').value = field.field_key || '';
+                document.getElementById('cfKey').disabled = true; // 编辑时不可修改key
+                document.getElementById('cfModule').value = field.module || 'user';
+                document.getElementById('cfModule').disabled = true; // 编辑时不可修改module
+                document.getElementById('cfLabel').value = field.label || '';
+                document.getElementById('cfType').value = field.type || 'text';
+                document.getElementById('cfRequired').checked = !!field.required;
+                document.getElementById('cfSortOrder').value = field.sort_order || (editIndex + 1);
+                // 渲染选项
+                renderCfOptions(field.options || []);
+            } else {
+                document.getElementById('cfKey').value = '';
+                document.getElementById('cfKey').disabled = false;
+                document.getElementById('cfModule').value = 'user';
+                document.getElementById('cfModule').disabled = false;
+                document.getElementById('cfLabel').value = '';
+                document.getElementById('cfType').value = 'text';
+                document.getElementById('cfRequired').checked = false;
+                document.getElementById('cfSortOrder').value = customFields.length + 1;
+                renderCfOptions([]);
+            }
+
+            // 根据类型显示/隐藏选项区
+            toggleCfOptionsArea();
+            modal.classList.remove('hidden');
+        }
+
+        // 关闭自定义字段模态框
+        function closeCustomFieldModal() {
+            document.getElementById('customFieldModal').classList.add('hidden');
+        }
+
+        // 切换选项编辑区显示
+        function toggleCfOptionsArea() {
+            const type = document.getElementById('cfType').value;
+            document.getElementById('cfOptionsArea').classList.toggle('hidden', type !== 'select');
+        }
+
+        // 渲染select选项列表
+        function renderCfOptions(options) {
+            const listEl = document.getElementById('cfOptionsList');
+            if (!options || options.length === 0) {
+                listEl.innerHTML = '<p class="text-xs text-gray-400">暂无选项</p>';
+                return;
+            }
+            let html = '';
+            options.forEach((opt, i) => {
+                html += `
+                <div class="flex items-center gap-2">
+                    <input type="text" class="form-input cf-option-input" value="${escapeHtml(opt)}" placeholder="选项值">
+                    <button type="button" class="text-red-500 hover:text-red-700 cf-remove-option" data-index="${i}"><i class="fa fa-times"></i></button>
+                </div>`;
+            });
+            listEl.innerHTML = html;
+
+            listEl.querySelectorAll('.cf-remove-option').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const idx = parseInt(btn.dataset.index);
+                    const inputs = listEl.querySelectorAll('.cf-option-input');
+                    const opts = Array.from(inputs).map(inp => inp.value.trim()).filter(v => v);
+                    opts.splice(idx, 1);
+                    renderCfOptions(opts);
+                });
+            });
+        }
+
+        // 收集select选项
+        function collectCfOptions() {
+            const inputs = document.getElementById('cfOptionsList').querySelectorAll('.cf-option-input');
+            return Array.from(inputs).map(inp => inp.value.trim()).filter(v => v);
+        }
+
+        // 确认添加/编辑自定义字段
+        function confirmCustomField() {
+            const editIndex = parseInt(document.getElementById('cfEditIndex').value);
+            const key = document.getElementById('cfKey').value.trim();
+            const label = document.getElementById('cfLabel').value.trim();
+            const type = document.getElementById('cfType').value;
+            const module = document.getElementById('cfModule').value;
+            const required = document.getElementById('cfRequired').checked;
+            const sortOrder = parseInt(document.getElementById('cfSortOrder').value) || 1;
+
+            // 校验
+            if (!key) { showToast('字段Key不能为空', 'error'); return; }
+            if (!/^[a-zA-Z][a-zA-Z0-9_]*$/.test(key)) { showToast('字段Key格式错误，只能以字母开头，包含字母、数字和下划线', 'error'); return; }
+            if (!label) { showToast('字段标签不能为空', 'error'); return; }
+
+            // 检查key唯一性（同模块内，新增时）
+            if (editIndex < 0) {
+                if (customFields.some(f => f.field_key === key && f.module === module)) {
+                    showToast(`模块'${module === 'user' ? '用户' : '房间'}'中字段Key '${key}' 已存在`, 'error');
+                    return;
+                }
+            }
+
+            const field = { field_key: key, label, type, module, required, sort_order: sortOrder };
+
+            if (type === 'select') {
+                const options = collectCfOptions();
+                if (options.length === 0) { showToast('select类型必须至少有一个选项', 'error'); return; }
+                field.options = options;
+            }
+
+            if (editIndex >= 0) {
+                customFields[editIndex] = field;
+            } else {
+                customFields.push(field);
+            }
+
+            closeCustomFieldModal();
+            renderCustomFields();
+        }
+
+        // 删除自定义字段（按索引，前端操作）
+        function deleteCustomFieldByIndex(index) {
+            const field = customFields[index];
+            if (!field) return;
+            showConfirmDialog(
+                '删除自定义字段',
+                `确定要删除字段 '${field.label || field.field_key}' 吗？删除后需保存才会生效。`,
+                () => {
+                    customFields.splice(index, 1);
+                    customFields.forEach((f, i) => f.sort_order = i + 1);
+                    renderCustomFields();
+                }
+            );
+        }
+
+        // 保存自定义字段定义
+        function saveCustomFieldChanges() {
+            // 重新排序
+            customFields.forEach((f, i) => f.sort_order = i + 1);
+
+            fetch('/system/api/custom-fields/save-all', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                body: JSON.stringify({ fields: customFields })
+            })
+            .then(response => response.json().catch(() => { throw new Error('无法解析响应'); }).then(data => {
+                if (!response.ok) throw new Error(data?.message || `HTTP ${response.status}`);
+                return data;
+            }))
+            .then(data => {
+                if (data.success) {
+                    showToast(data.message, 'success');
+                    loadAllCustomFields();
+                } else {
+                    showToast('保存失败: ' + data.message, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('保存自定义字段错误:', error);
+                showToast(error.message, 'error');
+            });
         }
 
         // 显示提示消息

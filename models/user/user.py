@@ -23,6 +23,7 @@ class User(UserMixin, db.Model):
     emergency_contact = db.Column(db.String(50), nullable=True, comment='紧急联系人')
     emergency_phone = db.Column(db.String(50), nullable=True, comment='紧急联系人电话')
     remarks = db.Column(db.Text, nullable=True, comment='备注')
+    custom_fields = db.Column(db.Text, nullable=True, comment='自定义字段（JSON格式）')
     status = db.Column(db.String(20), default='在职', comment='状态：在职/离职/自离')
     hire_date = db.Column(db.DateTime, default=datetime.now, comment='入职日期')
     created_at = db.Column(db.DateTime, default=datetime.now, comment='创建时间')
@@ -574,6 +575,7 @@ class User(UserMixin, db.Model):
                     role_id=user_data.get('role_id'),
                     is_active=user_data.get('is_active', True),
                     is_banned=user_data.get('is_banned', True),
+                    custom_fields=user_data.get('custom_fields', ''),
                     created_at=user_data.get('created_at', datetime.now()),
                     updated_at=user_data.get('updated_at', datetime.now())
                     # 不处理住宿相关字段，因为用户不会上传
@@ -689,7 +691,7 @@ class User(UserMixin, db.Model):
                                    'lodging_address', 'phone', 
                                    'position', 'marital_status', 'ethnicity', 'emergency_contact', 
                                    'emergency_phone', 'remarks', 'status', 'hire_date', 'role_id', 
-                                   'is_active', 'is_banned', 'username', 'student_id']
+                                   'is_active', 'is_banned', 'username', 'student_id', 'custom_fields']
                 
                 is_dirty = False  # 标记当前记录是否有字段变化
                 for field in fields_to_update:

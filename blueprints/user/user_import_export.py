@@ -9,8 +9,11 @@ from utils.user_utils import (
     get_importable_fields, 
     process_field_value,
     generate_student_id,
-    generate_username
+    generate_username,
+    get_custom_field_label_to_key_map,
+    get_custom_field_definitions_for_export
 ) #引入工具类
+from utils.custom_fields import deserialize_custom_fields, serialize_custom_fields, validate_custom_fields, get_custom_field_definitions
 from utils.excel_date_utils import excel_date_utils
 import re  # 正则表达式模块，用于处理字符串
 import datetime
@@ -241,8 +244,11 @@ def export_users():
         
         model_fields = get_user_model_fields()
         
-        export_fields = {k: v for k, v in model_fields.items() if k != 'password_hash'}
+        export_fields = {k: v for k, v in model_fields.items() if k != 'password_hash' and not k.startswith('custom_')}
         field_names = list(export_fields.keys())
+        
+        # 获取自定义字段定义（用于导出）
+        custom_field_defs = get_custom_field_definitions_for_export('user')
         
         # 构建导出数据
         data = []
@@ -280,6 +286,16 @@ def export_users():
                     field_value = getattr(user, field_name, "")
                     
                 row[export_fields[field_name]] = process_field_value(field_name, field_value)
+            
+            # 添加自定义字段列到当前行
+            if custom_field_defs:
+                custom_data = deserialize_custom_fields(user.custom_fields or '')
+                for field_def in custom_field_defs:
+                    field_key = field_def.get('field_key', '')
+                    label = field_def.get('label', field_key)
+                    if field_key:
+                        row_data_value = custom_data.get(field_key, '')
+                        row[label] = str(row_data_value) if row_data_value else ''
             
             data.append(row)
         
@@ -341,8 +357,12 @@ def import_users():
         # 可选列（缺失时不报错）
         optional_columns = ['工号', '用户名', '密码', '角色', '公司', '部门', '职位', '身份证号码', '身份证地址', '外宿地址', '联系电话', '紧急联系人', '紧急联系人电话', '入职日期', '是否激活账号', '是否允许登录', '人员类别', '备注', '状态', '民族', '婚姻状态']
         
-        # 所有可能需要识别的标准列名
-        all_known_columns = set(required_columns) | set(optional_columns)
+        # 获取自定义字段label→key映射（用于导入时通过列名反查字段key）
+        custom_label_to_key = get_custom_field_label_to_key_map('user')
+        custom_field_labels = set(custom_label_to_key.keys())
+        
+        # 所有可能需要识别的标准列名（包含自定义字段列名）
+        all_known_columns = set(required_columns) | set(optional_columns) | custom_field_labels
 
         # 构建列名映射：只保留白名单中的列，其余自动忽略
         column_mapping = {}
@@ -351,15 +371,10 @@ def import_users():
             # 先检查是否直接匹配标准列名
             if col in all_known_columns:
                 continue  # 标准列名无需映射
-            # 再检查是否匹配某个标准列名的别名
-            matched = False
-            for standard_name, aliases in column_alias_map.items():
-                if col in aliases:
-                    column_mapping[col] = standard_name
-                    matched = True
-                    break
-            if not matched:
-                ignored_columns.append(col)
+            # 自定义字段列名也无需映射，直接保留
+            if col in custom_field_labels:
+                continue
+            ignored_columns.append(col)
 
         if ignored_columns:
             logging.info(f'导入用户数据：自动忽略未识别列 {ignored_columns}')
@@ -370,6 +385,11 @@ def import_users():
         whitelist_columns = [col for col in df.columns if col in all_known_columns]
         df = df[whitelist_columns]
         excel_columns = df.columns.tolist()
+        
+        # 检测Excel中实际包含的自定义字段列
+        custom_columns_in_excel = [col for col in excel_columns if col in custom_field_labels]
+        # 获取自定义字段定义（用于导入时校验和checkbox标准化）
+        custom_field_defs_import = get_custom_field_definitions('user')
 
         # 验证必要列
         missing_columns = [col for col in required_columns if col not in df.columns]
@@ -537,6 +557,27 @@ def import_users():
                     user_data['is_banned'] = bool(SystemConfig.get_config_value('USER_DEFAULT_BANNED', False))
                     logging.info(f"导入用户数据操作，第{current_row}行：Excel中未提供'是否允许登录'字段，已设置为默认值")
             
+            # 处理自定义字段列
+            if custom_columns_in_excel:
+                custom_data = {}
+                for label in custom_columns_in_excel:
+                    if label in row.index and not pd.isna(row[label]):
+                        field_key = custom_label_to_key.get(label, '')
+                        if field_key:
+                            # checkbox类型值标准化
+                            field_def_for_key = next((fd for fd in custom_field_defs_import if fd.get('field_key') == field_key), None)
+                            if field_def_for_key and field_def_for_key.get('type') == 'checkbox':
+                                val = str(row[label]).strip().lower()
+                                custom_data[field_key] = 'true' if val in ('true', '1', '是', 'yes') else 'false'
+                            else:
+                                custom_data[field_key] = str(row[label]).strip()
+                if custom_data:
+                    # 导入校验（宽松模式：仅warning，不阻断导入）
+                    validation_warnings = validate_custom_fields(custom_data, custom_field_defs_import)
+                    for warning in validation_warnings:
+                        logging.warning(f'导入用户数据第{current_row}行自定义字段校验警告：{warning}')
+                    user_data['custom_fields'] = serialize_custom_fields(custom_data)
+            
             # 同步公司和部门到部门管理模块
             _sync_company_department(user_data, '导入用户数据操作', f'第{current_row}行：')
             
@@ -660,6 +701,15 @@ def import_template():
             }
         ]
         
+        # 添加自定义字段列到模板
+        custom_field_defs = get_custom_field_definitions_for_export('user')
+        if custom_field_defs:
+            for field_def in custom_field_defs:
+                label = field_def.get('label', field_def.get('field_key', ''))
+                default_value = field_def.get('default_value', '')
+                for sample_row in sample_data:
+                    sample_row[label] = str(default_value) if default_value else ''
+        
         # 创建DataFrame
         df = pd.DataFrame(sample_data)
         
@@ -743,8 +793,12 @@ def update_users():
         column_alias_map = {
             '用户ID': ['用户ID（批量更新必填）', '用户ID(批量更新必填)', 'ID', 'id'],
         }
-        # 所有可能需要识别的标准列名
-        all_known_columns = set(required_columns) | set(optional_columns)
+        # 获取自定义字段label→key映射
+        custom_label_to_key = get_custom_field_label_to_key_map('user')
+        custom_field_labels = set(custom_label_to_key.keys())
+        
+        # 所有可能需要识别的标准列名（包含自定义字段列名）
+        all_known_columns = set(required_columns) | set(optional_columns) | custom_field_labels
 
         # 构建列名映射：只保留白名单中的列，其余自动忽略
         column_mapping = {}
@@ -772,6 +826,11 @@ def update_users():
         whitelist_columns = [col for col in df.columns if col in all_known_columns]
         df = df[whitelist_columns]
         excel_columns = list(df.columns)
+        
+        # 检测Excel中实际包含的自定义字段列
+        custom_columns_in_excel = [col for col in excel_columns if col in custom_field_labels]
+        # 获取自定义字段定义（用于导入时校验和checkbox标准化）
+        custom_field_defs_import = get_custom_field_definitions('user')
 
         # 验证必要列
         missing_columns = [col for col in required_columns if col not in df.columns]
@@ -879,6 +938,29 @@ def update_users():
                     else:
                         error_list.append(f"第{idx+2}行：角色'{role_val}'不存在")
                         logging.warning(f"批量更新用户数据操作，第{idx+2}行：角色'{role_val}'不存在")
+            
+            # 处理自定义字段列
+            if custom_columns_in_excel:
+                custom_data = {}
+                for label in custom_columns_in_excel:
+                    if label in row.index and pd.notna(row[label]):
+                        field_key = custom_label_to_key.get(label, '')
+                        if field_key:
+                            # checkbox类型值标准化
+                            field_def_for_key = next((fd for fd in custom_field_defs_import if fd.get('field_key') == field_key), None)
+                            if field_def_for_key and field_def_for_key.get('type') == 'checkbox':
+                                val = str(row[label]).strip().lower()
+                                custom_data[field_key] = 'true' if val in ('true', '1', '是', 'yes') else 'false'
+                            else:
+                                val = str(row[label]).strip()
+                                if val:  # 空字符串跳过，保持原值不变
+                                    custom_data[field_key] = val
+                if custom_data:
+                    # 导入校验（宽松模式：仅warning，不阻断导入）
+                    validation_warnings = validate_custom_fields(custom_data, custom_field_defs_import)
+                    for warning in validation_warnings:
+                        logging.warning(f'批量更新用户数据第{idx+2}行自定义字段校验警告：{warning}')
+                    user_data['custom_fields'] = serialize_custom_fields(custom_data)
             
             # 同步公司和部门到部门管理模块
             _sync_company_department(user_data, '批量更新用户数据操作', f'第{idx+2}行：')

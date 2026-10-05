@@ -404,6 +404,18 @@ class SystemConfig(db.Model):
                 'sort_order': 110
             },
             
+            # 3.5 用户自定义字段配置 (category: user.custom_field)
+            {
+                'config_key': 'USER_CUSTOM_FIELDS',
+                'config_value': '[]',  # 空数组，表示默认无自定义字段
+                'config_type': 'json',
+                'category': 'user.custom_field',
+                'description': '用户自定义字段定义（JSON数组）',
+                'is_system': True,
+                'is_editable': True,
+                'sort_order': 1
+            },
+            
             # 4. 房间管理配置 (category: room)
             {
                 'config_key': 'ROOM_building',
@@ -446,6 +458,18 @@ class SystemConfig(db.Model):
                 'category': 'room',
                 'description': '用户自定义的房间设备类型（可动态增删）',
                 'sort_order': 50
+            },
+            
+            # 4.5 房间自定义字段配置 (category: room.custom_field)
+            {
+                'config_key': 'ROOM_CUSTOM_FIELDS',
+                'config_value': '[]',  # 空数组，表示默认无自定义字段
+                'config_type': 'json',
+                'category': 'room.custom_field',
+                'description': '房间自定义字段定义（JSON数组）',
+                'is_system': True,
+                'is_editable': True,
+                'sort_order': 1
             },
             
             # 5. 宿舍管理配置 (category: dorm)

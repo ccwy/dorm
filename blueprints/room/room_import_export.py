@@ -17,6 +17,8 @@ from models.system_config.system_config import SystemConfig
 from io import BytesIO
 from utils.excel_date_utils import excel_date_utils
 from decimal import Decimal
+from utils.custom_fields import deserialize_custom_fields, serialize_custom_fields, validate_custom_fields, get_custom_field_definitions
+from utils.user_utils import get_custom_field_label_to_key_map, get_custom_field_definitions_for_export
 
 # 创建导入导出专用蓝图
 room_import_export_bp = Blueprint(
@@ -45,6 +47,9 @@ def export():
             logging.info('没有可导出的房间数据')
             flash('没有可导出的房间数据', 'info')
             return redirect(url_for('room.manage'))
+        
+        # 获取自定义字段定义（用于导出）
+        custom_field_defs = get_custom_field_definitions_for_export('room')
         
         # 准备房间导出数据
         logging.debug('开始准备导出数据')
@@ -100,6 +105,16 @@ def export():
                     '添加时间': room.created_at.strftime('%Y-%m-%d %H:%M:%S'),
                     '更新时间': room.updated_at.strftime('%Y-%m-%d %H:%M:%S')
                 })
+                
+                # 添加自定义字段列到当前行
+                if custom_field_defs:
+                    custom_data = deserialize_custom_fields(room.custom_fields or '')
+                    for field_def in custom_field_defs:
+                        field_key = field_def.get('field_key', '')
+                        label = field_def.get('label', field_key)
+                        if field_key:
+                            row_data_value = custom_data.get(field_key, '')
+                            data[-1][label] = str(row_data_value) if row_data_value else ''
             except Exception as e:
                 logging.error(f'处理房间ID={room.id}时出错: {str(e)}', exc_info=True)
                 raise
@@ -226,6 +241,12 @@ def import_rooms():
         }
         # 所有可能需要识别的标准列名
         all_known_columns = set(required_columns) | set(optional_columns)
+        
+        # 获取自定义字段label→key映射（用于导入时通过列名反查字段key）
+        custom_label_to_key = get_custom_field_label_to_key_map('room')
+        custom_field_labels = set(custom_label_to_key.keys())
+        # 白名单中包含自定义字段列名
+        all_known_columns = all_known_columns | custom_field_labels
 
         # 构建列名映射：只保留白名单中的列，其余自动忽略
         column_mapping = {}
@@ -253,7 +274,10 @@ def import_rooms():
         whitelist_columns = [col for col in df.columns if col in all_known_columns]
         df = df[whitelist_columns]
 
-        # 验证必要列
+        # 检测Excel中实际包含的自定义字段列
+        custom_columns_in_excel = [col for col in df.columns if col in custom_field_labels]
+        # 获取自定义字段定义（用于导入时校验和checkbox标准化）
+        custom_field_defs_import = get_custom_field_definitions('room')
         missing_columns = [col for col in required_columns if col not in df.columns]
         if missing_columns:
             flash(f'导入失败：文件缺少必要的列 - {", ".join(missing_columns)}', 'danger')
@@ -416,7 +440,7 @@ def import_rooms():
                     continue
                 
                 # 添加到数据列表
-                rooms_data.append({
+                room_data_item = {
                     '楼栋': building,
                     '房间号': room_number,
                     '地址': str(row.get('地址', '')).strip() if not pd.isna(row.get('地址')) else '',
@@ -431,7 +455,30 @@ def import_rooms():
                     '水表最大量程': float(row.get('水表最大量程', 9999.99) or 9999.99),
                     '备注': remark,
                     '添加时间': created_at
-                })
+                }
+                
+                # 处理自定义字段列
+                if custom_columns_in_excel:
+                    custom_data = {}
+                    for label in custom_columns_in_excel:
+                        if label in row.index and not pd.isna(row[label]):
+                            field_key = custom_label_to_key.get(label, '')
+                            if field_key:
+                                # checkbox类型值标准化
+                                field_def_for_key = next((fd for fd in custom_field_defs_import if fd.get('field_key') == field_key), None)
+                                if field_def_for_key and field_def_for_key.get('type') == 'checkbox':
+                                    val = str(row[label]).strip().lower()
+                                    custom_data[field_key] = 'true' if val in ('true', '1', '是', 'yes') else 'false'
+                                else:
+                                    custom_data[field_key] = str(row[label]).strip()
+                    if custom_data:
+                        # 导入校验（宽松模式：仅warning，不阻断导入）
+                        validation_warnings = validate_custom_fields(custom_data, custom_field_defs_import)
+                        for warning in validation_warnings:
+                            logging.warning(f'导入房间数据第{row_num}行自定义字段校验警告：{warning}')
+                        room_data_item['custom_fields'] = serialize_custom_fields(custom_data)
+                
+                rooms_data.append(room_data_item)
                 
             except Exception as e:
                 error_records.append(f"第{row_num}行：数据处理失败 - {str(e)}")
@@ -582,6 +629,14 @@ def download_template():
             "备注": ["朝南，带阳台", "", ""]
         }
         
+        # 添加自定义字段列到模板
+        custom_field_defs = get_custom_field_definitions_for_export('room')
+        if custom_field_defs:
+            for field_def in custom_field_defs:
+                label = field_def.get('label', field_def.get('field_key', ''))
+                default_value = field_def.get('default_value', '')
+                template_data[label] = [str(default_value) if default_value else '' for _ in range(3)]
+        
         # 状态映射
         status_mapping = {
                 RoomStatus.AVAILABLE.value: "可用",
@@ -704,6 +759,12 @@ def batch_update():
         }
         # 所有可能需要识别的标准列名
         all_known_columns = set(required_columns) | set(optional_columns)
+        
+        # 获取自定义字段label→key映射（用于导入时通过列名反查字段key）
+        custom_label_to_key = get_custom_field_label_to_key_map('room')
+        custom_field_labels = set(custom_label_to_key.keys())
+        # 白名单中包含自定义字段列名
+        all_known_columns = all_known_columns | custom_field_labels
 
         # 构建列名映射：只保留白名单中的列，其余自动忽略
         column_mapping = {}
@@ -731,7 +792,10 @@ def batch_update():
         whitelist_columns = [col for col in df.columns if col in all_known_columns]
         df = df[whitelist_columns]
 
-        # 验证必要列
+        # 检测Excel中实际包含的自定义字段列
+        custom_columns_in_excel = [col for col in df.columns if col in custom_field_labels]
+        # 获取自定义字段定义（用于导入时校验和checkbox标准化）
+        custom_field_defs_import = get_custom_field_definitions('room')
         missing_columns = [col for col in required_columns if col not in df.columns]
         if missing_columns:
             flash(f'导入失败：文件缺少必要的列 - {", " .join(missing_columns)}', 'danger')
@@ -997,6 +1061,30 @@ def batch_update():
                 except (ValueError, TypeError):
                     error_list.append(f"第{row_num}行：水电表最大量程必须为有效的数字")
                     continue
+
+                # 处理自定义字段列
+                if custom_columns_in_excel:
+                    custom_data = {}
+                    for label in custom_columns_in_excel:
+                        if label in row.index and not pd.isna(row[label]):
+                            field_key = custom_label_to_key.get(label, '')
+                            if field_key:
+                                # checkbox类型值标准化
+                                field_def_for_key = next((fd for fd in custom_field_defs_import if fd.get('field_key') == field_key), None)
+                                if field_def_for_key and field_def_for_key.get('type') == 'checkbox':
+                                    val = str(row[label]).strip().lower()
+                                    custom_data[field_key] = 'true' if val in ('true', '1', '是', 'yes') else 'false'
+                                else:
+                                    custom_data[field_key] = str(row[label]).strip()
+                    if custom_data:
+                        # 导入校验（宽松模式：仅warning，不阻断导入）
+                        validation_warnings = validate_custom_fields(custom_data, custom_field_defs_import)
+                        for warning in validation_warnings:
+                            logging.warning(f'批量更新房间数据第{row_num}行自定义字段校验警告：{warning}')
+                        # 合并已有自定义字段数据
+                        existing_custom = deserialize_custom_fields(room.custom_fields or '')
+                        existing_custom.update(custom_data)
+                        room.custom_fields = serialize_custom_fields(existing_custom)
 
                 success_count += 1
 

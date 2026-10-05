@@ -250,7 +250,7 @@
                                     {% endif %}
                                     {% if current_user.has_permission('user.delete') %}
                                     <form action="{{ url_for('user_operations.delete', id=user.id) }}" method="POST"
-                                          onsubmit="return confirm('确定要删除 ID: {{ user.id }} - {{ user.name }} 吗？')"
+                                          onsubmit="return confirm('确定要删除 {{ user.name }} (ID:{{ user.id }}) 吗？')"
                                           class="inline">
                                         <button type="submit" 
                                                 class="btn-effect bg-red-500 text-white px-2 py-1 rounded-md text-sm flex items-center">
