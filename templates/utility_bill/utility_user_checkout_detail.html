@@ -420,7 +420,7 @@
     // 退宿照片管理相关变量
     var checkoutBillingPeriod = '{{ billing_period }}';
     var checkoutRoomId = '{{ room.id }}';
-    var checkoutId = '{{ checkout_record.id }}';
+    var checkoutUserId = '{{ checkout_record.user_id }}';
     
     // 页面加载时获取退宿照片列表
     document.addEventListener('DOMContentLoaded', function() {
@@ -430,7 +430,7 @@
     // 加载退宿照片文件列表
     async function loadCheckoutMediaFiles() {
         try {
-            var response = await fetch('/utility-checkout/get_media_files?billing_period=' + checkoutBillingPeriod + '&room_id=' + checkoutRoomId + '&checkout_id=' + checkoutId, {
+            var response = await fetch('/utility-checkout/get_media_files?billing_period=' + checkoutBillingPeriod + '&room_id=' + checkoutRoomId + '&user_id=' + checkoutUserId, {
                 method: 'GET',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include'
@@ -505,7 +505,7 @@
         formData.append('file', file);
         formData.append('billing_period', checkoutBillingPeriod);
         formData.append('room_id', checkoutRoomId);
-        formData.append('checkout_id', checkoutId);
+        formData.append('user_id', checkoutUserId);
         
         statusSpan.classList.remove('hidden');
         
@@ -543,7 +543,7 @@
                 body: JSON.stringify({
                     billing_period: checkoutBillingPeriod,
                     room_id: checkoutRoomId,
-                    checkout_id: checkoutId,
+                    user_id: checkoutUserId,
                     filename: filename
                 }),
                 credentials: 'include'

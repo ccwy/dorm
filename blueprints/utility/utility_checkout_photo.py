@@ -6,7 +6,7 @@ from datetime import datetime
 from flask_login import login_required, current_user
 from utils.auth import require_permission
 from utils.log import log_operation
-from utils.media.room_meter_checkout_photo import checkout_photo_manager
+from utils.media.room_meter_checkout_photo import room_meter_checkout_photo_manager
 
 utility_checkout_photo_bp = Blueprint('utility_checkout_photo', __name__, url_prefix='/utility-checkout')
 
@@ -20,10 +20,10 @@ def upload_checkout_media():
         # 获取请求参数
         billing_period = request.form.get('billing_period')
         room_id = request.form.get('room_id')
-        checkout_id = request.form.get('checkout_id')
+        user_id = request.form.get('user_id')
         
         # 验证参数
-        if not billing_period or not room_id or not checkout_id:
+        if not billing_period or not room_id or not user_id:
             logging.warning(f"用户 {current_user.id} 尝试上传退宿媒体文件，但缺少必要参数")
             return jsonify({'success': False, 'message': '缺少必要参数'})
         
@@ -37,20 +37,20 @@ def upload_checkout_media():
             return jsonify({'success': False, 'message': '没有选择文件'})
         
         # 上传文件
-        filename = checkout_photo_manager.upload_file(file, billing_period, room_id, checkout_id)
+        filename = room_meter_checkout_photo_manager.upload_file(file, billing_period, room_id, user_id)
         if not filename:
             logging.warning(f"用户 {current_user.id} 尝试上传退宿媒体文件，但文件格式不支持")
             return jsonify({'success': False, 'message': '不支持的文件格式'})
         
         # 生成文件URL
-        file_url = checkout_photo_manager.get_media_url(filename, billing_period, room_id, checkout_id)
+        file_url = room_meter_checkout_photo_manager.get_media_url(filename, billing_period, room_id, user_id)
         
         # 记录操作日志
         log_operation(
             user_id=current_user.id,
             module='utility',
             operation_type='checkout_photo',
-            action=f"上传退宿媒体文件: {filename} 到 {billing_period}/room_{room_id}/checkout_{checkout_id}",
+            action=f"上传退宿媒体文件: {filename} 到 {billing_period}/room_{room_id}/checkout_{user_id}",
             result="成功"
         )
         
@@ -78,14 +78,14 @@ def upload_checkout_media():
         return jsonify({'success': False, 'message': f'上传失败: {str(e)}'})
 
 
-@utility_checkout_photo_bp.route('/media/<billing_period>/<room_id>/<checkout_id>/<filename>')
+@utility_checkout_photo_bp.route('/media/<billing_period>/<room_id>/checkout/<user_id>/<filename>')
 @login_required
 @require_permission('utility.view')
-def serve_checkout_media(billing_period, room_id, checkout_id, filename):
+def serve_checkout_media(billing_period, room_id, user_id, filename):
     """提供退宿媒体文件的访问"""
     try:
         # 获取文件路径
-        file_path = checkout_photo_manager.get_file_path(filename, billing_period, room_id, checkout_id)
+        file_path = room_meter_checkout_photo_manager.get_file_path(filename, billing_period, room_id, user_id)
         
         # 检查文件是否存在
         if not os.path.exists(file_path):
@@ -137,16 +137,16 @@ def delete_checkout_media():
         data = request.json
         billing_period = data.get('billing_period')
         room_id = data.get('room_id')
-        checkout_id = data.get('checkout_id')
+        user_id = data.get('user_id')
         filename = data.get('filename')
         
         # 验证参数
-        if not billing_period or not room_id or not checkout_id or not filename:
+        if not billing_period or not room_id or not user_id or not filename:
             logging.warning(f"用户 {current_user.id} 尝试删除退宿媒体文件，但缺少必要参数")
             return jsonify({'success': False, 'message': '缺少必要参数'})
         
         # 删除文件
-        success = checkout_photo_manager.delete_file(filename, billing_period, room_id, checkout_id)
+        success = room_meter_checkout_photo_manager.delete_file(filename, billing_period, room_id, user_id)
         
         if success:
             # 记录操作日志
@@ -154,7 +154,7 @@ def delete_checkout_media():
                 user_id=current_user.id,
                 module='utility',
                 operation_type='delete',
-                action=f"删除退宿媒体文件: {filename} 从 {billing_period}/room_{room_id}/checkout_{checkout_id}",
+                action=f"删除退宿媒体文件: {filename} 从 {billing_period}/room_{room_id}/checkout_{user_id}",
                 result="成功"
             )
             
@@ -189,20 +189,20 @@ def get_checkout_media_files():
         # 获取请求参数
         billing_period = request.args.get('billing_period')
         room_id = request.args.get('room_id')
-        checkout_id = request.args.get('checkout_id')
+        user_id = request.args.get('user_id')
         
         # 验证参数
-        if not billing_period or not room_id or not checkout_id:
+        if not billing_period or not room_id or not user_id:
             logging.warning(f"用户 {current_user.id} 尝试获取退宿媒体文件，但缺少必要参数")
             return jsonify({'success': False, 'message': '缺少必要参数'})
         
         # 获取媒体文件列表
-        media_files = checkout_photo_manager.get_media_files(billing_period, room_id, checkout_id)
+        media_files = room_meter_checkout_photo_manager.get_media_files(billing_period, room_id, user_id)
         
         # 转换为前端可用的格式
         result_files = []
         for file in media_files:
-            file_url = checkout_photo_manager.get_media_url(file['filename'], billing_period, room_id, checkout_id)
+            file_url = room_meter_checkout_photo_manager.get_media_url(file['filename'], billing_period, room_id, user_id)
             result_files.append({
                 'filename': file['filename'],
                 'type': file['type'],

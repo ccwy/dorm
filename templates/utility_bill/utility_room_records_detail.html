@@ -925,7 +925,7 @@
                                 ${canEdit ? `<a href="javascript:void(0)" onclick="checkout_id(${occupant.id})" class="text-primary hover:underline">${formatCurrency(occupant.payable_fee)}</a>` : formatCurrency(occupant.payable_fee)}
               </td>
               <td class="px-6 py-4 whitespace-nowrap text-sm">
-                <button type="button" data-billing-period="${data.billing_period}" data-room-id="${data.room_info.room_id}" data-checkout-id="${occupant.id}" onclick="loadCheckoutMediaFiles(this.dataset.billingPeriod, this.dataset.roomId, this.dataset.checkoutId)" class="text-primary hover:underline text-sm">
+                <button type="button" data-billing-period="${data.billing_period}" data-room-id="${data.room_info.room_id}" data-checkout-user-id="${occupant.user_id}" onclick="loadCheckoutMediaFiles(this.dataset.billingPeriod, this.dataset.roomId, this.dataset.checkoutUserId)" class="text-primary hover:underline text-sm">
                   <i class="fa fa-image mr-1"></i>查看照片
                 </button>
               </td>
@@ -1243,7 +1243,7 @@
     // ===== 退宿照片查看功能 =====
     
     // 加载退宿照片文件列表
-    async function loadCheckoutMediaFiles(billingPeriod, roomId, checkoutId) {
+    async function loadCheckoutMediaFiles(billingPeriod, roomId, checkoutUserId) {
       const modal = document.getElementById('checkoutPhotoModal');
       const loading = document.getElementById('checkoutPhotoLoading');
       const grid = document.getElementById('checkoutPhotoGrid');
@@ -1259,7 +1259,7 @@
       document.body.style.overflow = 'hidden';
       
       try {
-        const response = await fetch(`/utility-checkout/get_media_files?billing_period=${billingPeriod}&room_id=${roomId}&checkout_id=${checkoutId}`, {
+        const response = await fetch(`/utility-checkout/get_media_files?billing_period=${billingPeriod}&room_id=${roomId}&user_id=${checkoutUserId}`, {
           method: 'GET',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include'

@@ -16,7 +16,6 @@ from .utility_room_bill_checkout import utility_room_bill_checkout_bp  # 导入�
 from models.fee_subsidy.fee_subsidy_usage import FeeSubsidyUsage  # 导入费用补贴使用记录模型
 # 导入权限装饰器
 from utils.auth import require_permission
-from utils.media.room_meter_checkout_photo import checkout_photo_manager  # 导入退宿照片管理器
 
 @utility_room_bill_checkout_bp.route('/create', methods=['POST'])
 @login_required
@@ -331,12 +330,7 @@ def delete_checkout_record():
             for usage in subsidy_usages:
                 db.session.delete(usage)
 
-        # 删除关联的退宿照片目录
-        try:
-            checkout_photo_manager.delete_checkout_directory(billing_period, room_id, record.id)
-        except Exception as photo_err:
-            logging.warning(f"删除退宿照片目录失败 [账期: {billing_period}, 房间ID: {room_id}, 退宿ID: {record.id}]: {photo_err}")
-
+        
         # 执行删除操作
         db.session.delete(record)
         db.session.commit()
@@ -483,12 +477,7 @@ def batch_delete_checkout_records():
                     for s in user_subsidies:
                         db.session.delete(s)
                 
-                # 删除关联的退宿照片目录
-                try:
-                    checkout_photo_manager.delete_checkout_directory(billing_period, room_id, checkout_record.id)
-                except Exception as photo_err:
-                    logging.warning(f"批量删除-删除退宿照片目录失败 [账期: {billing_period}, 房间ID: {room_id}, 退宿ID: {checkout_record.id}]: {photo_err}")
-
+                
                 operation_details.append(
                     f"记录ID: {checkout_record.id}, 账期: {billing_period}, "
                     f"用户ID: {user_id}, 房间ID: {room_id}, "
@@ -660,12 +649,7 @@ def delete_period_records():
                 for usage in subsidy_usages:
                     db.session.delete(usage)
             
-            # 删除关联的退宿照片目录
-            try:
-                checkout_photo_manager.delete_checkout_directory(billing_period, room_id, checkout_record.id)
-            except Exception as photo_err:
-                logging.warning(f"删除账期退宿照片目录失败 [账期: {billing_period}, 房间ID: {room_id}, 退宿ID: {checkout_record.id}]: {photo_err}")
-        
+            
         # 执行删除操作
         CheckoutUtilityRecord.query.filter(
             CheckoutUtilityRecord.record_id.in_(main_record_ids)

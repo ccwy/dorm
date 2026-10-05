@@ -8,7 +8,7 @@ ALLOWED_IMAGE_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp'}
 ALLOWED_VIDEO_EXTENSIONS = {'mp4', 'avi', 'mov', 'wmv', 'flv', 'mkv'}
 ALLOWED_EXTENSIONS = ALLOWED_IMAGE_EXTENSIONS.union(ALLOWED_VIDEO_EXTENSIONS)
 
-class CheckoutPhotoManager:
+class RoomMeterCheckoutPhotoManager:
     """退宿照片管理工具类，处理退宿照片和视频的上传、存储和访问"""
     
     @staticmethod
@@ -22,45 +22,46 @@ class CheckoutPhotoManager:
         # 检查是否是Docker环境
         if os.environ.get('DOCKER_ENV') == 'true':
             # Docker环境下，数据存储在/data目录
-            media_root = '/data/photo/checkout_photo'
+            media_root = '/data/room_meter_photo'
         # 检查是否是Android环境
         elif os.environ.get('ANDROID_ENV', 'false').lower() == 'true':
-            media_root = os.path.join(os.environ.get('APP_DATA_DIR', '/data'), 'photo', 'checkout_photo')
+            media_root = os.path.join(os.environ.get('APP_DATA_DIR', '/data'), 'room_meter_photo')
         # 检查是否是PyInstaller打包环境
         elif getattr(sys, 'frozen', False):
             # 获取打包后可执行文件所在目录
             app_dir = os.path.dirname(os.path.abspath(sys.executable))
-            # 在可执行文件同级目录创建data/photo/checkout_photo
-            media_root = os.path.join(app_dir, 'data', 'photo', 'checkout_photo')
+            # 在可执行文件同级目录创建data/room_meter_photo
+            media_root = os.path.join(app_dir, 'data', 'room_meter_photo')
         else:
             # 开发环境下使用相对路径
             app_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-            media_root = os.path.join(app_root, 'data', 'photo', 'checkout_photo')
+            media_root = os.path.join(app_root, 'data', 'room_meter_photo')
         
         # 确保目录存在
         os.makedirs(media_root, exist_ok=True)
         return media_root
     
     @staticmethod
-    def get_checkout_dir(billing_period, room_id, checkout_id, create=True):
-        """获取指定账期、房间和退宿费用子表的目录
+    def get_checkout_dir(billing_period, room_id, user_id, create=True):
+        """获取指定账期、房间和用户的退宿照片目录
         
         Args:
             billing_period: 账期，格式应为 'YYYY-MM'
             room_id: 房间ID
-            checkout_id: 退宿费用子表ID
+            user_id: 用户ID
             create: 是否自动创建目录，默认True。查询文件时传False避免空目录产生。
             
         Returns:
             str: 退宿照片目录的绝对路径
         """
-        media_root = CheckoutPhotoManager.get_media_root_dir()
-        # 构建目录路径：data/photo/checkout_photo/{账期}/{房间ID}/{退宿费用子表ID}
+        media_root = RoomMeterCheckoutPhotoManager.get_media_root_dir()
+        # 构建目录路径：data/room_meter_photo/{账期}/{房间ID}/checkout/{用户ID}
         checkout_dir = os.path.join(
             media_root,
             secure_filename(billing_period),
             str(room_id),
-            str(checkout_id)
+            'checkout',
+            str(user_id)
         )
         if create:
             os.makedirs(checkout_dir, exist_ok=True)
@@ -106,24 +107,24 @@ class CheckoutPhotoManager:
                filename.rsplit('.', 1)[1].lower() in ALLOWED_VIDEO_EXTENSIONS
     
     @staticmethod
-    def upload_file(file, billing_period, room_id, checkout_id):
-        """上传文件到指定账期、房间和退宿费用子表目录
+    def upload_file(file, billing_period, room_id, user_id):
+        """上传文件到指定账期、房间和用户目录
         
         Args:
             file: Flask文件对象
             billing_period: 账期，格式应为 'YYYY-MM'
             room_id: 房间ID
-            checkout_id: 退宿费用子表ID
+            user_id: 用户ID
             
         Returns:
             str: 保存的文件名，如果上传失败则返回None
         """
         # 检查文件格式是否允许
-        if not CheckoutPhotoManager.allowed_file(file.filename):
+        if not RoomMeterCheckoutPhotoManager.allowed_file(file.filename):
             return None
         
         # 确保目录存在
-        checkout_dir = CheckoutPhotoManager.get_checkout_dir(billing_period, room_id, checkout_id)
+        checkout_dir = RoomMeterCheckoutPhotoManager.get_checkout_dir(billing_period, room_id, user_id)
         
         # 使用原始文件名，但确保文件名安全
         new_filename = secure_filename(file.filename)
@@ -143,19 +144,19 @@ class CheckoutPhotoManager:
             return None
     
     @staticmethod
-    def delete_file(filename, billing_period, room_id, checkout_id):
+    def delete_file(filename, billing_period, room_id, user_id):
         """删除指定的文件
         
         Args:
             filename: 文件名
             billing_period: 账期，格式应为 'YYYY-MM'
             room_id: 房间ID
-            checkout_id: 退宿费用子表ID
+            user_id: 用户ID
             
         Returns:
             bool: 是否删除成功
         """
-        file_path = CheckoutPhotoManager.get_file_path(filename, billing_period, room_id, checkout_id)
+        file_path = RoomMeterCheckoutPhotoManager.get_file_path(filename, billing_period, room_id, user_id)
         
         # 检查文件是否存在
         if not os.path.exists(file_path):
@@ -170,18 +171,18 @@ class CheckoutPhotoManager:
             return False
     
     @staticmethod
-    def delete_checkout_directory(billing_period, room_id, checkout_id):
+    def delete_checkout_directory(billing_period, room_id, user_id):
         """删除整个退宿照片目录
         
         Args:
             billing_period: 账期，格式应为 'YYYY-MM'
             room_id: 房间ID
-            checkout_id: 退宿费用子表ID
+            user_id: 用户ID
             
         Returns:
             bool: 是否删除成功
         """
-        checkout_dir = CheckoutPhotoManager.get_checkout_dir(billing_period, room_id, checkout_id, create=False)
+        checkout_dir = RoomMeterCheckoutPhotoManager.get_checkout_dir(billing_period, room_id, user_id, create=False)
         
         # 检查目录是否存在
         if not os.path.exists(checkout_dir):
@@ -190,10 +191,10 @@ class CheckoutPhotoManager:
         # 删除目录及其所有内容
         try:
             shutil.rmtree(checkout_dir)
-            print(f"成功删除账期 {billing_period} 下房间 {room_id} 退宿子表 {checkout_id} 的所有媒体文件")
+            print(f"成功删除账期 {billing_period} 下房间 {room_id} 用户 {user_id} 的所有媒体文件")
             return True
         except Exception as e:
-            print(f"删除账期 {billing_period} 下房间 {room_id} 退宿子表 {checkout_id} 的媒体文件失败: {str(e)}")
+            print(f"删除账期 {billing_period} 下房间 {room_id} 用户 {user_id} 的媒体文件失败: {str(e)}")
             return False
     
     @staticmethod
@@ -207,7 +208,7 @@ class CheckoutPhotoManager:
         Returns:
             bool: 是否删除成功
         """
-        media_root = CheckoutPhotoManager.get_media_root_dir()
+        media_root = RoomMeterCheckoutPhotoManager.get_media_root_dir()
         room_dir = os.path.join(media_root, secure_filename(billing_period), str(room_id))
         
         # 检查目录是否存在
@@ -224,53 +225,53 @@ class CheckoutPhotoManager:
             return False
     
     @staticmethod
-    def get_file_path(filename, billing_period, room_id, checkout_id):
+    def get_file_path(filename, billing_period, room_id, user_id):
         """获取文件的绝对路径
         
         Args:
             filename: 文件名
             billing_period: 账期，格式应为 'YYYY-MM'
             room_id: 房间ID
-            checkout_id: 退宿费用子表ID
+            user_id: 用户ID
             
         Returns:
             str: 文件的绝对路径
         """
         # 不自动创建目录，仅拼接路径
-        checkout_dir = CheckoutPhotoManager.get_checkout_dir(billing_period, room_id, checkout_id, create=False)
+        checkout_dir = RoomMeterCheckoutPhotoManager.get_checkout_dir(billing_period, room_id, user_id, create=False)
         return os.path.join(checkout_dir, secure_filename(filename))
     
     @staticmethod
-    def get_media_url(filename, billing_period, room_id, checkout_id):
+    def get_media_url(filename, billing_period, room_id, user_id):
         """获取文件的URL路径
         
         Args:
             filename: 文件名
             billing_period: 账期，格式应为 'YYYY-MM'
             room_id: 房间ID
-            checkout_id: 退宿费用子表ID
+            user_id: 用户ID
             
         Returns:
             str: 文件的URL路径
         """
         # 构建URL路径，这个路径将被Flask路由处理
-        return f"/utility-checkout/media/{billing_period}/{room_id}/{checkout_id}/{filename}"
+        return f"/utility-checkout/media/{billing_period}/{room_id}/checkout/{user_id}/{filename}"
     
     @staticmethod
-    def get_media_files(billing_period, room_id, checkout_id):
-        """获取指定账期、房间和退宿费用子表的所有媒体文件
+    def get_media_files(billing_period, room_id, user_id):
+        """获取指定账期、房间和用户的所有媒体文件
         
         Args:
             billing_period: 账期，格式应为 'YYYY-MM'
             room_id: 房间ID
-            checkout_id: 退宿费用子表ID
+            user_id: 用户ID
             
         Returns:
             list: 媒体文件列表，每个元素包含文件名、类型和相对路径
         """
         media_files = []
         # 查询时不自动创建目录，避免打开页面时产生空目录
-        checkout_dir = CheckoutPhotoManager.get_checkout_dir(billing_period, room_id, checkout_id, create=False)
+        checkout_dir = RoomMeterCheckoutPhotoManager.get_checkout_dir(billing_period, room_id, user_id, create=False)
         
         # 检查目录是否存在
         if not os.path.exists(checkout_dir):
@@ -285,11 +286,11 @@ class CheckoutPhotoManager:
                 continue
             
             # 检查文件是否是允许的格式
-            if not CheckoutPhotoManager.allowed_file(filename):
+            if not RoomMeterCheckoutPhotoManager.allowed_file(filename):
                 continue
             
             # 确定文件类型
-            file_type = 'image' if CheckoutPhotoManager.is_image_file(filename) else 'video'
+            file_type = 'image' if RoomMeterCheckoutPhotoManager.is_image_file(filename) else 'video'
             
             # 添加文件信息到列表
             media_files.append({
@@ -303,4 +304,4 @@ class CheckoutPhotoManager:
         return media_files
 
 # 创建退宿照片管理单例对象供其他模块使用
-checkout_photo_manager = CheckoutPhotoManager()
+room_meter_checkout_photo_manager = RoomMeterCheckoutPhotoManager()
