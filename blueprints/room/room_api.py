@@ -1,6 +1,8 @@
 from flask import Blueprint, request, jsonify, send_file, abort
 from werkzeug.utils import secure_filename
+import os
 import logging
+import traceback
 from datetime import datetime, date
 from utils.db import db
 from models.room.room import Room, RoomStatus
@@ -154,6 +156,37 @@ def get_room_detail(room_id):
             "data": None,
             "message": "获取房间详情失败" if not Config.DEBUG else error_detail
         }), 500
+
+
+@room_api_bp.route('/temp_media/<temp_key>/<filename>', methods=['GET'])
+@login_required
+def serve_temp_media(temp_key, filename):
+    """提供临时目录中媒体文件的访问"""
+    try:
+        # 安全处理参数
+        temp_key = secure_filename(temp_key)
+        filename = secure_filename(filename)
+        
+        # 防止空temp_key导致路径遍历
+        if not temp_key:
+            abort(400, description="无效的临时标识参数")
+        if not filename:
+            abort(400, description="无效的文件名参数")
+        
+        # 获取文件完整路径
+        file_path = RoomPhotoManager.get_temp_file_path(filename, temp_key)
+        
+        # 检查文件是否存在
+        if not file_path or not os.path.exists(file_path):
+            abort(404, description="文件不存在")
+        
+        # 发送文件，根据扩展名推断 mimetype
+        import mimetypes
+        mime_type, _ = mimetypes.guess_type(file_path)
+        return send_file(file_path, as_attachment=False, mimetype=mime_type or 'application/octet-stream')
+    except Exception as e:
+        logging.error(f"获取临时媒体文件时发生错误: {str(e)}")
+        abort(500, description=f"获取文件时发生错误: {str(e)}")
 
 
 @room_api_bp.route('', methods=['GET'])
@@ -364,6 +397,7 @@ def get_rooms():
         }), 500
 
 
+
 @room_api_bp.route('/user-rooms/batch', methods=['POST'])
 @login_required
 def get_batch_user_rooms():
@@ -459,14 +493,16 @@ def get_batch_user_rooms():
         }), 500
 
 
-@room_api_bp.route('/media/<room_id>/<filename>', methods=['GET'])
+
+@room_api_bp.route('/media/<int:room_id>/<filename>', methods=['GET'])
 @login_required
 def get_room_media(room_id, filename):
     """获取房间的媒体文件（照片或视频）"""
     try:
-        # 安全处理参数
-        room_id = secure_filename(room_id)
+        # 安全处理文件名参数
         filename = secure_filename(filename)
+        if not filename:
+            abort(400, description="无效的文件名参数")
         
         # 获取文件完整路径
         file_path = RoomPhotoManager.get_file_path(filename, room_id)
@@ -499,8 +535,19 @@ def get_room_media_list():
                 "message": "缺少房间ID参数"
             }), 400
         
-        # 安全处理参数
-        room_id = secure_filename(room_id)
+        # 验证room_id为有效正整数
+        try:
+            room_id = int(room_id)
+            if room_id <= 0:
+                return jsonify({
+                    "success": False,
+                    "message": "房间ID必须为正整数"
+                }), 400
+        except (ValueError, TypeError):
+            return jsonify({
+                "success": False,
+                "message": "房间ID格式无效"
+            }), 400
         
         # 获取媒体文件列表
         media_files = RoomPhotoManager.get_media_files(room_id)
@@ -527,6 +574,7 @@ def get_room_media_list():
             "message": "获取媒体文件列表失败",
             "error": str(e)
         }), 500
+
 
 
 @room_api_bp.route('/buildings', methods=['GET'])
@@ -574,3 +622,4 @@ def get_buildings():
             "data": None,
             "message": "获取楼栋列表失败" if not Config.DEBUG else error_detail
         }), 500
+

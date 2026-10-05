@@ -92,15 +92,39 @@ def add():
                 'room_type': request.form.get('room_type', default_room_type),
                 'room_level': request.form.get('room_level'),
                 'gender_restriction': request.form.get('gender_restriction', '无限制'),
-                'capacity': int(request.form.get('capacity', 4)),
-                'status': request.form.get('status', RoomStatus.AVAILABLE.value),
                 'remark': request.form.get('remark', '').strip(),
-                'external_rent': float(request.form.get('external_rent', 0) or 0),
-                'cost_rent': float(request.form.get('cost_rent', 0) or 0),
-                'electric_meter_max': float(request.form.get('electric_meter_max', 0) or 9999.99),
-                'water_meter_max': float(request.form.get('water_meter_max', 0) or 9999.99),
                 'facilities': facilities  # 传递包含数量的设施对象数组
             }
+            # 安全转换数值字段，捕获异常
+            try:
+                room_data['capacity'] = int(request.form.get('capacity', 4))
+            except (ValueError, TypeError):
+                room_data['capacity'] = 4
+                flash('容纳人数格式无效，已使用默认值4', 'warning')
+            try:
+                room_data['status'] = request.form.get('status', RoomStatus.AVAILABLE.value)
+            except (ValueError, TypeError):
+                room_data['status'] = RoomStatus.AVAILABLE.value
+            try:
+                room_data['external_rent'] = float(request.form.get('external_rent', 0) or 0)
+            except (ValueError, TypeError):
+                room_data['external_rent'] = 0.0
+                flash('外部租金格式无效，已使用默认值0', 'warning')
+            try:
+                room_data['cost_rent'] = float(request.form.get('cost_rent', 0) or 0)
+            except (ValueError, TypeError):
+                room_data['cost_rent'] = 0.0
+                flash('成本租金格式无效，已使用默认值0', 'warning')
+            try:
+                room_data['electric_meter_max'] = float(request.form.get('electric_meter_max', 0) or 9999.99)
+            except (ValueError, TypeError):
+                room_data['electric_meter_max'] = 9999.99
+                flash('电表最大量程格式无效，已使用默认值', 'warning')
+            try:
+                room_data['water_meter_max'] = float(request.form.get('water_meter_max', 0) or 9999.99)
+            except (ValueError, TypeError):
+                room_data['water_meter_max'] = 9999.99
+                flash('水表最大量程格式无效，已使用默认值', 'warning')
             
             # 处理创建时间
             created_at_str = request.form.get('created_at')
@@ -126,7 +150,9 @@ def add():
                     gender_restrictions=Room.get_valid_gender_restrictions(),
                     valid_facilities=valid_facilities,
                     buildings=buildings,
-                    custom_field_defs=custom_field_defs)
+                    custom_field_defs=custom_field_defs,
+                    temp_key=request.form.get('temp_key', ''),
+                    current_time=datetime.now().strftime('%Y-%m-%dT%H:%M'))
             room_data['custom_fields'] = serialize_custom_fields(custom_data)
             
             # 调用模型的create方法（实际创建房间）
@@ -136,10 +162,15 @@ def add():
             if error:
                 flash(error, 'danger')
                 return render_template('room_manage/room_add.html', 
-                    facilities=valid_facilities,
+                    title="添加房间",
                     room_types=room_types,
+                    room_levels=room_levels,
+                    gender_restrictions=Room.get_valid_gender_restrictions(),
+                    valid_facilities=valid_facilities,
                     buildings=buildings,
-                    custom_field_defs=custom_field_defs)
+                    custom_field_defs=custom_field_defs,
+                    temp_key=request.form.get('temp_key', ''),
+                    current_time=datetime.now().strftime('%Y-%m-%dT%H:%M'))
 
             # 房间创建成功后，添加设施
             RoomFacility.bulk_update_facilities(
@@ -147,6 +178,35 @@ def add():
                 facilities=facilities,
                 remark="添加房间时自动添加"
             )
+            
+            # 将临时上传的照片/视频移动到新创建房间的正式目录
+            temp_key = request.form.get('temp_key', '')
+            if temp_key:
+                # 安全处理temp_key，防止路径遍历
+                original_temp_key = temp_key
+                temp_key = secure_filename(temp_key)
+                if temp_key:
+                    try:
+                        logging.info(f"开始移动临时文件: original_key={original_temp_key}, secure_key={temp_key}, room_id={new_room.id}")
+                        move_result = RoomPhotoManager.move_temp_to_permanent(temp_key, new_room.id)
+                        logging.info(f"临时文件移动结果: {move_result}")
+                        if move_result.get('errors'):
+                            logging.warning(f"部分文件移动失败: {move_result['errors']}")
+                            flash(f'部分照片/视频保存失败（{len(move_result["errors"])}个），房间已创建成功', 'warning')
+                            # 清理残留临时文件
+                            clear_result = RoomPhotoManager.clear_temp_files(temp_key)
+                            logging.info(f"残留文件清理结果: {clear_result}")
+                        if move_result.get('moved', 0) > 0:
+                            logging.info(f"房间 {new_room.id} 创建成功，从临时目录移动了 {move_result['moved']} 个媒体文件")
+                    except Exception as e:
+                        logging.error(f"移动临时文件异常: {str(e)}, temp_key={temp_key}, room_id={new_room.id}")
+                        try:
+                            RoomPhotoManager.clear_temp_files(temp_key)
+                        except Exception as clear_err:
+                            logging.warning(f"清理临时文件失败: {str(clear_err)}, temp_key={temp_key}")
+                else:
+                    logging.warning(f"temp_key经secure_filename处理后为空: original={original_temp_key}")
+                    flash('临时文件标识无效，照片/视频未保存', 'warning')
             
             # 记录真实操作日志
             log_operation(
@@ -184,7 +244,9 @@ def add():
                     gender_restrictions=Room.get_valid_gender_restrictions(),
                     valid_facilities=valid_facilities,  # 传递有效设施列表
                     buildings=buildings,  # 传递楼栋列表到前端
-                    custom_field_defs=custom_field_defs
+                    custom_field_defs=custom_field_defs,
+                    temp_key=request.form.get('temp_key', ''),
+                    current_time=datetime.now().strftime('%Y-%m-%dT%H:%M')
             )
     # 记录访问日志
     log_operation(
@@ -207,7 +269,8 @@ def add():
         valid_facilities=valid_facilities,  # 传递有效设施列表
         buildings=buildings,  # 传递楼栋列表到前端
         current_time=current_time,  # 传递当前时间作为默认值
-        custom_field_defs=custom_field_defs
+        custom_field_defs=custom_field_defs,
+        temp_key=''  # GET请求时无临时文件
     )
     
 @room_bp.route('/edit/<int:id>', methods=['GET', 'POST'])
@@ -872,3 +935,186 @@ def delete_media():
             result="失败"
         )
         return jsonify({'success': False, 'message': f'删除失败: {str(e)}'})
+
+
+# ========== 临时上传端点（用于添加房间时，房间尚未创建的场景） ==========
+
+@room_bp.route('/upload_temp_media', methods=['POST'])
+@login_required
+@require_permission('room.create')
+def upload_temp_media():
+    """上传临时照片/视频到临时目录（添加房间页面使用，此时房间尚未创建）"""
+    try:
+        temp_key = request.form.get('temp_key')
+        
+        if not temp_key:
+            return jsonify({'success': False, 'message': '缺少临时标识参数'}), 400
+        
+        # 安全处理temp_key，防止路径遍历
+        temp_key = secure_filename(temp_key)
+        if not temp_key:
+            return jsonify({'success': False, 'message': '无效的临时标识参数'}), 400
+        
+        if 'file' not in request.files:
+            return jsonify({'success': False, 'message': '没有文件被上传'}), 400
+        
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({'success': False, 'message': '没有选择文件'}), 400
+        
+        filename = RoomPhotoManager.upload_temp_file(file, temp_key)
+        if not filename:
+            logging.warning(f"用户 {current_user.id} 上传临时房间媒体文件失败: 文件格式不支持或文件过大, temp_key={temp_key}")
+            return jsonify({'success': False, 'message': '不支持的文件格式或文件过大'}), 400
+        
+        file_url = RoomPhotoManager.get_temp_media_url(filename, temp_key)
+        
+        log_operation(
+            user_id=current_user.id,
+            module='room',
+            operation_type='upload_photo',
+            action=f"上传临时房间媒体文件: {filename} (temp_key={temp_key})",
+            result="成功"
+        )
+        
+        return jsonify({
+            'success': True,
+            'message': '上传成功',
+            'filename': filename,
+            'url': file_url
+        })
+        
+    except Exception as e:
+        logging.error(f"上传临时房间媒体文件失败: {str(e)}")
+        return jsonify({'success': False, 'message': f'上传失败: {str(e)}'})
+
+
+@room_bp.route('/get_temp_media_files', methods=['GET'])
+@login_required
+@require_permission('room.view')
+def get_temp_media_files():
+    """获取指定temp_key临时目录中的所有媒体文件"""
+    try:
+        temp_key = request.args.get('temp_key')
+        
+        if not temp_key:
+            return jsonify({'success': False, 'message': '缺少临时标识参数'})
+        
+        # 安全处理temp_key，防止路径遍历
+        temp_key = secure_filename(temp_key)
+        if not temp_key:
+            return jsonify({'success': False, 'message': '无效的临时标识参数'})
+        
+        media_files = RoomPhotoManager.get_temp_media_files(temp_key)
+        
+        result_files = []
+        for file in media_files:
+            result_files.append({
+                'filename': file['filename'],
+                'type': file['type'],
+                'url': file['url'],
+                'upload_time': file.get('upload_time').isoformat() if file.get('upload_time') else None
+            })
+        
+        log_operation(
+            user_id=current_user.id,
+            module='room',
+            operation_type='records',
+            action=f"查询临时媒体文件列表 (temp_key={temp_key}, 共{len(result_files)}个文件)",
+            result="成功"
+        )
+        
+        return jsonify({
+            'success': True,
+            'files': result_files
+        })
+        
+    except Exception as e:
+        logging.error(f"获取临时媒体文件列表失败: {str(e)}")
+        return jsonify({'success': False, 'message': f'获取失败: {str(e)}'})
+
+
+@room_bp.route('/delete_temp_media', methods=['POST'])
+@login_required
+@require_permission('room.create')
+def delete_temp_media():
+    """删除临时目录中的媒体文件"""
+    try:
+        data = request.get_json(silent=True)
+        if not data:
+            return jsonify({'success': False, 'message': '请求数据格式无效'})
+        temp_key = data.get('temp_key')
+        filename = data.get('filename')
+        
+        if not temp_key or not filename:
+            return jsonify({'success': False, 'message': '缺少必要参数'})
+        
+        # 安全处理temp_key，防止路径遍历
+        temp_key = secure_filename(temp_key)
+        if not temp_key:
+            return jsonify({'success': False, 'message': '无效的临时标识参数'}), 400
+        
+        # 安全处理filename（RoomPhotoManager.delete_temp_file内部也会调用secure_filename，
+        # 此处提前校验可尽早拒绝无效文件名，避免不必要的文件系统操作）
+        filename = secure_filename(filename)
+        if not filename:
+            return jsonify({'success': False, 'message': '无效的文件名'}), 400
+        
+        success = RoomPhotoManager.delete_temp_file(filename, temp_key)
+        
+        if success:
+            log_operation(
+                user_id=current_user.id,
+                module='room',
+                operation_type='delete_photo',
+                action=f"删除临时房间媒体文件: {filename} (temp_key={temp_key})",
+                result="成功"
+            )
+            return jsonify({'success': True, 'message': '文件删除成功'})
+        else:
+            return jsonify({'success': False, 'message': '文件删除失败或文件不存在'})
+            
+    except Exception as e:
+        logging.error(f"删除临时媒体文件失败: {str(e)}")
+        return jsonify({'success': False, 'message': f'删除失败: {str(e)}'})
+
+
+@room_bp.route('/clear_temp_media', methods=['POST'])
+@login_required
+@require_permission('room.create')
+def clear_temp_media():
+    """清理指定temp_key临时目录中的所有媒体文件"""
+    try:
+        data = request.get_json(silent=True)
+        if not data:
+            return jsonify({'success': False, 'message': '请求数据格式无效'})
+        temp_key = data.get('temp_key')
+        
+        if not temp_key:
+            return jsonify({'success': False, 'message': '缺少临时标识参数'})
+        
+        # 安全处理temp_key，防止路径遍历
+        temp_key = secure_filename(temp_key)
+        if not temp_key:
+            return jsonify({'success': False, 'message': '无效的临时标识参数'})
+        
+        result = RoomPhotoManager.clear_temp_files(temp_key)
+        
+        log_operation(
+            user_id=current_user.id,
+            module='room',
+            operation_type='delete_photo',
+            action=f"清理临时房间媒体文件 (temp_key={temp_key}) [删除: {result['deleted']}]",
+            result="成功" if not result['errors'] else "部分成功"
+        )
+        
+        return jsonify({
+            'success': True,
+            'deleted': result['deleted'],
+            'errors': result['errors'],
+            'message': f"成功清理 {result['deleted']} 个文件" + (f"，{len(result['errors'])} 个失败" if result['errors'] else "")
+        })
+        
+    except Exception as e:
+        logging.error(f"清理临时媒体文件失败: {str(e)}")
+        return jsonify({'success': False, 'message': f'清理失败: {str(e)}'})
