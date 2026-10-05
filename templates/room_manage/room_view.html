@@ -222,7 +222,7 @@
                                 <div class="relative h-48 overflow-hidden">
                                     <!-- 页面上的视频缩略图 - 禁用控制按钮 -->
                                     <video class="w-full h-full object-cover" poster="" preload="metadata">
-                                        <source src="{{ media.url }}" type="video/mp4">
+                                        <source src="{{ media.url }}" type="{{ media.mime_type|default('video/mp4') }}">
                                         您的浏览器不支持视频播放
                                     </video>
                                     <button type="button" class="absolute top-3 right-3 bg-transparent text-red-500 hover:text-white hover:bg-red-500 rounded-full p-2 shadow-lg border border-transparent transition-all duration-300 hover:translate-y-[-2px] z-10" onclick="deleteMedia('{{ media.filename }}');">
@@ -259,7 +259,7 @@
                         <i class="fa fa-times"></i>
                     </button>
                     <video id="modalVideo" controls autoplay class="max-w-full max-h-[80vh] object-contain">
-                        <source id="modalVideoSource" src="" type="video/mp4">
+                        <source id="modalVideoSource" src="">
                         您的浏览器不支持视频播放
                     </video>
                 </div>
@@ -557,6 +557,55 @@
     
     <!-- 图片和视频模态框相关JavaScript -->
     <script>
+        // 模态框背景点击处理函数（避免事件监听器泄漏）
+        function handleModalBackgroundClick(e) {
+            if (e.target === e.currentTarget) {
+                // 查找当前可见的模态框并关闭
+                const imageModal = document.getElementById('imageModal');
+                const videoModal = document.getElementById('videoModal');
+                if (e.target === imageModal) {
+                    closeImageModal();
+                } else if (e.target === videoModal) {
+                    closeVideoModal();
+                }
+            }
+        }
+
+        // 关闭图片模态框
+        function closeImageModal() {
+            const modal = document.getElementById('imageModal');
+            modal.classList.add('hidden');
+            modal.removeEventListener('click', handleModalBackgroundClick);
+            document.body.style.overflow = '';
+            document.removeEventListener('keydown', handleImageEscKey);
+        }
+
+        // 关闭视频模态框
+        function closeVideoModal() {
+            const modal = document.getElementById('videoModal');
+            const modalVideo = document.getElementById('modalVideo');
+            const modalVideoSource = document.getElementById('modalVideoSource');
+            modal.classList.add('hidden');
+            if (modalVideo) {
+                modalVideo.pause();
+                if (modalVideoSource) {
+                    modalVideoSource.src = '';
+                }
+                modalVideo.load();
+            }
+            modal.removeEventListener('click', handleModalBackgroundClick);
+            document.body.style.overflow = '';
+            document.removeEventListener('keydown', handleVideoEscKey);
+        }
+
+        function handleImageEscKey(event) {
+            if (event.key === 'Escape') closeImageModal();
+        }
+
+        function handleVideoEscKey(event) {
+            if (event.key === 'Escape') closeVideoModal();
+        }
+
         // 打开图片模态框
         function openImageModal(imageUrl) {
             const modal = document.getElementById('imageModal');
@@ -570,30 +619,13 @@
             modal.classList.remove('hidden');
             
             // 添加关闭事件
-            function closeModal() {
-                modal.classList.add('hidden');
-                document.body.style.overflow = ''; // 恢复背景滚动
-                // 移除事件监听器，避免重复绑定
-                document.removeEventListener('keydown', handleEscKey);
-            }
-            
-            // 点击关闭按钮关闭模态框
-            closeModalBtn.onclick = closeModal;
+            closeModalBtn.onclick = closeImageModal;
             
             // 点击模态框背景关闭模态框
-            modal.onclick = function(event) {
-                if (event.target === modal) {
-                    closeModal();
-                }
-            };
+            modal.addEventListener('click', handleModalBackgroundClick);
             
             // 按ESC键关闭模态框
-            function handleEscKey(event) {
-                if (event.key === 'Escape') {
-                    closeModal();
-                }
-            }
-            document.addEventListener('keydown', handleEscKey);
+            document.addEventListener('keydown', handleImageEscKey);
             
             // 防止背景滚动
             document.body.style.overflow = 'hidden';
@@ -608,39 +640,28 @@
 
             // 设置视频URL
             modalVideoSource.src = videoUrl;
+            // 根据URL扩展名推断mime type
+            const ext = videoUrl.split('.').pop().toLowerCase();
+            const mimeMap = {
+                'mp4': 'video/mp4', 'webm': 'video/webm', 'ogg': 'video/ogg',
+                'mov': 'video/quicktime', 'avi': 'video/x-msvideo'
+            };
+            modalVideoSource.type = mimeMap[ext] || 'video/mp4';
             modalVideo.load(); // 重新加载视频以应用新的源
             
             // 显示模态框
             modal.classList.remove('hidden');
             
             // 添加关闭事件
-            function closeModal() {
-                modal.classList.add('hidden');
-                modalVideo.pause(); // 暂停视频
-                document.body.style.overflow = ''; // 恢复背景滚动
-                // 移除事件监听器，避免重复绑定
-                document.removeEventListener('keydown', handleEscKey);
-            }
-            
-            // 点击关闭按钮关闭模态框
             if (closeModalBtn) {
-                closeModalBtn.onclick = closeModal;
+                closeModalBtn.onclick = closeVideoModal;
             }
             
             // 点击模态框背景关闭模态框
-            modal.onclick = function(event) {
-                if (event.target === modal) {
-                    closeModal();
-                }
-            };
+            modal.addEventListener('click', handleModalBackgroundClick);
             
             // 按ESC键关闭模态框
-            function handleEscKey(event) {
-                if (event.key === 'Escape') {
-                    closeModal();
-                }
-            }
-            document.addEventListener('keydown', handleEscKey);
+            document.addEventListener('keydown', handleVideoEscKey);
             
             // 防止背景滚动
             document.body.style.overflow = 'hidden';

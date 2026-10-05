@@ -1,6 +1,9 @@
 
 import os
 import shutil
+import time
+import random
+import mimetypes
 from flask import current_app
 from werkzeug.utils import secure_filename
 from datetime import datetime
@@ -118,8 +121,13 @@ class RoomPhotoManager:
         # 确保房间目录存在
         room_dir = RoomPhotoManager.ensure_room_directory_exists(room_id)
         
-        # 使用原始文件名，但确保文件名安全
-        unique_filename = secure_filename(file.filename)
+        # 使用原始扩展名，用时间戳+随机数生成唯一文件名，避免 secure_filename 破坏中文
+        original_filename = file.filename or ''
+        ext = ''
+        if '.' in original_filename:
+            ext = '.' + original_filename.rsplit('.', 1)[1].lower()
+        # 生成唯一文件名：时间戳 + 随机数 + 原始扩展名
+        unique_filename = f"{int(time.time())}_{random.randint(1000, 9999)}{ext}"
         
         # 保存文件
         file.save(os.path.join(room_dir, unique_filename))
@@ -181,6 +189,10 @@ class RoomPhotoManager:
                         # 使用文件修改时间作为上传时间的近似值
                         'upload_time': datetime.fromtimestamp(os.path.getmtime(file_path))
                     }
+                    
+                    # 根据扩展名推断 MIME 类型
+                    mime_type, _ = mimetypes.guess_type(filename)
+                    file_info['mime_type'] = mime_type or 'application/octet-stream'
                     
                     # 根据文件类型设置type字段
                     if RoomPhotoManager.is_image_file(filename):

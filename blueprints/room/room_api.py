@@ -1,4 +1,5 @@
 from flask import Blueprint, request, jsonify, send_file, abort
+from werkzeug.utils import secure_filename
 import logging
 from datetime import datetime, date
 from utils.db import db
@@ -474,8 +475,10 @@ def get_room_media(room_id, filename):
         if not file_path:
             abort(404, description="文件不存在")
         
-        # 发送文件
-        return send_file(file_path, as_attachment=False)
+        # 发送文件，根据扩展名推断 mimetype
+        import mimetypes
+        mime_type, _ = mimetypes.guess_type(file_path)
+        return send_file(file_path, as_attachment=False, mimetype=mime_type or 'application/octet-stream')
     except Exception as e:
         logging.error(f"获取房间媒体文件时发生错误: {str(e)}")
         abort(500, description=f"获取文件时发生错误: {str(e)}")
@@ -509,7 +512,8 @@ def get_room_media_list():
                 'filename': media['filename'],
                 'url': media['url'],
                 'type': 'photo' if media['type'] == 'image' else 'video',  # 转换为前端期望的类型
-                'upload_time': media['upload_time'].isoformat()  # 添加上传时间字段，转换为ISO格式字符串
+                'upload_time': media['upload_time'].isoformat(),  # 添加上传时间字段，转换为ISO格式字符串
+                'mime_type': media.get('mime_type', 'application/octet-stream')  # 添加 MIME 类型字段
             })
         
         return jsonify({

@@ -1,5 +1,6 @@
 from flask import render_template, request, flash, redirect, url_for, jsonify
 from flask_login import login_required, current_user
+from werkzeug.utils import secure_filename
 from utils.db import db
 from models.room.room import Room, RoomStatus
 from models.dorm.dorm import Dorm
@@ -771,6 +772,12 @@ def delete_media():
         except ValueError:
             logging.warning(f"用户 {current_user.id} 提供的房间ID格式无效: {room_id}")
             return jsonify({'success': False, 'message': '房间ID格式无效'})
+        
+        # 安全处理文件名，防止路径遍历
+        filename = secure_filename(filename)
+        if not filename:
+            logging.warning(f"用户 {current_user.id} 尝试删除房间媒体文件，但文件名无效")
+            return jsonify({'success': False, 'message': '无效的文件名'}), 400
         
         # 删除文件
         success = RoomPhotoManager.delete_file(filename, room_id)

@@ -300,7 +300,7 @@
                                             <div class="relative h-48 overflow-hidden">
                                                 <!-- 页面上的视频缩略图 - 禁用控制按钮 -->
                                                 <video class="w-full h-full object-cover" poster="" preload="metadata">
-                                                    <source src="{{ media.url }}" type="video/mp4">
+                                                    <source src="{{ media.url }}" type="{{ media.mime_type|default('video/mp4') }}">
                                                     您的浏览器不支持视频播放
                                                 </video>
                                                 <button type="button" class="absolute top-3 right-3 bg-transparent text-red-500 hover:text-white hover:bg-red-500 rounded-full p-2 shadow-lg border border-transparent transition-all duration-300 hover:translate-y-[-2px] z-10 delete-media-btn" data-filename="{{ media.filename }}">
@@ -337,7 +337,7 @@
                                     <i class="fa fa-times"></i>
                                 </button>
                                 <video id="modalVideo" controls autoplay class="max-w-full max-h-[80vh] object-contain">
-                                    <source id="modalVideoSource" src="" type="video/mp4">
+                                    <source id="modalVideoSource" src="">
                                     您的浏览器不支持视频播放
                                 </video>
                             </div>
@@ -680,6 +680,13 @@
                 }
             }
             
+            // 模态框背景点击处理函数（避免事件监听器泄漏）
+            function handleModalBackgroundClick(e) {
+                if (e.target === e.currentTarget) {
+                    closeAllModals();
+                }
+            }
+
             // 打开图片模态框
             function openImageModal(imageUrl) {
                 const modal = document.getElementById('imageModal');
@@ -695,11 +702,7 @@
                 });
                 
                 // 添加点击模态框背景关闭
-                modal.addEventListener('click', function(e) {
-                    if (e.target === modal) {
-                        closeAllModals();
-                    }
-                });
+                modal.addEventListener('click', handleModalBackgroundClick);
                 
                 // 添加ESC键关闭
                 document.addEventListener('keydown', handleEscKey);
@@ -712,6 +715,13 @@
                 const modalVideoSource = document.getElementById('modalVideoSource');
                 
                 modalVideoSource.src = videoUrl;
+                // 根据URL扩展名推断mime type
+                const ext = videoUrl.split('.').pop().toLowerCase();
+                const mimeMap = {
+                    'mp4': 'video/mp4', 'webm': 'video/webm', 'ogg': 'video/ogg',
+                    'mov': 'video/quicktime', 'avi': 'video/x-msvideo'
+                };
+                modalVideoSource.type = mimeMap[ext] || 'video/mp4';
                 modalVideo.load();
                 modal.classList.remove('hidden');
                 
@@ -722,11 +732,7 @@
                 });
                 
                 // 添加点击模态框背景关闭
-                modal.addEventListener('click', function(e) {
-                    if (e.target === modal) {
-                        closeAllModals();
-                    }
-                });
+                modal.addEventListener('click', handleModalBackgroundClick);
                 
                 // 添加ESC键关闭
                 document.addEventListener('keydown', handleEscKey);
@@ -734,18 +740,31 @@
             
             // 关闭所有模态框
             function closeAllModals() {
-                document.getElementById('imageModal').classList.add('hidden');
-                document.getElementById('videoModal').classList.add('hidden');
-                
-                // 暂停视频播放
+                const imageModal = document.getElementById('imageModal');
                 const videoModal = document.getElementById('videoModal');
+                imageModal.classList.add('hidden');
+                videoModal.classList.add('hidden');
+                
+                // 移除背景点击监听器
+                imageModal.removeEventListener('click', handleModalBackgroundClick);
+                videoModal.removeEventListener('click', handleModalBackgroundClick);
+                
+                // 暂停视频播放并释放资源
                 const modalVideo = document.getElementById('modalVideo');
+                const modalVideoSource = document.getElementById('modalVideoSource');
                 if (modalVideo) {
                     modalVideo.pause();
+                    if (modalVideoSource) {
+                        modalVideoSource.src = '';
+                    }
+                    modalVideo.load();
                 }
                 
                 // 移除ESC键监听
                 document.removeEventListener('keydown', handleEscKey);
+                
+                // 恢复背景滚动
+                document.body.style.overflow = '';
             }
             
             // 处理ESC键
