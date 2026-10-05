@@ -95,11 +95,11 @@
             <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
                 <div>
                     <span class="info-label">房间号：</span>
-                    <span class="info-value">{{ room.building }}{{ room.room_number if room else '未知' }}</span>
+                    <span class="info-value"><a href="{{ url_for('room.view', id=room.id) }}" class="text-primary hover:text-primary/80 hover:underline">{{ room.building }}{{ room.room_number if room else '未知' }}</a></span>
                 </div>
                 <div>
                     <span class="info-label">账期：</span>
-                    <span class="info-value">{{ record.billing_period }}</span>
+                    <span class="info-value"><a href="{{ url_for('utility_index.utility_room_records_detail') }}?record_id={{ record.record_id }}" class="text-primary hover:text-primary/80 hover:underline">{{ record.billing_period }}</a></span>
                 </div>
                 <div>
                     <span class="info-label">账期范围：</span>
