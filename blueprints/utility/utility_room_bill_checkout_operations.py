@@ -16,6 +16,7 @@ from .utility_room_bill_checkout import utility_room_bill_checkout_bp  # 导入�
 from models.fee_subsidy.fee_subsidy_usage import FeeSubsidyUsage  # 导入费用补贴使用记录模型
 # 导入权限装饰器
 from utils.auth import require_permission
+from utils.media.room_meter_checkout_photo import room_meter_checkout_photo_manager
 
 @utility_room_bill_checkout_bp.route('/create', methods=['POST'])
 @login_required
@@ -165,6 +166,16 @@ def create_checkout_record():
         )
         
         db.session.commit()
+        
+        # 移动退宿临时照片到正式目录
+        try:
+            if billing_period and room_id and user_id:
+                room_meter_checkout_photo_manager.move_temp_to_billing_period(
+                    room_id, user_id, billing_period
+                )
+        except Exception as move_err:
+            logging.warning(f"移动退宿临时照片失败（不影响退宿费用操作）: {str(move_err)}")
+        
                 # 记录操作日志
         log_operation(
             user_id=current_user.id,

@@ -22,6 +22,7 @@ from models.fee_subsidy.fee_subsidy import FeeSubsidy #费用补贴主表
 from models.fee_subsidy.fee_subsidy_usage import FeeSubsidyUsage
 # 导入require_permission装饰器
 from utils.auth import require_permission
+from utils.media.room_meter_checkout_photo import room_meter_checkout_photo_manager
 
 
 # --------------------------
@@ -645,6 +646,15 @@ def checkout():
                 
                 db.session.commit()
                 
+                # 移动退宿临时照片到正式目录
+                try:
+                    if billing_period and current_dorm.room_id and user_id:
+                        room_meter_checkout_photo_manager.move_temp_to_billing_period(
+                            current_dorm.room_id, user_id, billing_period
+                        )
+                except Exception as move_err:
+                    logging.warning(f"移动退宿临时照片失败（不影响退宿操作）: {str(move_err)}")
+                
                 # 获取房间信息
                 room_info = f"{current_dorm.room.building}{current_dorm.room.room_number}" if current_dorm.room else "未知房间"
                 
@@ -754,6 +764,15 @@ def checkout():
                 )
                 
                 db.session.commit()
+                
+                # 移动退宿临时照片到正式目录
+                try:
+                    if billing_period and current_dorm.room_id and user_id:
+                        room_meter_checkout_photo_manager.move_temp_to_billing_period(
+                            current_dorm.room_id, user_id, billing_period
+                        )
+                except Exception as move_err:
+                    logging.warning(f"移动退宿临时照片失败（不影响退宿操作）: {str(move_err)}")
                 
                 # 获取房间信息
                 room_info = f"{current_dorm.room.building}{current_dorm.room.room_number}" if current_dorm.room else "未知房间"

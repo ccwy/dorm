@@ -9,6 +9,7 @@ from models.utility.utility_room_bill_checkout import CheckoutUtilityRecord
 from flask_login import login_required, current_user
 from utils.auth import require_permission
 from utils.log import log_operation
+from utils.media.room_meter_checkout_photo import room_meter_checkout_photo_manager
 from sqlalchemy.orm import joinedload
 from sqlalchemy import or_
 from datetime import datetime
@@ -316,6 +317,17 @@ def approve_application(id):
             review_remark=review_remark if review_remark else None,
             **checkout_kwargs
         )
+
+        # 退宿申请审核通过时，移动临时照片到正式目录
+        if application.application_type == 'checkout' and application.current_room and application.user_id:
+            try:
+                checkout_billing_period = request.form.get('billing_period', '')
+                if checkout_billing_period:
+                    room_meter_checkout_photo_manager.move_temp_to_billing_period(
+                        application.current_room.id, application.user_id, checkout_billing_period
+                    )
+            except Exception as move_err:
+                logging.warning(f"移动退宿临时照片失败（不影响审核操作）: {str(move_err)}")
 
         # 记录操作日志
         log_operation(
