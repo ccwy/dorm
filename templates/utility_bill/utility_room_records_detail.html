@@ -528,7 +528,7 @@
           <i class="fa fa-spinner fa-spin text-3xl text-primary mb-2"></i>
           <p class="text-gray-500">加载中...</p>
         </div>
-        <div id="checkoutPhotoGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 hidden"></div>
+        <div id="checkoutPhotoGrid" class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3 hidden"></div>
         <div id="checkoutPhotoEmpty" class="text-center py-8 text-gray-500 hidden">
           <i class="fa fa-file-image-o text-4xl mb-2"></i>
           <p>暂无退宿照片/视频</p>
@@ -1250,6 +1250,9 @@
       const empty = document.getElementById('checkoutPhotoEmpty');
       const error = document.getElementById('checkoutPhotoError');
       
+      // 诊断日志：打印传入参数
+      console.log('[退宿照片] loadCheckoutMediaFiles 调用参数:', { billingPeriod, roomId, checkoutUserId });
+      
       // 显示模态框和加载状态
       modal.classList.remove('hidden');
       loading.classList.remove('hidden');
@@ -1259,13 +1262,20 @@
       document.body.style.overflow = 'hidden';
       
       try {
-        const response = await fetch(`/utility-checkout/get_media_files?billing_period=${billingPeriod}&room_id=${roomId}&user_id=${checkoutUserId}`, {
+        const apiUrl = `/utility-checkout/get_media_files?billing_period=${billingPeriod}&room_id=${roomId}&user_id=${checkoutUserId}`;
+        console.log('[退宿照片] 请求API:', apiUrl);
+        const response = await fetch(apiUrl, {
           method: 'GET',
-          headers: { 'Content-Type': 'application/json' },
           credentials: 'include'
         });
         
+        if (!response.ok) {
+          console.error('[退宿照片] API请求失败:', response.status, response.statusText);
+          throw new Error(`API请求失败: ${response.status} ${response.statusText}`);
+        }
+        
         const result = await response.json();
+        console.log('[退宿照片] API响应:', result);
         
         loading.classList.add('hidden');
         

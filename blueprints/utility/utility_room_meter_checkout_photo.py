@@ -191,13 +191,17 @@ def get_checkout_media_files():
         room_id = request.args.get('room_id')
         user_id = request.args.get('user_id')
         
+        # 诊断日志：打印接收到的参数
+        logging.info(f"[退宿照片诊断] get_checkout_media_files 参数: billing_period={billing_period}, room_id={room_id}, user_id={user_id}")
+        
         # 验证参数
         if not billing_period or not room_id or not user_id:
-            logging.warning(f"用户 {current_user.id} 尝试获取退宿媒体文件，但缺少必要参数")
+            logging.warning(f"用户 {current_user.id} 尝试获取退宿媒体文件，但缺少必要参数: billing_period={billing_period}, room_id={room_id}, user_id={user_id}")
             return jsonify({'success': False, 'message': '缺少必要参数'})
         
         # 获取媒体文件列表
         media_files = room_meter_checkout_photo_manager.get_media_files(billing_period, room_id, user_id)
+        logging.info(f"[退宿照片诊断] get_media_files 返回文件数: {len(media_files)}, billing_period={billing_period}, room_id={room_id}, user_id={user_id}")
         
         # 转换为前端可用的格式
         result_files = []

@@ -228,7 +228,7 @@
                             <p id="adminCheckoutPhotoUploadStatus" class="text-xs text-gray-500 mt-1"></p>
                         </div>
                         <!-- 已上传照片预览 -->
-                        <div id="adminCheckoutPhotoPreviewGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 mt-2">
+                        <div id="adminCheckoutPhotoPreviewGrid" class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-2 mt-2">
                             <div class="col-span-full text-center py-4 text-gray-500">
                                 <i class="fa fa-file-image-o text-3xl mb-1"></i>
                                 <p class="text-sm">暂无退宿照片</p>
@@ -266,7 +266,7 @@
                             <p id="adminCheckoutPhotoUploadStatus" class="text-xs text-gray-500 mt-1"></p>
                         </div>
                         <!-- 已上传照片预览 -->
-                        <div id="adminCheckoutPhotoPreviewGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 mt-2">
+                        <div id="adminCheckoutPhotoPreviewGrid" class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-2 mt-2">
                             <div class="col-span-full text-center py-4 text-gray-500">
                                 <i class="fa fa-file-image-o text-3xl mb-1"></i>
                                 <p class="text-sm">暂无退宿照片</p>
@@ -304,7 +304,7 @@
                             <p id="adminCheckoutPhotoUploadStatus" class="text-xs text-gray-500 mt-1"></p>
                         </div>
                         <!-- 已上传照片预览 -->
-                        <div id="adminCheckoutPhotoPreviewGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 mt-2">
+                        <div id="adminCheckoutPhotoPreviewGrid" class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-2 mt-2">
                             <div class="col-span-full text-center py-4 text-gray-500">
                                 <i class="fa fa-file-image-o text-3xl mb-1"></i>
                                 <p class="text-sm">暂无退宿照片</p>
@@ -609,7 +609,7 @@
                             <p id="adminCheckoutPhotoUploadStatus" class="text-xs text-gray-500 mt-1"></p>
                         </div>
                         <!-- 已上传照片预览 -->
-                        <div id="adminCheckoutPhotoPreviewGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 mt-2">
+                        <div id="adminCheckoutPhotoPreviewGrid" class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-2 mt-2">
                             <div class="col-span-full text-center py-4 text-gray-500">
                                 <i class="fa fa-file-image-o text-3xl mb-1"></i>
                                 <p class="text-sm">暂无退宿照片</p>
@@ -1070,7 +1070,7 @@
                             if (isImage) {
                                 html += '<div class="bg-white border border-blue-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow"><div class="bg-blue-50 text-xs text-blue-600 px-2 py-0.5">待保存</div><div class="relative h-32 overflow-hidden"><img src="' + file.url + '" alt="退宿照片" class="w-full h-full object-cover cursor-pointer" onclick="showAdminCheckoutPhotoPreview(\'' + file.url + '\')"><button type="button" class="absolute top-2 right-2 bg-transparent text-red-500 hover:text-white hover:bg-red-500 rounded-full p-1 shadow-lg" onclick="deleteAdminCheckoutPhoto(\'' + file.filename + '\'); event.stopPropagation();"><i class="fa fa-trash-o"></i></button></div><div class="p-1 text-xs text-gray-600 truncate">' + file.filename + '</div></div>';
                             } else {
-                                html += '<div class="bg-white border border-blue-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow"><div class="bg-blue-50 text-xs text-blue-600 px-2 py-0.5">待保存</div><div class="relative h-32 overflow-hidden bg-gray-100"><video class="w-full h-full object-cover" preload="metadata"><source src="' + file.url + '" type="video/mp4"></video><button type="button" class="absolute top-2 right-2 bg-transparent text-red-500 hover:text-white hover:bg-red-500 rounded-full p-1 shadow-lg z-10" onclick="deleteAdminCheckoutPhoto(\'' + file.filename + '\'); event.stopPropagation();"><i class="fa fa-trash-o"></i></button><div class="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30 cursor-pointer z-0" onclick="window.open(\'' + file.url + '\', \'_blank\')"><i class="fa fa-play-circle text-white text-3xl opacity-80"></i></div></div><div class="p-1 text-xs text-gray-600 truncate">' + file.filename + '</div></div>';
+                                html += '<div class="bg-white border border-blue-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow"><div class="bg-blue-50 text-xs text-blue-600 px-2 py-0.5">待保存</div><div class="relative h-32 overflow-hidden bg-gray-100"><video class="w-full h-full object-cover" preload="metadata"><source src="' + file.url + '" type="video/mp4"></video><button type="button" class="absolute top-2 right-2 bg-transparent text-red-500 hover:text-white hover:bg-red-500 rounded-full p-1 shadow-lg z-10" onclick="deleteAdminCheckoutPhoto(\'' + file.filename + '\'); event.stopPropagation();"><i class="fa fa-trash-o"></i></button><div class="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30 cursor-pointer z-0" onclick="showAdminCheckoutPhotoPreview(\'' + file.url + '\', \'video\')"><i class="fa fa-play-circle text-white text-3xl opacity-80"></i></div></div><div class="p-1 text-xs text-gray-600 truncate">' + file.filename + '</div></div>';
                             }
                         });
                     }
@@ -1117,13 +1117,28 @@
                 } catch (error) { console.error('清理退宿照片失败:', error); alert(error.message || '清理失败'); }
             }
 
-            function showAdminCheckoutPhotoPreview(url) {
-                document.getElementById('adminCheckoutPreviewImage').src = url;
+            function showAdminCheckoutPhotoPreview(url, type) {
+                var img = document.getElementById('adminCheckoutPreviewImage');
+                var video = document.getElementById('adminCheckoutPreviewVideo');
+                if (type === 'video') {
+                    img.classList.add('hidden');
+                    img.src = '';
+                    video.classList.remove('hidden');
+                    video.src = url;
+                } else {
+                    video.classList.add('hidden');
+                    video.pause();
+                    video.src = '';
+                    img.classList.remove('hidden');
+                    img.src = url;
+                }
                 document.getElementById('adminCheckoutImagePreviewModal').classList.remove('hidden');
             }
             window.showAdminCheckoutPhotoPreview = showAdminCheckoutPhotoPreview;
 
             function closeAdminCheckoutImagePreview() {
+                var video = document.getElementById('adminCheckoutPreviewVideo');
+                if (video) { video.pause(); video.src = ''; }
                 document.getElementById('adminCheckoutImagePreviewModal').classList.add('hidden');
             }
             window.closeAdminCheckoutImagePreview = closeAdminCheckoutImagePreview;
@@ -1484,7 +1499,8 @@
             <button type="button" onclick="closeAdminCheckoutImagePreview()" class="absolute -top-12 right-0 text-white text-2xl hover:text-gray-300">
                 <i class="fa fa-times"></i>
             </button>
-            <img id="adminCheckoutPreviewImage" src="" alt="原图预览" class="max-w-full max-h-[80vh] object-contain">
+            <img id="adminCheckoutPreviewImage" src="" alt="原图预览" class="max-w-full max-h-[80vh] object-contain hidden">
+            <video id="adminCheckoutPreviewVideo" controls autoplay class="max-w-full max-h-[80vh] object-contain hidden"></video>
         </div>
     </div>
     {% endif %}

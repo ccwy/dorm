@@ -273,9 +273,15 @@ class RoomMeterCheckoutPhotoManager:
         # 查询时不自动创建目录，避免打开页面时产生空目录
         checkout_dir = RoomMeterCheckoutPhotoManager.get_checkout_dir(billing_period, room_id, user_id, create=False)
         
+        # 诊断日志：打印目录路径
+        print(f"[退宿照片诊断] get_media_files 查找目录: {checkout_dir}, billing_period={billing_period}, room_id={room_id}, user_id={user_id}")
+        
         # 检查目录是否存在
         if not os.path.exists(checkout_dir):
+            print(f"[退宿照片诊断] 目录不存在: {checkout_dir}")
             return media_files
+        
+        print(f"[退宿照片诊断] 目录存在，列出文件: {os.listdir(checkout_dir)}")
         
         # 获取目录中的所有文件
         for filename in os.listdir(checkout_dir):
@@ -454,14 +460,21 @@ class RoomMeterCheckoutPhotoManager:
         Returns:
             dict: {'moved': int, 'errors': list} 移动数量和错误信息
         """
+        # 诊断日志
+        print(f"[退宿照片诊断] move_temp_to_billing_period 调用: room_id={room_id}, user_id={user_id}, billing_period={billing_period}")
+        
         # 查询临时目录时不自动创建
         user_temp_dir = RoomMeterCheckoutPhotoManager.get_temp_checkout_dir(room_id, user_id, create=False)
         
         if not os.path.exists(user_temp_dir):
+            print(f"[退宿照片诊断] 临时目录不存在: {user_temp_dir}")
             return {'moved': 0, 'errors': []}
+        
+        print(f"[退宿照片诊断] 临时目录存在: {user_temp_dir}, 文件列表: {os.listdir(user_temp_dir)}")
         
         # 目标目录需要创建（这是正式保存，需要确保目录存在）
         target_dir = RoomMeterCheckoutPhotoManager.get_checkout_dir(billing_period, room_id, user_id, create=True)
+        print(f"[退宿照片诊断] 目标目录: {target_dir}")
         
         moved = 0
         errors = []
@@ -493,6 +506,7 @@ class RoomMeterCheckoutPhotoManager:
         # 移动完成后清理空的临时目录
         RoomMeterCheckoutPhotoManager._cleanup_empty_temp_dir(user_temp_dir)
         
+        print(f"[退宿照片诊断] move_temp_to_billing_period 完成: moved={moved}, errors={errors}, target_dir={target_dir}")
         return {'moved': moved, 'errors': errors}
 
     @staticmethod
