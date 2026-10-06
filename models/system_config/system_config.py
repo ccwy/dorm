@@ -866,6 +866,26 @@ class SystemConfig(db.Model):
                 'is_system': False,
                 'sort_order': 130
             },
+            {
+                'config_key': 'supplier_payment_methods',
+                'config_value': '银行转账,微信,支付宝,支票,现金',
+                'config_type': 'list',
+                'category': 'supply',
+                'description': '供应商收款方式选项（逗号分隔）',
+                'is_editable': True,
+                'is_system': False,
+                'sort_order': 140
+            },
+            {
+                'config_key': 'supplier_invoice_types',
+                'config_value': '增值税专用发票,增值税普通发票,电子发票,收据,其他',
+                'config_type': 'list',
+                'category': 'supply',
+                'description': '供应商发票类型选项（逗号分隔）',
+                'is_editable': True,
+                'is_system': False,
+                'sort_order': 150
+            },
             # 8. 合同管理配置 (category: contract) 
             # 合同类型配置
             {

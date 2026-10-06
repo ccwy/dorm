@@ -23,6 +23,15 @@ class Supplier(db.Model):
     # 备注
     remark = db.Column(db.Text, nullable=True, comment='备注信息')
 
+    # 收款与发票信息
+    payment_method = db.Column(db.String(50), nullable=True, comment='收款方式')
+    bank_account = db.Column(db.String(100), nullable=True, comment='银行账号')
+    bank_name = db.Column(db.String(200), nullable=True, comment='开户行')
+    receiving_bank = db.Column(db.String(200), nullable=True, comment='收款银行')
+    account_name = db.Column(db.String(200), nullable=True, comment='开户名称')
+    payment_account = db.Column(db.String(100), nullable=True, comment='收款账号（微信/支付宝/支票等）')
+    invoice_type = db.Column(db.String(50), nullable=True, comment='发票类型')
+
     # 税率信息（合同管理模块新增）
     tax_rate = db.Column(db.Numeric(5, 2), nullable=True, comment='税率（%，从供应商获取，如13.00表示13%）')
 
@@ -72,6 +81,9 @@ class Supplier(db.Model):
                email=None, address=None, status='启用', handler_user_id=None,
                remark=None, operator_user_id=None,
                unified_social_credit_code=None, legal_representative=None,
+               payment_method=None, bank_account=None, bank_name=None,
+               receiving_bank=None, account_name=None,
+               payment_account=None, invoice_type=None,
                tax_rate=None):
         """创建供应商"""
         supplier = cls(
@@ -85,6 +97,13 @@ class Supplier(db.Model):
             status=status,
             handler_user_id=handler_user_id,
             remark=remark,
+            payment_method=payment_method,
+            bank_account=bank_account,
+            bank_name=bank_name,
+            receiving_bank=receiving_bank,
+            account_name=account_name,
+            payment_account=payment_account,
+            invoice_type=invoice_type,
             tax_rate=tax_rate,
             operator_user_id=operator_user_id
         )

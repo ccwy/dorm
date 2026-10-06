@@ -34,6 +34,13 @@ def add_supplier():
                 tax_rate = float(tax_rate)
             except (ValueError, TypeError):
                 tax_rate = None
+        payment_method = request.form.get('payment_method', '').strip() or None
+        bank_account = request.form.get('bank_account', '').strip() or None
+        bank_name = request.form.get('bank_name', '').strip() or None
+        receiving_bank = request.form.get('receiving_bank', '').strip() or None
+        account_name = request.form.get('account_name', '').strip() or name
+        payment_account = request.form.get('payment_account', '').strip() or None
+        invoice_type = request.form.get('invoice_type', '').strip() or None
 
         # 必填字段校验
         if not name:
@@ -54,7 +61,11 @@ def add_supplier():
             legal_representative=legal_representative,
             contact_person=contact_person, contact_phone=contact_phone,
             email=email, address=address, status=status,
-            handler_user_id=handler_user_id, remark=remark, tax_rate=tax_rate,
+            handler_user_id=handler_user_id, remark=remark,
+            payment_method=payment_method, bank_account=bank_account,
+            bank_name=bank_name, receiving_bank=receiving_bank,
+            account_name=account_name, payment_account=payment_account,
+            invoice_type=invoice_type, tax_rate=tax_rate,
             operator_user_id=current_user.id
         )
 
@@ -122,6 +133,13 @@ def edit_supplier(id):
                 new_tax_rate = float(new_tax_rate)
             except (ValueError, TypeError):
                 new_tax_rate = None
+        new_payment_method = request.form.get('payment_method', '').strip() or None
+        new_bank_account = request.form.get('bank_account', '').strip() or None
+        new_bank_name = request.form.get('bank_name', '').strip() or None
+        new_receiving_bank = request.form.get('receiving_bank', '').strip() or None
+        new_account_name = request.form.get('account_name', '').strip() or new_name
+        new_payment_account = request.form.get('payment_account', '').strip() or None
+        new_invoice_type = request.form.get('invoice_type', '').strip() or None
 
         # 状态值校验
         if new_status not in ['启用', '停用']:
@@ -159,6 +177,20 @@ def edit_supplier(id):
             changes.append("备注已更新")
         if (supplier.tax_rate or None) != new_tax_rate:
             changes.append(f"税率: {supplier.tax_rate or '无'} → {new_tax_rate or '无'}")
+        if (supplier.payment_method or None) != new_payment_method:
+            changes.append(f"收款方式: {supplier.payment_method or '无'} → {new_payment_method or '无'}")
+        if (supplier.bank_account or None) != new_bank_account:
+            changes.append(f"银行账号: {supplier.bank_account or '无'} → {new_bank_account or '无'}")
+        if (supplier.bank_name or None) != new_bank_name:
+            changes.append(f"开户行: {supplier.bank_name or '无'} → {new_bank_name or '无'}")
+        if (supplier.receiving_bank or None) != new_receiving_bank:
+            changes.append(f"收款银行: {supplier.receiving_bank or '无'} → {new_receiving_bank or '无'}")
+        if (supplier.account_name or None) != new_account_name:
+            changes.append(f"开户名称: {supplier.account_name or '无'} → {new_account_name or '无'}")
+        if (supplier.payment_account or None) != new_payment_account:
+            changes.append(f"收款账号: {supplier.payment_account or '无'} → {new_payment_account or '无'}")
+        if (supplier.invoice_type or None) != new_invoice_type:
+            changes.append(f"发票类型: {supplier.invoice_type or '无'} → {new_invoice_type or '无'}")
 
         # 更新供应商信息
         supplier.name = new_name
@@ -172,6 +204,13 @@ def edit_supplier(id):
         supplier.handler_user_id = new_handler_user_id
         supplier.remark = new_remark
         supplier.tax_rate = new_tax_rate
+        supplier.payment_method = new_payment_method
+        supplier.bank_account = new_bank_account
+        supplier.bank_name = new_bank_name
+        supplier.receiving_bank = new_receiving_bank
+        supplier.account_name = new_account_name
+        supplier.payment_account = new_payment_account
+        supplier.invoice_type = new_invoice_type
         supplier.operator_user_id = current_user.id
         db.session.commit()
 
