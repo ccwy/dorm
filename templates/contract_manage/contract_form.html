@@ -306,7 +306,7 @@
                 <!-- 金额与税率 -->
                 <div class="mb-8">
                     <h3 class="text-lg font-semibold text-gray-800 mb-4 pb-2 border-b border-gray-200">
-                        <i class="fa fa-money mr-2 text-warning"></i>金额与税率
+                        <i class="fa fa-money mr-2 text-warning"></i>付款资料
                     </h3>
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         <!-- 合同金额 -->
@@ -339,6 +339,54 @@
                                 <option value="{{ m }}" {% if (contract and contract.payment_method == m) or (not contract and not p and m == '银行转账') or (not contract and p and p.payment_method == m) %}selected{% endif %}>{{ m }}</option>
                                 {% endfor %}
                             </select>
+                        </div>
+
+                        <!-- 乙方收款资料（从供应商引用，只读） -->
+                        <div id="party_b_payment_info" class="md:col-span-2 lg:col-span-3" style="display: none;">
+                            <div class="mt-2 p-3 bg-gray-50 rounded-md border border-gray-200">
+                                <h4 class="text-sm font-medium text-gray-700 mb-2"><i class="fa fa-credit-card mr-1"></i>乙方收款资料</h4>
+                                <div id="party_b_payment_content" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 text-sm">
+                                    <div id="party_b_no_payment" style="display: none;" class="md:col-span-2 lg:col-span-3 text-gray-400 italic">乙方收款资料为空</div>
+                                    <div id="party_b_pm_display" style="display: none;">
+                                        <span class="text-gray-500">收款方式：</span>
+                                        <span id="party_b_pm_value" class="font-medium text-gray-800"></span>
+                                    </div>
+                                    <!-- 银行转账字段 -->
+                                    <div id="party_b_an_display" style="display: none;">
+                                        <span class="text-gray-500">开户名称：</span>
+                                        <span id="party_b_an_value" class="font-medium text-gray-800"></span>
+                                    </div>
+                                    <div id="party_b_ba_display" style="display: none;">
+                                        <span class="text-gray-500">银行账号：</span>
+                                        <span id="party_b_ba_value" class="font-medium text-gray-800"></span>
+                                    </div>
+                                    <div id="party_b_rb_display" style="display: none;">
+                                        <span class="text-gray-500">收款银行：</span>
+                                        <span id="party_b_rb_value" class="font-medium text-gray-800"></span>
+                                    </div>
+                                    <div id="party_b_bn_display" style="display: none;">
+                                        <span class="text-gray-500">开户行：</span>
+                                        <span id="party_b_bn_value" class="font-medium text-gray-800"></span>
+                                    </div>
+                                    <!-- 非银行转账字段 -->
+                                    <div id="party_b_pa_display" style="display: none;">
+                                        <span class="text-gray-500">收款账号：</span>
+                                        <span id="party_b_pa_value" class="font-medium text-gray-800"></span>
+                                    </div>
+                                    <div id="party_b_it_display" style="display: none;">
+                                        <span class="text-gray-500">发票类型：</span>
+                                        <span id="party_b_it_value" class="font-medium text-gray-800"></span>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- 隐藏字段，用于提交到后端 -->
+                            <input type="hidden" id="party_b_payment_method" name="party_b_payment_method" value="">
+                            <input type="hidden" id="party_b_bank_account" name="party_b_bank_account" value="">
+                            <input type="hidden" id="party_b_bank_name" name="party_b_bank_name" value="">
+                            <input type="hidden" id="party_b_receiving_bank" name="party_b_receiving_bank" value="">
+                            <input type="hidden" id="party_b_account_name" name="party_b_account_name" value="">
+                            <input type="hidden" id="party_b_payment_account" name="party_b_payment_account" value="">
+                            <input type="hidden" id="party_b_invoice_type" name="party_b_invoice_type" value="">
                         </div>
 
                         <!-- 税率 -->
@@ -915,6 +963,106 @@
             const taxRateInput = document.getElementById('tax_rate');
             const taxRateHint = document.getElementById('taxRateHint');
 
+            // 乙方收款资料联动
+            function updatePartyBPaymentInfo(data) {
+                const infoDiv = document.getElementById('party_b_payment_info');
+                const noPayment = document.getElementById('party_b_no_payment');
+                const pmDisplay = document.getElementById('party_b_pm_display');
+                const anDisplay = document.getElementById('party_b_an_display');
+                const baDisplay = document.getElementById('party_b_ba_display');
+                const rbDisplay = document.getElementById('party_b_rb_display');
+                const bnDisplay = document.getElementById('party_b_bn_display');
+                const paDisplay = document.getElementById('party_b_pa_display');
+                const itDisplay = document.getElementById('party_b_it_display');
+
+                const pm = data.payment_method || '';
+                const ba = data.bank_account || '';
+                const bn = data.bank_name || '';
+                const rb = data.receiving_bank || '';
+                const an = data.account_name || '';
+                const pa = data.payment_account || '';
+                const it = data.invoice_type || '';
+
+                // 检查是否有收款资料
+                const hasPaymentInfo = pm || ba || bn || rb || an || pa || it;
+
+                if (!hasPaymentInfo) {
+                    noPayment.style.display = '';
+                    pmDisplay.style.display = 'none';
+                    anDisplay.style.display = 'none';
+                    baDisplay.style.display = 'none';
+                    rbDisplay.style.display = 'none';
+                    bnDisplay.style.display = 'none';
+                    paDisplay.style.display = 'none';
+                    itDisplay.style.display = 'none';
+                } else {
+                    noPayment.style.display = 'none';
+                    // 收款方式
+                    if (pm) {
+                        document.getElementById('party_b_pm_value').textContent = pm;
+                        pmDisplay.style.display = '';
+                    } else {
+                        pmDisplay.style.display = 'none';
+                    }
+                    // 银行转账字段
+                    if (pm === '银行转账') {
+                        if (an) { document.getElementById('party_b_an_value').textContent = an; anDisplay.style.display = ''; } else { anDisplay.style.display = 'none'; }
+                        if (ba) { document.getElementById('party_b_ba_value').textContent = ba; baDisplay.style.display = ''; } else { baDisplay.style.display = 'none'; }
+                        if (rb) { document.getElementById('party_b_rb_value').textContent = rb; rbDisplay.style.display = ''; } else { rbDisplay.style.display = 'none'; }
+                        if (bn) { document.getElementById('party_b_bn_value').textContent = bn; bnDisplay.style.display = ''; } else { bnDisplay.style.display = 'none'; }
+                        paDisplay.style.display = 'none';
+                    } else if (pm) {
+                        anDisplay.style.display = 'none';
+                        baDisplay.style.display = 'none';
+                        rbDisplay.style.display = 'none';
+                        bnDisplay.style.display = 'none';
+                        if (pa) { document.getElementById('party_b_pa_value').textContent = pa; paDisplay.style.display = ''; } else { paDisplay.style.display = 'none'; }
+                    } else {
+                        anDisplay.style.display = 'none';
+                        baDisplay.style.display = 'none';
+                        rbDisplay.style.display = 'none';
+                        bnDisplay.style.display = 'none';
+                        paDisplay.style.display = 'none';
+                    }
+                    // 发票类型
+                    if (it) {
+                        document.getElementById('party_b_it_value').textContent = it;
+                        itDisplay.style.display = '';
+                    } else {
+                        itDisplay.style.display = 'none';
+                    }
+                }
+
+                infoDiv.style.display = '';
+                // 设置隐藏字段
+                document.getElementById('party_b_payment_method').value = pm;
+                document.getElementById('party_b_bank_account').value = ba;
+                document.getElementById('party_b_bank_name').value = bn;
+                document.getElementById('party_b_receiving_bank').value = rb;
+                document.getElementById('party_b_account_name').value = an;
+                document.getElementById('party_b_payment_account').value = pa;
+                document.getElementById('party_b_invoice_type').value = it;
+
+                // 税率联动：从乙方自动填充税率
+                if (data.tax_rate !== null && data.tax_rate !== undefined && taxRateInput.dataset.userModified !== 'true') {
+                    taxRateInput.value = data.tax_rate;
+                    taxRateHint.classList.remove('hidden');
+                    calculateTaxAmount();
+                }
+            }
+
+            function clearPartyBPaymentInfo() {
+                const infoDiv = document.getElementById('party_b_payment_info');
+                infoDiv.style.display = 'none';
+                document.getElementById('party_b_payment_method').value = '';
+                document.getElementById('party_b_bank_account').value = '';
+                document.getElementById('party_b_bank_name').value = '';
+                document.getElementById('party_b_receiving_bank').value = '';
+                document.getElementById('party_b_account_name').value = '';
+                document.getElementById('party_b_payment_account').value = '';
+                document.getElementById('party_b_invoice_type').value = '';
+            }
+
             // 获取供应商详情并展示
             function fetchSupplierDetail(supplierId, prefix) {
                 fetch('/api/suppliers/' + supplierId)
@@ -930,6 +1078,10 @@
                             // 设置详情input为readonly（从供应商选择，不可编辑）
                             setDetailFieldsReadonly(prefix, true);
                             document.getElementById(prefix + '_detail').style.display = 'block';
+                            // 乙方收款资料联动
+                            if (prefix === 'party_b') {
+                                updatePartyBPaymentInfo(d);
+                            }
                         }
                     })
                     .catch(err => {
@@ -985,13 +1137,14 @@
             function tryAutoFillTaxRate() {
                 if (taxRateInput.dataset.userModified === 'true') return;
 
-                const partyAId = partyAIdInput.value;
                 const partyBId = partyBIdInput.value;
+                const partyAId = partyAIdInput.value;
 
-                if (partyAId) {
-                    fetchTaxRate(partyAId);
-                } else if (partyBId) {
+                // 优先从乙方获取税率
+                if (partyBId) {
                     fetchTaxRate(partyBId);
+                } else if (partyAId) {
+                    fetchTaxRate(partyAId);
                 } else {
                     taxRateHint.classList.add('hidden');
                 }
@@ -1038,6 +1191,7 @@
                     tryAutoFillTaxRate();
                 } else {
                     hideSupplierDetail('party_b');
+                    clearPartyBPaymentInfo();
                     tryAutoFillTaxRate();
                 }
             });
@@ -1134,15 +1288,40 @@
                 document.getElementById('party_b_address').value = '{{ contract.party_b_address or "" }}';
                 document.getElementById('party_b_credit_code').value = '{{ contract.party_b_credit_code or "" }}';
                 document.getElementById('party_b_legal_representative').value = '{{ contract.party_b_legal_representative or "" }}';
+                document.getElementById('party_b_payment_method').value = '{{ contract.party_b_payment_method or "" }}';
+                document.getElementById('party_b_bank_account').value = '{{ contract.party_b_bank_account or "" }}';
+                document.getElementById('party_b_bank_name').value = '{{ contract.party_b_bank_name or "" }}';
+                document.getElementById('party_b_receiving_bank').value = '{{ contract.party_b_receiving_bank or "" }}';
+                document.getElementById('party_b_account_name').value = '{{ contract.party_b_account_name or "" }}';
+                document.getElementById('party_b_payment_account').value = '{{ contract.party_b_payment_account or "" }}';
+                document.getElementById('party_b_invoice_type').value = '{{ contract.party_b_invoice_type or "" }}';
                 {% elif p %}
                 document.getElementById('party_b_contact_person').value = '{{ p.party_b_contact_person or "" }}';
                 document.getElementById('party_b_contact_phone').value = '{{ p.party_b_contact_phone or "" }}';
                 document.getElementById('party_b_address').value = '{{ p.party_b_address or "" }}';
                 document.getElementById('party_b_credit_code').value = '{{ p.party_b_credit_code or "" }}';
                 document.getElementById('party_b_legal_representative').value = '{{ p.party_b_legal_representative or "" }}';
+                document.getElementById('party_b_payment_method').value = '{{ p.party_b_payment_method or "" }}';
+                document.getElementById('party_b_bank_account').value = '{{ p.party_b_bank_account or "" }}';
+                document.getElementById('party_b_bank_name').value = '{{ p.party_b_bank_name or "" }}';
+                document.getElementById('party_b_receiving_bank').value = '{{ p.party_b_receiving_bank or "" }}';
+                document.getElementById('party_b_account_name').value = '{{ p.party_b_account_name or "" }}';
+                document.getElementById('party_b_payment_account').value = '{{ p.party_b_payment_account or "" }}';
+                document.getElementById('party_b_invoice_type').value = '{{ p.party_b_invoice_type or "" }}';
                 {% endif %}
                 setDetailFieldsReadonly('party_b', false);
                 document.getElementById('party_b_detail').style.display = 'block';
+                // 恢复收款资料显示区域
+                var pmData = {
+                    payment_method: document.getElementById('party_b_payment_method').value,
+                    bank_account: document.getElementById('party_b_bank_account').value,
+                    bank_name: document.getElementById('party_b_bank_name').value,
+                    receiving_bank: document.getElementById('party_b_receiving_bank').value,
+                    account_name: document.getElementById('party_b_account_name').value,
+                    payment_account: document.getElementById('party_b_payment_account').value,
+                    invoice_type: document.getElementById('party_b_invoice_type').value
+                };
+                if (pmData.payment_method) { updatePartyBPaymentInfo(pmData); }
             }
 
 

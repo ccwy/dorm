@@ -187,10 +187,10 @@
                     </div>
                 </div>
 
-                <!-- 甲乙双方与金额 -->
+                <!-- 甲乙双方与付款资料 -->
                 <div class="bg-white rounded-lg shadow-sm p-6">
                     <h3 class="text-lg font-medium text-gray-800 mb-4 pb-2 border-b border-gray-200">
-                        <i class="fa fa-users text-secondary mr-2"></i>甲乙双方与金额
+                        <i class="fa fa-users text-secondary mr-2"></i>甲乙双方与付款资料
                     </h3>
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         <div>
@@ -248,6 +248,45 @@
                             <p class="font-medium text-gray-800">{{ contract.payment_method or '银行转账' }}</p>
                         </div>
                     </div>
+                    {% if contract.party_b_payment_method %}
+                    <div class="border-t border-gray-200 my-3"></div>
+                    <p class="text-sm font-medium text-gray-600 mb-2">乙方收款资料</p>
+                    <div class="grid grid-cols-2 gap-x-4 gap-y-2">
+                        <div>
+                            <span class="text-sm text-gray-500">收款方式</span>
+                            <p class="font-medium text-gray-800">{{ contract.party_b_payment_method }}</p>
+                        </div>
+                        {% if contract.party_b_payment_method == '银行转账' %}
+                        <div>
+                            <span class="text-sm text-gray-500">开户名称</span>
+                            <p class="font-medium text-gray-800">{{ contract.party_b_account_name or '-' }}</p>
+                        </div>
+                        <div>
+                            <span class="text-sm text-gray-500">银行账号</span>
+                            <p class="font-medium text-gray-800">{{ contract.party_b_bank_account or '-' }}</p>
+                        </div>
+                        <div>
+                            <span class="text-sm text-gray-500">收款银行</span>
+                            <p class="font-medium text-gray-800">{{ contract.party_b_receiving_bank or '-' }}</p>
+                        </div>
+                        <div>
+                            <span class="text-sm text-gray-500">开户行</span>
+                            <p class="font-medium text-gray-800">{{ contract.party_b_bank_name or '-' }}</p>
+                        </div>
+                        {% else %}
+                        <div>
+                            <span class="text-sm text-gray-500">收款账号</span>
+                            <p class="font-medium text-gray-800">{{ contract.party_b_payment_account or '-' }}</p>
+                        </div>
+                        {% endif %}
+                        {% if contract.party_b_invoice_type %}
+                        <div>
+                            <span class="text-sm text-gray-500">发票类型</span>
+                            <p class="font-medium text-gray-800">{{ contract.party_b_invoice_type }}</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endif %}
                 </div>
 
                 <!-- 日期信息 -->

@@ -30,6 +30,15 @@ class Contract(db.Model):
     party_b_credit_code = db.Column(db.String(18), nullable=True, comment='乙方统一社会信用代码')
     party_b_legal_representative = db.Column(db.String(100), nullable=True, comment='乙方法定代表人')
 
+    # 乙方收款资料快照（保存签约时的乙方收款信息）
+    party_b_payment_method = db.Column(db.String(50), nullable=True, comment='乙方收款方式')
+    party_b_bank_account = db.Column(db.String(100), nullable=True, comment='乙方银行账号')
+    party_b_bank_name = db.Column(db.String(200), nullable=True, comment='乙方开户行')
+    party_b_receiving_bank = db.Column(db.String(200), nullable=True, comment='乙方收款银行')
+    party_b_account_name = db.Column(db.String(200), nullable=True, comment='乙方开户名称')
+    party_b_payment_account = db.Column(db.String(100), nullable=True, comment='乙方收款账号')
+    party_b_invoice_type = db.Column(db.String(50), nullable=True, comment='乙方发票类型')
+
     # 合同类型与分类
     contract_type = db.Column(db.String(50), nullable=True, comment='合同类型（从系统配置读取，如：采购合同/服务合同/租赁合同/其他）')
     contract_category = db.Column(db.String(50), nullable=True, comment='合同分类（从系统配置读取）')
@@ -254,7 +263,10 @@ class Contract(db.Model):
                party_a_contact_person=None, party_a_contact_phone=None, party_a_address=None,
                party_a_credit_code=None, party_a_legal_representative=None,
                party_b_contact_person=None, party_b_contact_phone=None, party_b_address=None,
-               party_b_credit_code=None, party_b_legal_representative=None):
+               party_b_credit_code=None, party_b_legal_representative=None,
+               party_b_payment_method=None, party_b_bank_account=None, party_b_bank_name=None,
+               party_b_receiving_bank=None, party_b_account_name=None, party_b_payment_account=None,
+               party_b_invoice_type=None):
         """创建合同"""
         contract = cls(
             contract_name=contract_name,
@@ -287,7 +299,14 @@ class Contract(db.Model):
             party_b_contact_phone=party_b_contact_phone,
             party_b_address=party_b_address,
             party_b_credit_code=party_b_credit_code,
-            party_b_legal_representative=party_b_legal_representative
+            party_b_legal_representative=party_b_legal_representative,
+            party_b_payment_method=party_b_payment_method,
+            party_b_bank_account=party_b_bank_account,
+            party_b_bank_name=party_b_bank_name,
+            party_b_receiving_bank=party_b_receiving_bank,
+            party_b_account_name=party_b_account_name,
+            party_b_payment_account=party_b_payment_account,
+            party_b_invoice_type=party_b_invoice_type
         )
         db.session.add(contract)
         db.session.commit()

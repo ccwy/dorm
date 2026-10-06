@@ -117,6 +117,13 @@ def get_supplier_detail(id):
             "handler_name": supplier.handler_name,
             "remark": supplier.remark or '',
             "tax_rate": float(supplier.tax_rate) if supplier.tax_rate is not None else None,
+            "payment_method": supplier.payment_method or '',
+            "bank_account": supplier.bank_account or '',
+            "bank_name": supplier.bank_name or '',
+            "receiving_bank": supplier.receiving_bank or '',
+            "account_name": supplier.account_name or '',
+            "payment_account": supplier.payment_account or '',
+            "invoice_type": supplier.invoice_type or '',
             "created_at": supplier.created_at.strftime('%Y-%m-%d %H:%M') if supplier.created_at else None,
             "updated_at": supplier.updated_at.strftime('%Y-%m-%d %H:%M') if supplier.updated_at else None
         }
