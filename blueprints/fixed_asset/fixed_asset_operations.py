@@ -137,7 +137,8 @@ def add_asset():
             selected_item = SupplyItem.query.get(int(supply_item_id_str))
             if not selected_item or selected_item.status != '启用':
                 flash('所选物料基础资料已停用，请重新选择', 'danger')
-                return redirect(url_for('fixed_asset.index'))
+                temp_key = request.form.get('temp_key', '')
+                return redirect(url_for('fixed_asset.add_page', temp_key=temp_key) if temp_key else url_for('fixed_asset.index'))
 
         # 同步保存自定义供应商到供应商模块
         if supplier:
@@ -187,20 +188,24 @@ def add_asset():
         # 必填字段校验
         if not asset_name:
             flash('资产名称不能为空', 'danger')
-            return redirect(url_for('fixed_asset.index'))
+            temp_key = request.form.get('temp_key', '')
+            return redirect(url_for('fixed_asset.add_page', temp_key=temp_key) if temp_key else url_for('fixed_asset.index'))
         if not asset_category:
             flash('资产分类不能为空', 'danger')
-            return redirect(url_for('fixed_asset.index'))
+            temp_key = request.form.get('temp_key', '')
+            return redirect(url_for('fixed_asset.add_page', temp_key=temp_key) if temp_key else url_for('fixed_asset.index'))
 
         # 数量处理
         try:
             quantity = int(quantity_str)
             if quantity <= 0:
                 flash('数量必须大于0', 'danger')
-                return redirect(url_for('fixed_asset.index'))
+                temp_key = request.form.get('temp_key', '')
+                return redirect(url_for('fixed_asset.add_page', temp_key=temp_key) if temp_key else url_for('fixed_asset.index'))
         except ValueError:
             flash('数量格式无效', 'danger')
-            return redirect(url_for('fixed_asset.index'))
+            temp_key = request.form.get('temp_key', '')
+            return redirect(url_for('fixed_asset.add_page', temp_key=temp_key) if temp_key else url_for('fixed_asset.index'))
 
         # 日期处理
         purchase_date = _parse_date(purchase_date_str)
@@ -371,6 +376,29 @@ def add_asset():
             result="成功"
         )
 
+        # 处理临时文件：将新增页面上传的临时文件移动到正式资产目录
+        temp_key = request.form.get('temp_key', '')
+        if temp_key:
+            from werkzeug.utils import secure_filename
+            original_temp_key = temp_key
+            temp_key = secure_filename(temp_key)
+            if temp_key:
+                try:
+                    logging.info(f"开始移动资产临时文件: original_key={original_temp_key}, secure_key={temp_key}, asset_id={asset.id}")
+                    move_result = AssetPhotoManager.move_temp_to_permanent(temp_key, asset.id)
+                    if move_result['errors']:
+                        logging.warning(f"部分临时文件移动失败: {move_result['errors']}")
+                    # 清理临时目录
+                    AssetPhotoManager.clear_temp_files(temp_key)
+                except Exception as e:
+                    logging.error(f"移动资产临时文件异常: {str(e)}, temp_key={temp_key}, asset_id={asset.id}")
+                    try:
+                        AssetPhotoManager.clear_temp_files(temp_key)
+                    except Exception as clear_err:
+                        logging.warning(f"清理资产临时文件失败: {str(clear_err)}, temp_key={temp_key}")
+            else:
+                logging.warning(f"temp_key经secure_filename处理后为空: original={original_temp_key}")
+
         flash(f'新增资产成功: {asset.asset_name}({asset.display_number})', 'success')
         logging.info(f"新增资产成功，资产ID: {asset.id}, 资产编号: {asset.display_number}")
         if request.form.get('action') == 'return':
@@ -390,6 +418,19 @@ def add_asset():
         )
         flash(f'新增资产失败: {str(e)}', 'danger')
         logging.error(f"新增资产失败: {str(e)}\n{traceback.format_exc()}")
+        # 清理临时文件
+        temp_key = request.form.get('temp_key', '')
+        if temp_key:
+            from werkzeug.utils import secure_filename
+            original_temp_key = temp_key
+            temp_key = secure_filename(temp_key)
+            if temp_key:
+                try:
+                    AssetPhotoManager.clear_temp_files(temp_key)
+                except Exception as clear_err:
+                    logging.warning(f"清理资产临时文件失败: {str(clear_err)}, temp_key={temp_key}")
+            else:
+                logging.warning(f"temp_key经secure_filename处理后为空: original={original_temp_key}")
         return redirect(url_for('fixed_asset.index'))
 
 

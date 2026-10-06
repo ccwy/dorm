@@ -100,6 +100,11 @@ def start_scheduler(app):
             schedule.every().day.at(ROOM_METER_CHECKOUT_CLEANUP_TIME).do(lambda: execute_with_context(app, cleanup_room_meter_checkout_temp_files))
             logging.info(f"退宿抄表临时文件定时清理任务已注册，将在每天{ROOM_METER_CHECKOUT_CLEANUP_TIME}执行")
             
+            # 资产照片临时文件清理任务（每天04:00执行一次）
+            ASSET_PHOTO_CLEANUP_TIME = '04:00'
+            schedule.every().day.at(ASSET_PHOTO_CLEANUP_TIME).do(lambda: execute_with_context(app, cleanup_asset_photo_temp_files))
+            logging.info(f"资产照片临时文件定时清理任务已注册，将在每天{ASSET_PHOTO_CLEANUP_TIME}执行")
+            
             # 循环执行任务
             while True:
                 schedule.run_pending()
@@ -168,6 +173,20 @@ def cleanup_room_meter_checkout_temp_files():
         return True
     except Exception as e:
         logging.error(f"清理退宿抄表临时文件时发生错误: {str(e)}", exc_info=True)
+        return False
+
+# 清理资产照片临时文件
+def cleanup_asset_photo_temp_files():
+    """清理超过24小时的资产照片临时文件"""
+    try:
+        from utils.media.asset_photo import AssetPhotoManager
+        result = AssetPhotoManager.cleanup_old_temp_files(max_age_hours=24)
+        if result['deleted_files'] > 0 or result['deleted_dirs'] > 0:
+            logging.info(f"资产照片临时文件定时清理: 删除 {result['deleted_files']} 个文件, "
+                        f"{result['deleted_dirs']} 个空目录, {result['errors']} 个错误")
+        return True
+    except Exception as e:
+        logging.error(f"清理资产照片临时文件时发生错误: {str(e)}", exc_info=True)
         return False
 
 # 初始化调度器

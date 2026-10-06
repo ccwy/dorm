@@ -20,6 +20,7 @@ from decimal import Decimal, InvalidOperation
 import json
 import logging
 import traceback
+import random
 
 # 定义蓝图
 fixed_asset_bp = Blueprint(
@@ -668,6 +669,9 @@ def add_page():
     except Exception as log_err:
         logging.warning(f"记录操作日志失败: {str(log_err)}")
 
+    # 生成temp_key用于临时文件上传（优先使用GET参数中的temp_key，用于验证失败回退时保留已上传文件）
+    temp_key = request.args.get('temp_key', '') or 'asset_add_' + str(int(datetime.now().timestamp() * 1000)) + '_' + str(random.randint(1000, 9999))
+
     return render_template(
         'fixed_asset_manage/fixed_asset_add.html',
         title="新增资产",
@@ -682,7 +686,8 @@ def add_page():
         sources=sources,
         users=users,
         rooms=rooms,
-        supply_items=supply_items
+        supply_items=supply_items,
+        temp_key=temp_key
     )
 
 
