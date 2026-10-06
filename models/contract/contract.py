@@ -37,6 +37,7 @@ class Contract(db.Model):
     # 金额信息
     contract_amount = db.Column(db.Numeric(14, 2), default=Decimal('0.00'), nullable=True, comment='合同金额（元）')
     currency = db.Column(db.String(10), default='CNY', nullable=True, comment='币种')
+    payment_method = db.Column(db.String(50), default='银行转账', nullable=True, comment='付款方式')
 
     # 税率信息
     tax_rate = db.Column(db.Numeric(5, 2), nullable=True, comment='合同税率（%，可从供应商自动获取，支持自定义覆盖）')
@@ -247,7 +248,7 @@ class Contract(db.Model):
     @classmethod
     def create(cls, contract_name, contract_number=None, party_a_id=None, party_b_id=None,
                contract_type=None, contract_category=None, contract_amount=None,
-               currency='CNY', tax_rate=None, tax_amount=None, signing_date=None, start_date=None, end_date=None,
+               currency='CNY', payment_method='银行转账', tax_rate=None, tax_amount=None, signing_date=None, start_date=None, end_date=None,
                status='草稿', handler_user_id=None, department_id=None,
                previous_contract_id=None, storage_location_id=None, remark=None, operator_user_id=None,
                party_a_contact_person=None, party_a_contact_phone=None, party_a_address=None,
@@ -264,6 +265,7 @@ class Contract(db.Model):
             contract_category=contract_category,
             contract_amount=contract_amount,
             currency=currency,
+            payment_method=payment_method,
             tax_rate=tax_rate,
             tax_amount=tax_amount,
             signing_date=signing_date or date.today(),

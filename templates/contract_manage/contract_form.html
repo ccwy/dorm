@@ -324,10 +324,20 @@
                             <label for="currency" class="block text-sm font-medium text-gray-700 mb-1">币种</label>
                             <select id="currency" name="currency"
                                     class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
-                                <option value="CNY" {% if (contract and contract.currency == 'CNY') or (not contract and not p) %}selected{% endif %}>人民币（CNY）</option>
-                                <option value="USD" {% if (contract and contract.currency == 'USD') or (not contract and p and p.currency == 'USD') %}selected{% endif %}>美元（USD）</option>
-                                <option value="EUR" {% if (contract and contract.currency == 'EUR') or (not contract and p and p.currency == 'EUR') %}selected{% endif %}>欧元（EUR）</option>
-                                <option value="HKD" {% if (contract and contract.currency == 'HKD') or (not contract and p and p.currency == 'HKD') %}selected{% endif %}>港币（HKD）</option>
+                                {% for c in currencies %}
+                                <option value="{{ c.code }}" {% if (contract and contract.currency == c.code) or (not contract and not p and c.code == 'CNY') or (not contract and p and p.currency == c.code) %}selected{% endif %}>{{ c.name }}（{{ c.code }}）</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <!-- 付款方式 -->
+                        <div>
+                            <label for="payment_method" class="block text-sm font-medium text-gray-700 mb-1">付款方式</label>
+                            <select id="payment_method" name="payment_method"
+                                    class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                                {% for m in payment_methods %}
+                                <option value="{{ m }}" {% if (contract and contract.payment_method == m) or (not contract and not p and m == '银行转账') or (not contract and p and p.payment_method == m) %}selected{% endif %}>{{ m }}</option>
+                                {% endfor %}
                             </select>
                         </div>
 
@@ -531,7 +541,7 @@
     
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            // 表单验证
+
             const form = document.getElementById('contractForm');
             form.addEventListener('submit', function(e) {
                 const contractName = document.getElementById('contract_name').value.trim();
@@ -1134,6 +1144,8 @@
                 setDetailFieldsReadonly('party_b', false);
                 document.getElementById('party_b_detail').style.display = 'block';
             }
+
+
         });
     </script>
 </body>

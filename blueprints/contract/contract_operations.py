@@ -127,6 +127,7 @@ def add_contract():
         contract_category = request.form.get('contract_category', '').strip() or None
         contract_amount = request.form.get('contract_amount', '').strip() or None
         currency = request.form.get('currency', 'CNY').strip() or 'CNY'
+        payment_method = request.form.get('payment_method', '银行转账').strip() or '银行转账'
         tax_rate = request.form.get('tax_rate', '').strip() or None
         tax_amount = request.form.get('tax_amount', '').strip() or None
         signing_date = request.form.get('signing_date', '').strip() or None
@@ -230,6 +231,7 @@ def add_contract():
             contract_category=contract_category,
             contract_amount=contract_amount,
             currency=currency,
+            payment_method=payment_method,
             tax_rate=tax_rate,
             tax_amount=tax_amount,
             signing_date=signing_date,
@@ -459,6 +461,7 @@ def edit_contract(id):
         new_contract_category = request.form.get('contract_category', '').strip() or None
         new_contract_amount = request.form.get('contract_amount', '').strip() or None
         new_currency = request.form.get('currency', 'CNY').strip() or 'CNY'
+        new_payment_method = request.form.get('payment_method', '银行转账').strip() or '银行转账'
         new_tax_rate = request.form.get('tax_rate', '').strip() or None
         new_tax_amount = request.form.get('tax_amount', '').strip() or None
         new_signing_date = request.form.get('signing_date', '').strip() or None
@@ -560,6 +563,8 @@ def edit_contract(id):
             changes.append(f"合同金额: {contract.contract_amount or '无'} → {new_contract_amount or '无'}")
         if contract.currency != new_currency:
             changes.append(f"币种: {contract.currency or '无'} → {new_currency or '无'}")
+        if contract.payment_method != new_payment_method:
+            changes.append(f"付款方式: {contract.payment_method or '无'} → {new_payment_method or '无'}")
         if str(contract.tax_rate or '') != str(new_tax_rate or ''):
             changes.append(f"税率: {contract.tax_rate or '无'} → {new_tax_rate or '无'}")
         if str(contract.tax_amount or '') != str(new_tax_amount or ''):
@@ -593,6 +598,7 @@ def edit_contract(id):
         contract.contract_category = new_contract_category
         contract.contract_amount = new_contract_amount
         contract.currency = new_currency
+        contract.payment_method = new_payment_method
         contract.tax_rate = new_tax_rate
         contract.tax_amount = new_tax_amount
         contract.signing_date = new_signing_date

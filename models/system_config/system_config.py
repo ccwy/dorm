@@ -79,7 +79,7 @@ class SystemConfig(db.Model):
                 'category': 'system',
                 'description': '数据库类型，默认： SQLITE ，可修改为： MYSQL ',
                 'sort_order': 30
-            },          
+            },
             {
                 'config_key': 'SERVER_PORT',
                 'config_value': '35168',
@@ -497,7 +497,6 @@ class SystemConfig(db.Model):
                 'description': '宿舍操作类型',
                 'sort_order': 30
             },
-            
             # 6. 水电费管理配置 (category: fee)
             {
                 'config_key': 'ELECTRICITY_PRICE',
@@ -630,9 +629,7 @@ class SystemConfig(db.Model):
                 'description': '连续缺勤预警阈值（天）',
                 'sort_order': 30
             },
-            
-            # 8. 合同管理配置 (category: contract) - 基础配置项已移至下方与CONTRACT_TYPES等统一管理
-            
+
             # 9. 日志管理配置 (category: log)
             {
                 'config_key': 'LOG_RETENTION_DAYS',
@@ -692,7 +689,7 @@ class SystemConfig(db.Model):
                 'description': '是否启用自动备份',
                 'sort_order': 30
             },
-            # 固定资产管理配置 (category: asset)
+            # 11. 固定资产管理配置 (category: asset)
             {
                 'config_key': 'ASSET_CATEGORIES',
                 'config_value': '办公设备,家具,交通工具,电子设备,机械设备,其他',
@@ -869,7 +866,7 @@ class SystemConfig(db.Model):
                 'is_system': False,
                 'sort_order': 130
             },
-            
+            # 8. 合同管理配置 (category: contract) 
             # 合同类型配置
             {
                 'config_key': 'CONTRACT_TYPES',
@@ -900,9 +897,28 @@ class SystemConfig(db.Model):
                 'is_editable': True,
                 'sort_order': 30
             },
+            # 币种配置
+            {
+                'config_key': 'CURRENCIES',
+                'config_value': 'CNY:人民币,USD:美元,EUR:欧元,HKD:港币',
+                'config_type': 'string',
+                'category': 'contract',
+                'description': '币种选项（格式：代码:名称，逗号分隔）',
+                'is_editable': True,
+                'sort_order': 40
+            },
+            # 付款方式配置
+            {
+                'config_key': 'PAYMENT_METHODS',
+                'config_value': '银行转账,现金,支票,电汇,其他',
+                'config_type': 'string',
+                'description': '付款方式选项（逗号分隔）',
+                'category': 'contract',
+                'sort_order': 50,
+                'is_system': True
+            },
 
-            
-
+            # 维修配置管理
             # 维修类型列表
             {
                 'config_key': 'MAINTENANCE_TYPES',
