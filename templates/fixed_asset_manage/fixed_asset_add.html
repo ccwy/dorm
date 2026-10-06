@@ -711,13 +711,6 @@
                         return div.innerHTML;
                     }
 
-                    // 视频MIME类型映射（与模态框播放器一致）
-                    var videoMimeMap = {
-                        'mp4': 'video/mp4', 'webm': 'video/webm', 'ogg': 'video/ogg',
-                        'mov': 'video/quicktime', 'avi': 'video/x-msvideo', 'mkv': 'video/x-matroska',
-                        'wmv': 'video/x-ms-wmv', 'flv': 'video/x-flv'
-                    };
-
                     if (result.files && result.files.length > 0) {
                         clearBtn.classList.remove('hidden');
                         result.files.forEach(function(file) {
@@ -735,17 +728,29 @@
                                     + '</div>'
                                     + '<div class="p-1 text-xs text-gray-600 truncate">' + displayFilename + '</div>'
                                     + '</div>';
-                            } else {
-                                var vExt = file.filename.split('.').pop().toLowerCase();
-                                var vMime = videoMimeMap[vExt] || 'video/mp4';
+                            } else if (file.type === 'video') {
                                 html += '<div class="bg-white border border-green-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow">'
                                     + '<div class="bg-green-50 text-xs text-green-600 px-2 py-0.5">待保存</div>'
-                                    + '<div class="relative h-32 overflow-hidden bg-gray-100">'
-                                    + '<video class="w-full h-full object-cover" preload="metadata"><source src="' + escapeHtml(file.url) + '" type="' + vMime + '"></video>'
-                                    + '<button type="button" class="absolute top-2 right-2 bg-transparent text-red-500 hover:text-white hover:bg-red-500 rounded-full p-1 shadow-lg z-10" onclick="deleteTempMediaFile(decodeURIComponent(\'' + safeFilename + '\')); event.stopPropagation();">'
+                                    + '<div class="relative h-32 overflow-hidden">'
+                                    + '<div class="w-full h-full flex flex-col items-center justify-center bg-gray-800 text-white cursor-pointer" onclick="openVideoModal(decodeURIComponent(\'' + safeUrl + '\'))">'
+                                    + '<i class="fa fa-play-circle text-3xl"></i>'
+                                    + '<span class="text-xs mt-1">视频</span>'
+                                    + '</div>'
+                                    + '<button type="button" class="absolute top-2 right-2 bg-transparent text-red-500 hover:text-white hover:bg-red-500 rounded-full p-1 shadow-lg" onclick="deleteTempMediaFile(decodeURIComponent(\'' + safeFilename + '\')); event.stopPropagation();">'
                                     + '<i class="fa fa-trash-o"></i></button>'
-                                    + '<div class="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30 cursor-pointer z-0" onclick="openVideoModal(decodeURIComponent(\'' + safeUrl + '\'))">'
-                                    + '<i class="fa fa-play-circle text-white text-3xl opacity-80"></i></div>'
+                                    + '</div>'
+                                    + '<div class="p-1 text-xs text-gray-600 truncate">' + displayFilename + '</div>'
+                                    + '</div>';
+                            } else {
+                                html += '<div class="bg-white border border-green-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow">'
+                                    + '<div class="bg-green-50 text-xs text-green-600 px-2 py-0.5">待保存</div>'
+                                    + '<div class="relative h-32 overflow-hidden">'
+                                    + '<div class="w-full h-full flex flex-col items-center justify-center bg-gray-100 text-gray-400 cursor-pointer">'
+                                    + '<i class="fa fa-file text-3xl"></i>'
+                                    + '<span class="text-xs mt-1">文件</span>'
+                                    + '</div>'
+                                    + '<button type="button" class="absolute top-2 right-2 bg-transparent text-red-500 hover:text-white hover:bg-red-500 rounded-full p-1 shadow-lg" onclick="deleteTempMediaFile(decodeURIComponent(\'' + safeFilename + '\')); event.stopPropagation();">'
+                                    + '<i class="fa fa-trash-o"></i></button>'
                                     + '</div>'
                                     + '<div class="p-1 text-xs text-gray-600 truncate">' + displayFilename + '</div>'
                                     + '</div>';
