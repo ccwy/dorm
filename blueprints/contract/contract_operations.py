@@ -12,6 +12,7 @@ import logging
 import traceback
 from datetime import datetime, date
 from werkzeug.utils import secure_filename
+from .contract import contract_bp
 
 
 
