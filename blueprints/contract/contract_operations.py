@@ -135,7 +135,8 @@ def add_contract():
         contract_category = request.form.get('contract_category', '').strip() or None
         contract_amount = request.form.get('contract_amount', '').strip() or None
         currency = request.form.get('currency', 'CNY').strip() or 'CNY'
-        payment_method = request.form.get('payment_method', '银行转账').strip() or '银行转账'
+        payment_method = request.form.get('payment_method', '一次性付清').strip() or '一次性付清'
+        payment_requirements = request.form.get('payment_requirements', '').strip() or None
         tax_rate = request.form.get('tax_rate', '').strip() or None
         tax_amount = request.form.get('tax_amount', '').strip() or None
         signing_date = request.form.get('signing_date', '').strip() or None
@@ -240,6 +241,7 @@ def add_contract():
             contract_amount=contract_amount,
             currency=currency,
             payment_method=payment_method,
+            payment_requirements=payment_requirements,
             tax_rate=tax_rate,
             tax_amount=tax_amount,
             signing_date=signing_date,
@@ -484,7 +486,8 @@ def edit_contract(id):
         new_contract_category = request.form.get('contract_category', '').strip() or None
         new_contract_amount = request.form.get('contract_amount', '').strip() or None
         new_currency = request.form.get('currency', 'CNY').strip() or 'CNY'
-        new_payment_method = request.form.get('payment_method', '银行转账').strip() or '银行转账'
+        new_payment_method = request.form.get('payment_method', '一次性付清').strip() or '一次性付清'
+        new_payment_requirements = request.form.get('payment_requirements', '').strip() or None
         new_tax_rate = request.form.get('tax_rate', '').strip() or None
         new_tax_amount = request.form.get('tax_amount', '').strip() or None
         new_signing_date = request.form.get('signing_date', '').strip() or None
@@ -588,6 +591,8 @@ def edit_contract(id):
             changes.append(f"币种: {contract.currency or '无'} → {new_currency or '无'}")
         if contract.payment_method != new_payment_method:
             changes.append(f"付款方式: {contract.payment_method or '无'} → {new_payment_method or '无'}")
+        if contract.payment_requirements != new_payment_requirements:
+            changes.append(f"付款要求: {contract.payment_requirements or '无'} → {new_payment_requirements or '无'}")
         if str(contract.tax_rate or '') != str(new_tax_rate or ''):
             changes.append(f"税率: {contract.tax_rate or '无'} → {new_tax_rate or '无'}")
         if str(contract.tax_amount or '') != str(new_tax_amount or ''):
@@ -612,7 +617,7 @@ def edit_contract(id):
         if new_status and new_status != contract.status:
             changes.append(f"状态: {contract.status or '无'} → {new_status}")
         if contract.party_b_payment_method != new_party_b_payment_method:
-            changes.append(f"收款方式: {contract.party_b_payment_method or '无'} → {new_party_b_payment_method or '无'}")
+            changes.append(f"乙方收款方式: {contract.party_b_payment_method or '无'} → {new_party_b_payment_method or '无'}")
         if contract.party_b_bank_account != new_party_b_bank_account:
             changes.append(f"银行账号: {contract.party_b_bank_account or '无'} → {new_party_b_bank_account or '无'}")
         if contract.party_b_bank_name != new_party_b_bank_name:
@@ -636,6 +641,7 @@ def edit_contract(id):
         contract.contract_amount = new_contract_amount
         contract.currency = new_currency
         contract.payment_method = new_payment_method
+        contract.payment_requirements = new_payment_requirements
         contract.tax_rate = new_tax_rate
         contract.tax_amount = new_tax_amount
         contract.signing_date = new_signing_date

@@ -221,7 +221,7 @@ def add_page():
                 currencies.append({'code': parts[0].strip(), 'name': parts[0].strip()})
 
         # 读取付款方式配置
-        payment_methods_str = SystemConfig.get_config_value('PAYMENT_METHODS', '银行转账,现金,支票,电汇,其他')
+        payment_methods_str = SystemConfig.get_config_value('PAYMENT_METHODS', '一次性付清,按实际金额付款,分期付款,按进度付款')
         payment_methods = [m.strip() for m in payment_methods_str.split(',') if m.strip()]
 
         # 获取默认日期
@@ -303,7 +303,7 @@ def edit_page(id):
                 currencies.append({'code': parts[0].strip(), 'name': parts[0].strip()})
 
         # 读取付款方式配置
-        payment_methods_str = SystemConfig.get_config_value('PAYMENT_METHODS', '银行转账,现金,支票,电汇,其他')
+        payment_methods_str = SystemConfig.get_config_value('PAYMENT_METHODS', '一次性付清,按实际金额付款,分期付款,按进度付款')
         payment_methods = [m.strip() for m in payment_methods_str.split(',') if m.strip()]
 
         # 获取部门列表
