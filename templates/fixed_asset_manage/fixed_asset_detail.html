@@ -407,10 +407,12 @@
                                      alt="{{ file.filename }}" class="w-full h-full object-cover cursor-pointer" 
                                      onclick="openImageModal('{{ url_for('fixed_asset_api.get_asset_media', asset_id=asset.id, filename=file.filename) }}')">
                                 {% elif file.type == 'video' %}
-                                <div class="w-full h-full flex flex-col items-center justify-center bg-gray-800 text-white cursor-pointer" 
+                                <video class="w-full h-full object-cover" poster="" preload="metadata">
+                                    <source src="{{ url_for('fixed_asset_api.get_asset_media', asset_id=asset.id, filename=file.filename) }}" type="{{ file.mime_type|default('video/mp4') }}">
+                                </video>
+                                <div class="absolute inset-0 flex items-center justify-center bg-black bg-opacity-20 group-hover:bg-opacity-30 transition-all cursor-pointer"
                                      onclick="openVideoModal('{{ url_for('fixed_asset_api.get_asset_media', asset_id=asset.id, filename=file.filename) }}')">
-                                    <i class="fa fa-play-circle text-3xl"></i>
-                                    <span class="text-xs mt-1">视频</span>
+                                    <i class="fa fa-play-circle text-white text-4xl opacity-80"></i>
                                 </div>
                                 {% elif file.type == 'document' %}
                                 <a href="{{ url_for('fixed_asset_api.get_asset_media', asset_id=asset.id, filename=file.filename) }}" target="_blank" class="w-full h-full flex flex-col items-center justify-center bg-blue-50 text-blue-600 no-underline">
