@@ -340,7 +340,7 @@ def init_flask_app(progress_callback=None):
             return
         _scheduler_initialized = True
         try:
-            from utils.utility_room_bill_record_scheduler import init_scheduler
+            from utils.scheduler import init_scheduler
             scheduler = init_scheduler(app)
             logging.info("延迟初始化调度器完成")
         except Exception as e:
