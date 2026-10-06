@@ -1,3 +1,4 @@
+import logging
 import os
 import shutil
 from werkzeug.utils import secure_filename
@@ -667,6 +668,117 @@ class RoomMeterCheckoutPhotoManager:
             all_errors.append(f"遍历临时目录失败: {str(e)}")
 
         return {'deleted': total_deleted, 'errors': all_errors, 'users_cleared': users_cleared}
+
+    @staticmethod
+    def cleanup_old_temp_files(max_age_hours=24):
+        """清理超过指定时间的临时文件，跳过有 pending 退宿申请的用户目录
+
+        Args:
+            max_age_hours: 文件最大保留时间（小时），默认24小时
+
+        Returns:
+            dict: {'deleted_files': int, 'deleted_dirs': int, 'skipped_pending': int, 'errors': int}
+        """
+        from models.dorm.dorm_application import DormApplication
+
+        temp_root = RoomMeterCheckoutPhotoManager.get_temp_dir(create=False)
+
+        if not os.path.exists(temp_root):
+            return {'deleted_files': 0, 'deleted_dirs': 0, 'skipped_pending': 0, 'errors': 0}
+
+        deleted_files = 0
+        deleted_dirs = 0
+        skipped_pending = 0
+        errors = 0
+        now = datetime.now()
+
+        try:
+            for room_dir_name in os.listdir(temp_root):
+                room_dir = os.path.join(temp_root, room_dir_name)
+
+                if not os.path.isdir(room_dir):
+                    continue
+
+                checkout_dir = os.path.join(room_dir, 'checkout')
+                if not os.path.exists(checkout_dir):
+                    continue
+
+                for user_dir_name in os.listdir(checkout_dir):
+                    user_dir = os.path.join(checkout_dir, user_dir_name)
+
+                    if not os.path.isdir(user_dir):
+                        continue
+
+                    # 尝试解析目录名为整数，判断是否有 pending 申请
+                    try:
+                        room_id = int(room_dir_name)
+                        user_id = int(user_dir_name)
+                        pending_app = DormApplication.query.filter_by(
+                            application_type='checkout',
+                            status='pending',
+                            current_room_id=room_id,
+                            user_id=user_id
+                        ).first()
+                        if pending_app:
+                            skipped_pending += 1
+                            continue
+                    except (ValueError, TypeError):
+                        # 目录名非整数，直接按时间清理
+                        pass
+
+                    # 按时间清理超过 max_age_hours 的文件
+                    user_files_deleted = 0
+                    for filename in os.listdir(user_dir):
+                        file_path = os.path.join(user_dir, filename)
+
+                        if os.path.isdir(file_path):
+                            continue
+
+                        try:
+                            file_mtime = datetime.fromtimestamp(os.path.getmtime(file_path))
+                            if (now - file_mtime).total_seconds() > max_age_hours * 3600:
+                                os.remove(file_path)
+                                user_files_deleted += 1
+                                deleted_files += 1
+                        except Exception as e:
+                            logging.warning(f"清理临时文件失败 {file_path}: {str(e)}")
+                            errors += 1
+
+                    if user_files_deleted > 0:
+                        logging.info(f"清理临时文件: 房间 {room_dir_name} 用户 {user_dir_name}，删除 {user_files_deleted} 个文件")
+
+                    # 清理空的用户目录
+                    if os.path.exists(user_dir) and not os.listdir(user_dir):
+                        try:
+                            os.rmdir(user_dir)
+                            deleted_dirs += 1
+                        except Exception as e:
+                            logging.warning(f"删除空用户目录失败 {user_dir}: {str(e)}")
+                            errors += 1
+
+                # 清理空的 checkout 目录
+                if os.path.exists(checkout_dir) and not os.listdir(checkout_dir):
+                    try:
+                        os.rmdir(checkout_dir)
+                        deleted_dirs += 1
+                    except Exception as e:
+                        logging.warning(f"删除空 checkout 目录失败 {checkout_dir}: {str(e)}")
+                        errors += 1
+
+                # 清理空的房间目录
+                if os.path.exists(room_dir) and not os.listdir(room_dir):
+                    try:
+                        os.rmdir(room_dir)
+                        deleted_dirs += 1
+                    except Exception as e:
+                        logging.warning(f"删除空房间目录失败 {room_dir}: {str(e)}")
+                        errors += 1
+
+        except Exception as e:
+            logging.error(f"遍历临时目录失败: {str(e)}")
+            errors += 1
+
+        return {'deleted_files': deleted_files, 'deleted_dirs': deleted_dirs, 'skipped_pending': skipped_pending, 'errors': errors}
 
 # 创建退宿照片管理单例对象供其他模块使用
 room_meter_checkout_photo_manager = RoomMeterCheckoutPhotoManager()

@@ -395,6 +395,15 @@ def reject_application(id):
             review_remark=review_remark
         )
 
+        # 退宿申请拒绝时清理临时抄表照片
+        if application.application_type == 'checkout':
+            try:
+                room_meter_checkout_photo_manager.clear_user_temp_files(
+                    application.current_room_id, application.user_id
+                )
+            except Exception as e:
+                logging.warning(f"清理退宿临时抄表照片失败（申请{application.application_number}）: {str(e)}")
+
         # 记录操作日志
         log_operation(
             user_id=user_id,
@@ -588,6 +597,15 @@ def cancel_application(id):
             return redirect(url_for('dorm_application_admin.application_detail', id=id))
 
         application.cancel(user_id=user_id, is_admin=True)
+
+        # 退宿申请取消时清理临时抄表照片
+        if application.application_type == 'checkout':
+            try:
+                room_meter_checkout_photo_manager.clear_user_temp_files(
+                    application.current_room_id, application.user_id
+                )
+            except Exception as e:
+                logging.warning(f"清理退宿临时抄表照片失败（申请{application.application_number}）: {str(e)}")
 
         log_operation(
             user_id=user_id,
