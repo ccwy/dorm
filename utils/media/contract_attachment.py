@@ -1,7 +1,5 @@
 import os
 import shutil
-import random
-import time
 import mimetypes
 import logging
 from werkzeug.utils import secure_filename
@@ -150,13 +148,22 @@ class ContractAttachmentManager:
         # 确保合同目录存在（同时验证contract_id合法性）
         contract_dir = ContractAttachmentManager.ensure_contract_directory_exists(contract_id)
 
-        # 从原始文件名提取扩展名，使用时间戳+随机hex+扩展名生成安全文件名
-        ext = ''
-        if '.' in original_filename:
-            ext = '.' + original_filename.rsplit('.', 1)[1].lower()
-        timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
-        random_hex = '%04x' % random.randint(0, 0xFFFF)
-        saved_filename = f"{timestamp}_{random_hex}{ext}"
+        # 使用secure_filename保留原始文件名
+        saved_filename = secure_filename(original_filename)
+        if not saved_filename:
+            # secure_filename结果为空时使用默认名
+            ext = ''
+            if '.' in original_filename:
+                ext = '.' + original_filename.rsplit('.', 1)[1].lower()
+            saved_filename = f"untitled{ext}"
+
+        # 文件名冲突时追加数字后缀避免覆盖
+        if os.path.exists(os.path.join(contract_dir, saved_filename)):
+            name, ext = os.path.splitext(saved_filename)
+            counter = 1
+            while os.path.exists(os.path.join(contract_dir, f"{name}_{counter}{ext}")):
+                counter += 1
+            saved_filename = f"{name}_{counter}{ext}"
 
         # 保存文件
         file.save(os.path.join(contract_dir, saved_filename))
@@ -358,16 +365,27 @@ class ContractAttachmentManager:
 
         key_temp_dir = ContractAttachmentManager.get_temp_key_dir(temp_key)
 
-        # 使用原始扩展名，用时间戳+随机数生成唯一文件名
+        # 使用secure_filename保留原始文件名
         original_filename = file.filename or ''
-        ext = ''
-        if '.' in original_filename:
-            ext = '.' + original_filename.rsplit('.', 1)[1].lower()
-        unique_filename = f"{int(time.time())}_{random.randint(1000, 9999)}{ext}"
+        saved_filename = secure_filename(original_filename)
+        if not saved_filename:
+            # secure_filename结果为空时使用默认名
+            ext = ''
+            if '.' in original_filename:
+                ext = '.' + original_filename.rsplit('.', 1)[1].lower()
+            saved_filename = f"untitled{ext}"
+
+        # 文件名冲突时追加数字后缀避免覆盖
+        if os.path.exists(os.path.join(key_temp_dir, saved_filename)):
+            name, ext = os.path.splitext(saved_filename)
+            counter = 1
+            while os.path.exists(os.path.join(key_temp_dir, f"{name}_{counter}{ext}")):
+                counter += 1
+            saved_filename = f"{name}_{counter}{ext}"
 
         try:
-            file.save(os.path.join(key_temp_dir, unique_filename))
-            return unique_filename
+            file.save(os.path.join(key_temp_dir, saved_filename))
+            return saved_filename
         except Exception as e:
             logging.error(f"上传临时文件失败: {str(e)}")
             return None
