@@ -508,7 +508,8 @@ def get_asset_media(asset_id, filename):
     try:
         file_path = AssetPhotoManager.get_file_path(asset_id, filename)
         if file_path and os.path.exists(file_path):
-            return send_file(file_path, as_attachment=False)
+            mime_type, _ = mimetypes.guess_type(file_path)
+            return send_file(file_path, as_attachment=False, mimetype=mime_type or 'application/octet-stream')
         return jsonify({'error': '文件不存在'}), 404
     except Exception as e:
         logging.error(f"获取资产媒体文件时发生错误: {str(e)}")

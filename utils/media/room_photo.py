@@ -116,13 +116,12 @@ class RoomPhotoManager:
                filename.rsplit('.', 1)[1].lower() in ALLOWED_VIDEO_EXTENSIONS
     
     @staticmethod
-    def upload_file(file, room_id, max_size_mb=50):
+    def upload_file(file, room_id):
         """上传文件到指定房间的媒体目录
         
         Args:
             file: Flask文件对象
             room_id: 房间ID（数据库中的主键）
-            max_size_mb: 最大文件大小（MB），默认50MB
             
         Returns:
             str: 保存的文件名，如果上传失败则返回None
@@ -130,16 +129,6 @@ class RoomPhotoManager:
         # 检查文件格式是否允许
         if not RoomPhotoManager.allowed_file(file.filename):
             return None
-        
-        # 检查文件大小
-        if max_size_mb and max_size_mb > 0:
-            file.seek(0, 2)  # 移动到文件末尾
-            file_size = file.tell()
-            file.seek(0)  # 重置文件指针
-            max_size_bytes = max_size_mb * 1024 * 1024
-            if file_size > max_size_bytes:
-                logging.warning(f"上传文件大小({file_size}字节)超过限制({max_size_bytes}字节)")
-                return None
         
         # 确保房间目录存在
         room_dir = RoomPhotoManager.ensure_room_directory_exists(room_id)
@@ -348,29 +337,18 @@ class RoomPhotoManager:
         return key_temp_dir
     
     @staticmethod
-    def upload_temp_file(file, temp_key, max_size_mb=50):
+    def upload_temp_file(file, temp_key):
         """上传文件到临时目录（添加房间页面使用，此时房间尚未创建）
         
         Args:
             file: Flask文件对象
             temp_key: 临时标识key
-            max_size_mb: 最大文件大小（MB），默认50MB
             
         Returns:
             str: 保存的文件名，如果上传失败则返回None
         """
         if not RoomPhotoManager.allowed_file(file.filename):
             return None
-        
-        # 检查文件大小
-        if max_size_mb and max_size_mb > 0:
-            file.seek(0, 2)  # 移动到文件末尾
-            file_size = file.tell()
-            file.seek(0)  # 重置文件指针
-            max_size_bytes = max_size_mb * 1024 * 1024
-            if file_size > max_size_bytes:
-                logging.warning(f"上传临时文件大小({file_size}字节)超过限制({max_size_bytes}字节)")
-                return None
         
         key_temp_dir = RoomPhotoManager.get_temp_key_dir(temp_key)
         
