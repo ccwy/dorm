@@ -261,35 +261,6 @@ def init_flask_app(progress_callback=None):
 
     _stamp("Flask核心配置完成")
 
-    _backup_initialized = False
-    def _init_backup_thread():
-        nonlocal _backup_initialized
-        if _backup_initialized:
-            return
-        _backup_initialized = True
-        try:
-            from utils.backup import auto_backup
-            def start_backup():
-                with app.app_context():
-                    auto_backup(app)
-            if os.environ.get('WERKZEUG_RUN_MAIN') != 'true':
-                backup_threads = [t for t in threading.enumerate() if t.name == "auto_backup_thread"]
-                if not backup_threads:
-                    backup_thread = threading.Thread(
-                        target=start_backup, 
-                        daemon=True,
-                        name="auto_backup_thread"
-                    )
-                    backup_thread.start()
-                    with app.app_context():
-                        logging.info(f"主进程启动备份线程，ID: {backup_thread.ident}")
-                else:
-                    with app.app_context():
-                        logging.info("备份线程已存在，无需重复启动")
-            logging.info("延迟初始化备份线程完成")
-        except Exception as e:
-            logging.error(f"延迟初始化备份线程失败: {e}")
-
     from utils.session_timeout import setup_session_timeout_handler
     setup_session_timeout_handler(app)
     _stamp("初始化会话超时")
@@ -330,10 +301,9 @@ def init_flask_app(progress_callback=None):
     from utils.scheduler import init_scheduler
     init_scheduler(app)
 
-    @app.before_request
-    def _init_background_services():
-        if not _backup_initialized:
-            _init_backup_thread()
+    # 启动自动备份线程
+    from utils.backup import init_backup
+    init_backup(app)
 
     # 阶段6：注册路由
     if progress_callback:
