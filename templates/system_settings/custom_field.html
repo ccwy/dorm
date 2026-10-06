@@ -166,7 +166,16 @@
                                             <i class="fa fa-arrow-down text-xs"></i>
                                         </button>
                                     </form>
-                                    <button onclick="editField('{{ field.module }}', '{{ field.field_key }}', '{{ field.label }}', '{{ field.type }}', {{ 'true' if field.required else 'false' }}, '{{ field.default_value or '' }}', '{{ ','.join(field.options) if field.type == 'select' and field.options else '' }}', {{ field.sort_order or loop.index }}, '{{ field.description or '' }}')\" class="btn-effect bg-amber-500 text-white px-2 py-1 rounded-md text-sm flex items-center" title="编辑">
+                                    <button onclick="editField(this)" class="btn-effect bg-amber-500 text-white px-2 py-1 rounded-md text-sm flex items-center" title="编辑"
+                                        data-module="{{ field.module }}"
+                                        data-field-key="{{ field.field_key }}"
+                                        data-label="{{ field.label }}"
+                                        data-type="{{ field.type }}"
+                                        data-required="{{ 'true' if field.required else 'false' }}"
+                                        data-default-value="{{ field.default_value or '' }}"
+                                        data-options="{{ ','.join(field.options) if field.type == 'select' and field.options else '' }}"
+                                        data-sort-order="{{ field.sort_order or loop.index }}"
+                                        data-description="{{ field.description or '' }}">
                                         <i class="fa fa-pencil mr-1"></i>编辑
                                     </button>
                                     <form method="POST" action="{{ url_for('system_settings.custom_field_delete') }}" class="inline" onsubmit="return confirm('确定要删除字段 \'{{ field.label }}\' 吗？删除后，所有{{ '用户' if field.module == 'user' else '房间' }}记录中该字段的值也将被清除。')">
@@ -350,7 +359,16 @@
         }
 
         // 编辑字段
-        function editField(module, key, label, type, required, defaultValue, options, sortOrder, description) {
+        function editField(btn) {
+            var module = btn.dataset.module;
+            var key = btn.dataset.fieldKey;
+            var label = btn.dataset.label;
+            var type = btn.dataset.type;
+            var required = btn.dataset.required === 'true';
+            var defaultValue = btn.dataset.defaultValue;
+            var options = btn.dataset.options;
+            var sortOrder = btn.dataset.sortOrder;
+            var description = btn.dataset.description;
             document.getElementById('edit-original-key').value = key;
             document.getElementById('edit-original-module').value = module;
             document.getElementById('edit-module').value = module;
