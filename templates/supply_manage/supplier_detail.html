@@ -122,16 +122,6 @@
                             <p class="font-medium text-gray-800">{{ supplier.email or '-' }}</p>
                         </div>
                         <div>
-                            <span class="text-sm text-gray-500">税率</span>
-                            <p class="font-medium text-gray-800">
-                                {% if supplier.tax_rate is not none %}
-                                {{ supplier.tax_rate }}%
-                                {% else %}
-                                -
-                                {% endif %}
-                            </p>
-                        </div>
-                        <div>
                             <span class="text-sm text-gray-500">状态</span>
                             <p>
                                 {% if supplier.status == '启用' %}
@@ -152,6 +142,56 @@
                         <div>
                             <span class="text-sm text-gray-500">更新时间</span>
                             <p class="font-medium text-gray-800">{{ supplier.updated_at.strftime('%Y-%m-%d %H:%M') if supplier.updated_at else '-' }}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 收款资料与税率 -->
+                <div class="bg-white rounded-lg shadow-sm p-6">
+                    <h3 class="text-lg font-medium text-gray-800 mb-4 pb-2 border-b border-gray-200">
+                        <i class="fa fa-credit-card text-accent mr-2"></i>收款资料与税率
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div>
+                            <span class="text-sm text-gray-500">收款方式</span>
+                            <p class="font-medium text-gray-800">{{ supplier.payment_method or '-' }}</p>
+                        </div>
+                        {% if supplier.payment_method == '银行转账' %}
+                        <div>
+                            <span class="text-sm text-gray-500">开户名称</span>
+                            <p class="font-medium text-gray-800">{{ supplier.account_name or '-' }}</p>
+                        </div>
+                        <div>
+                            <span class="text-sm text-gray-500">银行账号</span>
+                            <p class="font-medium text-gray-800">{{ supplier.bank_account or '-' }}</p>
+                        </div>
+                        <div>
+                            <span class="text-sm text-gray-500">收款银行</span>
+                            <p class="font-medium text-gray-800">{{ supplier.receiving_bank or '-' }}</p>
+                        </div>
+                        <div>
+                            <span class="text-sm text-gray-500">开户行</span>
+                            <p class="font-medium text-gray-800">{{ supplier.bank_name or '-' }}</p>
+                        </div>
+                        {% elif supplier.payment_method and supplier.payment_method != '银行转账' %}
+                        <div>
+                            <span class="text-sm text-gray-500">收款账号</span>
+                            <p class="font-medium text-gray-800">{{ supplier.payment_account or '-' }}</p>
+                        </div>
+                        {% endif %}
+                        <div>
+                            <span class="text-sm text-gray-500">发票类型</span>
+                            <p class="font-medium text-gray-800">{{ supplier.invoice_type or '-' }}</p>
+                        </div>
+                        <div>
+                            <span class="text-sm text-gray-500">税率</span>
+                            <p class="font-medium text-gray-800">
+                                {% if supplier.tax_rate is not none %}
+                                {{ supplier.tax_rate }}%
+                                {% else %}
+                                -
+                                {% endif %}
+                            </p>
                         </div>
                     </div>
                 </div>

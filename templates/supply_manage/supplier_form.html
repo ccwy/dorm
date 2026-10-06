@@ -148,15 +148,6 @@
                                    placeholder="请输入邮箱地址">
                         </div>
 
-                        <!-- 税率 -->
-                        <div>
-                            <label for="tax_rate" class="block text-sm font-medium text-gray-700 mb-1">税率（%）</label>
-                            <input type="number" id="tax_rate" name="tax_rate" step="0.01" min="0" max="100"
-                                   value="{{ supplier.tax_rate if supplier and supplier.tax_rate is not none else '' }}"
-                                   class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
-                                   placeholder="请输入税率，如13">
-                        </div>
-
                         <!-- 状态 -->
                         <div>
                             <label for="status" class="block text-sm font-medium text-gray-700 mb-1">状态</label>
@@ -201,6 +192,93 @@
                             <textarea id="address" name="address" rows="4"
                                    class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
                                    placeholder="请输入详细地址">{{ supplier.address or '' if supplier else '' }}</textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 收款资料与税率 -->
+                <div class="mb-8">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4 pb-2 border-b border-gray-200">
+                        <i class="fa fa-credit-card mr-2 text-accent"></i>收款资料与税率
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <!-- 收款方式 -->
+                        <div>
+                            <label for="payment_method" class="block text-sm font-medium text-gray-700 mb-1">收款方式</label>
+                            <select id="payment_method" name="payment_method"
+                                    class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                    onchange="togglePaymentFields()">
+                                <option value="">请选择收款方式</option>
+                                {% for method in payment_methods %}
+                                <option value="{{ method }}" {% if supplier and supplier.payment_method == method %}selected{% endif %}>{{ method }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <!-- 开户名称（银行转账时显示） -->
+                        <div id="account_name_group" style="display: {% if supplier and supplier.payment_method == '银行转账' %}block{% else %}none{% endif %};">
+                            <label for="account_name" class="block text-sm font-medium text-gray-700 mb-1">开户名称</label>
+                            <input type="text" id="account_name" name="account_name"
+                                   value="{{ supplier.account_name or supplier.name or '' if supplier else '' }}"
+                                   class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                   placeholder="默认为供应商名称">
+                        </div>
+
+                        <!-- 银行账号（银行转账时显示） -->
+                        <div id="bank_account_group" style="display: {% if supplier and supplier.payment_method == '银行转账' %}block{% else %}none{% endif %};">
+                            <label for="bank_account" class="block text-sm font-medium text-gray-700 mb-1">银行账号</label>
+                            <input type="text" id="bank_account" name="bank_account"
+                                   value="{{ supplier.bank_account or '' if supplier else '' }}"
+                                   class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                   placeholder="请输入银行账号">
+                        </div>
+
+                        <!-- 收款银行（银行转账时显示） -->
+                        <div id="receiving_bank_group" style="display: {% if supplier and supplier.payment_method == '银行转账' %}block{% else %}none{% endif %};">
+                            <label for="receiving_bank" class="block text-sm font-medium text-gray-700 mb-1">收款银行</label>
+                            <input type="text" id="receiving_bank" name="receiving_bank"
+                                   value="{{ supplier.receiving_bank or '' if supplier else '' }}"
+                                   class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                   placeholder="请输入收款银行">
+                        </div>
+
+                        <!-- 开户行（银行转账时显示） -->
+                        <div id="bank_name_group" style="display: {% if supplier and supplier.payment_method == '银行转账' %}block{% else %}none{% endif %};">
+                            <label for="bank_name" class="block text-sm font-medium text-gray-700 mb-1">开户行</label>
+                            <input type="text" id="bank_name" name="bank_name"
+                                   value="{{ supplier.bank_name or '' if supplier else '' }}"
+                                   class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                   placeholder="请输入开户行名称">
+                        </div>
+
+                        <!-- 收款账号（非银行转账时显示） -->
+                        <div id="payment_account_group" style="display: {% if supplier and supplier.payment_method and supplier.payment_method != '银行转账' %}block{% else %}none{% endif %};">
+                            <label for="payment_account" class="block text-sm font-medium text-gray-700 mb-1">收款账号</label>
+                            <input type="text" id="payment_account" name="payment_account"
+                                   value="{{ supplier.payment_account or '' if supplier else '' }}"
+                                   class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                   placeholder="请输入收款账号">
+                        </div>
+
+                        <!-- 发票类型 -->
+                        <div>
+                            <label for="invoice_type" class="block text-sm font-medium text-gray-700 mb-1">发票类型</label>
+                            <select id="invoice_type" name="invoice_type"
+                                    class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                                {% if supplier %}<option value="">请选择发票类型</option>{% endif %}
+                                {% for itype in invoice_types %}
+                                <option value="{{ itype }}" {% if supplier and supplier.invoice_type == itype %}selected{% endif %}>{{ itype }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <!-- 税率 -->
+                        <div>
+                            <label for="tax_rate" class="block text-sm font-medium text-gray-700 mb-1">税率（%）</label>
+                            <input type="number" id="tax_rate" name="tax_rate" step="0.01" min="0" max="100"
+                                   value="{{ supplier.tax_rate if supplier and supplier.tax_rate is not none else '' }}"
+                                   class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                   placeholder="请输入税率，如13">
                         </div>
                     </div>
                 </div>
@@ -285,7 +363,45 @@
                     this.classList.remove('border-red-500');
                 }
             });
+
+            // 页面加载时根据当前收款方式设置字段显示
+            togglePaymentFields();
+
         });
+
+        // 收款方式切换显示对应字段（全局函数，供onchange调用）
+        function togglePaymentFields() {
+            var method = document.getElementById('payment_method').value;
+            var bankAccountGroup = document.getElementById('bank_account_group');
+            var bankNameGroup = document.getElementById('bank_name_group');
+            var receivingBankGroup = document.getElementById('receiving_bank_group');
+            var accountNameGroup = document.getElementById('account_name_group');
+            var paymentAccountGroup = document.getElementById('payment_account_group');
+            if (method === '银行转账') {
+                bankAccountGroup.style.display = 'block';
+                bankNameGroup.style.display = 'block';
+                receivingBankGroup.style.display = 'block';
+                accountNameGroup.style.display = 'block';
+                paymentAccountGroup.style.display = 'none';
+                // 开户名称默认填入供应商名称
+                var accountNameInput = document.getElementById('account_name');
+                if (!accountNameInput.value.trim()) {
+                    accountNameInput.value = document.getElementById('name').value.trim();
+                }
+            } else if (method === '') {
+                bankAccountGroup.style.display = 'none';
+                bankNameGroup.style.display = 'none';
+                receivingBankGroup.style.display = 'none';
+                accountNameGroup.style.display = 'none';
+                paymentAccountGroup.style.display = 'none';
+            } else {
+                bankAccountGroup.style.display = 'none';
+                bankNameGroup.style.display = 'none';
+                receivingBankGroup.style.display = 'none';
+                accountNameGroup.style.display = 'none';
+                paymentAccountGroup.style.display = 'block';
+            }
+        }
     </script>
 </body>
 </html>

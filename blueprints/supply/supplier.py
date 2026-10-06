@@ -149,12 +149,17 @@ def index():
 def add_page():
     try:
         from datetime import date
+        from models.system_config.system_config import SystemConfig
         today = date.today().strftime('%Y-%m-%d')
+        payment_methods = SystemConfig.get_config_value('supplier_payment_methods', ['银行转账', '微信', '支付宝', '支票', '现金'])
+        invoice_types = SystemConfig.get_config_value('supplier_invoice_types', ['增值税专用发票', '增值税普通发票', '电子发票', '收据', '其他'])
         return render_template(
             'supply_manage/supplier_form.html',
             title="新增供应商",
             supplier=None,
-            today=today
+            today=today,
+            payment_methods=payment_methods,
+            invoice_types=invoice_types
         )
     except Exception as e:
         logging.error(f"加载新增供应商页面失败: {str(e)}")
@@ -168,11 +173,16 @@ def add_page():
 @require_permission('supplier.edit')
 def edit_page(id):
     try:
+        from models.system_config.system_config import SystemConfig
         supplier = Supplier.query.get_or_404(id)
+        payment_methods = SystemConfig.get_config_value('supplier_payment_methods', ['银行转账', '微信', '支付宝', '支票', '现金'])
+        invoice_types = SystemConfig.get_config_value('supplier_invoice_types', ['增值税专用发票', '增值税普通发票', '电子发票', '收据', '其他'])
         return render_template(
             'supply_manage/supplier_form.html',
             title=f"编辑供应商 - {supplier.name}",
-            supplier=supplier
+            supplier=supplier,
+            payment_methods=payment_methods,
+            invoice_types=invoice_types
         )
     except Exception as e:
         logging.error(f"加载编辑供应商页面失败: {str(e)}")
@@ -186,6 +196,7 @@ def edit_page(id):
 @require_permission('supplier.view')
 def detail(id):
     try:
+        from models.system_config.system_config import SystemConfig
         supplier = Supplier.query.get_or_404(id)
 
         # 获取操作记录时间线（按时间倒序）
@@ -202,11 +213,15 @@ def detail(id):
         )
         logging.info(f"查看供应商详情，供应商ID: {id}")
 
+        payment_methods = SystemConfig.get_config_value('supplier_payment_methods', ['银行转账', '微信', '支付宝', '支票', '现金'])
+        invoice_types = SystemConfig.get_config_value('supplier_invoice_types', ['增值税专用发票', '增值税普通发票', '电子发票', '收据', '其他'])
         return render_template(
             'supply_manage/supplier_detail.html',
             title=f"供应商详情 - {supplier.name}",
             supplier=supplier,
-            operation_records=operation_records
+            operation_records=operation_records,
+            payment_methods=payment_methods,
+            invoice_types=invoice_types
         )
     except Exception as e:
         log_operation(

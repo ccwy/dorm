@@ -44,6 +44,14 @@ def add_contract():
         party_b_credit_code = request.form.get('party_b_credit_code', '').strip() or None
         party_b_legal_representative = request.form.get('party_b_legal_representative', '').strip() or None
 
+        party_b_payment_method = request.form.get('party_b_payment_method', '').strip() or None
+        party_b_bank_account = request.form.get('party_b_bank_account', '').strip() or None
+        party_b_bank_name = request.form.get('party_b_bank_name', '').strip() or None
+        party_b_receiving_bank = request.form.get('party_b_receiving_bank', '').strip() or None
+        party_b_account_name = request.form.get('party_b_account_name', '').strip() or None
+        party_b_payment_account = request.form.get('party_b_payment_account', '').strip() or None
+        party_b_invoice_type = request.form.get('party_b_invoice_type', '').strip() or None
+
         # 处理自定义甲方
         if not party_a_id and party_a_name:
             existing = Supplier.query.filter_by(name=party_a_name).first()
@@ -127,6 +135,8 @@ def add_contract():
         contract_category = request.form.get('contract_category', '').strip() or None
         contract_amount = request.form.get('contract_amount', '').strip() or None
         currency = request.form.get('currency', 'CNY').strip() or 'CNY'
+        payment_method = request.form.get('payment_method', '一次性付清').strip() or '一次性付清'
+        payment_requirements = request.form.get('payment_requirements', '').strip() or None
         tax_rate = request.form.get('tax_rate', '').strip() or None
         tax_amount = request.form.get('tax_amount', '').strip() or None
         signing_date = request.form.get('signing_date', '').strip() or None
@@ -230,6 +240,8 @@ def add_contract():
             contract_category=contract_category,
             contract_amount=contract_amount,
             currency=currency,
+            payment_method=payment_method,
+            payment_requirements=payment_requirements,
             tax_rate=tax_rate,
             tax_amount=tax_amount,
             signing_date=signing_date,
@@ -251,6 +263,13 @@ def add_contract():
             party_b_address=party_b_address,
             party_b_credit_code=party_b_credit_code,
             party_b_legal_representative=party_b_legal_representative,
+            party_b_payment_method=party_b_payment_method,
+            party_b_bank_account=party_b_bank_account,
+            party_b_bank_name=party_b_bank_name,
+            party_b_receiving_bank=party_b_receiving_bank,
+            party_b_account_name=party_b_account_name,
+            party_b_payment_account=party_b_payment_account,
+            party_b_invoice_type=party_b_invoice_type,
             status=status
         )
 
@@ -376,6 +395,14 @@ def edit_contract(id):
         new_party_b_credit_code = request.form.get('party_b_credit_code', '').strip() or None
         new_party_b_legal_representative = request.form.get('party_b_legal_representative', '').strip() or None
 
+        new_party_b_payment_method = request.form.get('party_b_payment_method', '').strip() or None
+        new_party_b_bank_account = request.form.get('party_b_bank_account', '').strip() or None
+        new_party_b_bank_name = request.form.get('party_b_bank_name', '').strip() or None
+        new_party_b_receiving_bank = request.form.get('party_b_receiving_bank', '').strip() or None
+        new_party_b_account_name = request.form.get('party_b_account_name', '').strip() or None
+        new_party_b_payment_account = request.form.get('party_b_payment_account', '').strip() or None
+        new_party_b_invoice_type = request.form.get('party_b_invoice_type', '').strip() or None
+
         # 处理自定义甲方
         if not new_party_a_id and new_party_a_name:
             existing = Supplier.query.filter_by(name=new_party_a_name).first()
@@ -459,6 +486,8 @@ def edit_contract(id):
         new_contract_category = request.form.get('contract_category', '').strip() or None
         new_contract_amount = request.form.get('contract_amount', '').strip() or None
         new_currency = request.form.get('currency', 'CNY').strip() or 'CNY'
+        new_payment_method = request.form.get('payment_method', '一次性付清').strip() or '一次性付清'
+        new_payment_requirements = request.form.get('payment_requirements', '').strip() or None
         new_tax_rate = request.form.get('tax_rate', '').strip() or None
         new_tax_amount = request.form.get('tax_amount', '').strip() or None
         new_signing_date = request.form.get('signing_date', '').strip() or None
@@ -560,6 +589,10 @@ def edit_contract(id):
             changes.append(f"合同金额: {contract.contract_amount or '无'} → {new_contract_amount or '无'}")
         if contract.currency != new_currency:
             changes.append(f"币种: {contract.currency or '无'} → {new_currency or '无'}")
+        if contract.payment_method != new_payment_method:
+            changes.append(f"付款方式: {contract.payment_method or '无'} → {new_payment_method or '无'}")
+        if contract.payment_requirements != new_payment_requirements:
+            changes.append(f"付款要求: {contract.payment_requirements or '无'} → {new_payment_requirements or '无'}")
         if str(contract.tax_rate or '') != str(new_tax_rate or ''):
             changes.append(f"税率: {contract.tax_rate or '无'} → {new_tax_rate or '无'}")
         if str(contract.tax_amount or '') != str(new_tax_amount or ''):
@@ -583,6 +616,20 @@ def edit_contract(id):
             changes.append(f"存放位置: {old_location_name} → {new_location_name}")
         if new_status and new_status != contract.status:
             changes.append(f"状态: {contract.status or '无'} → {new_status}")
+        if contract.party_b_payment_method != new_party_b_payment_method:
+            changes.append(f"乙方收款方式: {contract.party_b_payment_method or '无'} → {new_party_b_payment_method or '无'}")
+        if contract.party_b_bank_account != new_party_b_bank_account:
+            changes.append(f"银行账号: {contract.party_b_bank_account or '无'} → {new_party_b_bank_account or '无'}")
+        if contract.party_b_bank_name != new_party_b_bank_name:
+            changes.append(f"开户行: {contract.party_b_bank_name or '无'} → {new_party_b_bank_name or '无'}")
+        if contract.party_b_receiving_bank != new_party_b_receiving_bank:
+            changes.append(f"收款银行: {contract.party_b_receiving_bank or '无'} → {new_party_b_receiving_bank or '无'}")
+        if contract.party_b_account_name != new_party_b_account_name:
+            changes.append(f"开户名称: {contract.party_b_account_name or '无'} → {new_party_b_account_name or '无'}")
+        if contract.party_b_payment_account != new_party_b_payment_account:
+            changes.append(f"收款账号: {contract.party_b_payment_account or '无'} → {new_party_b_payment_account or '无'}")
+        if contract.party_b_invoice_type != new_party_b_invoice_type:
+            changes.append(f"发票类型: {contract.party_b_invoice_type or '无'} → {new_party_b_invoice_type or '无'}")
 
         # 更新合同字段
         contract.contract_name = new_contract_name
@@ -593,6 +640,8 @@ def edit_contract(id):
         contract.contract_category = new_contract_category
         contract.contract_amount = new_contract_amount
         contract.currency = new_currency
+        contract.payment_method = new_payment_method
+        contract.payment_requirements = new_payment_requirements
         contract.tax_rate = new_tax_rate
         contract.tax_amount = new_tax_amount
         contract.signing_date = new_signing_date
@@ -616,6 +665,13 @@ def edit_contract(id):
         contract.party_b_address = new_party_b_address
         contract.party_b_credit_code = new_party_b_credit_code
         contract.party_b_legal_representative = new_party_b_legal_representative
+        contract.party_b_payment_method = new_party_b_payment_method
+        contract.party_b_bank_account = new_party_b_bank_account
+        contract.party_b_bank_name = new_party_b_bank_name
+        contract.party_b_receiving_bank = new_party_b_receiving_bank
+        contract.party_b_account_name = new_party_b_account_name
+        contract.party_b_payment_account = new_party_b_payment_account
+        contract.party_b_invoice_type = new_party_b_invoice_type
 
         db.session.commit()
 

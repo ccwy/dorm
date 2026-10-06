@@ -210,6 +210,19 @@ def add_page():
         contract_categories_value = SystemConfig.get_config_value('CONTRACT_CATEGORIES', '一般合同,重要合同,框架协议')
         contract_categories = contract_categories_value if isinstance(contract_categories_value, list) else [c.strip() for c in contract_categories_value.split(',') if c.strip()]
 
+        # 读取币种配置
+        currencies_str = SystemConfig.get_config_value('CURRENCIES', 'CNY:人民币,USD:美元,EUR:欧元,HKD:港币')
+        currencies = []
+        for item in currencies_str.split(','):
+            parts = item.strip().split(':')
+            if len(parts) == 2:
+                currencies.append({'code': parts[0].strip(), 'name': parts[1].strip()})
+            else:
+                currencies.append({'code': parts[0].strip(), 'name': parts[0].strip()})
+
+        # 读取付款方式配置
+        payment_methods = SystemConfig.get_config_value('PAYMENT_METHODS', ['一次性付清', '按实际金额付款', '分期付款', '按进度付款'])
+
         # 获取默认日期
         today = date.today().strftime('%Y-%m-%d')
         one_year_later = (date.today() + timedelta(days=365)).strftime('%Y-%m-%d')
@@ -243,6 +256,8 @@ def add_page():
             suppliers=suppliers,
             contract_types=contract_types,
             contract_categories=contract_categories,
+            currencies=currencies,
+            payment_methods=payment_methods,
             today=today,
             one_year_later=one_year_later,
             previous_contract=previous_contract,
@@ -276,6 +291,19 @@ def edit_page(id):
         contract_categories_value = SystemConfig.get_config_value('CONTRACT_CATEGORIES', '一般合同,重要合同,框架协议')
         contract_categories = contract_categories_value if isinstance(contract_categories_value, list) else [c.strip() for c in contract_categories_value.split(',') if c.strip()]
 
+        # 读取币种配置
+        currencies_str = SystemConfig.get_config_value('CURRENCIES', 'CNY:人民币,USD:美元,EUR:欧元,HKD:港币')
+        currencies = []
+        for item in currencies_str.split(','):
+            parts = item.strip().split(':')
+            if len(parts) == 2:
+                currencies.append({'code': parts[0].strip(), 'name': parts[1].strip()})
+            else:
+                currencies.append({'code': parts[0].strip(), 'name': parts[0].strip()})
+
+        # 读取付款方式配置
+        payment_methods = SystemConfig.get_config_value('PAYMENT_METHODS', ['一次性付清', '按实际金额付款', '分期付款', '按进度付款'])
+
         # 获取部门列表
         departments = Department.query.filter_by(status='正常').order_by(Department.name).all()
 
@@ -289,6 +317,8 @@ def edit_page(id):
             suppliers=suppliers,
             contract_types=contract_types,
             contract_categories=contract_categories,
+            currencies=currencies,
+            payment_methods=payment_methods,
             departments=departments,
             storage_locations=storage_locations
         )

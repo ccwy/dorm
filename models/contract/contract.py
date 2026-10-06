@@ -30,6 +30,15 @@ class Contract(db.Model):
     party_b_credit_code = db.Column(db.String(18), nullable=True, comment='乙方统一社会信用代码')
     party_b_legal_representative = db.Column(db.String(100), nullable=True, comment='乙方法定代表人')
 
+    # 乙方收款资料快照（保存签约时的乙方收款信息）
+    party_b_payment_method = db.Column(db.String(50), nullable=True, comment='乙方收款方式')
+    party_b_bank_account = db.Column(db.String(100), nullable=True, comment='乙方银行账号')
+    party_b_bank_name = db.Column(db.String(200), nullable=True, comment='乙方开户行')
+    party_b_receiving_bank = db.Column(db.String(200), nullable=True, comment='乙方收款银行')
+    party_b_account_name = db.Column(db.String(200), nullable=True, comment='乙方开户名称')
+    party_b_payment_account = db.Column(db.String(100), nullable=True, comment='乙方收款账号')
+    party_b_invoice_type = db.Column(db.String(50), nullable=True, comment='乙方发票类型')
+
     # 合同类型与分类
     contract_type = db.Column(db.String(50), nullable=True, comment='合同类型（从系统配置读取，如：采购合同/服务合同/租赁合同/其他）')
     contract_category = db.Column(db.String(50), nullable=True, comment='合同分类（从系统配置读取）')
@@ -37,6 +46,8 @@ class Contract(db.Model):
     # 金额信息
     contract_amount = db.Column(db.Numeric(14, 2), default=Decimal('0.00'), nullable=True, comment='合同金额（元）')
     currency = db.Column(db.String(10), default='CNY', nullable=True, comment='币种')
+    payment_method = db.Column(db.String(50), default='一次性付清', nullable=True, comment='付款方式')
+    payment_requirements = db.Column(db.Text, nullable=True, comment='付款要求')
 
     # 税率信息
     tax_rate = db.Column(db.Numeric(5, 2), nullable=True, comment='合同税率（%，可从供应商自动获取，支持自定义覆盖）')
@@ -247,13 +258,16 @@ class Contract(db.Model):
     @classmethod
     def create(cls, contract_name, contract_number=None, party_a_id=None, party_b_id=None,
                contract_type=None, contract_category=None, contract_amount=None,
-               currency='CNY', tax_rate=None, tax_amount=None, signing_date=None, start_date=None, end_date=None,
+               currency='CNY', payment_method='一次性付清', payment_requirements=None, tax_rate=None, tax_amount=None, signing_date=None, start_date=None, end_date=None,
                status='草稿', handler_user_id=None, department_id=None,
                previous_contract_id=None, storage_location_id=None, remark=None, operator_user_id=None,
                party_a_contact_person=None, party_a_contact_phone=None, party_a_address=None,
                party_a_credit_code=None, party_a_legal_representative=None,
                party_b_contact_person=None, party_b_contact_phone=None, party_b_address=None,
-               party_b_credit_code=None, party_b_legal_representative=None):
+               party_b_credit_code=None, party_b_legal_representative=None,
+               party_b_payment_method=None, party_b_bank_account=None, party_b_bank_name=None,
+               party_b_receiving_bank=None, party_b_account_name=None, party_b_payment_account=None,
+               party_b_invoice_type=None):
         """创建合同"""
         contract = cls(
             contract_name=contract_name,
@@ -264,6 +278,8 @@ class Contract(db.Model):
             contract_category=contract_category,
             contract_amount=contract_amount,
             currency=currency,
+            payment_method=payment_method,
+            payment_requirements=payment_requirements,
             tax_rate=tax_rate,
             tax_amount=tax_amount,
             signing_date=signing_date or date.today(),
@@ -285,7 +301,14 @@ class Contract(db.Model):
             party_b_contact_phone=party_b_contact_phone,
             party_b_address=party_b_address,
             party_b_credit_code=party_b_credit_code,
-            party_b_legal_representative=party_b_legal_representative
+            party_b_legal_representative=party_b_legal_representative,
+            party_b_payment_method=party_b_payment_method,
+            party_b_bank_account=party_b_bank_account,
+            party_b_bank_name=party_b_bank_name,
+            party_b_receiving_bank=party_b_receiving_bank,
+            party_b_account_name=party_b_account_name,
+            party_b_payment_account=party_b_payment_account,
+            party_b_invoice_type=party_b_invoice_type
         )
         db.session.add(contract)
         db.session.commit()
