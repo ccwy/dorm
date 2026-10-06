@@ -313,12 +313,12 @@
                             <p class="font-medium text-gray-800">{{ contract.payment_rounds or '-' }}</p>
                         </div>
                         <div>
-                            <span class="text-sm text-gray-500">月度开始日</span>
-                            <p class="font-medium text-gray-800">{% if contract.monthly_start_day is not none %}每月{{ contract.monthly_start_day }}日{% else %}-{% endif %}</p>
+                            <span class="text-sm text-gray-500">计划开始日期</span>
+                            <p class="font-medium text-gray-800">{% if contract.plan_start_date is not none %}每月{{ contract.plan_start_date }}日{% else %}-{% endif %}</p>
                         </div>
                         <div>
-                            <span class="text-sm text-gray-500">月度截止日</span>
-                            <p class="font-medium text-gray-800">{% if contract.monthly_end_day is not none %}每月{{ contract.monthly_end_day }}日{% else %}-{% endif %}</p>
+                            <span class="text-sm text-gray-500">计划截止日期</span>
+                            <p class="font-medium text-gray-800">{% if contract.plan_end_date is not none %}每月{{ contract.plan_end_date }}日{% else %}-{% endif %}</p>
                         </div>
                     </div>
                     {% elif contract.payment_method == '月度实际金额' %}
@@ -328,12 +328,12 @@
                             <p class="font-medium text-gray-800">{{ contract.payment_rounds or '-' }}</p>
                         </div>
                         <div>
-                            <span class="text-sm text-gray-500">月度开始日</span>
-                            <p class="font-medium text-gray-800">{% if contract.monthly_start_day is not none %}每月{{ contract.monthly_start_day }}日{% else %}-{% endif %}</p>
+                            <span class="text-sm text-gray-500">计划开始日期</span>
+                            <p class="font-medium text-gray-800">{% if contract.plan_start_date is not none %}每月{{ contract.plan_start_date }}日{% else %}-{% endif %}</p>
                         </div>
                         <div>
-                            <span class="text-sm text-gray-500">月度截止日</span>
-                            <p class="font-medium text-gray-800">{% if contract.monthly_end_day is not none %}每月{{ contract.monthly_end_day }}日{% else %}-{% endif %}</p>
+                            <span class="text-sm text-gray-500">计划截止日期</span>
+                            <p class="font-medium text-gray-800">{% if contract.plan_end_date is not none %}每月{{ contract.plan_end_date }}日{% else %}-{% endif %}</p>
                         </div>
                     </div>
                     {% endif %}

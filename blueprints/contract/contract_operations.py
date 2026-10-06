@@ -139,8 +139,8 @@ def add_contract():
         payment_requirements = request.form.get('payment_requirements', '').strip() or None
         fixed_amount = request.form.get('fixed_amount', '').strip() or None
         payment_rounds = request.form.get('payment_rounds', '').strip() or None
-        monthly_start_day = request.form.get('monthly_start_day', '').strip() or None
-        monthly_end_day = request.form.get('monthly_end_day', '').strip() or None
+        plan_start_date = request.form.get('plan_start_date', '').strip() or None
+        plan_end_date = request.form.get('plan_end_date', '').strip() or None
         tax_rate = request.form.get('tax_rate', '').strip() or None
         tax_amount = request.form.get('tax_amount', '').strip() or None
         signing_date = request.form.get('signing_date', '').strip() or None
@@ -228,16 +228,16 @@ def add_contract():
                 payment_rounds = int(payment_rounds)
             except (ValueError, TypeError):
                 payment_rounds = None
-        if monthly_start_day:
+        if plan_start_date:
             try:
-                monthly_start_day = int(monthly_start_day)
+                plan_start_date = int(plan_start_date)
             except (ValueError, TypeError):
-                monthly_start_day = None
-        if monthly_end_day:
+                plan_start_date = None
+        if plan_end_date:
             try:
-                monthly_end_day = int(monthly_end_day)
+                plan_end_date = int(plan_end_date)
             except (ValueError, TypeError):
-                monthly_end_day = None
+                plan_end_date = None
 
         # 日期转换
         if signing_date:
@@ -299,8 +299,8 @@ def add_contract():
             status=status,
             fixed_amount=fixed_amount,
             payment_rounds=payment_rounds,
-            monthly_start_day=monthly_start_day,
-            monthly_end_day=monthly_end_day
+            plan_start_date=plan_start_date,
+            plan_end_date=plan_end_date
         )
 
         # 记录操作记录
@@ -520,8 +520,8 @@ def edit_contract(id):
         new_payment_requirements = request.form.get('payment_requirements', '').strip() or None
         new_fixed_amount = request.form.get('fixed_amount', '').strip() or None
         new_payment_rounds = request.form.get('payment_rounds', '').strip() or None
-        new_monthly_start_day = request.form.get('monthly_start_day', '').strip() or None
-        new_monthly_end_day = request.form.get('monthly_end_day', '').strip() or None
+        new_plan_start_date = request.form.get('plan_start_date', '').strip() or None
+        new_plan_end_date = request.form.get('plan_end_date', '').strip() or None
         new_tax_rate = request.form.get('tax_rate', '').strip() or None
         new_tax_amount = request.form.get('tax_amount', '').strip() or None
         new_signing_date = request.form.get('signing_date', '').strip() or None
@@ -591,16 +591,16 @@ def edit_contract(id):
                 new_payment_rounds = int(new_payment_rounds)
             except (ValueError, TypeError):
                 new_payment_rounds = None
-        if new_monthly_start_day:
+        if new_plan_start_date:
             try:
-                new_monthly_start_day = int(new_monthly_start_day)
+                new_plan_start_date = int(new_plan_start_date)
             except (ValueError, TypeError):
-                new_monthly_start_day = None
-        if new_monthly_end_day:
+                new_plan_start_date = None
+        if new_plan_end_date:
             try:
-                new_monthly_end_day = int(new_monthly_end_day)
+                new_plan_end_date = int(new_plan_end_date)
             except (ValueError, TypeError):
-                new_monthly_end_day = None
+                new_plan_end_date = None
 
         # 日期转换
         if new_signing_date:
@@ -690,10 +690,10 @@ def edit_contract(id):
             changes.append(f"固定金额: {contract.fixed_amount or '无'} → {new_fixed_amount or '无'}")
         if contract.payment_rounds != new_payment_rounds:
             changes.append(f"付款轮次: {contract.payment_rounds or '无'} → {new_payment_rounds or '无'}")
-        if contract.monthly_start_day != new_monthly_start_day:
-            changes.append(f"月度开始日: {contract.monthly_start_day or '无'} → {new_monthly_start_day or '无'}")
-        if contract.monthly_end_day != new_monthly_end_day:
-            changes.append(f"月度截止日: {contract.monthly_end_day or '无'} → {new_monthly_end_day or '无'}")
+        if contract.plan_start_date != new_plan_start_date:
+            changes.append(f"计划开始日期: {contract.plan_start_date or '无'} → {new_plan_start_date or '无'}")
+        if contract.plan_end_date != new_plan_end_date:
+            changes.append(f"计划截止日期: {contract.plan_end_date or '无'} → {new_plan_end_date or '无'}")
 
         # 更新合同字段
         contract.contract_name = new_contract_name
@@ -738,8 +738,8 @@ def edit_contract(id):
         contract.party_b_invoice_type = new_party_b_invoice_type
         contract.fixed_amount = new_fixed_amount
         contract.payment_rounds = new_payment_rounds
-        contract.monthly_start_day = new_monthly_start_day
-        contract.monthly_end_day = new_monthly_end_day
+        contract.plan_start_date = new_plan_start_date
+        contract.plan_end_date = new_plan_end_date
 
         db.session.commit()
 
