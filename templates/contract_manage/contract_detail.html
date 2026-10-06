@@ -243,10 +243,6 @@
                                 {% endif %}
                             </p>
                         </div>
-                        <div>
-                            <span class="text-sm text-gray-500">付款方式</span>
-                            <p class="font-medium text-gray-800">{{ contract.payment_method or '-' }}</p>
-                        </div>
                         {% if contract.payment_requirements %}
                         <div>
                             <span class="text-sm text-gray-500">付款要求</span>
@@ -291,6 +287,54 @@
                             <p class="font-medium text-gray-800">{{ contract.party_b_invoice_type }}</p>
                         </div>
                         {% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- 付款方案 -->
+                <div class="bg-white rounded-lg shadow-sm p-6">
+                    <h3 class="text-lg font-medium text-gray-800 mb-4 pb-2 border-b border-gray-200">
+                        <i class="fa fa-calendar-check-o text-green-500 mr-2"></i>付款方案
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div>
+                            <span class="text-sm text-gray-500">付款方式</span>
+                            <p class="font-medium text-gray-800">{{ contract.payment_method or '-' }}</p>
+                        </div>
+                    </div>
+                    {% if contract.payment_method == '月度固定金额' %}
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
+                        <div>
+                            <span class="text-sm text-gray-500">固定金额</span>
+                            <p class="font-medium text-gray-800">{% if contract.fixed_amount is not none %}{{ '{:,.2f}'.format(contract.fixed_amount) }} 元{% else %}-{% endif %}</p>
+                        </div>
+                        <div>
+                            <span class="text-sm text-gray-500">付款轮次</span>
+                            <p class="font-medium text-gray-800">{{ contract.payment_rounds or '-' }}</p>
+                        </div>
+                        <div>
+                            <span class="text-sm text-gray-500">月度开始日</span>
+                            <p class="font-medium text-gray-800">{% if contract.monthly_start_day is not none %}每月{{ contract.monthly_start_day }}日{% else %}-{% endif %}</p>
+                        </div>
+                        <div>
+                            <span class="text-sm text-gray-500">月度截止日</span>
+                            <p class="font-medium text-gray-800">{% if contract.monthly_end_day is not none %}每月{{ contract.monthly_end_day }}日{% else %}-{% endif %}</p>
+                        </div>
+                    </div>
+                    {% elif contract.payment_method == '月度实际金额' %}
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
+                        <div>
+                            <span class="text-sm text-gray-500">付款轮次</span>
+                            <p class="font-medium text-gray-800">{{ contract.payment_rounds or '-' }}</p>
+                        </div>
+                        <div>
+                            <span class="text-sm text-gray-500">月度开始日</span>
+                            <p class="font-medium text-gray-800">{% if contract.monthly_start_day is not none %}每月{{ contract.monthly_start_day }}日{% else %}-{% endif %}</p>
+                        </div>
+                        <div>
+                            <span class="text-sm text-gray-500">月度截止日</span>
+                            <p class="font-medium text-gray-800">{% if contract.monthly_end_day is not none %}每月{{ contract.monthly_end_day }}日{% else %}-{% endif %}</p>
+                        </div>
                     </div>
                     {% endif %}
                 </div>

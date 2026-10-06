@@ -137,6 +137,10 @@ def add_contract():
         currency = request.form.get('currency', 'CNY').strip() or 'CNY'
         payment_method = request.form.get('payment_method', '一次性付清').strip() or '一次性付清'
         payment_requirements = request.form.get('payment_requirements', '').strip() or None
+        fixed_amount = request.form.get('fixed_amount', '').strip() or None
+        payment_rounds = request.form.get('payment_rounds', '').strip() or None
+        monthly_start_day = request.form.get('monthly_start_day', '').strip() or None
+        monthly_end_day = request.form.get('monthly_end_day', '').strip() or None
         tax_rate = request.form.get('tax_rate', '').strip() or None
         tax_amount = request.form.get('tax_amount', '').strip() or None
         signing_date = request.form.get('signing_date', '').strip() or None
@@ -213,6 +217,28 @@ def add_contract():
             except (ValueError, TypeError):
                 tax_amount = None
 
+        # 付款方案字段转换
+        if fixed_amount:
+            try:
+                fixed_amount = float(fixed_amount)
+            except (ValueError, TypeError):
+                fixed_amount = None
+        if payment_rounds:
+            try:
+                payment_rounds = int(payment_rounds)
+            except (ValueError, TypeError):
+                payment_rounds = None
+        if monthly_start_day:
+            try:
+                monthly_start_day = int(monthly_start_day)
+            except (ValueError, TypeError):
+                monthly_start_day = None
+        if monthly_end_day:
+            try:
+                monthly_end_day = int(monthly_end_day)
+            except (ValueError, TypeError):
+                monthly_end_day = None
+
         # 日期转换
         if signing_date:
             try:
@@ -270,7 +296,11 @@ def add_contract():
             party_b_account_name=party_b_account_name,
             party_b_payment_account=party_b_payment_account,
             party_b_invoice_type=party_b_invoice_type,
-            status=status
+            status=status,
+            fixed_amount=fixed_amount,
+            payment_rounds=payment_rounds,
+            monthly_start_day=monthly_start_day,
+            monthly_end_day=monthly_end_day
         )
 
         # 记录操作记录
@@ -488,6 +518,10 @@ def edit_contract(id):
         new_currency = request.form.get('currency', 'CNY').strip() or 'CNY'
         new_payment_method = request.form.get('payment_method', '一次性付清').strip() or '一次性付清'
         new_payment_requirements = request.form.get('payment_requirements', '').strip() or None
+        new_fixed_amount = request.form.get('fixed_amount', '').strip() or None
+        new_payment_rounds = request.form.get('payment_rounds', '').strip() or None
+        new_monthly_start_day = request.form.get('monthly_start_day', '').strip() or None
+        new_monthly_end_day = request.form.get('monthly_end_day', '').strip() or None
         new_tax_rate = request.form.get('tax_rate', '').strip() or None
         new_tax_amount = request.form.get('tax_amount', '').strip() or None
         new_signing_date = request.form.get('signing_date', '').strip() or None
@@ -545,6 +579,28 @@ def edit_contract(id):
                 new_tax_amount = float(new_tax_amount)
             except (ValueError, TypeError):
                 new_tax_amount = None
+
+        # 付款方案字段转换
+        if new_fixed_amount:
+            try:
+                new_fixed_amount = float(new_fixed_amount)
+            except (ValueError, TypeError):
+                new_fixed_amount = None
+        if new_payment_rounds:
+            try:
+                new_payment_rounds = int(new_payment_rounds)
+            except (ValueError, TypeError):
+                new_payment_rounds = None
+        if new_monthly_start_day:
+            try:
+                new_monthly_start_day = int(new_monthly_start_day)
+            except (ValueError, TypeError):
+                new_monthly_start_day = None
+        if new_monthly_end_day:
+            try:
+                new_monthly_end_day = int(new_monthly_end_day)
+            except (ValueError, TypeError):
+                new_monthly_end_day = None
 
         # 日期转换
         if new_signing_date:
@@ -630,6 +686,14 @@ def edit_contract(id):
             changes.append(f"收款账号: {contract.party_b_payment_account or '无'} → {new_party_b_payment_account or '无'}")
         if contract.party_b_invoice_type != new_party_b_invoice_type:
             changes.append(f"发票类型: {contract.party_b_invoice_type or '无'} → {new_party_b_invoice_type or '无'}")
+        if str(contract.fixed_amount or '') != str(new_fixed_amount or ''):
+            changes.append(f"固定金额: {contract.fixed_amount or '无'} → {new_fixed_amount or '无'}")
+        if contract.payment_rounds != new_payment_rounds:
+            changes.append(f"付款轮次: {contract.payment_rounds or '无'} → {new_payment_rounds or '无'}")
+        if contract.monthly_start_day != new_monthly_start_day:
+            changes.append(f"月度开始日: {contract.monthly_start_day or '无'} → {new_monthly_start_day or '无'}")
+        if contract.monthly_end_day != new_monthly_end_day:
+            changes.append(f"月度截止日: {contract.monthly_end_day or '无'} → {new_monthly_end_day or '无'}")
 
         # 更新合同字段
         contract.contract_name = new_contract_name
@@ -672,6 +736,10 @@ def edit_contract(id):
         contract.party_b_account_name = new_party_b_account_name
         contract.party_b_payment_account = new_party_b_payment_account
         contract.party_b_invoice_type = new_party_b_invoice_type
+        contract.fixed_amount = new_fixed_amount
+        contract.payment_rounds = new_payment_rounds
+        contract.monthly_start_day = new_monthly_start_day
+        contract.monthly_end_day = new_monthly_end_day
 
         db.session.commit()
 

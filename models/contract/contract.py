@@ -49,6 +49,12 @@ class Contract(db.Model):
     payment_method = db.Column(db.String(50), default='一次性付清', nullable=True, comment='付款方式')
     payment_requirements = db.Column(db.Text, nullable=True, comment='付款要求')
 
+    # 付款方案
+    fixed_amount = db.Column(db.Numeric(14, 2), nullable=True, comment='固定金额（元，月度固定金额时使用）')
+    payment_rounds = db.Column(db.Integer, nullable=True, comment='付款轮次')
+    monthly_start_day = db.Column(db.Integer, nullable=True, comment='月度开始日（1-31的数字）')
+    monthly_end_day = db.Column(db.Integer, nullable=True, comment='月度截止日（1-31的数字）')
+
     # 税率信息
     tax_rate = db.Column(db.Numeric(5, 2), nullable=True, comment='合同税率（%，可从供应商自动获取，支持自定义覆盖）')
     tax_amount = db.Column(db.Numeric(14, 2), nullable=True, comment='税额（元，由合同金额×税率/100自动计算）')
@@ -267,7 +273,8 @@ class Contract(db.Model):
                party_b_credit_code=None, party_b_legal_representative=None,
                party_b_payment_method=None, party_b_bank_account=None, party_b_bank_name=None,
                party_b_receiving_bank=None, party_b_account_name=None, party_b_payment_account=None,
-               party_b_invoice_type=None):
+               party_b_invoice_type=None,
+               fixed_amount=None, payment_rounds=None, monthly_start_day=None, monthly_end_day=None):
         """创建合同"""
         contract = cls(
             contract_name=contract_name,
@@ -308,7 +315,11 @@ class Contract(db.Model):
             party_b_receiving_bank=party_b_receiving_bank,
             party_b_account_name=party_b_account_name,
             party_b_payment_account=party_b_payment_account,
-            party_b_invoice_type=party_b_invoice_type
+            party_b_invoice_type=party_b_invoice_type,
+            fixed_amount=fixed_amount,
+            payment_rounds=payment_rounds,
+            monthly_start_day=monthly_start_day,
+            monthly_end_day=monthly_end_day
         )
         db.session.add(contract)
         db.session.commit()
