@@ -51,6 +51,15 @@ def check_and_generate_records():
         logging.error(f"检查并生成记录时发生错误: {str(e)}", exc_info=True)
         return False
 
+# 清理过期缓存
+def cleanup_expired_cache(app):
+    """清理过期缓存条目"""
+    try:
+        if hasattr(app, 'cache') and app.cache:
+            app.cache.cleanup_expired()
+    except Exception as e:
+        logging.debug(f"缓存清理异常: {e}")
+
 # 启动调度器
 def start_scheduler(app):
     """
@@ -63,6 +72,10 @@ def start_scheduler(app):
             FIXED_GENERATION_TIME = '01:00'
             # 维修临时文件清理时间：每天02:00
             MAINTENANCE_CLEANUP_TIME = '02:00'
+            
+            # 注册过期缓存清理任务（每10分钟执行一次）
+            schedule.every(10).minutes.do(lambda: execute_with_context(app, lambda: cleanup_expired_cache(app)))
+            logging.info("过期缓存定时清理任务已注册，将每10分钟执行一次")
             
             # 注册费用主表记录生成任务（每天01:00检查，每月1号执行生成）
             schedule.every().day.at(FIXED_GENERATION_TIME).do(lambda: execute_with_context(app, check_and_generate_records))

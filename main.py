@@ -323,35 +323,17 @@ def init_flask_app(progress_callback=None):
     import atexit
     from utils.process_pool import shutdown_executor
     atexit.register(shutdown_executor)
-    # 注册周期性清理过期缓存（每10分钟）
-    import schedule as schedule_lib
-    def _cleanup_cache():
-        try:
-            cache.cleanup_expired()
-        except Exception as e:
-            logging.debug(f"缓存清理异常: {e}")
-    schedule_lib.every(10).minutes.do(_cleanup_cache)
-    _stamp("初始化内存缓存")
+    # 注册周期性清理过期缓存（每10分钟）- 已移至 utils.scheduler 统一管理
+    _stamp("初始化内存缓存与调度器")
 
-    _scheduler_initialized = False
-    def _init_scheduler():
-        nonlocal _scheduler_initialized
-        if _scheduler_initialized:
-            return
-        _scheduler_initialized = True
-        try:
-            from utils.scheduler import init_scheduler
-            scheduler = init_scheduler(app)
-            logging.info("延迟初始化调度器完成")
-        except Exception as e:
-            logging.error(f"延迟初始化调度器失败: {e}")
+    # 直接启动调度器（含缓存清理、费用主表生成、临时文件清理等任务）
+    from utils.scheduler import init_scheduler
+    init_scheduler(app)
 
     @app.before_request
     def _init_background_services():
         if not _backup_initialized:
             _init_backup_thread()
-        if not _scheduler_initialized:
-            _init_scheduler()
 
     # 阶段6：注册路由
     if progress_callback:
