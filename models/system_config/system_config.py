@@ -930,8 +930,8 @@ class SystemConfig(db.Model):
             # 付款方式配置
             {
                 'config_key': 'PAYMENT_METHODS',
-                'config_value': '一次性付清,按实际金额付款,每月按实际金额付款,分期付款,按进度付款',
-                'config_type': 'string',
+                'config_value': '一次性付清,实际金额,月度固定金额,月度实际金额,按进度付款',
+                'config_type': 'list',
                 'description': '付款方式选项（逗号分隔）',
                 'category': 'contract',
                 'sort_order': 50,
