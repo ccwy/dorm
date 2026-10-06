@@ -15,6 +15,7 @@ from werkzeug.security import generate_password_hash
 
 from utils.auth import require_permission
 import logging
+from utils.custom_fields import get_custom_field_definitions, parse_custom_fields_data, validate_custom_fields, serialize_custom_fields, deserialize_custom_fields
 
 # 用户操作蓝图（仅保留增删改）
 user_operations_bp = Blueprint('user_operations', __name__, url_prefix='/user')
@@ -57,6 +58,8 @@ def add():
         {'value': item, 'label': item} 
         for item in SystemConfig.get_config_value('USER_MARITAL_STATUS', ['未婚', '已婚', '离异', '丧偶'])
     ] 
+    # 获取用户自定义字段定义
+    custom_field_defs = get_custom_field_definitions('user.custom_field')
     
     if request.method == 'POST':
         # 核心修改1：一次查询获取所有已存在的工号和用户名（内存查重）
@@ -130,6 +133,7 @@ def add():
                     status_options=status_options,
                     category_options=category_options,
                     marital_status_options=marital_status_options,
+                    custom_field_defs=custom_field_defs,
                     companies=Department.get_all_companies()
                 )
         
@@ -145,6 +149,7 @@ def add():
                 status_options=status_options,
                 category_options=category_options,
                 marital_status_options=marital_status_options,
+                    custom_field_defs=custom_field_defs,
                     companies=Department.get_all_companies()
             )
         
@@ -160,6 +165,7 @@ def add():
                 status_options=status_options,
                 category_options=category_options,
                 marital_status_options=marital_status_options,
+                    custom_field_defs=custom_field_defs,
                     companies=Department.get_all_companies()
             )
         
@@ -175,6 +181,7 @@ def add():
                 status_options=status_options,
                 category_options=category_options,
                 marital_status_options=marital_status_options,
+                    custom_field_defs=custom_field_defs,
                     companies=Department.get_all_companies()
             )
         
@@ -192,6 +199,7 @@ def add():
                     status_options=status_options,
                     category_options=category_options,
                     marital_status_options=marital_status_options,
+                    custom_field_defs=custom_field_defs,
                     companies=Department.get_all_companies()
                 )
         
@@ -209,6 +217,7 @@ def add():
                     status_options=status_options,
                     category_options=category_options,
                     marital_status_options=marital_status_options,
+                    custom_field_defs=custom_field_defs,
                     companies=Department.get_all_companies()
                 )
         
@@ -225,6 +234,7 @@ def add():
                     status_options=status_options,
                     category_options=category_options,
                     marital_status_options=marital_status_options,
+                    custom_field_defs=custom_field_defs,
                     companies=Department.get_all_companies()
                 )
             if not is_active:
@@ -238,6 +248,7 @@ def add():
                     status_options=status_options,
                     category_options=category_options,
                     marital_status_options=marital_status_options,
+                    custom_field_defs=custom_field_defs,
                     companies=Department.get_all_companies()
                 )
         
@@ -273,6 +284,25 @@ def add():
                 marital_status=marital_status,  # 婚姻状态
                 hire_date=hire_date  # 入职时间
             )
+            
+            # 处理自定义字段
+            custom_data = parse_custom_fields_data(request.form, custom_field_defs)
+            custom_errors = validate_custom_fields(custom_data, custom_field_defs)
+            if custom_errors:
+                for err in custom_errors:
+                    flash(err, 'danger')
+                return render_template(
+                    'user_manage/user_add.html',
+                    title=f"添加用户",
+                    form_data=request.form,
+                    role_options=role_options,
+                    status_options=status_options,
+                    category_options=category_options,
+                    marital_status_options=marital_status_options,
+                    custom_field_defs=custom_field_defs,
+                    companies=Department.get_all_companies()
+                )
+            new_user.custom_fields = serialize_custom_fields(custom_data)
             
             # 调用save()方法触发自动提取（籍贯、年龄等）
             new_user.save()
@@ -338,6 +368,7 @@ def add():
         status_options=status_options,
         category_options=category_options,
         marital_status_options=marital_status_options,
+        custom_field_defs=custom_field_defs,
         default_is_banned=default_is_banned,
         default_is_active=default_is_active,
         companies=Department.get_all_companies()
@@ -369,6 +400,11 @@ def edit(id):
         for item in SystemConfig.get_config_value('USER_MARITAL_STATUS', ['未婚', '已婚', '离异', '丧偶'])
     ]
     
+    # 获取用户自定义字段定义
+    custom_field_defs = get_custom_field_definitions('user.custom_field')
+    # 反序列化当前用户的自定义字段值
+    custom_field_values = deserialize_custom_fields(user.custom_fields)
+    
     # 检查活跃住宿记录
     has_active_dorm = Dorm.query.filter_by(user_id=id, status='active').first() is not None
     user.has_active_dorm = has_active_dorm
@@ -383,6 +419,8 @@ def edit(id):
         return redirect(url_for('user.manage'))
     
     if request.method == 'POST':
+        # 在POST处理开始时解析自定义字段数据（用于验证错误时保留用户输入）
+        form_custom_data = parse_custom_fields_data(request.form, custom_field_defs)
         old_info = f"姓名: {user.name}, 工号: {user.student_id}, 类别: {user.category}, 登录权限: {'禁止' if user.is_banned else '允许'}"
         # 收集编辑前的旧值（用于变更记录）
         old_values = {
@@ -461,6 +499,8 @@ def edit(id):
                     status_options=status_options,
                     category_options=category_options,
                     marital_status_options=marital_status_options,
+                    custom_field_defs=custom_field_defs,
+                    custom_field_values=form_custom_data,
                     companies=Department.get_all_companies()
                 )
         
@@ -478,6 +518,8 @@ def edit(id):
                     status_options=status_options,
                     category_options=category_options,
                     marital_status_options=marital_status_options,
+                    custom_field_defs=custom_field_defs,
+                    custom_field_values=form_custom_data,
                     companies=Department.get_all_companies()
                 )
         
@@ -500,6 +542,8 @@ def edit(id):
                     status_options=status_options,
                     category_options=category_options,
                     marital_status_options=marital_status_options,
+                    custom_field_defs=custom_field_defs,
+                    custom_field_values=form_custom_data,
                     companies=Department.get_all_companies()
                 )
         
@@ -515,6 +559,8 @@ def edit(id):
                 status_options=status_options,
                 category_options=category_options,
                 marital_status_options=marital_status_options,
+                    custom_field_defs=custom_field_defs,
+                    custom_field_values=form_custom_data,
                     companies=Department.get_all_companies()
             )
         
@@ -531,6 +577,8 @@ def edit(id):
                 status_options=status_options,
                 category_options=category_options,
                 marital_status_options=marital_status_options,
+                    custom_field_defs=custom_field_defs,
+                    custom_field_values=form_custom_data,
                     companies=Department.get_all_companies()
             )
         
@@ -546,6 +594,8 @@ def edit(id):
                 status_options=status_options,
                 category_options=category_options,
                 marital_status_options=marital_status_options,
+                    custom_field_defs=custom_field_defs,
+                    custom_field_values=form_custom_data,
                     companies=Department.get_all_companies()
             )
         
@@ -563,6 +613,8 @@ def edit(id):
                     status_options=status_options,
                     category_options=category_options,
                     marital_status_options=marital_status_options,
+                    custom_field_defs=custom_field_defs,
+                    custom_field_values=form_custom_data,
                     companies=Department.get_all_companies()
                 )
             if not is_active:
@@ -576,6 +628,8 @@ def edit(id):
                     status_options=status_options,
                     category_options=category_options,
                     marital_status_options=marital_status_options,
+                    custom_field_defs=custom_field_defs,
+                    custom_field_values=form_custom_data,
                     companies=Department.get_all_companies()
                 )
         
@@ -609,6 +663,26 @@ def edit(id):
             
             if new_password:
                 user.password_hash = generate_password_hash(new_password)
+            
+            # 处理自定义字段
+            custom_data = parse_custom_fields_data(request.form, custom_field_defs)
+            custom_errors = validate_custom_fields(custom_data, custom_field_defs)
+            if custom_errors:
+                for err in custom_errors:
+                    flash(err, 'danger')
+                return render_template(
+                    'user_manage/user_edit.html', 
+                    title=f"编辑用户 - {user.name}",
+                    user=user,
+                    role_options=role_options,
+                    status_options=status_options,
+                    category_options=category_options,
+                    marital_status_options=marital_status_options,
+                    custom_field_defs=custom_field_defs,
+                    custom_field_values=form_custom_data,
+                    companies=Department.get_all_companies()
+                )
+            user.custom_fields = serialize_custom_fields(custom_data)
             
             user.save()
             logging.info(f"编辑用户成功，用户ID: {user.id}")
@@ -691,10 +765,11 @@ def edit(id):
         status_options=status_options,
         category_options=category_options,
         marital_status_options=marital_status_options,
+        custom_field_defs=custom_field_defs,
+        custom_field_values=custom_field_values,
         companies=Department.get_all_companies()
     )
-    
-    
+
 @user_operations_bp.route('/delete/<int:id>', methods=['POST'])
 @login_required
 @require_permission('user.delete')

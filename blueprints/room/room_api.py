@@ -1,5 +1,8 @@
 from flask import Blueprint, request, jsonify, send_file, abort
+from werkzeug.utils import secure_filename
+import os
 import logging
+import traceback
 from datetime import datetime, date
 from utils.db import db
 from models.room.room import Room, RoomStatus
@@ -7,9 +10,8 @@ from models.dorm.dorm import Dorm
 from models.user.user import User
 from config import Config
 from flask_login import login_required, current_user
-from utils.log import log_operation
 from models.system_config.system_config import SystemConfig  # 新增：导入系统配置模型
-from utils.room_photo import RoomPhotoManager
+from utils.media.room_photo import RoomPhotoManager
 
 room_api_bp = Blueprint('room_api', __name__, url_prefix='/api/rooms')
 
@@ -144,36 +146,47 @@ def get_room_detail(room_id):
             "message": "查询成功"
         }
         
-        log_operation(
-            user_id=current_user.id,
-            module='room',
-            operation_type='room_api',
-            action=f"查询房间详情 [ID: {room_id}]，入住{len(occupants)}人",
-            result="成功"
-        )
-        
         return jsonify(response)
         
     except Exception as e:
         error_detail = f"房间详情接口错误（room_id={room_id}）: {str(e)}\n堆栈: {traceback.format_exc()}"
         logging.error(error_detail)
-        
-        try:
-            log_operation(
-                user_id=getattr(current_user, 'id', "未知"),
-                module='room',
-                operation_type='room_api',
-                action=f"查询房间详情 [ID: {room_id}]失败: {str(e)}",
-                result="失败"
-            )
-        except Exception as log_err:
-            logging.error(f"记录日志失败: {str(log_err)}")
-        
         return jsonify({
             "success": False,
             "data": None,
             "message": "获取房间详情失败" if not Config.DEBUG else error_detail
         }), 500
+
+
+@room_api_bp.route('/temp_media/<temp_key>/<filename>', methods=['GET'])
+@login_required
+def serve_temp_media(temp_key, filename):
+    """提供临时目录中媒体文件的访问"""
+    try:
+        # 安全处理参数
+        temp_key = secure_filename(temp_key)
+        filename = secure_filename(filename)
+        
+        # 防止空temp_key导致路径遍历
+        if not temp_key:
+            abort(400, description="无效的临时标识参数")
+        if not filename:
+            abort(400, description="无效的文件名参数")
+        
+        # 获取文件完整路径
+        file_path = RoomPhotoManager.get_temp_file_path(filename, temp_key)
+        
+        # 检查文件是否存在
+        if not file_path or not os.path.exists(file_path):
+            abort(404, description="文件不存在")
+        
+        # 发送文件，根据扩展名推断 mimetype
+        import mimetypes
+        mime_type, _ = mimetypes.guess_type(file_path)
+        return send_file(file_path, as_attachment=False, mimetype=mime_type or 'application/octet-stream')
+    except Exception as e:
+        logging.error(f"获取临时媒体文件时发生错误: {str(e)}")
+        abort(500, description=f"获取文件时发生错误: {str(e)}")
 
 
 @room_api_bp.route('', methods=['GET'])
@@ -372,36 +385,17 @@ def get_rooms():
             "message": "查询成功"
         }
 
-        log_operation(
-            user_id=getattr(current_user, 'id', "未知"),
-            module='room',
-            operation_type='room_api',
-            action=f"调用房间列表接口成功，返回{len(room_list)}条数据",
-            result="成功"
-        )
-        
         return jsonify(response)
 
     except Exception as e:
         error_detail = f"房间列表接口错误: {str(e)}\n堆栈: {traceback.format_exc()}"
         logging.error(error_detail)
-        
-        try:
-            log_operation(
-                user_id=getattr(current_user, 'id', "未知"),
-                module='room',
-                operation_type='room_api',
-                action=f"调用房间列表接口失败: {str(e)}",
-                result="失败"
-            )
-        except Exception as log_err:
-            logging.error(f"记录日志失败: {str(log_err)}")
-        
         return jsonify({
             "success": False,
             "data": None,
             "message": "获取房间列表失败" if not Config.DEBUG else error_detail
         }), 500
+
 
 
 @room_api_bp.route('/user-rooms/batch', methods=['POST'])
@@ -499,14 +493,16 @@ def get_batch_user_rooms():
         }), 500
 
 
-@room_api_bp.route('/media/<room_id>/<filename>', methods=['GET'])
+
+@room_api_bp.route('/media/<int:room_id>/<filename>', methods=['GET'])
 @login_required
 def get_room_media(room_id, filename):
     """获取房间的媒体文件（照片或视频）"""
     try:
-        # 安全处理参数
-        room_id = secure_filename(room_id)
+        # 安全处理文件名参数
         filename = secure_filename(filename)
+        if not filename:
+            abort(400, description="无效的文件名参数")
         
         # 获取文件完整路径
         file_path = RoomPhotoManager.get_file_path(filename, room_id)
@@ -515,8 +511,10 @@ def get_room_media(room_id, filename):
         if not file_path:
             abort(404, description="文件不存在")
         
-        # 发送文件
-        return send_file(file_path, as_attachment=False)
+        # 发送文件，根据扩展名推断 mimetype
+        import mimetypes
+        mime_type, _ = mimetypes.guess_type(file_path)
+        return send_file(file_path, as_attachment=False, mimetype=mime_type or 'application/octet-stream')
     except Exception as e:
         logging.error(f"获取房间媒体文件时发生错误: {str(e)}")
         abort(500, description=f"获取文件时发生错误: {str(e)}")
@@ -537,8 +535,19 @@ def get_room_media_list():
                 "message": "缺少房间ID参数"
             }), 400
         
-        # 安全处理参数
-        room_id = secure_filename(room_id)
+        # 验证room_id为有效正整数
+        try:
+            room_id = int(room_id)
+            if room_id <= 0:
+                return jsonify({
+                    "success": False,
+                    "message": "房间ID必须为正整数"
+                }), 400
+        except (ValueError, TypeError):
+            return jsonify({
+                "success": False,
+                "message": "房间ID格式无效"
+            }), 400
         
         # 获取媒体文件列表
         media_files = RoomPhotoManager.get_media_files(room_id)
@@ -550,7 +559,8 @@ def get_room_media_list():
                 'filename': media['filename'],
                 'url': media['url'],
                 'type': 'photo' if media['type'] == 'image' else 'video',  # 转换为前端期望的类型
-                'upload_time': media['upload_time'].isoformat()  # 添加上传时间字段，转换为ISO格式字符串
+                'upload_time': media['upload_time'].isoformat(),  # 添加上传时间字段，转换为ISO格式字符串
+                'mime_type': media.get('mime_type', 'application/octet-stream')  # 添加 MIME 类型字段
             })
         
         return jsonify({
@@ -564,6 +574,7 @@ def get_room_media_list():
             "message": "获取媒体文件列表失败",
             "error": str(e)
         }), 500
+
 
 
 @room_api_bp.route('/buildings', methods=['GET'])
@@ -600,33 +611,15 @@ def get_buildings():
             "message": "查询成功"
         }
         
-        log_operation(
-            user_id=getattr(current_user, 'id', "未知"),
-            module='room',
-            operation_type='room_api',
-            action=f"调用获取楼栋列表接口成功，返回{len(building_list)}条数据",
-            result="成功"
-        )
-        
         return jsonify(response)
         
     except Exception as e:
         error_detail = f"获取楼栋列表接口错误: {str(e)}\n堆栈: {traceback.format_exc()}"
         logging.error(error_detail)
-        
-        try:
-            log_operation(
-                user_id=getattr(current_user, 'id', "未知"),
-                module='room',
-                operation_type='room_api',
-                action=f"调用获取楼栋列表接口失败: {str(e)}",
-                result="失败"
-            )
-        except Exception as log_err:
-            logging.error(f"记录日志失败: {str(log_err)}")
-        
+
         return jsonify({
             "success": False,
             "data": None,
             "message": "获取楼栋列表失败" if not Config.DEBUG else error_detail
         }), 500
+

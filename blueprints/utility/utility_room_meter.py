@@ -1,22 +1,42 @@
-from flask import Blueprint, request, jsonify, render_template
+from flask import Blueprint, request, jsonify, render_template, send_from_directory, send_file, flash, redirect, url_for
 import logging
 import os
 from utils.db import db
 from models.utility.utility_room_meter import UtilityMeterReading
 from models.room.room import Room
 from models.user.user import User
-from models.utility.utility_room_bill_record import RoomUtilityRecord  # 新增：导入房间水电费用主表模型
+from models.utility.utility_room_bill_record import RoomUtilityRecord
 from config import Config
 from flask_login import login_required, current_user
-from flask import send_from_directory, send_file, flash, redirect, url_for, Blueprint, request, render_template
 from utils.log import log_operation
-from utils.room_meter_photo import room_meter_manager
+from utils.media.room_meter_photo import room_meter_manager
 import traceback
 from datetime import datetime
 
 from utils.auth import require_permission
 
 utility_room_meter_bp = Blueprint('utility_room_meter', __name__, url_prefix='/utility-meter')
+
+
+def generate_page_range(current_page, total_pages, show_pages=5):
+    if total_pages <= show_pages:
+        return list(range(1, total_pages + 1))
+    half = show_pages // 2
+    start = max(1, current_page - half)
+    end = min(total_pages, start + show_pages - 1)
+    if end - start < show_pages - 1:
+        start = max(1, end - show_pages + 1)
+    page_range = []
+    if start > 1:
+        page_range.append(1)
+        if start > 2:
+            page_range.append('...')
+    page_range.extend(range(start, end + 1))
+    if end < total_pages:
+        if end < total_pages - 1:
+            page_range.append('...')
+        page_range.append(total_pages)
+    return page_range
 
 
 # 页面路由 - 模板路径: templates/utility_bill
@@ -27,6 +47,11 @@ def utility_reading():
     """抄表登记页面 - 支持楼栋筛选、房间搜索、分页和获取最新抄表记录，以及单个和批量表单提交保存"""
     if request.method == 'POST':
         try:
+            # 提取筛选参数，用于redirect时保留页面状态
+            building_filter = request.form.get('building', '')
+            search_room = request.form.get('search_room', '')
+            page = request.form.get('page', 1, type=int)
+            
             # 检查是否为批量保存请求
             is_batch = request.form.get('is_batch') == 'true'
             
@@ -53,11 +78,8 @@ def utility_reading():
                             result="失败"
                         )
                         logging.error(f"批量保存抄表记录 [错误: 未提供账期参数]")
-                        return render_template(
-                            'utility_bill/utility_reading.html',
-                            title=f"抄表登记",
-                            error_message="批量保存失败：未提供账期参数（billing_period）"
-                        )
+                        flash("批量保存失败：未提供账期参数（billing_period）", "danger")
+                        return redirect(url_for('utility_room_meter.utility_reading', building=building_filter, search_room=search_room, page=page, billing_period=billing_period))
                     
                     # 验证billing_period格式（YYYY-MM）
                     try:
@@ -71,11 +93,8 @@ def utility_reading():
                             result="失败"
                         )
                         logging.error(f"批量保存抄表记录 [错误: 账期格式错误: {billing_period}]")
-                        return render_template(
-                            'utility_bill/utility_reading.html',
-                            title=f"抄表登记",
-                            error_message="批量保存失败：账期格式错误，请使用YYYY-MM格式"
-                        )
+                        flash("批量保存失败：账期格式错误，请使用YYYY-MM格式", "danger")
+                        return redirect(url_for('utility_room_meter.utility_reading', building=building_filter, search_room=search_room, page=page, billing_period=billing_period))
                     
                     # 验证批量数据长度一致
                     if not (len(room_ids) == len(water_currents) == len(electric_currents) == 
@@ -89,11 +108,8 @@ def utility_reading():
                             result="失败"
                         )
                         logging.error(f"批量保存抄表记录 [错误: 批量数据长度不一致]")
-                        return render_template(
-                            'utility_bill/utility_reading.html',
-                            title=f"抄表登记",
-                            error_message="批量保存失败：数据格式错误，各字段长度不一致"
-                        )
+                        flash("批量保存失败：数据格式错误，各字段长度不一致", "danger")
+                        return redirect(url_for('utility_room_meter.utility_reading', building=building_filter, search_room=search_room, page=page, billing_period=billing_period))
                     
                     # 处理日期格式
                     reading_date = datetime.now()
@@ -115,11 +131,8 @@ def utility_reading():
                                         result="失败"
                                     )
                                     logging.error(f"批量保存抄表记录 [错误: 日期格式错误]")
-                                    return render_template(
-                                        'utility_bill/utility_reading.html',
-                                        title=f"抄表登记",
-                                        error_message="批量保存失败：日期格式错误，请使用 yyyy-mm-dd 或 yyyy-mm-dd HH:MM 或 yyyy-mm-dd HH:MM:SS"
-                                    )
+                                    flash("批量保存失败：日期格式错误，请使用 yyyy-mm-dd 或 yyyy-mm-dd HH:MM 或 yyyy-mm-dd HH:MM:SS", "danger")
+                                    return redirect(url_for('utility_room_meter.utility_reading', building=building_filter, search_room=search_room, page=page, billing_period=billing_period))
                     
                     # 准备批量保存数据
                     success_count = 0
@@ -209,11 +222,12 @@ def utility_reading():
                                                   "请检查错误详情并重新提交。"
                                 logging.error(f"批量保存抄表记录 [错误: {error_count} 条记录保存失败]")
                             
-                            # 重定向回页面，带上成功消息和错误详情
-                            from flask import redirect, url_for
-                            return redirect(url_for('utility_room_meter.utility_reading', 
-                                                 success_message=success_message,
-                                                 batch_errors=','.join(error_details) if error_count > 0 else None))
+                            # 重定向回页面，使用flash消息
+                            if error_count > 0:
+                                flash(f"{success_message} 失败详情：{'；'.join(error_details)}", "warning")
+                            else:
+                                flash(success_message, "success")
+                            return redirect(url_for('utility_room_meter.utility_reading', building=building_filter, search_room=search_room, page=page, billing_period=billing_period))
                         else:
                             # 全部失败
                             log_operation(
@@ -224,12 +238,8 @@ def utility_reading():
                                 result="失败"
                             )
                             logging.error(f"批量保存抄表记录 [错误: 所有记录均未能保存]")
-                            return render_template(
-                                'utility_bill/utility_reading.html',
-                                title=f"抄表登记",
-                                error_message=f"批量保存失败：所有记录均未能保存",
-                                batch_errors=error_details
-                            )
+                            flash(f"批量保存失败：所有记录均未能保存。失败详情：{'；'.join(error_details)}", "danger")
+                            return redirect(url_for('utility_room_meter.utility_reading', building=building_filter, search_room=search_room, page=page, billing_period=billing_period))
                             
                     except Exception as e:
                         db.session.rollback()
@@ -241,26 +251,14 @@ def utility_reading():
                             action=f"批量创建抄表记录 [事务错误: {str(e)}]",
                             result="失败"
                         )
-                        return render_template(
-                            'utility_bill/utility_reading.html',
-                            title=f"抄表登记",
-                            error_message=f"批量保存失败：{str(e)}"
-                        )
+                        flash(f"批量保存失败：{str(e)}", "danger")
+                        return redirect(url_for('utility_room_meter.utility_reading', building=building_filter, search_room=search_room, page=page, billing_period=billing_period))
                         
                 except Exception as e:
                     logging.error(f"处理批量抄表记录提交失败: {str(e)}")
-                    log_operation(
-                        user_id=current_user.id,
-                        module='utility',
-                        operation_type='meter',
-                        action=f"处理批量抄表记录提交 [错误: {str(e)}]",
-                        result="失败"
-                    )
-                    return render_template(
-                        'utility_bill/utility_reading.html',
-                        title=f"抄表登记",
-                        error_message=f"批量处理失败：{str(e)}"
-                    )
+                    
+                    flash(f"批量处理失败：{str(e)}", "danger")
+                    return redirect(url_for('utility_room_meter.utility_reading', building=building_filter, search_room=search_room, page=page, billing_period=billing_period))
             else:
                 # 单个保存处理
                 # 从表单获取数据
@@ -275,70 +273,34 @@ def utility_reading():
                 
                 # 验证必要参数
                 if not room_id:
-                    log_operation(
-                        user_id=current_user.id,
-                        module='utility',
-                        operation_type='meter',
-                        action=f"保存抄表记录 [错误: 未提供房间ID]",
-                        result="失败"
-                    )
+                    
                     logging.error(f"保存抄表记录 [错误: 未提供房间ID]")
-                    return render_template(
-                        'utility_bill/utility_reading.html',
-                        title=f"抄表登记",
-                        error_message="保存失败：未提供房间ID"
-                    )
+                    flash("保存失败：未提供房间ID", "danger")
+                    return redirect(url_for('utility_room_meter.utility_reading', building=building_filter, search_room=search_room, page=page, billing_period=billing_period))
                 
                 # 验证billing_period参数（必填）
                 if not billing_period:
-                    log_operation(
-                        user_id=current_user.id,
-                        module='utility',
-                        operation_type='meter',
-                        action=f"保存抄表记录 [错误: 未提供账期参数]",
-                        result="失败"
-                    )
+                    
                     logging.error(f"保存抄表记录 [错误: 未提供账期参数]")
-                    return render_template(
-                        'utility_bill/utility_reading.html',
-                        title=f"抄表登记",
-                        error_message="保存失败：未提供账期参数（billing_period）"
-                    )
+                    flash("保存失败：未提供账期参数（billing_period）", "danger")
+                    return redirect(url_for('utility_room_meter.utility_reading', building=building_filter, search_room=search_room, page=page, billing_period=billing_period))
                 
                 # 验证billing_period格式（YYYY-MM）
                 try:
                     datetime.strptime(billing_period, '%Y-%m')
                 except ValueError:
-                    log_operation(
-                        user_id=current_user.id,
-                        module='utility',
-                        operation_type='meter',
-                        action=f"保存抄表记录 [错误: 账期格式错误: {billing_period}]",
-                        result="失败"
-                    )
+                    
                     logging.error(f"保存抄表记录 [错误: 账期格式错误: {billing_period}]")
-                    return render_template(
-                        'utility_bill/utility_reading.html',
-                        title=f"抄表登记",
-                        error_message="保存失败：账期格式错误，请使用YYYY-MM格式"
-                    )
+                    flash("保存失败：账期格式错误，请使用YYYY-MM格式", "danger")
+                    return redirect(url_for('utility_room_meter.utility_reading', building=building_filter, search_room=search_room, page=page, billing_period=billing_period))
                 
                 # 验证房间是否存在
                 room = Room.query.get(room_id)
                 if not room:
-                    log_operation(
-                        user_id=current_user.id,
-                        module='utility',
-                        operation_type='meter',
-                        action=f"保存抄表记录 [错误: 房间ID不存在: {room_id}]",
-                        result="失败"
-                    )
+                    
                     logging.error(f"保存抄表记录 [错误: 房间ID不存在: {room_id}]")
-                    return render_template(
-                        'utility_bill/utility_reading.html',
-                        title=f"抄表登记",
-                        error_message=f"保存失败：房间ID {room_id} 不存在"
-                    )
+                    flash(f"保存失败：房间ID {room_id} 不存在", "danger")
+                    return redirect(url_for('utility_room_meter.utility_reading', building=building_filter, search_room=search_room, page=page, billing_period=billing_period))
                 
                 # 处理日期格式
                 reading_date = datetime.now()
@@ -352,19 +314,10 @@ def utility_reading():
                             try:
                                 reading_date = datetime.strptime(reading_date_str, '%Y-%m-%d')
                             except ValueError:
-                                log_operation(
-                                    user_id=current_user.id,
-                                    module='utility',
-                                    operation_type='meter',
-                                    action=f"保存抄表记录 [错误: 日期格式错误]",
-                                    result="失败"
-                                )
+                                
                                 logging.error(f"保存抄表记录 [错误: 日期格式错误]")
-                                return render_template(
-                                    'utility_bill/utility_reading.html',
-                                    title=f"抄表登记",
-                                    error_message="保存失败：日期格式错误，请使用 yyyy-mm-dd 或 yyyy-mm-dd HH:MM 或 yyyy-mm-dd HH:MM:SS"
-                                )
+                                flash("保存失败：日期格式错误，请使用 yyyy-mm-dd 或 yyyy-mm-dd HH:MM 或 yyyy-mm-dd HH:MM:SS", "danger")
+                                return redirect(url_for('utility_room_meter.utility_reading', building=building_filter, search_room=search_room, page=page, billing_period=billing_period))
                 
                 # 转换读数为浮点数（如果有值）
                 water_current_float = float(water_current) if water_current else None
@@ -372,19 +325,10 @@ def utility_reading():
                 
                 # 验证至少有一个读数
                 if water_current_float is None and electric_current_float is None:
-                    log_operation(
-                        user_id=current_user.id,
-                        module='utility',
-                        operation_type='meter',
-                        action=f"保存抄表记录 [错误: 未提供任何读数]",
-                        result="失败"
-                    )
+                    
                     logging.error(f"保存抄表记录 [错误: 未提供任何读数]")
-                    return render_template(
-                        'utility_bill/utility_reading.html',
-                        title=f"抄表登记",
-                        error_message="保存失败：至少需要提供一项水表或电表读数"
-                    )
+                    flash("保存失败：至少需要提供一项水表或电表读数", "danger")
+                    return redirect(url_for('utility_room_meter.utility_reading', building=building_filter, search_room=search_room, page=page, billing_period=billing_period))
                 
                 # 使用事务处理创建记录
                 try:
@@ -422,40 +366,22 @@ def utility_reading():
                         result="成功"
                     )
                     logging.info(f"创建抄表记录 [房间: {room.room_full_identifier}]")
-                    # 重定向回页面，带上成功消息
-                    from flask import redirect, url_for
-                    return redirect(url_for('utility_room_meter.utility_reading', success_message=f"成功保存房间 {room.room_full_identifier} 的抄表记录"))
+                    # 重定向回页面，使用flash消息
+                    flash(f"成功保存房间 {room.room_full_identifier} 的抄表记录", "success")
+                    return redirect(url_for('utility_room_meter.utility_reading', building=building_filter, search_room=search_room, page=page, billing_period=billing_period))
                     
                 except Exception as e:
                     db.session.rollback()
                     logging.error(f"创建抄表记录失败: {str(e)}")
-                    log_operation(
-                        user_id=current_user.id,
-                        module='utility',
-                        operation_type='meter',
-                        action=f"创建抄表记录 [错误: {str(e)}]",
-                        result="失败"
-                    )
-                    return render_template(
-                        'utility_bill/utility_reading.html',
-                        title=f"抄表登记",
-                        error_message=f"保存失败：{str(e)}"
-                    )
+                    
+                    flash(f"保存失败：{str(e)}", "danger")
+                    return redirect(url_for('utility_room_meter.utility_reading', building=building_filter, search_room=search_room, page=page, billing_period=billing_period))
                     
         except Exception as e:
             logging.error(f"处理抄表记录提交失败: {str(e)}")
-            log_operation(
-                user_id=current_user.id,
-                module='utility',
-                operation_type='meter',
-                action=f"处理抄表记录提交 [错误: {str(e)}]",
-                result="失败"
-            )
-            return render_template(
-                'utility_bill/utility_reading.html',
-                title=f"抄表登记",
-                error_message=f"处理失败：{str(e)}"
-            )
+            
+            flash(f"处理失败：{str(e)}", "danger")
+            return redirect(url_for('utility_room_meter.utility_reading', building=building_filter, search_room=search_room, page=page, billing_period=billing_period))
     
     # GET 请求处理
     try:
@@ -472,13 +398,6 @@ def utility_reading():
         building_filter = request.args.get('building', '')
         page = request.args.get('page', 1, type=int)
         per_page = request.args.get('per_page', 10, type=int)
-        success_message = request.args.get('success_message', '')
-        batch_errors_str = request.args.get('batch_errors', '')
-        
-        # 处理批量错误信息
-        batch_errors = []
-        if batch_errors_str:
-            batch_errors = batch_errors_str.split(',')
         
         # 构建房间查询
         room_query = Room.query
@@ -577,8 +496,6 @@ def utility_reading():
             },
             search_room=search_room,
             building_filter=building_filter,
-            success_message=success_message,
-            batch_errors=batch_errors,
             reading_date_time=reading_date_time,
             billing_periods=billing_periods,
             current_billing_period=current_billing_period
@@ -586,25 +503,19 @@ def utility_reading():
         
     except Exception as e:
         logging.error(f"访问抄表登记页面失败: {str(e)}")
-        log_operation(
-            user_id=current_user.id,
-            module='utility',
-            operation_type='records',
-            action=f"访问抄表登记页面 [错误: {str(e)}]",
-            result="失败"
-        )
+        
         # 出现异常时返回基本页面，确保前端能正常显示
 
         current_datetime = datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
         current_billing_period = datetime.now().strftime('%Y-%m')
         
+        flash("加载数据失败，请刷新页面重试", "danger")
         return render_template(
             'utility_bill/utility_reading.html',
             title=f"抄表登记",
             buildings=[],
             rooms=[],
             pagination={'total': 0, 'page': 1, 'per_page': 20, 'pages': 0},
-            error_message="加载数据失败，请刷新页面重试",
             reading_date_time=current_datetime,
             billing_periods=[],
             current_billing_period=current_billing_period
@@ -617,33 +528,98 @@ def utility_reading_manage():
     """抄表记录管理页面"""
     # 从Room模型获取去重后的楼栋数据
     try:
-        # 使用distinct()获取不重复的楼栋名称
         buildings = db.session.query(Room.building).distinct().all()
-        # 提取楼栋名称并排序
         building_list = [building[0] for building in buildings if building[0]]
-        # 智能排序：提取数字部分进行排序
         import re
         building_list.sort(key=lambda x: [int(c) if c.isdigit() else c for c in re.split(r'(\d+)', x)])
-        
-        # 补充查询楼栋成功日志
-        log_operation(
-            user_id=current_user.id,
-            module='utility',
-            operation_type='records',
-            action=f"获取楼栋列表 [共{len(building_list)}个楼栋]",
-            result="成功"
-        )
     except Exception as e:
-        # 处理异常
         logging.error(f"获取楼栋列表失败: {str(e)}")
-        log_operation(
-            user_id=current_user.id,
-            module='utility',
-            operation_type='records',
-            action=f"获取楼栋列表 [错误: {str(e)}]",
-            result="失败"
-        )
         building_list = []
+    
+    # 获取筛选参数
+    billing_period = request.args.get('billing_period', '')
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 20, type=int)
+    search = request.args.get('search', '').strip()
+    reading_type = request.args.get('reading_type', type=int)
+    building = request.args.get('building', '').strip()
+    
+    # 查询账期列表
+    try:
+        periods_raw = db.session.query(RoomUtilityRecord.billing_period).distinct().all()
+        period_list = [p[0] for p in periods_raw if p[0]]
+        period_list.sort(reverse=True)  # 最新的在前
+    except Exception as e:
+        logging.error(f"获取账期列表失败: {str(e)}")
+        period_list = []
+    
+    # 查询抄表记录数据
+    records = []
+    pagination = None
+    
+    if billing_period:
+        try:
+            datetime.strptime(billing_period, '%Y-%m')
+        except ValueError:
+            flash('账期格式错误，请使用YYYY-MM格式', 'error')
+            billing_period = ''
+    
+    if billing_period:
+        try:
+            # 查询主表记录
+            main_records = RoomUtilityRecord.query.filter(
+                RoomUtilityRecord.billing_period == billing_period
+            ).all()
+            
+            if main_records:
+                record_ids = [record.record_id for record in main_records]
+                
+                # 基础查询：连接抄表记录和房间表
+                query = db.session.query(UtilityMeterReading, Room).join(
+                    Room, UtilityMeterReading.room_id == Room.id
+                )
+                
+                # 按主表record_id筛选抄表记录
+                query = query.filter(UtilityMeterReading.record_id.in_(record_ids))
+                
+                # 抄表类型筛选
+                if reading_type is not None:
+                    query = query.filter(UtilityMeterReading.reading_type == reading_type)
+                
+                # 搜索逻辑：只匹配房间号
+                if search:
+                    query = query.filter(Room.room_number == search)
+                
+                # 楼栋筛选
+                if building:
+                    query = query.filter(Room.building == building)
+                
+                # 分页查询
+                pagination = query.order_by(Room.id).paginate(
+                    page=page, per_page=per_page, error_out=False
+                )
+                
+                # 构建record_id到主表billing_period的映射
+                record_period_map = {r.record_id: r.billing_period for r in main_records}
+                
+                for record, room in pagination.items:
+                    prev_record = UtilityMeterReading.query.filter(
+                        UtilityMeterReading.room_id == record.room_id,
+                        UtilityMeterReading.reading_date < record.reading_date,
+                        UtilityMeterReading.reading_type == 1
+                    ).order_by(UtilityMeterReading.reading_date.desc()).first()
+                    
+                    record_dict = record.to_dict()
+                    record_dict['prev_reading'] = prev_record.to_dict() if prev_record else None
+                    record_dict['billing_period'] = record_period_map.get(record.record_id, billing_period)
+                    record_dict['归属_month'] = record_period_map.get(record.record_id, billing_period)
+                    record_dict['room_number'] = room.room_number
+                    record_dict['room_building'] = room.building
+                    record_dict['room_id'] = room.id
+                    records.append(record_dict)
+        except Exception as e:
+            logging.error(f"查询抄表记录失败: {str(e)}\n{traceback.format_exc()}")
+            flash(f'查询抄表记录失败: {str(e)}', 'error')
     
     # 补充页面访问日志
     log_operation(
@@ -653,7 +629,22 @@ def utility_reading_manage():
         action=f"访问抄表记录管理页面",
         result="成功"
     )
-    return render_template('utility_bill/utility_reading_manage.html',title=f"抄表记录管理", buildings=building_list)
+    
+    # 生成页码范围
+    page_range = generate_page_range(page, pagination.pages if pagination else 1)
+    
+    return render_template('utility_bill/utility_reading_manage.html',
+        title="抄表记录管理",
+        buildings=building_list,
+        billing_period=billing_period,
+        periods=period_list,
+        records=records,
+        pagination=pagination,
+        page_range=page_range,
+        search=search,
+        reading_type=reading_type,
+        building=building,
+        per_page=per_page)
 
 # 修复：添加带ID参数的编辑页面路由
 @utility_room_meter_bp.route('/edit/<int:reading_id>', methods=['GET'])
@@ -697,7 +688,7 @@ def get_reading_detail(reading_id):
         }), 500
 
     
-@utility_room_meter_bp.route('/<int:reading_id>', methods=['DELETE'])
+@utility_room_meter_bp.route('/<int:reading_id>/delete', methods=['POST'])
 @login_required
 @require_permission('utility.delete')
 def delete_reading(reading_id):
@@ -714,7 +705,15 @@ def delete_reading(reading_id):
                 action=f"删除抄表记录 [记录ID: {reading_id}, 错误: 记录不存在]",
                 result="失败"
             )
-            return jsonify({'success': False, 'message': f'抄表记录ID不存在: {reading_id}'}), 404
+            flash(f'抄表记录ID不存在: {reading_id}', 'danger')
+            return redirect(url_for('utility_room_meter.utility_reading_manage'))
+        
+        # 获取billing_period用于redirect
+        billing_period = None
+        if reading.record_id:
+            bill_record = RoomUtilityRecord.query.get(reading.record_id)
+            if bill_record:
+                billing_period = bill_record.billing_period
         
         # 获取房间信息用于日志
         room = Room.query.get(reading.room_id)
@@ -733,11 +732,10 @@ def delete_reading(reading_id):
             result="成功"
         )
         
-        return jsonify({
-            'success': True,
-            'message': f'抄表记录 {reading_id} 已成功删除',
-            'data': {'deleted_id': reading_id}
-        })
+        flash(f'抄表记录 {reading_id} 已成功删除', 'success')
+        if billing_period:
+            return redirect(url_for('utility_room_meter.utility_reading_manage', billing_period=billing_period))
+        return redirect(url_for('utility_room_meter.utility_reading_manage'))
         
     except Exception as e:
         logging.error(f"删除抄表记录失败: {str(e)}\n{traceback.format_exc()}")
@@ -750,21 +748,19 @@ def delete_reading(reading_id):
             action=f"删除抄表记录 [记录ID: {reading_id}, 错误: {str(e)}]",
             result="失败"
         )
-        return jsonify({
-            'success': False,
-            'message': "删除抄表记录失败" if not Config.DEBUG else str(e)
-        }), 500
+        flash("删除抄表记录失败" if not Config.DEBUG else str(e), 'danger')
+        return redirect(url_for('utility_room_meter.utility_reading_manage'))
 
-@utility_room_meter_bp.route('/batch-delete', methods=['DELETE'])
+@utility_room_meter_bp.route('/batch-delete', methods=['POST'])
 @login_required
 @require_permission('utility.delete')
 def batch_delete_readings():
     """批量删除抄表记录"""
     try:
-        data = request.json
+        ids = request.form.getlist('ids')
         
         # 验证请求数据
-        if not data or 'ids' not in data or not isinstance(data['ids'], list):
+        if not ids:
             # 补充格式错误日志
             log_operation(
                 user_id=current_user.id,
@@ -773,12 +769,17 @@ def batch_delete_readings():
                 action=f"批量删除抄表记录 [错误: 请求格式错误]",
                 result="失败"
             )
-            return jsonify({
-                'success': False,
-                'message': '请求格式错误，应包含ids数组'
-            }), 400
+            flash('请求格式错误，应包含ids', 'danger')
+            return redirect(url_for('utility_room_meter.utility_reading_manage'))
             
-        if len(data['ids']) == 0:
+        # 将ids转为整数列表
+        try:
+            ids = [int(id_str) for id_str in ids]
+        except (ValueError, TypeError):
+            flash('记录ID格式错误', 'danger')
+            return redirect(url_for('utility_room_meter.utility_reading_manage'))
+            
+        if len(ids) == 0:
             # 补充空ID列表错误日志
             log_operation(
                 user_id=current_user.id,
@@ -787,28 +788,24 @@ def batch_delete_readings():
                 action=f"批量删除抄表记录 [错误: 未提供任何记录ID]",
                 result="失败"
             )
-            return jsonify({
-                'success': False,
-                'message': '请至少选择一条记录进行删除'
-            }), 400
+            flash('请至少选择一条记录进行删除', 'danger')
+            return redirect(url_for('utility_room_meter.utility_reading_manage'))
             
         # 限制最大批量删除数量
-        if len(data['ids']) > 100:
+        if len(ids) > 100:
             # 补充数量超限错误日志
             log_operation(
                 user_id=current_user.id,
                 module='utility',
                 operation_type='delete',
-                action=f"批量删除抄表记录 [错误: 记录数量超限{len(data['ids'])}]",
+                action=f"批量删除抄表记录 [错误: 记录数量超限{len(ids)}]",
                 result="失败"
             )
-            return jsonify({
-                'success': False,
-                'message': f'单次批量删除最多支持100条记录，当前为{len(data["ids"])}条'
-            }), 400
+            flash(f'单次批量删除最多支持100条记录，当前为{len(ids)}条', 'danger')
+            return redirect(url_for('utility_room_meter.utility_reading_manage'))
             
         # 查询所有要删除的记录
-        readings = UtilityMeterReading.query.filter(UtilityMeterReading.id.in_(data['ids'])).all()
+        readings = UtilityMeterReading.query.filter(UtilityMeterReading.id.in_(ids)).all()
         
         if not readings:
             # 补充无匹配记录错误日志
@@ -819,11 +816,16 @@ def batch_delete_readings():
                 action=f"批量删除抄表记录 [错误: 未找到匹配记录]",
                 result="失败"
             )
-            return jsonify({
-                'success': False,
-                'message': '未找到任何匹配的记录'
-            }), 404
+            flash('未找到任何匹配的记录', 'danger')
+            return redirect(url_for('utility_room_meter.utility_reading_manage'))
             
+        # 获取billing_period用于redirect（从第一条记录获取）
+        billing_period = None
+        if readings[0].record_id:
+            bill_record = RoomUtilityRecord.query.get(readings[0].record_id)
+            if bill_record:
+                billing_period = bill_record.billing_period
+        
         # 记录要删除的ID和相关信息用于日志
         deleted_ids = [reading.id for reading in readings]
         room_ids = set([reading.room_id for reading in readings])
@@ -845,14 +847,10 @@ def batch_delete_readings():
             result="成功"
         )
         
-        return jsonify({
-            'success': True,
-            'message': f'成功删除 {len(deleted_ids)} 条抄表记录',
-            'data': {
-                'deleted_ids': deleted_ids,
-                'deleted_count': len(deleted_ids)
-            }
-        })
+        flash(f'成功删除 {len(deleted_ids)} 条抄表记录', 'success')
+        if billing_period:
+            return redirect(url_for('utility_room_meter.utility_reading_manage', billing_period=billing_period))
+        return redirect(url_for('utility_room_meter.utility_reading_manage'))
         
     except Exception as e:
         logging.error(f"批量删除抄表记录失败: {str(e)}\n{traceback.format_exc()}")
@@ -865,13 +863,11 @@ def batch_delete_readings():
             action=f"批量删除抄表记录 [错误: {str(e)}]",
             result="失败"
         )
-        return jsonify({
-            'success': False,
-            'message': "批量删除抄表记录失败" if not Config.DEBUG else str(e)
-        }), 500
+        flash("批量删除抄表记录失败" if not Config.DEBUG else str(e), 'danger')
+        return redirect(url_for('utility_room_meter.utility_reading_manage'))
 
 
-@utility_room_meter_bp.route('/delete-billing-period/<string:year_month>', methods=['DELETE'])
+@utility_room_meter_bp.route('/delete-billing-period/<string:year_month>', methods=['POST'])
 @login_required
 @require_permission('utility.delete')
 def delete_readings_by_month(year_month):
@@ -891,10 +887,8 @@ def delete_readings_by_month(year_month):
                 action=f"按账期删除抄表记录 [错误: 日期格式错误 {year_month}]",
                 result="失败"
             )
-            return jsonify({
-                'success': False,
-                'message': '日期格式错误，请使用YYYY-MM格式'
-            }), 400
+            flash('日期格式错误，请使用YYYY-MM格式', 'danger')
+            return redirect(url_for('utility_room_meter.utility_reading_manage'))
         
         # 通过billing_period查找主表记录，获取record_id列表
         main_records = RoomUtilityRecord.query.filter(
@@ -909,11 +903,8 @@ def delete_readings_by_month(year_month):
                 action=f"按账期删除抄表记录 [账期: {year_month}, 结果: 无主表记录]",
                 result="成功"
             )
-            return jsonify({
-                'success': True,
-                'message': f'账期 {year_month} 内没有找到抄表记录',
-                'data': {'deleted_count': 0}
-            })
+            flash(f'账期 {year_month} 内没有找到抄表记录', 'info')
+            return redirect(url_for('utility_room_meter.utility_reading_manage'))
         
         # 提取主表record_id
         record_ids = [record.record_id for record in main_records]
@@ -931,11 +922,8 @@ def delete_readings_by_month(year_month):
                 action=f"按账期删除抄表记录 [账期: {year_month}, 结果: 无抄表记录]",
                 result="成功"
             )
-            return jsonify({
-                'success': True,
-                'message': f'账期 {year_month} 内没有找到抄表记录',
-                'data': {'deleted_count': 0}
-            })
+            flash(f'账期 {year_month} 内没有找到抄表记录', 'info')
+            return redirect(url_for('utility_room_meter.utility_reading_manage'))
         
         # 收集要删除的记录ID和涉及的房间信息（用于日志）
         deleted_ids = [reading.id for reading in readings]
@@ -957,15 +945,8 @@ def delete_readings_by_month(year_month):
                 result="成功"
             )
             
-            return jsonify({
-                'success': True,
-                'message': f'成功删除账期 {year_month} 内的 {len(deleted_ids)} 条抄表记录',
-                'data': {
-                    'deleted_ids': deleted_ids,
-                    'deleted_count': len(deleted_ids),
-                    'year_month': year_month
-                }
-            })
+            flash(f'成功删除账期 {year_month} 内的 {len(deleted_ids)} 条抄表记录', 'success')
+            return redirect(url_for('utility_room_meter.utility_reading_manage'))
         except Exception as e:
             db.session.rollback()
             logging.error(f"按账期删除抄表记录失败: {str(e)}\n{traceback.format_exc()}")
@@ -976,10 +957,8 @@ def delete_readings_by_month(year_month):
                 action=f"按账期删除抄表记录 [账期: {year_month}, 错误: {str(e)}]",
                 result="失败"
             )
-            return jsonify({
-                'success': False,
-                'message': "删除抄表记录失败" if not Config.DEBUG else str(e)
-            }), 500
+            flash("删除抄表记录失败" if not Config.DEBUG else str(e), 'danger')
+            return redirect(url_for('utility_room_meter.utility_reading_manage'))
             
     except Exception as e:
         logging.error(f"处理按账期删除请求失败: {str(e)}\n{traceback.format_exc()}")
@@ -990,10 +969,8 @@ def delete_readings_by_month(year_month):
             action=f"按账期删除抄表记录 [错误: {str(e)}]",
             result="失败"
         )
-        return jsonify({
-            'success': False,
-            'message': "处理删除请求失败" if not Config.DEBUG else str(e)
-        }), 500
+        flash("处理删除请求失败" if not Config.DEBUG else str(e), 'danger')
+        return redirect(url_for('utility_room_meter.utility_reading_manage'))
 
 
 # 新增：按账期查询抄表记录
@@ -1195,13 +1172,39 @@ def save_edited_reading(reading_id):
                 action=f"编辑抄表记录 [记录ID: {reading_id}, 错误: 记录不存在]",
                 result="失败"
             )
-            return jsonify({'success': False, 'message': f'抄表记录ID不存在: {reading_id}'}), 404
+            flash(f'抄表记录ID不存在: {reading_id}', 'danger')
+            return redirect(url_for('utility_room_meter.utility_reading_edit', reading_id=reading_id))
         
-        data = request.json
+        # 从request.form获取数据
+        data = {}
+        # 获取表单字段
+        reading_date = request.form.get('reading_date', '')
+        billing_period = request.form.get('billing_period', '')
+        water_current = request.form.get('water_current', '')
+        electric_current = request.form.get('electric_current', '')
+        water_meter_replaced = request.form.get('water_meter_replaced', 'false')
+        electric_meter_replaced = request.form.get('electric_meter_replaced', 'false')
+        notes = request.form.get('notes', '')
+        
+        if reading_date:
+            data['reading_date'] = reading_date
+        if water_current:
+            try:
+                data['water_current'] = float(water_current)
+            except ValueError:
+                pass
+        if electric_current:
+            try:
+                data['electric_current'] = float(electric_current)
+            except ValueError:
+                pass
+        data['water_meter_replaced'] = water_meter_replaced in ('true', 'True', '1')
+        data['electric_meter_replaced'] = electric_meter_replaced in ('true', 'True', '1')
+        if notes:
+            data['notes'] = notes
         
         # 处理账期变更：如果提供了billing_period，查找或创建对应的RoomUtilityRecord并更新record_id
-        if 'billing_period' in data and data['billing_period']:
-            billing_period = data.pop('billing_period')
+        if billing_period:
             try:
                 # 查找该房间对应账期的主表记录
                 bill_record = RoomUtilityRecord.get_by_room_and_period(reading.room_id, billing_period)
@@ -1214,7 +1217,8 @@ def save_edited_reading(reading_id):
                     logging.info(f"编辑抄表记录时自动创建账期主表记录: 房间{reading.room_id}, 账期{billing_period}")
             except Exception as e:
                 logging.error(f"处理账期变更失败: {str(e)}")
-                return jsonify({'success': False, 'message': f'账期变更失败: {str(e)}'}), 400
+                flash(f'账期变更失败: {str(e)}', 'danger')
+                return redirect(url_for('utility_room_meter.utility_reading_edit', reading_id=reading_id))
         
         # 验证必要字段
         if 'water_current' not in data and 'electric_current' not in data:
@@ -1226,10 +1230,8 @@ def save_edited_reading(reading_id):
                 action=f"编辑抄表记录 [记录ID: {reading_id}, 错误: 未提供水表或电表读数]",
                 result="失败"
             )
-            return jsonify({
-                'success': False,
-                'message': '至少需要提供一项水表或电表读数'
-            }), 400
+            flash('至少需要提供一项水表或电表读数', 'danger')
+            return redirect(url_for('utility_room_meter.utility_reading_edit', reading_id=reading_id))
         
         # 处理日期格式
         if 'reading_date' in data and data['reading_date']:
@@ -1248,10 +1250,8 @@ def save_edited_reading(reading_id):
                     action=f"编辑抄表记录 [记录ID: {reading_id}, 错误: 日期格式错误]",
                     result="失败"
                 )
-                return jsonify({
-                    'success': False,
-                    'message': '日期格式错误，请使用 yyyy-mm-dd 或 yyyy-mm-dd HH:MM 或 yyyy-mm-dd HH:MM:SS'
-                }), 400
+                flash('日期格式错误，请使用 yyyy-mm-dd 或 yyyy-mm-dd HH:MM 或 yyyy-mm-dd HH:MM:SS', 'danger')
+                return redirect(url_for('utility_room_meter.utility_reading_edit', reading_id=reading_id))
         
         # 调用模型的update方法更新记录
         updated_reading = reading.update(** data)
@@ -1272,11 +1272,8 @@ def save_edited_reading(reading_id):
             result="成功"
         )
         
-        return jsonify({
-            'success': True,
-            'message': f'抄表记录 {reading_id} 更新成功',
-            'data': updated_reading.to_dict()
-        })
+        flash('保存成功', 'success')
+        return redirect(url_for('utility_room_meter.utility_reading_edit', reading_id=reading_id))
         
     except ValueError as e:
         # 补充值错误日志
@@ -1287,7 +1284,8 @@ def save_edited_reading(reading_id):
             action=f"编辑抄表记录 [记录ID: {reading_id}, 错误: {str(e)}]",
             result="失败"
         )
-        return jsonify({'success': False, 'message': str(e)}), 400
+        flash(str(e), 'danger')
+        return redirect(url_for('utility_room_meter.utility_reading_edit', reading_id=reading_id))
     except Exception as e:
         logging.error(f"处理抄表记录编辑失败: {str(e)}\n{traceback.format_exc()}")
         db.session.rollback()
@@ -1299,10 +1297,8 @@ def save_edited_reading(reading_id):
             action=f"编辑抄表记录 [记录ID: {reading_id}, 错误: {str(e)}]",
             result="失败"
         )
-        return jsonify({
-            'success': False,
-            'message': "编辑抄表记录失败" if not Config.DEBUG else str(e)
-        }), 500
+        flash("编辑抄表记录失败" if not Config.DEBUG else str(e), 'danger')
+        return redirect(url_for('utility_room_meter.utility_reading_edit', reading_id=reading_id))
 
 
 

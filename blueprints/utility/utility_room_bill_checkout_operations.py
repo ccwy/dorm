@@ -1,4 +1,4 @@
-from flask import request, jsonify
+from flask import request, jsonify, flash, redirect, url_for
 from utils.db import db
 from models.user.user import User
 from models.room.room import Room
@@ -16,6 +16,7 @@ from .utility_room_bill_checkout import utility_room_bill_checkout_bp  # 导入�
 from models.fee_subsidy.fee_subsidy_usage import FeeSubsidyUsage  # 导入费用补贴使用记录模型
 # 导入权限装饰器
 from utils.auth import require_permission
+from utils.media.room_meter_checkout_photo import room_meter_checkout_photo_manager
 
 @utility_room_bill_checkout_bp.route('/create', methods=['POST'])
 @login_required
@@ -23,31 +24,34 @@ from utils.auth import require_permission
 def create_checkout_record():
     """创建退宿费用记录"""
     try:
-        # 获取请求数据
-        data = request.get_json()
+        # 获取表单数据
+        billing_period = request.form.get('billing_period', '').strip()
         
         # 验证必要参数
-        required_fields = ['user_id', 'room_id', 'checkout_date', 'billing_period']
-        for field in required_fields:
-            if field not in data or not data[field]:
-                return jsonify({
-                    'success': False,
-                    'message': f'缺少必要参数: {field}'
-                }), 400
+        user_id_str = request.form.get('user_id', '')
+        room_id_str = request.form.get('room_id', '')
+        checkout_date_str = request.form.get('checkout_date', '')
+        
+        if not user_id_str or not room_id_str or not checkout_date_str or not billing_period:
+            flash('缺少必要参数: 用户、房间、退宿日期、账期', 'danger')
+            return redirect(url_for('utility_index.utility_room_checkout', billing_period=billing_period))
         
         # 解析参数
-        user_id = data['user_id']
-        room_id = data['room_id']
-        billing_period = str(data['billing_period']).strip()
+        try:
+            user_id = int(user_id_str)
+            room_id = int(room_id_str)
+        except (ValueError, TypeError):
+            flash('用户ID或房间ID格式错误', 'danger')
+            return redirect(url_for('utility_index.utility_room_checkout', billing_period=billing_period))
+        
+        billing_period = str(billing_period).strip()
         
         # 验证账期格式（YYYY-MM）
         try:
             datetime.strptime(billing_period, '%Y-%m')
         except ValueError:
-            return jsonify({
-                'success': False,
-                'message': '账期格式错误，应为YYYY-MM'
-            }), 400
+            flash('账期格式错误，应为YYYY-MM', 'danger')
+            return redirect(url_for('utility_index.utility_room_checkout', billing_period=billing_period))
         
         
         # 解析退宿日期（支持带时间的格式）
@@ -55,7 +59,7 @@ def create_checkout_record():
             # 尝试多种日期时间格式
             for fmt in ['%Y-%m-%d %H:%M:%S', '%Y-%m-%d %H:%M', '%Y-%m-%d']:
                 try:
-                    checkout_date = datetime.strptime(data['checkout_date'], fmt)
+                    checkout_date = datetime.strptime(checkout_date_str, fmt)
                     break
                 except ValueError:
                     continue
@@ -63,63 +67,53 @@ def create_checkout_record():
                 # 如果所有格式都尝试失败
                 raise ValueError("无法解析日期格式")
         except ValueError:
-            return jsonify({
-                'success': False,
-                'message': '退宿日期格式错误，应为YYYY-MM-DD或YYYY-MM-DD HH:MM或YYYY-MM-DD HH:MM:SS'
-            }), 400
+            flash('退宿日期格式错误，应为YYYY-MM-DD或YYYY-MM-DD HH:MM或YYYY-MM-DD HH:MM:SS', 'danger')
+            return redirect(url_for('utility_index.utility_room_checkout', billing_period=billing_period))
         
         # 解析抄表数据（可选）
         electric_reading = None
         water_reading = None
         
-        if 'electric_reading' in data and data['electric_reading'] is not None:
+        electric_reading_str = request.form.get('electric_reading')
+        if electric_reading_str:
             try:
-                electric_reading = Decimal(str(data['electric_reading']))
+                electric_reading = Decimal(electric_reading_str)
             except (InvalidOperation, TypeError):
-                return jsonify({
-                    'success': False,
-                    'message': '电表读数格式错误'
-                }), 400
+                flash('电表读数格式错误', 'danger')
+                return redirect(url_for('utility_index.utility_room_checkout', billing_period=billing_period))
                 
-        if 'water_reading' in data and data['water_reading'] is not None:
+        water_reading_str = request.form.get('water_reading')
+        if water_reading_str:
             try:
-                water_reading = Decimal(str(data['water_reading']))
+                water_reading = Decimal(water_reading_str)
             except (InvalidOperation, TypeError):
-                return jsonify({
-                    'success': False,
-                    'message': '水表读数格式错误'
-                }), 400
+                flash('水表读数格式错误', 'danger')
+                return redirect(url_for('utility_index.utility_room_checkout', billing_period=billing_period))
         
         
 
         # 验证用户和房间是否存在
         user = User.query.get(user_id)
         if not user:
-            return jsonify({
-                'success': False,
-                'message': f'用户ID不存在: {user_id}'
-            }), 404
+            flash(f'用户ID不存在: {user_id}', 'danger')
+            return redirect(url_for('utility_index.utility_room_checkout', billing_period=billing_period))
             
         room = Room.query.get(room_id)
         if not room:
-            return jsonify({
-                'success': False,
-                'message': f'房间ID不存在: {room_id}'
-            }), 404
+            flash(f'房间ID不存在: {room_id}', 'danger')
+            return redirect(url_for('utility_index.utility_room_checkout', billing_period=billing_period))
 
         reading_date = None
-        if data.get('checkout_date'):
+        if checkout_date_str:
             for fmt in ['%Y-%m-%d %H:%M:%S', '%Y-%m-%d %H:%M', '%Y-%m-%d']:
                 try:
-                    reading_date = datetime.strptime(data['checkout_date'], fmt)
+                    reading_date = datetime.strptime(checkout_date_str, fmt)
                     break
                 except ValueError:
                     continue
             if reading_date is None:
-                return jsonify({
-                    'success': False, 
-                    'message': '日期格式错误，请使用 yyyy-mm-dd 或 yyyy-mm-dd HH:MM 或 yyyy-mm-dd HH:MM:SS'
-                }), 400
+                flash('日期格式错误，请使用 yyyy-mm-dd 或 yyyy-mm-dd HH:MM 或 yyyy-mm-dd HH:MM:SS', 'danger')
+                return redirect(url_for('utility_index.utility_room_checkout', billing_period=billing_period))
 
         #如果抄表记录不为空则创建抄表记录
         if (electric_reading or water_reading):
@@ -143,12 +137,7 @@ def create_checkout_record():
             )
 
             # 解析是否计算费用参数（默认为True）
-            calculate_fee = data.get('calculate_fee', True)
-            if not isinstance(calculate_fee, bool):
-                return jsonify({
-                    'success': False,
-                    'message': 'calculate_fee必须是布尔值'
-                 }), 400
+            calculate_fee = request.form.get('calculate_fee', '').lower() in ('true', '1', 'on')
         else:
             calculate_fee = False
             electric_reading = Decimal('0')
@@ -177,6 +166,16 @@ def create_checkout_record():
         )
         
         db.session.commit()
+        
+        # 移动退宿临时照片到正式目录
+        try:
+            if billing_period and room_id and user_id:
+                room_meter_checkout_photo_manager.move_temp_to_billing_period(
+                    room_id, user_id, billing_period
+                )
+        except Exception as move_err:
+            logging.warning(f"移动退宿临时照片失败（不影响退宿费用操作）: {str(move_err)}")
+        
                 # 记录操作日志
         log_operation(
             user_id=current_user.id,
@@ -195,16 +194,8 @@ def create_checkout_record():
         )
 
         # 返回成功响应
-        return jsonify({
-            'success': True,
-            'message': '退宿费用记录创建成功',
-            'data': {
-                'id': checkout_record.id,
-                'record_id': checkout_record.record_id,
-                'total_fee': float(checkout_record.user_billing_total_fee) if checkout_record.user_billing_total_fee else 0,
-                'checkout_status': checkout_record.checkout_status
-            }
-        }), 201
+        flash('退宿费用记录创建成功', 'success')
+        return redirect(url_for('utility_index.utility_room_checkout', billing_period=billing_period))
         
     except Exception as e:
         db.session.rollback()
@@ -222,14 +213,12 @@ def create_checkout_record():
         )
         
         # 返回错误响应
-        return jsonify({
-            'success': False,
-            'message': f'创建退宿费用记录失败: {str(e)}'
-        }), 500
+        billing_period = request.form.get('billing_period', '')
+        flash(f'创建退宿费用记录失败: {str(e)}', 'danger')
+        return redirect(url_for('utility_index.utility_room_checkout', billing_period=billing_period))
 
 @utility_room_bill_checkout_bp.route('/get_latest_readings', methods=['GET'])
 @login_required
-@require_permission('utility.view')
 def get_latest_readings():
     """获取房间最新的水电表抄表记录（用于新增退宿费用时显示上次读数）"""
     try:
@@ -237,9 +226,23 @@ def get_latest_readings():
         if not room_id:
             return jsonify({'success': False, 'message': '缺少房间ID参数'}), 400
 
+        # 解析退宿日期时间锁参数（可选）
+        checkout_date = None
+        checkout_date_str = request.args.get('checkout_date', '').strip()
+        if checkout_date_str:
+            from datetime import datetime
+            for fmt in ('%Y-%m-%d %H:%M:%S', '%Y-%m-%dT%H:%M:%S', '%Y-%m-%d %H:%M', '%Y-%m-%dT%H:%M', '%Y-%m-%d'):
+                try:
+                    checkout_date = datetime.strptime(checkout_date_str, fmt)
+                    break
+                except ValueError:
+                    continue
+            if checkout_date is None:
+                return jsonify({'success': False, 'message': '退宿日期格式无效，应为 YYYY-MM-DD 或 YYYY-MM-DD HH:MM:SS'}), 400
+
         # 使用跨账期查询方法获取最新抄表记录
-        latest_electric = UtilityMeterReading.get_latest_electric_reading(room_id)
-        latest_water = UtilityMeterReading.get_latest_water_reading(room_id)
+        latest_electric = UtilityMeterReading.get_latest_electric_reading(room_id, before_date=checkout_date)
+        latest_water = UtilityMeterReading.get_latest_water_reading(room_id, before_date=checkout_date)
 
         return jsonify({
             'success': True,
@@ -260,10 +263,8 @@ def get_latest_readings():
 def delete_checkout_record():
     """删除单条退宿费用记录，同步删除关联的补贴使用记录并减少主表已结算费用"""
     try:
-        data = request.get_json() or {}
-        
         # 验证必要参数
-        record_id = data.get('id')
+        record_id = request.form.get('id')
         if not record_id:
             log_operation(
                 user_id=current_user.id,
@@ -272,7 +273,8 @@ def delete_checkout_record():
                 action=f"删除退宿费用记录失败，缺少记录ID参数",
                 result="失败"
             )
-            return jsonify({'success': False, 'message': '缺少记录ID参数'}), 400
+            flash('缺少记录ID参数', 'danger')
+            return redirect(url_for('utility_index.utility_room_checkout'))
         
         # 查询记录是否存在
         record = CheckoutUtilityRecord.query.get(record_id)
@@ -284,7 +286,8 @@ def delete_checkout_record():
                 action=f"删除退宿费用记录 [记录ID: {record_id}]失败，未找到退宿记录",
                 result="失败"
             )
-            return jsonify({'success': False, 'message': f'未找到ID为{record_id}的退宿记录'}), 404
+            flash(f'未找到ID为{record_id}的退宿记录', 'danger')
+            return redirect(url_for('utility_index.utility_room_checkout'))
         
         # 从主表获取账期信息
         main_record = RoomUtilityRecord.query.get(record.record_id)
@@ -296,7 +299,8 @@ def delete_checkout_record():
                 action=f"删除退宿费用记录 [记录ID: {record_id}]失败，关联的主表记录不存在",
                 result="失败"
             )
-            return jsonify({'success': False, 'message': f'关联的主表记录不存在'}), 404
+            flash('关联的主表记录不存在', 'danger')
+            return redirect(url_for('utility_index.utility_room_checkout'))
         
         # 关键新增：记录要删除的费用金额，用于从主表中减去
         deleted_electric_fee = record.user_billing_electric_fee or 0
@@ -337,6 +341,7 @@ def delete_checkout_record():
             for usage in subsidy_usages:
                 db.session.delete(usage)
 
+        
         # 执行删除操作
         db.session.delete(record)
         db.session.commit()
@@ -352,18 +357,8 @@ def delete_checkout_record():
             result="成功"
         )
         
-        return jsonify({
-            'success': True,
-            'message': '退宿记录已成功删除',
-            'data': {
-                'deleted_id': record_id,
-                'billing_period': billing_period,
-                'deleted_electric_fee': float(deleted_electric_fee),
-                'deleted_water_fee': float(deleted_water_fee),
-                'deleted_meter_ids': deleted_meter_ids,
-                'deleted_subsidy_ids': deleted_subsidy_ids
-            }
-        })
+        flash('退宿记录已成功删除', 'success')
+        return redirect(url_for('utility_index.utility_room_checkout', billing_period=billing_period))
         
     except Exception as e:
         db.session.rollback()
@@ -375,11 +370,8 @@ def delete_checkout_record():
             action=f"删除退宿记录失败 [记录ID: {record_id if 'record_id' in locals() else ''}]: {str(e)}",
             result="失败"
         )
-        return jsonify({
-            'success': False,
-            'message': '删除退宿记录失败',
-            'error': str(e)
-        }), 500
+        flash('删除退宿记录失败', 'danger')
+        return redirect(url_for('utility_index.utility_room_checkout'))
 
 
 @utility_room_bill_checkout_bp.route('/batch_delete', methods=['POST'])
@@ -388,11 +380,9 @@ def delete_checkout_record():
 def batch_delete_checkout_records():
     """批量删除退宿费用记录，同步删除关联记录并减少主表已结算费用"""
     try:
-        data = request.get_json() or {}
-        
         # 验证必要参数
-        record_ids = data.get('ids', [])
-        if not isinstance(record_ids, list) or len(record_ids) == 0:
+        record_ids = request.form.getlist('ids')
+        if not record_ids or len(record_ids) == 0:
             log_operation(
                 user_id=current_user.id,
                 module="utility",
@@ -400,7 +390,8 @@ def batch_delete_checkout_records():
                 action=f"批量删除退宿费用记录失败，请提供有效的记录ID列表",
                 result="失败"
             )
-            return jsonify({'success': False, 'message': '请提供有效的记录ID列表'}), 400
+            flash('请提供有效的记录ID列表', 'danger')
+            return redirect(url_for('utility_index.utility_room_checkout'))
         
         # 验证所有记录是否存在
         existing_records = CheckoutUtilityRecord.query.filter(
@@ -497,6 +488,7 @@ def batch_delete_checkout_records():
                     for s in user_subsidies:
                         db.session.delete(s)
                 
+                
                 operation_details.append(
                     f"记录ID: {checkout_record.id}, 账期: {billing_period}, "
                     f"用户ID: {user_id}, 房间ID: {room_id}, "
@@ -523,21 +515,13 @@ def batch_delete_checkout_records():
                 result="成功"
             )
         
-        return jsonify({
-            'success': True,
-            'message': f'成功删除{len(valid_records)}条退宿记录',
-            'data': {
-                'deleted_ids': [item['checkout_record'].id for item in valid_records],
-                'billing_periods': list({item['main_record'].billing_period for item in valid_records}),
-                'total_deleted_electric': total_deleted_electric,
-                'total_deleted_water': total_deleted_water,
-                'deleted_meter_ids': deleted_meter_ids,
-                'deleted_subsidy_ids': deleted_subsidy_ids,
-                'not_found_ids': non_existing_ids,
-                'invalid_records': [id for id in existing_ids if id not in [item['checkout_record'].id for item in valid_records]],
-                'total_deleted': len(valid_records)
-            }
-        })
+        # 获取账期用于重定向
+        redirect_period = ''
+        if valid_records:
+            periods = list({item['main_record'].billing_period for item in valid_records})
+            redirect_period = periods[0] if periods else ''
+        flash(f'成功删除{len(valid_records)}条退宿记录', 'success')
+        return redirect(url_for('utility_index.utility_room_checkout', billing_period=redirect_period))
         
     except Exception as e:
         db.session.rollback()
@@ -549,11 +533,8 @@ def batch_delete_checkout_records():
             action=f"批量删除退宿记录失败 [ID列表: {record_ids if 'record_ids' in locals() else ''}]: {str(e)}",
             result="失败"
         )
-        return jsonify({
-            'success': False,
-            'message': '批量删除退宿记录失败',
-            'error': str(e)
-        }), 500
+        flash('批量删除退宿记录失败', 'danger')
+        return redirect(url_for('utility_index.utility_room_checkout'))
 
 
 @utility_room_bill_checkout_bp.route('/delete_period', methods=['POST'])
@@ -562,10 +543,8 @@ def batch_delete_checkout_records():
 def delete_period_records():
     """删除指定账期的所有退宿费用记录，同步更新主表已结算费用"""
     try:
-        data = request.get_json() or {}
-        
         # 验证必要参数
-        billing_period = str(data.get('billing_period', '')).strip()
+        billing_period = request.form.get('billing_period', '').strip()
         if not billing_period:
             log_operation(
                 user_id=current_user.id,
@@ -574,7 +553,8 @@ def delete_period_records():
                 action=f"删除账期退宿记录失败，缺少账期参数",
                 result="失败"
             )
-            return jsonify({'success': False, 'message': '缺少账期参数'}), 400
+            flash('缺少账期参数', 'danger')
+            return redirect(url_for('utility_index.utility_room_checkout'))
         
         # 验证账期格式
         try:
@@ -587,10 +567,8 @@ def delete_period_records():
                 action=f"删除账期退宿记录 [账期: {billing_period}]失败，账期格式错误",
                 result="失败"
             )
-            return jsonify({
-                'success': False, 
-                'message': '账期格式错误，应为YYYY-MM'
-            }), 400
+            flash('账期格式错误，应为YYYY-MM', 'danger')
+            return redirect(url_for('utility_index.utility_room_checkout', billing_period=billing_period))
         
         # 查询该账期下的所有主表记录
         main_records = RoomUtilityRecord.query.filter(
@@ -605,10 +583,8 @@ def delete_period_records():
                 action=f"删除账期退宿记录 [账期: {billing_period}]失败，未找到{format_period(billing_period)}的任何账单记录",
                 result="失败"
             )
-            return jsonify({
-                'success': False, 
-                'message': f'未找到{format_period(billing_period)}的任何账单记录'
-            }), 404
+            flash(f'未找到{format_period(billing_period)}的任何账单记录', 'danger')
+            return redirect(url_for('utility_index.utility_room_checkout', billing_period=billing_period))
         
         # 获取所有相关的退宿记录ID
         main_record_ids = [record.record_id for record in main_records]
@@ -624,10 +600,8 @@ def delete_period_records():
                 action=f"删除账期退宿记录 [账期: {billing_period}]失败，{format_period(billing_period)}没有退宿费用记录",
                 result="失败"
             )
-            return jsonify({
-                'success': False, 
-                'message': f'{format_period(billing_period)}没有退宿费用记录'
-            }), 404
+            flash(f'{format_period(billing_period)}没有退宿费用记录', 'danger')
+            return redirect(url_for('utility_index.utility_room_checkout', billing_period=billing_period))
         
         # 保存用于日志的信息
         record_ids = [record.id for record in checkout_records]
@@ -685,7 +659,8 @@ def delete_period_records():
                 deleted_subsidy_ids.extend([usage.id for usage in subsidy_usages])
                 for usage in subsidy_usages:
                     db.session.delete(usage)
-        
+            
+            
         # 执行删除操作
         CheckoutUtilityRecord.query.filter(
             CheckoutUtilityRecord.record_id.in_(main_record_ids)
@@ -704,19 +679,8 @@ def delete_period_records():
             result="成功"
         )
         
-        return jsonify({
-            'success': True,
-            'message': f'已成功删除{format_period(billing_period)}的所有退宿费用记录',
-            'data': {
-                'billing_period': billing_period,
-                'deleted_count': len(record_ids),
-                'total_deleted_electric': total_deleted_electric,
-                'total_deleted_water': total_deleted_water,
-                'deleted_meter_ids': deleted_meter_ids,
-                'deleted_subsidy_ids': deleted_subsidy_ids,
-                'deleted_ids': record_ids
-            }
-        })
+        flash(f'已成功删除{format_period(billing_period)}的所有退宿费用记录', 'success')
+        return redirect(url_for('utility_index.utility_room_checkout', billing_period=billing_period))
         
     except Exception as e:
         db.session.rollback()
@@ -728,11 +692,8 @@ def delete_period_records():
             action=f"删除账期记录失败 [账期: {billing_period if 'billing_period' in locals() else ''}]: {str(e)}",
             result="失败"
         )
-        return jsonify({
-            'success': False,
-            'message': '删除账期记录失败',
-            'error': str(e)
-        }), 500
+        flash('删除账期记录失败', 'danger')
+        return redirect(url_for('utility_index.utility_room_checkout'))
 
 # 辅助函数：格式化账期显示
 def format_period(period):

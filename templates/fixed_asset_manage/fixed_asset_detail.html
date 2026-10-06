@@ -401,16 +401,18 @@
                     <div class="grid grid-cols-2 gap-3" id="photoGrid">
                         {% for file in media_files %}
                         <div class="relative group" id="photo-{{ file.filename }}">
-                            <div class="aspect-square rounded-lg overflow-hidden border border-gray-200 bg-gray-50 flex items-center justify-center">
+                            <div class="aspect-square rounded-lg overflow-hidden border border-gray-200 bg-gray-50 flex items-center justify-center relative">
                                 {% if file.type == 'image' %}
                                 <img src="{{ url_for('fixed_asset_api.get_asset_media', asset_id=asset.id, filename=file.filename) }}" 
                                      alt="{{ file.filename }}" class="w-full h-full object-cover cursor-pointer" 
                                      onclick="openImageModal('{{ url_for('fixed_asset_api.get_asset_media', asset_id=asset.id, filename=file.filename) }}')">
                                 {% elif file.type == 'video' %}
-                                <div class="w-full h-full flex flex-col items-center justify-center bg-gray-800 text-white cursor-pointer" 
+                                <video class="w-full h-full object-cover" poster="" preload="metadata">
+                                    <source src="{{ url_for('fixed_asset_api.get_asset_media', asset_id=asset.id, filename=file.filename) }}" type="video/mp4">
+                                </video>
+                                <div class="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30 cursor-pointer z-0"
                                      onclick="openVideoModal('{{ url_for('fixed_asset_api.get_asset_media', asset_id=asset.id, filename=file.filename) }}')">
-                                    <i class="fa fa-play-circle text-3xl"></i>
-                                    <span class="text-xs mt-1">视频</span>
+                                    <i class="fa fa-play-circle text-white text-4xl opacity-80"></i>
                                 </div>
                                 {% elif file.type == 'document' %}
                                 <a href="{{ url_for('fixed_asset_api.get_asset_media', asset_id=asset.id, filename=file.filename) }}" target="_blank" class="w-full h-full flex flex-col items-center justify-center bg-blue-50 text-blue-600 no-underline">
@@ -450,7 +452,17 @@
                             </div>
                         </div>
                     </div>
-                    <input type="file" id="photoUpload" multiple class="hidden" onchange="uploadPhotos()">
+                    <input type="file" id="photoUpload" multiple accept="image/*,video/*" class="hidden" onchange="uploadPhotos()">
+                    <!-- 上传进度条 -->
+                    <div id="uploadProgressContainer" class="hidden bg-white rounded-lg shadow-sm p-4 mt-3">
+                        <div class="flex items-center justify-between mb-2">
+                            <span id="uploadStatusText" class="text-sm font-medium text-gray-700">上传中...</span>
+                            <span id="uploadProgressPercentage" class="text-sm text-gray-500">0%</span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-2">
+                            <div id="uploadProgressBar" class="bg-green-500 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+                        </div>
+                    </div>
                     <p class="text-xs text-gray-500 mt-2"><i class="fa fa-info-circle mr-1"></i>支持图片、视频、PDF及文档格式</p>
                 </div>
             </div>
@@ -492,41 +504,89 @@
             }
         }
 
-        // 文件上传
+        // 文件上传（XHR支持进度）
         async function uploadPhotos() {
             const input = document.getElementById('photoUpload');
             const files = input.files;
             if (!files.length) return;
 
+            const progressContainer = document.getElementById('uploadProgressContainer');
+            const progressBar = document.getElementById('uploadProgressBar');
+            const progressPercentage = document.getElementById('uploadProgressPercentage');
+            const statusText = document.getElementById('uploadStatusText');
+
+            progressContainer.classList.remove('hidden');
+            progressBar.style.width = '0%';
+            progressPercentage.textContent = '0%';
+            input.disabled = true;
+
             let successCount = 0;
             let failCount = 0;
 
             for (let i = 0; i < files.length; i++) {
-                
+                const file = files[i];
+                statusText.textContent = '正在上传 ' + file.name + ' (' + (i+1) + '/' + files.length + ')';
 
                 const formData = new FormData();
-                formData.append('photo', files[i]);
+                formData.append('photo', file);
 
                 try {
-                    const response = await fetch('{{ url_for("fixed_asset_api.upload_photo", asset_id=asset.id) }}', {
-                        method: 'POST',
-                        body: formData
+                    const xhr = new XMLHttpRequest();
+                    xhr.upload.addEventListener('progress', function(e) {
+                        if (e.lengthComputable) {
+                            const progress = Math.round((e.loaded / e.total) * 100);
+                            progressBar.style.width = progress + '%';
+                            progressPercentage.textContent = progress + '%';
+                        }
                     });
-                    const data = await response.json();
-                    if (data.success) {
-                        successCount++;
-                    } else {
-                        alert('上传失败: ' + (data.message || '未知错误'));
-                        failCount++;
-                    }
+
+                    await new Promise(function(resolve, reject) {
+                        xhr.onload = function() {
+                            if (xhr.status >= 200 && xhr.status < 300) {
+                                try {
+                                    const data = JSON.parse(xhr.responseText);
+                                    if (data.success) {
+                                        resolve(data);
+                                    } else {
+                                        reject(new Error(data.message || '上传失败'));
+                                    }
+                                } catch(e) {
+                                    reject(new Error('服务器返回格式异常'));
+                                }
+                            } else {
+                                reject(new Error('上传失败: ' + xhr.statusText));
+                            }
+                        };
+                        xhr.onerror = function() { reject(new Error('上传过程中发生网络错误')); };
+                        xhr.open('POST', '{{ url_for("fixed_asset_api.upload_photo", asset_id=asset.id) }}');
+                        xhr.send(formData);
+                    });
+
+                    successCount++;
                 } catch (error) {
-                    alert('上传出错: ' + error.message);
+                    alert(file.name + ': ' + (error.message || '上传失败'));
                     failCount++;
                 }
             }
 
+            input.disabled = false;
+            input.value = '';
+
+            if (failCount === 0) {
+                statusText.textContent = '上传完成';
+            } else if (failCount === files.length) {
+                statusText.textContent = '全部上传失败（' + failCount + '/' + files.length + '）';
+            } else {
+                statusText.textContent = '上传完成，' + failCount + '个文件失败';
+            }
+
             if (successCount > 0) {
-                location.reload();
+                setTimeout(function() {
+                    progressContainer.classList.add('hidden');
+                    location.reload();
+                }, 800);
+            } else {
+                setTimeout(function() { progressContainer.classList.add('hidden'); }, 1500);
             }
         }
 
@@ -578,8 +638,15 @@
             const modalVideoSource = document.getElementById('modalVideoSource');
             const closeModalBtn = modal.querySelector('.closeModalBtn');
 
-            // 设置视频URL
+            // 设置视频URL和MIME类型
             modalVideoSource.src = videoUrl;
+            var ext = videoUrl.split('.').pop().toLowerCase();
+            var mimeMap = {
+                'mp4': 'video/mp4', 'webm': 'video/webm', 'ogg': 'video/ogg',
+                'mov': 'video/quicktime', 'avi': 'video/x-msvideo', 'mkv': 'video/x-matroska',
+                'wmv': 'video/x-ms-wmv', 'flv': 'video/x-flv'
+            };
+            modalVideoSource.type = mimeMap[ext] || 'video/mp4';
             modalVideo.load();
             
             // 显示模态框

@@ -71,6 +71,7 @@
   
   <!-- 主内容区 -->
   <main class="flex-grow container container mx-auto px-4 py-6">
+    
     <!-- 页面标题 -->
     
     <div class="mb-6 fade-in">
@@ -85,18 +86,26 @@
           </div>
           
           <div class="flex flex-wrap justify-center items-center gap-2">
-            <button onclick="window.location.href='{{ url_for('utility_index.utility_calculate_fees') }}'" class="bg-primary text-white px-5 py-2 rounded-md flex items-center btn-effect hover:bg-primary/90 transition-colors flex-shrink-0 justify-center">
-              房间费用
+            <button onclick="window.location.href='{{ url_for('utility_index.utility_room_records_bill') }}'" class="bg-primary text-white px-5 py-2 rounded-md flex items-center btn-effect hover:bg-primary/90 transition-colors flex-shrink-0 justify-center">
+              <i class="fa fa-building mr-2"></i>房间费用
             </button>
-            <button onclick="window.location.href='{{ url_for('utility_index.utility_occupant_manage') }}'" class="bg-primary text-white px-5 py-2 rounded-md flex items-center btn-effect hover:bg-primary/90 transition-colors flex-shrink-0 justify-center">
-              用户费用
+            <button onclick="window.location.href='{{ url_for('utility_index.utility_occupant_manage') }}'" class="bg-indigo-600 text-white px-5 py-2 rounded-md flex items-center btn-effect hover:bg-indigo-600/90 transition-colors flex-shrink-0 justify-center">
+              <i class="fa fa-users mr-2"></i>用户费用
             </button>
-            <button onclick="window.location.href='{{ url_for('utility_user_records_detail.user_records_detail') }}'" class="bg-primary text-white px-5 py-2 rounded-md flex items-center btn-effect hover:bg-primary/90 transition-colors flex-shrink-0 justify-center">
-              费用查询
+            <button onclick="window.location.href='{{ url_for('utility_user_records.user_records') }}'" class="bg-teal-600 text-white px-5 py-2 rounded-md flex items-center btn-effect hover:bg-teal-600/90 transition-colors flex-shrink-0 justify-center">
+              <i class="fa fa-search mr-2"></i>费用查询
             </button>
-            <button onclick="window.location.href='{{ url_for('utility_room_meter.utility_reading_manage') }}'" class="bg-primary text-white px-5 py-2 rounded-md flex items-center btn-effect hover:bg-primary/90 transition-colors flex-shrink-0 justify-center">
-              抄表记录
+            <button onclick="window.location.href='{{ url_for('utility_room_meter.utility_reading_manage') }}'" class="bg-amber-600 text-white px-5 py-2 rounded-md flex items-center btn-effect hover:bg-amber-600/90 transition-colors flex-shrink-0 justify-center">
+              <i class="fa fa-book mr-2"></i>抄表记录
             </button>
+            <button type="button" id="refreshBtn" class="bg-green-600 text-white px-5 py-2 rounded-md flex items-center btn-effect hover:bg-green-600/90 transition-colors flex-shrink-0 justify-center">
+              <i class="fa fa-refresh mr-2"></i>刷新
+            </button>
+            {% if current_user.has_permission('utility.export') %}
+            <button type="button" id="exportBtn" class="bg-cyan-600 text-white px-5 py-2 rounded-md flex items-center btn-effect hover:bg-cyan-600/90 transition-colors flex-shrink-0 justify-center">
+              <i class="fa fa-download mr-2"></i>导出
+            </button>
+            {% endif %}
           </div>
         </div>
     
@@ -106,7 +115,19 @@
           </div>
         </div>
     </div>
-    
+    <!-- 消息提示区域 -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    <div class="flash-messages mb-6">
+        {% for category, message in messages %}
+        <div class="p-4 rounded-md mb-2 {% if category == 'success' %}bg-green-100 text-green-800{% elif category == 'error' or category == 'danger' %}bg-red-100 text-red-800{% elif category == 'warning' %}bg-yellow-100 text-yellow-800{% else %}bg-blue-100 text-blue-800{% endif %}">
+            <button type="button" class="float-right ml-2 text-gray-500 hover:text-gray-700" onclick="this.parentElement.remove()">×</button>
+            {{ message | safe }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+{% endwith %}
     <!-- 筛选卡片 -->
     <div class="bg-white rounded-lg card-shadow p-5 mb-6 transition-all duration-300">
       <form id="filterForm" class="space-y-4">
@@ -114,8 +135,8 @@
           // 阻止表单默认提交行为，防止回车刷新页面
           document.getElementById('filterForm').addEventListener('submit', function(e) {
             e.preventDefault();
-            // 触发搜索按钮点击事件
-            document.getElementById('searchBtn').click();
+            // 触发搜索
+            if (typeof performSearch === 'function') performSearch();
           });
         </script>
         <!-- 使用flex布局确保垂直对齐 -->
@@ -124,7 +145,7 @@
           <div class="filter-item md:w-1/6 w-full">
             <label for="accountPeriod" class="block text-sm font-medium text-gray-600 mb-1">账期</label>
             <select id="accountPeriod" class="filter-control w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all">
-              <option value="">全部账期</option>
+              <option value="">请选择账期</option>
               <!-- 这里将通过JavaScript动态填充账期选项 -->
               <option value="loading">加载中...</option>
             </select>
@@ -164,16 +185,6 @@
           
           <!-- 按钮组 -->
           <div class="flex flex-wrap gap-2 md:w-4/6 justify-start">
-            <button type="button" id="searchBtn" class="px-4 py-2 bg-primary text-white rounded-md flex items-center space-x-1 btn-hover text-sm">
-              <i class="fa fa-search"></i>
-              <span>搜索</span>
-            </button>
-            
-            <button type="button" id="refreshBtn" class="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-md flex items-center space-x-1 btn-hover text-sm">
-              <i class="fa fa-refresh"></i>
-              <span>刷新</span>
-            </button>
-            
             <button type="button" id="deletePeriodBtn" class="px-4 py-2 bg-danger text-white rounded-md flex items-center space-x-1 btn-hover text-sm">
               <i class="fa fa-trash"></i>
               <span>删除当前账期</span>
@@ -184,14 +195,6 @@
               <i class="fa fa-trash-o"></i>
               <span>批量删除</span>
             </button>
-            
-            <!-- 导出按钮 -->
-            {% if current_user.has_permission('utility.export') %}
-            <button type="button" id="exportBtn" class="px-4 py-2 bg-success text-white rounded-md flex items-center space-x-1 btn-hover text-sm">
-              <i class="fa fa-download"></i>
-              <span>导出</span>
-            </button>
-            {% endif %}
           </div>
         </div>
         
@@ -217,11 +220,11 @@
               <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">姓名/房间号</th>
               <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">部门</th>
               <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">退宿日期</th>
-              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">电费</th>
-              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">水费</th>
-              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">总费用</th>
+              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">计费电费</th>
+              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">计费水费</th>
+              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">计费总费用</th>
               <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">减免费用</th>
-              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">个人应付</th>
+              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">实际应付</th>
               <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
             </tr>
           </thead>
@@ -303,10 +306,11 @@
       <div class="px-6 py-4 border-b border-gray-200">
         <h3 class="text-lg font-semibold text-gray-700">新增退宿费用记录</h3>
       </div>
+      <form id="createForm" action="/utility_room_bill_checkout/create" method="POST">
       <div class="p-6">
-        <input type="hidden" id="createUserId">
-        <input type="hidden" id="createRoomId">
-        <input type="hidden" id="createCheckoutDate">
+        <input type="hidden" id="createUserId" name="user_id">
+        <input type="hidden" id="createRoomId" name="room_id">
+        <input type="hidden" id="createCheckoutDate" name="checkout_date">
         
         <div class="mb-4">
           <label id="createUserName" class="block text-sm font-medium text-gray-700 mb-1"></label>
@@ -315,44 +319,58 @@
         
         <div class="mb-4">
           <label for="createBillingPeriod" class="block text-sm font-medium text-gray-700 mb-1">账期 <span class="text-red-500">*</span></label>
-          <select id="createBillingPeriod" required
+          <select id="createBillingPeriod" name="billing_period" required
                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all">
             <option value="">请选择账期</option>
           </select>
+          <span id="create_billing_period_status" class="ml-2 text-sm"></span>
           <p class="text-xs text-gray-500 mt-1">选择本次退宿费用所属的账期</p>
         </div>
         
         <div class="mb-4">
           <label for="electricReading" class="block text-sm font-medium text-gray-700 mb-1">电表读数 (kWh)</label>
-          <input type="number" step="0.01" min="0" id="electricReading" 
+          <input type="number" step="0.01" min="0" id="electricReading" name="electric_reading"
                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all">
           <p id="electricPreviousInfo" class="text-xs text-gray-400 mt-1 hidden">上次: <span id="electricPreviousValue">-</span> kWh<span id="electricPreviousDate"></span></p>
         </div>
         
         <div class="mb-4">
           <label for="waterReading" class="block text-sm font-medium text-gray-700 mb-1">水表读数 (m³)</label>
-          <input type="number" step="0.01" min="0" id="waterReading" 
+          <input type="number" step="0.01" min="0" id="waterReading" name="water_reading"
                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all">
           <p id="waterPreviousInfo" class="text-xs text-gray-400 mt-1 hidden">上次: <span id="waterPreviousValue">-</span> m³<span id="waterPreviousDate"></span></p>
         </div>
         
         <div class="mb-2">
           <label class="flex items-center">
-            <input type="checkbox" id="calculateFee" class="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded" checked>
+            <input type="checkbox" id="calculateFee" name="calculate_fee" class="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded" checked>
             <span class="ml-2 text-sm text-gray-700">自动计算费用</span>
           </label>
         </div>
       </div>
       <div class="px-6 py-4 bg-gray-50 flex justify-end space-x-3">
-        <button id="cancelCreateBtn" class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors">
+        <button type="button" id="cancelCreateBtn" class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors">
           取消
         </button>
-        <button id="confirmCreateBtn" class="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90 transition-colors">
+        <button type="button" id="confirmCreateBtn" class="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90 transition-colors">
           确认创建
         </button>
       </div>
+      </form>
     </div>
   </div>
+
+  <!-- 隐藏表单用于删除操作 -->
+  <form id="deleteForm" action="/utility_room_bill_checkout/delete" method="POST" style="display:none;">
+    <input type="hidden" name="id" value="">
+    <input type="hidden" name="billing_period" value="">
+  </form>
+  <form id="batchDeleteForm" action="/utility_room_bill_checkout/batch_delete" method="POST" style="display:none;">
+    <input type="hidden" name="billing_period" value="">
+  </form>
+  <form id="deletePeriodForm" action="/utility_room_bill_checkout/delete_period" method="POST" style="display:none;">
+    <input type="hidden" name="billing_period" value="">
+  </form>
 
   <!-- 操作成功提示 -->
   <div id="successToast" class="fixed top-4 right-4 bg-success text-white px-4 py-3 rounded-md shadow-lg transform translate-x-full transition-transform duration-300 flex items-center z-50">
@@ -379,10 +397,10 @@
       // 权限标志
       const canEdit = {{ 'true' if current_user.has_permission('utility.edit') else 'false' }};
       const canDelete = {{ 'true' if current_user.has_permission('utility.delete') else 'false' }};
-      const searchBtn = document.getElementById('searchBtn');
       const departmentSelect = document.getElementById('department');
       const buildingSelect = document.getElementById('building');
       const searchInput = document.getElementById('searchInput');
+      const exportBtn = document.getElementById('exportBtn');
       
       // 新增记录模态框相关元素
       const createUserIdInput = document.getElementById('createUserId');
@@ -395,7 +413,45 @@
       const waterReadingInput = document.getElementById('waterReading');
       const calculateFeeCheckbox = document.getElementById('calculateFee');
       
-      // 分页相关元素
+      // 加载账期状态（创建退宿费用弹窗）
+      function loadCreateBillingPeriodStatus(period) {
+          const statusEl = document.getElementById('create_billing_period_status');
+          if (!period || !statusEl) {
+              if (statusEl) statusEl.innerHTML = '';
+              return;
+          }
+          let url = '/utility_room_bill_records_bp/period-info/' + encodeURIComponent(period);
+          const roomId = createRoomIdInput.value;
+          if (roomId) {
+              url += '?room_id=' + roomId;
+          }
+          fetch(url)
+              .then(response => response.json())
+              .then(data => {
+                  if (data && data.success && data.data && data.data.room_status) {
+                      const statusMap = {
+                          'pending': { icon: 'fa fa-exclamation-circle', color: 'text-orange-500', text: '待核算' },
+                          'processing': { icon: 'fa fa-info-circle', color: 'text-blue-500', text: '核算中' },
+                          'completed': { icon: 'fa fa-check-circle', color: 'text-green-600', text: '已完成' },
+                           'calculated': { icon: 'fa fa-check-circle', color: 'text-indigo-500', text: '已核算' }
+                      };
+                      const s = statusMap[data.data.room_status] || statusMap['pending'];
+                      statusEl.innerHTML = '<i class="' + s.icon + ' mr-1"></i>' + s.text;
+                      statusEl.className = 'ml-2 text-sm ' + s.color;
+                  } else {
+                      statusEl.innerHTML = '';
+                  }
+              })
+              .catch(function() {
+                  statusEl.innerHTML = '';
+              });
+      }
+      
+      // 监听创建弹窗账期选择变化
+      createBillingPeriodSelect.addEventListener('change', function() {
+          loadCreateBillingPeriodStatus(this.value);
+      });
+            // 分页相关元素
       const prevPageBtn = document.getElementById('prevPage');
       const nextPageBtn = document.getElementById('nextPage');
       const currentPageEl = document.getElementById('currentPage');
@@ -415,11 +471,11 @@
       pageSizeSelect.addEventListener('change', function() {
         pageSize = parseInt(this.value);
         currentPage = 1; // 重置为第一页
-        searchBtn.click(); // 重新调用搜索接口获取新一页数据
+        performSearch(); // 重新调用搜索接口获取新一页数据
       });
       
       // 当前选中的账期
-      let currentBillPeriod = '';
+      let currentBillPeriod = '{{ billing_period|default("") }}';
       let allResidentsData = []; // 存储所有符合条件的记录
       // 存储子表ID与主表记录的映射关系
       let subRecordIdMap = new Map();
@@ -429,24 +485,32 @@
         currentBillPeriod = this.value;
         // 只有选择了具体账期才自动查询
         if (this.value) {
-          searchBtn.click();
+                    performSearch();
         }
       });
       
       // 部门选择变化时自动查询
       departmentSelect.addEventListener('change', function() {
-        searchBtn.click();
+                performSearch();
       });
       
       // 楼栋选择变化时自动查询
       buildingSelect.addEventListener('change', function() {
-        searchBtn.click();
+                performSearch();
       });
       
-      // 为搜索框添加回车键触发搜索功能
+      // 搜索框防抖自动搜索 + 回车搜索
+      let searchDebounceTimer = null;
+      searchInput.addEventListener('input', function() {
+        clearTimeout(searchDebounceTimer);
+        searchDebounceTimer = setTimeout(function() {
+          performSearch();
+        }, 300);
+      });
       searchInput.addEventListener('keyup', function(event) {
         if (event.key === 'Enter') {
-          searchBtn.click();
+          clearTimeout(searchDebounceTimer);
+          performSearch();
         }
       });
       
@@ -494,12 +558,18 @@
                 createBillingPeriodSelect.appendChild(option);
               });
               
-              // 设置默认选中第一个账期
+              // 设置默认选中账期
               if (data.periods.length > 0) {
-                accountPeriodSelect.value = data.periods[0];
-                currentBillPeriod = data.periods[0];
+                // 如果URL参数指定了账期且该账期存在，则选中该账期
+                if (currentBillPeriod && data.periods.includes(currentBillPeriod)) {
+                  accountPeriodSelect.value = currentBillPeriod;
+                } else {
+                  // 否则选中第一个账期
+                  accountPeriodSelect.value = data.periods[0];
+                  currentBillPeriod = data.periods[0];
+                }
                 // 自动触发搜索
-                searchBtn.click();
+                performSearch();
               }
             } else {
               throw new Error('账期数据格式不正确');
@@ -563,8 +633,8 @@
         return { type: 'name', confidence: 50 };
       }
       
-      // 筛选按钮事件
-      searchBtn.addEventListener('click', function() {
+      // 搜索函数
+      function performSearch() {
         // 重置为第一页
         currentPage = 1;
         // 清空ID映射表
@@ -684,7 +754,7 @@
                     <div class="flex flex-col items-center">
                       <i class="fa fa-exclamation-circle text-3xl mb-2 text-danger"></i>
                       <p>查询失败: ${error.message}</p>
-                      <button onclick="document.getElementById('searchBtn').click()" class="mt-2 text-primary hover:underline">
+                      <button onclick="performSearch()" class="mt-2 text-primary hover:underline">
                         重试
                       </button>
                     </div>
@@ -692,7 +762,7 @@
                 </tr>
           `;
         });
-      });
+      }
       // 渲染当前页数据 - 修复排序问题的核心函数
       function renderCurrentPageData() {
         // 清空表格
@@ -1077,7 +1147,7 @@
         prevPageBtn.addEventListener('click', () => {
           if (currentPage > 1) {
             currentPage--;
-            searchBtn.click(); // 重新调用搜索接口获取新一页数据
+                        performSearch(); // 重新调用搜索接口获取新一页数据
           }
         });
         
@@ -1085,7 +1155,7 @@
         nextPageBtn.addEventListener('click', () => {
           if (currentPage < totalPages) {
             currentPage++;
-            searchBtn.click(); // 重新调用搜索接口获取新一页数据
+                        performSearch(); // 重新调用搜索接口获取新一页数据
           }
         });
       
@@ -1122,44 +1192,10 @@
         }
         
         if (confirm(`您确定要删除 ${formatPeriod(selectedPeriod)} 的所有数据吗？此操作不可撤销。`)) {
-          // 调用删除账期的API
-          fetch('/utility_room_bill_checkout/delete_period', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ billing_period: selectedPeriod })
-          })
-          .then(response => {
-            if (!response.ok) {
-              throw new Error('删除账期失败');
-            }
-            return response.json();
-          })
-          .then(data => {
-            if (data.success) {
-              document.getElementById('accountPeriod').value = '';
-              residentsTableBody.innerHTML = `
-                <tr class="text-center">
-                  <td colspan="11" class="px-6 py-10 text-gray-500">
-                    <div class="flex flex-col items-center">
-                      <i class="fa fa-search text-3xl mb-2 text-gray-300"></i>
-                      <p>请选择账期并点击搜索查询退宿人员费用信息</p>
-                    </div>
-                  </td>
-                </tr>
-              `;
-              // 重新加载账期列表
-              loadPeriods();
-              showSuccessToast(`已成功删除 ${formatPeriod(selectedPeriod)} 的所有数据`);
-            } else {
-              throw new Error(data.message || '删除账期失败');
-            }
-          })
-          .catch(error => {
-            console.error('删除账期失败:', error);
-            showSuccessToast(`删除失败: ${error.message}`, false);
-          });
+          // 通过表单提交删除账期
+          const form = document.getElementById('deletePeriodForm');
+          form.querySelector('input[name="billing_period"]').value = selectedPeriod;
+          form.submit();
         }
       });
       
@@ -1175,80 +1211,20 @@
           return;
         }
         
-        // 智能判断搜索类型
-        const { type: searchType } = determineSearchType(searchText);
-        
         // 显示加载状态
         this.disabled = true;
         this.innerHTML = '<i class="fa fa-circle-o-notch fa-spin"></i><span>导出中...</span>';
         
-        // 构建导出参数
-        const exportParams = {
-          billing_period: selectedPeriod,
-          department: department
-        };
-        
-        // 根据判断结果设置搜索参数
+        // 构建导出URL参数
+        const params = new URLSearchParams();
+        params.append('billing_period', selectedPeriod);
+        if (department) params.append('department', department);
         if (searchText) {
-          if (searchType === 'name') {
-            exportParams.name = searchText;
-          } else {
-            exportParams.room_number = searchText;
-          }
+          params.append('search_text', searchText);
         }
-        
-        // 调用后端导出API
-        fetch('/utility_room_bill_checkout/export', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(exportParams)
-        })
-        .then(response => {
-          if (!response.ok) {
-            throw new Error(`导出失败，状态码: ${response.status}`);
-          }
-          return response.blob();
-        })
-        .then(blob => {
-          // 创建下载链接
-          const url = window.URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          
-          // 设置文件名
-          const now = new Date();
-          const dateStr = now.getFullYear() + 
-                         (now.getMonth() + 1).toString().padStart(2, '0') + 
-                         now.getDate().toString().padStart(2, '0') + 
-                         '_' + 
-                         now.getHours().toString().padStart(2, '0') + 
-                         now.getMinutes().toString().padStart(2, '0') + 
-                         now.getSeconds().toString().padStart(2, '0');
-          
-          a.download = `退宿人员费用记录_${formatPeriod(selectedPeriod)}_${dateStr}.xlsx`;
-          document.body.appendChild(a);
-          a.click();
-          
-          // 清理
-          window.URL.revokeObjectURL(url);
-          document.body.removeChild(a);
-          
-          showSuccessToast(`成功导出 ${formatPeriod(selectedPeriod)} 的退宿人员费用信息`);
-        })
-        .catch(error => {
-          console.error('导出失败:', error);
-          showSuccessToast(`导出失败: ${error.message}`, false);
-        })
-        .finally(() => {
-          // 60秒后恢复按钮状态（即使导出可能还在进行，但UI上给用户反馈）
-          const btn = this;
-          setTimeout(function() {
-            btn.disabled = false;
-            btn.innerHTML = '<i class="fa fa-download"></i><span>导出</span>';
-          }, 60000);
-        });
+
+        // 直接跳转导出
+        window.location.href = '/utility_room_bill_checkout/export?' + params.toString();
       });
       }
       // 全选/取消全选事件
@@ -1276,79 +1252,31 @@
       document.getElementById('cancelDeleteBtn').addEventListener('click', closeConfirmDeleteModal);
       document.getElementById('confirmDeleteBtn').addEventListener('click', function() {
         if (currentDeleteId === null && selectedIds.length > 0) {
-          // 批量删除逻辑
+          // 批量删除逻辑 - 通过表单提交
           closeConfirmDeleteModal();
           
-          // 调用批量删除API
-          fetch('/utility_room_bill_checkout/batch_delete', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ ids: selectedIds }) // 传递子表ID列表
-          })
-          .then(response => {
-            if (!response.ok) {
-              throw new Error('批量删除失败');
-            }
-            return response.json();
-          })
-          .then(data => {
-            if (data.success) {
-              showSuccessToast(`已成功删除选中的 ${selectedIds.length} 条记录`);
-              
-              // 重新加载当前页数据
-              searchBtn.click();
-              
-              // 清除选择状态
-              selectAllCheckbox.checked = false;
-              updateSelectionStatus();
-            } else {
-              throw new Error(data.message || '批量删除失败');
-            }
-          })
-          .catch(error => {
-            console.error('批量删除失败:', error);
-            showSuccessToast(`删除失败: ${error.message}`, false);
+          const form = document.getElementById('batchDeleteForm');
+          // 清除旧的id输入
+          form.querySelectorAll('input[name="ids"]').forEach(el => el.remove());
+          // 动态添加选中的id
+          selectedIds.forEach(id => {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'ids';
+            input.value = id;
+            form.appendChild(input);
           });
+          // 设置billing_period
+          form.querySelector('input[name="billing_period"]').value = currentBillPeriod || '';
+          form.submit();
         } else if (currentDeleteId !== null) {
-          // 单个删除逻辑
+          // 单个删除逻辑 - 通过表单提交
           closeConfirmDeleteModal();
           
-          // 调用单个删除API（使用POST方法和子表ID）
-          fetch('/utility_room_bill_checkout/delete', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ id: currentDeleteId }) // 传递子表ID
-          })
-          .then(response => {
-            if (!response.ok) {
-              throw new Error('删除记录失败');
-            }
-            return response.json();
-          })
-          .then(data => {
-            if (data.success) {
-              showSuccessToast(`已成功删除ID为 ${currentDeleteId} 的记录`);
-              
-              // 重新加载当前页数据
-              searchBtn.click();
-              
-              // 清除选择状态
-              selectAllCheckbox.checked = false;
-              updateSelectionStatus();
-              
-              currentDeleteId = null;
-            } else {
-              throw new Error(data.message || '删除记录失败');
-            }
-          })
-          .catch(error => {
-            console.error('删除记录失败:', error);
-            showSuccessToast(`删除失败: ${error.message}`, false);
-          });
+          const form = document.getElementById('deleteForm');
+          form.querySelector('input[name="id"]').value = currentDeleteId;
+          form.querySelector('input[name="billing_period"]').value = currentBillPeriod || '';
+          form.submit();
         }
       });
       
@@ -1379,8 +1307,8 @@
           createBillingPeriodSelect.value = '';
         }
         
-        // 获取上次抄表记录并显示
-        fetchLatestReadings(roomId);
+        // 获取上次抄表记录并显示（传入退宿日期作为时间锁）
+        fetchLatestReadings(roomId, originalCheckoutDate);
         
         // 显示模态框
         createRecordModal.classList.remove('hidden');
@@ -1388,7 +1316,7 @@
       }
       
       // 获取房间最新抄表记录
-      function fetchLatestReadings(roomId) {
+      function fetchLatestReadings(roomId, checkoutDate) {
         const electricPreviousInfo = document.getElementById('electricPreviousInfo');
         const electricPreviousValue = document.getElementById('electricPreviousValue');
         const electricPreviousDate = document.getElementById('electricPreviousDate');
@@ -1400,7 +1328,11 @@
         electricPreviousInfo.classList.add('hidden');
         waterPreviousInfo.classList.add('hidden');
         
-        fetch(`/utility_room_bill_checkout/get_latest_readings?room_id=${roomId}`)
+        let url = `/utility_room_bill_checkout/get_latest_readings?room_id=${roomId}`;
+        if (checkoutDate) {
+          url += `&checkout_date=${encodeURIComponent(checkoutDate)}`;
+        }
+        fetch(url)
           .then(response => response.json())
           .then(data => {
             if (data.success && data.data) {
@@ -1433,9 +1365,7 @@
         const userId = createUserIdInput.value;
         const roomId = createRoomIdInput.value;
         const checkoutDate = createCheckoutDateInput.value;
-        const electricReading = electricReadingInput.value ? parseFloat(electricReadingInput.value) : null;
-        const waterReading = waterReadingInput.value ? parseFloat(waterReadingInput.value) : null;
-        const calculateFee = calculateFeeCheckbox.checked;
+        const createBillingPeriod = createBillingPeriodSelect.value;
         
         // 验证必填参数
         if (!userId || !roomId || !checkoutDate) {
@@ -1443,71 +1373,13 @@
           return;
         }
         
-        const createBillingPeriod = createBillingPeriodSelect.value;
         if (!createBillingPeriod) {
           showSuccessToast('请选择账期', false);
           return;
         }
         
-        // 构建请求数据
-        const requestData = {
-          user_id: parseInt(userId),
-          room_id: parseInt(roomId),
-          checkout_date: checkoutDate,
-          calculate_fee: calculateFee,
-          billing_period: createBillingPeriod
-        };
-        
-        // 添加可选参数
-        if (electricReading !== null) {
-          requestData.electric_reading = electricReading;
-        }
-        if (waterReading !== null) {
-          requestData.water_reading = waterReading;
-        }
-        
-        // 显示加载状态
-        this.disabled = true;
-        this.innerHTML = '<i class="fa fa-circle-o-notch fa-spin"></i><span>创建中...</span>';
-        
-        // 调用创建记录API
-        fetch('/utility_room_bill_checkout/create', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(requestData)
-        })
-        .then(response => {
-          if (!response.ok) {
-            throw new Error(`创建失败，状态码: ${response.status}`);
-          }
-          return response.json();
-        })
-        .then(data => {
-          if (data.success) {
-            // 关闭模态框
-            createRecordModal.classList.add('hidden');
-            createRecordModal.classList.remove('flex');
-            
-            // 显示成功提示
-            showSuccessToast(`成功创建退宿费用记录，ID: ${data.data.id}`);
-            
-            // 重新加载数据
-            searchBtn.click();
-          } else {
-            throw new Error(data.message || '创建记录失败');
-          }
-        })
-        .catch(error => {
-          console.error('创建记录失败:', error);
-          showSuccessToast(`创建失败: ${error.message}`, false);
-        })
-        .finally(() => {
-          // 恢复按钮状态
-          this.disabled = false;
-          this.innerHTML = '<span>确认创建</span>';
-        });
+        // 提交表单
+        document.getElementById('createForm').submit();
       });
       // 查看记录
       window.viewRecord = function(subRecordId) {

@@ -329,6 +329,65 @@
                     </div>
                 </div>
 
+                <!-- 照片/视频上传区域 -->
+                <div class="mb-6">
+                    <h3 class="text-lg font-medium text-gray-800 mb-4 pb-2 border-b border-gray-200">
+                        <i class="fa fa-paperclip text-primary mr-2"></i>资产照片/视频
+                    </h3>
+                    <div class="flex items-center justify-between mb-3">
+                        <div class="flex gap-2">
+                            <button type="button" id="uploadTempMediaBtn" class="px-4 py-1.5 bg-green-500 text-white text-sm rounded-md hover:bg-green-600 transition-colors">
+                                <i class="fa fa-upload mr-1"></i>添加照片/视频
+                            </button>
+                            <button type="button" id="clearTempMediaBtn" class="px-4 py-1.5 bg-gray-500 text-white text-sm rounded-md hover:bg-gray-600 transition-colors hidden">
+                                <i class="fa fa-trash mr-1"></i>清理全部
+                            </button>
+                        </div>
+                        <input type="file" id="tempMediaFileInput" accept="image/*,video/*" multiple class="hidden" />
+                        <input type="hidden" id="tempKey" name="temp_key" value="" />
+                    </div>
+
+                    <!-- 上传进度条 -->
+                    <div id="tempUploadProgressContainer" class="hidden bg-white rounded-lg shadow-sm p-4 mb-4">
+                        <div class="flex items-center justify-between mb-2">
+                            <span id="tempUploadStatusText" class="text-sm font-medium text-gray-700">上传中...</span>
+                            <span id="tempUploadProgressPercentage" class="text-sm text-gray-500">0%</span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-2">
+                            <div id="tempUploadProgressBar" class="bg-green-500 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+                        </div>
+                    </div>
+
+                    <!-- 已上传文件预览网格 -->
+                    <div id="tempMediaPreviewGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-4">
+                        <div class="col-span-full text-center py-6 text-gray-500">
+                            <i class="fa fa-file-image-o text-4xl mb-2 block"></i>
+                            <p>暂无照片/视频，点击上方按钮添加</p>
+                        </div>
+                    </div>
+
+                    <!-- 图片查看模态框 -->
+                    <div id="imagePreviewModal" class="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 hidden">
+                        <div class="relative max-w-[90%] max-h-[90%]">
+                            <button type="button" class="absolute -top-12 right-0 text-white text-2xl hover:text-gray-300 transition-colors" onclick="closeImagePreview()">
+                                <i class="fa fa-times"></i>
+                            </button>
+                            <img id="previewImage" src="" alt="原图预览" class="max-w-full max-h-[80vh] object-contain">
+                        </div>
+                    </div>
+                    <!-- 视频播放模态框 -->
+                    <div id="videoModal" class="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 hidden">
+                        <div class="relative">
+                            <button type="button" class="absolute -top-10 right-0 text-white text-2xl hover:text-gray-300" onclick="closeVideoModal()">&times;</button>
+                            <video id="modalVideo" controls autoplay class="max-w-full max-h-[80vh] object-contain">
+                                <source id="modalVideoSource" src="" type="video/mp4">
+                                您的浏览器不支持视频播放
+                            </video>
+                        </div>
+                    </div>
+
+                </div>
+
                 <!-- 提交按钮 -->
                 <div class="pt-4 border-t border-gray-200">
                     <div class="flex justify-end gap-3">
@@ -496,6 +555,347 @@
                 d.setFullYear(d.getFullYear() + 1);
                 warrantyInput.value = d.toISOString().split('T')[0];
             }
+
+            // ========== 临时照片/视频上传功能 ==========
+            // API URL
+            var uploadTempMediaUrl = "/api/fixed_assets/temp_media/upload";
+            var getTempMediaFilesUrl = "/api/fixed_assets/temp_media/files";
+            var deleteTempMediaUrl = "/api/fixed_assets/temp_media/delete";
+            var clearTempMediaUrl = "/api/fixed_assets/temp_media/clear";
+
+            // 标记表单是否正在提交，防止 beforeunload 在提交时误删临时文件
+            window.isSubmitting = false;
+
+            // 上传计数器（支持并发上传批次追踪，避免布尔标志竞态）
+            var uploadCount = 0;
+            // 标记是否有文件正在上传（基于计数器派生）
+            Object.defineProperty(window, 'isUploading', {
+                get: function() { return uploadCount > 0; },
+                set: function(val) { /* 忽略外部设置，由计数器管理 */ },
+                configurable: true
+            });
+
+            // 生成唯一temp_key，优先使用后端传递的temp_key（错误回退时保留已上传文件）
+            var tempKey = '{{ temp_key | default("") }}' || ('asset_add_' + Date.now() + '_' + Math.random().toString(36).substring(2, 11));
+            document.getElementById('tempKey').value = tempKey;
+            
+            var uploadTempMediaBtn = document.getElementById('uploadTempMediaBtn');
+            var tempMediaFileInput = document.getElementById('tempMediaFileInput');
+            var clearTempMediaBtn = document.getElementById('clearTempMediaBtn');
+            
+            // 点击上传按钮触发文件选择
+            if (uploadTempMediaBtn && tempMediaFileInput) {
+                uploadTempMediaBtn.addEventListener('click', function() {
+                    tempMediaFileInput.click();
+                });
+                tempMediaFileInput.addEventListener('change', function(e) {
+                    if (e.target.files.length > 0) {
+                        uploadTempMediaFiles(e.target.files);
+                    }
+                });
+            }
+            
+            // 清理全部临时文件
+            if (clearTempMediaBtn) {
+                clearTempMediaBtn.addEventListener('click', function() {
+                    if (!confirm('确定要清理所有已上传的照片/视频吗？此操作不可恢复！')) { return; }
+                    clearAllTempMedia();
+                });
+            }
+
+            // 表单提交前标记
+            var addForm = document.querySelector('form');
+            if (addForm) {
+                addForm.addEventListener('submit', function() {
+                    window.isSubmitting = true;
+                });
+            }
+            
+            // 上传临时文件
+            async function uploadTempMediaFiles(files) {
+                var progressContainer = document.getElementById('tempUploadProgressContainer');
+                var progressBar = document.getElementById('tempUploadProgressBar');
+                var progressPercentage = document.getElementById('tempUploadProgressPercentage');
+                var statusText = document.getElementById('tempUploadStatusText');
+                
+                progressContainer.classList.remove('hidden');
+                progressBar.style.width = '0%';
+                progressPercentage.textContent = '0%';
+                uploadCount++;
+                // 禁用上传和清理按钮，防止并发上传导致 isUploading 竞态
+                if (uploadTempMediaBtn) uploadTempMediaBtn.disabled = true;
+                if (clearTempMediaBtn) clearTempMediaBtn.disabled = true;
+                var failCount = 0;
+                
+                for (var i = 0; i < files.length; i++) {
+                    var file = files[i];
+                    statusText.textContent = '正在上传 ' + file.name + ' (' + (i+1) + '/' + files.length + ')';
+                    
+                    var formData = new FormData();
+                    formData.append('file', file);
+                    formData.append('temp_key', tempKey);
+                    
+                    try {
+                        var xhr = new XMLHttpRequest();
+                        xhr.upload.addEventListener('progress', function(e) {
+                            if (e.lengthComputable) {
+                                var progress = Math.round((e.loaded / e.total) * 100);
+                                progressBar.style.width = progress + '%';
+                                progressPercentage.textContent = progress + '%';
+                            }
+                        });
+                        
+                        await new Promise(function(resolve, reject) {
+                            xhr.onload = function() {
+                                if (xhr.status >= 200 && xhr.status < 300) {
+                                    try {
+                                        var result = JSON.parse(xhr.responseText);
+                                        if (result.success) {
+                                            resolve(result);
+                                        } else {
+                                            reject(new Error(result.message || '上传失败'));
+                                        }
+                                    } catch(e) {
+                                        reject(new Error('服务器返回格式异常'));
+                                    }
+                                } else {
+                                    reject(new Error('上传失败: ' + xhr.statusText));
+                                }
+                            };
+                            xhr.onerror = function() { reject(new Error('上传过程中发生网络错误')); };
+                            xhr.open('POST', uploadTempMediaUrl);
+                            xhr.send(formData);
+                        });
+                    } catch (error) {
+                        failCount++;
+                        console.error('文件上传失败:', error);
+                        alert(file.name + ': ' + (error.message || '文件上传失败'));
+                    }
+                }
+                
+                uploadCount--;
+                // 恢复上传和清理按钮
+                if (uploadTempMediaBtn) uploadTempMediaBtn.disabled = false;
+                if (clearTempMediaBtn) clearTempMediaBtn.disabled = false;
+                if (failCount === 0) {
+                    statusText.textContent = '上传完成';
+                } else if (failCount === files.length) {
+                    statusText.textContent = '全部上传失败（' + failCount + '/' + files.length + '）';
+                } else {
+                    statusText.textContent = '上传完成，' + failCount + '个文件失败';
+                }
+                setTimeout(function() { progressContainer.classList.add('hidden'); }, 1500);
+                tempMediaFileInput.value = '';
+                loadTempMediaFiles();
+            }
+            
+            // 加载临时文件列表
+            async function loadTempMediaFiles() {
+                try {
+                    var response = await fetch(getTempMediaFilesUrl + '?temp_key=' + tempKey, {
+                        method: 'GET',
+                        credentials: 'include'
+                    });
+                    var result = await response.json();
+                    if (!response.ok) { throw new Error(result.message || '加载文件列表失败'); }
+                    
+                    var container = document.getElementById('tempMediaPreviewGrid');
+                    var clearBtn = document.getElementById('clearTempMediaBtn');
+                    var html = '';
+                    
+                    // HTML转义辅助函数，防止XSS
+                    function escapeHtml(str) {
+                        var div = document.createElement('div');
+                        div.appendChild(document.createTextNode(str));
+                        return div.innerHTML;
+                    }
+
+                    // 视频MIME类型映射
+                    var videoMimeMap = {
+                        'mp4': 'video/mp4', 'webm': 'video/webm', 'ogg': 'video/ogg',
+                        'mov': 'video/quicktime', 'avi': 'video/x-msvideo', 'mkv': 'video/x-matroska',
+                        'wmv': 'video/x-ms-wmv', 'flv': 'video/x-flv'
+                    };
+
+                    if (result.files && result.files.length > 0) {
+                        clearBtn.classList.remove('hidden');
+                        result.files.forEach(function(file) {
+                            var isImage = file.type === 'image';
+                            var safeUrl = encodeURIComponent(file.url);
+                            var safeFilename = encodeURIComponent(file.filename);
+                            var displayFilename = escapeHtml(file.filename);
+                            if (isImage) {
+                                html += '<div class="bg-white border border-green-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow">'
+                                    + '<div class="bg-green-50 text-xs text-green-600 px-2 py-0.5">待保存</div>'
+                                    + '<div class="relative h-32 overflow-hidden">'
+                                    + '<img src="' + escapeHtml(file.url) + '" alt="资产照片" class="w-full h-full object-cover cursor-pointer" onclick="showTempImagePreview(decodeURIComponent(\'' + safeUrl + '\'))">'
+                                    + '<button type="button" class="absolute top-2 right-2 bg-transparent text-red-500 hover:text-white hover:bg-red-500 rounded-full p-1 shadow-lg" onclick="deleteTempMediaFile(decodeURIComponent(\'' + safeFilename + '\')); event.stopPropagation();">'
+                                    + '<i class="fa fa-trash-o"></i></button>'
+                                    + '</div>'
+                                    + '<div class="p-1 text-xs text-gray-600 truncate">' + displayFilename + '</div>'
+                                    + '</div>';
+                            } else if (file.type === 'video') {
+                                var vExt = file.filename.split('.').pop().toLowerCase();
+                                var vMime = videoMimeMap[vExt] || 'video/mp4';
+                                html += '<div class="bg-white border border-green-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow">'
+                                    + '<div class="bg-green-50 text-xs text-green-600 px-2 py-0.5">待保存</div>'
+                                    + '<div class="relative h-32 overflow-hidden bg-gray-100">'
+                                    + '<video class="w-full h-full object-cover" preload="metadata"><source src="' + escapeHtml(file.url) + '" type="' + vMime + '"></video>'
+                                    + '<button type="button" class="absolute top-2 right-2 bg-transparent text-red-500 hover:text-white hover:bg-red-500 rounded-full p-1 shadow-lg z-10" onclick="deleteTempMediaFile(decodeURIComponent(\'' + safeFilename + '\')); event.stopPropagation();">'
+                                    + '<i class="fa fa-trash-o"></i></button>'
+                                    + '<div class="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30 cursor-pointer z-0" onclick="openVideoModal(decodeURIComponent(\'' + safeUrl + '\'))">'
+                                    + '<i class="fa fa-play-circle text-white text-3xl opacity-80"></i></div>'
+                                    + '</div>'
+                                    + '<div class="p-1 text-xs text-gray-600 truncate">' + displayFilename + '</div>'
+                                    + '</div>';
+                            } else {
+                                html += '<div class="bg-white border border-green-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow">'
+                                    + '<div class="bg-green-50 text-xs text-green-600 px-2 py-0.5">待保存</div>'
+                                    + '<div class="relative h-32 overflow-hidden">'
+                                    + '<div class="w-full h-full flex flex-col items-center justify-center bg-gray-100 text-gray-400 cursor-pointer">'
+                                    + '<i class="fa fa-file text-3xl"></i>'
+                                    + '<span class="text-xs mt-1">文件</span>'
+                                    + '</div>'
+                                    + '<button type="button" class="absolute top-2 right-2 bg-transparent text-red-500 hover:text-white hover:bg-red-500 rounded-full p-1 shadow-lg" onclick="deleteTempMediaFile(decodeURIComponent(\'' + safeFilename + '\')); event.stopPropagation();">'
+                                    + '<i class="fa fa-trash-o"></i></button>'
+                                    + '</div>'
+                                    + '<div class="p-1 text-xs text-gray-600 truncate">' + displayFilename + '</div>'
+                                    + '</div>';
+                            }
+                        });
+                    } else {
+                        clearBtn.classList.add('hidden');
+                        html = '<div class="col-span-full text-center py-6 text-gray-500">'
+                            + '<i class="fa fa-file-image-o text-4xl mb-2 block"></i>'
+                            + '<p>暂无照片/视频，点击上方按钮添加</p></div>';
+                    }
+                    
+                    container.innerHTML = html;
+                } catch (error) {
+                    console.error('加载临时文件列表失败:', error);
+                    var container = document.getElementById('tempMediaPreviewGrid');
+                    container.innerHTML = '<div class="col-span-full text-center py-6 text-gray-500">'
+                        + '<i class="fa fa-exclamation-circle text-4xl mb-2 block"></i>'
+                        + '<p>加载文件列表失败</p></div>';
+                }
+            }
+            
+            // 删除单个临时文件
+            async function deleteTempMediaFile(filename) {
+                if (!confirm('确定要删除文件 ' + filename + ' 吗？')) { return; }
+                try {
+                    var response = await fetch(deleteTempMediaUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'include',
+                        body: JSON.stringify({ filename: filename, temp_key: tempKey })
+                    });
+                    var result = await response.json();
+                    if (!response.ok) { throw new Error(result.message || '删除失败'); }
+                    loadTempMediaFiles();
+                } catch (error) {
+                    console.error('删除临时文件失败:', error);
+                    alert(error.message || '删除失败');
+                }
+            }
+            window.deleteTempMediaFile = deleteTempMediaFile;
+            
+            // 清理所有临时文件
+            async function clearAllTempMedia() {
+                try {
+                    var response = await fetch(clearTempMediaUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'include',
+                        body: JSON.stringify({ temp_key: tempKey })
+                    });
+                    var result = await response.json();
+                    if (!response.ok) { throw new Error(result.message || '清理失败'); }
+                    alert(result.message || '清理成功');
+                    loadTempMediaFiles();
+                } catch (error) {
+                    console.error('清理临时文件失败:', error);
+                    alert(error.message || '清理失败');
+                }
+            }
+            window.clearAllTempMedia = clearAllTempMedia;
+            
+            // 图片预览（全局函数，供onclick调用）
+            window.showTempImagePreview = function(url) {
+                document.getElementById('previewImage').src = url;
+                document.getElementById('imagePreviewModal').classList.remove('hidden');
+            }
+            
+            window.closeImagePreview = function() {
+                document.getElementById('imagePreviewModal').classList.add('hidden');
+            }
+
+            // 视频预览（全局函数，供onclick调用）
+            window.openVideoModal = function(videoUrl) {
+                var modal = document.getElementById('videoModal');
+                var modalVideo = document.getElementById('modalVideo');
+                var modalVideoSource = document.getElementById('modalVideoSource');
+                modal.classList.remove('hidden');
+                modalVideoSource.src = videoUrl;
+                var ext = videoUrl.split('.').pop().toLowerCase();
+                var mimeMap = {
+                    'mp4': 'video/mp4', 'webm': 'video/webm', 'ogg': 'video/ogg',
+                    'mov': 'video/quicktime', 'avi': 'video/x-msvideo', 'mkv': 'video/x-matroska',
+                    'wmv': 'video/x-ms-wmv', 'flv': 'video/x-flv'
+                };
+                modalVideoSource.type = mimeMap[ext] || 'video/mp4';
+                modalVideo.load();
+            }
+
+            window.closeVideoModal = function() {
+                var modal = document.getElementById('videoModal');
+                var modalVideo = document.getElementById('modalVideo');
+                modal.classList.add('hidden');
+                modalVideo.pause();
+                modalVideo.currentTime = 0;
+            }
+            
+            // 点击模态框背景关闭
+            document.getElementById('imagePreviewModal').addEventListener('click', function(e) {
+                if (e.target === this) { closeImagePreview(); }
+            });
+            document.getElementById('videoModal').addEventListener('click', function(e) {
+                if (e.target === this) { closeVideoModal(); }
+            });
+            
+            // ESC键关闭模态框
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') {
+                    closeImagePreview();
+                    closeVideoModal();
+                }
+            });
+            
+            // 页面加载时加载已有的临时文件（防止页面刷新后丢失已上传文件）
+            loadTempMediaFiles();
+            
+            // 页面离开时清理临时文件（使用 sendBeacon 确保请求能发出）
+            window.addEventListener('beforeunload', function() {
+                // 表单提交时不清理临时文件，避免与 move_temp_to_permanent 竞态
+                if (window.isSubmitting) return;
+                if (tempKey) {
+                    var payload = JSON.stringify({ temp_key: tempKey });
+                    try {
+                        // sendBeacon 需要使用 Blob 指定 Content-Type 为 application/json，
+                        // 否则默认以 text/plain 发送，后端 request.get_json() 无法解析
+                        var blob = new Blob([payload], { type: 'application/json' });
+                        navigator.sendBeacon(clearTempMediaUrl, blob);
+                    } catch(e) {
+                        // sendBeacon 不支持时用同步 XHR 作为后备
+                        try {
+                            var syncXhr = new XMLHttpRequest();
+                            syncXhr.open('POST', clearTempMediaUrl, false);
+                            syncXhr.setRequestHeader('Content-Type', 'application/json');
+                            syncXhr.send(payload);
+                        } catch(ex) { /* 忽略 */ }
+                    }
+                }
+            });
         });
     </script>
 </body>

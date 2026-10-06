@@ -8,6 +8,7 @@ from .room_bed import Bed, BedStatus  # 导入床位模型和状态枚举
 from .room_facility import RoomFacility  # 导入房间设施模型
 from models.system_config.system_config import SystemConfig  # 导入系统配置模型
 from decimal import Decimal
+from utils.custom_fields import deserialize_custom_fields, serialize_custom_fields
 
 class RoomStatus(str, enum.Enum):
     """房间状态枚举"""
@@ -37,6 +38,7 @@ class Room(db.Model):
     external_rent = db.Column(db.Numeric(10, 2), default=Decimal('0.00'), nullable=True, comment='对外租金（元/月）')
     cost_rent = db.Column(db.Numeric(10, 2), default=Decimal('0.00'), nullable=True, comment='成本租金（元/月，内部核算用）')
     remark = db.Column(db.Text, nullable=True, comment='房间备注信息')
+    custom_fields = db.Column(db.Text, nullable=True, comment='自定义字段（JSON格式）')
 
     #费用补贴
     electric_reduction = db.Column(db.Numeric(10, 2), default=Decimal('0.00'), nullable=True, comment='用电量减免kWh数（kWh/月）')
@@ -254,7 +256,8 @@ class Room(db.Model):
                 water_meter_max=Decimal(str(data.get('water_meter_max', '9999.99'))),
                 operator_user_id=current_user.id if current_user.is_authenticated else None,
                 created_at=data.get('created_at', datetime.now()),  # 优先使用传入的创建时间，否则使用当前时间
-                updated_at=data.get('created_at', datetime.now())
+                updated_at=data.get('created_at', datetime.now()),
+                custom_fields=data.get('custom_fields', '')
             )
             
             db.session.add(new_room)
@@ -302,14 +305,13 @@ class Room(db.Model):
                 if new_capacity <= 0:
                     return None, "容量必须为正整数"
                 
+                # 有入住用户时，容量不能低于当前已住人数
+                if self.current_occupancy > 0 and new_capacity < self.current_occupancy:
+                    return None, f"有用户入住时，容纳人数不能低于当前已住人数({self.current_occupancy}人)"
+                
                 # 调整床位
                 Room._adjust_beds_for_room(self, new_capacity)
                 self.capacity = new_capacity
-                
-                # 检查入住人数是否超过新容量
-                if self.current_occupancy > new_capacity:
-                    self.current_occupancy = new_capacity
-                    self.status = RoomStatus.FULL.value
             
            # 处理房间地址更新
             if 'address' in data:
@@ -339,6 +341,12 @@ class Room(db.Model):
             if 'gender_restriction' in data:
                 valid_gender_restrictions = self.get_valid_gender_restrictions()
                 if data['gender_restriction'] in valid_gender_restrictions:
+                    # 有入住用户时，不能改为对立性别
+                    if self.current_occupancy > 0:
+                        if self.gender_restriction == '男' and data['gender_restriction'] == '女':
+                            return None, "当前房间有男性入住，不能将性别限制改为女"
+                        elif self.gender_restriction == '女' and data['gender_restriction'] == '男':
+                            return None, "当前房间有女性入住，不能将性别限制改为男"
                     self.gender_restriction = data['gender_restriction']
                 
             if 'status' in data:
@@ -388,6 +396,9 @@ class Room(db.Model):
                     self.water_meter_max = Decimal(str(data['water_meter_max']))
                 except (ValueError, TypeError):
                     return None, "水表最大量程必须为有效的数字"
+            
+            if 'custom_fields' in data:
+                self.custom_fields = data['custom_fields']
             
             # 自动更新状态
             if self.status == RoomStatus.AVAILABLE.value and self.current_occupancy >= self.capacity:
@@ -499,7 +510,7 @@ class Room(db.Model):
             
             # 2.4 同步删除房间抄表记录照片（确保在费用主记录和抄表记录删除前能获取账期）
             try:
-                from utils.room_meter_photo import room_meter_manager
+                from utils.media.room_meter_photo import room_meter_manager
                 
                 # 使用工具类的方法删除房间所有抄表记录照片
                 logging.info(f"尝试删除房间 {self.id} 的所有抄表记录照片")
@@ -551,7 +562,7 @@ class Room(db.Model):
             
             # 3. 同步删除房间照片
             try:
-                from utils.room_photo import room_photo_manager
+                from utils.media.room_photo import room_photo_manager
                 
                 # 使用RoomPhotoManager提供的方法删除整个房间的媒体目录
                 success = room_photo_manager.delete_room_directory(self.id)
@@ -725,6 +736,12 @@ class Room(db.Model):
                         existing_room.remark = remark
                         # 更新地址
                         existing_room.address = str(data.get('地址', '')).strip()
+                        # 更新自定义字段
+                        if data.get('custom_fields'):
+                            existing_custom = deserialize_custom_fields(existing_room.custom_fields or '')
+                            new_custom = deserialize_custom_fields(data.get('custom_fields', ''))
+                            existing_custom.update(new_custom)
+                            existing_room.custom_fields = serialize_custom_fields(existing_custom)
                         try:
                             existing_room.electric_meter_max = Decimal(str(data.get('电表最大量程', '9999.99') or '9999.99'))
                             existing_room.water_meter_max = Decimal(str(data.get('水表最大量程', '9999.99') or '9999.99'))
@@ -772,6 +789,7 @@ class Room(db.Model):
                             electric_meter_max=Decimal(str(data.get('电表最大量程', '9999.99') or '9999.99')),
                             water_meter_max=Decimal(str(data.get('水表最大量程', '9999.99') or '9999.99')),
                             remark=remark,
+                            custom_fields=data.get('custom_fields', ''),
                             operator_user_id=current_user.id if current_user.is_authenticated else None,
                             created_at=created_at,
                             updated_at=created_at

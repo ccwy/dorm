@@ -1,4 +1,4 @@
-from flask import Blueprint, request, render_template, send_file, jsonify
+from flask import Blueprint, request, render_template, send_file, jsonify, flash, redirect, url_for
 from flask_login import login_required
 from sqlalchemy import or_
 from utils.db import db
@@ -9,6 +9,7 @@ from models.utility.utility_room_bill_record import RoomUtilityRecord
 from models.utility.utility_room_bill_checkout import CheckoutUtilityRecord
 from models.utility.utility_room_bill_occupant import RoomUtilityOccupant
 import logging
+import re
 from io import BytesIO
 from datetime import datetime
 from urllib.parse import quote
@@ -17,15 +18,20 @@ from utils.log import log_operation
 from utils.auth import require_permission
 
 # 创建蓝图
-utility_user_records_detail_bp = Blueprint('utility_user_records_detail', __name__, url_prefix='/utility')
+utility_user_records_bp = Blueprint('utility_user_records', __name__, url_prefix='/utility')
 
-@utility_user_records_detail_bp.route('/user_records_detail')
+
+def _natural_sort_key(s):
+    """自然排序键，将字符串中的数字部分按数值排序，如 'A栋101' < 'A栋102' < 'A栋201'"""
+    return [int(c) if c.isdigit() else c.lower() for c in re.split(r'(\d+)', str(s))]
+
+@utility_user_records_bp.route('/user_records')
 @login_required
 @require_permission('utility.view')
-def user_records_detail():
+def user_records():
     """
-    用户水电费详情页面
-    展示指定筛选条件下的用户水电费详情列表
+    用户水电费明细查询
+    展示指定筛选条件下的用户水电费明细列表
     通过在住人员费用子表和退宿人员费用子表返回的用户id和房间id查询对应用户信息和房间信息
     账期通过费用主表获取
     """
@@ -72,6 +78,7 @@ def user_records_detail():
             User.gender,
             Department.name.label('department'),
             User.position,
+            CheckoutUtilityRecord.id.label('checkout_id'),
             CheckoutUtilityRecord.record_id,
             CheckoutUtilityRecord.room_id,
             CheckoutUtilityRecord.payable_fee,
@@ -123,7 +130,7 @@ def user_records_detail():
         # 先处理在住人员数据
         if user_type != '退宿':
             # 查询所有符合条件的在住人员数据
-            occupant_result = occupant_query.order_by(User.id, Room.id).all()
+            occupant_result = occupant_query.order_by(Room.building, Room.room_number, User.id).all()
             total_count += len(occupant_result)
             
             # 处理在住人员数据
@@ -174,7 +181,7 @@ def user_records_detail():
         # 再处理退宿人员数据
         if user_type != '在住':
             # 查询所有符合条件的退宿人员数据
-            checkout_result = checkout_query.order_by(User.id, Room.id).all()
+            checkout_result = checkout_query.order_by(Room.building, Room.room_number, User.id).all()
             total_count += len(checkout_result)
             
             # 处理退宿人员数据
@@ -216,17 +223,22 @@ def user_records_detail():
                     users_data[user_id]['fee_details'] = []
                 # 获取记录ID（从CheckoutUtilityRecord中获取）
                 record_id = row.record_id  # 使用属性访问方式，避免索引位置变化的风险
+                checkout_id = row.checkout_id
                 users_data[user_id]['fee_details'].append({
                     'room': room_info,
                     'room_id': room_id,
                     'fee': float(row.payable_fee or 0),
                     'days': f"{row.user_period_days}天",
-                    'record_id': record_id
+                    'record_id': record_id,
+                    'checkout_id': checkout_id
                 })
                 
                 # 保存第一条记录的ID作为用户主记录ID，用于账期链接
                 if 'record_id' not in users_data[user_id]:
                     users_data[user_id]['record_id'] = record_id
+                # 保存checkout_id用于跳转退宿详情
+                if 'checkout_id' not in users_data[user_id]:
+                    users_data[user_id]['checkout_id'] = checkout_id
         
         # 对用户数据进行处理，添加多房间标识和换宿判断
         users_list = []
@@ -259,7 +271,7 @@ def user_records_detail():
             total_count = len(users_list)
         
         # 排序并计算总页数
-        users_list.sort(key=lambda x: x['user_id'])
+        users_list.sort(key=lambda x: (_natural_sort_key(x.get('room', '')), x['user_id']))
         total_pages = (total_count + page_size - 1) // page_size
         
         # 计算分页的起始和结束索引
@@ -288,7 +300,7 @@ def user_records_detail():
             
         # 准备模板数据
         data = {
-            'title': "用户水电费查询",
+            'title': "用户水电费明细查询",
             'users': paginated_users,
             'total_count': total_count,
             'current_page': page,
@@ -306,13 +318,14 @@ def user_records_detail():
             }
         }
         
-        return render_template('utility_bill/utility_user_records_detail.html', **data)
+        return render_template('utility_bill/utility_user_records.html', **data)
         
     except Exception as e:
         logging.error(f"获取用户水电费详情失败: {str(e)}")
+        flash(str(e), 'danger')
         return render_template(
-            'utility_bill/utility_user_records_detail.html',
-            title="用户水电费查询",
+            'utility_bill/utility_user_records.html',
+            title="用户水电费明细查询",
             users=[],
             total_count=0,
             current_page=1,
@@ -324,7 +337,7 @@ def user_records_detail():
             current_filters={}
         )
 
-@utility_user_records_detail_bp.route('/export_user_records_excel', methods=['GET'])
+@utility_user_records_bp.route('/export_user_records_excel', methods=['GET'])
 @login_required
 @require_permission('utility.export')
 def export_user_records_excel():
@@ -343,10 +356,8 @@ def export_user_records_excel():
         
         # 验证必填参数
         if not billing_period:
-            return jsonify({
-                'success': False,
-                'message': '请选择账期'
-            }), 400
+            flash('缺少必要参数', 'warning')
+            return redirect(url_for('utility_user_records.user_records'))
         
         # 构建查询 - 在住人员费用
         occupant_query = db.session.query(
@@ -383,6 +394,7 @@ def export_user_records_excel():
             Department.company.label('company'),
             Department.name.label('department'),
             User.position,
+            CheckoutUtilityRecord.id.label('checkout_id'),
             CheckoutUtilityRecord.record_id,
             CheckoutUtilityRecord.room_id,
             CheckoutUtilityRecord.payable_fee,
@@ -427,7 +439,7 @@ def export_user_records_excel():
         
         # 先处理在住人员数据
         if user_type != '退宿':
-            occupant_result = occupant_query.order_by(User.id, Room.id).all()
+            occupant_result = occupant_query.order_by(Room.building, Room.room_number, User.id).all()
             
             # 处理在住人员数据
             for row in occupant_result:
@@ -458,7 +470,7 @@ def export_user_records_excel():
         
         # 再处理退宿人员数据
         if user_type != '在住':
-            checkout_result = checkout_query.order_by(User.id, Room.id).all()
+            checkout_result = checkout_query.order_by(Room.building, Room.room_number, User.id).all()
             
             # 处理退宿人员数据
             for row in checkout_result:
@@ -533,7 +545,7 @@ def export_user_records_excel():
                 '类型': user_type_text,
                 '房间号': rooms_text,
                 '当月已住天数': stay_days_text,
-                '应付金额': round(user_data['total_fee'], 2),
+                '分摊总费用': round(user_data['total_fee'], 2),
                 '备注': remarks
             })
         
@@ -547,18 +559,19 @@ def export_user_records_excel():
         elif user_type == '在住+换宿':
             export_data = [item for item in export_data if item['类型'] == '在住' or item['类型'] == '换宿']
         
+        # 按房间号自然排序，同房间按用户ID排序
+        export_data.sort(key=lambda x: (_natural_sort_key(x['房间号']), x['用户ID']))
+        
         # 如果没有数据，返回提示
         if not export_data:
-            return jsonify({
-                'success': False,
-                'message': f'没有找到符合条件的用户数据'
-            }), 404
+            flash('没有可导出的数据', 'warning')
+            return redirect(url_for('utility_user_records.user_records'))
         
         # 创建DataFrame
         df = pd.DataFrame(export_data)
         
         # 设置数值格式化
-        df['应付金额'] = df['应付金额'].apply(lambda x: f"{x:.2f}")
+        df['分摊总费用'] = df['分摊总费用'].apply(lambda x: f"{x:.2f}")
         
         # 创建Excel文件
         output = BytesIO()
@@ -642,8 +655,5 @@ def export_user_records_excel():
             )
         except:
             pass
-        return jsonify({
-            'success': False,
-            'message': '导出用户费用详情失败',
-            'error': str(e)
-        }), 500
+        flash(f'导出失败: {str(e)}', 'danger')
+        return redirect(url_for('utility_user_records.user_records'))

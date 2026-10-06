@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify, render_template
+from flask import Blueprint, request, jsonify, render_template, flash, redirect, url_for
 from flask_login import login_required, current_user
 import logging
 from utils.db import db
@@ -21,6 +21,20 @@ fee_subsidy_bp = Blueprint('fee_subsidy', __name__, url_prefix='/fee_subsidy')
 @require_permission('fee_subsidy.create')
 def fee_subsidy_add():
     """加载添加补贴页面"""
+    # 获取允许的费用类型
+    all_types = SystemConfig.get_config_value('ALLOWANCE_TYPES', [])
+    filtered_types = []
+    for fee_type in all_types:
+        if fee_type == '房间水电按用量减免' and not SystemConfig.get_config_value('FEE_METER_reduction', True):
+            continue
+        elif fee_type == '房间水电按金额减免' and not SystemConfig.get_config_value('FEE_ROOM_FEE', True):
+            continue
+        elif fee_type == '住宿补贴' and not SystemConfig.get_config_value('FEE_USER_FEE', True):
+            continue
+        elif fee_type == '外宿补贴' and not SystemConfig.get_config_value('lodging_allowance', True):
+            continue
+        filtered_types.append(fee_type)
+    
     # 记录访问日志
     log_operation(
         user_id=current_user.id,
@@ -29,7 +43,7 @@ def fee_subsidy_add():
         action="访问添加补贴页面",
         result="成功"
     )
-    return render_template('fee_subsidy/fee_subsidy_add.html', title=f"添加补贴")
+    return render_template('fee_subsidy/fee_subsidy_add.html', title=f"添加补贴", allowed_fee_types=filtered_types)
 
 # 补贴管理页面
 @fee_subsidy_bp.route('/fee_subsidy_index')
@@ -48,6 +62,20 @@ def fee_subsidy_index():
         logging.error(f'获取楼栋列表失败：{str(e)}')
         building_list = []
     
+    # 获取允许的费用类型
+    all_types = SystemConfig.get_config_value('ALLOWANCE_TYPES', [])
+    filtered_types = []
+    for fee_type in all_types:
+        if fee_type == '房间水电按用量减免' and not SystemConfig.get_config_value('FEE_METER_reduction', True):
+            continue
+        elif fee_type == '房间水电按金额减免' and not SystemConfig.get_config_value('FEE_ROOM_FEE', True):
+            continue
+        elif fee_type == '住宿补贴' and not SystemConfig.get_config_value('FEE_USER_FEE', True):
+            continue
+        elif fee_type == '外宿补贴' and not SystemConfig.get_config_value('lodging_allowance', True):
+            continue
+        filtered_types.append(fee_type)
+    
     # 记录访问日志
     log_operation(
         user_id=current_user.id,
@@ -56,7 +84,7 @@ def fee_subsidy_index():
         action="访问补贴管理页面",
         result="成功"
     )
-    return render_template('fee_subsidy/fee_subsidy_index.html', title=f"补贴管理", buildings=building_list)
+    return render_template('fee_subsidy/fee_subsidy_index.html', title=f"补贴管理", buildings=building_list, allowed_fee_types=filtered_types)
 
 # 补贴历史记录页面
 @fee_subsidy_bp.route('/fee_subsidy_history')
@@ -75,6 +103,20 @@ def fee_subsidy_history():
         logging.error(f'获取楼栋列表失败：{str(e)}')
         building_list = []
     
+    # 获取允许的费用类型
+    all_types = SystemConfig.get_config_value('ALLOWANCE_TYPES', [])
+    filtered_types = []
+    for fee_type in all_types:
+        if fee_type == '房间水电按用量减免' and not SystemConfig.get_config_value('FEE_METER_reduction', True):
+            continue
+        elif fee_type == '房间水电按金额减免' and not SystemConfig.get_config_value('FEE_ROOM_FEE', True):
+            continue
+        elif fee_type == '住宿补贴' and not SystemConfig.get_config_value('FEE_USER_FEE', True):
+            continue
+        elif fee_type == '外宿补贴' and not SystemConfig.get_config_value('lodging_allowance', True):
+            continue
+        filtered_types.append(fee_type)
+    
     # 记录访问日志
     log_operation(
         user_id=current_user.id,
@@ -83,149 +125,59 @@ def fee_subsidy_history():
         action="访问补贴历史记录页面",
         result="成功"
     )
-    return render_template('fee_subsidy/fee_subsidy_history.html', title=f"补贴历史查询", buildings=building_list)
+    return render_template('fee_subsidy/fee_subsidy_history.html', title=f"补贴历史查询", buildings=building_list, allowed_fee_types=filtered_types)
 
 # 增加记录接口
-@fee_subsidy_bp.route('/add', methods=['POST', 'OPTIONS'])
+@fee_subsidy_bp.route('/add', methods=['POST'])
 @login_required
 @require_permission('fee_subsidy.create')
 def add_record():
-    # 优先处理OPTIONS请求
-    if request.method == 'OPTIONS':
-        try:
-            all_types = SystemConfig.get_config_value('ALLOWANCE_TYPES', [])
-            filtered_types = []
-            for fee_type in all_types:
-                if fee_type == '房间水电按用量减免' and not SystemConfig.get_config_value('FEE_METER_reduction', True):
-                    continue
-                elif fee_type == '房间水电按金额减免' and not SystemConfig.get_config_value('FEE_ROOM_FEE', True):
-                    continue
-                elif (fee_type == '住宿补贴') and not SystemConfig.get_config_value('FEE_USER_FEE', True):
-                    continue
-                elif fee_type == '外宿补贴' and not SystemConfig.get_config_value('lodging_allowance', True):
-                    continue
-                filtered_types.append(fee_type)
-            
-            
-            # 记录日志
-            logging.info(f'添加补贴记录OPTIONS请求处理成功，允许的费用类型：{filtered_types}')
-            return {
-                'allowed_types': filtered_types,
-                'status': 'success',
-                'message': 'OPTIONS请求处理成功'
-            }, 200
-        except Exception as e:
-            log_operation(
-                user_id=current_user.id,
-                module='feesubsidy',
-                operation_type='feesub_api',
-                action=f"调用添加补贴OPTIONS接口失败: {str(e)}",
-                result="失败"
-            )
-            logging.error(f'添加补贴记录失败：{str(e)}')
-            return {'status': 'error', 'message': str(e)}, 500
-
-    # 处理POST请求
     try:
-        data = request.json
-        all_types = SystemConfig.get_config_value('ALLOWANCE_TYPES', [])
+        data = request.form.to_dict()
+        # 将数值字段从字符串转换
+        if data.get('user_id'):
+            data['user_id'] = int(data['user_id'])
+        if data.get('room_id'):
+            data['room_id'] = int(data['room_id'])
+        if data.get('amount'):
+            data['amount'] = float(data['amount'])
+        if data.get('electric_reduction'):
+            data['electric_reduction'] = float(data['electric_reduction'])
+        if data.get('water_reduction'):
+            data['water_reduction'] = float(data['water_reduction'])
+        if data.get('is_enabled'):
+            data['is_enabled'] = data['is_enabled'].lower() in ('true', '1', 'yes')
         
-        # 过滤费用类型
-        filtered_types = []
-        for fee_type in all_types:
-            if fee_type == '房间水电按用量减免' and not SystemConfig.get_config_value('FEE_METER_reduction', True):
-                continue
-            elif fee_type == '房间水电按金额减免' and not SystemConfig.get_config_value('FEE_ROOM_FEE', True):
-                continue
-            elif fee_type == '住宿补贴' and not SystemConfig.get_config_value('FEE_USER_FEE', True):
-                continue
-            elif fee_type == '外宿补贴' and not SystemConfig.get_config_value('lodging_allowance', True):
-                continue
-            filtered_types.append(fee_type)
-        
-        # 验证费用类型
-        if data.get('fee_type') not in filtered_types:
-            # 记录日志
-            logging.error(f'添加补贴记录失败：不支持的费用类型 - {data.get("fee_type")}')
-            raise ValueError(f"不支持的费用类型: {data.get('fee_type')}")
-            
-        
-        # 住宿补贴验证
-        if data.get('fee_type') == '住宿补贴':
-            user_id = data.get('user_id')
-            if not user_id:
-                # 记录日志
-                logging.error('添加住宿补贴失败：未指定用户ID')
-                raise ValueError("添加住宿补贴必须指定用户ID")
-    
-            # 通过Dorm中间表查询用户是否有住宿记录
-            from models.dorm.dorm import Dorm
-            has_accommodation = Dorm.query.filter(
-                Dorm.user_id == user_id,
-                Dorm.status.in_(['active', 'checked_in'])
-            ).first() is not None
-    
-            if not has_accommodation:
-                # 记录日志
-                logging.error(f'添加住宿补贴失败：用户{user_id}无住宿记录')
-                raise ValueError("用户无住宿记录，无法添加住宿补贴")
-            
+        # 住宿补贴与外宿补贴互斥验证（模型add_fee不包含此验证，需在此检查）
+        if data.get('fee_type') == '住宿补贴' and data.get('user_id'):
             # 检查是否已有外宿补贴
             has_lodging_allowance = FeeSubsidy.query.filter(
-                FeeSubsidy.user_id == user_id,
+                FeeSubsidy.user_id == data['user_id'],
                 FeeSubsidy.fee_type == '外宿补贴',
                 FeeSubsidy.is_enabled == True
             ).first() is not None
             
             if has_lodging_allowance:
-                # 记录日志
-                logging.error(f'添加住宿补贴失败：用户{user_id}已有外宿补贴')
+                logging.error(f'添加住宿补贴失败：用户{data["user_id"]}已有外宿补贴')
                 raise ValueError("用户已有外宿补贴，不能同时申请住宿补贴")
-  
-        # 外宿补贴验证
-        if data.get('fee_type') == '外宿补贴':
-            user_id = data.get('user_id')
-            if not user_id:
-                # 记录日志
-                logging.error('添加外宿补贴失败：未指定用户ID')
-                raise ValueError("添加外宿补贴必须指定用户ID")
-            
+        
+        # 外宿补贴与住宿补贴互斥验证
+        if data.get('fee_type') == '外宿补贴' and data.get('user_id'):
             # 检查是否已有住宿补贴
             has_accommodation_subsidy = FeeSubsidy.query.filter(
-                FeeSubsidy.user_id == user_id,
+                FeeSubsidy.user_id == data['user_id'],
                 FeeSubsidy.fee_type == '住宿补贴',
                 FeeSubsidy.is_enabled == True
             ).first() is not None
             
             if has_accommodation_subsidy:
-                # 记录日志
-                logging.error(f'添加外宿补贴失败：用户{user_id}已有住宿补贴')
+                logging.error(f'添加外宿补贴失败：用户{data["user_id"]}已有住宿补贴')
                 raise ValueError("用户已有住宿补贴，不能同时申请外宿补贴")
         
-        # 添加记录
+        # 添加记录（模型add_fee内部包含费用类型、用户状态、住宿状态等完整验证）
+        data.pop('saveAndContinue', None)
         new_subsidy = FeeSubsidy.add_fee(data)
         db.session.commit()
-        
-        # 组装返回数据
-        user_info = {}
-        if new_subsidy.user_id:
-            user = User.query.get(new_subsidy.user_id)
-            if user:
-                user_info = {
-                    'user_name': user.name,
-                    'user_department': user.department,
-                    'user_position': user.position,
-                    'user_student_id': user.student_id
-                }
-        
-        room_info = {}
-        if new_subsidy.room_id:
-            room = Room.query.get(new_subsidy.room_id)
-            if room:
-                room_info = {
-                    'room_id': room.id,
-                    'room_full_number': f"{room.building}{room.room_number}"
-                }
         
         # 记录添加成功日志
         log_operation(
@@ -238,31 +190,20 @@ def add_record():
         # 记录日志
         logging.info(f"添加{data.get('fee_type')}类型补贴，金额: {data.get('amount')}")
         
-        return {
-            'success': True,
-            'message': '记录添加成功',
-            'data': {**new_subsidy.to_dict(),** user_info, **room_info},
-            'allowed_types': filtered_types
-        }, 201
+        # 根据 saveAndContinue 参数决定重定向目标
+        save_and_continue = request.form.get('saveAndContinue')
+        flash('记录添加成功', 'success')
+        if save_and_continue:
+            return redirect(url_for('fee_subsidy.fee_subsidy_add'))
+        else:
+            return redirect(url_for('fee_subsidy.fee_subsidy_index'))
     
     except Exception as e:
         db.session.rollback()
-        # 记录添加失败日志
-        log_operation(
-            user_id=current_user.id,
-            module='feesubsidy',
-            operation_type='feesub_add',
-            action=f"添加补贴失败: {str(e)}",
-            result="失败"
-        )
         # 记录日志
         logging.error(f'添加补贴记录失败：{str(e)}')
-        return {
-            'success': False,
-            'message': str(e),
-            'allowed_types': SystemConfig.get_config_value('ALLOWANCE_TYPES', [])
-        }, 400
-    
+        flash(f'添加补贴记录失败：{str(e)}', 'danger')
+        return redirect(url_for('fee_subsidy.fee_subsidy_add'))
 
 # 前端页面展示接口（支持筛选和搜索）
 @fee_subsidy_bp.route('/list', methods=['GET'])
@@ -318,13 +259,7 @@ def get_list():
         if fee_type:
             # 如果请求的类型不在允许列表中，直接返回空结果
             if fee_type not in allowed_types:
-                log_operation(
-                    user_id=current_user.id,
-                    module='feesubsidy',
-                    operation_type='feesub_api',
-                    action=f"调用补贴列表接口，筛选类型: {fee_type}，无符合条件记录",
-                    result="成功"
-                )
+                
                 # 记录日志
                 logging.info(f'调用补贴列表接口，筛选类型: {fee_type}，无符合条件记录')
                 return jsonify({
@@ -406,14 +341,6 @@ def get_list():
                     })
             records.append(record_dict)
         
-        # 记录接口调用日志
-        log_operation(
-            user_id=current_user.id,
-            module='feesubsidy',
-            operation_type='feesub_api',
-            action=f"调用补贴列表接口，查询到{len(records)}条记录",
-            result="成功"
-        )
         # 记录日志
         logging.info(f'调用补贴列表接口，查询到{len(records)}条记录')
         return jsonify({
@@ -427,13 +354,7 @@ def get_list():
             }
         })
     except Exception as e:
-        log_operation(
-            user_id=current_user.id,
-            module='feesubsidy',
-            operation_type='feesub_api',
-            action=f"调用补贴列表接口失败: {str(e)}",
-            result="失败"
-        )
+
         # 记录日志
         logging.error(f'调用补贴列表接口失败：{str(e)}')
         return jsonify({
@@ -458,27 +379,13 @@ def get_periods():
         period_list = [p[0] for p in periods]
         # 记录日志
         logging.info(f'调用账期接口，获取到{len(period_list)}个账期')
-        # 记录接口调用日志
-        log_operation(
-            user_id=current_user.id,
-            module='feesubsidy',
-            operation_type='feesub_api',
-            action=f"调用账期接口，获取到{len(period_list)}个账期",
-            result="成功"
-        )
-        
+
         return jsonify({
             'success': True,
             'data': period_list
         })
     except Exception as e:
-        log_operation(
-            user_id=current_user.id,
-            module='feesubsidy',
-            operation_type='feesub_api',
-            action=f"调用账期接口失败: {str(e)}",
-            result="失败"
-        )
+
         # 记录日志
         logging.error(f'调用账期接口失败：{str(e)}')
         return jsonify({
@@ -612,14 +519,7 @@ def get_history():
             
             records.append(record_dict)
         
-        # 记录接口调用日志
-        log_operation(
-            user_id=current_user.id,
-            module='feesubsidy',
-            operation_type='feesub_api',
-            action=f"调用补贴历史接口，查询到{len(records)}条记录",
-            result="成功"
-        )
+       
         # 记录日志
         logging.info(f'调用补贴历史接口，查询到{len(records)}条记录')
         return jsonify({
@@ -633,13 +533,7 @@ def get_history():
             }
         })
     except Exception as e:
-        log_operation(
-            user_id=current_user.id,
-            module='feesubsidy',
-            operation_type='feesub_api',
-            action=f"调用补贴历史接口失败: {str(e)}",
-            result="失败"
-        )
+
         # 记录日志
         logging.error(f'调用补贴历史接口失败：{str(e)}')
         return jsonify({
@@ -648,28 +542,20 @@ def get_history():
         }), 500
 
 # 禁用接口
-@fee_subsidy_bp.route('/delete/<int:subsidy_id>', methods=['DELETE'])
+@fee_subsidy_bp.route('/delete/<int:subsidy_id>', methods=['POST'])
 @login_required
 @require_permission('fee_subsidy.delete')
 def delete_record(subsidy_id):
     try:
         operator_id = current_user.id
-        reason = request.json.get('reason', '手动禁用')
+        reason = request.form.get('reason', '手动禁用')
         
         if not operator_id:
-            log_operation(
-                user_id=current_user.id,
-                module='feesubsidy',
-                operation_type='delete',
-                action=f"禁用补贴失败: 操作人ID不能为空",
-                result="失败"
-            )
+           
             # 记录日志
             logging.error(f'禁用补贴失败：操作人ID不能为空，操作人ID：{operator_id}')    
-            return jsonify({
-                'success': False,
-                'message': '操作人ID不能为空'
-            }), 400
+            flash('操作人ID不能为空', 'danger')
+            return redirect(url_for('fee_subsidy.fee_subsidy_index'))
         
         # 调用模型的禁用方法
         result = FeeSubsidy.disabled_subsidy(subsidy_id, operator_id, reason)
@@ -689,65 +575,40 @@ def delete_record(subsidy_id):
             )
             # 记录日志
             logging.info(f'禁用补贴成功：ID为{subsidy_id}的记录已禁用，操作人ID：{operator_id}，禁用原因：{reason}')
-            return jsonify({
-                'success': True,
-                'message': '记录禁用成功'
-            })
+            flash('记录禁用成功', 'success')
+            return redirect(url_for('fee_subsidy.fee_subsidy_index'))
         else:
-            log_operation(
-                user_id=current_user.id,
-                module='feesubsidy',
-                operation_type='delete',
-                action=f"禁用补贴失败: ID为{subsidy_id}的记录不存在",
-                result="失败"
-            )
+            
             # 记录日志
             logging.error(f'禁用补贴失败：ID为{subsidy_id}的记录不存在')
-            return jsonify({
-                'success': False,
-                'message': '记录不存在'
-            }), 404
+            flash('记录不存在', 'danger')
+            return redirect(url_for('fee_subsidy.fee_subsidy_index'))
     except Exception as e:
         db.session.rollback()
-        log_operation(
-            user_id=current_user.id,
-            module='feesubsidy',
-            operation_type='delete',
-            action=f"禁用ID为{subsidy_id}的补贴失败: {str(e)}",
-            result="失败"
-        )
+        
         # 记录日志
         logging.error(f'禁用补贴失败：ID为{subsidy_id}的记录不存在，{str(e)}')  
-        return jsonify({
-            'success': False,
-            'message': str(e)
-        }), 400
+        flash(f'禁用补贴失败：{str(e)}', 'danger')
+        return redirect(url_for('fee_subsidy.fee_subsidy_index'))
 
 # 批量禁用接口
-@fee_subsidy_bp.route('/batch-delete', methods=['DELETE'])
+@fee_subsidy_bp.route('/batch-delete', methods=['POST'])
 @login_required
 @require_permission('fee_subsidy.delete')
 def batch_delete():
     try:
-        data = request.json
-        ids = data.get('ids', [])
+        data = request.form.to_dict()
+        ids_str = data.get('ids', '')
+        ids = [int(x) for x in ids_str.split(',') if x.strip()] if ids_str else []
         operator_id = current_user.id
         reason = data.get('reason', '批量禁用')
         
         if not ids or not operator_id:
-            log_operation(
-                user_id=current_user.id,
-                module='feesubsidy',
-                operation_type='delete',
-                action=f"批量禁用补贴失败: 记录ID列表和操作人ID不能为空",
-                result="失败"
-            )
+            
             # 记录日志
             logging.error(f'批量禁用补贴失败：记录ID列表和操作人ID不能为空，记录ID列表：{ids}，操作人ID：{operator_id}')
-            return jsonify({
-                'success': False,
-                'message': '记录ID列表和操作人ID不能为空'
-            }), 400
+            flash('记录ID列表和操作人ID不能为空', 'danger')
+            return redirect(url_for('fee_subsidy.fee_subsidy_index'))
         
         success_count = 0
         fail_count = 0
@@ -774,68 +635,41 @@ def batch_delete():
         )
         # 记录日志
         logging.info(f'批量禁用补贴成功：共{len(ids)}条，成功{success_count}条，失败{fail_count}条，操作人ID：{operator_id}，禁用原因：{reason}')
-        return jsonify({
-            'success': True,
-            'message': f'批量禁用完成，成功{success_count}条，失败{fail_count}条'
-        })
+        flash(f'批量禁用完成，成功{success_count}条，失败{fail_count}条', 'success')
+        return redirect(url_for('fee_subsidy.fee_subsidy_index'))
     except Exception as e:
         db.session.rollback()
-        log_operation(
-            user_id=current_user.id,
-            module='feesubsidy',
-            operation_type='delete',
-            action=f"批量禁用补贴失败: {str(e)}",
-            result="失败"
-        )
+        
         # 记录日志
         logging.error(f'批量禁用补贴失败：{str(e)}')
-        return jsonify({
-            'success': False,
-            'message': str(e)
-        }), 400
+        flash(f'批量禁用补贴失败：{str(e)}', 'danger')
+        return redirect(url_for('fee_subsidy.fee_subsidy_index'))
 
 # 清空当期接口
-@fee_subsidy_bp.route('/clear-current-period', methods=['DELETE'])
+@fee_subsidy_bp.route('/clear-current-period', methods=['POST'])
 @login_required
 @require_permission('fee_subsidy.delete')
 def clear_current_period():
     try:
-        data = request.json
-        billing_period = data.get('billing_period')
+        billing_period = request.form.get('billing_period')
         operator_id = current_user.id
         
         if not billing_period or not operator_id:
-            log_operation(
-                user_id=current_user.id,
-                module='feesubsidy',
-                operation_type='delete',
-                action=f"清空当期补贴失败: 账期和操作人ID不能为空",
-                result="失败"
-            )
+            
             # 记录日志
             logging.error(f'清空当期补贴失败：账期和操作人ID不能为空，账期：{billing_period}，操作人ID：{operator_id}')
-            return jsonify({
-                'success': False,
-                'message': '账期和操作人ID不能为空'
-            }), 400
+            flash('账期和操作人ID不能为空', 'danger')
+            return redirect(url_for('fee_subsidy.fee_subsidy_index'))
         
         # 查询当前账期的所有记录
         records = FeeSubsidy.query.filter_by(billing_period=billing_period).all()
         
         if not records:
-            log_operation(
-                user_id=current_user.id,
-                module='feesubsidy',
-                operation_type='delete',
-                action=f"清空{ billing_period }账期补贴: 当前账期没有记录",
-                result="成功"
-            )
+            
             # 记录日志
             logging.info(f'清空当期补贴成功：当前账期没有记录，账期：{billing_period}，操作人ID：{operator_id}')
-            return jsonify({
-                'success': True,
-                'message': '当前账期没有记录'
-            })
+            flash('当前账期没有记录', 'info')
+            return redirect(url_for('fee_subsidy.fee_subsidy_index'))
         
         # 批量禁用当前账期的记录
         for record in records:
@@ -852,25 +686,15 @@ def clear_current_period():
         )
         # 记录日志
         logging.info(f'清空当期补贴成功：成功清空{len(records)}条{billing_period}账期记录，操作人ID：{operator_id}')
-        return jsonify({
-            'success': True,
-            'message': f'成功清空{len(records)}条{billing_period}账期记录'
-        })
+        flash(f'成功清空{len(records)}条{billing_period}账期记录', 'success')
+        return redirect(url_for('fee_subsidy.fee_subsidy_index'))
     except Exception as e:
         db.session.rollback()
-        log_operation(
-            user_id=current_user.id,
-            module='feesubsidy',
-            operation_type='delete',
-            action=f"清空{ billing_period }账期补贴失败: {str(e)}",
-            result="失败"
-        )
+        
         # 记录日志
         logging.error(f'清空当期补贴失败：{str(e)}')
-        return jsonify({
-            'success': False,
-            'message': str(e)
-        }), 400
+        flash(f'清空当期补贴失败：{str(e)}', 'danger')
+        return redirect(url_for('fee_subsidy.fee_subsidy_index'))
 
 # 获取所有部门接口
 @fee_subsidy_bp.route('/departments', methods=['GET'])
@@ -882,27 +706,14 @@ def get_departments():
         # 查询所有不重复且非空的部门
         department_list = [d.name for d in Department.query.filter_by(status='正常').order_by(Department.name).all()]
         
-        # 记录接口调用日志
-        log_operation(
-            user_id=current_user.id,
-            module='feesubsidy',
-            operation_type='feesub_api',
-            action=f"调用部门列表接口，获取到{len(department_list)}个部门",
-            result="成功"
-        )
+        
         
         return jsonify({
             'success': True,
             'data': department_list
         })
     except Exception as e:
-        log_operation(
-            user_id=current_user.id,
-            module='feesubsidy',
-            operation_type='feesub_api',
-            action=f"调用部门列表接口失败: {str(e)}",
-            result="失败"
-        )
+        
         logging.error(f"获取部门列表失败: {str(e)}")
         return jsonify({
             'success': False,
@@ -930,14 +741,6 @@ def get_rooms():
             for room in rooms
         ]
         
-        # 记录接口调用日志
-        log_operation(
-            user_id=current_user.id,
-            module='feesubsidy',
-            operation_type='feesub_api',
-            action=f"调用房间列表接口，获取到{len(room_list)}个房间",
-            result="成功"
-        )
         # 记录日志
         logging.info(f'获取房间列表成功：共{len(room_list)}个房间，操作人ID：{current_user.id}')
         return jsonify({
@@ -945,13 +748,7 @@ def get_rooms():
             'data': room_list
         })
     except Exception as e:
-        log_operation(
-            user_id=current_user.id,
-            module='feesubsidy',
-            operation_type='feesub_api',
-            action=f"调用房间列表接口失败: {str(e)}",
-            result="失败"
-        )
+        
         logging.error(f"获取房间列表失败: {str(e)}")
         return jsonify({
             'success': False,

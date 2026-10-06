@@ -110,9 +110,9 @@ def init_flask_app(progress_callback=None):
         system_config_bp, log_bp,
         utility_room_meter_bp, utility_room_meter_import_export_bp,
         utility_index_bp,
-        utility_room_bill_records_bp, utility_room_bill_occupants_bp, utility_room_bill_checkout_bp,
+        utility_room_bill_records_bp, utility_room_bill_occupants_bp, utility_room_bill_occupants_export_bp, utility_room_bill_records_export_bp, utility_room_bill_checkout_bp,
         fee_subsidy_bp, fee_subsidy_import_export_bp,
-        utility_user_records_detail_bp,
+        utility_user_records_bp, utility_room_meter_checkout_photo_bp,
         file_sharing_bp, ticket_user_bp, ticket_admin_bp, todo_bp, chat_bp,
         fixed_asset_bp, fixed_asset_api_bp, fixed_asset_import_export_bp,
         department_bp, department_api_bp, department_import_export_bp,
@@ -150,8 +150,11 @@ def init_flask_app(progress_callback=None):
     app.register_blueprint(utility_index_bp)
     app.register_blueprint(utility_room_bill_records_bp)# 注册主表蓝图
     app.register_blueprint(utility_room_bill_occupants_bp)# 注册子表蓝图（独立注册）
+    app.register_blueprint(utility_room_bill_occupants_export_bp)# 注册子表导出蓝图
+    app.register_blueprint(utility_room_bill_records_export_bp)# 注册主表导出蓝图
     app.register_blueprint(utility_room_bill_checkout_bp)
-    app.register_blueprint(utility_user_records_detail_bp)
+    app.register_blueprint(utility_user_records_bp)
+    app.register_blueprint(utility_room_meter_checkout_photo_bp)  # 退宿照片/视频管理蓝图
     app.register_blueprint(fee_subsidy_bp)
     app.register_blueprint(fee_subsidy_import_export_bp)
     app.register_blueprint(file_sharing_bp)# 注册文件管理蓝图
@@ -258,35 +261,6 @@ def init_flask_app(progress_callback=None):
 
     _stamp("Flask核心配置完成")
 
-    _backup_initialized = False
-    def _init_backup_thread():
-        nonlocal _backup_initialized
-        if _backup_initialized:
-            return
-        _backup_initialized = True
-        try:
-            from utils.backup import auto_backup
-            def start_backup():
-                with app.app_context():
-                    auto_backup(app)
-            if os.environ.get('WERKZEUG_RUN_MAIN') != 'true':
-                backup_threads = [t for t in threading.enumerate() if t.name == "auto_backup_thread"]
-                if not backup_threads:
-                    backup_thread = threading.Thread(
-                        target=start_backup, 
-                        daemon=True,
-                        name="auto_backup_thread"
-                    )
-                    backup_thread.start()
-                    with app.app_context():
-                        logging.info(f"主进程启动备份线程，ID: {backup_thread.ident}")
-                else:
-                    with app.app_context():
-                        logging.info("备份线程已存在，无需重复启动")
-            logging.info("延迟初始化备份线程完成")
-        except Exception as e:
-            logging.error(f"延迟初始化备份线程失败: {e}")
-
     from utils.session_timeout import setup_session_timeout_handler
     setup_session_timeout_handler(app)
     _stamp("初始化会话超时")
@@ -320,35 +294,16 @@ def init_flask_app(progress_callback=None):
     import atexit
     from utils.process_pool import shutdown_executor
     atexit.register(shutdown_executor)
-    # 注册周期性清理过期缓存（每10分钟）
-    import schedule as schedule_lib
-    def _cleanup_cache():
-        try:
-            cache.cleanup_expired()
-        except Exception as e:
-            logging.debug(f"缓存清理异常: {e}")
-    schedule_lib.every(10).minutes.do(_cleanup_cache)
-    _stamp("初始化内存缓存")
+    # 注册周期性清理过期缓存（每10分钟）- 已移至 utils.scheduler 统一管理
+    _stamp("初始化内存缓存与调度器")
 
-    _scheduler_initialized = False
-    def _init_scheduler():
-        nonlocal _scheduler_initialized
-        if _scheduler_initialized:
-            return
-        _scheduler_initialized = True
-        try:
-            from utils.utility_room_bill_record_scheduler import init_scheduler
-            scheduler = init_scheduler(app)
-            logging.info("延迟初始化调度器完成")
-        except Exception as e:
-            logging.error(f"延迟初始化调度器失败: {e}")
+    # 直接启动调度器（含缓存清理、费用主表生成、临时文件清理等任务）
+    from utils.scheduler import init_scheduler
+    init_scheduler(app)
 
-    @app.before_request
-    def _init_background_services():
-        if not _backup_initialized:
-            _init_backup_thread()
-        if not _scheduler_initialized:
-            _init_scheduler()
+    # 启动自动备份线程
+    from utils.backup import init_backup
+    init_backup(app)
 
     # 阶段6：注册路由
     if progress_callback:

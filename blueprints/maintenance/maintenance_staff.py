@@ -3,7 +3,7 @@ from utils.db import db
 from models.maintenance import MaintenanceOrder, MaintenanceReply
 from models.user.user import User
 from models.system_config.system_config import SystemConfig
-from utils.maintenance_photo import MaintenancePhotoManager
+from utils.media.maintenance_photo import MaintenancePhotoManager
 from flask_login import login_required, current_user
 from utils.auth import require_permission
 from utils.log import log_operation

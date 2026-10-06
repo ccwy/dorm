@@ -11,8 +11,6 @@ from utils.db_config import DatabaseConfig  # 新增：导入DatabaseConfig类
 
 # 全局备份锁（确保进程内唯一）
 backup_lock = threading.Lock()
-# 线程标识（确保只启动一个备份线程）
-backup_thread_ident = None
 
 # 添加新类：DatabaseBackupManager（整合从system_config.py移动过来的功能）
 class DatabaseBackupManager:
@@ -566,18 +564,32 @@ def clean_old_backups():
     except Exception as e:
         logging.error(f"清理旧备份失败: {str(e)}")
 
-def auto_backup(app):
-    """自动备份线程，确保全局唯一且按间隔执行"""
-    global backup_thread_ident
-    # 检查是否已有备份线程在运行，确保唯一性
-    if backup_thread_ident is not None:
-        logging.warning(f"检测到已有备份线程（ID: {backup_thread_ident}），当前线程退出")
-        return
+def init_backup(app):
+    """初始化自动备份，在应用启动时调用一次"""
+    try:
+        if os.environ.get('WERKZEUG_RUN_MAIN') == 'true':
+            return  # Flask reload 子进程不启动备份线程
+        
+        # 检查是否已有备份线程在运行
+        backup_threads = [t for t in threading.enumerate() if t.name == "auto_backup_thread"]
+        if backup_threads:
+            logging.info("备份线程已存在，无需重复启动")
+            return
+        
+        backup_thread = threading.Thread(
+            target=auto_backup,
+            args=(app,),
+            daemon=True,
+            name="auto_backup_thread"
+        )
+        backup_thread.start()
+        logging.info(f"自动备份线程已启动，ID: {backup_thread.ident}")
+    except Exception as e:
+        logging.error(f"初始化自动备份线程失败: {e}")
 
+def auto_backup(app):
+    """自动备份线程，按间隔执行自动备份"""
     with app.app_context():
-        # 记录当前线程ID，标记为活跃
-        backup_thread_ident = threading.get_ident()
-        logging.info(f"自动备份线程启动，唯一标识ID: {backup_thread_ident}")
         
         last_enable_state = None
         # 记录上次备份时间，避免状态变更时立即执行
@@ -621,8 +633,7 @@ def auto_backup(app):
                 logging.error(f"自动备份循环错误: {str(e)}", exc_info=True)
                 time.sleep(300)
             finally:
-                # 线程退出时清除标识
+                # 线程退出时检测主程序状态
                 if not threading.main_thread().is_alive():
-                    backup_thread_ident = None
                     logging.info("主程序退出，自动备份线程终止")
                     break

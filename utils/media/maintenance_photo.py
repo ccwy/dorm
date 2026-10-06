@@ -36,7 +36,7 @@ class MaintenancePhotoManager:
             media_root = os.path.join(app_dir, 'data', 'photo', 'maintenance_photo')
         else:
             # 开发环境下使用相对路径
-            app_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            app_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
             media_root = os.path.join(app_root, 'data', 'photo', 'maintenance_photo')
         
         # 确保目录存在
@@ -69,7 +69,7 @@ class MaintenancePhotoManager:
             temp_root = os.path.join(app_dir, 'data', 'photo', 'maintenance_temp')
         else:
             # 开发环境下使用相对路径
-            app_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            app_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
             temp_root = os.path.join(app_root, 'data', 'photo', 'maintenance_temp')
         
         # 仅在create=True时创建目录

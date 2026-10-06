@@ -1,5 +1,6 @@
 import os
 import shutil
+import logging
 from werkzeug.utils import secure_filename
 from datetime import datetime
 
@@ -34,7 +35,7 @@ class RoomMeterManager:
             media_root = os.path.join(app_dir, 'data', 'photo', 'room_meter_photo')
         else:
             # 开发环境下使用相对路径
-            app_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            app_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
             media_root = os.path.join(app_root, 'data', 'photo', 'room_meter_photo')
         
         # 确保目录存在
@@ -661,6 +662,63 @@ class RoomMeterManager:
             all_errors.append(f"遍历临时目录失败: {str(e)}")
 
         return {'deleted': total_deleted, 'errors': all_errors, 'rooms_cleared': rooms_cleared}
+
+    @staticmethod
+    def cleanup_old_temp_files(max_age_hours=24):
+        """清理超过指定时间的临时文件和空目录
+        
+        作为定时任务的安全网，清理因异常未及时删除的临时文件。
+        
+        Args:
+            max_age_hours: 文件最大保留时间（小时），默认24小时
+            
+        Returns:
+            dict: 清理结果统计 {'deleted_files': int, 'deleted_dirs': int, 'errors': int}
+        """
+        result = {'deleted_files': 0, 'deleted_dirs': 0, 'errors': 0}
+        try:
+            temp_root = RoomMeterManager.get_temp_dir(create=False)
+            if not os.path.exists(temp_root) or not os.path.isdir(temp_root):
+                return result
+            
+            now = datetime.now().timestamp()
+            max_age_seconds = max_age_hours * 3600
+            
+            # 遍历所有房间临时目录
+            for room_dir_name in os.listdir(temp_root):
+                room_dir_path = os.path.join(temp_root, room_dir_name)
+                if not os.path.isdir(room_dir_path):
+                    continue
+                
+                try:
+                    # 遍历房间目录中的文件
+                    files_remaining = False
+                    for filename in os.listdir(room_dir_path):
+                        file_path = os.path.join(room_dir_path, filename)
+                        if os.path.isfile(file_path):
+                            file_age = now - os.path.getmtime(file_path)
+                            if file_age > max_age_seconds:
+                                os.remove(file_path)
+                                result['deleted_files'] += 1
+                            else:
+                                files_remaining = True
+                    
+                    # 如果目录为空，删除房间目录
+                    if not files_remaining and not os.listdir(room_dir_path):
+                        os.rmdir(room_dir_path)
+                        result['deleted_dirs'] += 1
+                except Exception as e:
+                    result['errors'] += 1
+                    logging.warning(f"清理房间临时目录 {room_dir_path} 时出错: {str(e)}")
+            
+            if result['deleted_files'] > 0 or result['deleted_dirs'] > 0:
+                logging.info(f"抄表临时文件清理完成: 删除 {result['deleted_files']} 个文件, "
+                           f"{result['deleted_dirs']} 个空目录, {result['errors']} 个错误")
+            return result
+        except Exception as e:
+            logging.error(f"清理抄表临时文件时发生错误: {str(e)}")
+            result['errors'] += 1
+            return result
 
 # 创建room_meter单例对象供其他模块使用
 room_meter_manager = RoomMeterManager()

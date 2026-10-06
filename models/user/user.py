@@ -23,6 +23,7 @@ class User(UserMixin, db.Model):
     emergency_contact = db.Column(db.String(50), nullable=True, comment='紧急联系人')
     emergency_phone = db.Column(db.String(50), nullable=True, comment='紧急联系人电话')
     remarks = db.Column(db.Text, nullable=True, comment='备注')
+    custom_fields = db.Column(db.Text, nullable=True, comment='自定义字段（JSON格式）')
     status = db.Column(db.String(20), default='在职', comment='状态：在职/离职/自离')
     hire_date = db.Column(db.DateTime, default=datetime.now, comment='入职日期')
     created_at = db.Column(db.DateTime, default=datetime.now, comment='创建时间')
@@ -240,7 +241,7 @@ class User(UserMixin, db.Model):
             from models.utility.utility_room_bill_occupant import RoomUtilityOccupant
             # 导入留言相关模型和工具
             from models.ticket.ticket import Ticket
-            from utils.ticket_photo import ticket_photo_manager
+            from utils.media.ticket_photo import ticket_photo_manager
             
             # 检查当前操作人是否为超级管理员（拥有级联删除权限）
             is_super = current_user.is_authenticated and current_user.user_role and current_user.user_role.code == 'super_admin'
@@ -574,6 +575,7 @@ class User(UserMixin, db.Model):
                     role_id=user_data.get('role_id'),
                     is_active=user_data.get('is_active', True),
                     is_banned=user_data.get('is_banned', True),
+                    custom_fields=user_data.get('custom_fields', ''),
                     created_at=user_data.get('created_at', datetime.now()),
                     updated_at=user_data.get('updated_at', datetime.now())
                     # 不处理住宿相关字段，因为用户不会上传
@@ -655,8 +657,8 @@ class User(UserMixin, db.Model):
                 errors.append(f"同批次内用户重复更新：用户ID={user_id}")
                 logging.error(f"批量更新用户操作，第{row_num}行：用户重复更新，已跳过")
             
-            # 检查必填字段（姓名、性别）
-            required_fields = ['name', 'gender']
+            # 检查必填字段（性别）
+            required_fields = []
             for field in required_fields:
                 if field in user_data and not user_data[field]:
                     errors.append(f"必填字段为空: {field}")
@@ -689,7 +691,7 @@ class User(UserMixin, db.Model):
                                    'lodging_address', 'phone', 
                                    'position', 'marital_status', 'ethnicity', 'emergency_contact', 
                                    'emergency_phone', 'remarks', 'status', 'hire_date', 'role_id', 
-                                   'is_active', 'is_banned', 'username', 'student_id']
+                                   'is_active', 'is_banned', 'username', 'student_id', 'custom_fields']
                 
                 is_dirty = False  # 标记当前记录是否有字段变化
                 for field in fields_to_update:

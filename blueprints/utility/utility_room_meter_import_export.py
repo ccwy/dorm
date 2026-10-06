@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify, make_response
+from flask import Blueprint, request, make_response, flash, redirect, url_for
 from utils.db import db
 from datetime import datetime
 import logging
@@ -41,10 +41,10 @@ def download_template():
         # 表头（不含抄表人字段，增加账期列）
         headers = [
             "记录ID（批量更新必填）", "账期(YYYY-MM)", "抄表日期时间", "楼栋", "宿舍号",
+            "抄表类型",
             "水表本次读数", "水表是否更换",
              "电表本次读数", "电表是否更换",
-             "备注",
-             "抄表类型"
+             "备注"
         ]
         ws.append(headers)
 
@@ -60,12 +60,12 @@ def download_template():
             "2024-06-01 10:30:00",  # 抄表日期时间
             "3",  # 楼栋
             "305",  # 宿舍号
+            "退宿抄表",  # 抄表类型
             "567.2",  # 水表本次读数
             "否",  # 水表是否更换
             "1234.0",  # 电表本次读数
             "否",  # 电表是否更换
-            "",  # 备注
-            "退宿抄表"  # 抄表类型
+            ""  # 备注
         ])
         
         ws.append([
@@ -74,16 +74,16 @@ def download_template():
             "2024-06-30 10:30:00",  # 抄表日期时间
             "3",  # 楼栋
             "306",  # 宿舍号
+            "正常抄表",  # 抄表类型
             "590.1",  # 水表本次读数
             "是",  # 水表是否更换
             "1300.2",  # 电表本次读数
             "否",  # 电表是否更换
-            "更换新表",  # 备注
-            "正常抄表"  # 抄表类型
+            "更换新表"  # 备注
         ])
 
         # 调整列宽
-        column_widths = [18, 15, 25, 8, 8, 12, 15, 12, 15, 20, 15]
+        column_widths = [18, 15, 25, 8, 8, 15, 12, 15, 12, 15, 20]
         for col, width in enumerate(column_widths, 1):
             ws.column_dimensions[get_column_letter(col)].width = width
 
@@ -122,7 +122,8 @@ def download_template():
             action=f"模板下载失败{error_msg}",
             result="失败"
         )
-        return jsonify({"success": False, "message": error_msg}), 500
+        flash(f'模板下载失败: {error_msg}', 'danger')
+        return redirect(url_for('utility_room_meter.utility_reading_manage'))
     
 # 导出抄表记录为Excel（包含记录ID，不含抄表人信息）
 # 导出抄表记录为Excel（包含记录ID，不含抄表人信息）
@@ -138,10 +139,8 @@ def export_readings():
         # 参数验证：只允许billing_period参数
         if not billing_period:
             logging.error("导出抄表记录失败：缺少billing_period参数")
-            return jsonify({
-                'success': False, 
-                'message': '请提供billing_period参数（格式：YYYY-MM）'
-            }), 400
+            flash('请提供账期参数（格式：YYYY-MM）', 'warning')
+            return redirect(url_for('utility_room_meter.utility_reading_manage'))
 
         # 构建查询
         query = UtilityMeterReading.query.join(Room)
@@ -159,10 +158,8 @@ def export_readings():
             
             if not main_records:
                 logging.error(f"导出抄表记录失败：未找到{billing_period}账期的记录")
-                return jsonify({
-                    'success': False, 
-                    'message': f'未找到{billing_period}账期的记录'
-                }), 404
+                flash(f'未找到{billing_period}账期的记录', 'warning')
+                return redirect(url_for('utility_room_meter.utility_reading_manage'))
             
             # 提取所有主表记录ID
             record_ids = [record.record_id for record in main_records]
@@ -171,14 +168,18 @@ def export_readings():
             query = query.filter(UtilityMeterReading.record_id.in_(record_ids))
         except ValueError:
             logging.error(f"导出抄表记录失败：账期格式错误，{billing_period}")
-            return jsonify({
-                'success': False, 
-                'message': '账期格式错误，请使用YYYY-MM格式'
-            }), 400
+            flash('账期格式错误，请使用YYYY-MM格式', 'warning')
+            return redirect(url_for('utility_room_meter.utility_reading_manage'))
 
         # 按日期倒序
         readings = query.order_by(UtilityMeterReading.reading_date.desc()).all()
         record_count = len(readings)
+
+        # 检查是否有抄表记录数据
+        if not readings:
+            logging.warning(f"导出抄表记录：{billing_period}账期无抄表记录数据")
+            flash(f'{billing_period}账期没有可导出的抄表记录', 'warning')
+            return redirect(url_for('utility_room_meter.utility_reading_manage'))
 
         # 创建Excel工作簿
         wb = Workbook()
@@ -273,7 +274,8 @@ def export_readings():
             action=f"导出失败{error_msg}",
             result="失败"
         )
-        return jsonify({"success": False, "message": error_msg}), 500
+        flash(f'导出抄表记录失败: {error_msg}', 'danger')
+        return redirect(url_for('utility_room_meter.utility_reading_manage'))
     except Exception as e:
         logging.error(f"导出记录发生错误{str(e)}")
         error_msg = f"导出失败: {str(e)}"
@@ -284,7 +286,8 @@ def export_readings():
             action=f"导出失败{error_msg}",
             result="失败"
         )
-        return jsonify({"success": False, "message": error_msg}), 500
+        flash(f'导出抄表记录失败: {error_msg}', 'danger')
+        return redirect(url_for('utility_room_meter.utility_reading_manage'))
 
 
 # 导入抄表记录从Excel（新记录导入，无需ID和抄表人）
@@ -303,26 +306,6 @@ def import_readings():
     }
     
     try:
-        if not current_user.is_authenticated:
-            msg = "请先登录系统"
-            logging.error(f"导入文件失败{msg}")
-            return jsonify({"success": False, "message": msg}), 401
-
-        # 获取必填的billing_period参数
-        billing_period = request.form.get('billing_period', '').strip()
-        if not billing_period:
-            msg = "缺少必填参数billing_period（格式：YYYY-MM）"
-            logging.error(f"导入文件失败{msg}")
-            return jsonify({"success": False, "message": msg}), 400
-        
-        # 验证billing_period格式
-        try:
-            datetime.strptime(billing_period, '%Y-%m')
-        except ValueError:
-            msg = f"billing_period格式错误：{billing_period}，请使用YYYY-MM格式"
-            logging.error(f"导入文件失败{msg}")
-            return jsonify({"success": False, "message": msg}), 400
-
         if 'file' not in request.files:
             msg = "未上传文件"
             log_operation(
@@ -333,7 +316,8 @@ def import_readings():
                 result="失败"
             )
             logging.error(f"导入文件失败{msg}")
-            return jsonify({"success": False, "message": msg}), 400
+            flash(msg, 'danger')
+            return redirect(url_for('utility_room_meter.utility_reading_manage'))
 
         file = request.files['file']
         log_data["文件名"] = file.filename
@@ -348,7 +332,8 @@ def import_readings():
                 result="失败"
             )
             logging.error(f"导入文件失败{msg}")
-            return jsonify({"success": False, "message": msg}), 400
+            flash(msg, 'danger')
+            return redirect(url_for('utility_room_meter.utility_reading_manage'))
 
         if not file.filename.endswith(('.xlsx', '.xls')):
             msg = "仅支持Excel文件(.xlsx, .xls)"
@@ -360,7 +345,8 @@ def import_readings():
                 result="失败"
             )
             logging.error(f"导入文件失败{msg}")
-            return jsonify({"success": False, "message": msg}), 400
+            flash(msg, 'danger')
+            return redirect(url_for('utility_room_meter.utility_reading_manage'))
 
         # 关键修复1：将文件流转换为BytesIO对象
         file_content = file.read()  # 读取文件内容为字节流
@@ -371,11 +357,27 @@ def import_readings():
         wb = load_workbook(file_bytes, data_only=True)
         ws = wb.active
 
-        # 验证必要表头（忽略未知表头及内容）
-        required_headers = [
+        # 白名单模式：只识别必填列和可选列，其余列全部自动忽略
+        # 必填列（缺失时报错）
+        required_columns = [
             "抄表日期时间", "楼栋", "宿舍号",
-            "水表本次读数", "电表本次读数"
+            "水表本次读数", "电表本次读数",
+            "账期(YYYY-MM)"
         ]
+        # 可选列（缺失时不报错）
+        optional_columns = [
+            "水表是否更换", "电表是否更换",
+            "抄表类型", "备注"
+        ]
+        # 列名别名映射：将Excel中可能出现的列名映射到标准列名
+        column_alias_map = {
+            '账期(YYYY-MM)': ['账期（YYYY-MM）', '账期'],
+            '抄表日期时间': ['抄表日期'],
+            '水表是否更换': ['水表更换'],
+            '电表是否更换': ['电表更换'],
+        }
+        # 所有可能需要识别的标准列名
+        all_known_columns = set(required_columns) | set(optional_columns)
         
         # 获取实际表头
         actual_headers = []
@@ -385,22 +387,40 @@ def import_readings():
             else:
                 actual_headers.append("")
         
-        # 检查所有必要表头是否存在
-        missing_headers = [header for header in required_headers if header not in actual_headers]
+        # 构建header_indices：只保留白名单中的列，其余自动忽略
+        header_indices = {}
+        ignored_headers = []
+        for idx, header in enumerate(actual_headers):
+            if not header:
+                continue
+            # 先检查是否直接匹配标准列名
+            if header in all_known_columns:
+                header_indices[header] = idx
+            else:
+                # 再检查是否匹配某个标准列名的别名
+                matched = False
+                for standard_name, aliases in column_alias_map.items():
+                    if header in aliases:
+                        header_indices[standard_name] = idx
+                        matched = True
+                        break
+                if not matched:
+                    ignored_headers.append(header)
+        
+        if ignored_headers:
+            logging.info(f'导入抄表记录：自动忽略未识别列 {ignored_headers}')
+        
+        # 检查所有必填列是否存在
+        missing_headers = [col for col in required_columns if col not in header_indices]
         if missing_headers:
             msg = f"缺少必要的表头: {', '.join(missing_headers)}"
-            log_operation(
-                user_id=current_user.id,
-                module="utility",
-                operation_type="batch_import_export",
-                action=f"导入失败{msg}",
-                result="失败"
-            )
+            
             logging.error(f"导入文件失败{msg}")
-            return jsonify({"success": False, "message": msg}), 400
+            flash(msg, 'danger')
+            return redirect(url_for('utility_room_meter.utility_reading_manage'))
         
-        # 记录所有表头索引，用于后续数据读取
-        header_indices = {header: idx for idx, header in enumerate(actual_headers)}
+        # 账期列（白名单模式已将别名映射到标准列名，直接使用标准列名）
+        billing_period_header = '账期(YYYY-MM)' if '账期(YYYY-MM)' in header_indices else None
 
         # 处理数据
         success_count = 0
@@ -411,6 +431,7 @@ def import_readings():
         # 先收集所有行数据和抄表日期时间值
         non_empty_rows = []
         reading_date_values = []
+        billing_period_values = []
         
         for row_num, row in enumerate(ws.iter_rows(min_row=2, values_only=True), 2):
             # 检查是否有实际数据（至少一个单元格有值）
@@ -423,33 +444,74 @@ def import_readings():
                     reading_date_values.append(row[reading_date_idx])
                 else:
                     reading_date_values.append(None)
+                # 尝试获取账期值
+                if billing_period_header:
+                    billing_period_idx = header_indices.get(billing_period_header)
+                    if billing_period_idx is not None and billing_period_idx < len(row):
+                        billing_period_values.append(row[billing_period_idx])
+                    else:
+                        billing_period_values.append(None)
         log_data["记录总数"] = total_records
         
         # 批量解析抄表日期时间
         try:
-            parsed_reading_dates = excel_date_utils.parse_excel_date(reading_date_values, field_name='抄表日期时间')
+            parsed_reading_dates = excel_date_utils.parse_excel_date(reading_date_values, field_name='抄表日期时间', raise_error=False)
         except Exception as e:
             # 记录日志
             logging.error(f"批量解析抄表日期时间失败：{str(e)}")
-            return jsonify({
-                'success': False,
-                'message': f'批量解析抄表日期时间失败：{str(e)}',
-                'error_details': []
-            }), 500
+            flash(f'批量解析抄表日期时间失败：{str(e)}', 'danger')
+            return redirect(url_for('utility_room_meter.utility_reading_manage'))
         
+        # 批量解析账期（账期列是必填的，billing_period_header一定存在）
+        parsed_billing_periods = None
+        if billing_period_values:
+            try:
+                parsed_billing_dates = excel_date_utils.parse_excel_date(
+                    billing_period_values, field_name='账期', raise_error=False
+                )
+                # 将解析后的datetime格式化为YYYY-MM字符串
+                parsed_billing_periods = []
+                for dt in parsed_billing_dates:
+                    if dt is not None:
+                        parsed_billing_periods.append(dt.strftime('%Y-%m'))
+                    else:
+                        parsed_billing_periods.append(None)
+            except Exception as e:
+                logging.error(f"批量解析账期失败：{str(e)}")
+                flash(f'批量解析账期失败：{str(e)}', 'danger')
+                return redirect(url_for('utility_room_meter.utility_reading_manage'))
+        
+        # 获取第一个非None的账期值
+        first_billing_period = None
+        if parsed_billing_periods:
+            for bp in parsed_billing_periods:
+                if bp is not None:
+                    first_billing_period = bp
+                    break
+        
+        # 收集导入的账期，用于导入后跳转
+        imported_periods = set()
+
         # 处理非空行数据
         for idx, (row_num, row) in enumerate(non_empty_rows):
             try:
-                # 动态获取各列数据（忽略未知表头）
-                reading_date_value = row[header_indices.get("抄表日期时间")]
-                building = row[header_indices.get("楼栋")]
-                room_number = row[header_indices.get("宿舍号")]
-                water_curr = row[header_indices.get("水表本次读数")]
-                water_replaced = row[header_indices.get("水表是否更换")]
-                notes = row[header_indices.get("备注")]
-                electric_curr = row[header_indices.get("电表本次读数")]
-                electric_replaced = row[header_indices.get("电表是否更换")]
-                reading_type_str = row[header_indices.get("抄表类型")]
+                # 动态获取各列数据（白名单模式，可选列缺失时返回None）
+                def get_cell(row, col_name):
+                    """安全获取单元格值，列不存在时返回None"""
+                    idx = header_indices.get(col_name)
+                    if idx is not None and idx < len(row):
+                        return row[idx]
+                    return None
+
+                reading_date_value = get_cell(row, "抄表日期时间")
+                building = get_cell(row, "楼栋")
+                room_number = get_cell(row, "宿舍号")
+                water_curr = get_cell(row, "水表本次读数")
+                water_replaced = get_cell(row, "水表是否更换")
+                notes = get_cell(row, "备注")
+                electric_curr = get_cell(row, "电表本次读数")
+                electric_replaced = get_cell(row, "电表是否更换")
+                reading_type_str = get_cell(row, "抄表类型")
                 
                 # 解析抄表类型
                 reading_type_map = {
@@ -486,6 +548,15 @@ def import_readings():
                     # 记录日志
                     logging.error(f"第{row_num}行抄表日期时间为空或无效")
                     raise ValueError("抄表日期时间不能为空或无效")
+
+                # 确定当前行的账期：从Excel账期列中取值
+                billing_period = None
+                if parsed_billing_periods:
+                    billing_period = parsed_billing_periods[idx]
+                if not billing_period:
+                    logging.error(f"第{row_num}行账期为空")
+                    raise ValueError("账期不能为空，请在Excel账期列中填写正确的账期")
+                imported_periods.add(billing_period)
 
                 # 查找房间
                 room = Room.query.filter_by(
@@ -549,38 +620,43 @@ def import_readings():
         
         logging.info(f"抄表记录导入完成，成功{success_count}条，失败{fail_count}条，共处理{total_records}条")
 
-        return jsonify({
-            "success": True,
-            "message": f"导入完成，成功{success_count}条，失败{fail_count}条",
-            "total_count": total_records,  # 新增：返回实际处理的总记录数
-            "success_count": success_count,
-            "fail_count": fail_count,
-            "errors": error_records if fail_count > 0 else None
-        })
+        if fail_count > 0:
+            if success_count > 0:
+                message = f"导入部分成功：共处理{total_records}条，成功{success_count}条，失败{fail_count}条"
+                if error_records:
+                    error_details = [f"第{e['row']}行: {e['error']}" for e in error_records[:5]]
+                    message += "<br>" + "<br>".join(error_details)
+                    if len(error_records) > 5:
+                        message += f"<br>... 还有 {len(error_records)-5} 条错误"
+                flash(message, 'warning')
+            else:
+                message = f"导入全部失败：共{fail_count}条记录处理失败"
+                if error_records:
+                    error_details = [f"第{e['row']}行: {e['error']}" for e in error_records[:5]]
+                    message += "<br>" + "<br>".join(error_details)
+                    if len(error_records) > 5:
+                        message += f"<br>... 还有 {len(error_records)-5} 条错误"
+                flash(message, 'danger')
+        else:
+            message = f"导入全部成功：共处理{total_records}条，成功{success_count}条"
+            flash(message, 'success')
+        if imported_periods:
+            return redirect(url_for('utility_room_meter.utility_reading_manage', billing_period=sorted(imported_periods)[0]))
+        return redirect(url_for('utility_room_meter.utility_reading_manage'))
 
     except SQLAlchemyError as e:
         db.session.rollback()
         error_msg = f"数据库错误: {str(e)}"
         logging.error(error_msg)
-        log_operation(
-            user_id=current_user.id,
-            module="utility",
-            operation_type="batch_import_export",
-            action=f"导入失败{error_msg}",
-            result="失败"
-        )
-        return jsonify({"success": False, "message": error_msg}), 500
+        
+        flash(error_msg, 'danger')
+        return redirect(url_for('utility_room_meter.utility_reading_manage'))
     except Exception as e:
         error_msg = f"导入失败: {str(e)}"
         logging.error(error_msg)
-        log_operation(
-            user_id=current_user.id,
-            module="utility",
-            operation_type="batch_import_export",
-            action=f"导入失败{error_msg}",
-            result="失败"
-        )
-        return jsonify({"success": False, "message": error_msg}), 500
+        
+        flash(error_msg, 'danger')
+        return redirect(url_for('utility_room_meter.utility_reading_manage'))
 
 # 批量更新抄表记录接口（确保触发自动同步逻辑）
 @utility_room_meter_import_export_bp.route('/batch_update', methods=['POST'])
@@ -589,23 +665,21 @@ def import_readings():
 def batch_update():
     """批量更新抄表记录（自动同步上次读数）"""
     try:
-        if not current_user.is_authenticated:
-            msg = "请先登录系统"
-            logging.error(msg)
-            return jsonify({"success": False, "message": msg}), 401
-
         if 'file' not in request.files:
             logging.error("未上传文件")
-            return jsonify({'success': False, 'message': '未上传文件'}), 400
+            flash('未上传文件', 'danger')
+            return redirect(url_for('utility_room_meter.utility_reading_manage'))
 
         file = request.files['file']
         if file.filename == '':
             logging.error("未选择文件") 
-            return jsonify({'success': False, 'message': '请选择有效的Excel文件'}), 400
+            flash('请选择有效的Excel文件', 'danger')
+            return redirect(url_for('utility_room_meter.utility_reading_manage'))
 
         if not file.filename.endswith(('.xlsx', '.xls')):
             logging.error("文件格式错误")   
-            return jsonify({'success': False, 'message': '文件格式错误，请上传Excel文件'}), 400
+            flash('文件格式错误，请上传Excel文件', 'danger')
+            return redirect(url_for('utility_room_meter.utility_reading_manage'))
 
         # 关键修复2：将文件流转换为BytesIO对象
         file_content = file.read()  # 读取文件内容为字节流
@@ -615,13 +689,69 @@ def batch_update():
         # 读取Excel文件（使用转换后的BytesIO对象）
         df = pd.read_excel(file_bytes)
         
+        # 白名单模式：只识别必填列和可选列，其余列全部自动忽略
+        # 必填列（缺失时报错）
+        required_columns = ['记录ID']
+        # 可选列（缺失时不报错）
+        optional_columns = [
+            '抄表日期时间', 
+            '抄表类型', '水表本次读数', '水表是否更换',
+            '电表本次读数', '电表是否更换', '备注'
+        ]
+        # 列名别名映射：将Excel中可能出现的列名映射到标准列名
+        column_alias_map = {
+            '记录ID': ['记录ID（批量更新必填）', '记录ID(批量更新必填)', 'ID', 'id'],
+            '抄表日期时间': ['抄表日期'],
+            '水表是否更换': ['水表更换'],
+            '电表是否更换': ['电表更换'],
+        }
+        # 所有可能需要识别的标准列名
+        all_known_columns = set(required_columns) | set(optional_columns)
+
+        # 构建列名映射：只保留白名单中的列，其余自动忽略
+        column_mapping = {}
+        ignored_columns = []
+        for col in df.columns:
+            # 先检查是否直接匹配标准列名
+            if col in all_known_columns:
+                continue  # 标准列名无需映射
+            # 再检查是否匹配某个标准列名的别名
+            matched = False
+            for standard_name, aliases in column_alias_map.items():
+                if col in aliases:
+                    column_mapping[col] = standard_name
+                    matched = True
+                    break
+            if not matched:
+                ignored_columns.append(col)
+
+        if ignored_columns:
+            logging.info(f'批量更新：自动忽略未识别列 {ignored_columns}')
+
+        # 重命名列以统一标准，并只保留白名单中的列
+        if column_mapping:
+            df = df.rename(columns=column_mapping)
+        whitelist_columns = [col for col in df.columns if col in all_known_columns]
+        df = df[whitelist_columns]
+
         # 验证必要的表头
-        required_columns = ['记录ID（批量更新必填）', '抄表日期时间', '楼栋', '宿舍号']
         missing_columns = [col for col in required_columns if col not in df.columns]
         if missing_columns:
             error_msg = f'Excel缺少必要的列：{", ".join(missing_columns)}'
             logging.error(error_msg)
-            return jsonify({'success': False, 'message': error_msg}), 400
+            flash(error_msg, 'danger')
+            return redirect(url_for('utility_room_meter.utility_reading_manage'))
+
+        # 批量解析抄表日期时间（可选列，空值跳过）
+        parsed_reading_dates = {}
+        if '抄表日期时间' in df.columns:
+            reading_date_values = df['抄表日期时间'].tolist()
+            try:
+                parsed_reading_dates = excel_date_utils.parse_excel_date(reading_date_values, field_name='抄表日期时间', raise_error=False)
+            except Exception as e:
+                logging.error(f"批量解析抄表日期时间失败：{str(e)}")
+                flash(f'批量解析抄表日期时间失败：{str(e)}', 'danger')
+                return redirect(url_for('utility_room_meter.utility_reading_manage'))
 
         # 预处理数据
         success_count = 0
@@ -629,32 +759,21 @@ def batch_update():
         errors = []
         processed_ids = {}  # 缓存已处理的ID，提高效率
         actual_updated = 0  # 记录实际发生变化的记录数
-
-        # 批量提取所有抄表日期时间值
-        reading_date_values = []
-        for index, row in df.iterrows():
-            reading_date_str = str(row['抄表日期时间']).strip() if pd.notna(row['抄表日期时间']) else None
-            reading_date_values.append(reading_date_str)
-        
-        # 批量解析抄表日期时间
-        try:
-            parsed_reading_dates = excel_date_utils.parse_excel_date(reading_date_values, field_name='抄表日期时间')
-        except Exception as e:
-            # 记录日志
-            logging.error(f"批量解析抄表日期时间失败：{str(e)}")
-            return jsonify({
-                'success': False,
-                'message': f'批量解析抄表日期时间失败：{str(e)}',
-                'errors': []
-            }), 500
+        imported_periods = set()  # 收集更新的账期，用于跳转
 
         # 开始数据库事务
         try:
             for index, row in df.iterrows():
                 row_num = index + 2
                 try:
-                    # 提取记录ID
-                    record_id_str = str(row['记录ID（批量更新必填）']).strip()
+                    # 提取记录ID（处理pandas将数字读取为float的问题）
+                    raw_id = row['记录ID']
+                    if pd.isna(raw_id):
+                        record_id_str = ''
+                    elif isinstance(raw_id, float):
+                        record_id_str = str(int(raw_id))
+                    else:
+                        record_id_str = str(raw_id).strip()
                     if not record_id_str:
                         logging.error("记录ID不能为空（批量更新必须提供）")
                         raise ValueError("记录ID不能为空（批量更新必须提供）")
@@ -665,21 +784,6 @@ def batch_update():
                     except ValueError:
                         logging.error(f"记录ID格式错误，当前值: {record_id_str}")
                         raise ValueError(f"记录ID必须是数字，当前值: {record_id_str}")
-
-                    # 提取基础信息
-                    building = str(row['楼栋']).strip()
-                    room_number = str(row['宿舍号']).strip()
-                    reading_date_str = str(row['抄表日期时间']).strip()
-                        
-                    if not all([building, room_number, reading_date_str]):
-                        logging.error(f"第{row_num}行数据缺失楼栋、宿舍号或抄表日期时间")
-                        raise ValueError(f'楼栋、宿舍号和抄表日期时间不能为空')
-
-                    # 使用批量解析的日期
-                    reading_datetime = parsed_reading_dates[index]
-                    if not reading_datetime:
-                        logging.error(f"第{row_num}行抄表日期时间为空或无效")
-                        raise ValueError("抄表日期时间不能为空或无效")
 
                     # 通过ID查询记录
                     cache_key = f"id_{record_id}"
@@ -694,22 +798,24 @@ def batch_update():
                         logging.error(f"第{row_num}行记录ID {record_id} 不存在")
                         raise ValueError(f'记录ID {record_id} 不存在')
                     
-                    # 验证楼栋宿舍匹配
-                    room = Room.query.get(reading.room_id)
-                    if not room or room.building != building or room.room_number != room_number:
-                        logging.error(f"第{row_num}行记录ID {record_id} 与楼栋{building}宿舍{room_number}不匹配")
-                        raise ValueError(f'记录ID {record_id} 与楼栋{building}宿舍{room_number}不匹配')
+                    # 提取抄表日期时间（可选，空值时不修改）
+                    reading_datetime = parsed_reading_dates[index] if parsed_reading_dates and index < len(parsed_reading_dates) else None
                     
-                    # 验证日期
-                    if reading.reading_date.date() != reading_datetime.date():
-                        logging.error(f"第{row_num}行记录ID {record_id} 与抄表日期时间不匹配（必须为同一天）")
-                        raise ValueError(f'记录ID {record_id} 与抄表日期时间不匹配（必须为同一天）')
+                    # 收集账期用于跳转
+                    if reading.record_id:
+                        from models.utility.utility_room_bill_record import RoomUtilityRecord
+                        bill_record = RoomUtilityRecord.query.get(reading.record_id)
+                        if bill_record and bill_record.billing_period:
+                            imported_periods.add(bill_record.billing_period)
+                    
 
                     # 提取更新字段（仅传递需要更新的字段，由模型处理同步逻辑）
                     update_data = {
                         'meter_reader_id': current_user.id,  # 默认当前用户
-                        'reading_date': reading_datetime  # 确保时间精确
                     }
+                    # 抄表日期时间（可选，有值时才更新）
+                    if reading_datetime:
+                        update_data['reading_date'] = reading_datetime
                     
                     # 处理水表数据（触发模型自动同步上次读数）
                     if pd.notna(row.get('水表本次读数')):
@@ -728,8 +834,14 @@ def batch_update():
                             raise ValueError("电表本次读数必须是数字")
                     
                     # 处理更换标记（影响模型同步逻辑，支持"首次抄表"值）
-                    update_data['water_meter_replaced'] = str(row.get('水表是否更换', '')).lower() in ['是', 'true', '1', '首次抄表']
-                    update_data['electric_meter_replaced'] = str(row.get('电表是否更换', '')).lower() in ['是', 'true', '1', '首次抄表']
+                    water_replace_val = str(row.get('水表是否更换', '')).strip() if pd.notna(row.get('水表是否更换', '')) else ''
+                    if water_replace_val:
+                        update_data['water_meter_replaced'] = water_replace_val.lower() in ['是', 'true', '1', '首次抄表']
+                    # 空值时不传递water_meter_replaced，遵循"空值保持原值"原则
+                    electric_replace_val = str(row.get('电表是否更换', '')).strip() if pd.notna(row.get('电表是否更换', '')) else ''
+                    if electric_replace_val:
+                        update_data['electric_meter_replaced'] = electric_replace_val.lower() in ['是', 'true', '1', '首次抄表']
+                    # 空值时不传递electric_meter_replaced，遵循"空值保持原值"原则
                     
                     # 处理备注
                     notes = str(row.get('备注', '')).strip() or None
@@ -758,6 +870,49 @@ def batch_update():
                         
                         update_data['reading_type'] = reading_type
 
+                    # 业务校验1：抄表日期不能早于同房间上次记录
+                    prev_record = UtilityMeterReading.query.filter(
+                        UtilityMeterReading.room_id == reading.room_id,
+                        UtilityMeterReading.id != reading.id,
+                    ).order_by(UtilityMeterReading.reading_date.desc()).first()
+                    new_date = update_data.get('reading_date', reading.reading_date)
+                    if prev_record and new_date < prev_record.reading_date:
+                        error_msg = f"第{row_num}行记录ID {record_id}：抄表日期({new_date.strftime('%Y-%m-%d')})不能早于同房间上次记录日期({prev_record.reading_date.strftime('%Y-%m-%d')}"
+                        logging.warning(f"批量更新抄表记录校验失败: {error_msg}")
+                        raise ValueError(error_msg)
+
+                    # 业务校验2：未换表时本次读数不能小于上次读数（退宿抄表不校验）
+                    final_reading_type = update_data.get('reading_type', reading.reading_type)
+                    if final_reading_type != 2:  # 非退宿抄表才校验读数
+                        # 水表读数校验
+                        if 'water_current' in update_data:
+                            water_replaced = update_data.get('water_meter_replaced', reading.water_meter_replaced)
+                            if not water_replaced:
+                                prev_water = UtilityMeterReading.query.filter(
+                                    UtilityMeterReading.room_id == reading.room_id,
+                                    UtilityMeterReading.id != reading.id,
+                                    UtilityMeterReading.water_current.isnot(None),
+                                    UtilityMeterReading.reading_date < update_data.get('reading_date', reading.reading_date),
+                                ).order_by(UtilityMeterReading.reading_date.desc()).first()
+                                if prev_water and update_data['water_current'] < prev_water.water_current:
+                                    error_msg = f"第{row_num}行记录ID {record_id}：水表本次读数({update_data['water_current']})不能小于上次读数({prev_water.water_current})，除非标记表具更换"
+                                    logging.warning(f"批量更新抄表记录校验失败: {error_msg}")
+                                    raise ValueError(error_msg)
+                        # 电表读数校验
+                        if 'electric_current' in update_data:
+                            electric_replaced = update_data.get('electric_meter_replaced', reading.electric_meter_replaced)
+                            if not electric_replaced:
+                                prev_electric = UtilityMeterReading.query.filter(
+                                    UtilityMeterReading.room_id == reading.room_id,
+                                    UtilityMeterReading.id != reading.id,
+                                    UtilityMeterReading.electric_current.isnot(None),
+                                    UtilityMeterReading.reading_date < update_data.get('reading_date', reading.reading_date),
+                                ).order_by(UtilityMeterReading.reading_date.desc()).first()
+                                if prev_electric and update_data['electric_current'] < prev_electric.electric_current:
+                                    error_msg = f"第{row_num}行记录ID {record_id}：电表本次读数({update_data['electric_current']})不能小于上次读数({prev_electric.electric_current})，除非标记表具更换"
+                                    logging.warning(f"批量更新抄表记录校验失败: {error_msg}")
+                                    raise ValueError(error_msg)
+
                     # 调用模型的update方法（自动同步上次读数和用量）
                     reading.update(** update_data)
                     actual_updated += 1
@@ -772,14 +927,18 @@ def batch_update():
                         'error': error_msg
                     })
                     logging.warning(f'批量更新行{row_num}失败: {error_msg}')
-                    log_operation(
-                        user_id=current_user.id,
-                        module="utility",
-                        operation_type="batch_import_export",
-                        action=f'批量更新行{row_num}失败: {error_msg}',
-                        result="失败"
-                    )
-                
+                    
+
+            # 全有或全无策略：如果有任何错误，回滚全部并提示
+            if errors:
+                db.session.rollback()
+                error_details = [f"第{e['row']}行（记录ID {e['record_id']}）：{e['error']}" for e in errors[:5]]
+                message = f"数据验证失败：共{len(errors)}条错误<br>" + "<br>".join(error_details)
+                if len(errors) > 5:
+                    message += f"<br>... 还有 {len(errors) - 5} 条错误"
+                flash(message, 'danger')
+                logging.error(f'批量更新抄表记录失败：数据验证失败，共{len(errors)}条错误')
+                return redirect(url_for('utility_room_meter.utility_reading_manage'))
 
             # 提交事务（确保模型计算的字段被保存）
             db.session.commit()
@@ -788,45 +947,31 @@ def batch_update():
                 user_id=current_user.id,
                 module="utility",
                 operation_type="batch_import_export",
-                action=f'抄表记录批量处理完成，成功{success_count}条，失败{fail_count}条，实际更新{actual_updated}条',
+                action=f'抄表记录批量处理完成，成功{success_count}条，实际更新{actual_updated}条',
                 result="成功"
             )
-            logging.info(f'抄表记录批量处理完成，成功{success_count}条，失败{fail_count}条，实际更新{actual_updated}条')
+            logging.info(f'抄表记录批量处理完成，成功{success_count}条，实际更新{actual_updated}条')
         except Exception as e:
             db.session.rollback()
             logging.error(f'批量处理失败: {str(e)}')
             raise e
-        return jsonify({
-            'success': True,
-            'message': f'批量处理完成，成功{success_count}条，失败{fail_count}条，实际更新{actual_updated}条',
-            'total_count': success_count + fail_count,  # 新增：总记录数
-            'success_count': success_count,
-            'fail_count': fail_count,
-            'actual_updated': actual_updated,
-            'errors': errors if errors else None
-        })
+
+        success_msg = f'批量处理完成，成功{success_count}条，实际更新{actual_updated}条'
+        flash(success_msg, 'success')
+        if imported_periods:
+            return redirect(url_for('utility_room_meter.utility_reading_manage', billing_period=sorted(imported_periods)[0]))
+        return redirect(url_for('utility_room_meter.utility_reading_manage'))
 
     except SQLAlchemyError as e:
         db.session.rollback()
         error_msg = f'数据库操作失败: {str(e)}'
         logging.error(error_msg)
-        log_operation(
-                    user_id=current_user.id,
-                    module="utility",
-                    operation_type="batch_import_export",
-                    action=error_msg,
-                    result="失败"
-                )
-            
-        return jsonify({'success': False, 'message': error_msg}), 500
+        
+        flash(error_msg, 'danger')
+        return redirect(url_for('utility_room_meter.utility_reading_manage'))
     except Exception as e:
         error_msg = f'处理文件失败: {str(e)}'
         logging.error(error_msg)
-        log_operation(
-                    user_id=current_user.id,
-                    module="utility",
-                    operation_type="batch_import_export",
-                    action=error_msg,
-                    result="失败"
-                )
-        return jsonify({'success': False, 'message': error_msg}), 500
+        
+        flash(error_msg, 'danger')
+        return redirect(url_for('utility_room_meter.utility_reading_manage'))

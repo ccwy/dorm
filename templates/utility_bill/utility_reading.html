@@ -63,7 +63,7 @@
     <main class="container mx-auto px-4 py-6">
         <div class="flex justify-between items-center mb-6">
             <div class="flex items-center">
-                <button type="button" onclick="window.location.href='{{ url_for('utility_room_meter.utility_reading_manage') }}'" class="text-primary hover:text-primary/80 mr-2">
+                <button type="button" onclick="var bp=document.getElementById('billingPeriod').value;window.location.href='{{ url_for('utility_room_meter.utility_reading_manage') }}'+(bp?'?billing_period='+encodeURIComponent(bp):'')" class="text-primary hover:text-primary/80 mr-2">
                     <i class="fa fa-arrow-left"></i>
                 </button>
                 <h2 class="text-2xl font-semibold text-dark">{{ title }}</h2>
@@ -77,35 +77,20 @@
                 </button>
             </div>
         </div>
-        
+        <!-- 消息提示区域 -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        <div class="flash-messages mb-6">
+            {% for category, message in messages %}
+            <div class="p-4 rounded-md mb-2 {% if category == 'success' %}bg-green-100 text-green-800{% elif category == 'error' or category == 'danger' %}bg-red-100 text-red-800{% elif category == 'warning' %}bg-yellow-100 text-yellow-800{% else %}bg-blue-100 text-blue-800{% endif %}">
+                <button type="button" class="float-right ml-2 text-gray-500 hover:text-gray-700" onclick="this.parentElement.remove()">×</button>
+                {{ message | safe }}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    {% endwith %}
         <div class="bg-white rounded-lg shadow-sm p-6 mx-auto">
-            <!-- 添加URL参数消息显示 -->
-            {% if success_message %}
-            <div id="successMessage" class="bg-green-50 border-l-4 border-green-400 p-4 mb-6">
-                <div class="flex">
-                    <div class="flex-shrink-0">
-                        <i class="fa fa-check-circle text-green-500"></i>
-                    </div>
-                    <div class="ml-3">
-                        <p class="text-green-700">{{ success_message }}</p>
-                    </div>
-                </div>
-            </div>
-            {% endif %}
-            
-            {% if error_message %}
-            <div id="errorMessage" class="bg-red-50 border-l-4 border-red-400 p-4 mb-6">
-                <div class="flex">
-                    <div class="flex-shrink-0">
-                        <i class="fa fa-exclamation-circle text-red-500"></i>
-                    </div>
-                    <div class="ml-3">
-                        <p class="text-red-700">{{ error_message }}</p>
-                    </div>
-                </div>
-            </div>
-            {% endif %}
-            
             <div class="mb-6">
                 <!-- 筛选区，自适应布局 -->
                 <div class="filter-container-wrapper mb-6">
@@ -417,7 +402,19 @@
                     {% endif %}
                     
                     <div class="flex justify-end gap-3 mt-4">
-                        <a href="{{ url_for('utility_room_meter.utility_reading_manage') }}" class="px-6 py-2 border border-gray-300 rounded-md hover:bg-gray-50">取消</a>
+                        <a id="cancelLink" href="{{ url_for('utility_room_meter.utility_reading_manage') }}" class="px-6 py-2 border border-gray-300 rounded-md hover:bg-gray-50">取消</a>
+                        <script>
+                        (function(){
+                            var sel=document.getElementById('billingPeriod');
+                            var link=document.getElementById('cancelLink');
+                            function updateLink(){
+                                var bp=sel.value;
+                                link.href='{{ url_for("utility_room_meter.utility_reading_manage") }}'+(bp?'?billing_period='+encodeURIComponent(bp):'');
+                            }
+                            sel.addEventListener('change',updateLink);
+                            updateLink();
+                        })();
+                        </script>
                         <button type="submit" id="saveAllWithValuesBtn" 
                                 class="px-6 py-2 bg-primary text-white rounded-md hover:bg-primary/90">
                             保存有读数的记录
@@ -429,96 +426,6 @@
     </main>
     <!-- 页脚 -->
     {% include 'footer.html' %}
-
-    <!-- 批量保存错误详情模态框 -->
-    {% if batch_errors %}
-    <div id="batchErrorDetailsModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div class="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[80vh] overflow-y-auto">
-            <div class="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4 mx-auto">
-                <i class="fa fa-exclamation-circle text-2xl text-red-600"></i>
-            </div>
-            <h3 class="text-lg font-semibold mb-4 text-center">批量保存失败详情</h3>
-            <div class="text-gray-600 mb-4">
-                <p class="mb-2 font-medium">以下记录验证失败：</p>
-                <ul class="list-disc pl-5 space-y-1">
-                    {% for error in batch_errors %}
-                    <li>{{ error }}</li>
-                    {% endfor %}
-                </ul>
-            </div>
-            <div class="text-center">
-                <form action="/utility-meter/utility_reading" method="get">
-                    <input type="hidden" name="building_filter" value="{{ building_filter }}">
-                    <input type="hidden" name="search_room" value="{{ search_room }}">
-                    <button type="submit" id="batchErrorDetailsBtn" class="px-6 py-2 bg-primary text-white rounded-md hover:bg-primary/90">
-                        关闭
-                    </button>
-                </form>
-            </div>
-        </div>
-    </div>
-    {% endif %}
-
-    <!-- 提示信息显示 -->
-    {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-            {% for category, message in messages %}
-                {% if category == 'success' %}
-                <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                    <div class="bg-white rounded-lg p-6 w-full max-w-md text-center">
-                        <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4 mx-auto">
-                            <i class="fa fa-check text-2xl text-green-600"></i>
-                        </div>
-                        <h3 class="text-lg font-semibold mb-2">操作成功</h3>
-                        <p class="text-gray-600 mb-4">{{ message }}</p>
-                        <form action="/utility-meter/utility_reading" method="get">
-                            <input type="hidden" name="building_filter" value="{{ building_filter }}">
-                            <input type="hidden" name="search_room" value="{{ search_room }}">
-                            <button type="submit" class="px-6 py-2 bg-green-500 text-white rounded-md hover:bg-green-600">
-                                确定
-                            </button>
-                        </form>
-                    </div>
-                </div>
-                {% elif category == 'error' %}
-                <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                    <div class="bg-white rounded-lg p-6 w-full max-w-md text-center">
-                        <div class="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4 mx-auto">
-                            <i class="fa fa-exclamation-circle text-2xl text-red-600"></i>
-                        </div>
-                        <h3 class="text-lg font-semibold mb-2">操作失败</h3>
-                        <p class="text-gray-600 mb-4">{{ message }}</p>
-                        <form action="/utility-meter/utility_reading" method="get">
-                            <input type="hidden" name="building_filter" value="{{ building_filter }}">
-                            <input type="hidden" name="search_room" value="{{ search_room }}">
-                            <button type="submit" class="px-6 py-2 border border-gray-300 rounded-md hover:bg-gray-50">
-                                关闭
-                            </button>
-                        </form>
-                    </div>
-                </div>
-                {% else %}
-                <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                    <div class="bg-white rounded-lg p-6 w-full max-w-md text-center">
-                        <div class="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4 mx-auto">
-                            <i class="fa fa-info-circle text-2xl text-blue-600"></i>
-                        </div>
-                        <h3 class="text-lg font-semibold mb-2">信息提示</h3>
-                        <p class="text-gray-600 mb-4">{{ message }}</p>
-                        <form action="/utility-meter/utility_reading" method="get">
-                            <input type="hidden" name="building_filter" value="{{ building_filter }}">
-                            <input type="hidden" name="search_room" value="{{ search_room }}">
-                            <button type="submit" class="px-6 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600">
-                                确定
-                            </button>
-                        </form>
-                    </div>
-                </div>
-                {% endif %}
-            {% endfor %}
-        {% endif %}
-    {% endwith %}
-
 
     <!-- 抄表照片管理模态框 -->
     <div id="photoModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
@@ -670,6 +577,10 @@
                      };
                       
                      addHiddenField('is_batch', 'true');
+                     // 添加筛选参数以保留页面状态
+                     addHiddenField('building', '{{ building_filter }}');
+                     addHiddenField('search_room', '{{ search_room }}');
+                     addHiddenField('page', '{{ pagination.page }}');
                      // 直接从主控件获取最新的日期时间值
                      const readingDateTime = document.getElementById('readingDateTime').value;
                      // 转换日期格式：将YYYY-MM-DDThh:mm:ss转换为YYYY-MM-DD hh:mm:ss
@@ -779,6 +690,10 @@
              };
               
              addHiddenField('room_id', roomId);
+            // 添加筛选参数以保留页面状态
+            addHiddenField('building', '{{ building_filter }}');
+            addHiddenField('search_room', '{{ search_room }}');
+            addHiddenField('page', '{{ pagination.page }}');
              addHiddenField('reading_date', readingDate);
              addHiddenField('billing_period', billingPeriod);
              addHiddenField('water_current', waterReading);

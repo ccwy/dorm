@@ -2,7 +2,7 @@ from flask import Blueprint, request, jsonify, send_from_directory
 from flask_login import login_required, current_user
 from utils.log import log_operation
 import logging
-from utils.todo_photo import TodoMediaManager
+from utils.media.todo_photo import TodoMediaManager
 import os
 from models.todo.todo import Todo
 from utils.auth import require_permission

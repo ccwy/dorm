@@ -206,7 +206,7 @@ class Contract(db.Model):
     @property
     def attachment_count(self):
         """返回附件数量"""
-        from utils.contract_attachment import ContractAttachmentManager
+        from utils.media.contract_attachment import ContractAttachmentManager
         try:
             files = ContractAttachmentManager.get_media_files(self.id)
             return len(files) if files else 0
@@ -304,7 +304,7 @@ class Contract(db.Model):
     @classmethod
     def check_usage(cls, contract_id):
         """检查合同是否被使用，返回使用详情"""
-        from utils.contract_attachment import ContractAttachmentManager
+        from utils.media.contract_attachment import ContractAttachmentManager
         from models.contract.contract_operation_record import ContractOperationRecord
 
         try:

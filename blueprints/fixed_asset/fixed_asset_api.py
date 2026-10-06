@@ -1,17 +1,19 @@
-from flask import Blueprint, request, jsonify, send_file
+from flask import Blueprint, request, jsonify, send_file, abort
 import logging
 from utils.db import db
 from flask_login import login_required, current_user
 from utils.log import log_operation
 import traceback
 import os
+import mimetypes
+from werkzeug.utils import secure_filename
 from utils.auth import require_permission
 from models.system_config.system_config import SystemConfig
 from models.department.department import Department
 from models.fixed_asset.fixed_asset import FixedAsset
 from models.fixed_asset.asset_operation_record import AssetOperationRecord
 from models.supply.supply_item import SupplyItem
-from utils.asset_photo import AssetPhotoManager
+from utils.media.asset_photo import AssetPhotoManager
 from config import Config
 from models.room.room import Room
 from models.user.user import User
@@ -300,7 +302,7 @@ def upload_photo(asset_id):
         if file.filename == '':
             return jsonify({"success": False, "message": "未选择文件"}), 400
 
-        filename = AssetPhotoManager.upload_file(asset_id, file)
+        filename = AssetPhotoManager.upload_file(file, asset_id)
         if filename:
             log_operation(
                 user_id=current_user.id,
@@ -506,7 +508,8 @@ def get_asset_media(asset_id, filename):
     try:
         file_path = AssetPhotoManager.get_file_path(asset_id, filename)
         if file_path and os.path.exists(file_path):
-            return send_file(file_path, as_attachment=False)
+            mime_type, _ = mimetypes.guess_type(file_path)
+            return send_file(file_path, as_attachment=False, mimetype=mime_type or 'application/octet-stream')
         return jsonify({'error': '文件不存在'}), 404
     except Exception as e:
         logging.error(f"获取资产媒体文件时发生错误: {str(e)}")
@@ -540,6 +543,215 @@ def search_rooms():
     except Exception as e:
         logging.error(f"搜索房间失败: {str(e)}\n{traceback.format_exc()}")
         return jsonify([]), 500
+
+
+# ========== 临时媒体文件API（新增资产页面使用，此时资产尚未创建） ==========
+
+@fixed_asset_api_bp.route('/temp_media/upload', methods=['POST'])
+@login_required
+@require_permission('fixed_asset.edit')
+def upload_temp_media():
+    """上传临时媒体文件（新增资产页面使用，此时资产尚未创建）"""
+    try:
+        temp_key = request.form.get('temp_key')
+        
+        if not temp_key:
+            return jsonify({'success': False, 'message': '缺少临时标识参数'}), 400
+        
+        # 安全处理temp_key，防止路径遍历
+        temp_key = secure_filename(temp_key)
+        if not temp_key:
+            return jsonify({'success': False, 'message': '无效的临时标识参数'}), 400
+        
+        if 'file' not in request.files:
+            return jsonify({'success': False, 'message': '没有文件被上传'}), 400
+        
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({'success': False, 'message': '没有选择文件'}), 400
+        
+        filename = AssetPhotoManager.upload_temp_file(file, temp_key)
+        if not filename:
+            logging.warning(f"用户 {current_user.id} 上传临时资产媒体文件失败: 文件格式不支持或文件过大, temp_key={temp_key}")
+            return jsonify({'success': False, 'message': '不支持的文件格式或文件过大'}), 400
+        
+        file_url = AssetPhotoManager.get_temp_media_url(filename, temp_key)
+        file_type = AssetPhotoManager.get_file_type(filename)
+        
+        log_operation(
+            user_id=current_user.id,
+            module='asset',
+            operation_type='upload_photo',
+            action=f"上传临时资产媒体文件: {filename} (temp_key={temp_key})",
+            result="成功"
+        )
+        
+        return jsonify({
+            'success': True,
+            'message': '上传成功',
+            'filename': filename,
+            'url': file_url,
+            'type': file_type
+        })
+        
+    except Exception as e:
+        logging.error(f"上传临时资产媒体文件失败: {str(e)}")
+        return jsonify({'success': False, 'message': f'上传失败: {str(e)}'})
+
+
+@fixed_asset_api_bp.route('/temp_media/files', methods=['GET'])
+@login_required
+@require_permission('fixed_asset.view')
+def get_temp_media_files():
+    """获取指定temp_key临时目录中的所有媒体文件"""
+    try:
+        temp_key = request.args.get('temp_key')
+        
+        if not temp_key:
+            return jsonify({'success': False, 'message': '缺少临时标识参数'}), 400
+        
+        # 安全处理temp_key，防止路径遍历
+        temp_key = secure_filename(temp_key)
+        if not temp_key:
+            return jsonify({'success': False, 'message': '无效的临时标识参数'}), 400
+        
+        media_files = AssetPhotoManager.get_temp_media_files(temp_key)
+        logging.debug(f"获取临时媒体文件列表: temp_key={temp_key}, 文件数={len(media_files)}")
+        
+        result_files = []
+        for file in media_files:
+            result_files.append({
+                'filename': file['filename'],
+                'type': file['type'],
+                'url': file['url'],
+                'upload_time': file.get('upload_time').isoformat() if file.get('upload_time') else None
+            })
+        
+        return jsonify({
+            'success': True,
+            'files': result_files
+        })
+        
+    except Exception as e:
+        logging.error(f"获取临时媒体文件列表失败: {str(e)}")
+        return jsonify({'success': False, 'message': f'获取失败: {str(e)}'})
+
+
+@fixed_asset_api_bp.route('/temp_media/delete', methods=['POST'])
+@login_required
+@require_permission('fixed_asset.edit')
+def delete_temp_media():
+    """删除临时目录中的媒体文件"""
+    try:
+        data = request.get_json(silent=True)
+        if not data:
+            return jsonify({'success': False, 'message': '请求数据格式无效'}), 400
+        temp_key = data.get('temp_key')
+        filename = data.get('filename')
+        
+        if not temp_key or not filename:
+            return jsonify({'success': False, 'message': '缺少必要参数'}), 400
+        
+        # 安全处理temp_key，防止路径遍历
+        temp_key = secure_filename(temp_key)
+        if not temp_key:
+            return jsonify({'success': False, 'message': '无效的临时标识参数'}), 400
+        
+        # 安全处理filename（AssetPhotoManager.delete_temp_file内部也会调用secure_filename，
+        # 此处提前校验可尽早拒绝无效文件名，避免不必要的文件系统操作）
+        filename = secure_filename(filename)
+        if not filename:
+            return jsonify({'success': False, 'message': '无效的文件名'}), 400
+        
+        success = AssetPhotoManager.delete_temp_file(filename, temp_key)
+        
+        if success:
+            log_operation(
+                user_id=current_user.id,
+                module='asset',
+                operation_type='delete_photo',
+                action=f"删除临时资产媒体文件: {filename} (temp_key={temp_key})",
+                result="成功"
+            )
+            return jsonify({'success': True, 'message': '文件删除成功'})
+        else:
+            return jsonify({'success': False, 'message': '文件删除失败或文件不存在'})
+            
+    except Exception as e:
+        logging.error(f"删除临时媒体文件失败: {str(e)}")
+        return jsonify({'success': False, 'message': f'删除失败: {str(e)}'})
+
+
+@fixed_asset_api_bp.route('/temp_media/clear', methods=['POST'])
+@login_required
+@require_permission('fixed_asset.edit')
+def clear_temp_media():
+    """清理指定temp_key临时目录中的所有媒体文件"""
+    try:
+        data = request.get_json(silent=True)
+        if not data:
+            return jsonify({'success': False, 'message': '请求数据格式无效'}), 400
+        temp_key = data.get('temp_key')
+        
+        if not temp_key:
+            return jsonify({'success': False, 'message': '缺少临时标识参数'}), 400
+        
+        # 安全处理temp_key，防止路径遍历
+        temp_key = secure_filename(temp_key)
+        if not temp_key:
+            return jsonify({'success': False, 'message': '无效的临时标识参数'}), 400
+        
+        result = AssetPhotoManager.clear_temp_files(temp_key)
+        
+        log_operation(
+            user_id=current_user.id,
+            module='asset',
+            operation_type='delete_photo',
+            action=f"清理临时资产媒体文件 (temp_key={temp_key}) [删除: {result['deleted']}]",
+            result="成功" if not result['errors'] else "部分成功"
+        )
+        
+        return jsonify({
+            'success': True,
+            'deleted': result['deleted'],
+            'errors': result['errors'],
+            'message': f"成功清理 {result['deleted']} 个文件" + (f"，{len(result['errors'])} 个失败" if result['errors'] else "")
+        })
+        
+    except Exception as e:
+        logging.error(f"清理临时媒体文件失败: {str(e)}")
+        return jsonify({'success': False, 'message': f'清理失败: {str(e)}'})
+
+
+@fixed_asset_api_bp.route('/temp_media/<temp_key>/<filename>', methods=['GET'])
+@login_required
+@require_permission('fixed_asset.view')
+def serve_temp_media(temp_key, filename):
+    """提供临时目录中媒体文件的访问"""
+    try:
+        # 安全处理参数
+        temp_key = secure_filename(temp_key)
+        filename = secure_filename(filename)
+        
+        # 防止空temp_key导致路径遍历
+        if not temp_key:
+            abort(400, description="无效的临时标识参数")
+        if not filename:
+            abort(400, description="无效的文件名参数")
+        
+        # 获取文件完整路径
+        file_path = AssetPhotoManager.get_temp_file_path(filename, temp_key)
+        
+        # 检查文件是否存在
+        if not file_path or not os.path.exists(file_path):
+            abort(404, description="文件不存在")
+        
+        # 发送文件，根据扩展名推断 mimetype
+        mime_type, _ = mimetypes.guess_type(file_path)
+        return send_file(file_path, as_attachment=False, mimetype=mime_type or 'application/octet-stream')
+    except Exception as e:
+        logging.error(f"获取临时媒体文件时发生错误: {str(e)}")
+        abort(500, description=f"获取文件时发生错误: {str(e)}")
 
 
 # ========== 搜索物料基础资料（分类=固定资产，供资产名称选择用） ==========
@@ -601,3 +813,5 @@ def search_users():
     except Exception as e:
         logging.error(f"搜索用户失败: {str(e)}\n{traceback.format_exc()}")
         return jsonify([]), 500
+
+

@@ -374,7 +374,7 @@
                 <div class="p-6">
                     <!-- 初始状态内容 -->
                     <div id="importInitialContent">
-                        <p class="text-gray-600 mb-4">请上传Excel格式的房间数据文件，支持.xlsx和.xls格式（最大10MB）。</p>
+                        <p class="text-gray-600 mb-4">请上传Excel格式的房间数据文件，支持.xlsx和.xls格式。</p>
                         
                         <div class="mb-4">
                             <a href="{{ url_for('room_import_export.download_template') }}" class="text-primary hover:text-primary/80 flex items-center">
@@ -392,9 +392,10 @@
                             
                             <div class="mb-6">
                                 <label class="inline-flex items-center">
-                                    <input type="checkbox" name="override" value="1" class="form-checkbox text-primary">
-                                    <span class="ml-2 text-gray-700">覆盖已有数据</span>
+                                    <input type="checkbox" id="overrideCheckbox" name="override" value="1" class="form-checkbox text-primary">
+                                    <span class="ml-2 text-gray-700">批量更新数据</span>
                                 </label>
+                                <p id="overrideHint" class="text-xs text-gray-500 mt-1 ml-6 hidden">批量更新需包含ID列</p>
                             </div>
                             
                             <div class="flex justify-end gap-3">
@@ -427,29 +428,7 @@
             </div>
         </div>
 
-        <!-- 导出类型选择模态框 -->
-        <div id="exportModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 hidden">
-            <div class="bg-white rounded-lg shadow-xl w-full max-w-sm mx-4">
-                <div class="p-4 border-b">
-                    <h3 class="text-lg font-semibold">选择导出类型</h3>
-                </div>
-                <div class="p-4">
-                    <button id="exportRoomDataBtn" class="w-full text-left p-3 border border-gray-200 rounded-md hover:bg-gray-50 transition-colors flex items-center mb-2">
-                        <i class="fa fa-building-o text-primary mr-2"></i>
-                        <span>房间数据</span>
-                    </button>
-                    <button id="exportFacilityDataBtn" class="w-full text-left p-3 border border-gray-200 rounded-md hover:bg-gray-50 transition-colors flex items-center">
-                        <i class="fa fa-cubes text-info mr-2"></i>
-                        <span>房间设施数据</span>
-                    </button>
-                </div>
-                <div class="p-3 bg-gray-50 rounded-b-lg flex justify-end">
-                    <button id="closeModalBtn" class="px-3 py-1.5 border border-gray-300 rounded text-gray-700 hover:bg-gray-100">
-                        取消
-                    </button>
-                </div>
-            </div>
-        </div>
+        <!-- 导出模态框已移，导出按钮直接触发一次性导出房间+设施数据 -->
         
     <!-- 批量删除表单 -->
     <form id="batchDeleteForm" action="{{ url_for('room.batch_delete') }}" method="post" class="hidden">
@@ -476,6 +455,21 @@
             const importLoadingContent = document.getElementById('importLoadingContent');
             const importSuccessContent = document.getElementById('importSuccessContent');
             
+            // 批量更新数据复选框切换action
+            const overrideCheckbox = document.getElementById('overrideCheckbox');
+            const overrideHint = document.getElementById('overrideHint');
+            if (overrideCheckbox && importForm) {
+                overrideCheckbox.addEventListener('change', function() {
+                    if (this.checked) {
+                        importForm.action = '{{ url_for("room_import_export.batch_update") }}';
+                        overrideHint.classList.remove('hidden');
+                    } else {
+                        importForm.action = '{{ url_for("room_import_export.import_rooms") }}';
+                        overrideHint.classList.add('hidden');
+                    }
+                });
+            }
+
             // 打开模态框
             if (importBtn) {
             importBtn.addEventListener('click', function() {
@@ -484,6 +478,14 @@
                 importInitialContent.classList.remove('hidden');
                 importLoadingContent.classList.add('hidden');
                 importSuccessContent.classList.add('hidden');
+                // 重置复选框状态
+                if (overrideCheckbox) {
+                    overrideCheckbox.checked = false;
+                }
+                if (overrideHint) {
+                    overrideHint.classList.add('hidden');
+                }
+                importForm.action = '{{ url_for("room_import_export.import_rooms") }}';
                 // 阻止页面滚动
                 document.body.style.overflow = 'hidden';
             });
@@ -601,67 +603,31 @@
             // 初始化批量按钮状态
             updateBatchButtonState();
 
-            // 导出功能相关逻辑
+            // 导出功能相关逻辑（一次性导出房间数据+设施数据到多sheet Excel）
             const exportRoomBtn = document.getElementById('exportRoomBtn');
             const exportBtnText = document.getElementById('exportBtnText');
             const exportingIndicator = document.getElementById('exportingIndicator');
-            const exportModal = document.getElementById('exportModal');
             
-            // 显示模态框
             if (exportRoomBtn) {
             exportRoomBtn.addEventListener('click', function() {
-                exportModal.classList.remove('hidden');
-            });
-            }
-            
-            // 关闭模态框
-            document.getElementById('closeModalBtn').addEventListener('click', function() {
-                exportModal.classList.add('hidden');
-            });
-            
-            // 点击模态框外部关闭
-            window.addEventListener('click', function(event) {
-                if (event.target === exportModal) {
-                    exportModal.classList.add('hidden');
-                }
-            });
-            
-            // 导出处理函数
-            function handleExport(url) {
                 // 显示导出中状态
                 if (exportBtnText) exportBtnText.textContent = '';
                 if (exportingIndicator) exportingIndicator.classList.remove('hidden');
-                if (exportRoomBtn) {
                 exportRoomBtn.disabled = true;
                 exportRoomBtn.style.opacity = '0.7';
-                }
-                
-                // 关闭模态框
-                exportModal.classList.add('hidden');
                 
                 // 触发导出
-                window.location.href = url;
+                window.location.href = '{{ url_for("room_import_export.export") }}';
                 
                 // 60秒后恢复按钮状态
                 setTimeout(function() {
                     if (exportBtnText) exportBtnText.textContent = '导出';
                     if (exportingIndicator) exportingIndicator.classList.add('hidden');
-                    if (exportRoomBtn) {
                     exportRoomBtn.disabled = false;
                     exportRoomBtn.style.opacity = '1';
-                    }
                 }, 60000);
+            });
             }
-            
-            // 导出房间数据
-            document.getElementById('exportRoomDataBtn').addEventListener('click', function() {
-                handleExport('{{ url_for('room_import_export.export') }}');
-            });
-            
-            // 导出房间设施数据
-            document.getElementById('exportFacilityDataBtn').addEventListener('click', function() {
-                handleExport('{{ url_for('room_import_export.export_facilities') }}');
-            });
 
             // 筛选区选择即生效功能
             const buildingSelect = document.getElementById('buildingNo');

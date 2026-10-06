@@ -80,7 +80,7 @@ def log():
     user_map = {}
     if user_ids:
         users = User.query.filter(User.id.in_(user_ids)).all()
-        user_map = {user.id: user.name for user in users}
+        user_map = {user.id: user.username for user in users}
 
     # 处理日志数据，添加模块和操作类型的中文名称
     processed_logs = []

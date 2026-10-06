@@ -207,8 +207,11 @@
                                     <img src="{{ media.url }}" class="w-full h-full object-cover group-hover:scale-105 transition-transform" alt="照片">
                                 </div>
                                 {% else %}
-                                <div class="h-32 flex items-center justify-center bg-gray-100 rounded-lg border border-gray-200">
-                                    <i class="fa fa-file-video-o text-4xl text-gray-400"></i>
+                                <div class="h-32 relative rounded-lg overflow-hidden">
+                                    <video src="{{ media.url }}" class="w-full h-full object-cover" muted preload="metadata"></video>
+                                    <div class="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30">
+                                        <i class="fa fa-play-circle text-white text-3xl opacity-80"></i>
+                                    </div>
                                 </div>
                                 {% endif %}
                             </div>
@@ -386,7 +389,7 @@
                 <i class="fa fa-times"></i>
             </button>
             <img id="modalImage" src="" class="max-w-full max-h-[85vh] object-contain rounded-lg hidden" alt="图片预览">
-            <video id="modalVideo" src="" class="max-w-full max-h-[85vh] rounded-lg hidden" controls></video>
+            <video id="modalVideo" src="" class="max-w-full max-h-[85vh] rounded-lg hidden" controls autoplay></video>
         </div>
     </div>
 
@@ -549,8 +552,11 @@
                     </div>`;
                 } else {
                     mediaContent = `<div class="cursor-pointer" onclick="openMediaModal('${media.url}', '${media.type}')">
-                        <div class="h-32 flex items-center justify-center bg-gray-100 rounded-lg border border-gray-200">
-                            <i class="fa fa-file-video-o text-4xl text-gray-400"></i>
+                        <div class="h-32 relative rounded-lg overflow-hidden">
+                            <video src="${media.url}" class="w-full h-full object-cover" muted preload="metadata"></video>
+                            <div class="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30">
+                                <i class="fa fa-play-circle text-white text-3xl opacity-80"></i>
+                            </div>
                         </div>
                     </div>`;
                 }

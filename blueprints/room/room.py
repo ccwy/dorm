@@ -8,9 +8,10 @@ from utils.log import log_operation
 import logging
 
 from utils.auth import require_permission
+from utils.custom_fields import get_custom_field_definitions, deserialize_custom_fields
 from models.utility.utility_room_bill_record import RoomUtilityRecord
 from models.room.room_facility import RoomFacility  # 新增：导入房间设施模型
-from utils.room_photo import RoomPhotoManager
+from utils.media.room_photo import RoomPhotoManager
 
 # 定义蓝图
 room_bp = Blueprint(
@@ -264,6 +265,8 @@ def view(id):
             result="成功"
         )
         logging.info(f"查看房间详情，房间ID: {id}")
+        custom_field_defs = get_custom_field_definitions('room.custom_field')
+        custom_field_values = deserialize_custom_fields(room.custom_fields)
         return render_template(
             'room_manage/room_view.html',
             title=f"查看房间 - {room.building}{room.room_number}",
@@ -277,7 +280,9 @@ def view(id):
             reverse_gender={},
             reverse_status=get_enum_chinese_mapping(RoomStatus),
             utility_records=utility_records,
-            media_files=media_files  # 传递房间媒体文件
+            media_files=media_files,  # 传递房间媒体文件
+            custom_field_defs=custom_field_defs,
+            custom_field_values=custom_field_values,
         )
     except Exception as e:
         log_operation(

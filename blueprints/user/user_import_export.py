@@ -9,8 +9,11 @@ from utils.user_utils import (
     get_importable_fields, 
     process_field_value,
     generate_student_id,
-    generate_username
+    generate_username,
+    get_custom_field_label_to_key_map,
+    get_custom_field_definitions_for_export
 ) #引入工具类
+from utils.custom_fields import deserialize_custom_fields, serialize_custom_fields, validate_custom_fields, get_custom_field_definitions
 from utils.excel_date_utils import excel_date_utils
 import re  # 正则表达式模块，用于处理字符串
 import datetime
@@ -73,10 +76,10 @@ def _read_excel_with_dtype(file_bytes):
     return df, excel_columns, display_to_field
 
 
-def _batch_parse_hire_dates(df):
+def _batch_parse_hire_dates(df, raise_error=True):
     """批量解析入职日期，返回 parsed_hire_dates。失败时抛出异常由调用方处理。"""
     hire_date_values = df.get('入职日期', pd.Series([None] * len(df)))
-    parsed_hire_dates = excel_date_utils.parse_excel_date(hire_date_values, field_name='入职日期')
+    parsed_hire_dates = excel_date_utils.parse_excel_date(hire_date_values, field_name='入职日期', raise_error=raise_error)
     logging.info("日期时间解析成功")
     return parsed_hire_dates
 
@@ -221,13 +224,7 @@ def _commit_batch_result(result, current_user, operation_type, summary_template,
         
     except Exception as e:
         db.session.rollback()
-        log_operation(
-            user_id=current_user.id,
-            module='user',
-            operation_type='batch_import_export',
-            action=f"尝试{operation_type}用户数据失败: {str(e)}",
-            result="失败"
-        )
+        
         flash(f'数据提交失败: {str(e)}', 'danger')
         logging.error(f"{operation_type}用户数据操作，提交数据库失败: {str(e)}")
         return None
@@ -247,8 +244,11 @@ def export_users():
         
         model_fields = get_user_model_fields()
         
-        export_fields = {k: v for k, v in model_fields.items() if k != 'password_hash'}
+        export_fields = {k: v for k, v in model_fields.items() if k != 'password_hash' and not k.startswith('custom_')}
         field_names = list(export_fields.keys())
+        
+        # 获取自定义字段定义（用于导出）
+        custom_field_defs = get_custom_field_definitions_for_export('user')
         
         # 构建导出数据
         data = []
@@ -287,6 +287,16 @@ def export_users():
                     
                 row[export_fields[field_name]] = process_field_value(field_name, field_value)
             
+            # 添加自定义字段列到当前行
+            if custom_field_defs:
+                custom_data = deserialize_custom_fields(user.custom_fields or '')
+                for field_def in custom_field_defs:
+                    field_key = field_def.get('field_key', '')
+                    label = field_def.get('label', field_key)
+                    if field_key:
+                        row_data_value = custom_data.get(field_key, '')
+                        row[label] = str(row_data_value) if row_data_value else ''
+            
             data.append(row)
         
         # 生成Excel
@@ -313,13 +323,7 @@ def export_users():
         )
     
     except Exception as e:
-        log_operation(
-            user_id=current_user.id,
-            module='user',
-            operation_type='batch_import_export',
-            action=f"尝试导出用户数据失败: {str(e)}",
-            result="失败"
-        )
+        
         flash(f'导出失败: {str(e)}', 'danger')
         logging.error(f"导出用户数据操作失败，异常信息: {str(e)}")
         return redirect(url_for('user.manage'))
@@ -347,20 +351,53 @@ def import_users():
         df, excel_columns, display_to_field = _read_excel_with_dtype(file_bytes)
         logging.info('开始导入用户')
         
-        # 检查必要字段（显示名）
-        required_display = ['姓名', '性别']
-        if not all(req in excel_columns for req in required_display):
-            missing = [req for req in required_display if req not in excel_columns]
-            msg = f'Excel缺少必要列：{", ".join(missing)}'
-            flash(msg, 'danger')
-            logging.error(f"导入用户数据操作，Excel缺少必要列：{', '.join(missing)}")
-            return redirect(url_for('user.manage'))
+        # 白名单模式：只识别必填列和可选列，其余列全部自动忽略
+        # 必填列（缺失时报错）
+        required_columns = ['姓名', '性别']
+        # 可选列（缺失时不报错）
+        optional_columns = ['工号', '用户名', '密码', '角色', '公司', '部门', '职位', '身份证号码', '身份证地址', '外宿地址', '联系电话', '紧急联系人', '紧急联系人电话', '入职日期', '是否激活账号', '是否允许登录', '人员类别', '备注', '状态', '民族', '婚姻状态']
         
-        # 提示未识别字段
-        extra_cols = [col for col in excel_columns if col not in display_to_field.keys()]
-        if extra_cols:
-            flash(f'忽略未识别字段：{", ".join(extra_cols)}', 'warning')
-            logging.warning(f"导入用户数据操作，Excel包含未识别字段：{', '.join(extra_cols)}")
+        # 获取自定义字段label→key映射（用于导入时通过列名反查字段key）
+        custom_label_to_key = get_custom_field_label_to_key_map('user')
+        custom_field_labels = set(custom_label_to_key.keys())
+        
+        # 所有可能需要识别的标准列名（包含自定义字段列名）
+        all_known_columns = set(required_columns) | set(optional_columns) | custom_field_labels
+
+        # 构建列名映射：只保留白名单中的列，其余自动忽略
+        column_mapping = {}
+        ignored_columns = []
+        for col in df.columns:
+            # 先检查是否直接匹配标准列名
+            if col in all_known_columns:
+                continue  # 标准列名无需映射
+            # 自定义字段列名也无需映射，直接保留
+            if col in custom_field_labels:
+                continue
+            ignored_columns.append(col)
+
+        if ignored_columns:
+            logging.info(f'导入用户数据：自动忽略未识别列 {ignored_columns}')
+
+        # 重命名列以统一标准，并只保留白名单中的列（用户ID为别名映射列，导入时忽略）
+        if column_mapping:
+            df = df.rename(columns=column_mapping)
+        whitelist_columns = [col for col in df.columns if col in all_known_columns]
+        df = df[whitelist_columns]
+        excel_columns = df.columns.tolist()
+        
+        # 检测Excel中实际包含的自定义字段列
+        custom_columns_in_excel = [col for col in excel_columns if col in custom_field_labels]
+        # 获取自定义字段定义（用于导入时校验和checkbox标准化）
+        custom_field_defs_import = get_custom_field_definitions('user')
+
+        # 验证必要列
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            msg = f'Excel缺少必要列：{", ".join(missing_columns)}'
+            flash(msg, 'danger')
+            logging.error(f"导入用户数据操作，Excel缺少必要列：{', '.join(missing_columns)}")
+            return redirect(url_for('user.manage'))
 
         # 一次性读取数据库中已存在的工号和用户名（优化点）
         existing_data = User.query.with_entities(User.student_id, User.username).all()
@@ -383,9 +420,9 @@ def import_users():
         default_role = Role.query.filter_by(code='user').first()
         default_role_id = default_role.id if default_role else None
         
-        # 提取所有入职时间值进行批量解析
+        # 提取所有入职时间值进行批量解析（入职日期为可选字段，空值允许）
         try:
-            parsed_hire_dates = _batch_parse_hire_dates(df)
+            parsed_hire_dates = _batch_parse_hire_dates(df, raise_error=False)
         except Exception as e:
             msg = f'批量解析入职日期失败：{str(e)}'
             flash(msg, 'danger')
@@ -520,6 +557,27 @@ def import_users():
                     user_data['is_banned'] = bool(SystemConfig.get_config_value('USER_DEFAULT_BANNED', False))
                     logging.info(f"导入用户数据操作，第{current_row}行：Excel中未提供'是否允许登录'字段，已设置为默认值")
             
+            # 处理自定义字段列
+            if custom_columns_in_excel:
+                custom_data = {}
+                for label in custom_columns_in_excel:
+                    if label in row.index and not pd.isna(row[label]):
+                        field_key = custom_label_to_key.get(label, '')
+                        if field_key:
+                            # checkbox类型值标准化
+                            field_def_for_key = next((fd for fd in custom_field_defs_import if fd.get('field_key') == field_key), None)
+                            if field_def_for_key and field_def_for_key.get('type') == 'checkbox':
+                                val = str(row[label]).strip().lower()
+                                custom_data[field_key] = 'true' if val in ('true', '1', '是', 'yes') else 'false'
+                            else:
+                                custom_data[field_key] = str(row[label]).strip()
+                if custom_data:
+                    # 导入校验（宽松模式：仅warning，不阻断导入）
+                    validation_warnings = validate_custom_fields(custom_data, custom_field_defs_import)
+                    for warning in validation_warnings:
+                        logging.warning(f'导入用户数据第{current_row}行自定义字段校验警告：{warning}')
+                    user_data['custom_fields'] = serialize_custom_fields(custom_data)
+            
             # 同步公司和部门到部门管理模块
             _sync_company_department(user_data, '导入用户数据操作', f'第{current_row}行：')
             
@@ -570,13 +628,7 @@ def import_users():
     except Exception as e:
         # 发生异常时回滚事务
         db.session.rollback()
-        log_operation(
-            user_id=current_user.id,
-            module='user',
-            operation_type='batch_import_export',
-            action=f"尝试导入用户数据失败: {str(e)}",
-            result="失败"
-        )
+        
         msg = f'导入失败: {str(e)}'
         flash(msg, 'danger')
         logging.error(f"导入用户数据操作，导入失败: {str(e)}", exc_info=True)
@@ -596,6 +648,7 @@ def import_template():
         # 准备模板数据（示例数据）
         sample_data = [
             {
+                "用户ID（批量更新必填）": "",
                 "姓名": "张三",
                 "性别": "男",
                 "用户名": "张三",
@@ -621,6 +674,7 @@ def import_template():
                 "密码": "123321"  # 默认密码
             },
             {
+                "用户ID（批量更新必填）": "1",
                 "姓名": "李四",
                 "性别": "女",
                 "用户名": "李四",
@@ -646,6 +700,15 @@ def import_template():
                 "密码": "654321"  # 自定义密码
             }
         ]
+        
+        # 添加自定义字段列到模板
+        custom_field_defs = get_custom_field_definitions_for_export('user')
+        if custom_field_defs:
+            for field_def in custom_field_defs:
+                label = field_def.get('label', field_def.get('field_key', ''))
+                default_value = field_def.get('default_value', '')
+                for sample_row in sample_data:
+                    sample_row[label] = str(default_value) if default_value else ''
         
         # 创建DataFrame
         df = pd.DataFrame(sample_data)
@@ -696,13 +759,7 @@ def import_template():
         )
     
     except Exception as e:
-        log_operation(
-            user_id=current_user.id,
-            module='user',
-            operation_type='batch_import_export',
-            action=f"尝试生成用户导入模板失败: {str(e)}",
-            result="失败"
-        )
+        
         flash(f'生成模板失败: {str(e)}', 'danger')
         logging.error(f"下载用户导入模板操作失败，异常信息: {str(e)}")
         return redirect(url_for('user.manage'))
@@ -727,94 +784,137 @@ def update_users():
         # 读取Excel并构建dtype字典
         df, excel_columns, display_to_field = _read_excel_with_dtype(file_bytes)
         
-        # 检查必要字段（用户ID和姓名）
-        required_display = ['用户ID', '姓名']
-        if not all(req in excel_columns for req in required_display):
-            missing = [req for req in required_display if req not in excel_columns]
-            msg = f'Excel缺少必要列：{" ".join(missing)}'
-            flash(msg, 'danger')
-            logging.error(f"批量更新用户数据操作，Excel缺少必要列：{', '.join(missing)}")
-            return redirect(url_for('user.manage'))
+        # 白名单模式：只识别必填列和可选列，其余列全部自动忽略
+        # 必填列（缺失时报错）
+        required_columns = ['用户ID']
+        # 可选列（缺失时不报错）
+        optional_columns = ['姓名', '性别', '工号', '用户名', '密码', '角色', '公司', '部门', '职位', '身份证号码', '身份证地址', '外宿地址', '联系电话', '紧急联系人', '紧急联系人电话', '入职日期', '是否激活账号', '是否允许登录', '人员类别', '备注', '状态', '民族', '婚姻状态']
+        # 列名别名映射：将Excel中可能出现的列名映射到标准列名
+        column_alias_map = {
+            '用户ID': ['用户ID（批量更新必填）', '用户ID(批量更新必填)', 'ID', 'id'],
+        }
+        # 获取自定义字段label→key映射
+        custom_label_to_key = get_custom_field_label_to_key_map('user')
+        custom_field_labels = set(custom_label_to_key.keys())
         
-        # 提示未识别字段
-        extra_cols = [col for col in excel_columns if col not in display_to_field.keys() and col != '用户ID']
-        if extra_cols:
-            flash(f'忽略未识别字段：{" ".join(extra_cols)}', 'warning')
-            logging.warning(f"批量更新用户数据操作，Excel包含未识别字段：{', '.join(extra_cols)}")
+        # 所有可能需要识别的标准列名（包含自定义字段列名）
+        all_known_columns = set(required_columns) | set(optional_columns) | custom_field_labels
+
+        # 构建列名映射：只保留白名单中的列，其余自动忽略
+        column_mapping = {}
+        ignored_columns = []
+        for col in df.columns:
+            # 先检查是否直接匹配标准列名
+            if col in all_known_columns:
+                continue  # 标准列名无需映射
+            # 再检查是否匹配某个标准列名的别名
+            matched = False
+            for standard_name, aliases in column_alias_map.items():
+                if col in aliases:
+                    column_mapping[col] = standard_name
+                    matched = True
+                    break
+            if not matched:
+                ignored_columns.append(col)
+
+        if ignored_columns:
+            logging.info(f'批量更新用户数据：自动忽略未识别列 {ignored_columns}')
+
+        # 重命名列以统一标准，并只保留白名单中的列
+        if column_mapping:
+            df = df.rename(columns=column_mapping)
+        whitelist_columns = [col for col in df.columns if col in all_known_columns]
+        df = df[whitelist_columns]
+        excel_columns = list(df.columns)
+        
+        # 检测Excel中实际包含的自定义字段列
+        custom_columns_in_excel = [col for col in excel_columns if col in custom_field_labels]
+        # 获取自定义字段定义（用于导入时校验和checkbox标准化）
+        custom_field_defs_import = get_custom_field_definitions('user')
+
+        # 验证必要列
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            msg = f'Excel缺少必要列：{", ".join(missing_columns)}'
+            flash(msg, 'danger')
+            logging.error(f"批量更新用户数据操作，Excel缺少必要列：{', '.join(missing_columns)}")
+            return redirect(url_for('user.manage'))
         
         # 收集要更新的数据
         user_data_list = []
         
-        # 获取现有用户的用户名和工号映射关系，用于验证唯一性
-        existing_users = User.query.with_entities(User.id, User.username, User.student_id).all()
-        username_to_id = {user.username: user.id for user in existing_users if user.username}
-        student_id_to_id = {user.student_id: user.id for user in existing_users if user.student_id}
-        
+
         # 预加载部门缓存，避免批量更新时循环内DB查询
         department_cache = _build_department_cache()
         
-        # 提取所有入职时间值进行批量解析
-        try:
-            parsed_hire_dates = _batch_parse_hire_dates(df)
-        except Exception as e:
-            msg = f'批量解析入职日期失败：{str(e)}'
-            flash(msg, 'danger')
-            logging.error(f'批量解析入职日期失败：{str(e)}')
-            return redirect(url_for('user.manage'))
+        # 提取所有入职时间值进行批量解析（入职日期为可选字段，空值允许）
+        parsed_hire_dates = _batch_parse_hire_dates(df, raise_error=False)
         
-        # 用于跟踪Excel文件内已处理的用户名和工号，防止表格内部重复
+        error_list = []
+        # 获取现有用户的用户名和工号映射关系，用于验证唯一性
+        existing_users = User.query.all()
+        username_to_id = {user.username: user.id for user in existing_users if user.username}
+        student_id_to_id = {user.student_id: user.id for user in existing_users if user.student_id}
+        # Excel内部去重跟踪集合
         excel_username_set = set()
         excel_student_id_set = set()
         
+        # 预加载角色映射，避免循环内DB查询（修复：角色需要从名称映射到role_id）
+        all_roles = Role.query.order_by(Role.sort_order).all()
+        role_name_to_id = {r.name: r.id for r in all_roles}
+        
         for idx, row in df.iterrows():
-            user_data = {}
-            # 添加用户ID
-            if '用户ID' in row and pd.notna(row['用户ID']):
-                try:
-                    user_data['id'] = int(row['用户ID'])
-                except ValueError:
-                    logging.warning(f"批量更新用户数据操作，第{idx+2}行：用户ID格式无效")
-                    continue
-            else:
+            user_data = {}  # 每行初始化
+            # 提取用户ID（处理pandas将数字读取为float的问题）
+            raw_uid = row['用户ID']
+            if pd.isna(raw_uid):
                 logging.warning(f"批量更新用户数据操作，第{idx+2}行：用户ID为空")
                 continue
+            elif isinstance(raw_uid, float):
+                user_data['id'] = int(raw_uid)
+            else:
+                try:
+                    user_data['id'] = int(str(raw_uid).strip())
+                except (ValueError, TypeError):
+                    logging.warning(f"批量更新用户数据操作，第{idx+2}行：用户ID格式无效")
+                    continue
             
             # 验证用户名唯一性
             if '用户名' in row and pd.notna(row['用户名']):
                 username = str(row['用户名']).strip()
                 if username:
-                    # 检查数据库中是否存在该用户名且不属于当前用户
+                    # 数据库唯一性检查
                     if username in username_to_id and username_to_id[username] != user_data['id']:
+                        error_list.append(f"第{idx+2}行：用户名'{username}'已被其他用户使用")
                         logging.warning(f"批量更新用户数据操作，第{idx+2}行：用户名'{username}'已被其他用户使用")
-                        continue
-                    # 检查当前Excel文件中是否已经出现过该用户名
-                    if username in excel_username_set:
-                        logging.warning(f"批量更新用户数据操作，第{idx+2}行：用户名'{username}'在Excel文件中重复出现")
-                        continue
-                    # 添加到已处理集合
-                    excel_username_set.add(username)
-                    user_data['username'] = username
-            
-            # 验证工号唯一性
+                    # Excel内部唯一性检查
+                    elif username in excel_username_set:
+                        error_list.append(f"第{idx+2}行：用户名'{username}'在Excel中重复")
+                        logging.warning(f"批量更新用户数据操作，第{idx+2}行：用户名'{username}'在Excel中重复")
+                    else:
+                        excel_username_set.add(username)
+                        # 修复：验证通过后必须将username写入user_data，否则用户名永远不会被更新
+                        user_data['username'] = username
             if '工号' in row and pd.notna(row['工号']):
                 student_id = str(row['工号']).strip()
                 if student_id:
-                    # 检查数据库中是否存在该工号且不属于当前用户
+                    # 数据库唯一性检查
                     if student_id in student_id_to_id and student_id_to_id[student_id] != user_data['id']:
+                        error_list.append(f"第{idx+2}行：工号'{student_id}'已被其他用户使用")
                         logging.warning(f"批量更新用户数据操作，第{idx+2}行：工号'{student_id}'已被其他用户使用")
-                        continue
-                    # 检查当前Excel文件中是否已经出现过该工号
-                    if student_id in excel_student_id_set:
-                        logging.warning(f"批量更新用户数据操作，第{idx+2}行：工号'{student_id}'在Excel文件中重复出现")
-                        continue
-                    # 添加到已处理集合
-                    excel_student_id_set.add(student_id)
-                    user_data['student_id'] = student_id
+                    # Excel内部唯一性检查
+                    elif student_id in excel_student_id_set:
+                        error_list.append(f"第{idx+2}行：工号'{student_id}'在Excel中重复")
+                        logging.warning(f"批量更新用户数据操作，第{idx+2}行：工号'{student_id}'在Excel中重复")
+                    else:
+                        excel_student_id_set.add(student_id)
+                        user_data['student_id'] = student_id
             
+
             # 处理其他字段
             for col in excel_columns:
-                # 跳过已经处理过的字段
-                if col in ['用户ID', '用户名', '工号']:
+                # 跳过已经处理过的字段（角色需单独映射role_id，不走通用处理）
+                if col in ['用户ID', '用户名', '工号', '角色']:
                     continue
                 if col in display_to_field:
                     field_name = display_to_field[col]
@@ -823,13 +923,58 @@ def update_users():
                         # 使用公共函数统一处理字段值转换
                         processed = _process_field_value(field_name, value, parsed_hire_dates, idx)
                         if processed is not None:
+                            # 修复：空字符串视为未填写，跳过更新（保持原值不变）
+                            if isinstance(processed, str) and not processed.strip():
+                                continue
                             user_data[field_name] = processed
+            
+            # 修复：角色字段需从角色名称映射到role_id（模型层fields_to_update使用role_id而非role）
+            if '角色' in row and pd.notna(row['角色']):
+                role_val = str(row['角色']).strip()
+                if role_val:  # 空字符串跳过，保持原值不变
+                    role_id = role_name_to_id.get(role_val)
+                    if role_id is not None:
+                        user_data['role_id'] = role_id
+                    else:
+                        error_list.append(f"第{idx+2}行：角色'{role_val}'不存在")
+                        logging.warning(f"批量更新用户数据操作，第{idx+2}行：角色'{role_val}'不存在")
+            
+            # 处理自定义字段列
+            if custom_columns_in_excel:
+                custom_data = {}
+                for label in custom_columns_in_excel:
+                    if label in row.index and pd.notna(row[label]):
+                        field_key = custom_label_to_key.get(label, '')
+                        if field_key:
+                            # checkbox类型值标准化
+                            field_def_for_key = next((fd for fd in custom_field_defs_import if fd.get('field_key') == field_key), None)
+                            if field_def_for_key and field_def_for_key.get('type') == 'checkbox':
+                                val = str(row[label]).strip().lower()
+                                custom_data[field_key] = 'true' if val in ('true', '1', '是', 'yes') else 'false'
+                            else:
+                                val = str(row[label]).strip()
+                                if val:  # 空字符串跳过，保持原值不变
+                                    custom_data[field_key] = val
+                if custom_data:
+                    # 导入校验（宽松模式：仅warning，不阻断导入）
+                    validation_warnings = validate_custom_fields(custom_data, custom_field_defs_import)
+                    for warning in validation_warnings:
+                        logging.warning(f'批量更新用户数据第{idx+2}行自定义字段校验警告：{warning}')
+                    user_data['custom_fields'] = serialize_custom_fields(custom_data)
             
             # 同步公司和部门到部门管理模块
             _sync_company_department(user_data, '批量更新用户数据操作', f'第{idx+2}行：')
             
             if user_data:
                 user_data_list.append(user_data)
+        
+        if error_list:
+            message = f"数据验证失败：共{len(error_list)}条错误<br>" + "<br>".join(error_list[:5])
+            if len(error_list) > 5:
+                message += f"<br>... 还有 {len(error_list)-5} 条错误"
+            flash(message, 'danger')
+            logging.error(f'批量更新用户数据失败：数据验证失败，共{len(error_list)}条错误')
+            return redirect(url_for('user.manage'))
         
         if not user_data_list:
             msg = 'Excel中没有可更新的有效数据'
@@ -841,6 +986,21 @@ def update_users():
             # 调用模型的批量更新方法
             update_result = User.batch_update_users(user_data_list, department_cache=department_cache)
             
+            # 全有或全无策略：任何行更新失败则全部回滚
+            if update_result['failed']:
+                db.session.rollback()
+                fail_errors = []
+                for fail in update_result['failed']:
+                    fail_msg = f"行号：{fail['row']}，错误：{', '.join(fail['errors'])}"
+                    fail_errors.append(fail_msg)
+                    logging.error(f"批量更新用户数据操作：{fail_msg}")
+                message = f"数据更新失败，已全部回滚：共{len(fail_errors)}条错误<br>" + "<br>".join(fail_errors[:5])
+                if len(fail_errors) > 5:
+                    message += f"<br>... 还有 {len(fail_errors)-5} 条错误"
+                flash(message, 'danger')
+                logging.error(f'批量更新用户数据失败：共{len(fail_errors)}条错误，已全部回滚')
+                return redirect(url_for('user.manage'))
+            
             # 合并提交结果
             commit_result = _commit_batch_result(
                 update_result, current_user,
@@ -851,22 +1011,11 @@ def update_users():
             
             if commit_result is None:
                 return redirect(url_for('user.manage'))
-            
-            # 如果有失败记录，显示失败详情
-            if update_result['failed']:
-                for fail in update_result['failed']:
-                    logging.error(f"批量更新用户失败，行号：{fail['row']}，错误：{', '.join(fail['errors'])}")
         
         except Exception as e:
             # 事务回滚
             db.session.rollback()
-            log_operation(
-                user_id=current_user.id,
-                module='user',
-                operation_type='batch_import_export',
-                action=f"尝试批量更新用户数据失败: {str(e)}",
-                result="失败"
-            )
+            
             msg = f'数据提交失败: {str(e)}'
             flash(msg, 'danger')
             logging.error(f"批量更新用户数据操作，提交数据库失败: {str(e)}")
@@ -877,13 +1026,7 @@ def update_users():
     except Exception as e:
         # 发生异常时回滚事务
         db.session.rollback()
-        log_operation(
-            user_id=current_user.id,
-            module='user',
-            operation_type='batch_import_export',
-            action=f"尝试批量更新用户数据失败: {str(e)}",
-            result="失败"
-        )
+        
         msg = f'更新失败: {str(e)}'
         flash(msg, 'danger')
         logging.error(f"批量更新用户数据操作，更新失败: {str(e)}", exc_info=True)

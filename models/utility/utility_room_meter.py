@@ -5,6 +5,23 @@ from decimal import Decimal
 import logging
 from models.user.user import User  # 导入User模型
 
+def _clean_number(value):
+    """将Decimal转换为干净的数值：整数不带.0，小数保留有效位"""
+    if value is None:
+        return None
+    from decimal import Decimal
+    if isinstance(value, Decimal):
+        # 检查是否有小数部分
+        if value == value.to_integral_value():
+            return int(value)
+        else:
+            return float(value)
+    # 如果已经是float/int，同样处理
+    f = float(value)
+    if f == int(f):
+        return int(f)
+    return f
+
 class UtilityMeterReading(db.Model):
     __tablename__ = 'utility_room_meter_readings'
     
@@ -65,17 +82,28 @@ class UtilityMeterReading(db.Model):
     
     # 水表最新记录查询 - 修复核心：移除record_id过滤，获取房间所有历史记录
     @classmethod
-    def get_latest_water_reading(cls, room_id):
-            """获取指定房间最新的有效水表记录（跨账期查询）"""
+    def get_latest_water_reading(cls, room_id, before_date=None):
+            """获取指定房间最新的有效水表记录（跨账期查询）
+            
+            Args:
+                room_id: 房间ID
+                before_date: 可选，只查询此日期之前的抄表记录（用于退宿费用核算的时间锁）
+                            提供此参数时跳过换表记录过滤逻辑
+            """
             query = cls.query.filter_by(room_id=room_id)\
                              .filter(cls.water_current.isnot(None))\
                              .filter(cls.reading_type == 1)\
                              .order_by(cls.reading_date.desc(), cls.id.desc())
             
-            # 处理水表更换记录
-            latest_replace = query.filter(cls.water_meter_replaced == True).first()
-            if latest_replace:
-                query = query.filter(cls.reading_date >= latest_replace.reading_date)
+            # 时间锁：退宿费用核算时，只查询退宿日期之前的抄表记录
+            if before_date:
+                query = query.filter(cls.reading_date < before_date)
+            
+            # 处理水表更换记录（退宿场景不参与换表逻辑，跳过此过滤）
+            if not before_date:
+                latest_replace = query.filter(cls.water_meter_replaced == True).first()
+                if latest_replace:
+                    query = query.filter(cls.reading_date >= latest_replace.reading_date)
             
             latest = query.first()
             if latest:
@@ -88,17 +116,28 @@ class UtilityMeterReading(db.Model):
     
     # 电表最新记录查询 - 修复核心：移除record_id过滤
     @classmethod
-    def get_latest_electric_reading(cls, room_id):
-            """获取指定房间最新的有效电表记录（跨账期查询）"""
+    def get_latest_electric_reading(cls, room_id, before_date=None):
+            """获取指定房间最新的有效电表记录（跨账期查询）
+            
+            Args:
+                room_id: 房间ID
+                before_date: 可选，只查询此日期之前的抄表记录（用于退宿费用核算的时间锁）
+                            提供此参数时跳过换表记录过滤逻辑
+            """
             query = cls.query.filter_by(room_id=room_id)\
                              .filter(cls.electric_current.isnot(None))\
                              .filter(cls.reading_type == 1)\
                              .order_by(cls.reading_date.desc(), cls.id.desc())
             
-            # 处理电表更换记录
-            latest_replace = query.filter(cls.electric_meter_replaced == True).first()
-            if latest_replace:
-                query = query.filter(cls.reading_date >= latest_replace.reading_date)
+            # 时间锁：退宿费用核算时，只查询退宿日期之前的抄表记录
+            if before_date:
+                query = query.filter(cls.reading_date < before_date)
+            
+            # 处理电表更换记录（退宿场景不参与换表逻辑，跳过此过滤）
+            if not before_date:
+                latest_replace = query.filter(cls.electric_meter_replaced == True).first()
+                if latest_replace:
+                    query = query.filter(cls.reading_date >= latest_replace.reading_date)
             
             latest = query.first()
             if latest:
@@ -271,8 +310,8 @@ class UtilityMeterReading(db.Model):
         room = Room.query.get_or_404(room_id)
         
         # 量程默认值
-        electric_max = getattr(room, 'electric_meter_max', 9999.99)
-        water_max = getattr(room, 'water_meter_max', 9999.99)
+        electric_max = getattr(room, 'electric_meter_max', Decimal('9999.99'))
+        water_max = getattr(room, 'water_meter_max', Decimal('9999.99'))
         
         # 水表验证与计算
         water_previous = None
@@ -283,7 +322,7 @@ class UtilityMeterReading(db.Model):
             if reading_type == 1:  # 新增类型判断
                 if not water_meter_replaced and last_water:
                     if water_current < last_water.water_current:
-                        if not (last_water.water_current > water_max * 0.9 and water_current < water_max * 0.1):
+                        if not (last_water.water_current > water_max * Decimal('0.9') and water_current < water_max * Decimal('0.1')):
                             raise ValueError(f"水表当前读数({water_current})不能小于上次读数({last_water.water_current})，除非标记表具更换或表计归零")
             
             # 确定上次读数（核心：使用跨账期的历史记录）
@@ -293,7 +332,11 @@ class UtilityMeterReading(db.Model):
                 water_usage = 0
             else:
                 water_previous = last_water.water_current
-                water_usage = cls.calculate_usage_with_rollover(water_current, water_previous, water_max)
+                if reading_type == 2:
+                    # 退宿抄表：直接计算用量，负值设为0（退宿场景不需要归零计算）
+                    water_usage = max(0, float(water_current - water_previous))
+                else:
+                    water_usage = cls.calculate_usage_with_rollover(water_current, water_previous, water_max)
         
         # 电表验证与计算
         electric_previous = None
@@ -304,7 +347,7 @@ class UtilityMeterReading(db.Model):
             if reading_type == 1:  # 新增类型判断
                 if not electric_meter_replaced and last_electric:
                     if electric_current < last_electric.electric_current:
-                        if not (last_electric.electric_current > electric_max * 0.9 and electric_current < electric_max * 0.1):
+                        if not (last_electric.electric_current > electric_max * Decimal('0.9') and electric_current < electric_max * Decimal('0.1')):
                             raise ValueError(f"电表当前读数({electric_current})不能小于上次读数({last_electric.electric_current})，除非标记表具更换或表计归零")
             
             # 确定上次读数（核心：使用跨账期的历史记录）
@@ -313,7 +356,11 @@ class UtilityMeterReading(db.Model):
                 electric_usage = 0
             else:
                 electric_previous = last_electric.electric_current
-                electric_usage = cls.calculate_usage_with_rollover(electric_current, electric_previous, electric_max)
+                if reading_type == 2:
+                    # 退宿抄表：直接计算用量，负值设为0（退宿场景不需要归零计算）
+                    electric_usage = max(0, float(electric_current - electric_previous))
+                else:
+                    electric_usage = cls.calculate_usage_with_rollover(electric_current, electric_previous, electric_max)
         
         # 至少需要一项读数
         if water_current is None and electric_current is None:
@@ -349,6 +396,10 @@ class UtilityMeterReading(db.Model):
         # 延迟导入
         from models.room.room import Room
         
+        # 跟踪换表标记是否本次新设置（True→True不算，False→True才算）
+        water_replaced_newly_set = False
+        electric_replaced_newly_set = False
+        
         updated_fields = []
         original_values = {}
             
@@ -358,8 +409,8 @@ class UtilityMeterReading(db.Model):
                 updated_fields.append(key)
 
         room = Room.query.get_or_404(self.room_id)
-        electric_max = getattr(room, 'electric_meter_max', 9999.99)
-        water_max = getattr(room, 'water_meter_max', 9999.99)
+        electric_max = getattr(room, 'electric_meter_max', Decimal('9999.99'))
+        water_max = getattr(room, 'water_meter_max', Decimal('9999.99'))
         
         # 处理时间更新的特殊验证
         if 'reading_date' in kwargs:
@@ -380,35 +431,42 @@ class UtilityMeterReading(db.Model):
             self.reading_date = new_date
         
         if 'water_meter_replaced' in kwargs:
+            old_water_replaced = self.water_meter_replaced
             self.water_meter_replaced = kwargs['water_meter_replaced']
+            water_replaced_newly_set = self.water_meter_replaced and not old_water_replaced
         
         if 'electric_meter_replaced' in kwargs:
+            old_electric_replaced = self.electric_meter_replaced
             self.electric_meter_replaced = kwargs['electric_meter_replaced']
+            electric_replaced_newly_set = self.electric_meter_replaced and not old_electric_replaced
         
         # ===== 新方案：更新时同步sequence =====
         # 处理水表更新
         if 'water_current' in kwargs:
             new_water_current = kwargs['water_current']
             
-            if not self.water_meter_replaced:
-                # 修复：不传递record_id，获取所有历史记录
-                last_water = self.get_latest_water_reading(self.room_id)
-                if last_water and last_water.id == self.id:
-                    last_water = UtilityMeterReading.query\
-                        .filter_by(room_id=self.room_id)\
-                        .filter(UtilityMeterReading.reading_type == 1)\
-                        .filter(UtilityMeterReading.water_current.isnot(None))\
-                        .filter(UtilityMeterReading.id != self.id)\
-                        .order_by(UtilityMeterReading.reading_date.desc())\
-                        .first()
+            # 仅类型1（正常抄表）需要校验读数合理性，类型2（退宿抄表）跳过
+            if not self.water_meter_replaced and self.reading_type == 1:
+                # 获取当前记录之前的最新水表记录（按日期过滤，避免取到之后的记录）
+                last_water_query = UtilityMeterReading.query\
+                    .filter_by(room_id=self.room_id)\
+                    .filter(UtilityMeterReading.reading_type == 1)\
+                    .filter(UtilityMeterReading.water_current.isnot(None))\
+                    .filter(UtilityMeterReading.id != self.id)\
+                    .filter(UtilityMeterReading.reading_date < self.reading_date)
+                # 处理水表更换记录
+                latest_water_replace = last_water_query.filter(UtilityMeterReading.water_meter_replaced == True).first()
+                if latest_water_replace:
+                    last_water_query = last_water_query.filter(UtilityMeterReading.reading_date >= latest_water_replace.reading_date)
+                last_water = last_water_query.order_by(UtilityMeterReading.reading_date.desc(), UtilityMeterReading.id.desc()).first()
                 
                 if last_water and new_water_current < last_water.water_current:
-                    if not (last_water.water_current > water_max * 0.9 and new_water_current < water_max * 0.1):
+                    if not (last_water.water_current > water_max * Decimal('0.9') and new_water_current < water_max * Decimal('0.1')):
                         raise ValueError(f"水表当前读数({new_water_current})不能小于上次读数({last_water.water_current})，除非标记表具更换或表计归零")
             
             self.water_current = new_water_current
             
-            if self.water_meter_replaced:
+            if water_replaced_newly_set:
                 self.water_previous = self.water_current
                 self.water_usage = 0
                 # 更新sequence：换表时获取最大sequence + 1
@@ -420,53 +478,65 @@ class UtilityMeterReading(db.Model):
                 ).scalar() or 0
                 self.water_meter_sequence = max_water_seq + 1
             else:
-                # 修复：不传递record_id
-                last_water = self.get_latest_water_reading(self.room_id)
-                if last_water and last_water.id == self.id:
-                    last_water = UtilityMeterReading.query\
-                        .filter_by(room_id=self.room_id)\
-                        .filter(UtilityMeterReading.reading_type == 1)\
-                        .filter(UtilityMeterReading.water_current.isnot(None))\
-                        .filter(UtilityMeterReading.id != self.id)\
-                        .order_by(UtilityMeterReading.reading_date.desc())\
-                        .first()
+                # 获取当前记录之前的最新水表记录（按日期过滤，避免取到之后的记录）
+                last_water_query = UtilityMeterReading.query\
+                    .filter_by(room_id=self.room_id)\
+                    .filter(UtilityMeterReading.reading_type == 1)\
+                    .filter(UtilityMeterReading.water_current.isnot(None))\
+                    .filter(UtilityMeterReading.id != self.id)\
+                    .filter(UtilityMeterReading.reading_date < self.reading_date)
+                # 处理水表更换记录
+                latest_water_replace = last_water_query.filter(UtilityMeterReading.water_meter_replaced == True).first()
+                if latest_water_replace:
+                    last_water_query = last_water_query.filter(UtilityMeterReading.reading_date >= latest_water_replace.reading_date)
+                last_water = last_water_query.order_by(UtilityMeterReading.reading_date.desc(), UtilityMeterReading.id.desc()).first()
                 
                 self.water_previous = last_water.water_current if last_water else self.water_current
                 # 首次抄表判断：如果没有历史记录（last_water为None），用量始终为0
                 if last_water is None:
                     self.water_usage = 0
-                    self.water_meter_sequence = 0
-                    # 首次抄表自动设置换表标记
-                    self.water_meter_replaced = True
+                    # 只有当kwargs中未显式提供water_meter_replaced时，才自动设置（兼容创建场景）
+                    if 'water_meter_replaced' not in kwargs:
+                        self.water_meter_sequence = 0
+                        # 首次抄表自动设置换表标记
+                        self.water_meter_replaced = True
+                        water_replaced_newly_set = True
                 else:
-                    self.water_usage = self.calculate_usage_with_rollover(
-                        self.water_current, self.water_previous, water_max
-                    )
+                    if self.reading_type == 2:
+                        # 退宿抄表：直接计算用量，负值设为0（退宿场景不需要归零计算）
+                        self.water_usage = max(0, float(self.water_current - self.water_previous))
+                    else:
+                        self.water_usage = self.calculate_usage_with_rollover(
+                            self.water_current, self.water_previous, water_max
+                        )
                     self.water_meter_sequence = last_water.water_meter_sequence if last_water else 0
         
         # 处理电表更新
         if 'electric_current' in kwargs:
             new_electric_current = kwargs['electric_current']
             
-            if not self.electric_meter_replaced:
-                # 修复：不传递record_id
-                last_electric = self.get_latest_electric_reading(self.room_id)
-                if last_electric and last_electric.id == self.id:
-                    last_electric = UtilityMeterReading.query\
-                        .filter_by(room_id=self.room_id)\
-                        .filter(UtilityMeterReading.reading_type == 1)\
-                        .filter(UtilityMeterReading.electric_current.isnot(None))\
-                        .filter(UtilityMeterReading.id != self.id)\
-                        .order_by(UtilityMeterReading.reading_date.desc())\
-                        .first()
+            # 仅类型1（正常抄表）需要校验读数合理性，类型2（退宿抄表）跳过
+            if not self.electric_meter_replaced and self.reading_type == 1:
+                # 获取当前记录之前的最新电表记录（按日期过滤，避免取到之后的记录）
+                last_electric_query = UtilityMeterReading.query\
+                    .filter_by(room_id=self.room_id)\
+                    .filter(UtilityMeterReading.reading_type == 1)\
+                    .filter(UtilityMeterReading.electric_current.isnot(None))\
+                    .filter(UtilityMeterReading.id != self.id)\
+                    .filter(UtilityMeterReading.reading_date < self.reading_date)
+                # 处理电表更换记录
+                latest_electric_replace = last_electric_query.filter(UtilityMeterReading.electric_meter_replaced == True).first()
+                if latest_electric_replace:
+                    last_electric_query = last_electric_query.filter(UtilityMeterReading.reading_date >= latest_electric_replace.reading_date)
+                last_electric = last_electric_query.order_by(UtilityMeterReading.reading_date.desc(), UtilityMeterReading.id.desc()).first()
                 
                 if last_electric and new_electric_current < last_electric.electric_current:
-                    if not (last_electric.electric_current > electric_max * 0.9 and new_electric_current < electric_max * 0.1):
+                    if not (last_electric.electric_current > electric_max * Decimal('0.9') and new_electric_current < electric_max * Decimal('0.1')):
                         raise ValueError(f"电表当前读数({new_electric_current})不能小于上次读数({last_electric.electric_current})，除非标记表具更换或表计归零")
             
             self.electric_current = new_electric_current
             
-            if self.electric_meter_replaced:
+            if electric_replaced_newly_set:
                 self.electric_previous = self.electric_current
                 self.electric_usage = 0
                 # 更新sequence：换表时获取最大sequence + 1
@@ -478,28 +548,37 @@ class UtilityMeterReading(db.Model):
                 ).scalar() or 0
                 self.electric_meter_sequence = max_electric_seq + 1
             else:
-                # 修复：不传递record_id
-                last_electric = self.get_latest_electric_reading(self.room_id)
-                if last_electric and last_electric.id == self.id:
-                    last_electric = UtilityMeterReading.query\
-                        .filter_by(room_id=self.room_id)\
-                        .filter(UtilityMeterReading.reading_type == 1)\
-                        .filter(UtilityMeterReading.electric_current.isnot(None))\
-                        .filter(UtilityMeterReading.id != self.id)\
-                        .order_by(UtilityMeterReading.reading_date.desc())\
-                        .first()
+                # 获取当前记录之前的最新电表记录（按日期过滤，避免取到之后的记录）
+                last_electric_query = UtilityMeterReading.query\
+                    .filter_by(room_id=self.room_id)\
+                    .filter(UtilityMeterReading.reading_type == 1)\
+                    .filter(UtilityMeterReading.electric_current.isnot(None))\
+                    .filter(UtilityMeterReading.id != self.id)\
+                    .filter(UtilityMeterReading.reading_date < self.reading_date)
+                # 处理电表更换记录
+                latest_electric_replace = last_electric_query.filter(UtilityMeterReading.electric_meter_replaced == True).first()
+                if latest_electric_replace:
+                    last_electric_query = last_electric_query.filter(UtilityMeterReading.reading_date >= latest_electric_replace.reading_date)
+                last_electric = last_electric_query.order_by(UtilityMeterReading.reading_date.desc(), UtilityMeterReading.id.desc()).first()
                 
                 self.electric_previous = last_electric.electric_current if last_electric else self.electric_current
                 # 首次抄表判断：如果没有历史记录（last_electric为None），用量始终为0
                 if last_electric is None:
                     self.electric_usage = 0
-                    self.electric_meter_sequence = 0
-                    # 首次抄表自动设置换表标记
-                    self.electric_meter_replaced = True
+                    # 只有当kwargs中未显式提供electric_meter_replaced时，才自动设置（兼容创建场景）
+                    if 'electric_meter_replaced' not in kwargs:
+                        self.electric_meter_sequence = 0
+                        # 首次抄表自动设置换表标记
+                        self.electric_meter_replaced = True
+                        electric_replaced_newly_set = True
                 else:
-                    self.electric_usage = self.calculate_usage_with_rollover(
-                        self.electric_current, self.electric_previous, electric_max
-                    )
+                    if self.reading_type == 2:
+                        # 退宿抄表：直接计算用量，负值设为0（退宿场景不需要归零计算）
+                        self.electric_usage = max(0, float(self.electric_current - self.electric_previous))
+                    else:
+                        self.electric_usage = self.calculate_usage_with_rollover(
+                            self.electric_current, self.electric_previous, electric_max
+                        )
                     self.electric_meter_sequence = last_electric.electric_meter_sequence if last_electric else 0
         # ===== 新方案结束 =====
         
@@ -530,25 +609,6 @@ class UtilityMeterReading(db.Model):
     def to_dict(self):
         from models.user.user import User
         from .utility_room_bill_record import RoomUtilityRecord
-        # 直接过滤查询最新的正常抄表记录（排除当前记录）
-        # 以自身抄表日期为基准，查询该日期之前的最新正常抄表记录（排除当前记录）
-        latest_normal_water = UtilityMeterReading.query\
-            .filter_by(room_id=self.room_id)\
-            .filter(UtilityMeterReading.water_current.isnot(None))\
-            .filter(UtilityMeterReading.reading_type == 1)\
-            .filter(UtilityMeterReading.id != self.id)\
-            .filter(UtilityMeterReading.reading_date <= self.reading_date)\
-            .order_by(UtilityMeterReading.reading_date.desc(), UtilityMeterReading.id.desc())\
-            .first()
-        
-        latest_normal_electric = UtilityMeterReading.query\
-            .filter_by(room_id=self.room_id)\
-            .filter(UtilityMeterReading.electric_current.isnot(None))\
-            .filter(UtilityMeterReading.reading_type == 1)\
-            .filter(UtilityMeterReading.id != self.id)\
-            .filter(UtilityMeterReading.reading_date <= self.reading_date)\
-            .order_by(UtilityMeterReading.reading_date.desc(), UtilityMeterReading.id.desc())\
-            .first()
 
         # 获取主表账期信息
         billing_period = None
@@ -565,18 +625,20 @@ class UtilityMeterReading(db.Model):
             'building': self.room.building if self.room else None,
             'room_number': self.room.room_number if self.room else None,
             'water': {
-                'current': float(self.water_current) if self.water_current else None,
-                'previous': float(latest_normal_water.water_current) if latest_normal_water else None, # 上次读数
-                'usage': float(self.water_usage) if self.water_usage else None,          # 自动计算的用量
+                'current': _clean_number(self.water_current) if self.water_current else None,
+                'previous': _clean_number(self.water_previous) if self.water_previous else None,
+                'usage': _clean_number(self.water_usage) if self.water_usage else None,
                 'replaced': self.water_meter_replaced,
-                'sequence': self.water_meter_sequence,  # 新增：换表次数
+                'sequence': self.water_meter_sequence,
+                'is_first': self.water_meter_replaced and self.water_meter_sequence == 0,
             },
             'electric': {
-                'current': float(self.electric_current) if self.electric_current else None,
-                'previous': float(latest_normal_electric.electric_current) if latest_normal_electric else None,  # 上次读数
-                'usage': float(self.electric_usage) if self.electric_usage else None,          # 自动计算的用量
+                'current': _clean_number(self.electric_current) if self.electric_current else None,
+                'previous': _clean_number(self.electric_previous) if self.electric_previous else None,
+                'usage': _clean_number(self.electric_usage) if self.electric_usage else None,
                 'replaced': self.electric_meter_replaced,
-                'sequence': self.electric_meter_sequence,  # 新增：换表次数
+                'sequence': self.electric_meter_sequence,
+                'is_first': self.electric_meter_replaced and self.electric_meter_sequence == 0,
             },
             'notes': self.notes,
             'reading_type': self.reading_type,

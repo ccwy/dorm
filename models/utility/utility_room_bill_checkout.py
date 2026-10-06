@@ -84,7 +84,7 @@ class CheckoutUtilityRecord(db.Model):
     room_total_reduction = db.Column(db.Numeric(10, 2), default=0.00, comment='房间级总减免额度')  # 调整
     user_proportional_reduction = db.Column(db.Numeric(10, 2), default=0.00, comment='用户按比例分摊的减免')  # 新增，用户房间级按比例减免费用
     user_independent_reduction = db.Column(db.Numeric(10, 2), default=0.00, comment='个人级独立减免')  # 新增
-    payable_fee = db.Column(db.Numeric(10, 2), default=0.00, comment='用户应付费用')
+    payable_fee = db.Column(db.Numeric(10, 2), default=0.00, comment='用户实际应付')
 
     # 状态字段
     payment_status = db.Column(db.String(20), default='unpaid', comment='支付状态')
@@ -166,12 +166,14 @@ class CheckoutUtilityRecord(db.Model):
             # 退宿场景：本期所有抄表记录都是"上次读数"的候选，"本次读数"是退宿读数（参数传入）
             # 因此直接获取最新的抄表记录值作为上次读数，与房间费用核算处的语义不同
             # （房间费用核算处：本期记录中最早=上次，最晚=本次）
+            # 时间锁：只获取退宿日期之前的抄表记录，防止读到退宿后的数据
+            # 退宿场景不参与换表或表计归零逻辑
             electric_previous = Decimal('0')
             water_previous = Decimal('0')
 
             # ---- 电表上次读数 ----
             # 使用跨账期查询方法，自动处理换表记录（只取换表后的最新读数）
-            last_electric_reading = UtilityMeterReading.get_latest_electric_reading(room_id)
+            last_electric_reading = UtilityMeterReading.get_latest_electric_reading(room_id, before_date=checkout_date)
             if last_electric_reading:
                 electric_previous = Decimal(str(last_electric_reading.electric_current))
                 logging.info(f'退宿：房间{room_id}电表上次读数(跨账期): {electric_previous}, 读数日期: {last_electric_reading.reading_date}')
@@ -183,7 +185,7 @@ class CheckoutUtilityRecord(db.Model):
 
             # ---- 水表上次读数 ----
             # 使用跨账期查询方法，自动处理换表记录（只取换表后的最新读数）
-            last_water_reading = UtilityMeterReading.get_latest_water_reading(room_id)
+            last_water_reading = UtilityMeterReading.get_latest_water_reading(room_id, before_date=checkout_date)
             if last_water_reading:
                 water_previous = Decimal(str(last_water_reading.water_current))
                 logging.info(f'退宿：房间{room_id}水表上次读数(跨账期): {water_previous}, 读数日期: {last_water_reading.reading_date}')
@@ -194,6 +196,12 @@ class CheckoutUtilityRecord(db.Model):
                 logging.info(f'退宿：房间{room_id}水表无历史读数记录，上次读数设为退宿读数: {water_previous}')
 
             logging.info(f"上期抄表记录: 电={electric_previous}, 水={water_previous}")
+
+            # 获取价格配置（无论是否计算费用都需记录单价）
+            price_config = cls.get_price_config_from_system()
+            electric_price = Decimal(str(price_config['electric_price']))
+            water_price = Decimal(str(price_config['water_price']))
+            logging.info(f"价格配置: 电{electric_price}, 水{water_price}")
 
             # 2. 初始化费用相关临时变量
             user_original_electric_usage = Decimal('0.00')
@@ -373,22 +381,18 @@ class CheckoutUtilityRecord(db.Model):
 
                 # 6. 费用计算
             
-                # 6.1 获取价格配置
-                price_config = cls.get_price_config_from_system()
-                electric_price = Decimal(str(price_config['electric_price']))
-                water_price = Decimal(str(price_config['water_price']))
-                logging.info(f"价格配置: 电{electric_price}, 水{water_price}")
-
-                # 6.2 计算房间总抄表用量（房间级原始数据）
+                # 6.1 计算房间总抄表用量（房间级原始数据）
                 # electric_previous 和 water_previous 已在1.5节中根据同账期抄表记录正确计算
                 meter_electric_usage = round(electric_reading - electric_previous, 2)
                 meter_water_usage = round(water_reading - water_previous, 2)
                 
-                # 处理电表翻转
+                # 退宿场景：不参与换表或表计归零逻辑，负值置0（数据异常保护）
                 if meter_electric_usage < 0:
-                    meter_electric_usage = (electric_meter_max - electric_previous) + electric_reading
+                    logging.warning(f"退宿电表用量为负(electric_reading={electric_reading}, electric_previous={electric_previous})，置为0")
+                    meter_electric_usage = Decimal('0')
                 if meter_water_usage < 0:
-                    meter_water_usage = (water_meter_max - water_previous) + water_reading
+                    logging.warning(f"退宿水表用量为负(water_reading={water_reading}, water_previous={water_previous})，置为0")
+                    meter_water_usage = Decimal('0')
                 
                 # 计算房间总抄表费用
                 meter_electric_fee = round(meter_electric_usage * electric_price, 2)
@@ -484,8 +488,8 @@ class CheckoutUtilityRecord(db.Model):
                 user_billing_water_usage=user_billing_water_usage,
                 
                 # 价格信息
-                electric_price=electric_price if calculate_fee else Decimal('0.00'),
-                water_price=water_price if calculate_fee else Decimal('0.00'),
+                electric_price=electric_price,
+                water_price=water_price,
                 
                 # 费用计算
                 user_original_electric_fee=user_original_electric_fee,
@@ -564,8 +568,12 @@ class CheckoutUtilityRecord(db.Model):
             raise
 
     def update_checkout_record(self, new_electric_reading=None, new_water_reading=None,
-                              user_period_days=None, total_period_days=None):
-        """更新退宿记录"""
+                              user_period_days=None, total_period_days=None,
+                              electric_price=None, water_price=None,
+                              user_proportional_reduction=None, user_independent_reduction=None,
+                              user_reduction_electric=None, user_reduction_water=None,
+                              remarks=None):
+        """更新退宿记录，支持可选的单价和减免覆盖"""
         try:
             # 1. 验证主记录和房间信息
             main_record = RoomUtilityRecord.query.get(self.record_id)
@@ -654,10 +662,29 @@ class CheckoutUtilityRecord(db.Model):
 
             # 6. 补贴计算
             if usage_updated or days_updated:
-                # 6.1 获取价格配置
+                # 6.1 获取价格配置（如果用户手动指定了单价，则使用用户指定的值）
                 price_config = self.get_price_config_from_system()
-                electric_price = Decimal(str(price_config['electric_price']))
-                water_price = Decimal(str(price_config['water_price']))
+                
+                if electric_price is not None:
+                    try:
+                        electric_price = Decimal(str(electric_price))
+                        if electric_price < 0:
+                            raise ValueError("电费单价不能为负数")
+                    except (InvalidOperation, TypeError):
+                        raise ValueError("电费单价必须是有效的数字")
+                else:
+                    electric_price = Decimal(str(price_config['electric_price']))
+                
+                if water_price is not None:
+                    try:
+                        water_price = Decimal(str(water_price))
+                        if water_price < 0:
+                            raise ValueError("水费单价不能为负数")
+                    except (InvalidOperation, TypeError):
+                        raise ValueError("水费单价必须是有效的数字")
+                else:
+                    water_price = Decimal(str(price_config['water_price']))
+                
                 self.electric_price = electric_price
                 self.water_price = water_price
 
@@ -670,13 +697,13 @@ class CheckoutUtilityRecord(db.Model):
                 if self.electric_previous is not None and self.electric_reading is not None:
                     electric_max = Decimal(str(room.electric_meter_max)) if room.electric_meter_max else Decimal('9999.99')
                     raw_usage = self.electric_reading - self.electric_previous
-                    self.meter_electric_usage = (electric_max - self.electric_previous) + self.electric_reading if raw_usage < 0 else raw_usage
+                    self.meter_electric_usage = raw_usage if raw_usage >= 0 else Decimal('0')
                     self.meter_electric_fee = round(self.meter_electric_usage * electric_price, 2)
                 
                 if self.water_previous is not None and self.water_reading is not None:
                     water_max = Decimal(str(room.water_meter_max)) if room.water_meter_max else Decimal('9999.99')
                     raw_usage = self.water_reading - self.water_previous
-                    self.meter_water_usage = (water_max - self.water_previous) + self.water_reading if raw_usage < 0 else raw_usage
+                    self.meter_water_usage = raw_usage if raw_usage >= 0 else Decimal('0')
                     self.meter_water_fee = round(self.meter_water_usage * water_price, 2)
                 
                 self.meter_total_fee = round(self.meter_electric_fee + self.meter_water_fee, 2)
@@ -802,6 +829,30 @@ class CheckoutUtilityRecord(db.Model):
                 # 个人级独立减免
                 self.user_independent_reduction = subsidies['user_total_reduction']
                 
+                # 用户手动覆盖减免用量（在计费用量计算之前）
+                if user_reduction_electric is not None:
+                    try:
+                        manual_electric_reduction = Decimal(str(user_reduction_electric))
+                        if manual_electric_reduction < 0:
+                            raise ValueError("电减免用量不能为负数")
+                        if manual_electric_reduction > self.user_original_electric_usage:
+                            raise ValueError("电减免用量不能超过用户原始用量")
+                        self.user_reduction_electric = round(manual_electric_reduction, 2)
+                        logging.info(f"使用用户指定的电减免用量: {self.user_reduction_electric}")
+                    except (InvalidOperation, TypeError):
+                        raise ValueError("电减免用量必须是有效的数字")
+                if user_reduction_water is not None:
+                    try:
+                        manual_water_reduction = Decimal(str(user_reduction_water))
+                        if manual_water_reduction < 0:
+                            raise ValueError("水减免用量不能为负数")
+                        if manual_water_reduction > self.user_original_water_usage:
+                            raise ValueError("水减免用量不能超过用户原始用量")
+                        self.user_reduction_water = round(manual_water_reduction, 2)
+                        logging.info(f"使用用户指定的水减免用量: {self.user_reduction_water}")
+                    except (InvalidOperation, TypeError):
+                        raise ValueError("水减免用量必须是有效的数字")
+                
                 # 6.7 计算用户计费用量（减免后）
                 self.user_billing_electric_usage = self.user_original_electric_usage
                 self.user_billing_water_usage = self.user_original_water_usage
@@ -830,6 +881,32 @@ class CheckoutUtilityRecord(db.Model):
                 # 实际减免金额 = min(个人级总补贴金额, 房间级减免后剩余费用)
                 self.user_independent_reduction = min(subsidies['user_total_reduction'], after_room_reduction)
                 self.user_independent_reduction = round(self.user_independent_reduction, 2)
+                
+                # 如果用户手动指定了减免值，覆盖计算值
+                if user_proportional_reduction is not None:
+                    try:
+                        manual_proportional = Decimal(str(user_proportional_reduction))
+                        if manual_proportional < 0:
+                            raise ValueError("房间级费用减免不能为负数")
+                        self.user_proportional_reduction = round(manual_proportional, 2)
+                        # 重新计算减免后金额
+                        after_room_reduction = self.user_billing_total_fee - self.user_proportional_reduction
+                        after_room_reduction = Decimal('0.00') if after_room_reduction < 0 else after_room_reduction
+                        logging.info(f"使用用户指定的房间级减免: {self.user_proportional_reduction}")
+                    except (InvalidOperation, TypeError):
+                        raise ValueError("房间级费用减免必须是有效的数字")
+
+                if user_independent_reduction is not None:
+                    try:
+                        manual_independent = Decimal(str(user_independent_reduction))
+                        if manual_independent < 0:
+                            raise ValueError("个人级费用减免不能为负数")
+                        # 个人级减免不能超过房间减免后金额
+                        self.user_independent_reduction = min(round(manual_independent, 2), after_room_reduction)
+                        self.user_independent_reduction = round(self.user_independent_reduction, 2)
+                        logging.info(f"使用用户指定的个人级减免: {self.user_independent_reduction}")
+                    except (InvalidOperation, TypeError):
+                        raise ValueError("个人级费用减免必须是有效的数字")
                 
                 # 计算最终应付费用
                 self.payable_fee = after_room_reduction - self.user_independent_reduction
@@ -899,6 +976,8 @@ class CheckoutUtilityRecord(db.Model):
             self.updated_at = datetime.now()
             main_record.updated_at = datetime.now()
             self.natural_days = natural_days
+            if remarks is not None:
+                self.remarks = remarks
 
             db.session.commit()
             logging.info(f"退宿记录更新成功: ID={self.id}, 主表ID={main_record.record_id}")

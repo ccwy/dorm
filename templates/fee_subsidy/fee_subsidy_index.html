@@ -63,6 +63,8 @@
 <body class="bg-gray-50 font-inter text-dark min-h-screen flex flex-col">
     {% include 'header.html' %}
     
+    
+    
     <!-- 主内容区 -->
     <main class="flex-grow container mx-auto px-4 py-6">
         <!-- 页面标题 -->
@@ -84,7 +86,19 @@
                 </div>
             </div>
         </div>
-
+        <!-- 消息提示区域 -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        <div class="flash-messages mb-6">
+            {% for category, message in messages %}
+            <div class="p-4 rounded-md mb-2 {% if category == 'success' %}bg-green-100 text-green-800{% elif category == 'error' or category == 'danger' %}bg-red-100 text-red-800{% elif category == 'warning' %}bg-yellow-100 text-yellow-800{% else %}bg-blue-100 text-blue-800{% endif %}">
+                <button type="button" class="float-right ml-2 text-gray-500 hover:text-gray-700" onclick="this.parentElement.remove()">×</button>
+                {{ message | safe }}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    {% endwith %}
         <!-- 筛选区域 -->
         <div class="bg-white rounded-lg card-shadow p-5 mb-6 fade-in" style="animation-delay: 100ms;">
             <form id="filterForm" class="space-y-4">
@@ -425,6 +439,7 @@
         let showReductionColumns = true; // 控制水电减免列显示的变量
         let isFiltering = false; // 防止重复请求的标记
         const hasDeletePermission = {{ 'true' if current_user.has_permission('fee_subsidy.delete') else 'false' }};
+        let allowedFeeTypes = {{ allowed_fee_types | tojson }};
         
         // 页面加载完成后初始化
         document.addEventListener('DOMContentLoaded', function() {
@@ -442,66 +457,22 @@
             });
         });
         
-        // 加载费用类型
+        // 加载费用类型（使用模板变量初始化）
         function loadFeeTypes() {
-            // 发送OPTIONS请求获取允许的费用类型
-           fetch('/fee_subsidy/add', {
-        method: 'OPTIONS',  // 与后端接口支持的方法匹配
-        headers: {
-            'Content-Type': 'application/json'
+            const feeTypeSelect = document.getElementById('feeType');
+            if (!feeTypeSelect) return;
             
-        },
-        credentials: 'include'  // 携带cookie，适配后端@login_required装饰器
-    })
-    .then(response => {
-        console.log('费用类型接口响应状态:', response.status);
-        
-        if (!response.ok) {
-            throw new Error(`请求失败，状态码: ${response.status}`);
-        }
-        return response.json().catch(() => {
-            throw new Error('后端返回数据不是JSON格式');
-        });
-    })
-            .then(data => {
-        console.log('后端返回的费用类型数据:', data);
-        
-        // 匹配后端OPTIONS响应结构：{ allowed_types: [], status: 'success', ... }
-        // 同时兼容POST响应的success字段
-        const isSuccess = data.status === 'success' || data.success === true;
-        const feeTypes = data.allowed_types;  // 后端明确使用allowed_types字段
-        
-        // 检查DOM元素是否存在（与后端无关，但影响前端渲染）
-        const feeTypeSelect = document.getElementById('feeType');
-        if (!feeTypeSelect) {
-            throw new Error('未找到id为feeType的下拉框元素');
-        }
-        
-        // 验证数据有效性（后端返回的是字符串数组，如['房间水电按用量减免', ...]）
-        if (isSuccess && Array.isArray(feeTypes) && feeTypes.length > 0) {
             // 清空现有选项（保留第一个"全部类型"选项）
             while (feeTypeSelect.options.length > 1) {
                 feeTypeSelect.remove(1);
             }
             
-            // 添加费用类型选项（后端返回的是字符串，直接作为value和label）
-            feeTypes.forEach(type => {
+            // 使用模板变量填充费用类型
+            allowedFeeTypes.forEach(type => {
                 const option = document.createElement('option');
-                option.value = type;  // 字符串直接作为value
-                option.textContent = type;  // 字符串直接作为显示文本
+                option.value = type;
+                option.textContent = type;
                 feeTypeSelect.appendChild(option);
-            });
-            console.log(`成功加载${feeTypes.length}种费用类型`);
-        } else {
-            // 处理后端返回空数据或失败的情况
-            const errorMsg = data.message || '未获取到可用的费用类型';
-            console.warn('费用类型加载警告:', errorMsg);
-            showToast(errorMsg, 'warning');
-        }
-    })
-            .catch(error => {
-                console.error('加载费用类型失败:', error);
-                showToast('加载费用类型数据失败', 'error');
             });
         }
         
@@ -781,7 +752,7 @@
                 });
         }
         
-        // 为导出对话框加载费用类型数据
+        // 为导出对话框加载费用类型数据（使用模板变量初始化）
         function loadExportFeeTypes() {
             const select = document.getElementById('exportFeeType');
             // 保留"所有类型"选项，清空其他选项
@@ -789,24 +760,12 @@
                 select.remove(1);
             }
             
-            // 调用获取费用类型的接口
-            fetch('/fee_subsidy/add', {
-                method: 'OPTIONS',
-                headers: {'Accept': 'application/json'}
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.allowed_types && data.allowed_types.length) {
-                    data.allowed_types.forEach(type => {
-                        const option = document.createElement('option');
-                        option.value = type;
-                        option.textContent = type;
-                        select.appendChild(option);
-                    });
-                }
-            })
-            .catch(error => {
-                console.error('加载导出费用类型失败:', error);
+            // 使用模板变量填充费用类型
+            allowedFeeTypes.forEach(type => {
+                const option = document.createElement('option');
+                option.value = type;
+                option.textContent = type;
+                select.appendChild(option);
             });
         }
         
@@ -1263,118 +1222,57 @@
             
             switch (currentAction.type) {
                 case 'delete':
-                    // 单个禁用
-                    fetch(`/fee_subsidy/delete/${currentAction.data}`, {
-                        method: 'DELETE',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            reason: '手动禁用'
-                        })
-                    })
-                    .then(response => {
-                        if (!response.ok) {
-                            return response.json().then(data => {
-                                throw new Error(data.message || `HTTP错误: ${response.status}`);
-                            });
-                        }
-                        return response.json();
-                    })
-                    .then(data => {
-                        if (data.success) {
-                            showToast('禁用成功', 'success');
-                            fetchSubsidyData();
-                        } else {
-                            showToast('禁用失败: ' + (data.message || '未知错误'), 'error');
-                        }
-                        hideConfirmDialog();
-                        actionBtn.innerHTML = '确认';
-                        actionBtn.disabled = false;
-                    })
-                    .catch(error => {
-                        showToast('禁用失败: ' + error.message, 'error');
-                        hideConfirmDialog();
-                        actionBtn.innerHTML = '确认';
-                        actionBtn.disabled = false;
-                    });
+                    // 单个禁用 - 创建表单提交
+                    {
+                        const form = document.createElement('form');
+                        form.method = 'POST';
+                        form.action = `/fee_subsidy/delete/${currentAction.data}`;
+                        const reasonInput = document.createElement('input');
+                        reasonInput.type = 'hidden';
+                        reasonInput.name = 'reason';
+                        reasonInput.value = '手动禁用';
+                        form.appendChild(reasonInput);
+                        document.body.appendChild(form);
+                        form.submit();
+                    }
                     break;
                     
+                    
                 case 'batchDelete':
-                    // 批量禁用
-                    fetch('/fee_subsidy/batch-delete', {
-                        method: 'DELETE',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            ids: Array.from(selectedIds),
-                            reason: '批量禁用'
-                        })
-                    })
-                    .then(response => {
-                        if (!response.ok) {
-                            return response.json().then(data => {
-                                throw new Error(data.message || `HTTP错误: ${response.status}`);
-                            });
-                        }
-                        return response.json();
-                    })
-                    .then(data => {
-                        if (data.success) {
-                            showToast(data.message, 'success');
-                            fetchSubsidyData();
-                        } else {
-                            showToast('批量禁用失败: ' + (data.message || '未知错误'), 'error');
-                        }
-                        hideConfirmDialog();
-                        actionBtn.innerHTML = '确认';
-                        actionBtn.disabled = false;
-                    })
-                    .catch(error => {
-                        showToast('批量禁用失败: ' + error.message, 'error');
-                        hideConfirmDialog();
-                        actionBtn.innerHTML = '确认';
-                        actionBtn.disabled = false;
-                    });
+                    // 批量禁用 - 创建表单提交
+                    {
+                        const form = document.createElement('form');
+                        form.method = 'POST';
+                        form.action = '/fee_subsidy/batch-delete';
+                        const idsInput = document.createElement('input');
+                        idsInput.type = 'hidden';
+                        idsInput.name = 'ids';
+                        idsInput.value = Array.from(selectedIds).join(',');
+                        form.appendChild(idsInput);
+                        const reasonInput = document.createElement('input');
+                        reasonInput.type = 'hidden';
+                        reasonInput.name = 'reason';
+                        reasonInput.value = '批量禁用';
+                        form.appendChild(reasonInput);
+                        document.body.appendChild(form);
+                        form.submit();
+                    }
                     break;
                     
                 case 'clearCurrentPeriod':
-                    // 清空当前账期
-                    fetch('/fee_subsidy/clear-current-period', {
-                        method: 'DELETE',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            billing_period: currentAction.data
-                        })
-                    })
-                    .then(response => {
-                        if (!response.ok) {
-                            return response.json().then(data => {
-                                throw new Error(data.message || `HTTP错误: ${response.status}`);
-                            });
-                        }
-                        return response.json();
-                    })
-                    .then(data => {
-                        if (data.success) {
-                            showToast(data.message, 'success');
-                            fetchSubsidyData();
-                        } else {
-                            showToast('清空失败: ' + (data.message || '未知错误'), 'error');
-                        }
-                        hideConfirmDialog();
-                        actionBtn.innerHTML = '确认';
-                        actionBtn.disabled = false;
-                    })
-                    .catch(error => {
-                        showToast('清空失败: ' + error.message, 'error');
-                        hideConfirmDialog();
-                        actionBtn.innerHTML = '确认';
-                        actionBtn.disabled = false;
-                    });
+                    // 清空当前账期 - 创建表单提交
+                    {
+                        const form = document.createElement('form');
+                        form.method = 'POST';
+                        form.action = '/fee_subsidy/clear-current-period';
+                        const periodInput = document.createElement('input');
+                        periodInput.type = 'hidden';
+                        periodInput.name = 'billing_period';
+                        periodInput.value = currentAction.data;
+                        form.appendChild(periodInput);
+                        document.body.appendChild(form);
+                        form.submit();
+                    }
                     break;
             }
         }

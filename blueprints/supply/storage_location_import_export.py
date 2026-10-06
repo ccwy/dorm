@@ -151,8 +151,41 @@ def import_locations():
             logging.error(f'导入存放位置数据失败：文件解析失败 - {detailed_error}')
             return redirect(url_for('storage_location.index'))
 
-        # 验证必要列
+        # 白名单模式：只识别必填列和可选列，其余列全部自动忽略
+        # 必填列（缺失时报错）
         required_columns = ['位置名称']
+        # 可选列（缺失时不报错）
+        optional_columns = [
+            '位置编码', '楼栋', '楼层', '房间号', '使用类型', '状态', '备注'
+        ]
+        # 列名别名映射：将Excel中可能出现的列名映射到标准列名
+        column_alias_map = {}
+        # 所有可能需要识别的标准列名
+        all_known_columns = set(required_columns) | set(optional_columns)
+
+        # 别名列重命名为标准名
+        rename_map = {}
+        for col in df.columns:
+            if col in all_known_columns:
+                continue  # 已经是标准名
+            for standard_name, aliases in column_alias_map.items():
+                if col in aliases:
+                    rename_map[col] = standard_name
+                    break
+
+        if rename_map:
+            df = df.rename(columns=rename_map)
+
+        # 识别未匹配的列
+        ignored_columns = [col for col in df.columns if col not in all_known_columns]
+        if ignored_columns:
+            logging.info(f'导入存放位置数据：自动忽略未识别列 {ignored_columns}')
+
+        # 仅保留白名单列
+        whitelist_columns = [col for col in df.columns if col in all_known_columns]
+        df = df[whitelist_columns]
+
+        # 检查必填列缺失
         missing_columns = [col for col in required_columns if col not in df.columns]
         if missing_columns:
             flash(f'导入失败：文件缺少必要的列 - {", ".join(missing_columns)}', 'danger')

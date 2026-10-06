@@ -1,8 +1,8 @@
-from flask import Blueprint, request, jsonify,send_file
+from flask import Blueprint, request, jsonify, flash, redirect, url_for
 from models.utility.utility_room_bill_record import RoomUtilityRecord      #导入主表模型
 from models.utility.utility_room_bill_occupant import RoomUtilityOccupant  #导入子表模型
 from models.dorm.dorm import Dorm
-from models.user.user import User  # 假设存在用户模型
+from models.user.user import User
 from models.department.department import Department
 from utils.db import db
 from sqlalchemy.exc import SQLAlchemyError
@@ -11,11 +11,10 @@ from models.room.room import Room
 from datetime import datetime, timedelta  # 修正：移除date，保留datetime和timedelta
 from collections import defaultdict
 from decimal import Decimal
-import io
 import logging  # 确保导入logging模块
-from sqlalchemy.exc import SQLAlchemyError
 from flask_login import login_required, current_user
 from models.fee_subsidy.fee_subsidy_usage import FeeSubsidyUsage  # 导入费用补贴子表
+from models.system_config.system_config import SystemConfig  # 系统配置
 # 导入权限装饰器
 from utils.auth import require_permission
 # 创建蓝图
@@ -196,19 +195,20 @@ def get_fee_records():
             check_in_str = actual_check_in.strftime('%Y-%m-%d %H:%M:%S')
             check_out_str = actual_check_out.strftime('%Y-%m-%d %H:%M:%S')
             
-            # 获取抄表信息
-            electric_reading = f"{main_record.electric_previous} → {main_record.electric_current}" if main_record.electric_previous and main_record.electric_current else ""
-            water_reading = f"{main_record.water_previous} → {main_record.water_current}" if main_record.water_previous and main_record.water_current else ""
+            # 获取抄表信息（从子表同步字段获取）
+            electric_reading = f"{occupant_record.electric_previous} → {occupant_record.electric_current}" if occupant_record.electric_previous and occupant_record.electric_current else ""
+            water_reading = f"{occupant_record.water_previous} → {occupant_record.water_current}" if occupant_record.water_previous and occupant_record.water_current else ""
             
             records.append({
                 'billing_period': main_record.billing_period,
                 'room_id': main_record.room_id,
-                'electric_fee': main_record.billing_electric_fee,
-                'water_fee': main_record.billing_water_fee,
-                'total_fee': main_record.billing_total_fee,
-                'checked_out_total_fee': main_record.checked_out_total_fee,
-                'actual_total_fee': main_record.actual_total_fee,
-                'room_reduction_fee': main_record.room_reduction_fee,# 新增：房间级减免费用
+                'electric_fee': occupant_record.billing_electric_fee,
+                'water_fee': occupant_record.billing_water_fee,
+                'total_fee': occupant_record.billing_total_fee,
+                'checked_out_total_fee': occupant_record.checked_out_total_fee,
+                'actual_total_fee': occupant_record.actual_total_fee,
+                'receivable_total_fee': (occupant_record.actual_electric_fee or 0) + (occupant_record.actual_water_fee or 0),
+                'room_reduction_fee': occupant_record.room_reduction_fee,# 新增：房间级减免费用
                 'user_name': user_name,
                 'user_id': occupant_record.user_id,
                 'department': user_department,  # 新增：部门信息
@@ -232,14 +232,7 @@ def get_fee_records():
                 'user_summary': user_summary,
             })
         
-        # 记录成功日志
-        log_operation(
-            user_id=current_user.id,
-            module='utility',
-            operation_type='utility_api',
-            action=f"查询费用明细 [账期: {billing_period}, 搜索关键词: {search_keyword}, 页码: {page}]",
-            result="成功"
-        )
+        
         
         # 返回分页数据
         return jsonify({
@@ -259,14 +252,7 @@ def get_fee_records():
         
     except Exception as e:
         logging.error(f"获取费用记录失败: {str(e)}")
-        # 记录失败日志
-        log_operation(
-            user_id=current_user.id,
-            module='utility',
-            operation_type='utility_api',
-            action=f"查询费用明细失败 [错误: {str(e)}]",
-            result="失败"
-        )
+        
         return jsonify({'success': False, 'message': f'获取数据失败: {str(e)}'}), 500
     
 # 加载账单数据
@@ -300,10 +286,8 @@ def load_bill():
                 action=f"加载账单数据失败 [账期: {billing_period}, 原因: 未找到记录]",
                 result="失败"
             )
-            return jsonify({
-                'success': False, 
-                'message': f'未找到{ billing_period }的账单记录'
-            }), 404
+            flash(f'未找到{billing_period}的账单记录', 'danger')
+            return redirect(url_for('utility_index.utility_occupant_manage', billing_period=billing_period))
         
         # 加载对应的子表记录
         record_ids = [r.record_id for r in main_records]
@@ -343,8 +327,7 @@ def load_bill():
 def calculate_bill():
     """核算指定账期的所有房间费用"""
     try:
-        data = request.json
-        billing_period = data.get('billingPeriod')
+        billing_period = request.form.get('billingPeriod')
         
         if not billing_period:
             log_operation(
@@ -354,11 +337,12 @@ def calculate_bill():
                 action=f"核算账单失败 [原因: 未提供账期参数]",
                 result="失败"
             )
-            return jsonify({'success': False, 'message': '请选择账期'}), 400
+            flash('请选择账期', 'danger')
+            return redirect(url_for('utility_index.utility_occupant_manage', billing_period=billing_period))
             
         # 获取该账期的所有主表记录（仅核算完成的）
         all_period_records = RoomUtilityRecord.get_by_period(None, period=billing_period)
-        main_records = [r for r in all_period_records if r.status == 'completed']
+        main_records = [r for r in all_period_records if r.status == 'calculated']
         skipped_count = len(all_period_records) - len(main_records)
         if skipped_count > 0:
             logging.info(f"账期{billing_period}：跳过{skipped_count}个未核算房间")
@@ -374,24 +358,43 @@ def calculate_bill():
                 action=f"核算账单失败 [账期: {billing_period}, 原因: 未找到记录]",
                 result="失败"
             )
-            return jsonify({
-                'success': False, 
-                'message': f'未找到{ billing_period }的账单记录，请先创建'
-            }), 404
+            flash(f'未找到{billing_period}的账单记录，请先创建', 'danger')
+            return redirect(url_for('utility_index.utility_occupant_manage', billing_period=billing_period))
         
+        # 获取账期日期范围，用于逐房间检查住宿记录
+        start_date, end_date = RoomUtilityRecord.get_billing_period_dates(billing_period)
+
         # 关键修复2：初始化全局补贴余额字典，跨房间共享
         global_subsidy_balances = {}
 
         # 再计算子表分摊
         updated_occupant = 0
         updated_room_count = 0  # 新增：统计处理的房间数量
+        skipped_rooms = []  # 记录跳过的房间
+
         for record in main_records:
+            # 逐房间检查是否有住宿记录
+            has_room_occupants = Dorm.query.filter(
+                Dorm.room_id == record.room_id,
+                Dorm.check_in_date < end_date,
+                db.or_(Dorm.check_out_date.is_(None), Dorm.check_out_date > start_date)
+            ).first() is not None
+
+            if not has_room_occupants:
+                skipped_rooms.append(record.room_id)
+                continue
+
             occupants, global_subsidy_balances = RoomUtilityOccupant.calculate_room_fee(
                 record.record_id,
                 user_subsidy_balances=global_subsidy_balances # 核心：共享同一个字典
-                )  
-            updated_occupant += len(occupants)
-            updated_room_count += 1  # 每处理一个主表记录，视为处理一个房间
+                )
+
+            if len(occupants) > 0:
+                record.status = 'completed'
+                updated_occupant += len(occupants)
+                updated_room_count += 1
+            else:
+                skipped_rooms.append(record.room_id)
         
         db.session.commit()
         # 记录成功日志
@@ -399,16 +402,16 @@ def calculate_bill():
             user_id=current_user.id,
             module='utility',
             operation_type='occupant_fee',
-            action=f"核算当期账单 [账期: {billing_period}, 房间数: {updated_room_count}, 更新子表记录数: {updated_occupant}]",
+            action=f"核算当期账单 [账期: {billing_period}, 房间数: {updated_room_count}, 更新子表记录数: {updated_occupant}, 跳过房间数: {len(skipped_rooms)}]",
             result="成功"
         )
-        
-        return jsonify({
-            'success': True,
-            'message': f'{ billing_period }的费用核算完成',
-            'updated_room_count': updated_room_count,  # 新增：返回房间数量
-            'updated_occupant_count': updated_occupant
-        })
+
+        # 构建提示消息
+        msg_parts = [f'{billing_period}的费用核算完成，共更新{updated_room_count}个房间，{updated_occupant}条人员记录']
+        if skipped_rooms:
+            msg_parts.append(f'跳过{len(skipped_rooms)}个无住宿记录的房间')
+        flash('，'.join(msg_parts), 'success' if updated_room_count > 0 else 'warning')
+        return redirect(url_for('utility_index.utility_occupant_manage', billing_period=billing_period))
         
     except SQLAlchemyError as e:
         db.session.rollback()
@@ -420,7 +423,8 @@ def calculate_bill():
             action=f"核算账单失败 [错误: {str(e)}]",
             result="失败"
         )
-        return jsonify({'success': False, 'message': f'数据库错误: {str(e)}'}), 500
+        flash(f'数据库错误: {str(e)}', 'danger')
+        return redirect(url_for('utility_index.utility_occupant_manage', billing_period=billing_period))
     except Exception as e:
         db.session.rollback()
         logging.error(f"核算账单失败: {str(e)}")
@@ -431,7 +435,8 @@ def calculate_bill():
             action=f"核算账单失败 [错误: {str(e)}]",
             result="失败"
         )
-        return jsonify({'success': False, 'message': f'核算失败: {str(e)}'}), 500
+        flash(f'核算失败: {str(e)}', 'danger')
+        return redirect(url_for('utility_index.utility_occupant_manage', billing_period=billing_period))
 
 # 删除当期子表账单
 @utility_room_bill_occupants_bp.route('/api/clear_current_bill', methods=['POST'])
@@ -440,8 +445,7 @@ def calculate_bill():
 def clear_current_bill():
     """删除指定账期的子表分摊记录（保留主表数据）"""
     try:
-        data = request.json
-        billing_period = data.get('billingPeriod')
+        billing_period = request.form.get('billingPeriod')
         
         if not billing_period:
             log_operation(
@@ -451,7 +455,8 @@ def clear_current_bill():
                 action=f"删除子表账单失败 [原因: 未提供账期参数]",
                 result="失败"
             )
-            return jsonify({'success': False, 'message': '请选择账期'}), 400
+            flash('请选择账期', 'danger')
+            return redirect(url_for('utility_index.utility_occupant_manage', billing_period=billing_period))
             
         # 获取该账期的所有主表记录ID
         main_records = RoomUtilityRecord.get_by_period(None, period=billing_period)
@@ -463,10 +468,8 @@ def clear_current_bill():
                 action=f"删除子表账单失败 [账期: {billing_period}, 原因: 未找到记录]",
                 result="失败"
             )
-            return jsonify({
-                'success': False, 
-                'message': f'未找到{ billing_period }的账单记录'
-            }), 404
+            flash(f'未找到{billing_period}的账单记录', 'danger')
+            return redirect(url_for('utility_index.utility_occupant_manage', billing_period=billing_period))
         
         record_ids = [r.record_id for r in main_records]
 
@@ -493,11 +496,8 @@ def clear_current_bill():
             action=f"删除当期子表账单 [账期: {billing_period}, 删除记录数: {deleted_count}，补贴子表删除数量: {subsidy_usage_deleted}]",
             result="成功"
         )
-        return jsonify({
-            'success': True,
-            'message': f'{ billing_period }的子表账单数据已删除',
-            'deleted_count': deleted_count
-        })
+        flash(f'{billing_period}的子表账单数据已删除，共删除{deleted_count}条记录', 'success')
+        return redirect(url_for('utility_index.utility_occupant_manage', billing_period=billing_period))
         
     except SQLAlchemyError as e:
         db.session.rollback()
@@ -509,7 +509,8 @@ def clear_current_bill():
             action=f"删除子表账单失败 [错误: {str(e)}]",
             result="失败"
         )
-        return jsonify({'success': False, 'message': f'数据库错误: {str(e)}'}), 500
+        flash(f'数据库错误: {str(e)}', 'danger')
+        return redirect(url_for('utility_index.utility_occupant_manage', billing_period=billing_period))
     except Exception as e:
         db.session.rollback()
         logging.error(f"删除账单失败: {str(e)}")
@@ -520,10 +521,11 @@ def clear_current_bill():
             action=f"删除子表账单失败 [错误: {str(e)}]",
             result="失败"
         )
-        return jsonify({'success': False, 'message': f'删除失败: {str(e)}'}), 500
+        flash(f'删除失败: {str(e)}', 'danger')
+        return redirect(url_for('utility_index.utility_occupant_manage', billing_period=billing_period))
 
 # 删除单条费用记录
-@utility_room_bill_occupants_bp.route('/api/delete_fee_record/<int:occupant_id>', methods=['DELETE'])
+@utility_room_bill_occupants_bp.route('/api/delete_fee_record/<int:occupant_id>', methods=['POST'])
 @login_required
 @require_permission('utility.delete')
 def delete_fee_record(occupant_id):
@@ -539,7 +541,8 @@ def delete_fee_record(occupant_id):
                 action=f"删除单条费用记录失败 [记录ID: {occupant_id}, 原因: 记录不存在]",
                 result="失败"
             )
-            return jsonify({'success': False, 'message': '记录不存在'}), 404
+            flash('记录不存在', 'danger')
+            return redirect(url_for('utility_index.utility_occupant_manage'))
             
         # 获取关联信息用于返回
         main_record = RoomUtilityRecord.get_by_id(record.record_id)
@@ -574,11 +577,8 @@ def delete_fee_record(occupant_id):
             result="成功"
         )
         
-        return jsonify({
-            'success': True,
-            'message': f'已删除 {billing_period} 账期， {room.building}{room.room_number} 房间， {user_name} 的费用记录',
-            'subsidy_deleted_count': subsidy_deleted_count
-        })
+        flash(f'已删除 {billing_period} 账期， {room.building}{room.room_number} 房间， {user_name} 的费用记录', 'success')
+        return redirect(url_for('utility_index.utility_occupant_manage', billing_period=billing_period))
         
     except SQLAlchemyError as e:
         db.session.rollback()
@@ -590,365 +590,90 @@ def delete_fee_record(occupant_id):
             action=f"删除单条费用记录失败 [记录ID: {occupant_id}, 错误: {str(e)}]",
             result="失败"
         )
-        return jsonify({'success': False, 'message': f'数据库错误: {str(e)}'}), 500
+        flash(f'数据库错误: {str(e)}', 'danger')
+        return redirect(url_for('utility_index.utility_occupant_manage'))
+
+
+@utility_room_bill_occupants_bp.route('/<int:record_id>/occupant-edit-save', methods=['POST'])
+@login_required
+@require_permission('utility.edit')
+def occupant_edit_save(record_id):
+    """保存用户费用分摊编辑数据"""
+    billing_period = request.form.get('billing_period', '')
+    # 检查功能开关
+    if not SystemConfig.get_config_value('UTILITY_OCCUPANT_EDIT_ENABLED', False):
+        flash('直接编辑用户费用分摊功能未启用', 'warning')
+        return redirect(url_for('utility_index.utility_occupant_manage', billing_period=billing_period))
+    
+    try:
+        record = RoomUtilityRecord.query.get(record_id)
+        if not record:
+            flash(f'记录ID={record_id}不存在', 'danger')
+            return redirect(url_for('utility_index.utility_occupant_manage', billing_period=billing_period))
+        
+        # 获取表单数据
+        if not billing_period:
+            billing_period = record.billing_period
+        
+        # 获取所有在住人员记录
+        occupant_records = RoomUtilityOccupant.query.filter_by(record_id=record_id).all()
+        
+        updated_count = 0
+        # 在修改前记录原始总天数，用于后续校验
+        original_total_stay_days = sum(occ.stay_days or 0 for occ in occupant_records)
+        for occupant in occupant_records:
+            occ_id = str(occupant.id)
+            stay_days = request.form.get(f'occupant_{occ_id}_stay_days')
+            electric_fee = request.form.get(f'occupant_{occ_id}_electric_fee')
+            water_fee = request.form.get(f'occupant_{occ_id}_water_fee')
+            user_reduction_fee = request.form.get(f'occupant_{occ_id}_user_reduction_fee')
+            
+            if stay_days is not None:
+                occupant.stay_days = int(stay_days) if stay_days else 0
+            if electric_fee is not None:
+                occupant.electric_fee = Decimal(electric_fee) if electric_fee else Decimal('0.00')
+            if water_fee is not None:
+                occupant.water_fee = Decimal(water_fee) if water_fee else Decimal('0.00')
+            # 自动计算分摊总费用 = 电费 + 水费
+            occupant.total_fee = (occupant.electric_fee or Decimal('0.00')) + (occupant.water_fee or Decimal('0.00'))
+            if user_reduction_fee is not None:
+                occupant.user_reduction_fee = Decimal(user_reduction_fee) if user_reduction_fee else Decimal('0.00')
+            # 自动计算实际应付 = 分摊总费用 - 减免费用
+            occupant.payable_fee = max(
+                (occupant.total_fee or Decimal('0.00')) - (occupant.user_reduction_fee or Decimal('0.00')),
+                Decimal('0.00')
+            )
+            
+            updated_count += 1
+        
+        # 校验所有用户住宿天数之和等于费用计算总天数
+        current_total_stay_days = sum(occ.stay_days or 0 for occ in occupant_records)
+        if current_total_stay_days != original_total_stay_days:
+            db.session.rollback()
+            logging.warning(f"住宿天数校验失败: 记录ID={record_id}, 修改后总天数={current_total_stay_days}, 原始总天数={original_total_stay_days}")
+            flash(f'所有用户住宿天数之和（{current_total_stay_days}天）必须等于费用计算总天数（{original_total_stay_days}天），请调整住宿天数', 'danger')
+            return redirect(url_for('utility_index.utility_occupant_edit', record_id=record_id, billing_period=billing_period))
+        
+        # 校验所有用户分摊总费用之和不超过房间应付总费用
+        total_occupant_fees = sum(
+            (occ.total_fee or Decimal('0.00')) for occ in occupant_records
+        )
+        room_actual_total = record.receivable_total_fee or Decimal('0.00')
+        if total_occupant_fees - room_actual_total > Decimal('1.00'):
+            db.session.rollback()
+            logging.warning(f"分摊总额校验失败: 记录ID={record_id}, 分摊总额={total_occupant_fees}, 房间应付总额={room_actual_total}, 超出1元以上")
+            flash(f'所有用户分摊总费用之和（¥{total_occupant_fees}）超出房间应付总费用（¥{room_actual_total}）1元以上，请调整分摊金额', 'danger')
+            return redirect(url_for('utility_index.utility_occupant_edit', record_id=record_id, billing_period=billing_period))
+        
+        db.session.commit()
+        
+        log_operation(user_id=current_user.id, module='utility', operation_type='utility_edit',
+            action=f"编辑用户费用分摊数据 [记录ID: {record_id}]", result="成功")
+        
+        flash(f'成功更新 {updated_count} 条用户费用分摊记录', 'success')
     except Exception as e:
         db.session.rollback()
-        logging.error(f"删除单条记录失败: {str(e)}")
-        log_operation(
-            user_id=current_user.id,
-            module='utility',
-            operation_type='delete',
-            action=f"删除单条费用记录失败 [记录ID: {occupant_id}, 错误: {str(e)}]",
-            result="失败"
-        )
-        return jsonify({'success': False, 'message': f'删除失败: {str(e)}'}), 500
-
-
-def get_billing_period_dates(billing_period):
-    """将账期字符串转换为具体日期时间范围（YYYY-MM -> 月初和月末，精确到秒）"""
-    try:
-        year, month = map(int, billing_period.split('-'))
-        # 修正：返回datetime类型，包含时间信息
-        start_date = datetime(year, month, 1, 0, 0, 0)  # 月初00:00:00
-        # 计算月末日期时间
-        if month == 12:
-            next_month = 1
-            next_year = year + 1
-        else:
-            next_month = month + 1
-            next_year = year
-        # 月末最后一秒
-        end_date = datetime(next_year, next_month, 1, 0, 0, 0) - timedelta(seconds=1)
-        return start_date, end_date
-    except Exception as e:
-        # 修复日志记录方式 - 使用logging并包含详细信息
-        logging.error(f"解析账期失败: {billing_period}, 错误: {str(e)}")
-        raise ValueError(f"无效的账期格式: {billing_period}，应为YYYY-MM")
-
-def create_fee_export_data(billing_period):
-    """创建导出数据，仅按账期筛选"""
-    # 构建查询条件 - 仅按账期筛选
-    query = RoomUtilityRecord.query.filter(RoomUtilityRecord.billing_period == billing_period)
+        logging.error(f"保存用户费用分摊编辑失败: {str(e)}")
+        flash(f'保存失败: {str(e)}', 'danger')
     
-    # 预计算账期日期范围用于后续天数计算（datetime类型）
-    start_date, end_date = get_billing_period_dates(billing_period)
-    
-    # 获取符合条件的主表记录
-    main_records = query.all()
-    export_data = []
-    export_warnings = []
-    
-    for main in main_records:
-        # 获取该记录的所有人员分摊记录
-        occupant_records = RoomUtilityOccupant.get_by_record(main.record_id)
-        
-        # 获取房间信息
-        room = Room.query.get(main.room_id)
-        if not room:
-            logging.error(f"找不到房间信息: room_id={main.room_id}")
-            # 跳过此记录，避免后续错误
-            continue
-        
-        # 验证房间信息完整性
-        if not room.building or not room.room_number:
-            logging.error(f"房间信息不完整: room_id={main.room_id}, building={room.building}, room_number={room.room_number}")
-            # 跳过此记录
-            continue
-        
-        # 批量获取住宿记录 - 通过dorm_id精确匹配
-        user_ids = [rec.user_id for rec in occupant_records]
-        dorm_ids = [rec.dorm_id for rec in occupant_records if rec.dorm_id]
-        dorm_by_id = {}
-        if dorm_ids:
-            dorm_records = Dorm.query.filter(Dorm.id.in_(dorm_ids)).all()
-            dorm_by_id = {d.id: d for d in dorm_records}
-        
-        # 批量获取用户信息
-        users = User.query.filter(User.id.in_(user_ids)).all()
-        user_map = {user.id: user for user in users}
-        
-        # 收集数据
-        for occupant in occupant_records:
-            user = user_map.get(occupant.user_id)
-            user_name = user.name if user else f"未知用户（ID:{occupant.user_id}）"
-            user_company = user.company or "" if user else ""
-            user_department = user.department or "" if user else ""
-            user_position = user.position or "" if user else ""
-            
-            # 通过dorm_id精确获取对应的dorm记录
-            dorm = dorm_by_id.get(occupant.dorm_id) if occupant.dorm_id else None
-            if not dorm:
-                # 无dorm_id关联的记录说明数据不正确，记录错误并跳过
-                logging.error(
-                    f"导出-分摊记录缺少dorm_id关联: occupant_id={occupant.id}, "
-                    f"user_id={occupant.user_id}, room_id={occupant.room_id}, "
-                    f"record_id={occupant.record_id}"
-                )
-                export_warnings.append(
-                    f"分摊记录ID={occupant.id}（用户ID={occupant.user_id}，"
-                    f"房间ID={occupant.room_id}）缺少dorm_id关联，请重新核算账单"
-                )
-                continue
-            check_in_date = dorm.check_in_date
-            # 格式化日期时间显示
-            check_in_str = check_in_date.strftime('%Y-%m-%d') if check_in_date else ""
-            
-            # 构建导出记录
-            export_data.append({
-                '账期': main.billing_period,
-                '房间ID': main.room_id,
-                '楼栋': room.building,
-                '房间号': room.room_number,
-                '本期电表当前读数': main.electric_current,
-                '本期电表上期读数': main.electric_previous,
-                '本期电表用量': main.electric_usage,
-                '减免电用量': main.electric_reduction,
-                '计费电用量': main.electric_billing_usage,
-                '电费单价': main.electric_price,
-                '本期电费': main.total_electric_fee,
-                '计费电费': main.billing_electric_fee,
-                '本期水表当前读数': main.water_current,
-                '本期水表上期读数': main.water_previous,
-                '本期水表用量': main.water_usage,
-                '减免水用量': main.water_reduction,
-                '计费水用量': main.water_billing_usage,
-                '水费单价': main.water_price,
-                '本期水费': main.total_water_fee,
-                '计费水费': main.billing_water_fee,
-                '本期总费用': main.total_fee,
-                '计费总费用': main.billing_total_fee,
-                '退宿人员费用': main.checked_out_total_fee,
-                '减免房间级费用': main.room_reduction_fee,
-                '房间应付费用': main.actual_total_fee,
-                '分摊人员ID': occupant.user_id,
-                '分摊人员姓名': user_name,
-                '公司': user_company,
-                '部门': user_department,
-                '职位': user_position,
-                '入住时间': check_in_str,  # 已转换为包含时间的字符串
-                '账期内住宿天数': occupant.stay_days,
-                '分摊电费': occupant.electric_fee,
-                '分摊水费': occupant.water_fee,
-                '分摊总金额': occupant.total_fee,
-                '减免金额': occupant.user_reduction_fee, # 新增：减免费用字段
-                '分摊应付金额': occupant.payable_fee # 新增：用户应付费用字段
-            })
-    
-    return export_data, export_warnings
-
-@utility_room_bill_occupants_bp.route('/api/export_fee_data', methods=['GET'])
-@login_required
-@require_permission('utility.export')
-def export_fee_data():
-    """导出人员费用数据为Excel，支持按房间号合并所有相同内容字段并添加完整边框"""
-    import pandas as pd  # 延迟导入，避免启动时加载重型库
-    try:
-        # 获取筛选参数
-        billing_period = request.args.get('billing_period') or request.args.get('billingPeriod')
-        
-        # 验证账期参数
-        if not billing_period:
-            # 修复日志记录 - 使用log_operation函数记录操作结果
-            log_operation(
-                user_id=current_user.id,
-                module="utility",
-                operation_type="batch_import_export",
-                action=f"导出费用数据失败 [原因: 未提供账期参数]",
-                result="失败"
-            )
-            # 同时记录到logging
-            logging.warning(f"用户 {current_user.id} 未提供账期参数尝试导出费用数据")
-            return jsonify({
-                'success': False,
-                'message': '请提供账期参数(billing_period，格式为YYYY-MM)'
-            }), 400
-        
-        # 记录导出操作开始 - 与日志蓝图保持一致的记录方式
-        log_operation(
-            user_id=current_user.id,
-            module="utility",
-            operation_type="batch_import_export",
-            action=f"开始导出费用数据 [账期: {billing_period}]",
-            result="开始"
-        )
-        logging.info(f"用户 {current_user.id} 开始导出 {billing_period} 账期的费用数据")
-        
-        # 创建导出数据
-        export_data, export_warnings = create_fee_export_data(billing_period)
-        
-        if not export_data:
-            # 记录无数据情况
-            log_operation(
-                user_id=current_user.id,
-                module="utility",
-                operation_type="batch_import_export",
-                action=f"导出费用数据失败 [账期: {billing_period}, 原因: 未找到匹配记录]",
-                result="失败"
-            )
-            logging.info(f"用户 {current_user.id} 导出 {billing_period} 账期费用数据，未找到匹配记录")
-            return jsonify({
-                'success': False,
-                'message': f'没有找到{ billing_period }账期的费用数据'
-            }), 404
-        
-        # 创建Excel
-        df = pd.DataFrame(export_data)
-        
-        # 先按楼栋排序，再按房间号排序，确保不同楼栋的相同房间号不会被混淆
-        df = df.sort_values(by=['楼栋', '房间号'])
-        
-        # 处理日期时间格式（保留时间信息）
-        if '入住时间' in df.columns:
-            # 转换为datetime类型保留完整信息
-            df['入住时间'] = pd.to_datetime(df['入住时间'], format='%Y-%m-%d', errors='coerce').dt.date
-        
-        # 保存到内存
-        output = io.BytesIO()
-        with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            df.to_excel(writer, index=False, sheet_name='人员费用分摊')
-            
-            # 获取工作表对象
-            worksheet = writer.sheets['人员费用分摊']
-            
-            # 定义样式
-            from openpyxl.styles import Border, Side, Alignment
-            thin_border = Border(
-                left=Side(style='thin'),
-                right=Side(style='thin'),
-                top=Side(style='thin'),
-                bottom=Side(style='thin')
-            )
-            # 所有单元格统一使用垂直居中，表头额外使用水平居中
-            data_alignment = Alignment(vertical='center')
-            header_alignment = Alignment(vertical='center', horizontal='center')
-            
-            # 需要合并的列名（房间相关的公共信息）
-            columns_to_merge = [
-                '账期', '房间ID', '楼栋', '房间号',
-                '本期电表当前读数', '本期电表上期读数', '本期电表用量', '减免电用量', '计费电用量', '电费单价','本期电费', '计费电费',
-                '本期水表当前读数', '本期水表上期读数', '本期水表用量', '减免水用量', '计费水用量', '水费单价','本期水费', '计费水费',
-                '本期总费用', '计费总费用', '退宿人员费用', '减免房间级费用', '房间应付费用'
-            ]
-            
-            # 存储列名到索引的映射（1-based）
-            col_index_map = {}
-            for col_idx, cell in enumerate(worksheet[1]):  # 表头行
-                col_index_map[cell.value] = col_idx + 1  # openpyxl是1-based索引
-                # 设置表头样式
-                cell.alignment = header_alignment
-                cell.border = thin_border
-            
-            # 获取所有数据行
-            max_row = worksheet.max_row
-            max_col = len(col_index_map)
-            
-            # 先为所有单元格应用基础样式（边框和垂直居中）
-            for row in range(2, max_row + 1):
-                for col in range(1, max_col + 1):
-                    cell = worksheet.cell(row=row, column=col)
-                    cell.alignment = data_alignment
-                    cell.border = thin_border
-            
-            if max_row > 1:  # 确保有数据行
-                # 获取楼栋和房间号列的索引
-                building_col_idx = col_index_map.get('楼栋')
-                room_col_idx = col_index_map.get('房间号')
-                
-                if building_col_idx and room_col_idx:
-                    # 记录当前楼栋、房间号和起始行
-                    current_building = worksheet.cell(row=2, column=building_col_idx).value
-                    current_room = worksheet.cell(row=2, column=room_col_idx).value
-                    start_row = 2
-                    
-                    # 遍历所有行，识别连续相同的楼栋和房间号组合
-                    for row in range(3, max_row + 1):
-                        building_value = worksheet.cell(row=row, column=building_col_idx).value
-                        room_value = worksheet.cell(row=row, column=room_col_idx).value
-                        
-                        if building_value != current_building or room_value != current_room:
-                            # 对所有需要合并的列执行合并操作
-                            for col_name in columns_to_merge:
-                                col_idx = col_index_map.get(col_name)
-                                if col_idx and (row - start_row > 1):
-                                    # 合并单元格
-                                    worksheet.merge_cells(
-                                        start_row=start_row, 
-                                        start_column=col_idx,
-                                        end_row=row - 1, 
-                                        end_column=col_idx
-                                    )
-                                    # 合并后重新设置样式（合并会清除部分样式）
-                                    merged_cell = worksheet.cell(row=start_row, column=col_idx)
-                                    merged_cell.alignment = Alignment(vertical='center', horizontal='center')
-                                    merged_cell.border = thin_border
-                            
-                            current_building = building_value
-                            current_room = room_value
-                            start_row = row
-                    
-                    # 处理最后一组相同楼栋和房间号的行
-                    if max_row - start_row > 0:
-                        for col_name in columns_to_merge:
-                            col_idx = col_index_map.get(col_name)
-                            if col_idx:
-                                worksheet.merge_cells(
-                                    start_row=start_row, 
-                                    start_column=col_idx,
-                                    end_row=max_row, 
-                                    end_column=col_idx
-                                )
-                                # 合并后重新设置样式
-                                merged_cell = worksheet.cell(row=start_row, column=col_idx)
-                                merged_cell.alignment = Alignment(vertical='center', horizontal='center')
-                                merged_cell.border = thin_border
-        
-        output.seek(0)
-        
-        # 构建文件名
-        filename = f"人员费用分摊数据_{billing_period}_{datetime.now().strftime('%Y%m%d%H%M%S')}.xlsx"
-        logging.info(f"用户 {current_user.id} 导出 {billing_period} 账期费用数据，文件名: {filename}")
-        # 记录导出成功
-        log_operation(
-            user_id=current_user.id,
-            module="utility",
-            operation_type="batch_import_export",
-            action=f"导出费用数据成功 [账期: {billing_period}, 记录数: {len(export_data)}]",
-            result="成功"
-        )
-        logging.info(f"用户 {current_user.id} 成功导出 {billing_period} 账期费用数据，共 {len(export_data)} 条记录")
-        
-        return send_file(
-            output,
-            mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            as_attachment=True,
-            download_name=filename
-        )
-        
-    except ValueError as ve:
-        # 参数错误日志记录
-        logging.warning(f"用户 {current_user.id} 导出费用数据参数错误: {str(ve)}")
-        log_operation(
-            user_id=current_user.id,
-            module="utility",
-            operation_type="batch_import_export",
-            action=f"导出费用数据失败 [错误: {str(ve)}]",
-            result="失败"
-        )
-        return jsonify({
-            'success': False,
-            'message': str(ve)
-        }), 400
-    except Exception as e:
-        # 异常错误日志记录
-        logging.error(f"用户 {current_user.id} 导出费用数据失败: {str(e)}", exc_info=True)
-        log_operation(
-            user_id=current_user.id,
-            module="utility",
-            operation_type="batch_import_export",
-            action=f"导出费用数据失败 [错误: {str(e)}]",
-            result="失败"
-        )
-        return jsonify({
-            'success': False,
-            'message': f'导出失败: {str(e)}'
-        }), 500
+    return redirect(url_for('utility_index.utility_occupant_edit', record_id=record_id, billing_period=billing_period))

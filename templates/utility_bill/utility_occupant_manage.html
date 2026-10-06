@@ -178,18 +178,26 @@
           </div>
           
           <div class="flex flex-wrap justify-center items-center gap-2">
-            <button onclick="window.location.href='{{ url_for('utility_index.utility_calculate_fees') }}'" class="bg-primary text-white px-5 py-2 rounded-md flex items-center btn-effect hover:bg-primary/90 transition-colors flex-shrink-0 justify-center">
-              房间费用
+            <button onclick="window.location.href='{{ url_for('utility_index.utility_room_records_bill') }}'" class="bg-primary text-white px-4 py-2 rounded-md flex items-center btn-effect hover:bg-primary/90 transition-colors flex-shrink-0 justify-center text-sm sm:text-base">
+              <i class="fa fa-building mr-1.5"></i>房间费用
             </button>
-            <button onclick="window.location.href='{{ url_for('utility_index.utility_room_checkout') }}'" class="bg-primary text-white px-5 py-2 rounded-md flex items-center btn-effect hover:bg-primary/90 transition-colors flex-shrink-0 justify-center">
-              退宿费用
+            <button onclick="window.location.href='{{ url_for('utility_index.utility_room_checkout') }}'" class="bg-indigo-600 text-white px-4 py-2 rounded-md flex items-center btn-effect hover:bg-indigo-700 transition-colors flex-shrink-0 justify-center text-sm sm:text-base">
+              <i class="fa fa-sign-out mr-1.5"></i>退宿费用
             </button>
-            <button onclick="window.location.href='{{ url_for('utility_user_records_detail.user_records_detail') }}'" class="bg-primary text-white px-5 py-2 rounded-md flex items-center btn-effect hover:bg-primary/90 transition-colors flex-shrink-0 justify-center">
-              费用查询
+            <button onclick="window.location.href='{{ url_for('utility_user_records.user_records') }}'" class="bg-teal-600 text-white px-4 py-2 rounded-md flex items-center btn-effect hover:bg-teal-700 transition-colors flex-shrink-0 justify-center text-sm sm:text-base">
+              <i class="fa fa-search mr-1.5"></i>费用查询
             </button>
-            <button onclick="window.location.href='{{ url_for('utility_room_meter.utility_reading_manage') }}'" class="bg-primary text-white px-5 py-2 rounded-md flex items-center btn-effect hover:bg-primary/90 transition-colors flex-shrink-0 justify-center">
-              抄表记录
+            <button onclick="window.location.href='{{ url_for('utility_room_meter.utility_reading_manage') }}'" class="bg-amber-600 text-white px-4 py-2 rounded-md flex items-center btn-effect hover:bg-amber-700 transition-colors flex-shrink-0 justify-center text-sm sm:text-base">
+              <i class="fa fa-book mr-1.5"></i>抄表记录
             </button>
+            <button type="button" id="topRefreshBtn" class="bg-green-600 text-white px-4 py-2 rounded-md flex items-center btn-effect hover:bg-green-700 transition-colors flex-shrink-0 justify-center text-sm sm:text-base">
+              <i class="fa fa-refresh mr-1.5"></i>刷新
+            </button>
+            {% if current_user.has_permission('utility.export') %}
+            <button type="button" id="topExportBtn" class="bg-cyan-600 text-white px-4 py-2 rounded-md flex items-center btn-effect hover:bg-cyan-700 transition-colors flex-shrink-0 justify-center text-sm sm:text-base">
+              <i class="fa fa-download mr-1.5"></i><span id="exportBtnText">导出</span>
+            </button>
+            {% endif %}
           </div>
         </div> 
         <!-- 第二行：p标签单独显示 -->
@@ -199,6 +207,20 @@
       </div>
     </div>
 
+    <!-- 消息提示区域 -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="flash-messages mb-6">
+          {% for category, message in messages %}
+            <div class="p-4 rounded-md mb-2 {% if category == 'success' %}bg-green-100 text-green-800{% elif category == 'error' or category == 'danger' %}bg-red-100 text-red-800{% elif category == 'warning' %}bg-yellow-100 text-yellow-800{% else %}bg-blue-100 text-blue-800{% endif %}">
+              <button type="button" class="float-right ml-2 text-gray-500 hover:text-gray-700" onclick="this.parentElement.remove()">×</button>
+              {{ message | safe }}
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
     <!-- 筛选和搜索区域 -->
     <div class="bg-white rounded-lg shadow-card p-6 mb-8 fade-in" style="animation-delay: 100ms;">
       <form id="filterForm" class="space-y-4">
@@ -207,7 +229,7 @@
             <label for="billingPeriod" class="block text-sm font-medium text-gray-700 mb-1">账期</label>
             <select id="billingPeriod" name="billingPeriod" 
                     class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all-300 text-sm">
-              <option value="">全部账期</option>
+              <option value="">请选择账期</option>
             </select>
           </div>
           
@@ -257,14 +279,6 @@
               <i class="fa fa-eraser mr-1.5"></i>删除
             </button>
             {% endif %}
-            <button type="button" id="refreshBtn" class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-700 text-sm py-2 px-3 rounded-lg transition-all-300 btn-hover-scale flex items-center justify-center">
-              <i class="fa fa-refresh mr-1.5"></i>刷新
-            </button>
-            {% if current_user.has_permission('utility.export') %}
-            <button type="button" id="exportBtn" class="flex-1 bg-success hover:bg-success/90 text-white text-sm py-2 px-3 rounded-lg transition-all-300 btn-hover-scale flex items-center justify-center">
-              <i class="fa fa-download mr-1.5"></i>导出
-            </button>
-            {% endif %}
           </div>
         </div>
       </form>
@@ -283,19 +297,19 @@
                 房间号
               </th>
               <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                电费
+                计费电费
               </th>
               <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                水费
+                计费水费
               </th>
               <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                总费用
+                计费总费用
               </th>
               <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 退宿总费用
               </th>
               <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                在住总费用
+                应付总费用
               </th>
               <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 姓名
@@ -307,10 +321,13 @@
                 减免金额
               </th>
               <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                个人应付金额
+                实际应付金额
               </th>
               <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 住宿天数
+              </th>
+              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                编辑
               </th>
               <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 操作
@@ -319,7 +336,7 @@
           </thead>
           <tbody id="feeRecordsTableBody" class="bg-white divide-y divide-gray-200">
             <tr>
-              <td colspan="13" class="px-6 py-8 text-center text-gray-500">
+              <td colspan="14" class="px-6 py-8 text-center text-gray-500">
                 <i class="fa fa-info-circle mr-2"></i>请选择账期并点击搜索查看数据
               </td>
             </tr>
@@ -373,6 +390,7 @@
   <script>
     // 权限标志
     const canDelete = {{ 'true' if current_user.has_permission('utility.delete') else 'false' }};
+    const canEditOccupant = {{ 'true' if get_config_value('UTILITY_OCCUPANT_EDIT_ENABLED', False) and current_user.has_permission('utility.edit') else 'false' }};
 
     // 全局变量增加房间信息缓存，避免重复请求
     let currentPage = 1;
@@ -391,14 +409,25 @@
     document.addEventListener('DOMContentLoaded', function() {
       // 修改：先加载系统配置，再加载账期
       loadSystemConfig().then(() => {
-        loadBillingPeriods();
+        loadBillingPeriods().then(() => {
+          // 检查URL参数是否有billing_period，如果有则自动选中并加载数据
+          const urlParams = new URLSearchParams(window.location.search);
+          const periodParam = urlParams.get('billing_period');
+          if (periodParam) {
+            const billingPeriodSelect = document.getElementById('billingPeriod');
+            billingPeriodSelect.value = periodParam;
+            if (billingPeriodSelect.value === periodParam) {
+              fetchFeeRecords();
+            }
+          }
+        });
       });
       
       // DOM元素获取和事件绑定
       const billingPeriodSelect = document.getElementById('billingPeriod');
       const filterForm = document.getElementById('filterForm');
       const resetBtn = document.getElementById('resetBtn');
-      const exportBtn = document.getElementById('exportBtn');
+      const exportBtn = document.getElementById('topExportBtn');
       const calculateBtn = document.getElementById('calculateBtn');
       const clearCurrentBtn = document.getElementById('clearCurrentBtn');
       const prevPageBtn = document.getElementById('prevPage');
@@ -445,7 +474,7 @@
       }
       
       // 刷新按钮 - 实现真正的页面刷新
-      const refreshBtn = document.getElementById('refreshBtn');
+      const refreshBtn = document.getElementById('topRefreshBtn');
       refreshBtn.addEventListener('click', function() {
         window.location.reload(true); // true参数表示强制从服务器刷新，不使用缓存
       });
@@ -519,7 +548,7 @@
       // 更新表头（减免金额是第10列，个人应付是第11列）
       const headers = document.querySelectorAll('thead th');
       if (headers[9]) headers[9].style.display = displayValue;  // 减免金额表头
-      if (headers[10]) headers[10].style.display = displayValue; // 个人应付金额表头
+      if (headers[10]) headers[10].style.display = displayValue; // 实际应付金额表头
       
       // 表体：使用 data-column 属性选择器，避免 rowspan 导致的 cell index 错位
       document.querySelectorAll('#feeRecordsTableBody td[data-column="reduction"]').forEach(cell => {
@@ -540,7 +569,7 @@
     
     // 加载账期选项
     function loadBillingPeriods() {
-      fetch('/utility_room_bill_records_bp/periods')
+      return fetch('/utility_room_bill_records_bp/periods')
         .then(response => {
           if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
           return response.json();
@@ -571,7 +600,7 @@
       const tableBody = document.getElementById('feeRecordsTableBody');
       
       // 显示加载状态
-      tableBody.innerHTML = '<tr><td colspan="13" class="px-6 py-8 text-center text-gray-500"><i class="fa fa-spinner fa-spin mr-2"></i>正在加载数据...</td></tr>';
+      tableBody.innerHTML = '<tr><td colspan="14" class="px-6 py-8 text-center text-gray-500"><i class="fa fa-spinner fa-spin mr-2"></i>正在加载数据...</td></tr>';
       
       const url = new URL('/utility_room_bill_occupants/api/fee_records', window.location.origin);
       url.searchParams.append('billingPeriod', billingPeriod);
@@ -620,12 +649,12 @@
               alert('数据异常警告：\n\n' + warningMsg + '\n\n请重新核算相关账单以修复数据');
             }
           } else {
-            tableBody.innerHTML = `<tr><td colspan="13" class="px-6 py-8 text-center text-danger"><i class="fa fa-exclamation-circle mr-2"></i>${data.message}</td></tr>`;
+            tableBody.innerHTML = `<tr><td colspan="14" class="px-6 py-8 text-center text-danger"><i class="fa fa-exclamation-circle mr-2"></i>${data.message}</td></tr>`;
           }
         })
         .catch(error => {
           console.error('获取费用记录失败:', error);
-          tableBody.innerHTML = '<tr><td colspan="13" class="px-6 py-8 text-center text-danger"><i class="fa fa-exclamation-circle mr-2"></i>加载数据失败，请重试</td></tr>';
+          tableBody.innerHTML = '<tr><td colspan="14" class="px-6 py-8 text-center text-danger"><i class="fa fa-exclamation-circle mr-2"></i>加载数据失败，请重试</td></tr>';
         });
     }
     
@@ -634,7 +663,7 @@
       const tableBody = document.getElementById('feeRecordsTableBody');
       
       if (records.length === 0) {
-        tableBody.innerHTML = '<tr><td colspan="13" class="px-6 py-8 text-center text-gray-500"><i class="fa fa-info-circle mr-2"></i>没有找到匹配的记录</td></tr>';
+        tableBody.innerHTML = '<tr><td colspan="14" class="px-6 py-8 text-center text-gray-500"><i class="fa fa-info-circle mr-2"></i>没有找到匹配的记录</td></tr>';
         return;
       }
       
@@ -694,17 +723,17 @@
                 ${firstRecord.building || '未知'}${firstRecord.room_number || '未知'}
               </a>(ID:${firstRecord.room_id})
             </td>`;
-            // 电费
+            // 计费电费
             html += `<td class="px-6 py-4 whitespace-nowrap" rowspan="${visibleRowCount}">
               <div class="text-sm font-medium text-gray-900">¥${formatFee(firstRecord.electric_fee).toFixed(2)}</div>
               <div class="text-xs text-gray-500">抄: ${firstRecord.electric_reading || '0'}</div>
             </td>`;
-            // 水费
+            // 计费水费
             html += `<td class="px-6 py-4 whitespace-nowrap" rowspan="${visibleRowCount}">
               <div class="text-sm font-medium text-gray-900">¥${formatFee(firstRecord.water_fee).toFixed(2)}</div>
               <div class="text-xs text-gray-500">抄: ${firstRecord.water_reading || '0'}</div>
             </td>`;
-            // 总费用
+            // 计费总费用
             html += `<td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900" rowspan="${visibleRowCount}">
               <div class="text-sm font-medium text-gray-900">¥${formatFee(firstRecord.total_fee).toFixed(2)}</div>
               <div class="text-xs text-gray-500">减: ¥${formatFee(firstRecord.room_reduction_fee || 0).toFixed(2)}</div>
@@ -713,9 +742,9 @@
             html += `<td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900" rowspan="${visibleRowCount}">
               ¥${formatFee(firstRecord.checked_out_total_fee).toFixed(2)}
             </td>`;
-            // 在住总费用
+            // 应付总费用
             html += `<td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900" rowspan="${visibleRowCount}">
-              ¥${formatFee(firstRecord.actual_total_fee).toFixed(2)}
+              ¥${formatFee(firstRecord.receivable_total_fee).toFixed(2)}
             </td>`;
             
             isFirstUserInRoom = false;
@@ -762,6 +791,9 @@
             ${!isMultiRecord && summary.check_in_date ? `<div class="text-xs text-gray-500">${summary.check_in_date.substring(0, 10)}→${summary.check_out_date.substring(0, 10)}</div>` : ''}
             ${isMultiRecord ? '<div class="text-xs text-gray-400">合计</div>' : ''}
           </td>`;
+          
+          // 编辑列（房间级rowspan，编辑是针对整个房间的所有人员分摊数据）
+          html += `${userIndex === 0 ? (canEditOccupant ? `<td class="px-6 py-4 whitespace-nowrap text-sm" rowspan="${visibleRowCount}"><a href="/utility/utility_occupant_edit/${firstRecord.record_id}?billing_period=${firstRecord.billing_period}" class="text-amber-600 hover:text-amber-700"><i class="fa fa-edit"></i> 编辑</a></td>` : `<td class="px-6 py-4 whitespace-nowrap text-sm" rowspan="${visibleRowCount}"></td>`) : ''}`;
           
           // 操作列（单条记录时汇总行显示删除按钮，多条记录时不显示，由明细行各自显示）
           html += `<td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
@@ -815,6 +847,9 @@
                   ${record.check_in_date.substring(0, 10)}→${record.check_out_date.substring(0, 10)}
                 </div>
               </td>`;
+              
+              // 编辑列（明细行不需要编辑按钮，编辑是针对整个房间的）
+              html += `${canEditOccupant ? `<td class="px-6 py-4 whitespace-nowrap text-sm"></td>` : ''}`;
               
               // 操作列
               html += `<td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
@@ -944,33 +979,16 @@
         return;
       }
       
-      const button = document.getElementById('calculateBtn');
-      const originalText = button.innerHTML;
-      button.disabled = true;
-      button.innerHTML = '<i class="fa fa-spinner fa-spin mr-1"></i>核算中...';
-      
-      fetch('/utility_room_bill_occupants/api/calculate_bill', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ billingPeriod })
-      })
-      .then(response => response.json())
-      .then(data => {
-        button.disabled = false;
-        button.innerHTML = originalText;
-        if (data.success) {
-          alert(`${data.message}，共更新${data.updated_room_count}个房间，${data.updated_occupant_count}条人员记录`);
-          fetchFeeRecords();
-        } else {
-          alert('核算失败: ' + data.message);
-        }
-      })
-      .catch(error => {
-        console.error('核算账单失败:', error);
-        button.disabled = false;
-        button.innerHTML = originalText;
-        alert('核算账单时发生错误，请重试');
-      });
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = '/utility_room_bill_occupants/api/calculate_bill';
+      const input = document.createElement('input');
+      input.type = 'hidden';
+      input.name = 'billingPeriod';
+      input.value = billingPeriod;
+      form.appendChild(input);
+      document.body.appendChild(form);
+      form.submit();
     }
     
     // 删除当前账单
@@ -985,33 +1003,16 @@
         return;
       }
       
-      const button = document.getElementById('clearCurrentBtn');
-      const originalText = button.innerHTML;
-      button.disabled = true;
-      button.innerHTML = '<i class="fa fa-spinner fa-spin mr-1"></i>删除ing...';
-      
-      fetch('/utility_room_bill_occupants/api/clear_current_bill', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ billingPeriod })
-      })
-      .then(response => response.json())
-      .then(data => {
-        button.disabled = false;
-        button.innerHTML = originalText;
-        if (data.success) {
-          alert(`${data.message}，共删除${data.deleted_count}条记录`);
-          fetchFeeRecords();
-        } else {
-          alert('删除失败: ' + data.message);
-        }
-      })
-      .catch(error => {
-        console.error('删除账单失败:', error);
-        button.disabled = false;
-        button.innerHTML = originalText;
-        alert('删除账单时发生错误，请重试');
-      });
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = '/utility_room_bill_occupants/api/clear_current_bill';
+      const input = document.createElement('input');
+      input.type = 'hidden';
+      input.name = 'billingPeriod';
+      input.value = billingPeriod;
+      form.appendChild(input);
+      document.body.appendChild(form);
+      form.submit();
     }
     
     // 删除费用记录
@@ -1020,18 +1021,11 @@
         return;
       }
       
-      fetch(`/utility_room_bill_occupants/api/delete_fee_record/${occupantId}`, {
-        method: 'DELETE'
-      })
-      .then(response => response.json())
-      .then(data => {
-        alert(data.success ? data.message : '删除失败: ' + data.message);
-        if (data.success) fetchFeeRecords();
-      })
-      .catch(error => {
-        console.error('删除记录失败:', error);
-        alert('删除记录时发生错误，请重试');
-      });
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = `/utility_room_bill_occupants/api/delete_fee_record/${occupantId}`;
+      document.body.appendChild(form);
+      form.submit();
     }
     
     // 修复导出费用数据函数 - 正确处理Excel文件下载
@@ -1044,7 +1038,7 @@
         return;
       }
       
-      const button = document.getElementById('exportBtn');
+      const button = document.getElementById('topExportBtn');
       const originalText = button.innerHTML;
       button.disabled = true;
       button.innerHTML = '<i class="fa fa-spinner fa-spin mr-1.5"></i>导出中...';
@@ -1058,7 +1052,7 @@
       try {
         // 创建隐藏的a标签进行下载
         const a = document.createElement('a');
-        a.href = `/utility_room_bill_occupants/api/export_fee_data?${urlParams.toString()}`;
+        a.href = `/utility_room_bill_occupants_export/api/export_fee_data?${urlParams.toString()}`;
         // 移除前端自定义的download属性，使用后端传递的文件名
         document.body.appendChild(a);
         a.click();

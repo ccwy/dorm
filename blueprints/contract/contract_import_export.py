@@ -174,8 +174,46 @@ def import_contracts():
             logging.error(f'导入合同数据失败：文件解析失败 - {detailed_error}')
             return redirect(url_for('contract.index'))
 
-        # 验证必要列
+        # 白名单模式：只识别必填列和可选列，其余列全部自动忽略
+        # 必填列（缺失时报错）
         required_columns = ['合同名称']
+        # 可选列（缺失时不报错）
+        optional_columns = [
+            '合同编号', '甲方名称', '甲方联系人', '甲方联系电话', '甲方地址',
+            '甲方统一社会信用代码', '甲方法定代表人', '乙方名称', '乙方联系人',
+            '乙方联系电话', '乙方地址', '乙方统一社会信用代码', '乙方法定代表人',
+            '合同类型', '合同分类', '合同金额', '币种', '税率(%)', '税率',
+            '税额', '签订日期', '开始日期', '结束日期', '合同状态', '经手人',
+            '归属部门', '备注', '存放位置'
+        ]
+        # 列名别名映射：将Excel中可能出现的列名映射到标准列名
+        column_alias_map = {}
+        # 所有可能需要识别的标准列名
+        all_known_columns = set(required_columns) | set(optional_columns)
+
+        # 别名列重命名为标准名
+        rename_map = {}
+        for col in df.columns:
+            if col in all_known_columns:
+                continue  # 已经是标准名
+            for standard_name, aliases in column_alias_map.items():
+                if col in aliases:
+                    rename_map[col] = standard_name
+                    break
+
+        if rename_map:
+            df = df.rename(columns=rename_map)
+
+        # 识别未匹配的列
+        ignored_columns = [col for col in df.columns if col not in all_known_columns]
+        if ignored_columns:
+            logging.info(f'导入合同数据：自动忽略未识别列 {ignored_columns}')
+
+        # 仅保留白名单列
+        whitelist_columns = [col for col in df.columns if col in all_known_columns]
+        df = df[whitelist_columns]
+
+        # 检查必填列缺失
         missing_columns = [col for col in required_columns if col not in df.columns]
         if missing_columns:
             flash(f'导入失败：文件缺少必要的列 - {", ".join(missing_columns)}', 'danger')

@@ -61,18 +61,19 @@
                     </div>
                 </div>
                 
+                <!-- 消息提示区域 -->
                 {% with messages = get_flashed_messages(with_categories=true) %}
                 {% if messages %}
-                    <div class="flash-messages mb-6 mx-auto" style="max-width: 500px;">
+                <div class="flash-messages mb-6">
                     {% for category, message in messages %}
-                        <div class="p-4 rounded-md mb-2 text-center {% if category == 'success' %}bg-green-100 text-green-800{% elif category == 'error' or category == 'danger' %}bg-red-100 text-red-800{% elif category == 'warning' %}bg-yellow-100 text-yellow-800{% else %}bg-blue-100 text-blue-800{% endif %}">
+                    <div class="p-4 rounded-md mb-2 {% if category == 'success' %}bg-green-100 text-green-800{% elif category == 'error' or category == 'danger' %}bg-red-100 text-red-800{% elif category == 'warning' %}bg-yellow-100 text-yellow-800{% else %}bg-blue-100 text-blue-800{% endif %}">
                         <button type="button" class="float-right ml-2 text-gray-500 hover:text-gray-700" onclick="this.parentElement.remove()">×</button>
-                        {{ message }}
-                        </div>
-                    {% endfor %}
+                        {{ message | safe }}
                     </div>
+                    {% endfor %}
+                </div>
                 {% endif %}
-                {% endwith %}
+            {% endwith %}
 
                 <!-- 用户信息卡片 -->
                 <div class="bg-white rounded-lg shadow-sm overflow-hidden mb-6 card-hover">
@@ -94,7 +95,7 @@
                             </div>
                             <div>
                                 <h4 class="text-sm text-gray-500">归属账期</h4>
-                                <p class="font-medium">{{ billing_period }}</p>
+                                <p class="font-medium"><a href="{{ url_for('utility_index.utility_room_records_detail') }}?record_id={{ checkout_record.record_id }}" class="text-primary hover:text-primary/80 hover:underline">{{ billing_period }}</a></p>
                             </div>
                             <div>
                                 <h4 class="text-sm text-gray-500">入住日期</h4>
@@ -200,18 +201,18 @@
                     <div class="p-6">
                         <!-- 原始费用 -->
                         <div class="mb-6">
-                            <h4 class="text-md font-medium text-gray-900 mb-3">房间总费用</h4>
+                            <h4 class="text-md font-medium text-gray-900 mb-3">房间原始费用</h4>
                             <div class="grid grid-cols-3 md:grid-cols-3 gap-4 text-center">
                                 <div class="bg-gray-50 p-4 rounded">
-                                    <p class="text-sm text-gray-500 mb-1">电费</p>
+                                    <p class="text-sm text-gray-500 mb-1">原始电费</p>
                                     <p class="text-lg font-semibold text-gray-900">{{ checkout_record.meter_electric_fee }} 元</p>
                                 </div>
                                 <div class="bg-gray-50 p-4 rounded">
-                                    <p class="text-sm text-gray-500 mb-1">水费</p>
+                                    <p class="text-sm text-gray-500 mb-1">原始水费</p>
                                     <p class="text-lg font-semibold text-gray-900">{{ checkout_record.meter_water_fee }} 元</p>
                                 </div>
                                 <div class="bg-gray-50 p-4 rounded">
-                                    <p class="text-sm text-gray-500 mb-1">合计</p>
+                                    <p class="text-sm text-gray-500 mb-1">原始总费用</p>
                                     <p class="text-lg font-semibold text-gray-900">{{ checkout_record.meter_total_fee }} 元</p>
                                 </div>
                                 
@@ -336,16 +337,57 @@
                         </div>
                         {% endif %}
                         
-                        <!-- 最终应付 -->
+                        <!-- 实际应付 -->
                         <div class="bg-blue-50 p-4 rounded border-l-4 border-primary">
                             <div class="flex justify-between items-center">
-                                <span class="text-xl font-semibold text-gray-900">最终应付金额</span>
+                                <span class="text-xl font-semibold text-gray-900">实际应付</span>
                                 <span class="text-3xl font-bold text-primary">{{ checkout_record.payable_fee }} 元</span>
                             </div>
                         </div>
                     </div>
                 </div>
                 
+                
+                
+                <!-- 退宿照片/视频管理区 -->
+                <div class="bg-white rounded-lg shadow-sm p-6 mb-6 max-w-full mx-auto">
+                    <div class="flex items-center mb-4">
+                        <div class="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center mr-2">
+                            <i class="fa fa-camera text-primary"></i>
+                        </div>
+                        <h2 class="text-lg font-semibold text-gray-800">退宿照片/视频</h2>
+                    </div>
+                    
+                    {% if current_user.has_permission('utility.edit') %}
+                    <!-- 上传按钮 -->
+                    <div class="mb-4">
+                        <label id="checkoutUploadLabel" class="inline-flex items-center px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90 cursor-pointer btn-effect">
+                            <i class="fa fa-upload mr-2"></i>上传照片/视频
+                            <input type="file" id="checkoutFileInput" class="hidden" accept="image/*,video/*" multiple onchange="uploadCheckoutFile()">
+                        </label>
+                    </div>
+                    <!-- 上传进度条 -->
+                    <div id="checkoutUploadProgressContainer" class="hidden bg-white rounded-lg shadow-sm p-4 mb-4">
+                        <div class="flex items-center justify-between mb-2">
+                            <span id="checkoutUploadStatusText" class="text-sm font-medium text-gray-700">上传中...</span>
+                            <span id="checkoutUploadProgressPercentage" class="text-sm text-gray-500">0%</span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-2">
+                            <div id="checkoutUploadProgressBar" class="bg-green-500 h-2 rounded-full" style="width: 0%"></div>
+                        </div>
+                    </div>
+                    <!-- 上传结果反馈消息 -->
+                    <div id="checkoutUploadFeedback" class="hidden px-4 py-3 rounded-md mb-4"></div>
+                    {% endif %}
+                    
+                    <!-- 已上传媒体预览 -->
+                    <div id="checkoutMediaPreviewContainer" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 mt-4">
+                        <div id="checkoutNoMediaMessage" class="col-span-full text-center py-6 text-gray-500">
+                            <i class="fa fa-file-image-o text-4xl mb-2"></i>
+                            <p>暂无退宿照片/视频</p>
+                        </div>
+                    </div>
+                </div>
                 <!-- 操作按钮 -->
                 <div class="flex justify-center gap-4 mt-8 mb-8">
                     {% if current_user.has_permission('utility.edit') %}
@@ -356,12 +398,288 @@
                     <button type="button" onclick="window.history.back()" class="px-8 py-3 bg-primary text-white rounded-md hover:bg-primary/90 btn-effect">
                         <i class="fa fa-check mr-2"></i>返回
                     </button>
+                    <button type="button" onclick="window.location.href='{{ url_for('dorm.dorm_query') }}'" class="px-8 py-3 bg-primary text-white rounded-md hover:bg-primary/90 btn-effect">
+                        <i class="fa fa-check mr-2"></i>返回在住人员查询
+                    </button>
                 </div>
             </section>
         </main>
     </div>
     
+    <!-- 图片预览模态框 -->
+    <div id="checkoutImageModal" class="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 hidden">
+        <div class="relative max-w-[90%] max-h-[90%]">
+            <button type="button" onclick="closeCheckoutImageModal()" class="absolute -top-12 right-0 text-white text-2xl hover:text-gray-300 transition-colors">
+                <i class="fa fa-times"></i>
+            </button>
+            <img id="checkoutModalImage" src="" alt="原图预览" class="max-w-full max-h-[80vh] object-contain">
+        </div>
+    </div>
+    
+    <!-- 视频播放模态框 -->
+    <div id="checkoutVideoModal" class="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 hidden">
+        <div class="relative max-w-[90%] max-h-[90%]">
+            <button type="button" onclick="closeCheckoutVideoModal()" class="absolute -top-12 right-0 text-white text-2xl hover:text-gray-300 transition-colors">
+                <i class="fa fa-times"></i>
+            </button>
+            <video id="checkoutModalVideo" controls autoplay class="max-w-full max-h-[80vh] object-contain"></video>
+        </div>
+    </div>
+    
     <!-- 页脚 -->
     {% include 'footer.html' %}
-</body>
-</html>
+    
+    <script>
+    // 退宿照片管理相关变量
+    var checkoutBillingPeriod = '{{ billing_period }}';
+    var checkoutRoomId = '{{ room.id }}';
+    var checkoutUserId = '{{ checkout_record.user_id }}';
+    
+    // 页面加载时获取退宿照片列表
+    document.addEventListener('DOMContentLoaded', function() {
+        loadCheckoutMediaFiles();
+    });
+    
+    // 加载退宿照片文件列表
+    async function loadCheckoutMediaFiles() {
+        try {
+            var response = await fetch('/utility-checkout/get_media_files?billing_period=' + checkoutBillingPeriod + '&room_id=' + checkoutRoomId + '&user_id=' + checkoutUserId, {
+                method: 'GET',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include'
+            });
+            
+            var result = await response.json();
+            var container = document.getElementById('checkoutMediaPreviewContainer');
+            container.innerHTML = '';
+            
+            if (result.success && result.files && result.files.length > 0) {
+                var html = '';
+                result.files.forEach(function(file) {
+                    var isImage = file.type === 'image';
+                    if (isImage) {
+                        html += '<div class="media-item bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow">';
+                        html += '  <div class="relative h-48 overflow-hidden">';
+                        html += '    <img src="' + file.url + '" alt="退宿照片" class="w-full h-full object-cover cursor-pointer" onclick="showCheckoutImageModal(\'' + file.url + '\')">';
+                        {% if current_user.has_permission('utility.edit') %}
+                        html += '    <button type="button" class="absolute top-3 right-3 bg-transparent text-red-500 hover:text-white hover:bg-red-500 rounded-full p-2 shadow-lg border border-transparent transition-all duration-300 hover:translate-y-[-2px]" onclick="deleteCheckoutFile(\'' + file.filename + '\')">';
+                        html += '      <i class="fa fa-trash-o fa-lg"></i>';
+                        html += '    </button>';
+                        {% endif %}
+                        html += '  </div>';
+                        html += '  <div class="p-2 text-xs text-gray-600">';
+                        html += '    文件名：' + file.filename + '<br>';
+                        html += '    上传时间：' + new Date(file.upload_time).toLocaleString();
+                        html += '  </div>';
+                        html += '</div>';
+                    } else {
+                        html += '<div class="media-item bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow">';
+                        html += '  <div class="relative h-48 overflow-hidden">';
+                        html += '    <video class="w-full h-full object-cover" poster="" preload="metadata">';
+                        html += '      <source src="' + file.url + '" type="video/mp4">';
+                        html += '      您的浏览器不支持视频播放';
+                        html += '    </video>';
+                        html += '    <div class="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30 cursor-pointer z-0" onclick="openCheckoutVideoModal(\'' + file.url + '\')">';
+                        html += '      <i class="fa fa-play-circle text-white text-4xl opacity-80"></i>';
+                        html += '    </div>';
+                        {% if current_user.has_permission('utility.edit') %}
+                        html += '    <button type="button" class="absolute top-3 right-3 bg-transparent text-red-500 hover:text-white hover:bg-red-500 rounded-full p-2 shadow-lg border border-transparent transition-all duration-300 hover:translate-y-[-2px] z-10" onclick="deleteCheckoutFile(\'' + file.filename + '\')">';
+                        html += '      <i class="fa fa-trash-o fa-lg"></i>';
+                        html += '    </button>';
+                        {% endif %}
+                        html += '  </div>';
+                        html += '  <div class="p-2 text-xs text-gray-600">';
+                        html += '    文件名：' + file.filename + '<br>';
+                        html += '    上传时间：' + new Date(file.upload_time).toLocaleString();
+                        html += '  </div>';
+                        html += '</div>';
+                    }
+                });
+                container.innerHTML = html;
+            } else {
+                container.innerHTML = '<div id="checkoutNoMediaMessage" class="col-span-full text-center py-6 text-gray-500"><i class="fa fa-file-image-o text-4xl mb-2"></i><p>暂无退宿照片/视频</p></div>';
+            }
+        } catch (error) {
+            console.error('加载退宿照片失败:', error);
+            var container = document.getElementById('checkoutMediaPreviewContainer');
+            container.innerHTML = '<div class="col-span-full text-center py-6 text-red-500"><i class="fa fa-exclamation-circle text-4xl mb-2"></i><p>加载退宿照片/视频失败</p></div>';
+        }
+    }
+    
+    // 上传退宿照片/视频（批量上传）
+    async function uploadCheckoutFile() {
+        var fileInput = document.getElementById('checkoutFileInput');
+        var uploadLabel = document.getElementById('checkoutUploadLabel');
+        var progressContainer = document.getElementById('checkoutUploadProgressContainer');
+        var progressBar = document.getElementById('checkoutUploadProgressBar');
+        var progressPercentage = document.getElementById('checkoutUploadProgressPercentage');
+        var statusText = document.getElementById('checkoutUploadStatusText');
+        var feedback = document.getElementById('checkoutUploadFeedback');
+        
+        if (!fileInput.files || fileInput.files.length === 0) return;
+        
+        var totalFiles = fileInput.files.length;
+        var uploadedCount = 0;
+        var successCount = 0;
+        
+        // 禁用上传按钮
+        uploadLabel.classList.add('opacity-50', 'pointer-events-none');
+        // 显示进度条
+        progressContainer.classList.remove('hidden');
+        // 隐藏之前的反馈
+        feedback.classList.add('hidden');
+        // 初始化进度
+        progressBar.style.width = '0%';
+        progressPercentage.textContent = '0%';
+        statusText.textContent = '正在上传文件 1/' + totalFiles;
+        
+        // 遍历所有文件逐个上传
+        for (var i = 0; i < totalFiles; i++) {
+            var file = fileInput.files[i];
+            statusText.textContent = '正在上传文件 ' + (i + 1) + '/' + totalFiles + ': ' + file.name;
+            
+            var formData = new FormData();
+            formData.append('file', file);
+            formData.append('billing_period', checkoutBillingPeriod);
+            formData.append('room_id', checkoutRoomId);
+            formData.append('user_id', checkoutUserId);
+            
+            try {
+                var response = await fetch('/utility-checkout/upload_media', {
+                    method: 'POST',
+                    body: formData,
+                    credentials: 'include'
+                });
+                
+                var result = await response.json();
+                
+                if (result.success) {
+                    successCount++;
+                } else {
+                    console.error('上传失败:', file.name, result.message);
+                }
+            } catch (error) {
+                console.error('上传退宿照片失败:', file.name, error);
+            }
+            
+            uploadedCount++;
+            var percentage = Math.round((uploadedCount / totalFiles) * 100);
+            progressBar.style.width = percentage + '%';
+            progressPercentage.textContent = percentage + '%';
+            statusText.textContent = '已上传 ' + uploadedCount + '/' + totalFiles + ' 个文件，成功 ' + successCount + ' 个';
+        }
+        
+        // 上传完成，显示结果反馈
+        if (successCount === totalFiles) {
+            feedback.textContent = '上传完成: 成功上传 ' + successCount + '/' + totalFiles + ' 个文件';
+            feedback.className = 'px-4 py-3 bg-green-100 text-green-800 rounded-md mb-4';
+        } else {
+            feedback.textContent = '上传完成: 成功 ' + successCount + '/' + totalFiles + ' 个文件，失败 ' + (totalFiles - successCount) + ' 个文件';
+            feedback.className = 'px-4 py-3 bg-yellow-100 text-yellow-800 rounded-md mb-4';
+        }
+        feedback.classList.remove('hidden');
+        
+        // 恢复上传按钮
+        uploadLabel.classList.remove('opacity-50', 'pointer-events-none');
+        fileInput.value = '';
+        
+        // 延迟刷新页面
+        setTimeout(function() {
+            location.reload();
+        }, 1500);
+    }
+    
+    // 删除退宿照片/视频
+    async function deleteCheckoutFile(filename) {
+        if (!confirm('确定要删除文件 "' + filename + '" 吗？')) return;
+        
+        try {
+            var response = await fetch('/utility-checkout/delete_media', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    billing_period: checkoutBillingPeriod,
+                    room_id: checkoutRoomId,
+                    user_id: checkoutUserId,
+                    filename: filename
+                }),
+                credentials: 'include'
+            });
+            
+            var result = await response.json();
+            
+            if (result.success) {
+                loadCheckoutMediaFiles();
+            } else {
+                alert('删除失败: ' + result.message);
+            }
+        } catch (error) {
+            console.error('删除退宿照片失败:', error);
+            alert('删除失败: ' + error.message);
+        }
+    }
+    
+    // 显示图片预览模态框
+    function showCheckoutImageModal(imageUrl) {
+        var modal = document.getElementById('checkoutImageModal');
+        var modalImage = document.getElementById('checkoutModalImage');
+        modalImage.src = imageUrl;
+        modal.classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+    }
+    
+    // 关闭图片预览模态框
+    function closeCheckoutImageModal() {
+        var modal = document.getElementById('checkoutImageModal');
+        modal.classList.add('hidden');
+        document.body.style.overflow = '';
+    }
+    
+    // 打开视频播放模态框
+    function openCheckoutVideoModal(videoUrl) {
+        var videoModal = document.getElementById('checkoutVideoModal');
+        var modalVideo = document.getElementById('checkoutModalVideo');
+        if (videoModal && modalVideo) {
+            modalVideo.src = videoUrl;
+            videoModal.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        }
+    }
+    
+    // 关闭视频播放模态框
+    function closeCheckoutVideoModal() {
+        var videoModal = document.getElementById('checkoutVideoModal');
+        var modalVideo = document.getElementById('checkoutModalVideo');
+        if (videoModal && modalVideo) {
+            modalVideo.pause();
+            modalVideo.src = '';
+            videoModal.classList.add('hidden');
+            document.body.style.overflow = '';
+        }
+    }
+    
+    // ESC键关闭模态框
+    document.addEventListener('keydown', function(event) {
+        if (event.key === 'Escape') {
+            closeCheckoutImageModal();
+            closeCheckoutVideoModal();
+        }
+    });
+    
+    // 点击背景关闭模态框
+    document.addEventListener('DOMContentLoaded', function() {
+        var imageModal = document.getElementById('checkoutImageModal');
+        var videoModal = document.getElementById('checkoutVideoModal');
+        
+        if (imageModal) {
+            imageModal.addEventListener('click', function(event) {
+                if (event.target === imageModal) closeCheckoutImageModal();
+            });
+        }
+        if (videoModal) {
+            videoModal.addEventListener('click', function(event) {
+                if (event.target === videoModal) closeCheckoutVideoModal();
+            });
+        }
+    });
+    </script>

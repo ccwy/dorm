@@ -38,12 +38,14 @@ MODULES = [
     {"name": "合同管理配置", "category": "contract", "icon": "file-text-o"},
     {"name": "后勤维修配置", "category": "maintenance", "icon": "wrench"},
     #{"name": "日志管理配置", "category": "log", "icon": "history"},
-    {"name": "备份配置", "category": "system.backup", "icon": "history"}
+    {"name": "备份配置", "category": "system.backup", "icon": "history"},
+    {"name": "自定义字段", "category": "custom_field", "icon": "puzzle-piece"}
 ]
 
 from . import system_settings_backup  # 数据备份模块
 from . import system_settings_initialize  # 数据初始化模块
 from . import system_settings_universal_backup  # 通用备份恢复模块
+from . import system_settings_custom_field  # 自定义字段管理模块
 
 @system_config_bp.route('/api/by_configs_key/<string:key>', methods=['GET'])
 @login_required
@@ -157,7 +159,12 @@ def get_modules():
                 continue
             
             category = module['category']
-            config_count = SystemConfig.query.filter_by(category=category).count()
+            if category == 'custom_field':
+                config_count = SystemConfig.query.filter(
+                    SystemConfig.category.like('%.custom_field')
+                ).count()
+            else:
+                config_count = SystemConfig.query.filter_by(category=category).count()
             module_copy = module.copy()  # 复制模块对象，避免修改原始数据
             module_copy['has_config'] = config_count > 0
             filtered_modules.append(module_copy)
@@ -443,13 +450,7 @@ def update_configs():
     except Exception as e:
         db.session.rollback()
         logging.error(f"更新配置失败: {str(e)}")
-        log_operation(
-            user_id=current_user.id if current_user.is_authenticated else 0,
-            action=f"更新{category}模块配置失败,{str(e)}",
-            module='system',
-            operation_type='config_update',
-            result="失败 "
-        )
+        
         return jsonify({
             "success": False,
             "message": f"更新配置失败: {str(e)}"
@@ -508,13 +509,7 @@ def initialize_module_configs(category):
     except Exception as e:
         db.session.rollback()
         logging.error(f"初始化{category}模块配置失败: {str(e)}")
-        log_operation(
-            user_id=current_user.id if current_user.is_authenticated else 0,
-            action=f"初始化{category}模块配置失败,{str(e)}",
-            module='system',
-            operation_type='initialize',
-            result="失败"
-        )
+        
         return jsonify({
             "success": False,
             "message": f"初始化配置失败: {str(e)}"
@@ -564,13 +559,7 @@ def initialize_all_configs():
         })
     except Exception as e:
         logging.error(f"初始化所有模块配置失败: {str(e)}")
-        log_operation(
-            user_id=current_user.id if current_user.is_authenticated else 0,
-            action=f"初始化所有模块默认配置失败,{str(e)}",
-            module="system",
-            operation_type="initialize",
-            result="失败"
-        )
+        
         return jsonify({
             "success": False,
             "message": f"初始化配置失败: {str(e)}"

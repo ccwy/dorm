@@ -10,6 +10,7 @@ from models.utility.utility_room_bill_checkout import CheckoutUtilityRecord
 from flask_login import login_required, current_user
 from utils.auth import require_permission
 from utils.log import log_operation
+from utils.media.room_meter_checkout_photo import room_meter_checkout_photo_manager
 from sqlalchemy.orm import joinedload
 from datetime import datetime
 import logging
@@ -370,8 +371,8 @@ def create_checkout():
             last_water_reading = None
             last_electric_reading = None
             if active_dorm and active_dorm.room_id:
-                latest_water = UtilityMeterReading.get_latest_water_reading(active_dorm.room_id)
-                latest_electric = UtilityMeterReading.get_latest_electric_reading(active_dorm.room_id)
+                latest_water = UtilityMeterReading.get_latest_water_reading(active_dorm.room_id, before_date=datetime.now())
+                latest_electric = UtilityMeterReading.get_latest_electric_reading(active_dorm.room_id, before_date=datetime.now())
                 if latest_water and latest_water.water_current is not None:
                     last_water_reading = {
                         'value': float(latest_water.water_current),
@@ -609,6 +610,15 @@ def cancel_application(id):
 
         # 取消申请
         application.cancel(user_id=user_id)
+
+        # 退宿申请取消时清理临时抄表照片
+        if application.application_type == 'checkout':
+            try:
+                room_meter_checkout_photo_manager.clear_user_temp_files(
+                    application.current_room_id, application.user_id
+                )
+            except Exception as e:
+                logging.warning(f"清理退宿临时抄表照片失败（申请{application.application_number}）: {str(e)}")
 
         # 记录操作日志
         log_operation(

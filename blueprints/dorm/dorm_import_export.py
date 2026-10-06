@@ -1,4 +1,4 @@
-from flask import Blueprint, request, make_response, abort, redirect, url_for, flash, jsonify
+from flask import Blueprint, request, make_response, redirect, url_for, flash, jsonify
 from flask_login import login_required, current_user
 from utils.auth import require_permission
 from utils.log import log_operation
@@ -63,37 +63,39 @@ def export_residents():
         gender = request.args.get('gender', '').strip()
         room_number = request.args.get('room_number', '').strip()
         export_all = request.args.get('export_all', 'false').lower() == 'true'
+        status_filter = request.args.get('status', 'active', type=str).strip()
 
-        # 准备当前住宿数据
-        current_data = []
-        # 准备换宿舍历史记录数据
-        history_data = []
+        # 准备在住人员数据
+        active_data = []
+        # 准备退宿人员数据
+        checkout_data = []
+        # 准备全部人员数据（含退宿）
+        all_data = []
         
         if export_all:
             # 记录日志
-            logging.info(f'开始导出全部在住人员数据，操作人ID：{current_user.id}')
-            # 获取所有活跃状态的住宿记录，不进行任何筛选
-            active_dorms = Dorm.query.filter_by(status='active').all()
+            logging.info(f'开始导出全部人员数据，状态筛选={status_filter}，操作人ID：{current_user.id}')
+            # 获取所有记录
+            all_dorms = Dorm.query.all()
         else:
             # 记录日志
-            logging.info(f'开始导出在住人员数据，筛选条件：开始日期={start_date}, 结束日期={end_date}, 姓名={name}, 部门={department}, 性别={gender}, 房间号={room_number}，操作人ID：{current_user.id}')
-            # 获取所有活跃状态的住宿记录并进行筛选
-            active_dorms = Dorm.query.filter_by(status='active').all()
+            logging.info(f'开始导出人员数据，筛选条件：开始日期={start_date}, 结束日期={end_date}, 姓名={name}, 部门={department}, 性别={gender}, 房间号={room_number}，状态={status_filter}，操作人ID：{current_user.id}')
+            # 获取所有记录并进行筛选
+            all_dorms = Dorm.query.all()
             
             # 进行日期范围过滤
             if not export_all and (start_date or end_date):
                 filtered_dorms = []
-                for dorm in active_dorms:
+                for dorm in all_dorms:
                     check_in_date = dorm.check_in_date.strftime('%Y-%m-%d') if dorm.check_in_date else None
                     if not check_in_date or is_date_in_range(check_in_date, start_date, end_date):
                         filtered_dorms.append(dorm)
-                active_dorms = filtered_dorms
+                all_dorms = filtered_dorms
 
         # 存储已处理的用户ID，避免重复处理
-        # 已经在上一步获取并过滤了活跃住宿记录
         processed_user_ids = set()
         
-        for dorm in active_dorms:
+        for dorm in all_dorms:
             user = dorm.user
             room = dorm.room
             
@@ -114,6 +116,18 @@ def export_residents():
             
             processed_user_ids.add(user.id)
             
+            # 构建退宿日期显示文本
+            check_out_date_str = ''
+            if dorm.check_out_date:
+                check_out_date_str = format_date(dorm.check_out_date.strftime('%Y-%m-%d'))
+            elif dorm.status == 'active':
+                check_out_date_str = '未退宿'
+            
+            # 构建状态显示文本
+            status_text = '在住' if dorm.status == 'active' else '退宿'
+            if dorm.status == 'checked_out' and dorm.end_operation_type in ('transfer', 'exchange'):
+                status_text = '换宿'
+            
             user_basic = {
                 '姓名': user.name,
                 '性别': user.gender,
@@ -123,84 +137,79 @@ def export_residents():
                 '职位': user.position
             }
             
-            # 添加当前住宿信息
-            current_data.append({
+            # 构建完整记录（用于"全部人员"表）
+            full_record = {
                 **user_basic,
                 '楼栋': room.building,
                 '房间号': room.room_number,
-                '入住日期': format_date(dorm.check_in_date.strftime('%Y-%m-%d')),
+                '入住日期': format_date(dorm.check_in_date.strftime('%Y-%m-%d')) if dorm.check_in_date else '未知',
+                '退宿日期': check_out_date_str,
+                '状态': status_text,
                 '住宿天数': dorm.stay_days,
                 '累计住宿天数': sum(d.stay_days for d in dorm.dorm_chain)
-            })
+            }
+            all_data.append(full_record)
             
-            # 处理换宿舍历史记录
-            # 获取完整的住宿链
-            dorm_chain = dorm.dorm_chain
+            # 退宿记录（用于"退宿人员"表）
+            if dorm.status != 'active':
+                checkout_data.append(full_record)
             
-            for dorm_record in dorm_chain:
-                record_room = dorm_record.room
-                
-                # 检查记录是否符合导出条件
-                # 如果导出全部，则不进行任何筛选
-                include_record = True
-                
-                if not export_all:
-                    include_record = False
-                    
-                    # 检查记录是否在时间范围内
-                    # 处理入住日期检查
-                    if dorm_record.check_in_date:
-                        check_in_str = dorm_record.check_in_date.strftime('%Y-%m-%d')
-                        if is_date_in_range(check_in_str, start_date, end_date):
-                            include_record = True
-                    
-                    # 处理退房日期检查
-                    if dorm_record.check_out_date and not include_record:
-                        check_out_str = dorm_record.check_out_date.strftime('%Y-%m-%d')
-                        if is_date_in_range(check_out_str, start_date, end_date):
-                            include_record = True
-                    
-                    # 当前住宿且未退房的记录
-                    if dorm_record.status == 'active' and not dorm_record.check_out_date:
-                        include_record = True
-                    
-                    # 如果指定了房间号，需要筛选
-                    if room_number and not f"{record_room.building}{record_room.room_number}".__contains__(room_number):
-                        include_record = False
-                
-                if include_record:
-                    # 构建换宿历史记录
-                    history_record = {
-                        **user_basic,
-                        '楼栋': record_room.building,
-                        '房间号': record_room.room_number,
-                        '入住日期': format_date(dorm_record.check_in_date.strftime('%Y-%m-%d')) if dorm_record.check_in_date else '未知',
-                        '退房日期': format_date(dorm_record.check_out_date.strftime('%Y-%m-%d')) if dorm_record.check_out_date else '当前住宿',
-                        '住宿天数': dorm_record.stay_days,
-                        '是否当前住宿': '是' if dorm_record.status == 'active' else '否'
-                    }
-                    
-                    # 避免重复添加当前住宿记录到历史记录中
-                    if not (dorm_record.status == 'active' and not dorm_record.check_out_date):
-                        history_data.append(history_record)
+            # 在住记录（用于"在住人员"表）
+            if dorm.status == 'active':
+                active_record = {
+                    **user_basic,
+                    '楼栋': room.building,
+                    '房间号': room.room_number,
+                    '入住日期': format_date(dorm.check_in_date.strftime('%Y-%m-%d')) if dorm.check_in_date else '未知',
+                    '住宿天数': dorm.stay_days,
+                    '累计住宿天数': sum(d.stay_days for d in dorm.dorm_chain)
+                }
+                active_data.append(active_record)
         
-        # 生成Excel文件（包含两个工作表）
+        # 检查是否有数据可导出
+        if not all_data and not active_data and not checkout_data:
+            flash('没有找到符合条件的人员数据', 'warning')
+            return redirect(url_for('dorm.dorm_query'))
+        
+        # 为三个表添加序号列
+        for idx, record in enumerate(active_data, 1):
+            record['序号'] = idx
+        for idx, record in enumerate(checkout_data, 1):
+            record['序号'] = idx
+        for idx, record in enumerate(all_data, 1):
+            record['序号'] = idx
+        
+        # 调整列顺序：序号在最前面
+        active_columns = ['序号', '姓名', '性别', '年龄', '公司', '部门', '职位', '楼栋', '房间号', '入住日期', '住宿天数', '累计住宿天数']
+        checkout_columns = ['序号', '姓名', '性别', '年龄', '公司', '部门', '职位', '楼栋', '房间号', '入住日期', '退宿日期', '状态', '住宿天数', '累计住宿天数']
+        all_columns = ['序号', '姓名', '性别', '年龄', '公司', '部门', '职位', '楼栋', '房间号', '入住日期', '退宿日期', '状态', '住宿天数', '累计住宿天数']
+        
+        # 生成Excel文件（包含三个工作表）
         output = BytesIO()
         with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            # 当前住宿信息表
-            pd.DataFrame(current_data).to_excel(
-                writer, index=False, sheet_name='当前住宿信息'
-            )
-            # 换宿舍历史记录表（如果有数据）
-            if history_data:
-                pd.DataFrame(history_data).to_excel(
-                    writer, index=False, sheet_name='换宿舍历史记录'
-                )
+            # 在住人员表
+            if active_data:
+                df_active = pd.DataFrame(active_data)
+                # 按指定列顺序输出
+                df_active = df_active[active_columns]
+                df_active.to_excel(writer, index=False, sheet_name='在住人员')
+            # 退宿人员表
+            if checkout_data:
+                df_checkout = pd.DataFrame(checkout_data)
+                # 按指定列顺序输出
+                df_checkout = df_checkout[checkout_columns]
+                df_checkout.to_excel(writer, index=False, sheet_name='退宿人员')
+            # 全部人员表
+            if all_data:
+                df_all = pd.DataFrame(all_data)
+                # 按指定列顺序输出
+                df_all = df_all[all_columns]
+                df_all.to_excel(writer, index=False, sheet_name='全部人员')
 
         output.seek(0)
 
         # 处理中文文件名编码
-        filename = f"住宿数据及换宿记录_{datetime.now().strftime('%Y%m%d')}.xlsx"
+        filename = f"住宿数据_{datetime.now().strftime('%Y%m%d')}.xlsx"
         encoded_filename = quote(filename)
         
         # 构建下载响应
@@ -212,24 +221,19 @@ def export_residents():
             user_id=current_user.id,
             module='dorm',
             operation_type='batch_import_export',
-            action=f"成功: {len(current_data)}条住宿记录, {len(history_data)}条换宿记录",
+            action=f"成功: {len(active_data)}条在住记录, {len(checkout_data)}条退宿记录, {len(all_data)}条全部记录",
             result="成功"
         )
         # 记录日志
-        logging.info(f'成功导出在住人员数据，共导出{len(current_data)}条住宿记录，{len(history_data)}条换宿记录，操作人ID：{current_user.id}')
+        logging.info(f'成功导出人员数据，共导出{len(active_data)}条在住记录，{len(checkout_data)}条退宿记录，{len(all_data)}条全部记录，操作人ID：{current_user.id}')
         return response
 
     except Exception as e:
-        log_operation(
-            user_id=current_user.id,
-            module='dorm',
-            operation_type='batch_import_export',
-            action=f"导出失败: {str(e)}",
-            result="失败"
-        )
+       
         # 记录日志
-        logging.error(f'导出在住人员数据失败：{str(e)}，操作人ID：{current_user.id}')
-        abort(500, description=f"导出失败: {str(e)}")
+        logging.error(f'导出人员数据失败：{str(e)}，操作人ID：{current_user.id}')
+        flash(f'导出人员数据失败: {str(e)}', 'danger')
+        return redirect(url_for('dorm.dorm_query'))
 
 @dorm_import_export_bp.route('/import-residents', methods=['POST'])
 @login_required
@@ -271,16 +275,6 @@ def import_residents():
             logging.error(f'导入在住人员数据失败：{error_msg}，操作人ID：{current_user.id}')
             return redirect(url_for('dorm.dorm_query'))
         
-        # 检查文件大小（限制10MB）
-        if file.content_length > 10 * 1024 * 1024:
-            error_msg = '文件大小不能超过10MB'
-            if is_ajax:
-                return jsonify({"success": False, "message": error_msg}), 400
-            flash(error_msg, 'danger')
-            # 记录日志
-            logging.error(f'导入在住人员数据失败：{error_msg}，操作人ID：{current_user.id}')    
-            return redirect(url_for('dorm.dorm_query'))
-        
         # 读取Excel文件
         try:
             # 读取Excel文件的第一个工作表
@@ -290,8 +284,45 @@ def import_residents():
             file_bytes.seek(0)  # 重置指针到开头
             df = pd.read_excel(file_bytes)
             
-            # 检查必要的列是否存在
+            # 白名单模式：只识别必填列和可选列，其余列全部自动忽略
+            # 必填列（缺失时报错）
             required_columns = ['姓名', '楼栋', '房间号', '入住日期']
+            # 可选列（缺失时不报错）
+            optional_columns = ['备注']
+            # 列名别名映射：将Excel中可能出现的列名映射到标准列名
+            column_alias_map = {
+                '备注': ['备注（可选）', '备注(可选)'],
+            }
+            # 所有可能需要识别的标准列名
+            all_known_columns = set(required_columns) | set(optional_columns)
+
+            # 构建列名映射：只保留白名单中的列，其余自动忽略
+            column_mapping = {}
+            ignored_columns = []
+            for col in df.columns:
+                # 先检查是否直接匹配标准列名
+                if col in all_known_columns:
+                    continue  # 标准列名无需映射
+                # 再检查是否匹配某个标准列名的别名
+                matched = False
+                for standard_name, aliases in column_alias_map.items():
+                    if col in aliases:
+                        column_mapping[col] = standard_name
+                        matched = True
+                        break
+                if not matched:
+                    ignored_columns.append(col)
+
+            if ignored_columns:
+                logging.info(f'导入在住人员数据：自动忽略未识别列 {ignored_columns}')
+
+            # 重命名列以统一标准，并只保留白名单中的列
+            if column_mapping:
+                df = df.rename(columns=column_mapping)
+            whitelist_columns = [col for col in df.columns if col in all_known_columns]
+            df = df[whitelist_columns]
+            
+            # 检查必要的列是否存在
             missing_columns = [col for col in required_columns if col not in df.columns]
             
             if missing_columns:
@@ -481,13 +512,23 @@ def import_residents():
                         logging.error(f'导入在住人员数据失败：{room.building}{room.room_number}房间无可用床位，操作人ID：{current_user.id}')
                         continue
                     
+                    # 获取备注（可选列，安全访问）
+                    remark = ''
+                    if '备注' in df.columns:
+                        remark_val = row.get('备注', '')
+                        if remark_val is not None and str(remark_val).strip() and str(remark_val).strip() != 'nan':
+                            remark = str(remark_val).strip()
+                    
                     # 创建分配记录
+                    remarks_parts = [f'批量导入分配，导入时间：{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}']
+                    if remark:
+                        remarks_parts.append(f'备注：{remark}')
                     Dorm.create_allocation(
                         user_id=user.id,
                         room_id=room.id,
                         bed_id=available_bed.id,
                         check_in_date=check_in_date,  # 已改为datetime类型
-                        remarks=f'批量导入分配，导入时间：{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}'
+                        remarks='，'.join(remarks_parts)
                     )
                     # 记录日志
                     logging.info(f'导入在住人员数据成功,导入时间：{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}，操作人ID：{current_user.id}')
@@ -648,6 +689,124 @@ def download_import_template():
             result="失败"
         )
         # 记录日志
-        logging.error(f'下载住宿分配导入模板失败：{error_msg}，操作人ID：{current_user.id}')
-        abort(500, description=f"下载模板失败: {str(e)}")
+        logging.error(f'下载住宿分配导入模板失败：{str(e)}，操作人ID：{current_user.id}')
+        flash('下载导入模板失败', 'danger')
+        return redirect(url_for('dorm.dorm_query'))
+
+
+@dorm_import_export_bp.route('/export-room-residents', methods=['GET'])
+@login_required
+@require_permission('dorm.export')
+def export_room_residents():
+    """按房间号导出在住人员数据，每行一个房间，居住人员信息合并到同一行"""
+    try:
+        from models.room.room import RoomStatus
+        
+        search_query = request.args.get('search', '').strip()
+        
+        # 查询所有非关闭状态的房间
+        rooms = Room.query.filter(Room.status != RoomStatus.CLOSED.value).all()
+        
+        # 查询所有活跃的住宿记录，按房间ID分组
+        all_dorm_records = Dorm.query.filter_by(status='active').all()
+        dorm_records_by_room = {}
+        for record in all_dorm_records:
+            if record.room_id not in dorm_records_by_room:
+                dorm_records_by_room[record.room_id] = []
+            dorm_records_by_room[record.room_id].append(record)
+        
+        # 查询所有用户信息
+        all_users = User.query.all()
+        user_map = {user.id: user for user in all_users}
+        
+        # 处理搜索过滤
+        if search_query:
+            filtered_rooms = []
+            for room in rooms:
+                room_number = f"{room.building}{room.room_number}"
+                if search_query in room_number:
+                    filtered_rooms.append(room)
+                    continue
+                room_records = dorm_records_by_room.get(room.id, [])
+                residents = [user_map.get(record.user_id) for record in room_records if record.user_id in user_map]
+                if any(search_query in resident.name for resident in residents if resident):
+                    filtered_rooms.append(room)
+            rooms = filtered_rooms
+        
+        # 按楼栋和房间号排序
+        rooms.sort(key=lambda r: (r.building, r.room_number))
+        
+        # 构建导出数据
+        export_data = []
+        for idx, room in enumerate(rooms, 1):
+            room_records = dorm_records_by_room.get(room.id, [])
+            resident_names = []
+            
+            for record in room_records:
+                user = user_map.get(record.user_id)
+                if user:
+                    resident_names.append(user.name)
+            
+            residents_str = '、'.join(resident_names) if resident_names else '无'
+            
+            export_data.append({
+                '序号': idx,
+                '房间号': f"{room.building}{room.room_number}",
+                '性别': room.gender_restriction,
+                '级别': room.room_level or '',
+                '房间类型': f"{room.room_type}({room.capacity}人间)",
+                '居住人员': residents_str,
+                '备注': room.remark or ''
+            })
+        
+        # 检查是否有数据
+        if not export_data:
+            flash('没有找到符合条件的房间数据', 'warning')
+            return redirect(url_for('dorm.dorm_room_query'))
+        
+        # 生成Excel文件
+        output = BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            df = pd.DataFrame(export_data)
+            df.to_excel(writer, index=False, sheet_name='房间在住人员')
+            
+            # 获取工作表并设置格式
+            worksheet = writer.sheets['房间在住人员']
+            
+            # 设置列宽
+            worksheet.column_dimensions['A'].width = 6   # 序号
+            worksheet.column_dimensions['B'].width = 10  # 房间号
+            worksheet.column_dimensions['C'].width = 8   # 性别
+            worksheet.column_dimensions['D'].width = 10  # 级别
+            worksheet.column_dimensions['E'].width = 15  # 房间类型
+            worksheet.column_dimensions['F'].width = 50  # 居住人员
+            worksheet.column_dimensions['G'].width = 15  # 备注
+            
+
+        
+        output.seek(0)
+        
+        # 构建下载响应
+        filename = f"房间在住人员_{datetime.now().strftime('%Y%m%d')}.xlsx"
+        encoded_filename = quote(filename)
+        
+        response = make_response(output.getvalue())
+        response.headers["Content-Disposition"] = f"attachment; filename*=UTF-8''{encoded_filename}"
+        response.headers["Content-Type"] = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        
+        log_operation(
+            user_id=current_user.id,
+            module='dorm',
+            operation_type='batch_import_export',
+            action=f"按房间导出在住人员数据: {len(export_data)}个房间",
+            result="成功"
+        )
+        logging.info(f'成功按房间导出在住人员数据，共{len(export_data)}个房间，操作人ID：{current_user.id}')
+        return response
+        
+    except Exception as e:
+        
+        logging.error(f'按房间导出在住人员数据失败：{str(e)}，操作人ID：{current_user.id}')
+        flash(f'导出房间在住人员数据失败: {str(e)}', 'danger')
+        return redirect(url_for('dorm.dorm_room_query'))
     

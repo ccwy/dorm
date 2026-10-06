@@ -7,7 +7,7 @@ from sqlalchemy.inspection import inspect
 import logging
 
 def get_user_model_fields() -> Dict[str, str]:
-    """获取User模型的字段映射（字段名→显示名）"""
+    """获取User模型的字段映射（字段名→显示名），包含自定义字段"""
     base_fields = {
         'id': '用户ID',
         'student_id': '工号',
@@ -57,11 +57,24 @@ def get_user_model_fields() -> Dict[str, str]:
     export_only_fields = {'is_boarding', 'room_number', 'checkin_date', 'checkout_date', 'days_stayed', 'role_name', 'department'}
     model_fields = {field: display_name for field, display_name in base_fields.items() 
                    if field in model_columns or field == 'password' or field in export_only_fields}
+    
+    # 动态合并自定义字段（使用 custom_ 前缀避免与固定字段冲突）
+    try:
+        from utils.custom_fields import get_custom_field_definitions
+        custom_defs = get_custom_field_definitions('user')
+        for field_def in custom_defs:
+            field_key = field_def.get('field_key', '')
+            label = field_def.get('label', field_key)
+            if field_key:
+                model_fields[f'custom_{field_key}'] = label
+    except Exception as e:
+        logging.debug(f'获取用户自定义字段定义失败（忽略）: {e}')
+    
     return model_fields
     
 
 def get_importable_fields() -> Dict[str, str]:
-    """获取可导入的字段（排除系统自动生成的字段）"""
+    """获取可导入的字段（排除系统自动生成的字段），包含自定义字段"""
     all_fields = get_user_model_fields()
     # 系统自动生成的字段 + 导出专用字段（不允许导入）
     non_importable = [
@@ -80,6 +93,32 @@ def get_importable_fields() -> Dict[str, str]:
         importable['department'] = '部门'
     return importable
     
+def get_custom_field_label_to_key_map(category: str) -> Dict[str, str]:
+    """获取自定义字段的label→field_key映射（用于导入时通过列名反查字段key）"""
+    label_to_key = {}
+    try:
+        from utils.custom_fields import get_custom_field_definitions
+        custom_defs = get_custom_field_definitions(category)
+        for field_def in custom_defs:
+            field_key = field_def.get('field_key', '')
+            label = field_def.get('label', field_key)
+            if field_key and label:
+                label_to_key[label] = field_key
+    except Exception as e:
+        logging.debug(f'获取{category}自定义字段映射失败（忽略）: {e}')
+    return label_to_key
+
+
+def get_custom_field_definitions_for_export(category: str) -> list:
+    """获取自定义字段定义列表（用于导出时添加列）"""
+    try:
+        from utils.custom_fields import get_custom_field_definitions
+        return get_custom_field_definitions(category)
+    except Exception as e:
+        logging.debug(f'获取{category}自定义字段定义失败（忽略）: {e}')
+        return []
+
+
 def process_field_value(field_name: str, value: Any) -> str:
     """处理字段值（转换日期、布尔等类型为字符串）"""
     if value is None:

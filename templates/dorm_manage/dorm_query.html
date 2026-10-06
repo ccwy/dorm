@@ -256,21 +256,22 @@
                 {% endif %}
             </div>
         </div>
-
+        <!-- 消息提示区域 -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        <div class="flash-messages mb-6">
+            {% for category, message in messages %}
+            <div class="p-4 rounded-md mb-2 {% if category == 'success' %}bg-green-100 text-green-800{% elif category == 'error' or category == 'danger' %}bg-red-100 text-red-800{% elif category == 'warning' %}bg-yellow-100 text-yellow-800{% else %}bg-blue-100 text-blue-800{% endif %}">
+                <button type="button" class="float-right ml-2 text-gray-500 hover:text-gray-700" onclick="this.parentElement.remove()">×</button>
+                {{ message | safe }}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    {% endwith %}
         <!-- 筛选区域 -->
         <div class="bg-white rounded-lg shadow-sm p-6 mb-6 max-w-full mx-auto">
-            {% with messages = get_flashed_messages(with_categories=true) %}
-                {% if messages %}
-                    {% for category, message in messages %}
-                        <div class="bg-{{ 'green' if category == 'success' else 'red' }}-50 border border-{{ 'green' if category == 'success' else 'red' }}-200 rounded-md p-4 mb-6">
-                            <p class="text-{{ 'green' if category == 'success' else 'red' }}-700">
-                                <i class="fa fa-{{ 'check-circle' if category == 'success' else 'exclamation-circle' }} mr-1"></i>
-                                {{ message }}
-                            </p>
-                        </div>
-                    {% endfor %}
-                {% endif %}
-            {% endwith %}
+            
             <form method="GET" action="{{ url_for('dorm.dorm_query') }}">
                 <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-2 sm:gap-4">
                     <!-- 楼栋筛选 -->
@@ -301,6 +302,16 @@
                             {% for dept in departments %}
                             <option value="{{ dept }}" {{ 'selected' if request.args.get('department') == dept else '' }}>{{ dept }}</option>
                             {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- 状态筛选 -->
+                    <div class="min-w-[100px]">
+                        <label for="statusFilter" class="block text-sm font-medium text-gray-700 mb-1">状态</label>
+                        <select id="statusFilter" name="status" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                            <option value="active" {{ 'selected' if status_filter == 'active' else '' }}>在住</option>
+                            <option value="checked_out" {{ 'selected' if status_filter == 'checked_out' else '' }}>退宿</option>
+                            <option value="all" {{ 'selected' if status_filter == 'all' else '' }}>全部</option>
                         </select>
                     </div>
 
@@ -357,6 +368,7 @@
                             <th scope="col" class="px-6 py-3 text-left text-base font-bold text-gray-700 uppercase tracking-wider">房间类型</th>
                             <th scope="col" class="px-6 py-3 text-left text-base font-bold text-gray-700 uppercase tracking-wider">房间级别</th>
                             <th scope="col" class="px-6 py-3 text-left text-base font-bold text-gray-700 uppercase tracking-wider">入住日期</th>
+                            <th scope="col" class="px-6 py-3 text-left text-base font-bold text-gray-700 uppercase tracking-wider">退宿日期</th>
                             <th scope="col" class="px-6 py-3 text-left text-base font-bold text-gray-700 uppercase tracking-wider">住宿天数</th>
                             <th scope="col" class="px-6 py-3 text-left text-base font-bold text-gray-700 uppercase tracking-wider">累计住宿天数</th>
                             <th scope="col" class="px-6 py-3 text-left text-base font-bold text-gray-700 uppercase tracking-wider">操作</th>
@@ -392,15 +404,36 @@
                                     </td>
                                     <td class="px-6 py-3 whitespace-nowrap">{{ resident.room.room_level if resident.room.room_level else '-' }}</td>
                                     <td class="px-6 py-3 whitespace-nowrap">{{ resident.check_in_date.strftime('%Y-%m-%d') }}</td>
+                                    <td class="px-6 py-3 whitespace-nowrap">
+                                        {% if resident.check_out_date %}
+                                            {% if resident.checkout_utility_record_id %}
+                                                <a href="/utility/utility_user_checkout_detail?id={{ resident.checkout_utility_record_id }}" class="text-primary hover:underline cursor-pointer">{{ resident.check_out_date.strftime('%Y-%m-%d') }}</a>
+                                            {% else %}
+                                                {{ resident.check_out_date.strftime('%Y-%m-%d') }}
+                                            {% endif %}
+                                        {% else %}
+                                            <span class="text-green-600">未退宿</span>
+                                        {% endif %}
+                                    </td>
                                     <td class="px-6 py-3 whitespace-nowrap font-medium">{{ resident.current_stay_days }}天</td>
                                     <td class="px-6 py-3 whitespace-nowrap">{{ resident.total_stay_days }}天</td>
                                     <td class="px-6 py-3 whitespace-nowrap">
+                                        {% if resident.status == 'active' %}
                                         <button onclick="window.location.href='{{ url_for('dorm.swap', user_id=resident.id, next=url_for('dorm.dorm_query')) }}'" class="text-accent hover:text-accent/80 text-sm action-btn">
                                             <i class="fa fa-exchange mr-1"></i>更换
                                         </button>
                                         <button onclick="window.location.href='{{ url_for('dorm.checkout', user_id=resident.id, next=url_for('dorm.dorm_query')) }}'" class="text-red-500 hover:text-red-700 text-sm ml-2 action-btn">
                                             <i class="fa fa-sign-out mr-1"></i>退宿
                                         </button>
+                                        {% else %}
+                                        
+                                            {% if resident.checkout_utility_record_id %}
+                                            <a href="/utility/utility_user_checkout_detail?id={{ resident.checkout_utility_record_id }}" class="text-primary hover:underline cursor-pointer">已退宿</a>
+                                            {% else %}
+                                            <span class="text-gray-400 text-sm">已退宿</span>
+                                            {% endif %}
+                                        
+                                        {% endif %}
                                     </td>
                                 </tr>
                                 
@@ -476,13 +509,13 @@
                             {% endfor %}
                         {% else %}
                             <tr>
-                                <td colspan="13" class="px-6 py-10 text-center">
+                                <td colspan="14" class="px-6 py-10 text-center">
                                     {% if is_empty_state %}
                                     <i class="fa fa-user-o text-gray-300 text-5xl mb-4"></i>
                                     <p class="text-gray-500">当前没有在住人员</p>
                                     {% else %}
                                     <i class="fa fa-filter text-gray-300 text-5xl mb-4"></i>
-                                    <p class="text-gray-500">没有找到符合筛选条件的在住人员</p>
+                                    <p class="text-gray-500">没有找到符合筛选条件的人员</p>
                                     <a href="{{ url_for('dorm.dorm_query') }}" class="mt-3 px-4 py-1 border border-primary text-primary rounded-md hover:bg-primary/5 inline-block">
                                         重置筛选条件
                                     </a>
@@ -504,7 +537,13 @@
                     {% if end_num > pagination.total %}
                         {% set end_num = pagination.total %}
                     {% endif %}
+                    {% if status_filter == 'active' %}
                     第 {{ start_num }}-{{ end_num }} 条，共 <span class="font-medium text-primary">{{ pagination.total }}</span> 名在住人员
+                    {% elif status_filter == 'checked_out' %}
+                    第 {{ start_num }}-{{ end_num }} 条，共 <span class="font-medium text-primary">{{ pagination.total }}</span> 名退宿人员
+                    {% else %}
+                    第 {{ start_num }}-{{ end_num }} 条，共 <span class="font-medium text-primary">{{ pagination.total }}</span> 条记录
+                    {% endif %}
                 </div>
                 
                 <!-- 右侧区域 - 包含每页显示、页码信息和分页按钮 -->
@@ -723,8 +762,8 @@
             exportBtn.classList.add('opacity-80');
             exportBtn.classList.remove('hover:bg-secondary/90');
             
-            // 直接跳转到导出接口，不带任何筛选条件，导出全部记录
-            window.location.href = "{{ url_for('dorm_import_export.export_residents', export_all='true') }}";
+            // 直接跳转到导出接口，带上当前状态筛选条件
+            window.location.href = "{{ url_for('dorm_import_export.export_residents', export_all='true', status=status_filter) }}";
             
             // 60秒后恢复按钮状态（即使导出可能还在进行，但UI上给用户反馈）
             setTimeout(function() {
@@ -757,7 +796,7 @@
             const searchForm = document.querySelector('form[action="{{ url_for('dorm.dorm_query') }}"]');
             if (searchForm) {
                 // 为筛选下拉框添加change事件监听器
-                const filterSelects = searchForm.querySelectorAll('select[name="department"], select[name="gender"], select[name="building"], select[name="per_page"]');
+                const filterSelects = searchForm.querySelectorAll('select[name="department"], select[name="gender"], select[name="building"], select[name="per_page"], select[name="status"]');
                 filterSelects.forEach(select => {
                     select.addEventListener('change', function() {
                         // 重置页码为1，确保每次筛选从第一页开始

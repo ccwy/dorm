@@ -9,6 +9,7 @@ from models.utility.utility_room_bill_checkout import CheckoutUtilityRecord
 from flask_login import login_required, current_user
 from utils.auth import require_permission
 from utils.log import log_operation
+from utils.media.room_meter_checkout_photo import room_meter_checkout_photo_manager
 from sqlalchemy.orm import joinedload
 from sqlalchemy import or_
 from datetime import datetime
@@ -191,8 +192,8 @@ def application_detail(id):
         last_water_reading = None
         last_electric_reading = None
         if application.application_type == 'checkout' and current_dorm and current_dorm.room_id:
-            latest_water = UtilityMeterReading.get_latest_water_reading(current_dorm.room_id)
-            latest_electric = UtilityMeterReading.get_latest_electric_reading(current_dorm.room_id)
+            latest_water = UtilityMeterReading.get_latest_water_reading(current_dorm.room_id, before_date=datetime.now())
+            latest_electric = UtilityMeterReading.get_latest_electric_reading(current_dorm.room_id, before_date=datetime.now())
             if latest_water and latest_water.water_current is not None:
                 last_water_reading = {
                     'value': float(latest_water.water_current),
@@ -317,6 +318,17 @@ def approve_application(id):
             **checkout_kwargs
         )
 
+        # 退宿申请审核通过时，移动临时照片到正式目录
+        if application.application_type == 'checkout' and application.current_room and application.user_id:
+            try:
+                checkout_billing_period = request.form.get('billing_period', '')
+                if checkout_billing_period:
+                    room_meter_checkout_photo_manager.move_temp_to_billing_period(
+                        application.current_room.id, application.user_id, checkout_billing_period
+                    )
+            except Exception as move_err:
+                logging.warning(f"移动退宿临时照片失败（不影响审核操作）: {str(move_err)}")
+
         # 记录操作日志
         log_operation(
             user_id=user_id,
@@ -382,6 +394,15 @@ def reject_application(id):
             reviewer_id=user_id,
             review_remark=review_remark
         )
+
+        # 退宿申请拒绝时清理临时抄表照片
+        if application.application_type == 'checkout':
+            try:
+                room_meter_checkout_photo_manager.clear_user_temp_files(
+                    application.current_room_id, application.user_id
+                )
+            except Exception as e:
+                logging.warning(f"清理退宿临时抄表照片失败（申请{application.application_number}）: {str(e)}")
 
         # 记录操作日志
         log_operation(
@@ -576,6 +597,15 @@ def cancel_application(id):
             return redirect(url_for('dorm_application_admin.application_detail', id=id))
 
         application.cancel(user_id=user_id, is_admin=True)
+
+        # 退宿申请取消时清理临时抄表照片
+        if application.application_type == 'checkout':
+            try:
+                room_meter_checkout_photo_manager.clear_user_temp_files(
+                    application.current_room_id, application.user_id
+                )
+            except Exception as e:
+                logging.warning(f"清理退宿临时抄表照片失败（申请{application.application_number}）: {str(e)}")
 
         log_operation(
             user_id=user_id,

@@ -77,6 +77,7 @@
     {% include 'header.html' %}
     <!-- 主内容区 -->
     <main class="container mx-auto px-4 py-6">
+        
         <!-- 页面标题和状态统计 -->
         <div class="mb-8">
             <!-- 标题与搜索、导出功能组合 -->
@@ -91,7 +92,7 @@
                 
                 <div class="flex flex-col sm:flex-row w-full md:w-auto gap-3 items-start sm:items-center">
                     <!-- 搜索表单 -->
-                    <form method="get" action="{{ url_for('dorm.dorm_query_2') }}" class="relative w-full sm:w-64">
+                    <form method="get" action="{{ url_for('dorm.dorm_room_query') }}" class="relative w-full sm:w-64">
                         <input type="text" name="search" placeholder="搜索房间或人员..." 
                                value="{{ search_query }}"
                                class="pl-9 pr-4 py-2 rounded-lg text-gray-800 w-full border-2 border-accent focus:outline-none focus:ring-2 focus:ring-accent">
@@ -117,11 +118,28 @@
                             <i class="fa fa-download mr-2"></i>
                             <span>导出</span>
                         </button>
+                        <!-- 按房间导出按钮 -->
+                        <button id="export-room-btn" class="bg-green-600 hover:bg-green-700 px-5 py-2.5 rounded-lg transition-all duration-200 flex items-center shadow-sm whitespace-nowrap text-white">
+                            <i class="fa fa-table mr-2"></i>
+                            <span>按房间导出</span>
+                        </button>
                     </div>
                     
                 </div>
             </div>
-            
+           <!-- 消息提示区域 -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+            <div class="flash-messages mb-6">
+                {% for category, message in messages %}
+                <div class="p-4 rounded-md mb-2 {% if category == 'success' %}bg-green-100 text-green-800{% elif category == 'error' or category == 'danger' %}bg-red-100 text-red-800{% elif category == 'warning' %}bg-yellow-100 text-yellow-800{% else %}bg-blue-100 text-blue-800{% endif %}">
+                    <button type="button" class="float-right ml-2 text-gray-500 hover:text-gray-700" onclick="this.parentElement.remove()">×</button>
+                    {{ message | safe }}
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+        {% endwith %}
             <!-- 统计卡片 -->
             <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                 <div class="bg-white rounded-xl p-4 shadow-md border-l-4 border-primary">
@@ -436,6 +454,36 @@
                     setTimeout(() => {
                         exportBtn.classList.remove('btn-loading');
                         exportBtn.innerHTML = '<i class="fa fa-download mr-2"></i><span>导出</span>';
+                        document.getElementById('export-toast').classList.add('translate-y-20', 'opacity-0');
+                    }, 60000);
+                });
+            }
+
+            // 按房间导出功能
+            const exportRoomBtn = document.getElementById('export-room-btn');
+            if (exportRoomBtn) {
+                exportRoomBtn.addEventListener('click', function() {
+                    this.classList.add('btn-loading');
+                    this.innerHTML = '<i class="fa fa-circle-o-notch fa-spin mr-2"></i><span>导出中...</span>';
+                    showExportToast();
+                    
+                    let exportUrl = "{{ url_for('dorm_import_export.export_room_residents') }}";
+                    const searchValue = document.querySelector('input[name="search"]')?.value || '';
+                    if (searchValue) {
+                        exportUrl += '?search=' + encodeURIComponent(searchValue);
+                    }
+                    
+                    const link = document.createElement('a');
+                    link.href = exportUrl;
+                    link.download = `房间在住人员_${new Date().toLocaleDateString().replace(/\//g, '-')}.xlsx`;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    
+                    // 60秒后重置按钮状态
+                    setTimeout(() => {
+                        exportRoomBtn.classList.remove('btn-loading');
+                        exportRoomBtn.innerHTML = '<i class="fa fa-table mr-2"></i><span>按房间导出</span>';
                         document.getElementById('export-toast').classList.add('translate-y-20', 'opacity-0');
                     }, 60000);
                 });

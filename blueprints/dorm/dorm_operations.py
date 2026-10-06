@@ -22,6 +22,7 @@ from models.fee_subsidy.fee_subsidy import FeeSubsidy #费用补贴主表
 from models.fee_subsidy.fee_subsidy_usage import FeeSubsidyUsage
 # 导入require_permission装饰器
 from utils.auth import require_permission
+from utils.media.room_meter_checkout_photo import room_meter_checkout_photo_manager
 
 
 # --------------------------
@@ -645,6 +646,15 @@ def checkout():
                 
                 db.session.commit()
                 
+                # 移动退宿临时照片到正式目录
+                try:
+                    if billing_period and current_dorm.room_id and user_id:
+                        room_meter_checkout_photo_manager.move_temp_to_billing_period(
+                            current_dorm.room_id, user_id, billing_period
+                        )
+                except Exception as move_err:
+                    logging.warning(f"移动退宿临时照片失败（不影响退宿操作）: {str(move_err)}")
+                
                 # 获取房间信息
                 room_info = f"{current_dorm.room.building}{current_dorm.room.room_number}" if current_dorm.room else "未知房间"
                 
@@ -755,6 +765,15 @@ def checkout():
                 
                 db.session.commit()
                 
+                # 移动退宿临时照片到正式目录
+                try:
+                    if billing_period and current_dorm.room_id and user_id:
+                        room_meter_checkout_photo_manager.move_temp_to_billing_period(
+                            current_dorm.room_id, user_id, billing_period
+                        )
+                except Exception as move_err:
+                    logging.warning(f"移动退宿临时照片失败（不影响退宿操作）: {str(move_err)}")
+                
                 # 获取房间信息
                 room_info = f"{current_dorm.room.building}{current_dorm.room.room_number}" if current_dorm.room else "未知房间"
                 
@@ -792,6 +811,15 @@ def checkout():
             )
             flash(str(e), 'danger')
             logging.error(f"退宿验证失败: {str(e)}")
+            # 清理临时抄表照片
+            try:
+                _cleanup_room_id = room_id if 'room_id' in locals() else None
+                if not _cleanup_room_id and 'current_dorm' in locals() and current_dorm:
+                    _cleanup_room_id = current_dorm.room_id
+                if _cleanup_room_id and user_id:
+                    room_meter_checkout_photo_manager.clear_user_temp_files(_cleanup_room_id, user_id)
+            except Exception as clear_err:
+                logging.warning(f"清理退宿临时抄表照片失败（不影响主流程）: {str(clear_err)}")
             return redirect(url_for('dorm.checkout', user_id=user_id))
         except Exception as e:
             db.session.rollback()
@@ -805,6 +833,15 @@ def checkout():
                 ip_address=request.headers.get('X-Real-IP', request.remote_addr)
             )
             flash('服务器处理失败，请稍后重试', 'danger')
+            # 清理临时抄表照片
+            try:
+                _cleanup_room_id = room_id if 'room_id' in locals() else None
+                if not _cleanup_room_id and 'current_dorm' in locals() and current_dorm:
+                    _cleanup_room_id = current_dorm.room_id
+                if _cleanup_room_id and user_id:
+                    room_meter_checkout_photo_manager.clear_user_temp_files(_cleanup_room_id, user_id)
+            except Exception as clear_err:
+                logging.warning(f"清理退宿临时抄表照片失败（不影响主流程）: {str(clear_err)}")
             return redirect(url_for('dorm.checkout', user_id=user_id))
     
     # 处理GET请求（显示退宿页面）
@@ -898,8 +935,10 @@ def checkout():
             
             # 获取上次抄表记录值
             # 使用模型中已有的方法获取最新正常抄表记录
-            latest_water = UtilityMeterReading.get_latest_water_reading(current_room.id)
-            latest_electric = UtilityMeterReading.get_latest_electric_reading(current_room.id)
+            # 传入 before_date 时间锁，确保只读取退宿日期之前的抄表记录
+            checkout_before_date = datetime.now()
+            latest_water = UtilityMeterReading.get_latest_water_reading(current_room.id, before_date=checkout_before_date)
+            latest_electric = UtilityMeterReading.get_latest_electric_reading(current_room.id, before_date=checkout_before_date)
             
             # 准备传递给前端的数据，包含时间信息
             if latest_water and latest_water.water_current:

@@ -1,4 +1,4 @@
-from flask import request, send_file, jsonify
+from flask import request, send_file, flash, redirect, url_for
 from models.todo.todo import Todo
 from models.todo.todo_progress import TodoProgress
 from utils.log import log_operation
@@ -29,7 +29,8 @@ def export_excel():
                 start_date = datetime.strptime(start_date_str, '%Y-%m-%d')
             except ValueError:
                 logging.error(f"导出待办事项失败：开始日期格式不正确，应为YYYY-MM-DD，实际值：{start_date_str}")
-                return jsonify({'success': False, 'message': '开始日期格式不正确，应为YYYY-MM-DD'}), 400
+                flash('开始日期格式不正确，应为YYYY-MM-DD', 'warning')
+                return redirect(url_for('todo.index'))
         
         if end_date_str:
             try:
@@ -38,7 +39,8 @@ def export_excel():
                 end_date = end_date.replace(hour=23, minute=59, second=59)
             except ValueError:
                 logging.error(f"导出待办事项失败：结束日期格式不正确，应为YYYY-MM-DD，实际值：{end_date_str}")
-                return jsonify({'success': False, 'message': '结束日期格式不正确，应为YYYY-MM-DD'}), 400
+                flash('结束日期格式不正确，应为YYYY-MM-DD', 'warning')
+                return redirect(url_for('todo.index'))
         
         # 根据用户权限确定查询范围
         if current_user.user_role and current_user.user_role.code == 'super_admin':
@@ -55,7 +57,8 @@ def export_excel():
         
         if not todos:
             logging.error(f"导出待办事项失败：没有找到符合条件的待办事项，开始日期：{start_date_str}，结束日期：{end_date_str}")
-            return jsonify({'success': False, 'message': '没有找到符合条件的待办事项'}), 404
+            flash('没有找到符合条件的待办事项', 'warning')
+            return redirect(url_for('todo.index'))
         
         # 准备导出数据
         data = []
@@ -148,4 +151,5 @@ def export_excel():
             action=f"导出待办事项数据失败：{str(e)}",
             result="失败"
         )
-        return jsonify({'success': False, 'message': f'导出失败: {str(e)}'}), 500
+        flash(f'导出待办事项失败: {str(e)}', 'danger')
+        return redirect(url_for('todo.index'))

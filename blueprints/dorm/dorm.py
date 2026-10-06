@@ -12,6 +12,7 @@ import logging
 from sqlalchemy import func  # 新增：导入聚合函数
 # 导入require_permission装饰器
 from utils.auth import require_permission
+from models.utility.utility_room_bill_checkout import CheckoutUtilityRecord  # 导入退宿费用记录模型
 
 # 定义dorm蓝图
 dorm_bp = Blueprint(
@@ -384,6 +385,7 @@ def dorm_query():
         department_filter = request.args.get('department', '', type=str).strip()
         gender_filter = request.args.get('gender', '', type=str).strip()
         building_filter = request.args.get('building', '', type=str).strip()
+        status_filter = request.args.get('status', 'active', type=str).strip()
         
         # 分页参数
         try:
@@ -400,11 +402,22 @@ def dorm_query():
         except ValueError:
             per_page = 20
         
-        # 构建查询，筛选出活跃的住宿记录
-        query = db.session.query(Dorm).filter(
-            Dorm.status == 'active',
-            Dorm.check_out_date.is_(None)
-        )
+        # 构建查询，根据状态筛选条件动态构建
+        query = db.session.query(Dorm)
+        
+        if status_filter == 'active':
+            # 在住：当前活跃记录
+            query = query.filter(
+                Dorm.status == 'active',
+                Dorm.check_out_date.is_(None)
+            )
+        elif status_filter == 'checked_out':
+            # 退宿：真正退宿的用户（排除换宿）
+            query = query.filter(
+                Dorm.status == 'checked_out',
+                Dorm.end_operation_type == 'checkout'
+            )
+        # 'all' 不添加status过滤条件，显示所有记录
         
         # 关联用户表和房间表
         query = query.join(User).join(Room)
@@ -481,6 +494,8 @@ def dorm_query():
                         total_stay_days += delta_days + 1
             
             # 构建人员数据
+            # 查询退宿费用记录ID（用于跳转到退宿费用核算详情页）
+            checkout_utility_record = CheckoutUtilityRecord.query.filter_by(dorm_id=dorm.id).first() if dorm.check_out_date else None
             resident_info = {
                 'id': user.id,
                 'name': user.name,
@@ -495,9 +510,13 @@ def dorm_query():
                 'room_id': room.id,  # 添加房间ID，用于跳转详情页面
                 'room': room,  # 添加完整的room对象引用
                 'check_in_date': check_in_date,
+                'check_out_date': dorm.check_out_date,
+                'end_operation_type': dorm.end_operation_type,
+                'status': dorm.status,
                 'current_stay_days': current_stay_days,
                 'total_stay_days': total_stay_days,
-                'dorm_chain': dorm_chain  # 完整换宿链
+                'dorm_chain': dorm_chain,  # 完整换宿链
+                'checkout_utility_record_id': checkout_utility_record.id if checkout_utility_record else None
             }
             
             residents_data.append(resident_info)
@@ -517,7 +536,7 @@ def dorm_query():
         page_range = generate_page_range(page, pagination.pages)
         
         # 判断是否为空状态（没有任何筛选条件且没有数据）
-        is_empty_state = len(residents_data) == 0 and not any([search_query, department_filter, gender_filter, building_filter])
+        is_empty_state = len(residents_data) == 0 and not any([search_query, department_filter, gender_filter, building_filter]) and status_filter == 'active'
         
         # 返回渲染模板
         return render_template(
@@ -532,6 +551,7 @@ def dorm_query():
             department_filter=department_filter,
             gender_filter=gender_filter,
             building_filter=building_filter,
+            status_filter=status_filter,
             per_page=per_page,
             today=today,
             is_empty_state=is_empty_state
@@ -559,15 +579,16 @@ def dorm_query():
             department_filter='',
             gender_filter='',
             building_filter='',
+            status_filter='active',
             per_page=20,
             today=datetime.now()
         )
 
 
-@dorm_bp.route('/dorm_query_2')
+@dorm_bp.route('/dorm_room_query')
 @login_required
 @require_permission('dorm.view')
-def dorm_query_2():
+def dorm_room_query():
     """显示宿舍分配表页面，默认显示所有房间"""
     # 获取查询参数（只保留搜索功能）
     search_query = request.args.get('search', '').strip()
@@ -686,7 +707,7 @@ def dorm_query_2():
 
     # 直接返回所有房间，不再做数量限制
     return render_template(
-        'dorm_manage/dorm_query_2.html', 
+        'dorm_manage/dorm_room_query.html', 
         title="在住人员查询",
         regions=regions,  # 传递所有房间
         original_regions=regions,  # 保持一致，都为所有房间

@@ -36,7 +36,33 @@ class RoomUtilityOccupant(db.Model):
     water_fee = db.Column(db.Numeric(10, 2), default=0.00, comment='分摊的水费')
     total_fee = db.Column(db.Numeric(10, 2), default=0.00, comment='分摊的总费用')
     user_reduction_fee = db.Column(db.Numeric(10, 2), default=0.00, comment='减免费用')
-    payable_fee = db.Column(db.Numeric(10, 2), default=0.00, comment='用户应付费用（总费用-减免费用）')
+    payable_fee = db.Column(db.Numeric(10, 2), default=0.00, comment='用户实际应付（总费用-减免费用）')
+    # 主表同步字段（核算时从主表复制）
+    electric_previous = db.Column(db.Numeric(10, 2), nullable=True, comment='上期电表读数（主表同步）')
+    electric_current = db.Column(db.Numeric(10, 2), nullable=True, comment='本期电表读数（主表同步）')
+    electric_usage = db.Column(db.Numeric(10, 2), nullable=True, comment='抄表电量（主表同步）')
+    electric_reduction = db.Column(db.Numeric(10, 2), default=0.00, comment='电费减免量（主表同步）')
+    electric_billing_usage = db.Column(db.Numeric(10, 2), nullable=True, comment='计费用电量（主表同步）')
+    water_previous = db.Column(db.Numeric(10, 2), nullable=True, comment='上期水表读数（主表同步）')
+    water_current = db.Column(db.Numeric(10, 2), nullable=True, comment='本期水表读数（主表同步）')
+    water_usage = db.Column(db.Numeric(10, 2), nullable=True, comment='抄表水量（主表同步）')
+    water_reduction = db.Column(db.Numeric(10, 2), default=0.00, comment='水费减免量（主表同步）')
+    water_billing_usage = db.Column(db.Numeric(10, 2), nullable=True, comment='计费用水量（主表同步）')
+    electric_price = db.Column(db.Numeric(10, 2), nullable=True, comment='电费单价（主表同步）')
+    water_price = db.Column(db.Numeric(10, 2), nullable=True, comment='水费单价（主表同步）')
+    total_electric_fee = db.Column(db.Numeric(10, 2), default=0.00, comment='抄表总电费（主表同步）')
+    total_water_fee = db.Column(db.Numeric(10, 2), default=0.00, comment='抄表总水费（主表同步）')
+    room_total_fee = db.Column(db.Numeric(10, 2), default=0.00, comment='抄表总费用（主表同步）')
+    billing_electric_fee = db.Column(db.Numeric(10, 2), default=0.00, comment='计费电费（主表同步）')
+    billing_water_fee = db.Column(db.Numeric(10, 2), default=0.00, comment='计费水费（主表同步）')
+    billing_total_fee = db.Column(db.Numeric(10, 2), default=0.00, comment='计费总费用（主表同步）')
+    room_reduction_fee = db.Column(db.Numeric(10, 2), default=0.00, comment='房间级减免费用（主表同步）')
+    checked_out_electric_fee = db.Column(db.Numeric(10, 2), default=0.00, comment='退宿电费（主表同步）')
+    checked_out_water_fee = db.Column(db.Numeric(10, 2), default=0.00, comment='退宿水费（主表同步）')
+    checked_out_total_fee = db.Column(db.Numeric(10, 2), default=0.00, comment='退宿总费用（主表同步）')
+    actual_electric_fee = db.Column(db.Numeric(10, 2), default=0.00, comment='应付电费（主表同步）')
+    actual_water_fee = db.Column(db.Numeric(10, 2), default=0.00, comment='应付水费（主表同步）')
+    actual_total_fee = db.Column(db.Numeric(10, 2), default=0.00, comment='实际应付总费用（主表同步）')
     created_at = db.Column(db.DateTime, default=datetime.now, comment='记录创建时间')
     updated_at = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now, comment='记录更新时间')
     remarks = db.Column(db.Text, nullable=True, comment='备注')
@@ -65,11 +91,11 @@ class RoomUtilityOccupant(db.Model):
         if not main_record:
             raise ValueError(f"主表记录ID={record_id}不存在")
             
-        if main_record.actual_electric_fee is None or main_record.actual_water_fee is None:
-            raise ValueError(f"主表记录ID={record_id}的实际应收费用数据不完整")
+        if main_record.receivable_electric_fee is None or main_record.receivable_water_fee is None:
+            raise ValueError(f"主表记录ID={record_id}的应付费用数据不完整")
         
-        if main_record.status != 'completed':
-            raise ValueError(f"主表记录ID={record_id}尚未核算完成（当前状态：{main_record.status}），跳过用户费用分摊")
+        if main_record.status not in ('calculated', 'completed'):
+            raise ValueError(f"主表记录ID={record_id}尚未核算完成（当前状态：{main_record.status}，需为calculated或completed），跳过用户费用分摊")
         
         # 清空旧记录
         cls.query.filter_by(record_id=record_id).delete()
@@ -120,9 +146,9 @@ class RoomUtilityOccupant(db.Model):
         
         # 费用分摊计算
         resident_records = []
-        electric_fee = main_record.actual_electric_fee
-        water_fee = main_record.actual_water_fee
-        total_fee = main_record.actual_total_fee or (electric_fee + water_fee)
+        electric_fee = main_record.receivable_electric_fee
+        water_fee = main_record.receivable_water_fee
+        total_fee = main_record.receivable_total_fee or (electric_fee + water_fee)
 
         # 按入住时间排序，确保补贴按时间顺序使用
         occupant_days.sort(key=lambda x: x['start'])
@@ -214,6 +240,32 @@ class RoomUtilityOccupant(db.Model):
                 total_fee=user_total,
                 user_reduction_fee=user_reduction,
                 payable_fee=user_payable,
+                # 主表同步字段
+                electric_previous=main_record.electric_previous,
+                electric_current=main_record.electric_current,
+                electric_usage=main_record.electric_usage,
+                electric_reduction=main_record.electric_reduction,
+                electric_billing_usage=main_record.electric_billing_usage,
+                water_previous=main_record.water_previous,
+                water_current=main_record.water_current,
+                water_usage=main_record.water_usage,
+                water_reduction=main_record.water_reduction,
+                water_billing_usage=main_record.water_billing_usage,
+                electric_price=main_record.electric_price,
+                water_price=main_record.water_price,
+                total_electric_fee=main_record.total_electric_fee,
+                total_water_fee=main_record.total_water_fee,
+                room_total_fee=main_record.total_fee,
+                billing_electric_fee=main_record.billing_electric_fee,
+                billing_water_fee=main_record.billing_water_fee,
+                billing_total_fee=main_record.billing_total_fee,
+                room_reduction_fee=main_record.room_reduction_fee,
+                checked_out_electric_fee=main_record.checked_out_electric_fee,
+                checked_out_water_fee=main_record.checked_out_water_fee,
+                checked_out_total_fee=main_record.checked_out_total_fee,
+                actual_electric_fee=main_record.receivable_electric_fee,
+                actual_water_fee=main_record.receivable_water_fee,
+                actual_total_fee=main_record.actual_total_fee,
                 remarks=remark_text
             )
             db.session.add(record)
@@ -228,7 +280,7 @@ class RoomUtilityOccupant(db.Model):
         # 按时间顺序获取该账期内所有房间的主表记录
         main_records = RoomUtilityRecord.query.filter(
             RoomUtilityRecord.billing_period == billing_period,
-            RoomUtilityRecord.status == 'completed'
+            RoomUtilityRecord.status == 'calculated'
         ).order_by(RoomUtilityRecord.start_date).all()
     
         # 初始化全局唯一的补贴余额字典
@@ -385,11 +437,13 @@ class RoomUtilityOccupant(db.Model):
                 'billing_period': main_record.billing_period,
                 'start_date': main_record.start_date,
                 'end_date': main_record.end_date,
-                'actual_electric_fee': main_record.actual_electric_fee,
-                'actual_water_fee': main_record.actual_water_fee,
+                'actual_electric_fee': main_record.receivable_electric_fee,
+                'actual_water_fee': main_record.receivable_water_fee,
                 'actual_total_fee': main_record.actual_total_fee,
                 'checked_out_total_fee': main_record.checked_out_total_fee
             },
             'resident_records': resident_records,  # 在住+换宿人员分摊明细
             'checkout_records': checkout_records   # 退宿人员费用明细
         }
+
+

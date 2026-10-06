@@ -132,6 +132,7 @@
                     </div>
                 </div>
 
+
                 <!-- 备份管理区域 - 仅在备份模块显示 -->
                 <div id="backupSection" class="config-card p-6 mt-6 hidden">
                     <h3 class="text-lg font-medium mb-4 flex items-center">
@@ -422,6 +423,8 @@
             // 对话框事件
             document.getElementById('dialogCancelBtn').addEventListener('click', hideConfirmDialog);
             document.getElementById('dialogConfirmBtn').addEventListener('click', executeConfirmedAction);
+
+
         });
 
         // 新增：下载备份文件
@@ -1033,7 +1036,11 @@
             if (initModuleBtn) initModuleBtn.disabled = false;
             
             // 加载模块配置
-            loadModuleConfigs(module.category);
+            // 自定义字段模块跳转到独立管理页面
+            if (module.category === 'custom_field') {
+                window.location.href = '/system/custom-field';
+                return;
+            }
             
             // 显示或隐藏备份区域
             if (module.category === 'system.backup' && hasManagePermission) {
@@ -1050,9 +1057,9 @@
                     toggleStorageInfo();
                 }
             }
+            // 加载模块配置项
+            loadModuleConfigs(module.category);
         }
-
-        // 加载模块配置
         function loadModuleConfigs(category) {
             showLoading();
             
@@ -1278,6 +1285,7 @@
         function saveConfigChanges() {
             if (!currentModule) return;
             
+
             // 收集表单数据
             const formData = {};
 
@@ -2197,6 +2205,8 @@
             }
             hideConfirmDialog();
         }
+
+
 
         // 显示提示消息
         function showToast(message, type = 'info') {

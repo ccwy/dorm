@@ -7,11 +7,13 @@ from models.supply.supplier import Supplier
 from models.supply.storage_location import StorageLocation
 from utils.log import log_operation
 from utils.auth import require_permission
-from utils.contract_attachment import ContractAttachmentManager
+from utils.media.contract_attachment import ContractAttachmentManager
 import logging
 import traceback
 from datetime import datetime, date
+from werkzeug.utils import secure_filename
 from .contract import contract_bp
+
 
 
 # ========== 路由：新增合同 ==========
@@ -23,6 +25,7 @@ def add_contract():
     try:
         contract_number = request.form.get('contract_number', '').strip() or None
         contract_name = request.form.get('contract_name', '').strip()
+        temp_key = request.form.get('temp_key', '')
         party_a_id = request.form.get('party_a_id', type=int) or None
         party_b_id = request.form.get('party_b_id', type=int) or None
         party_a_name = request.form.get('party_a_name', '').strip()
@@ -155,7 +158,7 @@ def add_contract():
         # 必填字段校验
         if not contract_name:
             flash('合同名称不能为空', 'danger')
-            return redirect(url_for('contract.add_page'))
+            return redirect(url_for('contract.add_page', temp_key=temp_key))
 
         # 自动生成合同编号（用户留空时）
         if not contract_number:
@@ -171,7 +174,7 @@ def add_contract():
         # 合同编号唯一性校验
         if Contract.is_number_exists(contract_number):
             flash(f'合同编号"{contract_number}"已存在', 'danger')
-            return redirect(url_for('contract.add_page'))
+            return redirect(url_for('contract.add_page', temp_key=temp_key))
 
         # 税率自动填充：若用户未手动输入税率且选择了供应商，从供应商获取税率
         if not tax_rate and party_b_id:
@@ -291,6 +294,27 @@ def add_contract():
             result="成功"
         )
 
+        # 处理临时文件：将新增页面上传的临时附件移动到正式合同目录
+        if temp_key:
+            original_temp_key = temp_key
+            temp_key = secure_filename(temp_key)
+            if temp_key:
+                try:
+                    logging.info(f"开始移动合同临时附件: original_key={original_temp_key}, secure_key={temp_key}, contract_id={contract.id}")
+                    move_result = ContractAttachmentManager.move_temp_to_permanent(temp_key, contract.id)
+                    if move_result['errors']:
+                        logging.warning(f"部分临时附件移动失败: {move_result['errors']}")
+                    # 清理临时目录
+                    ContractAttachmentManager.clear_temp_files(temp_key)
+                except Exception as e:
+                    logging.error(f"移动合同临时附件异常: {str(e)}, temp_key={temp_key}, contract_id={contract.id}")
+                    try:
+                        ContractAttachmentManager.clear_temp_files(temp_key)
+                    except Exception as clear_err:
+                        logging.warning(f"清理合同临时附件失败: {str(clear_err)}, temp_key={temp_key}")
+            else:
+                logging.warning(f"temp_key经secure_filename处理后为空: original={original_temp_key}")
+
         flash(f'新增合同成功: {contract_name}', 'success')
         logging.info(f"新增合同成功，合同ID: {contract.id}, 名称: {contract_name}, 编号: {contract_number}")
         if request.form.get('save_and_continue'):
@@ -299,6 +323,16 @@ def add_contract():
 
     except Exception as e:
         db.session.rollback()
+        # 清理临时文件
+        temp_key = request.form.get('temp_key', '')
+        if temp_key:
+            original_temp_key = temp_key
+            temp_key = secure_filename(temp_key)
+            if temp_key:
+                try:
+                    ContractAttachmentManager.clear_temp_files(temp_key)
+                except Exception as clear_err:
+                    logging.warning(f"清理合同临时附件失败: {str(clear_err)}, temp_key={temp_key}")
         log_operation(
             user_id=current_user.id,
             module='contract',
@@ -308,7 +342,7 @@ def add_contract():
         )
         flash(f'新增合同失败: {str(e)}', 'danger')
         logging.error(f"新增合同失败: {str(e)}\n{traceback.format_exc()}")
-        return redirect(url_for('contract.add_page'))
+        return redirect(url_for('contract.add_page', temp_key=request.form.get('temp_key', '')))
 
 
 # ========== 路由：编辑合同 ==========
