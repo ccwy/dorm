@@ -12,6 +12,8 @@ from utils.auth import require_permission
 from utils.media.contract_attachment import ContractAttachmentManager
 import logging
 import re
+import random
+import time
 from datetime import date, timedelta
 
 # 定义蓝图
@@ -231,6 +233,9 @@ def add_page():
         # 获取合同存放位置列表
         storage_locations = StorageLocation.get_active_locations(usage_type='合同管理')
 
+        # 生成temp_key用于临时文件上传（优先使用GET参数中的temp_key，用于验证失败回退时保留已上传文件）
+        temp_key = request.args.get('temp_key', '') or f'contract_add_{int(time.time() * 1000)}_{random.randint(1000, 9999)}'
+
         return render_template(
             'contract_manage/contract_form.html',
             title="新增合同",
@@ -244,7 +249,8 @@ def add_page():
             renewal_count=renewal_count,
             renewal_contract_name=renewal_contract_name,
             departments=departments,
-            storage_locations=storage_locations
+            storage_locations=storage_locations,
+            temp_key=temp_key
         )
     except Exception as e:
         logging.error(f"加载新增合同页面失败: {str(e)}")

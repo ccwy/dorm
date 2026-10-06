@@ -105,6 +105,11 @@ def start_scheduler(app):
             schedule.every().day.at(ASSET_PHOTO_CLEANUP_TIME).do(lambda: execute_with_context(app, cleanup_asset_photo_temp_files))
             logging.info(f"资产照片临时文件定时清理任务已注册，将在每天{ASSET_PHOTO_CLEANUP_TIME}执行")
             
+            # 合同附件临时文件清理任务（每天04:30执行一次）
+            CONTRACT_ATTACHMENT_CLEANUP_TIME = '04:30'
+            schedule.every().day.at(CONTRACT_ATTACHMENT_CLEANUP_TIME).do(lambda: execute_with_context(app, cleanup_contract_attachment_temp_files))
+            logging.info(f"合同附件临时文件定时清理任务已注册，将在每天{CONTRACT_ATTACHMENT_CLEANUP_TIME}执行")
+            
             # 循环执行任务
             while True:
                 schedule.run_pending()
@@ -187,6 +192,20 @@ def cleanup_asset_photo_temp_files():
         return True
     except Exception as e:
         logging.error(f"清理资产照片临时文件时发生错误: {str(e)}", exc_info=True)
+        return False
+
+# 清理合同附件临时文件
+def cleanup_contract_attachment_temp_files():
+    """清理超过24小时的合同附件临时文件"""
+    try:
+        from utils.media.contract_attachment import ContractAttachmentManager
+        result = ContractAttachmentManager.cleanup_old_temp_files(max_age_hours=24)
+        if result['deleted_files'] > 0 or result['deleted_dirs'] > 0:
+            logging.info(f"合同附件临时文件定时清理: 删除 {result['deleted_files']} 个文件, "
+                        f"{result['deleted_dirs']} 个空目录, {result['errors']} 个错误")
+        return True
+    except Exception as e:
+        logging.error(f"清理合同附件临时文件时发生错误: {str(e)}", exc_info=True)
         return False
 
 # 初始化调度器

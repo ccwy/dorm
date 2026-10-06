@@ -1,6 +1,8 @@
-from flask import Blueprint, request, jsonify, send_file
+from flask import Blueprint, request, jsonify, send_file, abort
 import logging
 import os
+import mimetypes
+from werkzeug.utils import secure_filename
 from utils.db import db
 from flask_login import login_required, current_user
 from utils.log import log_operation
@@ -128,8 +130,215 @@ def get_contract_list():
         logging.error(f"API获取合同列表失败: {str(e)}\n{traceback.format_exc()}")
         return jsonify({
             "success": False,
-            "error": str(e)
         }), 500
+
+
+# ========== 临时文件上传API（新增合同时使用，此时合同尚未创建） ==========
+
+@contract_api_bp.route('/temp_media/upload', methods=['POST'])
+@login_required
+@require_permission('contract.add')
+def upload_temp_media():
+    """上传临时媒体文件（新增合同页面使用，此时合同尚未创建）"""
+    try:
+        temp_key = request.form.get('temp_key')
+        
+        if not temp_key:
+            return jsonify({'success': False, 'message': '缺少临时标识参数'}), 400
+        
+        # 安全处理temp_key，防止路径遍历
+        temp_key = secure_filename(temp_key)
+        if not temp_key:
+            return jsonify({'success': False, 'message': '无效的临时标识参数'}), 400
+        
+        if 'file' not in request.files:
+            return jsonify({'success': False, 'message': '没有文件被上传'}), 400
+        
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({'success': False, 'message': '没有选择文件'}), 400
+        
+        filename = ContractAttachmentManager.upload_temp_file(file, temp_key)
+        if not filename:
+            logging.warning(f"用户 {current_user.id} 上传临时合同附件失败: 文件格式不支持, temp_key={temp_key}")
+            return jsonify({'success': False, 'message': '不支持的文件格式'}), 400
+        
+        file_url = ContractAttachmentManager.get_temp_media_url(filename, temp_key)
+        file_type = ContractAttachmentManager.get_file_type(filename)
+        
+        log_operation(
+            user_id=current_user.id,
+            module='contract',
+            operation_type='upload_attachment',
+            action=f"上传临时合同附件: {filename} (temp_key={temp_key})",
+            result="成功"
+        )
+        
+        return jsonify({
+            'success': True,
+            'message': '上传成功',
+            'filename': filename,
+            'url': file_url,
+            'type': file_type
+        })
+        
+    except Exception as e:
+        logging.error(f"上传临时合同附件失败: {str(e)}")
+        return jsonify({'success': False, 'message': f'上传失败: {str(e)}'})
+
+
+@contract_api_bp.route('/temp_media/files', methods=['GET'])
+@login_required
+@require_permission('contract.add')
+def get_temp_media_files():
+    """获取指定temp_key临时目录中的所有媒体文件"""
+    try:
+        temp_key = request.args.get('temp_key')
+        
+        if not temp_key:
+            return jsonify({'success': False, 'message': '缺少临时标识参数'}), 400
+        
+        # 安全处理temp_key，防止路径遍历
+        temp_key = secure_filename(temp_key)
+        if not temp_key:
+            return jsonify({'success': False, 'message': '无效的临时标识参数'}), 400
+        
+        media_files = ContractAttachmentManager.get_temp_media_files(temp_key)
+        logging.debug(f"获取临时合同附件列表: temp_key={temp_key}, 文件数={len(media_files)}")
+        
+        result_files = []
+        for file in media_files:
+            result_files.append({
+                'filename': file['filename'],
+                'type': file['type'],
+                'url': file['url'],
+                'upload_time': file.get('upload_time').isoformat() if file.get('upload_time') else None
+            })
+        
+        return jsonify({
+            'success': True,
+            'files': result_files
+        })
+        
+    except Exception as e:
+        logging.error(f"获取临时合同附件列表失败: {str(e)}")
+        return jsonify({'success': False, 'message': f'获取失败: {str(e)}'})
+
+
+@contract_api_bp.route('/temp_media/delete', methods=['POST'])
+@login_required
+@require_permission('contract.add')
+def delete_temp_media():
+    """删除临时目录中的媒体文件"""
+    try:
+        data = request.get_json(silent=True)
+        if not data:
+            return jsonify({'success': False, 'message': '请求数据格式无效'}), 400
+        temp_key = data.get('temp_key')
+        filename = data.get('filename')
+        
+        if not temp_key or not filename:
+            return jsonify({'success': False, 'message': '缺少必要参数'}), 400
+        
+        # 安全处理temp_key，防止路径遍历
+        temp_key = secure_filename(temp_key)
+        if not temp_key:
+            return jsonify({'success': False, 'message': '无效的临时标识参数'}), 400
+        
+        # 安全处理filename
+        filename = secure_filename(filename)
+        if not filename:
+            return jsonify({'success': False, 'message': '无效的文件名'}), 400
+        
+        success = ContractAttachmentManager.delete_temp_file(filename, temp_key)
+        
+        if success:
+            log_operation(
+                user_id=current_user.id,
+                module='contract',
+                operation_type='delete_attachment',
+                action=f"删除临时合同附件: {filename} (temp_key={temp_key})",
+                result="成功"
+            )
+            return jsonify({'success': True, 'message': '文件删除成功'})
+        else:
+            return jsonify({'success': False, 'message': '文件删除失败或文件不存在'})
+            
+    except Exception as e:
+        logging.error(f"删除临时合同附件失败: {str(e)}")
+        return jsonify({'success': False, 'message': f'删除失败: {str(e)}'})
+
+
+@contract_api_bp.route('/temp_media/clear', methods=['POST'])
+@login_required
+@require_permission('contract.add')
+def clear_temp_media():
+    """清理指定temp_key临时目录中的所有媒体文件"""
+    try:
+        data = request.get_json(silent=True)
+        if not data:
+            return jsonify({'success': False, 'message': '请求数据格式无效'}), 400
+        temp_key = data.get('temp_key')
+        
+        if not temp_key:
+            return jsonify({'success': False, 'message': '缺少临时标识参数'}), 400
+        
+        # 安全处理temp_key，防止路径遍历
+        temp_key = secure_filename(temp_key)
+        if not temp_key:
+            return jsonify({'success': False, 'message': '无效的临时标识参数'}), 400
+        
+        result = ContractAttachmentManager.clear_temp_files(temp_key)
+        
+        log_operation(
+            user_id=current_user.id,
+            module='contract',
+            operation_type='delete_attachment',
+            action=f"清理临时合同附件 (temp_key={temp_key}) [删除: {result['deleted']}]",
+            result="成功" if not result['errors'] else "部分成功"
+        )
+        
+        return jsonify({
+            'success': True,
+            'deleted': result['deleted'],
+            'errors': result['errors'],
+            'message': f"成功清理 {result['deleted']} 个文件" + (f"，{len(result['errors'])} 个失败" if result['errors'] else "")
+        })
+        
+    except Exception as e:
+        logging.error(f"清理临时合同附件失败: {str(e)}")
+        return jsonify({'success': False, 'message': f'清理失败: {str(e)}'})
+
+
+@contract_api_bp.route('/temp_media/<temp_key>/<filename>', methods=['GET'])
+@login_required
+@require_permission('contract.add')
+def serve_temp_media(temp_key, filename):
+    """提供临时目录中媒体文件的访问"""
+    try:
+        # 安全处理参数
+        temp_key = secure_filename(temp_key)
+        filename = secure_filename(filename)
+        
+        # 防止空参数导致路径遍历
+        if not temp_key:
+            abort(400, description="无效的临时标识参数")
+        if not filename:
+            abort(400, description="无效的文件名参数")
+        
+        # 获取文件完整路径
+        file_path = ContractAttachmentManager.get_temp_file_path(filename, temp_key)
+        
+        # 检查文件是否存在
+        if not file_path or not os.path.exists(file_path):
+            abort(404, description="文件不存在")
+        
+        # 发送文件，根据扩展名推断 mimetype
+        mime_type, _ = mimetypes.guess_type(file_path)
+        return send_file(file_path, as_attachment=False, mimetype=mime_type or 'application/octet-stream')
+    except Exception as e:
+        logging.error(f"获取临时合同附件时发生错误: {str(e)}")
+        abort(500, description=f"获取文件时发生错误: {str(e)}")
 
 
 # ========== 合同详情JSON ==========
@@ -205,7 +414,6 @@ def get_contract_detail(id):
         logging.error(f"API获取合同详情失败 [ID: {id}]: {str(e)}\n{traceback.format_exc()}")
         return jsonify({
             "success": False,
-            "error": str(e)
         }), 500
 
 
@@ -363,14 +571,20 @@ def get_contract_attachments(id):
 
 
 # ========== 获取合同附件文件（静态文件服务） ==========
-@contract_api_bp.route('/media/<contract_id>/<path:filename>', methods=['GET'])
+@contract_api_bp.route('/media/<int:contract_id>/<path:filename>', methods=['GET'])
 @login_required
+@require_permission('contract.view')
 def get_contract_media(contract_id, filename):
     """获取合同的媒体文件（附件、图片、文档等）"""
     try:
+        # 纵深防御：安全处理filename，防止路径遍历
+        filename = secure_filename(filename)
+        if not filename:
+            return jsonify({'error': '无效的文件名参数'}), 400
         file_path = ContractAttachmentManager.get_file_path(contract_id, filename)
         if file_path and os.path.exists(file_path):
-            return send_file(file_path, as_attachment=False)
+            mime_type, _ = mimetypes.guess_type(file_path)
+            return send_file(file_path, as_attachment=False, mimetype=mime_type or 'application/octet-stream')
         return jsonify({'error': '文件不存在'}), 404
     except Exception as e:
         logging.error(f"获取合同媒体文件时发生错误: {str(e)}")
