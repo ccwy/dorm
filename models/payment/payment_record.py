@@ -13,6 +13,13 @@ class PaymentRecord(db.Model):
 
     # 从合同带入的付款方案字段（只读）
     payment_method = db.Column(db.String(50), nullable=True, comment='付款方式（从合同带入）')
+    # 乙方收款资料快照（从合同复制，创建时保存）
+    party_b_payment_method = db.Column(db.String(50), nullable=True, comment='乙方收款方式（快照）')
+    party_b_bank_account = db.Column(db.String(100), nullable=True, comment='乙方银行账号（快照）')
+    party_b_bank_name = db.Column(db.String(200), nullable=True, comment='乙方开户行（快照）')
+    party_b_receiving_bank = db.Column(db.String(200), nullable=True, comment='乙方收款银行（快照）')
+    party_b_account_name = db.Column(db.String(200), nullable=True, comment='乙方开户名称（快照）')
+    party_b_payment_account = db.Column(db.String(100), nullable=True, comment='乙方收款账号（快照）')
     fixed_amount = db.Column(db.Numeric(14, 2), nullable=True, comment='固定金额（从合同带入）')
     payment_rounds = db.Column(db.Integer, nullable=True, comment='付款轮次（从合同带入）')
     current_round = db.Column(db.Integer, nullable=True, comment='当前第几轮付款')
@@ -78,6 +85,9 @@ class PaymentRecord(db.Model):
 
     @classmethod
     def create(cls, contract_id, payment_number=None, payment_method=None,
+               party_b_payment_method=None, party_b_bank_account=None,
+               party_b_bank_name=None, party_b_receiving_bank=None,
+               party_b_account_name=None, party_b_payment_account=None,
                fixed_amount=None, payment_rounds=None, current_round=None, plan_start_date=None, plan_end_date=None,
                payment_period=None, planned_payment_date=None, deadline_date=None,
                planned_amount=None, actual_amount=None, payment_date=None,
@@ -87,6 +97,12 @@ class PaymentRecord(db.Model):
             contract_id=contract_id,
             payment_number=payment_number,
             payment_method=payment_method,
+            party_b_payment_method=party_b_payment_method,
+            party_b_bank_account=party_b_bank_account,
+            party_b_bank_name=party_b_bank_name,
+            party_b_receiving_bank=party_b_receiving_bank,
+            party_b_account_name=party_b_account_name,
+            party_b_payment_account=party_b_payment_account,
             fixed_amount=fixed_amount,
             payment_rounds=payment_rounds,
             current_round=current_round,

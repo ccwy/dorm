@@ -97,7 +97,7 @@
                             </label>
                             {% if payment or from_contract %}
                             <input type="text" id="contract_display" 
-                                   value="{% if payment and payment.contract %}{{ payment.contract.contract_number }} - {{ payment.contract.contract_name }}{% elif from_contract %}{{ from_contract.contract_number }} - {{ from_contract.contract_name }}{% endif %}"
+                                   value="{% if payment and payment.contract %}{{ payment.contract.contract_number }} - {{ payment.contract.contract_name }}（{{ payment.contract.payment_method }}）{% elif from_contract %}{{ from_contract.contract_number }} - {{ from_contract.contract_name }}（{{ from_contract.payment_method }}）{% endif %}"
                                    readonly
                                    class="w-full px-3 py-2 text-sm border border-gray-200 rounded-md bg-gray-50 text-gray-500 cursor-not-allowed">
                             <input type="hidden" id="contract_id" name="contract_id" 
@@ -107,7 +107,7 @@
                                     class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
                                 <option value="">请选择合同</option>
                                 {% for c in contracts %}
-                                <option value="{{ c.id }}">{{ c.contract_number }} - {{ c.contract_name }}</option>
+                                <option value="{{ c.id }}">{{ c.contract_number }} - {{ c.contract_name }}（{{ c.payment_method }}）</option>
                                 {% endfor %}
                             </select>
                             {% endif %}
@@ -176,7 +176,7 @@
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">当前轮次</label>
                             <input type="text" id="current_round_display"
-                                   value="{% if payment and payment.current_round %}第{{ payment.current_round }}轮{% elif from_contract %}第{{ (from_contract.current_payment_round or 0) + 1 }}轮{% endif %}"
+                                   value="{% if payment and payment.current_round %}第{{ payment.current_round }}轮/共{{ payment.payment_rounds }}轮{% elif from_contract %}第{{ (from_contract.current_payment_round or 0) + 1 }}轮/共{{ from_contract.payment_rounds }}轮{% endif %}"
                                    readonly
                                    class="w-full px-3 py-2 text-sm border border-gray-200 rounded-md bg-gray-50 text-gray-500 cursor-not-allowed"
                                    placeholder="选择合同后自动填充">
@@ -221,7 +221,7 @@
                         <div id="fixed_only_period_group" {% if (not payment or payment.payment_method not in ('月度固定金额', '月度实际金额')) and (not from_contract or from_contract.payment_method not in ('月度固定金额', '月度实际金额')) %}style="display:none;"{% endif %}>
                             <label for="payment_period" class="block text-sm font-medium text-gray-700 mb-1">付款周期</label>
                             <input type="month" id="payment_period" name="payment_period" 
-                                   value="{{ payment.payment_period if payment and payment.payment_period else '' }}"
+                                   value="{{ payment.payment_period if payment and payment.payment_period else current_month }}"
                                    class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
                                    placeholder="如2026-10">
                         </div>
@@ -294,6 +294,47 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- 收款资料信息 -->
+                {% if (payment and payment.party_b_payment_method) or (from_contract and from_contract.party_b_payment_method) %}
+                <div class="mb-8">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4 pb-2 border-b border-gray-200">
+                        <i class="fa fa-university mr-2 text-accent"></i>乙方收款资料
+                    </h3>
+                    <div class="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            <div>
+                                <span class="text-sm text-gray-500">收款方式</span>
+                                <p class="font-medium text-gray-800">{{ payment.party_b_payment_method if payment else from_contract.party_b_payment_method }}</p>
+                            </div>
+                            {% set pm = payment.party_b_payment_method if payment else from_contract.party_b_payment_method %}
+                            {% if pm == '银行转账' %}
+                            <div>
+                                <span class="text-sm text-gray-500">开户名称</span>
+                                <p class="font-medium text-gray-800">{{ (payment.party_b_account_name if payment else from_contract.party_b_account_name) or '-' }}</p>
+                            </div>
+                            <div>
+                                <span class="text-sm text-gray-500">银行账号</span>
+                                <p class="font-medium text-gray-800">{{ (payment.party_b_bank_account if payment else from_contract.party_b_bank_account) or '-' }}</p>
+                            </div>
+                            <div>
+                                <span class="text-sm text-gray-500">收款银行</span>
+                                <p class="font-medium text-gray-800">{{ (payment.party_b_receiving_bank if payment else from_contract.party_b_receiving_bank) or '-' }}</p>
+                            </div>
+                            <div>
+                                <span class="text-sm text-gray-500">开户行</span>
+                                <p class="font-medium text-gray-800">{{ (payment.party_b_bank_name if payment else from_contract.party_b_bank_name) or '-' }}</p>
+                            </div>
+                            {% else %}
+                            <div>
+                                <span class="text-sm text-gray-500">收款账号</span>
+                                <p class="font-medium text-gray-800">{{ (payment.party_b_payment_account if payment else from_contract.party_b_payment_account) or '-' }}</p>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
 
                 <!-- 提交按钮 -->
                 <div class="flex justify-end gap-3 pt-4 border-t border-gray-200">
@@ -380,7 +421,7 @@
                     // 当前轮次
                     var cr = (contract.current_payment_round || 0) + 1;
                     document.getElementById('current_round').value = cr;
-                    document.getElementById('current_round_display').value = '第' + cr + '轮';
+                    document.getElementById('current_round_display').value = '第' + cr + '轮/共' + pr + '轮';
 
                     // 计划开始日期
                     var psd = contract.plan_start_date || '';
@@ -414,7 +455,7 @@
                     // 当前轮次
                     var cr = (contract.current_payment_round || 0) + 1;
                     document.getElementById('current_round').value = cr;
-                    document.getElementById('current_round_display').value = '第' + cr + '轮';
+                    document.getElementById('current_round_display').value = '第' + cr + '轮/共' + pr + '轮';
 
                     // 计划开始日期
                     var psd = contract.plan_start_date || '';

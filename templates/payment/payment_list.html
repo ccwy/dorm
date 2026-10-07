@@ -120,7 +120,7 @@
                                     class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
                                 <option value="">所有合同</option>
                                 {% for c in contracts %}
-                                    <option value="{{ c.id }}" {% if current_contract_id == c.id|string %}selected{% endif %}>{{ c.contract_name or c.contract_number }}</option>
+                                    <option value="{{ c.id }}" {% if current_contract_id == c.id|string %}selected{% endif %}>{{ c.contract_number }} - {{ c.contract_name }}（{{ c.payment_method }}）</option>
                                 {% endfor %}
                             </select>
                         </div>
@@ -188,13 +188,13 @@
                                 </td>
                                 <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-600">
                                     {% if payment.contract %}
-                                    <a href="{{ url_for('contract.detail', id=payment.contract.id) }}" class="text-blue-600 hover:text-blue-800 hover:underline">{{ payment.contract.contract_name or '-' }}</a>
+                                    <a href="{{ url_for('contract.detail', id=payment.contract.id) }}" class="text-blue-600 hover:text-blue-800 hover:underline">{{ payment.contract.contract_number or '' }} - {{ payment.contract.contract_name or '-' }}{% if payment.contract.payment_method %}（{{ payment.contract.payment_method }}）{% endif %}</a>
                                     {% else %}
                                     -
                                     {% endif %}
                                 </td>
                                 <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-600">{{ payment.payment_method or '-' }}</td>
-                                <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-600">{% if payment.current_round %}第{{ payment.current_round }}轮{% else %}-{% endif %}</td>
+                                <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-600">{% if payment.current_round %}第{{ payment.current_round }}轮{% if payment.payment_rounds %}/共{{ payment.payment_rounds }}轮{% endif %}{% else %}-{% endif %}</td>
                                 <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-600">{{ payment.payment_period or '-' }}</td>
                                 <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-600">{{ payment.planned_payment_date.strftime('%Y-%m-%d') if payment.planned_payment_date else '-' }}</td>
                                 <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-600">{{ payment.deadline_date.strftime('%Y-%m-%d') if payment.deadline_date else '-' }}</td>

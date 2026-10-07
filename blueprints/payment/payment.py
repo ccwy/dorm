@@ -1,4 +1,5 @@
 from flask import Blueprint, render_template, request, flash, redirect, url_for
+from datetime import date
 from utils.db import db
 from models.payment.payment_record import PaymentRecord
 from models.contract.contract import Contract
@@ -180,7 +181,8 @@ def add_page():
             payment=None,
             contracts=contracts,
             payment_number=payment_number,
-            from_contract=None
+            from_contract=None,
+            current_month=date.today().strftime('%Y-%m')
         )
     except Exception as e:
         logging.error(f"加载新增付款页面失败: {str(e)}")
@@ -208,7 +210,8 @@ def add_page_from_contract(contract_id):
             payment=None,
             contracts=contracts,
             payment_number=payment_number,
-            from_contract=contract
+            from_contract=contract,
+            current_month=date.today().strftime('%Y-%m')
         )
     except Exception as e:
         logging.error(f"加载新增付款页面失败: {str(e)}")
@@ -233,7 +236,8 @@ def edit_page(id):
             payment=payment,
             contracts=contracts,
             payment_number=payment.payment_number,
-            from_contract=None
+            from_contract=None,
+            current_month=date.today().strftime('%Y-%m')
         )
     except Exception as e:
         logging.error(f"加载编辑付款页面失败: {str(e)}")

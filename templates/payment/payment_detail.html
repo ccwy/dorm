@@ -115,7 +115,7 @@
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <span class="text-sm text-gray-500">合同名称</span>
-                            <p class="font-medium text-gray-800">{% if payment.contract %}<a href="{{ url_for('contract.detail', id=payment.contract_id) }}" class="text-blue-600 hover:text-blue-800 hover:underline">{{ payment.contract.contract_name or '-' }}</a>{% else %}-{% endif %}</p>
+                            <p class="font-medium text-gray-800">{% if payment.contract %}<a href="{{ url_for('contract.detail', id=payment.contract_id) }}" class="text-blue-600 hover:text-blue-800 hover:underline">{{ payment.contract.contract_number or '' }} - {{ payment.contract.contract_name or '-' }}{% if payment.contract.payment_method %}（{{ payment.contract.payment_method }}）{% endif %}</a>{% else %}-{% endif %}</p>
                         </div>
                         <div>
                             <span class="text-sm text-gray-500">付款编号</span>
@@ -147,7 +147,7 @@
                         </div>
                         <div>
                             <span class="text-sm text-gray-500">当前轮次</span>
-                            <p class="font-medium text-gray-800">{% if payment.current_round %}第{{ payment.current_round }}轮{% else %}-{% endif %}</p>
+                            <p class="font-medium text-gray-800">{% if payment.current_round %}第{{ payment.current_round }}轮{% if payment.payment_rounds %}/共{{ payment.payment_rounds }}轮{% endif %}{% else %}-{% endif %}</p>
                         </div>
                         <div>
                             <span class="text-sm text-gray-500">每月准备日</span>
@@ -212,10 +212,41 @@
                             <p class="font-medium text-gray-800 whitespace-pre-wrap">{{ payment.remark or '-' }}</p>
                         </div>
                     </div>
+                    {% if payment.party_b_payment_method %}
+                    <div class="border-t border-gray-200 my-3"></div>
+                    <p class="text-sm font-medium text-gray-600 mb-2">乙方收款资料</p>
+                    <div class="mb-2">
+                        <span class="text-sm text-gray-500">收款方式</span>
+                        <p class="font-medium text-gray-800">{{ payment.party_b_payment_method }}</p>
+                    </div>
+                    <div class="grid grid-cols-2 gap-x-4 gap-y-2">
+                        {% if payment.party_b_payment_method == '银行转账' %}
+                        <div>
+                            <span class="text-sm text-gray-500">开户名称</span>
+                            <p class="font-medium text-gray-800">{{ payment.party_b_account_name or '-' }}</p>
+                        </div>
+                        <div>
+                            <span class="text-sm text-gray-500">银行账号</span>
+                            <p class="font-medium text-gray-800">{{ payment.party_b_bank_account or '-' }}</p>
+                        </div>
+                        <div>
+                            <span class="text-sm text-gray-500">收款银行</span>
+                            <p class="font-medium text-gray-800">{{ payment.party_b_receiving_bank or '-' }}</p>
+                        </div>
+                        <div>
+                            <span class="text-sm text-gray-500">开户行</span>
+                            <p class="font-medium text-gray-800">{{ payment.party_b_bank_name or '-' }}</p>
+                        </div>
+                        {% else %}
+                        <div>
+                            <span class="text-sm text-gray-500">收款账号</span>
+                            <p class="font-medium text-gray-800">{{ payment.party_b_payment_account or '-' }}</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endif %}
                 </div>
             </div>
-
-            <!-- 右侧 -->
             <div class="space-y-6">
                 <!-- 卡片4：操作信息 -->
                 <div class="bg-white rounded-lg shadow-sm p-6">

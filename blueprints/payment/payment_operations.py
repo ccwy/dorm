@@ -138,7 +138,13 @@ def create_payment():
             status=status,
             remark=remark,
             operator_id=current_user.id,
-            operator_name=current_user.name
+            operator_name=current_user.name,
+            party_b_payment_method=contract.party_b_payment_method,
+            party_b_bank_account=contract.party_b_bank_account,
+            party_b_bank_name=contract.party_b_bank_name,
+            party_b_receiving_bank=contract.party_b_receiving_bank,
+            party_b_account_name=contract.party_b_account_name,
+            party_b_payment_account=contract.party_b_payment_account,
         )
 
         # 记录操作日志
@@ -322,6 +328,15 @@ def update_payment(id):
         payment.payment_date = new_payment_date
         payment.status = new_status
         payment.remark = new_remark
+
+        # 从合同同步收款资料快照
+        if payment.contract:
+            payment.party_b_payment_method = payment.contract.party_b_payment_method
+            payment.party_b_bank_account = payment.contract.party_b_bank_account
+            payment.party_b_bank_name = payment.contract.party_b_bank_name
+            payment.party_b_receiving_bank = payment.contract.party_b_receiving_bank
+            payment.party_b_account_name = payment.contract.party_b_account_name
+            payment.party_b_payment_account = payment.contract.party_b_payment_account
 
         db.session.commit()
 
