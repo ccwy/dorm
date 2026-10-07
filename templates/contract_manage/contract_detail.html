@@ -325,14 +325,6 @@
                             <span class="text-sm text-gray-500">计划截止日期</span>
                             <p class="font-medium text-gray-800">{% if contract.plan_end_date is not none %}每月{{ contract.plan_end_date }}日{% else %}-{% endif %}</p>
                         </div>
-                        <div>
-                            <span class="text-sm text-gray-500">预计付款时间</span>
-                            <p class="font-medium text-gray-800">{% if contract.expected_payment_date %}{{ contract.expected_payment_date.strftime('%Y-%m-%d') }}{% else %}-{% endif %}</p>
-                        </div>
-                        <div>
-                            <span class="text-sm text-gray-500">截止付款日期</span>
-                            <p class="font-medium text-gray-800">{% if contract.deadline_date %}{{ contract.deadline_date.strftime('%Y-%m-%d') }}{% else %}-{% endif %}</p>
-                        </div>
                     </div>
                     {% elif contract.payment_method == '月度实际金额' %}
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
@@ -348,6 +340,10 @@
                             <span class="text-sm text-gray-500">计划截止日期</span>
                             <p class="font-medium text-gray-800">{% if contract.plan_end_date is not none %}每月{{ contract.plan_end_date }}日{% else %}-{% endif %}</p>
                         </div>
+                    </div>
+                    {% endif %}
+                    {% if contract.payment_method not in ['月度固定金额', '月度实际金额'] %}
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
                         <div>
                             <span class="text-sm text-gray-500">预计付款时间</span>
                             <p class="font-medium text-gray-800">{% if contract.expected_payment_date %}{{ contract.expected_payment_date.strftime('%Y-%m-%d') }}{% else %}-{% endif %}</p>
