@@ -13,7 +13,7 @@ utility_room_meter_checkout_photo_bp = Blueprint('utility_room_meter_checkout_ph
 
 @utility_room_meter_checkout_photo_bp.route('/upload_media', methods=['POST'])
 @login_required
-@require_permission('utility.edit')
+@require_permission('dorm_application.create')
 def upload_checkout_media():
     """上传退宿照片或视频"""
     try:
@@ -80,7 +80,7 @@ def upload_checkout_media():
 
 @utility_room_meter_checkout_photo_bp.route('/media/<billing_period>/<room_id>/checkout/<user_id>/<filename>')
 @login_required
-@require_permission('utility.view')
+@require_permission('dorm_application.view')
 def serve_checkout_media(billing_period, room_id, user_id, filename):
     """提供退宿媒体文件的访问"""
     try:
@@ -129,7 +129,7 @@ def serve_checkout_media(billing_period, room_id, user_id, filename):
 
 @utility_room_meter_checkout_photo_bp.route('/delete_media', methods=['POST'])
 @login_required
-@require_permission('utility.edit')
+@require_permission('dorm_application.create')
 def delete_checkout_media():
     """删除退宿媒体文件"""
     try:
@@ -182,7 +182,7 @@ def delete_checkout_media():
 
 @utility_room_meter_checkout_photo_bp.route('/get_media_files', methods=['GET'])
 @login_required
-@require_permission('utility.view')
+@require_permission('dorm_application.view')
 def get_checkout_media_files():
     """获取指定账期、房间和退宿费用子表的所有媒体文件"""
     try:
@@ -235,7 +235,7 @@ def get_checkout_media_files():
 
 @utility_room_meter_checkout_photo_bp.route('/upload_temp_media', methods=['POST'])
 @login_required
-@require_permission('utility.edit')
+@require_permission('dorm_application.create')
 def upload_checkout_temp_media():
     """上传退宿照片到临时目录（退宿申请/审核页面，账期尚未确定）"""
     try:
@@ -281,7 +281,7 @@ def upload_checkout_temp_media():
 
 @utility_room_meter_checkout_photo_bp.route('/temp_media/<room_id>/checkout/<user_id>/<filename>')
 @login_required
-@require_permission('utility.view')
+@require_permission('dorm_application.view')
 def serve_checkout_temp_media(room_id, user_id, filename):
     """提供临时目录中退宿媒体文件的访问"""
     try:
@@ -323,7 +323,7 @@ def serve_checkout_temp_media(room_id, user_id, filename):
 
 @utility_room_meter_checkout_photo_bp.route('/get_temp_media_files', methods=['GET'])
 @login_required
-@require_permission('utility.view')
+@require_permission('dorm_application.view')
 def get_checkout_temp_media_files():
     """获取指定房间和用户临时目录中的所有退宿媒体文件"""
     try:
@@ -362,7 +362,7 @@ def get_checkout_temp_media_files():
 
 @utility_room_meter_checkout_photo_bp.route('/delete_temp_media', methods=['POST'])
 @login_required
-@require_permission('utility.edit')
+@require_permission('dorm_application.create')
 def delete_checkout_temp_media():
     """删除临时目录中的退宿媒体文件"""
     try:
@@ -396,7 +396,6 @@ def delete_checkout_temp_media():
 
 @utility_room_meter_checkout_photo_bp.route('/move_temp_to_billing', methods=['POST'])
 @login_required
-@require_permission('utility.edit')
 def move_checkout_temp_to_billing():
     """将临时目录中的退宿文件移动到正式账期目录（退宿确认时调用）"""
     try:
@@ -436,7 +435,6 @@ def move_checkout_temp_to_billing():
 
 @utility_room_meter_checkout_photo_bp.route('/clear_user_temp_media', methods=['POST'])
 @login_required
-@require_permission('utility.edit')
 def clear_user_checkout_temp_media():
     """清理指定房间用户的临时退宿目录中的所有媒体文件"""
     try:
@@ -472,7 +470,6 @@ def clear_user_checkout_temp_media():
 
 @utility_room_meter_checkout_photo_bp.route('/clear_all_temp_media', methods=['POST'])
 @login_required
-@require_permission('utility.edit')
 def clear_all_checkout_temp_media():
     """清理所有房间用户的临时退宿目录中的媒体文件"""
     try:

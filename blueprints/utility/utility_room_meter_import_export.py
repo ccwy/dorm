@@ -661,7 +661,7 @@ def import_readings():
 # 批量更新抄表记录接口（确保触发自动同步逻辑）
 @utility_room_meter_import_export_bp.route('/batch_update', methods=['POST'])
 @login_required
-@require_permission('utility.edit')
+@require_permission('utility.import')
 def batch_update():
     """批量更新抄表记录（自动同步上次读数）"""
     try:

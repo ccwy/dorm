@@ -203,113 +203,17 @@
                         <span class="text-gray-500">账期</span>
                         <span class="text-gray-800">{{ application.billing_period }}</span>
                     </div>
-                    <!-- 退宿照片管理区域 -->
-                    <div class="mb-4">
-                        <h4 class="text-sm font-semibold text-gray-700 mb-3"><i class="fa fa-camera mr-1"></i>退宿照片</h4>
-                        <div class="mb-2">
-                            <button type="button" id="adminCheckoutPhotoUploadBtn" class="px-3 py-1.5 bg-blue-500 text-white rounded-md hover:bg-blue-600 text-sm">
-                                <i class="fa fa-upload mr-1"></i>上传照片/视频
-                            </button>
-                            <button type="button" id="adminCheckoutClearPhotosBtn" class="px-3 py-1.5 bg-red-500 text-white rounded-md hover:bg-red-600 ml-2 text-sm">
-                                <i class="fa fa-trash mr-1"></i>清理所有文件
-                            </button>
-                            <input type="file" id="adminCheckoutPhotoFileInput" accept="image/png,image/jpeg,image/gif,image/bmp,video/mp4,video/avi,video/quicktime,video/x-ms-wmv,video/x-flv,video/x-matroska" multiple class="hidden">
-                            <p class="text-xs text-gray-500 mt-1">支持 JPG、PNG、GIF、BMP、MP4、AVI、MOV 格式</p>
-                        </div>
-                        <!-- 上传进度 -->
-                        <div id="adminCheckoutPhotoUploadProgress" class="mb-2 hidden">
-                            <div class="flex justify-between mb-1">
-                                <span class="text-xs text-gray-600">上传进度</span>
-                                <span id="adminCheckoutPhotoUploadPercentage" class="text-xs text-gray-600">0%</span>
-                            </div>
-                            <div class="w-full bg-gray-200 rounded-full h-1.5">
-                                <div id="adminCheckoutPhotoUploadBar" class="bg-blue-500 h-1.5 rounded-full" style="width: 0%"></div>
-                            </div>
-                            <p id="adminCheckoutPhotoUploadStatus" class="text-xs text-gray-500 mt-1"></p>
-                        </div>
-                        <!-- 已上传照片预览 -->
-                        <div id="adminCheckoutPhotoPreviewGrid" class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-2 mt-2">
-                            <div class="col-span-full text-center py-4 text-gray-500">
-                                <i class="fa fa-file-image-o text-3xl mb-1"></i>
-                                <p class="text-sm">暂无退宿照片</p>
-                            </div>
-                        </div>
-                    </div>
                     {% endif %}
                     {% if application.water_current is not none %}
                     <div class="flex justify-between text-sm">
                         <span class="text-gray-500">水表读数（申请人填写）</span>
                         <span class="text-gray-800">{{ application.water_current }}</span>
                     </div>
-                    <!-- 退宿照片管理区域 -->
-                    <div class="mb-4">
-                        <h4 class="text-sm font-semibold text-gray-700 mb-3"><i class="fa fa-camera mr-1"></i>退宿照片</h4>
-                        <div class="mb-2">
-                            <button type="button" id="adminCheckoutPhotoUploadBtn" class="px-3 py-1.5 bg-blue-500 text-white rounded-md hover:bg-blue-600 text-sm">
-                                <i class="fa fa-upload mr-1"></i>上传照片/视频
-                            </button>
-                            <button type="button" id="adminCheckoutClearPhotosBtn" class="px-3 py-1.5 bg-red-500 text-white rounded-md hover:bg-red-600 ml-2 text-sm">
-                                <i class="fa fa-trash mr-1"></i>清理所有文件
-                            </button>
-                            <input type="file" id="adminCheckoutPhotoFileInput" accept="image/png,image/jpeg,image/gif,image/bmp,video/mp4,video/avi,video/quicktime,video/x-ms-wmv,video/x-flv,video/x-matroska" multiple class="hidden">
-                            <p class="text-xs text-gray-500 mt-1">支持 JPG、PNG、GIF、BMP、MP4、AVI、MOV 格式</p>
-                        </div>
-                        <!-- 上传进度 -->
-                        <div id="adminCheckoutPhotoUploadProgress" class="mb-2 hidden">
-                            <div class="flex justify-between mb-1">
-                                <span class="text-xs text-gray-600">上传进度</span>
-                                <span id="adminCheckoutPhotoUploadPercentage" class="text-xs text-gray-600">0%</span>
-                            </div>
-                            <div class="w-full bg-gray-200 rounded-full h-1.5">
-                                <div id="adminCheckoutPhotoUploadBar" class="bg-blue-500 h-1.5 rounded-full" style="width: 0%"></div>
-                            </div>
-                            <p id="adminCheckoutPhotoUploadStatus" class="text-xs text-gray-500 mt-1"></p>
-                        </div>
-                        <!-- 已上传照片预览 -->
-                        <div id="adminCheckoutPhotoPreviewGrid" class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-2 mt-2">
-                            <div class="col-span-full text-center py-4 text-gray-500">
-                                <i class="fa fa-file-image-o text-3xl mb-1"></i>
-                                <p class="text-sm">暂无退宿照片</p>
-                            </div>
-                        </div>
-                    </div>
                     {% endif %}
                     {% if application.electric_current is not none %}
                     <div class="flex justify-between text-sm">
                         <span class="text-gray-500">电表读数（申请人填写）</span>
                         <span class="text-gray-800">{{ application.electric_current }}</span>
-                    </div>
-                    <!-- 退宿照片管理区域 -->
-                    <div class="mb-4">
-                        <h4 class="text-sm font-semibold text-gray-700 mb-3"><i class="fa fa-camera mr-1"></i>退宿照片</h4>
-                        <div class="mb-2">
-                            <button type="button" id="adminCheckoutPhotoUploadBtn" class="px-3 py-1.5 bg-blue-500 text-white rounded-md hover:bg-blue-600 text-sm">
-                                <i class="fa fa-upload mr-1"></i>上传照片/视频
-                            </button>
-                            <button type="button" id="adminCheckoutClearPhotosBtn" class="px-3 py-1.5 bg-red-500 text-white rounded-md hover:bg-red-600 ml-2 text-sm">
-                                <i class="fa fa-trash mr-1"></i>清理所有文件
-                            </button>
-                            <input type="file" id="adminCheckoutPhotoFileInput" accept="image/png,image/jpeg,image/gif,image/bmp,video/mp4,video/avi,video/quicktime,video/x-ms-wmv,video/x-flv,video/x-matroska" multiple class="hidden">
-                            <p class="text-xs text-gray-500 mt-1">支持 JPG、PNG、GIF、BMP、MP4、AVI、MOV 格式</p>
-                        </div>
-                        <!-- 上传进度 -->
-                        <div id="adminCheckoutPhotoUploadProgress" class="mb-2 hidden">
-                            <div class="flex justify-between mb-1">
-                                <span class="text-xs text-gray-600">上传进度</span>
-                                <span id="adminCheckoutPhotoUploadPercentage" class="text-xs text-gray-600">0%</span>
-                            </div>
-                            <div class="w-full bg-gray-200 rounded-full h-1.5">
-                                <div id="adminCheckoutPhotoUploadBar" class="bg-blue-500 h-1.5 rounded-full" style="width: 0%"></div>
-                            </div>
-                            <p id="adminCheckoutPhotoUploadStatus" class="text-xs text-gray-500 mt-1"></p>
-                        </div>
-                        <!-- 已上传照片预览 -->
-                        <div id="adminCheckoutPhotoPreviewGrid" class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-2 mt-2">
-                            <div class="col-span-full text-center py-4 text-gray-500">
-                                <i class="fa fa-file-image-o text-3xl mb-1"></i>
-                                <p class="text-sm">暂无退宿照片</p>
-                            </div>
-                        </div>
                     </div>
                     {% endif %}
                     {% endif %}
@@ -348,6 +252,47 @@
             <div id="currentRoomDetail" class="mt-4">
                 <div class="flex justify-center py-4">
                     <div class="w-6 h-6 border-2 border-orange-300 border-t-orange-500 rounded-full animate-spin"></div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- 退宿照片管理卡片（退宿申请时显示） -->
+        {% if application.application_type == 'checkout' %}
+        <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                <i class="fa fa-camera text-blue-500 mr-2"></i>退宿照片
+            </h3>
+            <div class="mb-4">
+                {% if application.status == 'pending' %}
+                <button type="button" id="adminCheckoutPhotoUploadBtn" class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600">
+                    <i class="fa fa-upload mr-1"></i>上传照片/视频
+                </button>
+                <button type="button" id="adminCheckoutClearPhotosBtn" class="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 ml-2">
+                    <i class="fa fa-trash mr-1"></i>清理所有文件
+                </button>
+                <input type="file" id="adminCheckoutPhotoFileInput" accept="image/png,image/jpeg,image/gif,image/bmp,video/mp4,video/avi,video/quicktime,video/x-ms-wmv,video/x-flv,video/x-matroska" multiple class="hidden">
+                <p class="text-xs text-gray-500 mt-1">支持 JPG、PNG、GIF、BMP、MP4、AVI、MOV 格式</p>
+                {% else %}
+                <p class="text-xs text-gray-500 mt-1">申请已审核，照片为只读模式</p>
+                {% endif %}
+            </div>
+            <!-- 上传进度 -->
+            <div id="adminCheckoutPhotoUploadProgress" class="mb-4 hidden">
+                <div class="flex justify-between mb-1">
+                    <span class="text-sm text-gray-600">上传进度</span>
+                    <span id="adminCheckoutPhotoUploadPercentage" class="text-sm text-gray-600">0%</span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-2">
+                    <div id="adminCheckoutPhotoUploadBar" class="bg-blue-500 h-2 rounded-full" style="width: 0%"></div>
+                </div>
+                <p id="adminCheckoutPhotoUploadStatus" class="text-xs text-gray-500 mt-1"></p>
+            </div>
+            <!-- 已上传照片预览 -->
+            <div id="adminCheckoutPhotoPreviewGrid" class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3 mt-4">
+                <div class="col-span-full text-center py-6 text-gray-500">
+                    <i class="fa fa-file-image-o text-4xl mb-2"></i>
+                    <p>暂无退宿照片</p>
                 </div>
             </div>
         </div>
@@ -581,38 +526,6 @@
                                 {% if application.electric_current is not none %}
                                 <p class="mt-1 text-xs text-gray-500">申请人填写：{{ application.electric_current }}</p>
                                 {% endif %}
-                            </div>
-                        </div>
-                    </div>
-                    <!-- 退宿照片管理区域 -->
-                    <div class="mb-4">
-                        <h4 class="text-sm font-semibold text-gray-700 mb-3"><i class="fa fa-camera mr-1"></i>退宿照片</h4>
-                        <div class="mb-2">
-                            <button type="button" id="adminCheckoutPhotoUploadBtn" class="px-3 py-1.5 bg-blue-500 text-white rounded-md hover:bg-blue-600 text-sm">
-                                <i class="fa fa-upload mr-1"></i>上传照片/视频
-                            </button>
-                            <button type="button" id="adminCheckoutClearPhotosBtn" class="px-3 py-1.5 bg-red-500 text-white rounded-md hover:bg-red-600 ml-2 text-sm">
-                                <i class="fa fa-trash mr-1"></i>清理所有文件
-                            </button>
-                            <input type="file" id="adminCheckoutPhotoFileInput" accept="image/png,image/jpeg,image/gif,image/bmp,video/mp4,video/avi,video/quicktime,video/x-ms-wmv,video/x-flv,video/x-matroska" multiple class="hidden">
-                            <p class="text-xs text-gray-500 mt-1">支持 JPG、PNG、GIF、BMP、MP4、AVI、MOV 格式</p>
-                        </div>
-                        <!-- 上传进度 -->
-                        <div id="adminCheckoutPhotoUploadProgress" class="mb-2 hidden">
-                            <div class="flex justify-between mb-1">
-                                <span class="text-xs text-gray-600">上传进度</span>
-                                <span id="adminCheckoutPhotoUploadPercentage" class="text-xs text-gray-600">0%</span>
-                            </div>
-                            <div class="w-full bg-gray-200 rounded-full h-1.5">
-                                <div id="adminCheckoutPhotoUploadBar" class="bg-blue-500 h-1.5 rounded-full" style="width: 0%"></div>
-                            </div>
-                            <p id="adminCheckoutPhotoUploadStatus" class="text-xs text-gray-500 mt-1"></p>
-                        </div>
-                        <!-- 已上传照片预览 -->
-                        <div id="adminCheckoutPhotoPreviewGrid" class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-2 mt-2">
-                            <div class="col-span-full text-center py-4 text-gray-500">
-                                <i class="fa fa-file-image-o text-3xl mb-1"></i>
-                                <p class="text-sm">暂无退宿照片</p>
                             </div>
                         </div>
                     </div>
@@ -1006,6 +919,8 @@
             // ========== 退宿照片管理功能（临时上传方案） ==========
             {% if application.application_type == 'checkout' %}
             const adminCheckoutUserId = {{ application.user_id if application.user_id else 'null' }};
+            const applicationStatus = '{{ application.status }}';
+            const adminCheckoutBillingPeriod = {{ checkout_billing_period | tojson if checkout_billing_period else 'null' }};
 
             // 上传退宿照片到临时目录
             async function uploadAdminCheckoutPhotos(files) {
@@ -1052,25 +967,39 @@
                 loadAdminCheckoutPhotos();
             }
 
-            // 加载退宿临时照片
+            // 加载退宿照片（未审核加载临时文件夹，已审核加载正式文件夹）
             async function loadAdminCheckoutPhotos() {
                 if (!adminCheckoutRoomId || !adminCheckoutUserId) return;
+                var container = document.getElementById('adminCheckoutPhotoPreviewGrid');
+                container.innerHTML = '<div class="col-span-full text-center py-4 text-gray-500"><i class="fa fa-spinner fa-spin text-3xl mb-1"></i><p class="text-sm">加载中...</p></div>';
                 try {
-                    var response = await fetch('/utility-checkout/get_temp_media_files?room_id=' + adminCheckoutRoomId + '&user_id=' + adminCheckoutUserId, {
-                        method: 'GET', headers: { 'Content-Type': 'application/json' }, credentials: 'include'
+                    var url;
+                    if (applicationStatus === 'pending') {
+                        // 未审核：加载临时文件夹
+                        url = '/utility-checkout/get_temp_media_files?room_id=' + adminCheckoutRoomId + '&user_id=' + adminCheckoutUserId;
+                    } else if (adminCheckoutBillingPeriod) {
+                        // 已审核：加载正式文件夹
+                        url = '/utility-checkout/get_media_files?billing_period=' + adminCheckoutBillingPeriod + '&room_id=' + adminCheckoutRoomId + '&user_id=' + adminCheckoutUserId;
+                    } else {
+                        container.innerHTML = '<div class="col-span-full text-center py-4 text-gray-500"><i class="fa fa-file-image-o text-3xl mb-1"></i><p class="text-sm">暂无退宿照片</p></div>';
+                        return;
+                    }
+                    var response = await fetch(url, {
+                        method: 'GET', headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }, credentials: 'include'
                     });
                     var result = await response.json();
                     if (!response.ok) { throw new Error(result.message || '加载照片失败'); }
-                    var container = document.getElementById('adminCheckoutPhotoPreviewGrid');
                     container.innerHTML = '';
                     var html = '';
+                    var isPending = applicationStatus === 'pending';
+                    var labelHtml = isPending ? '<div class="bg-blue-50 text-xs text-blue-600 px-2 py-0.5">待保存</div>' : '<div class="bg-green-50 text-xs text-green-600 px-2 py-0.5">已保存</div>';
                     if (result.files && result.files.length > 0) {
                         result.files.forEach(function(file) {
-                            var isImage = file.type === 'image';
+                            var isImage = file.type === 'image' || file.file_type === 'image';
                             if (isImage) {
-                                html += '<div class="bg-white border border-blue-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow"><div class="bg-blue-50 text-xs text-blue-600 px-2 py-0.5">待保存</div><div class="relative h-32 overflow-hidden"><img src="' + file.url + '" alt="退宿照片" class="w-full h-full object-cover cursor-pointer" onclick="showAdminCheckoutPhotoPreview(\'' + file.url + '\')"><button type="button" class="absolute top-2 right-2 bg-transparent text-red-500 hover:text-white hover:bg-red-500 rounded-full p-1 shadow-lg" onclick="deleteAdminCheckoutPhoto(\'' + file.filename + '\'); event.stopPropagation();"><i class="fa fa-trash-o"></i></button></div><div class="p-1 text-xs text-gray-600 truncate">' + file.filename + '</div></div>';
+                                html += '<div class="bg-white border border-blue-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow">' + labelHtml + '<div class="relative h-32 overflow-hidden"><img src="' + file.url + '" alt="退宿照片" class="w-full h-full object-cover cursor-pointer" onclick="showAdminCheckoutPhotoPreview(\'' + file.url + '\')">' + (isPending ? '<button type="button" class="absolute top-2 right-2 bg-transparent text-red-500 hover:text-white hover:bg-red-500 rounded-full p-1 shadow-lg" onclick="deleteAdminCheckoutPhoto(\'' + file.filename + '\'); event.stopPropagation();"><i class="fa fa-trash-o"></i></button>' : '') + '</div><div class="p-1 text-xs text-gray-600 truncate">' + file.filename + '</div></div>';
                             } else {
-                                html += '<div class="bg-white border border-blue-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow"><div class="bg-blue-50 text-xs text-blue-600 px-2 py-0.5">待保存</div><div class="relative h-32 overflow-hidden bg-gray-100"><video class="w-full h-full object-cover" preload="metadata"><source src="' + file.url + '" type="video/mp4"></video><button type="button" class="absolute top-2 right-2 bg-transparent text-red-500 hover:text-white hover:bg-red-500 rounded-full p-1 shadow-lg z-10" onclick="deleteAdminCheckoutPhoto(\'' + file.filename + '\'); event.stopPropagation();"><i class="fa fa-trash-o"></i></button><div class="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30 cursor-pointer z-0" onclick="showAdminCheckoutPhotoPreview(\'' + file.url + '\', \'video\')"><i class="fa fa-play-circle text-white text-3xl opacity-80"></i></div></div><div class="p-1 text-xs text-gray-600 truncate">' + file.filename + '</div></div>';
+                                html += '<div class="bg-white border border-blue-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow">' + labelHtml + '<div class="relative h-32 overflow-hidden bg-gray-100"><video class="w-full h-full object-cover" preload="metadata"><source src="' + file.url + '" type="video/mp4"></video>' + (isPending ? '<button type="button" class="absolute top-2 right-2 bg-transparent text-red-500 hover:text-white hover:bg-red-500 rounded-full p-1 shadow-lg z-10" onclick="deleteAdminCheckoutPhoto(\'' + file.filename + '\'); event.stopPropagation();"><i class="fa fa-trash-o"></i></button>' : '') + '<div class="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30 cursor-pointer z-0" onclick="showAdminCheckoutPhotoPreview(\'' + file.url + '\', \'video\')"><i class="fa fa-play-circle text-white text-3xl opacity-80"></i></div></div><div class="p-1 text-xs text-gray-600 truncate">' + file.filename + '</div></div>';
                             }
                         });
                     }
@@ -1081,7 +1010,6 @@
                     }
                 } catch (error) {
                     console.error('加载退宿照片失败:', error);
-                    var container = document.getElementById('adminCheckoutPhotoPreviewGrid');
                     container.innerHTML = '<div class="col-span-full text-center py-4 text-gray-500"><i class="fa fa-exclamation-circle text-3xl mb-1"></i><p class="text-sm">加载照片失败</p></div>';
                 }
             }

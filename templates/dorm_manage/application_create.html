@@ -78,9 +78,9 @@
         {% endwith %}
 
         <!-- 申请表单 -->
-        <div class="bg-white rounded-lg shadow-sm p-6">
-            {% set form_action = url_for('dorm_application_user.create_allocate') if application_type == 'allocate' else (url_for('dorm_application_user.create_change') if application_type == 'change' else url_for('dorm_application_user.create_checkout')) %}
-            <form id="applicationForm" method="POST" action="{{ form_action }}">
+        {% set form_action = url_for('dorm_application_user.create_allocate') if application_type == 'allocate' else (url_for('dorm_application_user.create_change') if application_type == 'change' else url_for('dorm_application_user.create_checkout')) %}
+        <form id="applicationForm" method="POST" action="{{ form_action }}">
+        <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
                 <!-- 用户信息 -->
                 <div class="mb-8">
                     <h3 class="text-lg font-semibold text-gray-800 mb-4 pb-2 border-b border-gray-200">
@@ -218,7 +218,6 @@
                         </div>
                         </div>
                     </div>
-                </div>
                 {% endif %}
 
                 <!-- 日期和原因 -->
@@ -297,9 +296,11 @@
                     </div>
                 </div>
 
+                </div>
+
                 {% if application_type == 'checkout' %}
-                <!-- 退宿照片管理区域 -->
-                <div class="bg-white shadow-sm rounded-lg p-6 mt-6">
+                <!-- 退宿照片管理区域（独立卡片） -->
+                <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
                     <h3 class="text-lg font-semibold text-gray-800 mb-4">
                         <i class="fa fa-camera mr-2"></i>退宿照片
                     </h3>
@@ -345,16 +346,17 @@
                 {% endif %}
 
                 <!-- 提交按钮 -->
-                <div class="flex items-center gap-4 pt-4 border-t border-gray-200">
-                    <button type="submit" id="submitBtn" class="btn-effect bg-primary text-white px-6 py-2.5 rounded-md flex items-center">
-                        <i class="fa fa-paper-plane mr-2"></i>提交申请
-                    </button>
-                    <a href="{{ url_for('dorm_application_user.application_list') }}" class="btn-effect bg-gray-200 text-gray-700 px-6 py-2.5 rounded-md flex items-center">
-                        <i class="fa fa-arrow-left mr-2"></i>返回列表
-                    </a>
+                <div class="bg-white rounded-lg shadow-sm p-6">
+                    <div class="flex items-center gap-4">
+                        <button type="submit" id="submitBtn" class="btn-effect bg-primary text-white px-6 py-2.5 rounded-md flex items-center">
+                            <i class="fa fa-paper-plane mr-2"></i>提交申请
+                        </button>
+                        <a href="{{ url_for('dorm_application_user.application_list') }}" class="btn-effect bg-gray-200 text-gray-700 px-6 py-2.5 rounded-md flex items-center">
+                            <i class="fa fa-arrow-left mr-2"></i>返回列表
+                        </a>
+                    </div>
                 </div>
-            </form>
-        </div>
+        </form>
     </main>
 
     {% include 'footer.html' %}
