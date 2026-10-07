@@ -128,7 +128,7 @@ def init_flask_app(progress_callback=None):
         role_bp,
         contract_bp, contract_api_bp, contract_import_export_bp,
         maintenance_user_bp, maintenance_admin_bp, maintenance_staff_bp, maintenance_api_bp,
-        payment_bp, payment_api_bp
+        payment_bp, payment_api_bp, payment_export_bp
     )
     _stamp("导入37个蓝图")
     app.register_blueprint(login_bp)
@@ -198,6 +198,7 @@ def init_flask_app(progress_callback=None):
     app.register_blueprint(contract_import_export_bp)
     app.register_blueprint(payment_bp)
     app.register_blueprint(payment_api_bp)
+    app.register_blueprint(payment_export_bp)
     app.register_blueprint(maintenance_user_bp)
     app.register_blueprint(maintenance_admin_bp)
     app.register_blueprint(maintenance_staff_bp)

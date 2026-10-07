@@ -70,7 +70,7 @@ from .role import role_bp
 from .contract import contract_bp, contract_api_bp, contract_import_export_bp
 
 # 付款管理相关
-from .payment import payment_bp, payment_api_bp
+from .payment import payment_bp, payment_api_bp, payment_export_bp
 
 # 后勤维修管理相关
 from .maintenance import maintenance_user_bp, maintenance_admin_bp, maintenance_staff_bp, maintenance_api_bp
