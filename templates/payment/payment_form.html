@@ -267,8 +267,8 @@
                                    placeholder="如2026-10">
                         </div>
 
-                        <!-- 非月度类日期字段（一次性付清/按实际金额付款时显示） -->
-                        <div id="non_monthly_date_group" class="contents" {% if (not payment or payment.payment_method in ('月度固定金额', '月度实际金额')) and (not from_contract or from_contract.payment_method in ('月度固定金额', '月度实际金额')) %}style="display:none;"{% endif %}>
+                        <!-- 预计付款时间和截止付款时间（所有付款方式均显示） -->
+                        <div id="non_monthly_date_group" class="contents">
                         <!-- 计划付款日期 -->
                         <div>
                             <label for="planned_payment_date" class="block text-sm font-medium text-gray-700 mb-1">计划付款日期</label>
@@ -488,7 +488,7 @@
                     }
                     fixedGroup.style.display = '';
                     fixedPeriodGroup.style.display = '';
-                    nonMonthlyDateGroup.style.display = 'none';
+                    nonMonthlyDateGroup.style.display = '';
 
                     // 付款轮次
                     var pr = contract.payment_rounds || '';
@@ -509,6 +509,9 @@
                     var ped = contract.payment_deadline_day || '';
                     document.getElementById('payment_deadline_day').value = ped;
                     document.getElementById('payment_deadline_day_display').value = ped ? '每月' + ped + '日' : '';
+
+                    // 自动计算计划付款日期和截止付款日期
+                    calculateMonthlyDates();
 
                     // 自动填入计划付款金额：固定金额类 → fixed_amount
                     if (fa) {
@@ -523,7 +526,7 @@
 
                     fixedGroup.style.display = '';
                     fixedPeriodGroup.style.display = '';
-                    nonMonthlyDateGroup.style.display = 'none';
+                    nonMonthlyDateGroup.style.display = '';
 
                     // 付款轮次
                     var pr = contract.payment_rounds || '';
@@ -544,6 +547,9 @@
                     var ped = contract.payment_deadline_day || '';
                     document.getElementById('payment_deadline_day').value = ped;
                     document.getElementById('payment_deadline_day_display').value = ped ? '每月' + ped + '日' : '';
+
+                    // 自动计算计划付款日期和截止付款日期
+                    calculateMonthlyDates();
 
                     // 自动填入计划付款金额：月度实际金额 → contract_amount
                     var ca = contract.contract_amount;
@@ -615,50 +621,63 @@
                 document.getElementById('fixed_only_period_group').style.display = 'none';
                 document.getElementById('payment_period').value = '';
                 // 隐藏并清空非月度类日期字段
-                document.getElementById('non_monthly_date_group').style.display = 'none';
+                document.getElementById('non_monthly_date_group').style.display = '';
                 document.getElementById('planned_payment_date').value = '';
                 document.getElementById('deadline_date').value = '';
+            }
+
+            // 月度类付款日期计算公共函数
+            function calculateMonthlyDates() {
+                var period = document.getElementById('payment_period').value;
+                var psd = document.getElementById('reconciliation_day').value;
+                var ped = document.getElementById('payment_deadline_day').value;
+
+                if (!period) return;
+
+                var parts = period.split('-');
+                if (parts.length !== 2) return;
+                var year = parseInt(parts[0]);
+                var month = parseInt(parts[1]);
+                if (isNaN(year) || isNaN(month)) return;
+
+                // 计算计划付款日期：对账日始终取付款周期的当月
+                if (psd) {
+                    var day = parseInt(psd);
+                    if (!isNaN(day)) {
+                        var maxDay = new Date(year, month, 0).getDate();
+                        day = Math.min(day, maxDay);
+                        var dateStr = year + '-' + String(month).padStart(2, '0') + '-' + String(day).padStart(2, '0');
+                        document.getElementById('planned_payment_date').value = dateStr;
+                        if (!document.getElementById('payment_date').value) document.getElementById('payment_date').value = dateStr;
+                    }
+                }
+
+                // 计算截止付款日期：付款截止日 > 对账日 → 当月；付款截止日 <= 对账日 → 次月
+                if (ped) {
+                    var endDay = parseInt(ped);
+                    if (!isNaN(endDay)) {
+                        var psdVal = psd ? parseInt(psd) : 0;
+                        var endYear = year;
+                        var endMonth = month;
+                        if (psdVal && endDay <= psdVal) {
+                            endMonth = endMonth + 1;
+                            if (endMonth > 12) {
+                                endMonth = 1;
+                                endYear = endYear + 1;
+                            }
+                        }
+                        var maxEndDay = new Date(endYear, endMonth, 0).getDate();
+                        endDay = Math.min(endDay, maxEndDay);
+                        var dateStr = endYear + '-' + String(endMonth).padStart(2, '0') + '-' + String(endDay).padStart(2, '0');
+                        document.getElementById('deadline_date').value = dateStr;
+                    }
+                }
             }
 
             // 付款周期变化时，自动计算计划付款日期和截止付款日期
             var paymentPeriodInput = document.getElementById('payment_period');
             if (paymentPeriodInput) {
-                paymentPeriodInput.addEventListener('change', function() {
-                    var period = this.value; // 格式: YYYY-MM
-                    var psd = document.getElementById('reconciliation_day').value;
-                    var ped = document.getElementById('payment_deadline_day').value;
-
-                    if (!period) return;
-
-                    var parts = period.split('-');
-                    if (parts.length !== 2) return;
-                    var year = parseInt(parts[0]);
-                    var month = parseInt(parts[1]);
-                    if (isNaN(year) || isNaN(month)) return;
-
-                    // 计算计划付款日期：该月第reconciliation_day天
-                    if (psd) {
-                        var day = parseInt(psd);
-                        if (!isNaN(day)) {
-                            var maxDay = new Date(year, month, 0).getDate();
-                            day = Math.min(day, maxDay);
-                            var dateStr = year + '-' + String(month).padStart(2, '0') + '-' + String(day).padStart(2, '0');
-                            document.getElementById('planned_payment_date').value = dateStr;
-                            if (!document.getElementById('payment_date').value) document.getElementById('payment_date').value = dateStr;
-                        }
-                    }
-
-                    // 计算截止付款日期：该月第payment_deadline_day天
-                    if (ped) {
-                        var endDay = parseInt(ped);
-                        if (!isNaN(endDay)) {
-                            var maxDay = new Date(year, month, 0).getDate();
-                            endDay = Math.min(endDay, maxDay);
-                            var dateStr = year + '-' + String(month).padStart(2, '0') + '-' + String(endDay).padStart(2, '0');
-                            document.getElementById('deadline_date').value = dateStr;
-                        }
-                    }
-                });
+                paymentPeriodInput.addEventListener('change', calculateMonthlyDates);
             }
 
             // 计划付款日期改变时，自动设置截止付款日期（仅当截止付款日期为空时）
