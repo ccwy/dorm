@@ -78,9 +78,11 @@
                         <i class="fa fa-trash-o mr-2"></i>批量删除
                     </button>
                     {% endif %}
+                    {% if current_user.has_permission('payment.export') %}
                     <a href="{{ url_for('payment_export.export') }}" class="btn-hover bg-green-600 text-white px-4 py-2 rounded-md flex items-center">
                         <i class="fa fa-download mr-2"></i>导出
                     </a>
+                    {% endif %}
                     <button onclick="location.reload();" class="btn-hover bg-secondary text-white px-4 py-2 rounded-md flex items-center">
                         <i class="fa fa-refresh mr-2"></i>刷新页面
                     </button>

@@ -130,7 +130,7 @@ def init_flask_app(progress_callback=None):
         maintenance_user_bp, maintenance_admin_bp, maintenance_staff_bp, maintenance_api_bp,
         payment_bp, payment_api_bp, payment_export_bp
     )
-    _stamp("导入37个蓝图")
+    _stamp("导入72个蓝图")
     app.register_blueprint(login_bp)
     app.register_blueprint(user_bp)
     app.register_blueprint(user_api_bp)
@@ -203,7 +203,7 @@ def init_flask_app(progress_callback=None):
     app.register_blueprint(maintenance_admin_bp)
     app.register_blueprint(maintenance_staff_bp)
     app.register_blueprint(maintenance_api_bp)
-    _stamp("注册38个蓝图")
+    _stamp("注册72个蓝图")
 
     # 阶段4：初始化数据库
     if progress_callback:

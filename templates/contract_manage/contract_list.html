@@ -100,7 +100,7 @@
                         <i class="fa fa-truck mr-2"></i>供应商管理
                     </button>
                     {% endif %}
-                    {% if get_config_value('FEATURE_PAYMENT_MANAGE_ENABLED', True) and current_user.has_permission('payment.view') %}
+                    {% if current_user.has_permission('payment.view') %}
                     <button onclick="window.location.href='{{ url_for('payment.index') }}'" class="btn-hover bg-emerald-500 text-white px-4 py-2 rounded-md flex items-center">
                         <i class="fa fa-credit-card mr-2"></i>付款管理
                     </button>
