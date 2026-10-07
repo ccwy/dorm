@@ -116,6 +116,11 @@
             </span>
             {% endif %}
             {% endif %}
+            {% if get_config_value('FEATURE_PAYMENT_MANAGE_ENABLED', True) and current_user.has_permission('payment.create') %}
+            <a href="{{ url_for('payment.add_page_from_contract', contract_id=contract.id) }}" class="px-4 py-2 bg-emerald-500 text-white rounded-md hover:bg-emerald-600 btn-hover inline-flex items-center">
+                <i class="fa fa-credit-card mr-1"></i>创建付款记录
+            </a>
+            {% endif %}
             {% if current_user.has_permission('contract.edit') %}
             <button type="button" onclick="showStatusChangeModal()" class="px-4 py-2 bg-amber-500 text-white rounded-md hover:bg-amber-600 btn-hover inline-flex items-center">
                 <i class="fa fa-exchange mr-1"></i>状态变更

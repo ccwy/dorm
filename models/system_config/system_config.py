@@ -274,6 +274,15 @@ class SystemConfig(db.Model):
                 'is_editable': True,
                 'sort_order': 140
             },
+            {
+                'config_key': 'FEATURE_PAYMENT_MANAGE_ENABLED',
+                'config_value': 'true',
+                'config_type': 'bool',
+                'category': 'system.feature',
+                'description': '付款管理功能开关',
+                'is_editable': True,
+                'sort_order': 145
+            },
             # 后勤维修功能开关
             {
                 'config_key': 'FEATURE_MAINTENANCE_MANAGE_ENABLED',

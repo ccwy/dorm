@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+{% include 'static.html' %}
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#165DFF',
+                        secondary: '#36CFC9',
+                        accent: '#722ED1',
+                        danger: '#F5222D',
+                        info: '#1890FF',
+                        warning: '#FAAD14'
+                    },
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .btn-hover {
+                transition: all 0.2s ease;
+            }
+            .btn-hover:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            }
+            .btn-effect {
+                transition: all 0.2s ease;
+            }
+            .btn-effect:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            }
+            .fade-in {
+                animation: fadeIn 0.5s ease-in;
+            }
+            @keyframes fadeIn {
+                from { opacity: 0; }
+                to { opacity: 1; }
+            }
+            @keyframes blink {
+                0%, 100% { opacity: 1; }
+                50% { opacity: 0.5; }
+            }
+            .blink-warning {
+                animation: blink 1.5s ease-in-out infinite;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+{% include 'header.html' %}
+    <main class="container mx-auto px-4 py-6">
+        <!-- Flash消息 -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            <div class="flash-messages mb-6">
+              {% for category, message in messages %}
+                <div class="p-4 rounded-md mb-2 {% if category == 'success' %}bg-green-100 text-green-800{% elif category == 'error' or category == 'danger' %}bg-red-100 text-red-800{% elif category == 'warning' %}bg-yellow-100 text-yellow-800{% else %}bg-blue-100 text-blue-800{% endif %}">
+                  <button type="button" class="float-right ml-2 text-gray-500 hover:text-gray-700" onclick="this.parentElement.remove()">×</button>
+                  {{ message | safe }}
+                </div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        {% endwith %}
+
+        <!-- 标题区 -->
+        <div class="flex items-center mb-6 fade-in">
+            <button type="button" onclick="window.history.back()" class="text-primary hover:text-primary/80 mr-2">
+                <i class="fa fa-arrow-left"></i>
+            </button>
+            <h2 class="text-2xl font-semibold text-dark">{{ title }}</h2>
+            <!-- 状态标签 -->
+            {% if payment.status == '待付款' %}
+            <span class="ml-3 px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">待付款</span>
+            {% elif payment.status == '已付款' %}
+            <span class="ml-3 px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm">已付款</span>
+            {% elif payment.status == '已逾期' %}
+            <span class="ml-3 px-3 py-1 bg-red-100 text-red-800 rounded-full text-sm blink-warning"><i class="fa fa-exclamation-triangle mr-1"></i>已逾期</span>
+            {% elif payment.status == '已取消' %}
+            <span class="ml-3 px-3 py-1 bg-gray-200 text-gray-600 rounded-full text-sm">已取消</span>
+            {% endif %}
+        </div>
+
+        <!-- 操作按钮 -->
+        <div class="flex flex-wrap gap-3 mb-6">
+            {% if current_user.has_permission('payment.edit') %}
+            <a href="{{ url_for('payment.edit_page', id=payment.id) }}" class="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90 btn-hover inline-flex items-center">
+                <i class="fa fa-edit mr-1"></i>编辑
+            </a>
+            {% endif %}
+            {% if current_user.has_permission('payment.delete') %}
+            <button type="button" onclick="confirmDelete()" class="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 btn-hover inline-flex items-center">
+                <i class="fa fa-trash mr-1"></i>删除
+            </button>
+            {% endif %}
+            <button onclick="window.location.href='{{ url_for('payment.index') }}'" class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 btn-hover inline-flex items-center">
+                <i class="fa fa-list mr-1"></i>返回列表
+            </button>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- 左侧 -->
+            <div class="lg:col-span-2 space-y-6">
+                <!-- 卡片1：合同信息 -->
+                <div class="bg-white rounded-lg shadow-sm p-6">
+                    <h3 class="text-lg font-medium text-gray-800 mb-4 pb-2 border-b border-gray-200">
+                        <i class="fa fa-file-text-o text-primary mr-2"></i>合同信息
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <span class="text-sm text-gray-500">合同名称</span>
+                            <p class="font-medium text-gray-800">{% if payment.contract %}<a href="{{ url_for('contract.detail', id=payment.contract_id) }}" class="text-blue-600 hover:text-blue-800 hover:underline">{{ payment.contract.contract_name or '-' }}</a>{% else %}-{% endif %}</p>
+                        </div>
+                        <div>
+                            <span class="text-sm text-gray-500">付款编号</span>
+                            <p class="font-medium text-gray-800">{{ payment.payment_number or '-' }}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 卡片2：付款方案 -->
+                <div class="bg-white rounded-lg shadow-sm p-6">
+                    <h3 class="text-lg font-medium text-gray-800 mb-4 pb-2 border-b border-gray-200">
+                        <i class="fa fa-calendar-check-o text-green-500 mr-2"></i>付款方案
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div>
+                            <span class="text-sm text-gray-500">付款方式</span>
+                            <p class="font-medium text-gray-800">{{ payment.payment_method or '-' }}</p>
+                        </div>
+                        {% if payment.payment_method == '月度固定金额' %}
+                        <div>
+                            <span class="text-sm text-gray-500">固定金额</span>
+                            <p class="font-medium text-gray-800">{% if payment.fixed_amount is not none %}{{ '{:,.2f}'.format(payment.fixed_amount) }} 元{% else %}-{% endif %}</p>
+                        </div>
+                        {% endif %}
+                        {% if payment.payment_method in ['月度固定金额', '月度实际金额'] %}
+                        <div>
+                            <span class="text-sm text-gray-500">付款轮次</span>
+                            <p class="font-medium text-gray-800">{{ payment.payment_rounds or '-' }}</p>
+                        </div>
+                        <div>
+                            <span class="text-sm text-gray-500">每月准备日</span>
+                            <p class="font-medium text-gray-800">{% if payment.plan_start_date is not none %}每月{{ payment.plan_start_date }}日{% else %}-{% endif %}</p>
+                        </div>
+                        <div>
+                            <span class="text-sm text-gray-500">每月截止日</span>
+                            <p class="font-medium text-gray-800">{% if payment.plan_end_date is not none %}每月{{ payment.plan_end_date }}日{% else %}-{% endif %}</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- 卡片3：付款记录 -->
+                <div class="bg-white rounded-lg shadow-sm p-6">
+                    <h3 class="text-lg font-medium text-gray-800 mb-4 pb-2 border-b border-gray-200">
+                        <i class="fa fa-money text-warning mr-2"></i>付款记录
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <span class="text-sm text-gray-500">付款周期</span>
+                            <p class="font-medium text-gray-800">{{ payment.payment_period or '-' }}</p>
+                        </div>
+                        <div>
+                            <span class="text-sm text-gray-500">计划付款日期</span>
+                            <p class="font-medium text-gray-800">{% if payment.planned_payment_date %}{{ payment.planned_payment_date.strftime('%Y-%m-%d') }}{% else %}-{% endif %}</p>
+                        </div>
+                        <div>
+                            <span class="text-sm text-gray-500">截止付款日期</span>
+                            <p class="font-medium text-gray-800">{% if payment.deadline_date %}{{ payment.deadline_date.strftime('%Y-%m-%d') }}{% else %}-{% endif %}</p>
+                        </div>
+                        <div>
+                            <span class="text-sm text-gray-500">计划付款金额</span>
+                            <p class="font-medium text-gray-800">{% if payment.planned_amount is not none %}{{ '{:,.2f}'.format(payment.planned_amount) }} 元{% else %}-{% endif %}</p>
+                        </div>
+                        <div>
+                            <span class="text-sm text-gray-500">实际付款金额</span>
+                            <p class="font-medium text-gray-800">{% if payment.actual_amount is not none %}{{ '{:,.2f}'.format(payment.actual_amount) }} 元{% else %}-{% endif %}</p>
+                        </div>
+                        <div>
+                            <span class="text-sm text-gray-500">实际付款日期</span>
+                            <p class="font-medium text-gray-800">{% if payment.payment_date %}{{ payment.payment_date.strftime('%Y-%m-%d') }}{% else %}-{% endif %}</p>
+                        </div>
+                        <div>
+                            <span class="text-sm text-gray-500">状态</span>
+                            <p class="font-medium text-gray-800">
+                                {% if payment.status == '待付款' %}
+                                <span class="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs">待付款</span>
+                                {% elif payment.status == '已付款' %}
+                                <span class="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs">已付款</span>
+                                {% elif payment.status == '已逾期' %}
+                                <span class="px-2 py-1 bg-red-100 text-red-800 rounded-full text-xs">已逾期</span>
+                                {% elif payment.status == '已取消' %}
+                                <span class="px-2 py-1 bg-gray-200 text-gray-600 rounded-full text-xs">已取消</span>
+                                {% else %}
+                                {{ payment.status }}
+                                {% endif %}
+                            </p>
+                        </div>
+                        <div class="md:col-span-2">
+                            <span class="text-sm text-gray-500">备注</span>
+                            <p class="font-medium text-gray-800 whitespace-pre-wrap">{{ payment.remark or '-' }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 右侧 -->
+            <div class="space-y-6">
+                <!-- 卡片4：操作信息 -->
+                <div class="bg-white rounded-lg shadow-sm p-6">
+                    <h3 class="text-lg font-medium text-gray-800 mb-4 pb-2 border-b border-gray-200">
+                        <i class="fa fa-user text-accent mr-2"></i>操作信息
+                    </h3>
+                    <div class="space-y-4">
+                        <div>
+                            <span class="text-sm text-gray-500">操作人</span>
+                            <p class="font-medium text-gray-800">{{ payment.operator_name or '-' }}</p>
+                        </div>
+                        <div>
+                            <span class="text-sm text-gray-500">创建时间</span>
+                            <p class="font-medium text-gray-800">{{ payment.create_time.strftime('%Y-%m-%d %H:%M') if payment.create_time else '-' }}</p>
+                        </div>
+                        <div>
+                            <span class="text-sm text-gray-500">更新时间</span>
+                            <p class="font-medium text-gray-800">{{ payment.update_time.strftime('%Y-%m-%d %H:%M') if payment.update_time else '-' }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- 删除确认表单 -->
+    <form id="deleteForm" action="{{ url_for('payment.delete_payment', id=payment.id) }}" method="post" class="hidden"></form>
+
+    <!-- 删除确认弹窗 -->
+    <div id="deleteModal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
+        <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md mx-4">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">
+                <i class="fa fa-exclamation-circle text-red-500 mr-2"></i>确认删除
+            </h3>
+            <p class="text-gray-600 mb-6">确定要删除此付款记录吗？删除后不可恢复！</p>
+            <div class="flex justify-end gap-3">
+                <button type="button" onclick="hideDeleteModal()" class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50">
+                    取消
+                </button>
+                <button type="button" onclick="submitDelete()" class="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600">
+                    确认删除
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 页脚 -->
+    {% include 'footer.html' %}
+
+    <script>
+        // 删除确认弹窗
+        function confirmDelete() {
+            document.getElementById('deleteModal').classList.remove('hidden');
+        }
+        function hideDeleteModal() {
+            document.getElementById('deleteModal').classList.add('hidden');
+        }
+        function submitDelete() {
+            document.getElementById('deleteForm').submit();
+        }
+        // 点击遮罩关闭
+        document.getElementById('deleteModal').addEventListener('click', function(e) {
+            if (e.target === this) hideDeleteModal();
+        });
+    </script>
+</body>
+</html>

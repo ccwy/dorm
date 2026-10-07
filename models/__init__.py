@@ -12,3 +12,4 @@ from .role import Role, RolePermission  # 角色权限模型
 from .contract import Contract, ContractOperationRecord
 from .dorm import Dorm, DormApplication, DormOperation  # 宿舍管理模型及申请模型
 from .maintenance import MaintenanceOrder, MaintenanceReply
+from .payment import PaymentRecord  # 付款记录模型

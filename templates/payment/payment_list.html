@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+{% include 'static.html' %}
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#165DFF',
+                        secondary: '#36CFC9',
+                        accent: '#722ED1',
+                        danger: '#F5222D',
+                        info: '#1890FF',
+                        warning: '#FAAD14'
+                    },
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .btn-effect {
+                transition: all 0.2s ease;
+            }
+            .btn-effect:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            }
+            .btn-hover {
+                transition: all 0.2s ease;
+            }
+            .btn-hover:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            }
+            .fade-in {
+                animation: fadeIn 0.5s ease-in;
+            }
+            @keyframes fadeIn {
+                from { opacity: 0; }
+                to { opacity: 1; }
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+{% include 'header.html' %}
+    <main class="container mx-auto px-4 py-6">
+
+        <!-- 标题和功能按钮区 -->
+        <div class="mb-6 fade-in">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between">
+                <div class="flex items-center">
+                    <button type="button" onclick="window.history.back()" class="text-gray-600 hover:text-primary transition-colors mr-4">
+                        <i class="fa fa-arrow-left"></i>
+                    </button>
+                    <div>
+                        <h2 class="text-[clamp(1.5rem,3vw,2rem)] font-bold text-dark">{{ title }}</h2>
+                        <p class="text-gray-500 mt-1">管理付款记录，包括新增、编辑、查看和状态跟踪</p>
+                    </div>
+                </div>
+                <div class="mt-4 md:mt-0 flex flex-wrap gap-3">
+                    {% if current_user.has_permission('payment.create') %}
+                    <button onclick="window.location.href='{{ url_for('payment.add_page') }}'" class="btn-hover bg-primary text-white px-4 py-2 rounded-md flex items-center">
+                        <i class="fa fa-plus mr-2"></i>新增付款记录
+                    </button>
+                    {% endif %}
+                    {% if current_user.has_permission('payment.delete') %}
+                    <button id="batchDeleteBtn" disabled class="btn-hover bg-red-500 text-white px-4 py-2 rounded-md flex items-center opacity-50 cursor-not-allowed">
+                        <i class="fa fa-trash-o mr-2"></i>批量删除
+                    </button>
+                    {% endif %}
+                    <button onclick="location.reload();" class="btn-hover bg-secondary text-white px-4 py-2 rounded-md flex items-center">
+                        <i class="fa fa-refresh mr-2"></i>刷新页面
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 消息提示区域 -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            <div class="flash-messages mb-6">
+              {% for category, message in messages %}
+                <div class="p-4 rounded-md mb-2 {% if category == 'success' %}bg-green-100 text-green-800{% elif category == 'error' or category == 'danger' %}bg-red-100 text-red-800{% elif category == 'warning' %}bg-yellow-100 text-yellow-800{% else %}bg-blue-100 text-blue-800{% endif %}">
+                  <button type="button" class="float-right ml-2 text-gray-500 hover:text-gray-700" onclick="this.parentElement.remove()">×</button>
+                  {{ message | safe }}
+                </div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        {% endwith %}
+
+        <div class="bg-white rounded-lg shadow-sm p-6 mx-auto">
+            <div class="mb-6">
+                <!-- 筛选表单 -->
+                <form method="get" action="{{ url_for('payment.index') }}">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
+                        <!-- 状态筛选 -->
+                        <div>
+                            <label for="filterStatus" class="block text-sm font-medium text-gray-700 mb-1">状态</label>
+                            <select id="filterStatus" name="status"
+                                    class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                                <option value="">所有状态</option>
+                                {% for s in statuses %}
+                                    <option value="{{ s }}" {% if current_status == s %}selected{% endif %}>{{ s }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <!-- 合同筛选 -->
+                        <div>
+                            <label for="filterContract" class="block text-sm font-medium text-gray-700 mb-1">关联合同</label>
+                            <select id="filterContract" name="contract_id"
+                                    class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                                <option value="">所有合同</option>
+                                {% for c in contracts %}
+                                    <option value="{{ c.id }}" {% if current_contract_id == c.id|string %}selected{% endif %}>{{ c.contract_name or c.contract_number }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <!-- 付款周期筛选 -->
+                        <div>
+                            <label for="filterPeriod" class="block text-sm font-medium text-gray-700 mb-1">付款周期</label>
+                            <input type="month" id="filterPeriod" name="payment_period"
+                                   value="{{ current_payment_period }}"
+                                   class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                        </div>
+
+                        <!-- 关键词搜索 -->
+                        <div>
+                            <label for="filterKeyword" class="block text-sm font-medium text-gray-700 mb-1">搜索</label>
+                            <input type="text" id="filterKeyword" name="keyword"
+                                   placeholder="付款编号/备注"
+                                   value="{{ keyword }}"
+                                   class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                        </div>
+
+                        <!-- 搜索/重置按钮 -->
+                        <div class="flex items-end gap-2">
+                            <button type="submit" class="px-4 py-2 bg-primary text-white rounded-md text-sm hover:bg-primary/90">
+                                <i class="fa fa-search mr-1"></i>搜索
+                            </button>
+                            <a href="{{ url_for('payment.index') }}" class="px-4 py-2 border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50">
+                                <i class="fa fa-undo mr-1"></i>重置
+                            </a>
+                        </div>
+                    </div>
+                </form>
+
+                <!-- 付款记录列表 -->
+                <div class="overflow-x-auto mt-4">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    <input type="checkbox" id="selectAll">
+                                </th>
+                                <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">序号</th>
+                                <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">付款编号</th>
+                                <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">合同名称</th>
+                                <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">付款方式</th>
+                                <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">付款周期</th>
+                                <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">计划付款日期</th>
+                                <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">截止付款日期</th>
+                                <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">计划金额</th>
+                                <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">实际金额</th>
+                                <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">状态</th>
+                                <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            {% for payment in payments %}
+                            <tr>
+                                <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-600">
+                                    <input type="checkbox" class="payment-checkbox" value="{{ payment.id }}">
+                                </td>
+                                <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-600">{{ (current_page - 1) * per_page + loop.index }}</td>
+                                <td class="px-4 py-4 whitespace-nowrap">
+                                    <a href="{{ url_for('payment.detail', id=payment.id) }}" class="text-primary hover:underline">{{ payment.payment_number or '-' }}</a>
+                                </td>
+                                <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-600">
+                                    {% if payment.contract %}
+                                    <a href="{{ url_for('contract.detail', id=payment.contract.id) }}" class="text-blue-600 hover:text-blue-800 hover:underline">{{ payment.contract.contract_name or '-' }}</a>
+                                    {% else %}
+                                    -
+                                    {% endif %}
+                                </td>
+                                <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-600">{{ payment.payment_method or '-' }}</td>
+                                <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-600">{{ payment.payment_period or '-' }}</td>
+                                <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-600">{{ payment.planned_payment_date.strftime('%Y-%m-%d') if payment.planned_payment_date else '-' }}</td>
+                                <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-600">{{ payment.deadline_date.strftime('%Y-%m-%d') if payment.deadline_date else '-' }}</td>
+                                <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-600">
+                                    {% if payment.planned_amount is not none %}
+                                    {{ '{:,.2f}'.format(payment.planned_amount) }}
+                                    {% else %}
+                                    -
+                                    {% endif %}
+                                </td>
+                                <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-600">
+                                    {% if payment.actual_amount is not none %}
+                                    {{ '{:,.2f}'.format(payment.actual_amount) }}
+                                    {% else %}
+                                    -
+                                    {% endif %}
+                                </td>
+                                <td class="px-4 py-4 whitespace-nowrap">
+                                    {% if payment.status == '待付款' %}
+                                    <span class="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs">待付款</span>
+                                    {% elif payment.status == '已付款' %}
+                                    <span class="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs">已付款</span>
+                                    {% elif payment.status == '已逾期' %}
+                                    <span class="px-2 py-1 bg-red-100 text-red-800 rounded-full text-xs"><i class="fa fa-exclamation-circle mr-1"></i>已逾期</span>
+                                    {% elif payment.status == '已取消' %}
+                                    <span class="px-2 py-1 bg-gray-200 text-gray-600 rounded-full text-xs">已取消</span>
+                                    {% else %}
+                                    <span class="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs">{{ payment.status }}</span>
+                                    {% endif %}
+                                </td>
+                                <td class="px-4 py-4 whitespace-nowrap text-sm font-medium">
+                                    <div class="flex gap-2">
+                                        <button onclick="window.location.href='{{ url_for('payment.detail', id=payment.id) }}'" class="btn-effect bg-blue-500 text-white px-2 py-1 rounded-md text-sm flex items-center">
+                                            <i class="fa fa-eye mr-1"></i>查看
+                                        </button>
+                                        {% if current_user.has_permission('payment.edit') %}
+                                        <button onclick="window.location.href='{{ url_for('payment.edit_page', id=payment.id) }}'" class="btn-effect bg-amber-500 text-white px-2 py-1 rounded-md text-sm flex items-center">
+                                            <i class="fa fa-pencil mr-1"></i>编辑
+                                        </button>
+                                        {% endif %}
+                                        {% if current_user.has_permission('payment.delete') %}
+                                        <button class="btn-effect bg-red-500 text-white px-2 py-1 rounded-md text-sm flex items-center"
+                                            onclick="if(confirm('确定要删除付款记录「{{ payment.payment_number }}」吗？删除后不可恢复！')) { document.getElementById('deleteForm-{{ payment.id }}').submit(); }">
+                                            <i class="fa fa-trash mr-1"></i>删除
+                                        </button>
+                                        {% endif %}
+                                    </div>
+                                    <!-- 单个删除表单 -->
+                                    <form id="deleteForm-{{ payment.id }}" action="{{ url_for('payment.delete_payment', id=payment.id) }}" method="post" class="hidden"></form>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="12" class="px-6 py-4 text-center text-gray-500">没有找到匹配的付款记录</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- 分页 -->
+                {% if total_pages > 0 %}
+                <div class="px-6 py-4 bg-gray-50 border-t border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between mt-4 gap-4">
+                    <div class="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                        <div class="text-sm text-gray-700">
+                            显示 <span class="font-medium">{{ (current_page - 1) * per_page + 1 }}</span> 到 <span class="font-medium">{{ (current_page - 1) * per_page + payments|length }}</span> 条，共 <span class="font-medium">{{ total_count }}</span> 条记录
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <span class="text-sm text-gray-700">每页显示：</span>
+                            <select id="pageSizeSelect" class="px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
+                                <option value="10" {% if per_page == 10 %}selected{% endif %}>10条/页</option>
+                                <option value="20" {% if per_page == 20 %}selected{% endif %}>20条/页</option>
+                                <option value="50" {% if per_page == 50 %}selected{% endif %}>50条/页</option>
+                                <option value="100" {% if per_page == 100 %}selected{% endif %}>100条/页</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="flex space-x-1">
+                        <button class="px-3 py-1 border border-gray-300 rounded bg-white text-gray-500 hover:bg-gray-50 {% if current_page == 1 %}opacity-50 cursor-not-allowed{% endif %}"
+                                {% if current_page > 1 %}onclick="window.location.href='{{ url_for('payment.index', page=current_page-1, per_page=per_page, status=current_status, contract_id=current_contract_id, payment_period=current_payment_period, keyword=keyword) }}'"{% endif %}>
+                            <i class="fa fa-chevron-left"></i>
+                        </button>
+                        {% for p in page_range %}
+                            {% if p == '...' %}
+                            <button class="px-3 py-1 border border-gray-300 rounded bg-white text-gray-700" disabled>...</button>
+                            {% else %}
+                            <button class="px-3 py-1 border {% if p == current_page %}border-primary bg-primary text-white{% else %}border-gray-300 bg-white text-gray-700 hover:bg-gray-50{% endif %} rounded"
+                                    onclick="window.location.href='{{ url_for('payment.index', page=p, per_page=per_page, status=current_status, contract_id=current_contract_id, payment_period=current_payment_period, keyword=keyword) }}'">{{ p }}</button>
+                            {% endif %}
+                        {% endfor %}
+                        <button class="px-3 py-1 border border-gray-300 rounded bg-white text-gray-500 hover:bg-gray-50 {% if current_page == total_pages %}opacity-50 cursor-not-allowed{% endif %}"
+                                {% if current_page < total_pages %}onclick="window.location.href='{{ url_for('payment.index', page=current_page+1, per_page=per_page, status=current_status, contract_id=current_contract_id, payment_period=current_payment_period, keyword=keyword) }}'"{% endif %}>
+                            <i class="fa fa-chevron-right"></i>
+                        </button>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </main>
+
+    <!-- 批量删除使用逐个调用删除API -->
+
+    <!-- 页脚 -->
+    {% include 'footer.html' %}
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // 筛选区选择即生效
+            var filterStatus = document.getElementById('filterStatus');
+            var filterContract = document.getElementById('filterContract');
+            var filterPeriod = document.getElementById('filterPeriod');
+            var searchForm = document.querySelector('form[action="{{ url_for('payment.index') }}"]');
+
+            filterStatus.addEventListener('change', function() { searchForm.submit(); });
+            filterContract.addEventListener('change', function() { searchForm.submit(); });
+            filterPeriod.addEventListener('change', function() { searchForm.submit(); });
+
+            // 搜索框延迟提交
+            var searchTimeout;
+            var filterKeyword = document.getElementById('filterKeyword');
+            filterKeyword.addEventListener('input', function() {
+                clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(function() { searchForm.submit(); }, 500);
+            });
+
+            // 页面大小选择器
+            var pageSizeSelect = document.getElementById('pageSizeSelect');
+            if (pageSizeSelect) {
+                pageSizeSelect.addEventListener('change', function() {
+                    var urlParams = new URLSearchParams(window.location.search);
+                    urlParams.set('page', '1');
+                    urlParams.set('per_page', this.value);
+                    window.location.search = urlParams.toString();
+                });
+            }
+
+            // Checkbox全选/取消全选
+            var selectAll = document.getElementById('selectAll');
+            var paymentCheckboxes = document.querySelectorAll('.payment-checkbox');
+            var batchDeleteBtn = document.getElementById('batchDeleteBtn');
+
+            if (selectAll) {
+                selectAll.addEventListener('change', function() {
+                    paymentCheckboxes.forEach(function(cb) { cb.checked = selectAll.checked; });
+                    updateBatchDeleteBtn();
+                });
+            }
+
+            paymentCheckboxes.forEach(function(cb) {
+                cb.addEventListener('change', function() {
+                    if (selectAll) {
+                        selectAll.checked = Array.from(paymentCheckboxes).every(function(c) { return c.checked; });
+                    }
+                    updateBatchDeleteBtn();
+                });
+            });
+
+            function updateBatchDeleteBtn() {
+                if (!batchDeleteBtn) return;
+                var checkedCount = document.querySelectorAll('.payment-checkbox:checked').length;
+                if (checkedCount > 0) {
+                    batchDeleteBtn.disabled = false;
+                    batchDeleteBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                } else {
+                    batchDeleteBtn.disabled = true;
+                    batchDeleteBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                }
+            }
+
+            // 批量删除：逐个调用删除API
+            if (batchDeleteBtn) {
+                batchDeleteBtn.addEventListener('click', function() {
+                    var checkedIds = Array.from(document.querySelectorAll('.payment-checkbox:checked')).map(function(cb) { return cb.value; });
+                    if (checkedIds.length === 0) {
+                        alert('请选择要删除的付款记录');
+                        return;
+                    }
+                    if (!confirm('确定要删除选中的 ' + checkedIds.length + ' 条付款记录吗？删除后不可恢复！')) {
+                        return;
+                    }
+                    var deleteUrl = "{{ url_for('payment.delete_payment', id=0) }}".replace(/\/0$/, '');
+                    var completed = 0;
+                    var total = checkedIds.length;
+                    checkedIds.forEach(function(id) {
+                        fetch(deleteUrl + '/' + id, {method: 'POST', redirect: 'manual'})
+                        .finally(function() {
+                            completed++;
+                            if (completed === total) {
+                                window.location.reload();
+                            }
+                        });
+                    });
+                });
+            }
+        });
+    </script>
+</body>
+</html>

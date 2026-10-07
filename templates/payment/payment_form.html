@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+{% include 'static.html' %}
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#165DFF',
+                        secondary: '#36CFC9',
+                        accent: '#722ED1',
+                        danger: '#F5222D',
+                        info: '#1890FF',
+                        warning: '#FAAD14'
+                    },
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .btn-effect {
+                transition: all 0.2s ease;
+            }
+            .btn-effect:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            }
+            .btn-hover {
+                transition: all 0.2s ease;
+            }
+            .btn-hover:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            }
+            .fade-in {
+                animation: fadeIn 0.5s ease-in;
+            }
+            @keyframes fadeIn {
+                from { opacity: 0; }
+                to { opacity: 1; }
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+{% include 'header.html' %}
+    <main class="container mx-auto px-4 py-6">
+        
+        <!-- 标题区 -->
+        <div class="mb-6 fade-in">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between">
+                <div class="flex items-center">
+                    <button type="button" onclick="window.history.back()" class="text-gray-600 hover:text-primary transition-colors mr-4">
+                        <i class="fa fa-arrow-left"></i>
+                    </button>
+                    <div>
+                        <h2 class="text-[clamp(1.5rem,3vw,2rem)] font-bold text-dark">{{ title }}</h2>
+                        <p class="text-gray-500 mt-1">{% if payment %}编辑付款记录信息{% else %}填写新付款记录信息{% endif %}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 消息提示区域 -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            <div class="flash-messages mb-6">
+              {% for category, message in messages %}
+                <div class="p-4 rounded-md mb-2 {% if category == 'success' %}bg-green-100 text-green-800{% elif category == 'error' or category == 'danger' %}bg-red-100 text-red-800{% elif category == 'warning' %}bg-yellow-100 text-yellow-800{% else %}bg-blue-100 text-blue-800{% endif %}">
+                  <button type="button" class="float-right ml-2 text-gray-500 hover:text-gray-700" onclick="this.parentElement.remove()">×</button>
+                  {{ message | safe }}
+                </div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        {% endwith %}
+
+        <div class="bg-white rounded-lg shadow-sm p-6 mx-auto">
+            <form id="paymentForm" method="post" action="{% if payment %}{{ url_for('payment.update_payment', id=payment.id) }}{% else %}{{ url_for('payment.create_payment') }}{% endif %}">
+                
+                <!-- 卡片1：合同信息 -->
+                <div class="mb-8">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4 pb-2 border-b border-gray-200">
+                        <i class="fa fa-file-text-o mr-2 text-primary"></i>合同信息
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <!-- 合同选择 -->
+                        <div>
+                            <label for="contract_id" class="block text-sm font-medium text-gray-700 mb-1">
+                                关联合同 <span class="text-red-500">*</span>
+                            </label>
+                            {% if payment or from_contract %}
+                            <input type="text" id="contract_display" 
+                                   value="{% if payment and payment.contract %}{{ payment.contract.contract_number }} - {{ payment.contract.contract_name }}{% elif from_contract %}{{ from_contract.contract_number }} - {{ from_contract.contract_name }}{% endif %}"
+                                   readonly
+                                   class="w-full px-3 py-2 text-sm border border-gray-200 rounded-md bg-gray-50 text-gray-500 cursor-not-allowed">
+                            <input type="hidden" id="contract_id" name="contract_id" 
+                                   value="{% if payment %}{{ payment.contract_id }}{% elif from_contract %}{{ from_contract.id }}{% endif %}">
+                            {% else %}
+                            <select id="contract_id" name="contract_id"
+                                    class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                                <option value="">请选择合同</option>
+                                {% for c in contracts %}
+                                <option value="{{ c.id }}">{{ c.contract_number }} - {{ c.contract_name }}</option>
+                                {% endfor %}
+                            </select>
+                            {% endif %}
+                        </div>
+
+                        <!-- 付款编号 -->
+                        <div>
+                            <label for="payment_number_display" class="block text-sm font-medium text-gray-700 mb-1">付款编号</label>
+                            <input type="text" id="payment_number_display" 
+                                   value="{% if payment %}{{ payment.payment_number }}{% else %}{{ payment_number }}（自动生成）{% endif %}"
+                                   readonly
+                                   class="w-full px-3 py-2 text-sm border border-gray-200 rounded-md bg-gray-50 text-gray-500 cursor-not-allowed">
+                            <input type="hidden" id="payment_number" 
+                                   value="{% if payment %}{{ payment.payment_number }}{% else %}{{ payment_number }}{% endif %}">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 卡片2：付款方案（从合同带入，只读显示） -->
+                <div class="mb-8">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4 pb-2 border-b border-gray-200">
+                        <i class="fa fa-calendar-check-o mr-2 text-green-500"></i>付款方案
+                    </h3>
+                    <div class="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-3">
+                        <p class="text-xs text-gray-500"><i class="fa fa-info-circle mr-1"></i>以下信息从关联合同自动带入，不可编辑</p>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <!-- 付款方式 -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">付款方式</label>
+                            <input type="text" id="payment_method_display" 
+                                   value="{% if payment and payment.payment_method %}{{ payment.payment_method }}{% elif from_contract and from_contract.payment_method %}{{ from_contract.payment_method }}{% endif %}"
+                                   readonly
+                                   class="w-full px-3 py-2 text-sm border border-gray-200 rounded-md bg-gray-50 text-gray-500 cursor-not-allowed"
+                                   placeholder="选择合同后自动填充">
+                            <input type="hidden" id="payment_method" name="payment_method" 
+                                   value="{% if payment and payment.payment_method %}{{ payment.payment_method }}{% elif from_contract and from_contract.payment_method %}{{ from_contract.payment_method }}{% endif %}">
+                        </div>
+
+                        <!-- 固定金额 -->
+                        <div id="fixed_amount_group" {% if (not payment or payment.payment_method != '月度固定金额') and (not from_contract or from_contract.payment_method != '月度固定金额') %}style="display:none;"{% endif %}>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">固定金额（元）</label>
+                            <input type="text" id="fixed_amount_display" 
+                                   value="{% if payment and payment.fixed_amount is not none %}{{ payment.fixed_amount }}{% elif from_contract and from_contract.fixed_amount is not none %}{{ from_contract.fixed_amount }}{% endif %}"
+                                   readonly
+                                   class="w-full px-3 py-2 text-sm border border-gray-200 rounded-md bg-gray-50 text-gray-500 cursor-not-allowed"
+                                   placeholder="选择合同后自动填充">
+                            <input type="hidden" id="fixed_amount" name="fixed_amount" 
+                                   value="{% if payment and payment.fixed_amount is not none %}{{ payment.fixed_amount }}{% elif from_contract and from_contract.fixed_amount is not none %}{{ from_contract.fixed_amount }}{% endif %}">
+                        </div>
+
+                        <!-- 固定金额类专属字段组 -->
+                        <div id="fixed_only_group" class="col-span-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" {% if (not payment or payment.payment_method != '月度固定金额') and (not from_contract or from_contract.payment_method != '月度固定金额') %}style="display:none;"{% endif %}>
+                        <!-- 付款轮次 -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">付款轮次</label>
+                            <input type="text" id="payment_rounds_display" 
+                                   value="{% if payment and payment.payment_rounds %}{{ payment.payment_rounds }}{% elif from_contract and from_contract.payment_rounds %}{{ from_contract.payment_rounds }}{% endif %}"
+                                   readonly
+                                   class="w-full px-3 py-2 text-sm border border-gray-200 rounded-md bg-gray-50 text-gray-500 cursor-not-allowed"
+                                   placeholder="选择合同后自动填充">
+                            <input type="hidden" id="payment_rounds" name="payment_rounds" 
+                                   value="{% if payment and payment.payment_rounds %}{{ payment.payment_rounds }}{% elif from_contract and from_contract.payment_rounds %}{{ from_contract.payment_rounds }}{% endif %}">
+                        </div>
+
+                        <!-- 计划开始日期 -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">每月准备日</label>
+                            <input type="text" id="plan_start_date_display" 
+                                   value="{% if payment and payment.plan_start_date %}每月{{ payment.plan_start_date }}日{% elif from_contract and from_contract.plan_start_date %}每月{{ from_contract.plan_start_date }}日{% endif %}"
+                                   readonly
+                                   class="w-full px-3 py-2 text-sm border border-gray-200 rounded-md bg-gray-50 text-gray-500 cursor-not-allowed"
+                                   placeholder="选择合同后自动填充">
+                            <input type="hidden" id="plan_start_date" name="plan_start_date" 
+                                   value="{% if payment and payment.plan_start_date %}{{ payment.plan_start_date }}{% elif from_contract and from_contract.plan_start_date %}{{ from_contract.plan_start_date }}{% endif %}">
+                        </div>
+
+                        <!-- 计划截止日期 -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">每月截止日</label>
+                            <input type="text" id="plan_end_date_display" 
+                                   value="{% if payment and payment.plan_end_date %}每月{{ payment.plan_end_date }}日{% elif from_contract and from_contract.plan_end_date %}每月{{ from_contract.plan_end_date }}日{% endif %}"
+                                   readonly
+                                   class="w-full px-3 py-2 text-sm border border-gray-200 rounded-md bg-gray-50 text-gray-500 cursor-not-allowed"
+                                   placeholder="选择合同后自动填充">
+                            <input type="hidden" id="plan_end_date" name="plan_end_date" 
+                                   value="{% if payment and payment.plan_end_date %}{{ payment.plan_end_date }}{% elif from_contract and from_contract.plan_end_date %}{{ from_contract.plan_end_date }}{% endif %}">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 卡片3：付款记录 -->
+                <div class="mb-8">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4 pb-2 border-b border-gray-200">
+                        <i class="fa fa-money mr-2 text-warning"></i>付款记录
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <!-- 付款周期 -->
+                        <div>
+                            <label for="payment_period" class="block text-sm font-medium text-gray-700 mb-1">付款周期</label>
+                            <input type="month" id="payment_period" name="payment_period" 
+                                   value="{{ payment.payment_period if payment and payment.payment_period else '' }}"
+                                   class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                   placeholder="如2026-10">
+                        </div>
+
+                        <!-- 计划付款日期 -->
+                        <div>
+                            <label for="planned_payment_date" class="block text-sm font-medium text-gray-700 mb-1">计划付款日期</label>
+                            <input type="date" id="planned_payment_date" name="planned_payment_date" 
+                                   value="{% if payment and payment.planned_payment_date %}{{ payment.planned_payment_date.strftime('%Y-%m-%d') }}{% endif %}"
+                                   class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                        </div>
+
+                        <!-- 截止付款日期 -->
+                        <div>
+                            <label for="deadline_date" class="block text-sm font-medium text-gray-700 mb-1">截止付款日期</label>
+                            <input type="date" id="deadline_date" name="deadline_date" 
+                                   value="{% if payment and payment.deadline_date %}{{ payment.deadline_date.strftime('%Y-%m-%d') }}{% endif %}"
+                                   class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                        </div>
+
+                        <!-- 计划付款金额 -->
+                        <div>
+                            <label for="planned_amount" class="block text-sm font-medium text-gray-700 mb-1">计划付款金额（元）</label>
+                            <input type="number" id="planned_amount" name="planned_amount" 
+                                   value="{{ payment.planned_amount if payment and payment.planned_amount is not none else '' }}"
+                                   step="0.01" min="0"
+                                   class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                   placeholder="请输入计划付款金额">
+                        </div>
+
+                        <!-- 实际付款金额 -->
+                        <div>
+                            <label for="actual_amount" class="block text-sm font-medium text-gray-700 mb-1">实际付款金额（元）</label>
+                            <input type="number" id="actual_amount" name="actual_amount" 
+                                   value="{{ payment.actual_amount if payment and payment.actual_amount is not none else '' }}"
+                                   step="0.01" min="0"
+                                   class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                   placeholder="请输入实际付款金额">
+                        </div>
+
+                        <!-- 实际付款日期 -->
+                        <div>
+                            <label for="payment_date" class="block text-sm font-medium text-gray-700 mb-1">实际付款日期</label>
+                            <input type="date" id="payment_date" name="payment_date" 
+                                   value="{% if payment and payment.payment_date %}{{ payment.payment_date.strftime('%Y-%m-%d') }}{% endif %}"
+                                   class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                        </div>
+
+                        <!-- 状态 -->
+                        <div>
+                            <label for="status" class="block text-sm font-medium text-gray-700 mb-1">状态</label>
+                            <select id="status" name="status"
+                                    class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                                <option value="待付款" {% if payment and payment.status == '待付款' %}selected{% elif not payment %}selected{% endif %}>待付款</option>
+                                <option value="已付款" {% if payment and payment.status == '已付款' %}selected{% endif %}>已付款</option>
+                                <option value="已逾期" {% if payment and payment.status == '已逾期' %}selected{% endif %}>已逾期</option>
+                                <option value="已取消" {% if payment and payment.status == '已取消' %}selected{% endif %}>已取消</option>
+                            </select>
+                        </div>
+
+                        <!-- 备注 -->
+                        <div class="md:col-span-2 lg:col-span-3">
+                            <label for="remark" class="block text-sm font-medium text-gray-700 mb-1">备注</label>
+                            <textarea id="remark" name="remark" rows="3"
+                                      class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                      placeholder="请输入备注信息">{{ payment.remark or '' if payment else '' }}</textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 提交按钮 -->
+                <div class="flex justify-end gap-3 pt-4 border-t border-gray-200">
+                    <button type="button" onclick="window.history.back()" class="px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 btn-hover">
+                        <i class="fa fa-times mr-2"></i>取消
+                    </button>
+                    <button type="submit" class="px-6 py-2 bg-primary text-white rounded-md hover:bg-primary/90 btn-hover">
+                        <i class="fa fa-save mr-2"></i>{% if payment %}保存修改{% else %}保存{% endif %}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </main>
+
+    <!-- 页脚 -->
+    {% include 'footer.html' %}
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // 合同选择变化时，获取合同信息自动填充付款方案
+            var contractSelect = document.getElementById('contract_id');
+            if (contractSelect && contractSelect.tagName === 'SELECT') {
+                contractSelect.addEventListener('change', function() {
+                    var contractId = this.value;
+                    if (!contractId) {
+                        clearPaymentPlan();
+                        return;
+                    }
+                    fetch("{{ url_for('payment_api.get_contracts') }}")
+                        .then(function(response) { return response.json(); })
+                        .then(function(data) {
+                            if (data.success && data.data) {
+                                var contract = null;
+                                for (var i = 0; i < data.data.length; i++) {
+                                    if (data.data[i].id == contractId) {
+                                        contract = data.data[i];
+                                        break;
+                                    }
+                                }
+                                if (contract) {
+                                    fillPaymentPlan(contract);
+                                }
+                            }
+                        })
+                        .catch(function(err) {
+                            console.error('获取合同信息失败:', err);
+                        });
+                });
+            }
+
+            // 填充付款方案字段
+            function fillPaymentPlan(contract) {
+                // 付款方式
+                var pm = contract.payment_method || '';
+                document.getElementById('payment_method').value = pm;
+                document.getElementById('payment_method_display').value = pm;
+
+                // 固定金额
+                var fa = contract.fixed_amount;
+                var faGroup = document.getElementById('fixed_amount_group');
+                if (fa) {
+                    document.getElementById('fixed_amount').value = fa;
+                    document.getElementById('fixed_amount_display').value = fa;
+                    faGroup.style.display = '';
+                } else {
+                    document.getElementById('fixed_amount').value = '';
+                    document.getElementById('fixed_amount_display').value = '';
+                    faGroup.style.display = 'none';
+                }
+
+                // 付款轮次
+                var pr = contract.payment_rounds || '';
+                document.getElementById('payment_rounds').value = pr;
+                document.getElementById('payment_rounds_display').value = pr;
+
+                // 计划开始日期
+                var psd = contract.plan_start_date || '';
+                document.getElementById('plan_start_date').value = psd;
+                document.getElementById('plan_start_date_display').value = psd ? '每月' + psd + '日' : '';
+
+                // 计划截止日期
+                var ped = contract.plan_end_date || '';
+                document.getElementById('plan_end_date').value = ped;
+                document.getElementById('plan_end_date_display').value = ped ? '每月' + ped + '日' : '';
+
+                // 如果付款方式为月度固定金额，自动填入计划付款金额
+                if (pm === '月度固定金额' && fa) {
+                    document.getElementById('planned_amount').value = fa;
+                }
+            }
+
+            // 清空付款方案字段
+            function clearPaymentPlan() {
+                document.getElementById('payment_method').value = '';
+                document.getElementById('payment_method_display').value = '';
+                document.getElementById('fixed_amount').value = '';
+                document.getElementById('fixed_amount_display').value = '';
+                document.getElementById('fixed_amount_group').style.display = 'none';
+                document.getElementById('payment_rounds').value = '';
+                document.getElementById('payment_rounds_display').value = '';
+                document.getElementById('plan_start_date').value = '';
+                document.getElementById('plan_start_date_display').value = '';
+                document.getElementById('plan_end_date').value = '';
+                document.getElementById('plan_end_date_display').value = '';
+            }
+
+            // 付款周期变化时，自动计算计划付款日期和截止付款日期
+            var paymentPeriodInput = document.getElementById('payment_period');
+            if (paymentPeriodInput) {
+                paymentPeriodInput.addEventListener('change', function() {
+                    var period = this.value; // 格式: YYYY-MM
+                    var psd = document.getElementById('plan_start_date').value;
+                    var ped = document.getElementById('plan_end_date').value;
+
+                    if (!period) return;
+
+                    var parts = period.split('-');
+                    if (parts.length !== 2) return;
+                    var year = parseInt(parts[0]);
+                    var month = parseInt(parts[1]);
+                    if (isNaN(year) || isNaN(month)) return;
+
+                    // 计算计划付款日期：该月第plan_start_date天
+                    if (psd) {
+                        var day = parseInt(psd);
+                        if (!isNaN(day)) {
+                            var maxDay = new Date(year, month, 0).getDate();
+                            day = Math.min(day, maxDay);
+                            var dateStr = year + '-' + String(month).padStart(2, '0') + '-' + String(day).padStart(2, '0');
+                            document.getElementById('planned_payment_date').value = dateStr;
+                        }
+                    }
+
+                    // 计算截止付款日期：该月第plan_end_date天
+                    if (ped) {
+                        var endDay = parseInt(ped);
+                        if (!isNaN(endDay)) {
+                            var maxDay = new Date(year, month, 0).getDate();
+                            endDay = Math.min(endDay, maxDay);
+                            var dateStr = year + '-' + String(month).padStart(2, '0') + '-' + String(endDay).padStart(2, '0');
+                            document.getElementById('deadline_date').value = dateStr;
+                        }
+                    }
+                });
+            }
+        });
+    </script>
+</body>
+</html>

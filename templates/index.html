@@ -320,6 +320,19 @@
             </div>
             {% endif %}
 
+            <!-- 付款管理 -->
+            {% if get_config_value('FEATURE_PAYMENT_MANAGE_ENABLED', True) and current_user.has_permission('payment.view') %}
+            <div class="bg-white rounded-xl p-6 card-shadow btn-hover nav-card">
+                <a href="{{ url_for('payment.index') }}" class="flex flex-col items-center text-center">
+                    <div class="w-16 h-16 bg-emerald-500/10 rounded-full flex items-center justify-center mb-4">
+                        <i class="fa fa-credit-card text-xl md:text-2xl text-emerald-500"></i>
+                    </div>
+                    <h3 class="text-base md:text-lg font-medium text-dark mb-2">付款管理</h3>
+                    <p class="text-gray-500 text-sm">管理合同付款记录</p>
+                </a>
+            </div>
+            {% endif %}
+
             <!-- 后勤维修 -->
             {% if get_config_value('FEATURE_MAINTENANCE_MANAGE_ENABLED', True) and current_user.has_permission('maintenance.view') %}
             <div class="bg-white rounded-xl p-6 card-shadow btn-hover nav-card">
