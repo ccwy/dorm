@@ -49,6 +49,15 @@ def create_payment():
         # 自动生成付款编号
         payment_number = PaymentRecord.generate_payment_number()
 
+        # 计算当前轮次（关联合同已付款轮次+1）
+        current_round = (contract.current_payment_round or 0) + 1
+
+        # 校验：月度固定金额或月度实际金额方式，付款轮次不能超过合同总轮次
+        if payment_method in ('月度固定金额', '月度实际金额') and contract.payment_rounds:
+            if current_round > contract.payment_rounds:
+                flash('该合同已达到付款轮次上限', 'danger')
+                return redirect(url_for('payment.add_page'))
+
         # 数值转换：fixed_amount/planned_amount/actual_amount转Decimal
         if fixed_amount:
             try:
@@ -101,8 +110,13 @@ def create_payment():
                 payment_date = None
 
         # 非固定金额类：清空固定金额专属字段
-        if payment_method != '月度固定金额':
+        if payment_method not in ('月度固定金额', '月度实际金额'):
             payment_rounds = None
+            plan_start_date = None
+            plan_end_date = None
+            payment_period = None
+        elif payment_method == '月度实际金额':
+            # 月度实际金额：保留轮次，清空其他固定金额专属字段
             plan_start_date = None
             plan_end_date = None
             payment_period = None
@@ -114,6 +128,7 @@ def create_payment():
             payment_method=payment_method,
             fixed_amount=fixed_amount,
             payment_rounds=payment_rounds,
+            current_round=current_round,
             plan_start_date=plan_start_date,
             plan_end_date=plan_end_date,
             payment_period=payment_period,
@@ -242,11 +257,28 @@ def update_payment(id):
                 new_payment_date = None
 
         # 非固定金额类：清空固定金额专属字段
-        if new_payment_method != '月度固定金额':
+        if new_payment_method not in ('月度固定金额', '月度实际金额'):
             new_payment_rounds = None
             new_plan_start_date = None
             new_plan_end_date = None
             new_payment_period = None
+        elif new_payment_method == '月度实际金额':
+            # 月度实际金额：保留轮次，清空其他固定金额专属字段
+            new_plan_start_date = None
+            new_plan_end_date = None
+            new_payment_period = None
+
+        # 状态变更时更新合同的当前已付款轮次
+        old_status = payment.status
+        if old_status != new_status:
+            contract = Contract.query.get(payment.contract_id)
+            if contract:
+                if old_status != '已付款' and new_status == '已付款':
+                    # 从非"已付款"变为"已付款"：+1
+                    contract.current_payment_round = (contract.current_payment_round or 0) + 1
+                elif old_status == '已付款' and new_status != '已付款':
+                    # 从"已付款"变为其他状态：-1（最低0）
+                    contract.current_payment_round = max((contract.current_payment_round or 0) - 1, 0)
 
         # 对比新旧值，记录变更详情
         changes = []
@@ -334,6 +366,12 @@ def delete_payment(id):
     try:
         payment = PaymentRecord.query.get_or_404(id)
         payment_number = payment.payment_number
+
+        # 如果被删除的付款记录状态为"已付款"，需回退合同当前已付款轮次
+        if payment.status == '已付款':
+            contract = Contract.query.get(payment.contract_id)
+            if contract:
+                contract.current_payment_round = max((contract.current_payment_round or 0) - 1, 0)
 
         db.session.delete(payment)
         db.session.commit()

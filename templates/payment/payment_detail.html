@@ -146,6 +146,10 @@
                             <p class="font-medium text-gray-800">{{ payment.payment_rounds or '-' }}</p>
                         </div>
                         <div>
+                            <span class="text-sm text-gray-500">当前轮次</span>
+                            <p class="font-medium text-gray-800">{% if payment.current_round %}第{{ payment.current_round }}轮{% else %}-{% endif %}</p>
+                        </div>
+                        <div>
                             <span class="text-sm text-gray-500">每月准备日</span>
                             <p class="font-medium text-gray-800">{% if payment.plan_start_date is not none %}每月{{ payment.plan_start_date }}日{% else %}-{% endif %}</p>
                         </div>

@@ -15,6 +15,7 @@ class PaymentRecord(db.Model):
     payment_method = db.Column(db.String(50), nullable=True, comment='付款方式（从合同带入）')
     fixed_amount = db.Column(db.Numeric(14, 2), nullable=True, comment='固定金额（从合同带入）')
     payment_rounds = db.Column(db.Integer, nullable=True, comment='付款轮次（从合同带入）')
+    current_round = db.Column(db.Integer, nullable=True, comment='当前第几轮付款')
     plan_start_date = db.Column(db.Integer, nullable=True, comment='每月准备日（1-31数字，从合同带入）')
     plan_end_date = db.Column(db.Integer, nullable=True, comment='每月截止日（1-31数字，从合同带入）')
 
@@ -77,7 +78,7 @@ class PaymentRecord(db.Model):
 
     @classmethod
     def create(cls, contract_id, payment_number=None, payment_method=None,
-               fixed_amount=None, payment_rounds=None, plan_start_date=None, plan_end_date=None,
+               fixed_amount=None, payment_rounds=None, current_round=None, plan_start_date=None, plan_end_date=None,
                payment_period=None, planned_payment_date=None, deadline_date=None,
                planned_amount=None, actual_amount=None, payment_date=None,
                status='待付款', remark=None, operator_id=None, operator_name=None):
@@ -88,6 +89,7 @@ class PaymentRecord(db.Model):
             payment_method=payment_method,
             fixed_amount=fixed_amount,
             payment_rounds=payment_rounds,
+            current_round=current_round,
             plan_start_date=plan_start_date,
             plan_end_date=plan_end_date,
             payment_period=payment_period,

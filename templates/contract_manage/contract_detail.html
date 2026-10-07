@@ -315,7 +315,7 @@
                         </div>
                         <div>
                             <span class="text-sm text-gray-500">付款轮次</span>
-                            <p class="font-medium text-gray-800">{{ contract.payment_rounds or '-' }}</p>
+                            <p class="font-medium text-gray-800">{{ contract.current_payment_round or 0 }}/{{ contract.payment_rounds or '-' }}</p>
                         </div>
                         <div>
                             <span class="text-sm text-gray-500">计划开始日期</span>
@@ -330,7 +330,7 @@
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
                         <div>
                             <span class="text-sm text-gray-500">付款轮次</span>
-                            <p class="font-medium text-gray-800">{{ contract.payment_rounds or '-' }}</p>
+                            <p class="font-medium text-gray-800">{{ contract.current_payment_round or 0 }}/{{ contract.payment_rounds or '-' }}</p>
                         </div>
                         <div>
                             <span class="text-sm text-gray-500">计划开始日期</span>

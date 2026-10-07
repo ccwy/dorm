@@ -52,6 +52,7 @@ class Contract(db.Model):
     # 付款方案
     fixed_amount = db.Column(db.Numeric(14, 2), nullable=True, comment='固定金额（元，月度固定金额时使用）')
     payment_rounds = db.Column(db.Integer, nullable=True, comment='付款轮次')
+    current_payment_round = db.Column(db.Integer, default=0, nullable=True, comment='当前已付款轮次')
     plan_start_date = db.Column(db.Integer, nullable=True, comment='计划开始日期（1-31的数字）')
     plan_end_date = db.Column(db.Integer, nullable=True, comment='计划截止日期（1-31的数字）')
     expected_payment_date = db.Column(db.Date, default=date.today, nullable=True, comment='预计付款时间（默认当天）')
@@ -276,7 +277,7 @@ class Contract(db.Model):
                party_b_payment_method=None, party_b_bank_account=None, party_b_bank_name=None,
                party_b_receiving_bank=None, party_b_account_name=None, party_b_payment_account=None,
                party_b_invoice_type=None,
-               fixed_amount=None, payment_rounds=None, plan_start_date=None, plan_end_date=None,
+               fixed_amount=None, payment_rounds=None, current_payment_round=0, plan_start_date=None, plan_end_date=None,
                expected_payment_date=None, deadline_date=None):
         """创建合同"""
         contract = cls(
@@ -321,6 +322,7 @@ class Contract(db.Model):
             party_b_invoice_type=party_b_invoice_type,
             fixed_amount=fixed_amount,
             payment_rounds=payment_rounds,
+            current_payment_round=current_payment_round,
             plan_start_date=plan_start_date,
             plan_end_date=plan_end_date,
             expected_payment_date=expected_payment_date or date.today(),
