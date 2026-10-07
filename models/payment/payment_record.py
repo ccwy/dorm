@@ -9,7 +9,7 @@ class PaymentRecord(db.Model):
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     contract_id = db.Column(db.Integer, db.ForeignKey('contracts.id', ondelete='CASCADE'), nullable=False, comment='关联合同ID')
-    payment_number = db.Column(db.String(50), unique=True, nullable=True, comment='付款编号（自动生成，如PAY-2026-001）')
+    payment_number = db.Column(db.String(50), unique=True, nullable=True, comment='付款编号（自动生成，如PAY20261007001Z）')
 
     # 从合同带入的付款方案字段（只读）
     payment_method = db.Column(db.String(50), nullable=True, comment='付款方式（从合同带入）')
@@ -127,18 +127,19 @@ class PaymentRecord(db.Model):
     def generate_payment_number(cls):
         """生成付款编号"""
         today = date.today()
-        prefix = f"PAY-{today.strftime('%Y')}-"
-        # 查找当年最大编号
+        prefix = f"PAY{today.strftime('%Y%m%d')}"
+        # 查找当天最大编号
         last_record = cls.query.filter(
-            cls.payment_number.like(f"{prefix}%")
+            cls.payment_number.like(f"{prefix}%Z")
         ).order_by(cls.id.desc()).first()
         if last_record and last_record.payment_number:
             try:
-                num = int(last_record.payment_number.replace(prefix, ''))
-                return f"{prefix}{num + 1:03d}"
+                num_str = last_record.payment_number[len(prefix):-1]  # 去掉前缀和后缀Z
+                num = int(num_str)
+                return f"{prefix}{num + 1:03d}Z"
             except ValueError:
                 pass
-        return f"{prefix}001"
+        return f"{prefix}001Z"
 
     @classmethod
     def update_overdue_status(cls):
