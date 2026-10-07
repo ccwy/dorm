@@ -480,7 +480,7 @@
                             </div>
                         </div>
                     </div>
-                    <!-- 预计付款时间/截止付款日期（一次性付清/按实际金额付款时显示） -->
+                    <!-- 预计付款时间/截止付款日期（一次性付清/实际金额时显示） -->
                     <div id="non_monthly_date_group" class="mt-4" style="display: none;">
                         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                             <div>
@@ -1340,18 +1340,38 @@
                     planFields.style.display = '';
                     fixedAmountGroup.style.display = 'none';
                     nonMonthlyDateGroup.style.display = 'none';
-                } else if (paymentMethod === '一次性付清' || paymentMethod === '按实际金额付款') {
+                } else if (paymentMethod === '一次性付清' || paymentMethod === '实际金额') {
                     planFields.style.display = 'none';
                     nonMonthlyDateGroup.style.display = '';
                 } else {
-                    planFields.style.display = '';
+                    planFields.style.display = 'none';
                     fixedAmountGroup.style.display = 'none';
                     nonMonthlyDateGroup.style.display = 'none';
                 }
             }
-            document.getElementById('payment_method').addEventListener('change', updatePaymentPlanFields);
+            document.getElementById('payment_method').addEventListener('change', function() {
+                updatePaymentPlanFields();
+                autoFillDeadlineDate();
+            });
             // 编辑模式回填时初始化显示
             updatePaymentPlanFields();
+            // 初始化截止付款日期默认值
+            autoFillDeadlineDate();
+
+            // 自动设置截止付款日期（仅当截止付款日期为空时）
+            function autoFillDeadlineDate() {
+                var expectedInput = document.getElementById('expected_payment_date');
+                var deadlineInput = document.getElementById('deadline_date');
+                if (expectedInput.value && !deadlineInput.value) {
+                    var d = new Date(expectedInput.value);
+                    d.setDate(d.getDate() + 7);
+                    var yyyy = d.getFullYear();
+                    var mm = String(d.getMonth() + 1).padStart(2, '0');
+                    var dd = String(d.getDate()).padStart(2, '0');
+                    deadlineInput.value = yyyy + '-' + mm + '-' + dd;
+                }
+            }
+            document.getElementById('expected_payment_date').addEventListener('change', autoFillDeadlineDate);
 
             // 存放位置datalist匹配逻辑
             const storageLocationName = document.getElementById('storage_location_name');

@@ -116,10 +116,8 @@ def create_payment():
             plan_end_date = None
             payment_period = None
         elif payment_method == '月度实际金额':
-            # 月度实际金额：保留轮次，清空其他固定金额专属字段
-            plan_start_date = None
-            plan_end_date = None
-            payment_period = None
+            # 月度实际金额：保留轮次和月度周期字段，仅清空固定金额
+            fixed_amount = None
 
         # 创建付款记录
         payment = PaymentRecord.create(
@@ -263,10 +261,8 @@ def update_payment(id):
             new_plan_end_date = None
             new_payment_period = None
         elif new_payment_method == '月度实际金额':
-            # 月度实际金额：保留轮次，清空其他固定金额专属字段
-            new_plan_start_date = None
-            new_plan_end_date = None
-            new_payment_period = None
+            # 月度实际金额：保留轮次和月度周期字段，仅清空固定金额
+            new_fixed_amount = None
 
         # 状态变更时更新合同的当前已付款轮次
         old_status = payment.status
