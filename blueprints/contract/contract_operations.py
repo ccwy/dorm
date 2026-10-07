@@ -139,8 +139,8 @@ def add_contract():
         payment_requirements = request.form.get('payment_requirements', '').strip() or None
         fixed_amount = request.form.get('fixed_amount', '').strip() or None
         payment_rounds = request.form.get('payment_rounds', '').strip() or None
-        plan_start_date = request.form.get('plan_start_date', '').strip() or None
-        plan_end_date = request.form.get('plan_end_date', '').strip() or None
+        reconciliation_day = request.form.get('reconciliation_day', '').strip() or None
+        payment_deadline_day = request.form.get('payment_deadline_day', '').strip() or None
         expected_payment_date = request.form.get('expected_payment_date', '').strip() or None
         deadline_date = request.form.get('deadline_date', '').strip() or None
         tax_rate = request.form.get('tax_rate', '').strip() or None
@@ -230,16 +230,16 @@ def add_contract():
                 payment_rounds = int(payment_rounds)
             except (ValueError, TypeError):
                 payment_rounds = None
-        if plan_start_date:
+        if reconciliation_day:
             try:
-                plan_start_date = int(plan_start_date)
+                reconciliation_day = int(reconciliation_day)
             except (ValueError, TypeError):
-                plan_start_date = None
-        if plan_end_date:
+                reconciliation_day = None
+        if payment_deadline_day:
             try:
-                plan_end_date = int(plan_end_date)
+                payment_deadline_day = int(payment_deadline_day)
             except (ValueError, TypeError):
-                plan_end_date = None
+                payment_deadline_day = None
 
         # 预计付款时间转换
         if expected_payment_date:
@@ -315,8 +315,8 @@ def add_contract():
             status=status,
             fixed_amount=fixed_amount,
             payment_rounds=payment_rounds,
-            plan_start_date=plan_start_date,
-            plan_end_date=plan_end_date,
+            reconciliation_day=reconciliation_day,
+            payment_deadline_day=payment_deadline_day,
             expected_payment_date=expected_payment_date,
             deadline_date=deadline_date
         )
@@ -538,8 +538,8 @@ def edit_contract(id):
         new_payment_requirements = request.form.get('payment_requirements', '').strip() or None
         new_fixed_amount = request.form.get('fixed_amount', '').strip() or None
         new_payment_rounds = request.form.get('payment_rounds', '').strip() or None
-        new_plan_start_date = request.form.get('plan_start_date', '').strip() or None
-        new_plan_end_date = request.form.get('plan_end_date', '').strip() or None
+        new_reconciliation_day = request.form.get('reconciliation_day', '').strip() or None
+        new_payment_deadline_day = request.form.get('payment_deadline_day', '').strip() or None
         new_expected_payment_date = request.form.get('expected_payment_date', '').strip() or None
         new_deadline_date = request.form.get('deadline_date', '').strip() or None
         new_tax_rate = request.form.get('tax_rate', '').strip() or None
@@ -611,16 +611,16 @@ def edit_contract(id):
                 new_payment_rounds = int(new_payment_rounds)
             except (ValueError, TypeError):
                 new_payment_rounds = None
-        if new_plan_start_date:
+        if new_reconciliation_day:
             try:
-                new_plan_start_date = int(new_plan_start_date)
+                new_reconciliation_day = int(new_reconciliation_day)
             except (ValueError, TypeError):
-                new_plan_start_date = None
-        if new_plan_end_date:
+                new_reconciliation_day = None
+        if new_payment_deadline_day:
             try:
-                new_plan_end_date = int(new_plan_end_date)
+                new_payment_deadline_day = int(new_payment_deadline_day)
             except (ValueError, TypeError):
-                new_plan_end_date = None
+                new_payment_deadline_day = None
 
         # 预计付款时间转换
         if new_expected_payment_date:
@@ -724,10 +724,10 @@ def edit_contract(id):
             changes.append(f"固定金额: {contract.fixed_amount or '无'} → {new_fixed_amount or '无'}")
         if contract.payment_rounds != new_payment_rounds:
             changes.append(f"付款轮次: {contract.payment_rounds or '无'} → {new_payment_rounds or '无'}")
-        if contract.plan_start_date != new_plan_start_date:
-            changes.append(f"计划开始日期: {contract.plan_start_date or '无'} → {new_plan_start_date or '无'}")
-        if contract.plan_end_date != new_plan_end_date:
-            changes.append(f"计划截止日期: {contract.plan_end_date or '无'} → {new_plan_end_date or '无'}")
+        if contract.reconciliation_day != new_reconciliation_day:
+            changes.append(f"对账日: {contract.reconciliation_day or '无'} → {new_reconciliation_day or '无'}")
+        if contract.payment_deadline_day != new_payment_deadline_day:
+            changes.append(f"付款截止日: {contract.payment_deadline_day or '无'} → {new_payment_deadline_day or '无'}")
         if contract.expected_payment_date != new_expected_payment_date:
             changes.append(f"预计付款时间: {contract.expected_payment_date or '无'} → {new_expected_payment_date or '无'}")
         if contract.deadline_date != new_deadline_date:
@@ -776,8 +776,8 @@ def edit_contract(id):
         contract.party_b_invoice_type = new_party_b_invoice_type
         contract.fixed_amount = new_fixed_amount
         contract.payment_rounds = new_payment_rounds
-        contract.plan_start_date = new_plan_start_date
-        contract.plan_end_date = new_plan_end_date
+        contract.reconciliation_day = new_reconciliation_day
+        contract.payment_deadline_day = new_payment_deadline_day
         contract.expected_payment_date = new_expected_payment_date
         contract.deadline_date = new_deadline_date
 

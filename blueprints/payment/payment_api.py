@@ -71,8 +71,8 @@ def get_payment_list():
                 "fixed_amount": float(p.fixed_amount) if p.fixed_amount else None,
                 "payment_rounds": p.payment_rounds,
                 "current_round": p.current_round,
-                "plan_start_date": p.plan_start_date,
-                "plan_end_date": p.plan_end_date,
+                "reconciliation_day": p.reconciliation_day,
+                "payment_deadline_day": p.payment_deadline_day,
                 "payment_period": p.payment_period or '',
                 "planned_payment_date": p.planned_payment_date.strftime('%Y-%m-%d') if p.planned_payment_date else None,
                 "deadline_date": p.deadline_date.strftime('%Y-%m-%d') if p.deadline_date else None,
@@ -138,8 +138,8 @@ def get_payment_detail(id):
             "fixed_amount": float(payment.fixed_amount) if payment.fixed_amount else None,
             "payment_rounds": payment.payment_rounds,
             "current_round": payment.current_round,
-            "plan_start_date": payment.plan_start_date,
-            "plan_end_date": payment.plan_end_date,
+            "reconciliation_day": payment.reconciliation_day,
+            "payment_deadline_day": payment.payment_deadline_day,
             "payment_period": payment.payment_period or '',
             "planned_payment_date": payment.planned_payment_date.strftime('%Y-%m-%d') if payment.planned_payment_date else None,
             "deadline_date": payment.deadline_date.strftime('%Y-%m-%d') if payment.deadline_date else None,
@@ -224,6 +224,8 @@ def get_contracts():
     """获取合同列表供付款记录关联选择"""
     try:
         contracts = Contract.query.filter(Contract.status.in_(['生效中', '即将到期'])).order_by(Contract.id.desc()).all()
+        # 过滤掉付款进度已完成的合同
+        contracts = [c for c in contracts if not c.is_payment_completed]
 
         contract_list = [{
             "id": c.id,
@@ -237,12 +239,13 @@ def get_contracts():
             "tax_amount": float(c.tax_amount) if c.tax_amount else None,
             "payment_rounds": c.payment_rounds,
             "current_payment_round": c.current_payment_round or 0,
-            "plan_start_date": c.plan_start_date,
-            "plan_end_date": c.plan_end_date,
+            "reconciliation_day": c.reconciliation_day,
+            "payment_deadline_day": c.payment_deadline_day,
             "expected_payment_date": c.expected_payment_date.strftime('%Y-%m-%d') if c.expected_payment_date else None,
             "deadline_date": c.deadline_date.strftime('%Y-%m-%d') if c.deadline_date else None,
             "party_a_name": c.party_a.name if c.party_a else '',
-            "party_b_name": c.party_b.name if c.party_b else ''
+            "party_b_name": c.party_b.name if c.party_b else '',
+            "payment_progress": c.payment_progress_text,
         } for c in contracts]
 
         return jsonify({

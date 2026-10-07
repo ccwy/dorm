@@ -160,7 +160,6 @@
                                 <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">合同金额</th>
                                 <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">付款方式</th>
                                 <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">轮次</th>
-                                <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">付款周期</th>
                                 <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">计划付款日期</th>
                                 <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">截止付款日期</th>
                                 <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">计划金额</th>
@@ -189,7 +188,6 @@
                                 <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-600">{{ payment.contract.contract_amount or '-' }}{% if payment.contract.contract_amount %} 元{% endif %}</td>
                                 <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-600">{{ payment.payment_method or '-' }}</td>
                                 <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-600">{% if payment.current_round %}{{ payment.current_round }}{% if payment.payment_rounds %}/{{ payment.payment_rounds }}{% endif %}{% else %}-{% endif %}</td>
-                                <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-600">{{ payment.payment_period or '-' }}</td>
                                 <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-600">{{ payment.planned_payment_date.strftime('%Y-%m-%d') if payment.planned_payment_date else '-' }}</td>
                                 <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-600">{{ payment.deadline_date.strftime('%Y-%m-%d') if payment.deadline_date else '-' }}</td>
                                 <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-600">

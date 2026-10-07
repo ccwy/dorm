@@ -225,28 +225,28 @@
                                    value="{% if payment and payment.current_round %}{{ payment.current_round }}{% elif from_contract %}{{ (from_contract.current_payment_round or 0) + 1 }}{% endif %}">
                         </div>
 
-                        <!-- 计划开始日期 -->
+                        <!-- 对账日 -->
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">每月准备日</label>
-                            <input type="text" id="plan_start_date_display" 
-                                   value="{% if payment and payment.plan_start_date %}每月{{ payment.plan_start_date }}日{% elif from_contract and from_contract.plan_start_date %}每月{{ from_contract.plan_start_date }}日{% endif %}"
+                            <label class="block text-sm font-medium text-gray-700 mb-1">对账日</label>
+                            <input type="text" id="reconciliation_day_display" 
+                                   value="{% if payment and payment.reconciliation_day %}每月{{ payment.reconciliation_day }}日{% elif from_contract and from_contract.reconciliation_day %}每月{{ from_contract.reconciliation_day }}日{% endif %}"
                                    readonly
                                    class="w-full px-3 py-2 text-sm border border-gray-200 rounded-md bg-gray-50 text-gray-500 cursor-not-allowed"
                                    placeholder="选择合同后自动填充">
-                            <input type="hidden" id="plan_start_date" name="plan_start_date" 
-                                   value="{% if payment and payment.plan_start_date %}{{ payment.plan_start_date }}{% elif from_contract and from_contract.plan_start_date %}{{ from_contract.plan_start_date }}{% endif %}">
+                            <input type="hidden" id="reconciliation_day" name="reconciliation_day" 
+                                   value="{% if payment and payment.reconciliation_day %}{{ payment.reconciliation_day }}{% elif from_contract and from_contract.reconciliation_day %}{{ from_contract.reconciliation_day }}{% endif %}">
                         </div>
 
-                        <!-- 计划截止日期 -->
+                        <!-- 付款截止日 -->
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">每月截止日</label>
-                            <input type="text" id="plan_end_date_display" 
-                                   value="{% if payment and payment.plan_end_date %}每月{{ payment.plan_end_date }}日{% elif from_contract and from_contract.plan_end_date %}每月{{ from_contract.plan_end_date }}日{% endif %}"
+                            <label class="block text-sm font-medium text-gray-700 mb-1">付款截止日</label>
+                            <input type="text" id="payment_deadline_day_display" 
+                                   value="{% if payment and payment.payment_deadline_day %}每月{{ payment.payment_deadline_day }}日{% elif from_contract and from_contract.payment_deadline_day %}每月{{ from_contract.payment_deadline_day }}日{% endif %}"
                                    readonly
                                    class="w-full px-3 py-2 text-sm border border-gray-200 rounded-md bg-gray-50 text-gray-500 cursor-not-allowed"
                                    placeholder="选择合同后自动填充">
-                            <input type="hidden" id="plan_end_date" name="plan_end_date" 
-                                   value="{% if payment and payment.plan_end_date %}{{ payment.plan_end_date }}{% elif from_contract and from_contract.plan_end_date %}{{ from_contract.plan_end_date }}{% endif %}">
+                            <input type="hidden" id="payment_deadline_day" name="payment_deadline_day" 
+                                   value="{% if payment and payment.payment_deadline_day %}{{ payment.payment_deadline_day }}{% elif from_contract and from_contract.payment_deadline_day %}{{ from_contract.payment_deadline_day }}{% endif %}">
                         </div>
                         </div><!-- /fixed_only_group -->
                     </div>
@@ -498,15 +498,15 @@
                     document.getElementById('current_round').value = cr;
                     document.getElementById('current_round_display').value = '第' + cr + '轮/共' + pr + '轮';
 
-                    // 计划开始日期
-                    var psd = contract.plan_start_date || '';
-                    document.getElementById('plan_start_date').value = psd;
-                    document.getElementById('plan_start_date_display').value = psd ? '每月' + psd + '日' : '';
+                    // 对账日
+                    var psd = contract.reconciliation_day || '';
+                    document.getElementById('reconciliation_day').value = psd;
+                    document.getElementById('reconciliation_day_display').value = psd ? '每月' + psd + '日' : '';
 
-                    // 计划截止日期
-                    var ped = contract.plan_end_date || '';
-                    document.getElementById('plan_end_date').value = ped;
-                    document.getElementById('plan_end_date_display').value = ped ? '每月' + ped + '日' : '';
+                    // 付款截止日
+                    var ped = contract.payment_deadline_day || '';
+                    document.getElementById('payment_deadline_day').value = ped;
+                    document.getElementById('payment_deadline_day_display').value = ped ? '每月' + ped + '日' : '';
 
                     // 自动填入计划付款金额：固定金额类 → fixed_amount
                     if (fa) {
@@ -532,15 +532,15 @@
                     document.getElementById('current_round').value = cr;
                     document.getElementById('current_round_display').value = '第' + cr + '轮/共' + pr + '轮';
 
-                    // 计划开始日期
-                    var psd = contract.plan_start_date || '';
-                    document.getElementById('plan_start_date').value = psd;
-                    document.getElementById('plan_start_date_display').value = psd ? '每月' + psd + '日' : '';
+                    // 对账日
+                    var psd = contract.reconciliation_day || '';
+                    document.getElementById('reconciliation_day').value = psd;
+                    document.getElementById('reconciliation_day_display').value = psd ? '每月' + psd + '日' : '';
 
-                    // 计划截止日期
-                    var ped = contract.plan_end_date || '';
-                    document.getElementById('plan_end_date').value = ped;
-                    document.getElementById('plan_end_date_display').value = ped ? '每月' + ped + '日' : '';
+                    // 付款截止日
+                    var ped = contract.payment_deadline_day || '';
+                    document.getElementById('payment_deadline_day').value = ped;
+                    document.getElementById('payment_deadline_day_display').value = ped ? '每月' + ped + '日' : '';
 
                     // 自动填入计划付款金额：月度实际金额 → contract_amount
                     var ca = contract.contract_amount;
@@ -558,10 +558,10 @@
                     document.getElementById('payment_rounds_display').value = '';
                     document.getElementById('current_round').value = '';
                     document.getElementById('current_round_display').value = '';
-                    document.getElementById('plan_start_date').value = '';
-                    document.getElementById('plan_start_date_display').value = '';
-                    document.getElementById('plan_end_date').value = '';
-                    document.getElementById('plan_end_date_display').value = '';
+                    document.getElementById('reconciliation_day').value = '';
+                    document.getElementById('reconciliation_day_display').value = '';
+                    document.getElementById('payment_deadline_day').value = '';
+                    document.getElementById('payment_deadline_day_display').value = '';
 
                     fixedPeriodGroup.style.display = 'none';
                     document.getElementById('payment_period').value = '';
@@ -602,10 +602,10 @@
                 document.getElementById('payment_rounds_display').value = '';
                 document.getElementById('current_round').value = '';
                 document.getElementById('current_round_display').value = '';
-                document.getElementById('plan_start_date').value = '';
-                document.getElementById('plan_start_date_display').value = '';
-                document.getElementById('plan_end_date').value = '';
-                document.getElementById('plan_end_date_display').value = '';
+                document.getElementById('reconciliation_day').value = '';
+                document.getElementById('reconciliation_day_display').value = '';
+                document.getElementById('payment_deadline_day').value = '';
+                document.getElementById('payment_deadline_day_display').value = '';
                 document.getElementById('fixed_only_period_group').style.display = 'none';
                 document.getElementById('payment_period').value = '';
                 // 隐藏并清空非月度类日期字段
@@ -619,8 +619,8 @@
             if (paymentPeriodInput) {
                 paymentPeriodInput.addEventListener('change', function() {
                     var period = this.value; // 格式: YYYY-MM
-                    var psd = document.getElementById('plan_start_date').value;
-                    var ped = document.getElementById('plan_end_date').value;
+                    var psd = document.getElementById('reconciliation_day').value;
+                    var ped = document.getElementById('payment_deadline_day').value;
 
                     if (!period) return;
 
@@ -630,7 +630,7 @@
                     var month = parseInt(parts[1]);
                     if (isNaN(year) || isNaN(month)) return;
 
-                    // 计算计划付款日期：该月第plan_start_date天
+                    // 计算计划付款日期：该月第reconciliation_day天
                     if (psd) {
                         var day = parseInt(psd);
                         if (!isNaN(day)) {
@@ -641,7 +641,7 @@
                         }
                     }
 
-                    // 计算截止付款日期：该月第plan_end_date天
+                    // 计算截止付款日期：该月第payment_deadline_day天
                     if (ped) {
                         var endDay = parseInt(ped);
                         if (!isNaN(endDay)) {

@@ -347,6 +347,10 @@ def detail(id):
         # 获取续签关系链
         renewal_chain = contract.renewal_chain
 
+        # 获取付款进度文本
+        payment_progress = contract.payment_progress_text
+        payment_completed = contract.is_payment_completed
+
         log_operation(
             user_id=current_user.id,
             module='contract',
@@ -362,7 +366,9 @@ def detail(id):
             contract=contract,
             operation_records=operation_records,
             attachments=attachments,
-            renewal_chain=renewal_chain
+            renewal_chain=renewal_chain,
+            payment_progress=payment_progress,
+            payment_completed=payment_completed
         )
     except Exception as e:
         log_operation(

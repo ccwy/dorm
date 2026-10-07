@@ -182,12 +182,12 @@
                             <p class="font-medium text-gray-800">{% if payment.current_round %}第{{ payment.current_round }}轮{% if payment.payment_rounds %}/共{{ payment.payment_rounds }}轮{% endif %}{% else %}-{% endif %}</p>
                         </div>
                         <div>
-                            <span class="text-sm text-gray-500">每月准备日</span>
-                            <p class="font-medium text-gray-800">{% if payment.plan_start_date is not none %}每月{{ payment.plan_start_date }}日{% else %}-{% endif %}</p>
+                            <span class="text-sm text-gray-500">对账日</span>
+                            <p class="font-medium text-gray-800">{% if payment.reconciliation_day is not none %}每月{{ payment.reconciliation_day }}日{% else %}-{% endif %}</p>
                         </div>
                         <div>
-                            <span class="text-sm text-gray-500">每月截止日</span>
-                            <p class="font-medium text-gray-800">{% if payment.plan_end_date is not none %}每月{{ payment.plan_end_date }}日{% else %}-{% endif %}</p>
+                            <span class="text-sm text-gray-500">付款截止日</span>
+                            <p class="font-medium text-gray-800">{% if payment.payment_deadline_day is not none %}每月{{ payment.payment_deadline_day }}日{% else %}-{% endif %}</p>
                         </div>
                         {% endif %}
                     </div>
@@ -199,10 +199,12 @@
                         <i class="fa fa-money text-warning mr-2"></i>付款记录
                     </h3>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {% if payment.payment_method in ['月度固定金额', '月度实际金额'] %}
                         <div>
                             <span class="text-sm text-gray-500">付款周期</span>
                             <p class="font-medium text-gray-800">{{ payment.payment_period or '-' }}</p>
                         </div>
+                        {% endif %}
                         <div>
                             <span class="text-sm text-gray-500">计划付款日期</span>
                             <p class="font-medium text-gray-800">{% if payment.planned_payment_date %}{{ payment.planned_payment_date.strftime('%Y-%m-%d') }}{% else %}-{% endif %}</p>

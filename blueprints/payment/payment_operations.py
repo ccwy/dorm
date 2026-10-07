@@ -24,8 +24,8 @@ def create_payment():
         payment_method = request.form.get('payment_method', '').strip() or None
         fixed_amount = request.form.get('fixed_amount', '').strip() or None
         payment_rounds = request.form.get('payment_rounds', '').strip() or None
-        plan_start_date = request.form.get('plan_start_date', '').strip() or None
-        plan_end_date = request.form.get('plan_end_date', '').strip() or None
+        reconciliation_day = request.form.get('reconciliation_day', '').strip() or None
+        payment_deadline_day = request.form.get('payment_deadline_day', '').strip() or None
         payment_period = request.form.get('payment_period', '').strip() or None
         planned_payment_date = request.form.get('planned_payment_date', '').strip() or None
         deadline_date = request.form.get('deadline_date', '').strip() or None
@@ -44,6 +44,11 @@ def create_payment():
         contract = Contract.query.get(contract_id)
         if not contract:
             flash('所选合同不存在', 'danger')
+            return redirect(url_for('payment.add_page'))
+
+        # 验证合同付款进度是否已完成
+        if contract.is_payment_completed:
+            flash('该合同付款进度已完成，无法新增付款记录', 'danger')
             return redirect(url_for('payment.add_page'))
 
         # 自动生成付款编号
@@ -75,22 +80,22 @@ def create_payment():
             except (InvalidOperation, ValueError):
                 actual_amount = None
 
-        # 数值转换：payment_rounds/plan_start_date/plan_end_date转int
+        # 数值转换：payment_rounds/reconciliation_day/payment_deadline_day转int
         if payment_rounds:
             try:
                 payment_rounds = int(payment_rounds)
             except (ValueError, TypeError):
                 payment_rounds = None
-        if plan_start_date:
+        if reconciliation_day:
             try:
-                plan_start_date = int(plan_start_date)
+                reconciliation_day = int(reconciliation_day)
             except (ValueError, TypeError):
-                plan_start_date = None
-        if plan_end_date:
+                reconciliation_day = None
+        if payment_deadline_day:
             try:
-                plan_end_date = int(plan_end_date)
+                payment_deadline_day = int(payment_deadline_day)
             except (ValueError, TypeError):
-                plan_end_date = None
+                payment_deadline_day = None
 
         # 日期转换
         if planned_payment_date:
@@ -112,8 +117,8 @@ def create_payment():
         # 非固定金额类：清空固定金额专属字段
         if payment_method not in ('月度固定金额', '月度实际金额'):
             payment_rounds = None
-            plan_start_date = None
-            plan_end_date = None
+            reconciliation_day = None
+            payment_deadline_day = None
             payment_period = None
         elif payment_method == '月度实际金额':
             # 月度实际金额：保留轮次和月度周期字段，仅清空固定金额
@@ -127,8 +132,8 @@ def create_payment():
             fixed_amount=fixed_amount,
             payment_rounds=payment_rounds,
             current_round=current_round,
-            plan_start_date=plan_start_date,
-            plan_end_date=plan_end_date,
+            reconciliation_day=reconciliation_day,
+            payment_deadline_day=payment_deadline_day,
             payment_period=payment_period,
             planned_payment_date=planned_payment_date,
             deadline_date=deadline_date,
@@ -193,8 +198,8 @@ def update_payment(id):
         new_payment_method = request.form.get('payment_method', '').strip() or None
         new_fixed_amount = request.form.get('fixed_amount', '').strip() or None
         new_payment_rounds = request.form.get('payment_rounds', '').strip() or None
-        new_plan_start_date = request.form.get('plan_start_date', '').strip() or None
-        new_plan_end_date = request.form.get('plan_end_date', '').strip() or None
+        new_reconciliation_day = request.form.get('reconciliation_day', '').strip() or None
+        new_payment_deadline_day = request.form.get('payment_deadline_day', '').strip() or None
         new_payment_period = request.form.get('payment_period', '').strip() or None
         new_planned_payment_date = request.form.get('planned_payment_date', '').strip() or None
         new_deadline_date = request.form.get('deadline_date', '').strip() or None
@@ -226,22 +231,22 @@ def update_payment(id):
             except (InvalidOperation, ValueError):
                 new_actual_amount = None
 
-        # 数值转换：payment_rounds/plan_start_date/plan_end_date转int
+        # 数值转换：payment_rounds/reconciliation_day/payment_deadline_day转int
         if new_payment_rounds:
             try:
                 new_payment_rounds = int(new_payment_rounds)
             except (ValueError, TypeError):
                 new_payment_rounds = None
-        if new_plan_start_date:
+        if new_reconciliation_day:
             try:
-                new_plan_start_date = int(new_plan_start_date)
+                new_reconciliation_day = int(new_reconciliation_day)
             except (ValueError, TypeError):
-                new_plan_start_date = None
-        if new_plan_end_date:
+                new_reconciliation_day = None
+        if new_payment_deadline_day:
             try:
-                new_plan_end_date = int(new_plan_end_date)
+                new_payment_deadline_day = int(new_payment_deadline_day)
             except (ValueError, TypeError):
-                new_plan_end_date = None
+                new_payment_deadline_day = None
 
         # 日期转换
         if new_planned_payment_date:
@@ -263,8 +268,8 @@ def update_payment(id):
         # 非固定金额类：清空固定金额专属字段
         if new_payment_method not in ('月度固定金额', '月度实际金额'):
             new_payment_rounds = None
-            new_plan_start_date = None
-            new_plan_end_date = None
+            new_reconciliation_day = None
+            new_payment_deadline_day = None
             new_payment_period = None
         elif new_payment_method == '月度实际金额':
             # 月度实际金额：保留轮次和月度周期字段，仅清空固定金额
@@ -292,10 +297,10 @@ def update_payment(id):
             changes.append(f"固定金额: {payment.fixed_amount or '无'} → {new_fixed_amount or '无'}")
         if payment.payment_rounds != new_payment_rounds:
             changes.append(f"付款轮次: {payment.payment_rounds or '无'} → {new_payment_rounds or '无'}")
-        if payment.plan_start_date != new_plan_start_date:
-            changes.append(f"每月准备日: {payment.plan_start_date or '无'} → {new_plan_start_date or '无'}")
-        if payment.plan_end_date != new_plan_end_date:
-            changes.append(f"每月截止日: {payment.plan_end_date or '无'} → {new_plan_end_date or '无'}")
+        if payment.reconciliation_day != new_reconciliation_day:
+            changes.append(f"对账日: {payment.reconciliation_day or '无'} → {new_reconciliation_day or '无'}")
+        if payment.payment_deadline_day != new_payment_deadline_day:
+            changes.append(f"付款截止日: {payment.payment_deadline_day or '无'} → {new_payment_deadline_day or '无'}")
         if payment.payment_period != new_payment_period:
             changes.append(f"付款周期: {payment.payment_period or '无'} → {new_payment_period or '无'}")
         if payment.planned_payment_date != new_planned_payment_date:
@@ -318,8 +323,8 @@ def update_payment(id):
         payment.payment_method = new_payment_method
         payment.fixed_amount = new_fixed_amount
         payment.payment_rounds = new_payment_rounds
-        payment.plan_start_date = new_plan_start_date
-        payment.plan_end_date = new_plan_end_date
+        payment.reconciliation_day = new_reconciliation_day
+        payment.payment_deadline_day = new_payment_deadline_day
         payment.payment_period = new_payment_period
         payment.planned_payment_date = new_planned_payment_date
         payment.deadline_date = new_deadline_date

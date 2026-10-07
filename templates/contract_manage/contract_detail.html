@@ -318,12 +318,12 @@
                             <p class="font-medium text-gray-800">{{ contract.current_payment_round or 0 }}/{{ contract.payment_rounds or '-' }}</p>
                         </div>
                         <div>
-                            <span class="text-sm text-gray-500">计划开始日期</span>
-                            <p class="font-medium text-gray-800">{% if contract.plan_start_date is not none %}每月{{ contract.plan_start_date }}日{% else %}-{% endif %}</p>
+                            <span class="text-sm text-gray-500">对账日</span>
+                            <p class="font-medium text-gray-800">{% if contract.reconciliation_day is not none %}每月{{ contract.reconciliation_day }}日{% else %}-{% endif %}</p>
                         </div>
                         <div>
-                            <span class="text-sm text-gray-500">计划截止日期</span>
-                            <p class="font-medium text-gray-800">{% if contract.plan_end_date is not none %}每月{{ contract.plan_end_date }}日{% else %}-{% endif %}</p>
+                            <span class="text-sm text-gray-500">付款截止日</span>
+                            <p class="font-medium text-gray-800">{% if contract.payment_deadline_day is not none %}每月{{ contract.payment_deadline_day }}日{% else %}-{% endif %}</p>
                         </div>
                     </div>
                     {% elif contract.payment_method == '月度实际金额' %}
@@ -333,12 +333,12 @@
                             <p class="font-medium text-gray-800">{{ contract.current_payment_round or 0 }}/{{ contract.payment_rounds or '-' }}</p>
                         </div>
                         <div>
-                            <span class="text-sm text-gray-500">计划开始日期</span>
-                            <p class="font-medium text-gray-800">{% if contract.plan_start_date is not none %}每月{{ contract.plan_start_date }}日{% else %}-{% endif %}</p>
+                            <span class="text-sm text-gray-500">对账日</span>
+                            <p class="font-medium text-gray-800">{% if contract.reconciliation_day is not none %}每月{{ contract.reconciliation_day }}日{% else %}-{% endif %}</p>
                         </div>
                         <div>
-                            <span class="text-sm text-gray-500">计划截止日期</span>
-                            <p class="font-medium text-gray-800">{% if contract.plan_end_date is not none %}每月{{ contract.plan_end_date }}日{% else %}-{% endif %}</p>
+                            <span class="text-sm text-gray-500">付款截止日</span>
+                            <p class="font-medium text-gray-800">{% if contract.payment_deadline_day is not none %}每月{{ contract.payment_deadline_day }}日{% else %}-{% endif %}</p>
                         </div>
                     </div>
                     {% endif %}
@@ -354,6 +354,20 @@
                         </div>
                     </div>
                     {% endif %}
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
+                        <div>
+                            <span class="text-sm text-gray-500">付款进度</span>
+                            {% if payment_completed %}
+                            <span class="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">{{ payment_progress }}</span>
+                            {% elif '未付款' in payment_progress %}
+                            <span class="px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs font-medium">{{ payment_progress }}</span>
+                            {% elif '未设置' in payment_progress %}
+                            <span class="px-2 py-1 bg-amber-100 text-amber-800 rounded-full text-xs font-medium">{{ payment_progress }}</span>
+                            {% else %}
+                            <span class="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">{{ payment_progress }}</span>
+                            {% endif %}
+                        </div>
+                    </div>
                 </div>
 
                 <!-- 日期信息 -->

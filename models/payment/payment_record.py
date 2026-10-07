@@ -23,8 +23,8 @@ class PaymentRecord(db.Model):
     fixed_amount = db.Column(db.Numeric(14, 2), nullable=True, comment='固定金额（从合同带入）')
     payment_rounds = db.Column(db.Integer, nullable=True, comment='付款轮次（从合同带入）')
     current_round = db.Column(db.Integer, nullable=True, comment='当前第几轮付款')
-    plan_start_date = db.Column(db.Integer, nullable=True, comment='每月准备日（1-31数字，从合同带入）')
-    plan_end_date = db.Column(db.Integer, nullable=True, comment='每月截止日（1-31数字，从合同带入）')
+    reconciliation_day = db.Column(db.Integer, nullable=True, comment='对账日（1-31数字，从合同带入）')
+    payment_deadline_day = db.Column(db.Integer, nullable=True, comment='付款截止日（1-31数字，从合同带入）')
 
     # 付款记录自身字段
     payment_period = db.Column(db.String(20), nullable=True, comment='付款周期（如2026-10）')
@@ -88,7 +88,7 @@ class PaymentRecord(db.Model):
                party_b_payment_method=None, party_b_bank_account=None,
                party_b_bank_name=None, party_b_receiving_bank=None,
                party_b_account_name=None, party_b_payment_account=None,
-               fixed_amount=None, payment_rounds=None, current_round=None, plan_start_date=None, plan_end_date=None,
+               fixed_amount=None, payment_rounds=None, current_round=None, reconciliation_day=None, payment_deadline_day=None,
                payment_period=None, planned_payment_date=None, deadline_date=None,
                planned_amount=None, actual_amount=None, payment_date=None,
                status='待付款', remark=None, operator_id=None, operator_name=None):
@@ -106,8 +106,8 @@ class PaymentRecord(db.Model):
             fixed_amount=fixed_amount,
             payment_rounds=payment_rounds,
             current_round=current_round,
-            plan_start_date=plan_start_date,
-            plan_end_date=plan_end_date,
+            reconciliation_day=reconciliation_day,
+            payment_deadline_day=payment_deadline_day,
             payment_period=payment_period,
             planned_payment_date=planned_payment_date,
             deadline_date=deadline_date,

@@ -163,6 +163,8 @@ def add_page():
     try:
         # 获取合同列表供选择（仅显示生效中和即将到期状态）
         contracts = Contract.query.filter(Contract.status.in_(['生效中', '即将到期'])).order_by(Contract.id.desc()).all()
+        # 过滤掉付款进度已完成的合同
+        contracts = [c for c in contracts if not c.is_payment_completed]
 
         # 自动生成付款编号
         payment_number = PaymentRecord.generate_payment_number()
@@ -192,6 +194,8 @@ def add_page_from_contract(contract_id):
 
         # 获取合同列表供选择（仅显示生效中和即将到期状态）
         contracts = Contract.query.filter(Contract.status.in_(['生效中', '即将到期'])).order_by(Contract.id.desc()).all()
+        # 过滤掉付款进度已完成的合同
+        contracts = [c for c in contracts if not c.is_payment_completed]
 
         # 自动生成付款编号
         payment_number = PaymentRecord.generate_payment_number()
@@ -221,6 +225,8 @@ def edit_page(id):
 
         # 获取合同列表供选择（仅显示生效中和即将到期状态）
         contracts = Contract.query.filter(Contract.status.in_(['生效中', '即将到期'])).order_by(Contract.id.desc()).all()
+        # 过滤掉付款进度已完成的合同
+        contracts = [c for c in contracts if not c.is_payment_completed]
 
         # 编辑时，如果当前关联合同不在过滤结果中，仍需追加到列表以便显示
         if payment.contract_id and payment.contract and payment.contract not in contracts:
