@@ -73,7 +73,7 @@ def index():
         per_page = max(10, min(100, per_page))
 
         # 获取筛选选项
-        statuses = ['草稿', '生效中', '即将到期', '已到期', '已终止', '已归档']
+        statuses = ['待生效', '生效中', '即将到期', '已到期', '已终止', '已归档']
 
         # 从SystemConfig获取合同类型和分类配置
         contract_types_value = SystemConfig.get_config_value('CONTRACT_TYPES', '采购合同,服务合同,租赁合同,其他')
@@ -182,7 +182,7 @@ def index():
             per_page=20,
             total_pages=0,
             page_range=[],
-            statuses=['草稿', '生效中', '即将到期', '已到期', '已终止', '已归档'],
+            statuses=['待生效', '生效中', '即将到期', '已到期', '已终止', '已归档'],
             contract_types=['采购合同', '服务合同', '租赁合同', '其他'],
             contract_categories=['一般合同', '重要合同', '框架协议'],
             current_status='',

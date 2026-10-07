@@ -68,7 +68,7 @@ class Contract(db.Model):
     end_date = db.Column(db.Date, default=lambda: date.today() + timedelta(days=365), nullable=True, comment='合同结束日期（默认1年后）')
 
     # 合同状态
-    status = db.Column(db.String(20), default='草稿', nullable=False, comment='合同状态：草稿/生效中/即将到期/已到期/已终止/已归档')
+    status = db.Column(db.String(20), default='待生效', nullable=False, comment='合同状态：待生效/生效中/即将到期/已到期/已终止/已归档')
 
     # 经手人
     handler_user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True, comment='经手人用户ID')
@@ -115,7 +115,7 @@ class Contract(db.Model):
     # 约束与索引
     __table_args__ = (
         db.CheckConstraint(
-            "status IN ('草稿', '生效中', '即将到期', '已到期', '已终止', '已归档')",
+            "status IN ('待生效', '生效中', '即将到期', '已到期', '已终止', '已归档')",
             name='check_contract_status_valid'
         ),
         db.CheckConstraint(
@@ -144,7 +144,7 @@ class Contract(db.Model):
     def display_status(self):
         """返回状态显示文本"""
         status_map = {
-            '草稿': '草稿',
+            '待生效': '待生效',
             '生效中': '生效中',
             '即将到期': '即将到期',
             '已到期': '已到期',
@@ -157,7 +157,7 @@ class Contract(db.Model):
     def status_color(self):
         """返回状态对应的颜色标识（用于前端显示）"""
         color_map = {
-            '草稿': 'gray',
+            '待生效': 'gray',
             '生效中': 'green',
             '即将到期': 'yellow',
             '已到期': 'red',
@@ -302,7 +302,7 @@ class Contract(db.Model):
     def create(cls, contract_name, contract_number=None, party_a_id=None, party_b_id=None,
                contract_type=None, contract_category=None, contract_amount=None,
                currency='CNY', payment_method='一次性付清', payment_requirements=None, tax_rate=None, tax_amount=None, signing_date=None, start_date=None, end_date=None,
-               status='草稿', handler_user_id=None, department_id=None,
+               status='待生效', handler_user_id=None, department_id=None,
                previous_contract_id=None, storage_location_id=None, remark=None, operator_user_id=None,
                party_a_contact_person=None, party_a_contact_phone=None, party_a_address=None,
                party_a_credit_code=None, party_a_legal_representative=None,
@@ -400,6 +400,7 @@ class Contract(db.Model):
     @classmethod
     def update_expiry_status(cls):
         """批量更新合同到期状态（可由定时任务调用）
+        - 待生效的合同，如果开始日期已到达 → 更新为'生效中'
         - 生效中的合同，如果已过期 → 更新为'已到期'
         - 生效中的合同，如果在配置的提醒天数内到期 → 更新为'即将到期'
         """
@@ -410,6 +411,19 @@ class Contract(db.Model):
 
         today = date.today()
         warning_date = today + timedelta(days=warning_days)
+
+        updated_count = 0
+
+        # 待生效 → 生效中（合同开始日期已到达）
+        pending_contracts = cls.query.filter(
+            cls.status == '待生效',
+            cls.start_date.isnot(None),
+            cls.start_date <= today
+        ).all()
+        for contract in pending_contracts:
+            contract.status = '生效中'
+            updated_count += 1
+            logging.info(f"合同 {contract.contract_number} 状态自动变更: 待生效 → 生效中 (开始日期已到达)")
 
         # 更新已到期
         expired_contracts = cls.query.filter(

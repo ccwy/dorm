@@ -152,7 +152,7 @@ def add_contract():
         department_id = request.form.get('department_id', type=int) or None
         remark = request.form.get('remark', '').strip() or None
         previous_contract_id = request.form.get('previous_contract_id', type=int) or None
-        status = request.form.get('status', '草稿').strip() or '草稿'
+        status = request.form.get('status', '待生效').strip() or '待生效'
         storage_location_id = request.form.get('storage_location_id', type=int) or None
         storage_location_name = request.form.get('storage_location_name', '').strip()
 
@@ -895,7 +895,7 @@ def status_change_contract(id):
 
         # 校验状态流转合法性
         valid_transitions = {
-            '草稿': ['生效中', '已终止'],
+            '待生效': ['生效中', '已终止'],
             '生效中': ['即将到期', '已到期', '已终止', '已归档'],
             '即将到期': ['生效中', '已到期', '已终止', '已归档'],
             '已到期': ['生效中', '已终止', '已归档'],

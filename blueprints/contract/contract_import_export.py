@@ -72,7 +72,7 @@ def export():
                     '签订日期': c.signing_date.strftime('%Y-%m-%d') if c.signing_date else '',
                     '开始日期': c.start_date.strftime('%Y-%m-%d') if c.start_date else '',
                     '结束日期': c.end_date.strftime('%Y-%m-%d') if c.end_date else '',
-                    '合同状态': c.status or '草稿',
+                    '合同状态': c.status or '待生效',
                     '经手人': c.handler_name if c.handler_user_id else '',
                     '归属部门': c.department_name if c.department_id else '',
                     '存放位置': c.storage_location_name if c.storage_location else '',
@@ -393,12 +393,12 @@ def import_contracts():
                         fail_count += 1
                         continue
 
-                # 合同状态（可选，默认"草稿"）
+                # 合同状态（可选，默认"待生效"）
                 status_val = row.get('合同状态')
-                status = str(status_val).strip() if pd.notna(status_val) and str(status_val).strip() else '草稿'
-                valid_statuses = ['草稿', '生效中', '即将到期', '已到期', '已终止', '已归档']
+                status = str(status_val).strip() if pd.notna(status_val) and str(status_val).strip() else '待生效'
+                valid_statuses = ['待生效', '生效中', '即将到期', '已到期', '已终止', '已归档']
                 if status not in valid_statuses:
-                    status = '草稿'
+                    status = '待生效'
 
                 # 经手人（可选）
                 handler_user_id = None
@@ -644,7 +644,7 @@ def download_template():
             "签订日期": ["2026-01-15", "2026-02-01", "2026-03-01"],
             "开始日期": ["2026-01-15", "2026-02-01", "2026-03-01"],
             "结束日期": ["2026-12-31", "2027-01-31", "2027-02-28"],
-            "合同状态": ["生效中", "草稿", "生效中"],
+            "合同状态": ["生效中", "待生效", "生效中"],
             "经手人": ["张三", "李四", "王五"],
             "归属部门": ["行政部", "后勤部", "行政部"],
             "存放位置": ["档案室A", "档案室B", "档案室A"],
