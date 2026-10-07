@@ -46,6 +46,7 @@ def export():
         for s in suppliers:
             try:
                 data.append({
+                    '供应商ID': s.id or '',
                     '供应商名称': s.name or '',
                     '统一社会信用代码': s.unified_social_credit_code or '',
                     '法定代表人': s.legal_representative or '',
@@ -404,6 +405,265 @@ def import_suppliers():
         return redirect(url_for('supplier.index'))
 
 
+# 批量更新供应商数据
+@supplier_import_export_bp.route('/batch_update', methods=['POST'])
+@login_required
+@require_permission('supplier.edit')
+def batch_update():
+    """批量更新供应商数据（基于供应商ID）"""
+    try:
+        logging.debug('开始批量更新供应商数据')
+        if 'file' not in request.files:
+            flash('请选择要导入的文件', 'danger')
+            logging.error('批量更新供应商数据失败：未选择文件')
+            return redirect(url_for('supplier.index'))
+
+        file = request.files['file']
+        if file.filename == '':
+            flash('请选择要导入的文件', 'danger')
+            logging.error('批量更新供应商数据失败：未选择文件')
+            return redirect(url_for('supplier.index'))
+
+        # 文件类型验证
+        allowed_extensions = {'xlsx', 'xls'}
+        file_ext = file.filename.rsplit('.', 1)[1].lower() if '.' in file.filename else ''
+        if file_ext not in allowed_extensions:
+            flash(f'请上传Excel格式的文件（.xlsx 或 .xls），当前文件类型：.{file_ext}', 'danger')
+            logging.error(f'批量更新供应商数据失败：文件类型无效，当前文件类型：.{file_ext}')
+            return redirect(url_for('supplier.index'))
+
+        try:
+            file_content = file.read()
+            file_bytes = BytesIO(file_content)
+            file_bytes.seek(0)
+            df = pd.read_excel(file_bytes)
+        except Exception as e:
+            detailed_error = f"文件解析失败：{str(e)}"
+            flash(detailed_error, 'danger')
+            logging.error(f'批量更新供应商数据失败：文件解析失败 - {detailed_error}')
+            return redirect(url_for('supplier.index'))
+
+        # 白名单模式：只识别必填列和可选列，其余列全部自动忽略
+        # 必填列（缺失时报错）
+        required_columns = ['供应商ID']
+        # 可选列（缺失时不报错）
+        optional_columns = [
+            '供应商名称', '统一社会信用代码', '法定代表人', '联系人', '联系电话',
+            '邮箱', '地址', '状态', '税率',
+            '收款方式', '银行账号', '开户行', '收款银行', '开户名称', '收款账号', '发票类型',
+            '备注'
+        ]
+        # 列名别名映射：将Excel中可能出现的列名映射到标准列名
+        column_alias_map = {
+            '供应商ID': ['供应商ID（批量更新必填）', '供应商ID(批量更新必填)', '供应商ID', '供应商id', 'ID', 'id'],
+        }
+        # 所有可能需要识别的标准列名
+        all_known_columns = set(required_columns) | set(optional_columns)
+
+        # 构建列名映射：只保留白名单中的列，其余自动忽略
+        column_mapping = {}
+        ignored_columns = []
+        for col in df.columns:
+            # 先检查是否直接匹配标准列名
+            if col in all_known_columns:
+                continue  # 标准列名无需映射
+            # 再检查是否匹配某个标准列名的别名
+            matched = False
+            for standard_name, aliases in column_alias_map.items():
+                if col in aliases:
+                    column_mapping[col] = standard_name
+                    matched = True
+                    break
+            if not matched:
+                ignored_columns.append(col)
+
+        if ignored_columns:
+            logging.info(f'批量更新供应商数据：自动忽略未识别列 {ignored_columns}')
+
+        # 重命名列以统一标准，并只保留白名单中的列
+        if column_mapping:
+            df = df.rename(columns=column_mapping)
+        whitelist_columns = [col for col in df.columns if col in all_known_columns]
+        df = df[whitelist_columns]
+
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            flash(f'导入失败：文件缺少必要的列 - {", ".join(missing_columns)}', 'danger')
+            logging.error(f'批量更新供应商数据失败：文件缺少必要的列 - {", ".join(missing_columns)}')
+            return redirect(url_for('supplier.index'))
+
+        # 预处理数据
+        success_count = 0
+        error_list = []
+        processed_ids = {}  # 缓存已处理的ID，提高效率
+
+        for index, row in df.iterrows():
+            row_num = index + 2
+            try:
+                # 提取供应商ID（处理pandas将数字读取为float的问题）
+                raw_id = row['供应商ID']
+                if pd.isna(raw_id):
+                    record_id_str = ''
+                elif isinstance(raw_id, float):
+                    record_id_str = str(int(raw_id))
+                else:
+                    record_id_str = str(raw_id).strip()
+                if not record_id_str:
+                    error_list.append(f"第{row_num}行：供应商ID不能为空（批量更新必须提供）")
+                    continue
+
+                # 验证ID格式
+                try:
+                    record_id = int(record_id_str)
+                except ValueError:
+                    error_list.append(f"第{row_num}行：供应商ID必须是数字，当前值：{record_id_str}")
+                    continue
+
+                # 通过ID查询供应商（使用缓存）
+                cache_key = f"id_{record_id}"
+                if cache_key not in processed_ids:
+                    supplier = Supplier.query.get(record_id)
+                    processed_ids[cache_key] = supplier
+                supplier = processed_ids[cache_key]
+
+                # 验证供应商存在性
+                if not supplier:
+                    error_list.append(f"第{row_num}行：供应商ID {record_id} 不存在")
+                    continue
+
+                # 处理供应商名称（非空时才更新）
+                name_val = row.get('供应商名称')
+                if pd.notna(name_val) and str(name_val).strip():
+                    supplier.name = str(name_val).strip()
+
+                # 处理统一社会信用代码
+                credit_code_val = row.get('统一社会信用代码')
+                if pd.notna(credit_code_val) and str(credit_code_val).strip():
+                    supplier.unified_social_credit_code = str(credit_code_val).strip()
+
+                # 处理法定代表人
+                legal_rep_val = row.get('法定代表人')
+                if pd.notna(legal_rep_val) and str(legal_rep_val).strip():
+                    supplier.legal_representative = str(legal_rep_val).strip()
+
+                # 处理联系人
+                contact_person_val = row.get('联系人')
+                if pd.notna(contact_person_val) and str(contact_person_val).strip():
+                    supplier.contact_person = str(contact_person_val).strip()
+
+                # 处理联系电话
+                contact_phone_val = row.get('联系电话')
+                if pd.notna(contact_phone_val) and str(contact_phone_val).strip():
+                    supplier.contact_phone = str(contact_phone_val).strip()
+
+                # 处理邮箱
+                email_val = row.get('邮箱')
+                if pd.notna(email_val) and str(email_val).strip():
+                    supplier.email = str(email_val).strip()
+
+                # 处理地址
+                address_val = row.get('地址')
+                if pd.notna(address_val) and str(address_val).strip():
+                    supplier.address = str(address_val).strip()
+
+                # 处理状态（枚举校验：仅启用/停用）
+                status_val = row.get('状态')
+                if pd.notna(status_val) and str(status_val).strip():
+                    status_text = str(status_val).strip()
+                    if status_text in ['启用', '停用']:
+                        supplier.status = status_text
+                    else:
+                        logging.warning(f'批量更新供应商ID {record_id} 状态值无效：{status_text}，默认设为启用')
+                        supplier.status = '启用'
+
+                # 处理税率（数值校验）
+                tax_rate_val = row.get('税率')
+                if pd.notna(tax_rate_val) and str(tax_rate_val).strip():
+                    try:
+                        supplier.tax_rate = float(str(tax_rate_val).strip())
+                    except (ValueError, TypeError):
+                        logging.warning(f'批量更新供应商ID {record_id} 税率格式无效：{tax_rate_val}，已忽略')
+
+                # 处理收款方式
+                payment_method_val = row.get('收款方式')
+                if pd.notna(payment_method_val) and str(payment_method_val).strip():
+                    supplier.payment_method = str(payment_method_val).strip()
+
+                # 处理银行账号
+                bank_account_val = row.get('银行账号')
+                if pd.notna(bank_account_val) and str(bank_account_val).strip():
+                    supplier.bank_account = str(bank_account_val).strip()
+
+                # 处理开户行
+                bank_name_val = row.get('开户行')
+                if pd.notna(bank_name_val) and str(bank_name_val).strip():
+                    supplier.bank_name = str(bank_name_val).strip()
+
+                # 处理收款银行
+                receiving_bank_val = row.get('收款银行')
+                if pd.notna(receiving_bank_val) and str(receiving_bank_val).strip():
+                    supplier.receiving_bank = str(receiving_bank_val).strip()
+
+                # 处理开户名称
+                account_name_val = row.get('开户名称')
+                if pd.notna(account_name_val) and str(account_name_val).strip():
+                    supplier.account_name = str(account_name_val).strip()
+
+                # 处理收款账号
+                payment_account_val = row.get('收款账号')
+                if pd.notna(payment_account_val) and str(payment_account_val).strip():
+                    supplier.payment_account = str(payment_account_val).strip()
+
+                # 处理发票类型
+                invoice_type_val = row.get('发票类型')
+                if pd.notna(invoice_type_val) and str(invoice_type_val).strip():
+                    supplier.invoice_type = str(invoice_type_val).strip()
+
+                # 处理备注
+                remark_val = row.get('备注')
+                if pd.notna(remark_val) and str(remark_val).strip():
+                    supplier.remark = str(remark_val).strip()
+
+                supplier.handler_user_id = current_user.id
+                success_count += 1
+
+            except Exception as e:
+                error_list.append(f"第{row_num}行：数据处理失败 - {str(e)}")
+                logging.error(f'批量更新供应商数据失败：第{row_num}行数据处理失败 - {str(e)}')
+                continue
+
+        # 如果有错误，回滚并返回
+        if error_list:
+            db.session.rollback()
+            message = f"数据验证失败：共{len(error_list)}条错误<br>" + "<br>".join(error_list[:5])
+            if len(error_list) > 5:
+                message += f"<br>... 还有 {len(error_list)-5} 条错误"
+            flash(message, 'danger')
+            logging.error(f'批量更新供应商数据失败：数据验证失败，共{len(error_list)}条错误')
+            return redirect(url_for('supplier.index'))
+
+        # 提交事务
+        db.session.commit()
+
+        logging.info(f'批量更新供应商数据成功，共更新{success_count}条记录，操作人：{current_user.id}')
+        log_operation(
+            user_id=current_user.id,
+            module='supplier',
+            operation_type='batch_update',
+            action=f"批量更新供应商数据，共更新{success_count}条记录",
+            result="成功"
+        )
+        flash(f"批量更新完成，成功更新{success_count}条记录", 'success')
+        return redirect(url_for('supplier.index'))
+
+    except Exception as e:
+        db.session.rollback()
+        detailed_error = f"批量更新过程出错：{str(e)}"
+        logging.error(f'批量更新供应商数据失败：{detailed_error}，操作人：{current_user.id}\n{traceback.format_exc()}')
+        flash(detailed_error, 'danger')
+        return redirect(url_for('supplier.index'))
+
+
 # 下载导入模板
 @supplier_import_export_bp.route('/template', methods=['GET'])
 @login_required
@@ -415,6 +675,7 @@ def download_template():
 
         # 模板数据生成
         template_data = {
+            "供应商ID（批量更新必填）": ["", "", ""],
             "供应商名称": ["示例供应商A", "示例供应商B", "示例供应商C"],
             "统一社会信用代码": ["91110000MA01ABCD1X", "91310000MA02EFGH2Y", "91440000MA03IJKL3Z"],
             "法定代表人": ["张三", "李四", "王五"],

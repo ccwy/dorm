@@ -92,7 +92,7 @@
                     <p>2. 支持的文件格式：<span class="font-medium text-gray-800">.xlsx</span> 和 <span class="font-medium text-gray-800">.xls</span></p>
                     <p>3. 文件大小限制：最大 <span class="font-medium text-gray-800">10MB</span></p>
                     <p>4. 必填字段：<span class="font-medium text-gray-800">供应商名称</span></p>
-                    <p>5. 勾选"覆盖已有数据"将根据供应商名称匹配并更新已有记录</p>
+                    <p>5. 勾选"批量更新数据"将根据ID列匹配并更新已有记录</p>
                 </div>
                 <div class="mt-4">
                     <a href="{{ url_for('supplier_import_export.download_template') }}" class="inline-flex items-center px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 btn-hover">
@@ -131,9 +131,10 @@
 
                     <div class="mb-6">
                         <label class="inline-flex items-center">
-                            <input type="checkbox" name="override" value="1" class="form-checkbox text-primary rounded">
-                            <span class="ml-2 text-gray-700">覆盖已有数据（根据供应商名称匹配）</span>
+                            <input type="checkbox" name="override" value="1" id="overrideCheckbox" class="form-checkbox text-primary rounded">
+                            <span class="ml-2 text-gray-700">批量更新数据</span>
                         </label>
+                        <p id="overrideHint" class="text-xs text-gray-500 mt-1 ml-6 hidden">批量更新需包含ID列</p>
                     </div>
 
                     <div class="flex justify-end gap-3">
@@ -231,6 +232,22 @@
 
             // 提交表单时显示加载状态
             const importForm = document.getElementById('importForm');
+            
+            // 批量更新checkbox切换表单action
+            const overrideCheckbox = document.getElementById('overrideCheckbox');
+            const overrideHint = document.getElementById('overrideHint');
+            if (overrideCheckbox && importForm) {
+                overrideCheckbox.addEventListener('change', function() {
+                    if (this.checked) {
+                        importForm.action = '{{ url_for("supplier_import_export.batch_update") }}';
+                        overrideHint.classList.remove('hidden');
+                    } else {
+                        importForm.action = '{{ url_for("supplier_import_export.import_suppliers") }}';
+                        overrideHint.classList.add('hidden');
+                    }
+                });
+            }
+            
             importForm.addEventListener('submit', function(e) {
                 if (!fileInput.files || fileInput.files.length === 0) {
                     e.preventDefault();
