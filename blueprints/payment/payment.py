@@ -6,6 +6,7 @@ from models.contract.contract import Contract
 from flask_login import login_required, current_user
 from utils.log import log_operation
 from utils.auth import require_permission
+from models.system_config.system_config import SystemConfig
 import logging
 
 # 定义蓝图
@@ -52,8 +53,7 @@ def index():
         # 获取筛选参数
         keyword = request.args.get('keyword', '').strip()
         status = request.args.get('status', '').strip()
-        contract_id = request.args.get('contract_id', '').strip()
-        payment_period = request.args.get('payment_period', '').strip()
+        payment_method = request.args.get('payment_method', '').strip()
 
         # 分页参数
         page = request.args.get('page', 1, type=int)
@@ -66,20 +66,21 @@ def index():
 
         # 获取筛选选项
         statuses = ['待付款', '已付款', '已逾期', '已取消']
-
-        # 获取所有合同列表供筛选下拉框使用
-        contracts = Contract.query.order_by(Contract.id.desc()).all()
+        payment_methods = SystemConfig.get_config_value('PAYMENT_METHODS', ['月度固定金额', '月度实际金额', '一次性付清', '按实际金额付款'])
 
         # 构建查询（使用joinedload预加载contract关系，避免N+1查询）
         query = PaymentRecord.query.options(db.joinedload(PaymentRecord.contract)).order_by(PaymentRecord.id.desc())
 
-        # keyword搜索：ilike匹配payment_number, remark
+        # keyword搜索：ilike匹配payment_number, remark, 合同编号, 合同名称
         if keyword:
             search_filter = f'%{keyword}%'
+            query = query.join(PaymentRecord.contract)
             query = query.filter(
                 db.or_(
                     PaymentRecord.payment_number.ilike(search_filter),
-                    PaymentRecord.remark.ilike(search_filter)
+                    PaymentRecord.remark.ilike(search_filter),
+                    Contract.contract_number.ilike(search_filter),
+                    Contract.contract_name.ilike(search_filter)
                 )
             )
 
@@ -87,16 +88,9 @@ def index():
         if status:
             query = query.filter(PaymentRecord.status == status)
 
-        # contract_id筛选
-        if contract_id:
-            try:
-                query = query.filter(PaymentRecord.contract_id == int(contract_id))
-            except (ValueError, TypeError):
-                pass
-
-        # payment_period筛选
-        if payment_period:
-            query = query.filter(PaymentRecord.payment_period == payment_period)
+        # payment_method筛选
+        if payment_method:
+            query = query.filter(PaymentRecord.payment_method == payment_method)
 
         # 分页查询
         pagination = query.paginate(page=page, per_page=per_page, error_out=False)
@@ -129,10 +123,9 @@ def index():
             total_pages=total_pages,
             page_range=page_range,
             statuses=statuses,
-            contracts=contracts,
+            payment_methods=payment_methods,
             current_status=status,
-            current_contract_id=contract_id,
-            current_payment_period=payment_period,
+            current_payment_method=payment_method,
             keyword=keyword
         )
     except Exception as e:
@@ -155,10 +148,9 @@ def index():
             total_pages=0,
             page_range=[],
             statuses=['待付款', '已付款', '已逾期', '已取消'],
-            contracts=[],
+            payment_methods=SystemConfig.get_config_value('PAYMENT_METHODS', ['月度固定金额', '月度实际金额', '一次性付清', '按实际金额付款']),
             current_status='',
-            current_contract_id='',
-            current_payment_period='',
+            current_payment_method='',
             keyword=''
         )
 
@@ -169,8 +161,8 @@ def index():
 @require_permission('payment.create')
 def add_page():
     try:
-        # 获取所有合同列表供选择
-        contracts = Contract.query.order_by(Contract.id.desc()).all()
+        # 获取合同列表供选择（仅显示生效中和即将到期状态）
+        contracts = Contract.query.filter(Contract.status.in_(['生效中', '即将到期'])).order_by(Contract.id.desc()).all()
 
         # 自动生成付款编号
         payment_number = PaymentRecord.generate_payment_number()
@@ -198,8 +190,8 @@ def add_page_from_contract(contract_id):
     try:
         contract = Contract.query.get_or_404(contract_id)
 
-        # 获取所有合同列表供选择
-        contracts = Contract.query.order_by(Contract.id.desc()).all()
+        # 获取合同列表供选择（仅显示生效中和即将到期状态）
+        contracts = Contract.query.filter(Contract.status.in_(['生效中', '即将到期'])).order_by(Contract.id.desc()).all()
 
         # 自动生成付款编号
         payment_number = PaymentRecord.generate_payment_number()
@@ -227,8 +219,12 @@ def edit_page(id):
     try:
         payment = PaymentRecord.query.get_or_404(id)
 
-        # 获取所有合同列表供选择
-        contracts = Contract.query.order_by(Contract.id.desc()).all()
+        # 获取合同列表供选择（仅显示生效中和即将到期状态）
+        contracts = Contract.query.filter(Contract.status.in_(['生效中', '即将到期'])).order_by(Contract.id.desc()).all()
+
+        # 编辑时，如果当前关联合同不在过滤结果中，仍需追加到列表以便显示
+        if payment.contract_id and payment.contract and payment.contract not in contracts:
+            contracts = [payment.contract] + list(contracts)
 
         return render_template(
             'payment/payment_form.html',

@@ -95,10 +95,17 @@
             </a>
             {% endif %}
             {% if current_user.has_permission('payment.edit') and payment.status != '已付款' %}
+            <form action="{{ url_for('payment.mark_as_paid', id=payment.id) }}" method="post" class="inline">
+                <button type="submit" class="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 btn-hover inline-flex items-center">
+                    <i class="fa fa-check mr-1"></i>标记已付款
+                </button>
+            </form>
+            {% endif %}
+            
             <button type="button" onclick="showStatusChangeModal()" class="px-4 py-2 bg-amber-500 text-white rounded-md hover:bg-amber-600 btn-hover inline-flex items-center">
                 <i class="fa fa-exchange mr-1"></i>状态变更
             </button>
-            {% endif %}
+            
             {% if current_user.has_permission('payment.delete') and payment.status != '已付款' %}
             <button type="button" onclick="confirmDelete()" class="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 btn-hover inline-flex items-center">
                 <i class="fa fa-trash mr-1"></i>删除
@@ -133,6 +140,18 @@
                         <div>
                             <span class="text-sm text-gray-500">乙方（对方）</span>
                             <p class="font-medium text-gray-800">{% if payment.contract and payment.contract.party_b %}<a href="{{ url_for('supplier.detail', id=payment.contract.party_b_id) }}" class="text-blue-600 hover:text-blue-800 hover:underline">{{ payment.contract.party_b.name }}</a>{% else %}-{% endif %}</p>
+                        </div>
+                        <div>
+                            <span class="text-sm text-gray-500">合同金额</span>
+                            <p class="font-medium text-gray-800">{% if payment.contract and payment.contract.contract_amount %}{{ payment.contract.contract_amount }} 元{% else %}-{% endif %}</p>
+                        </div>
+                        <div>
+                            <span class="text-sm text-gray-500">税率</span>
+                            <p class="font-medium text-gray-800">{% if payment.contract and payment.contract.tax_rate %}{{ payment.contract.tax_rate }}%{% else %}-{% endif %}</p>
+                        </div>
+                        <div>
+                            <span class="text-sm text-gray-500">税额</span>
+                            <p class="font-medium text-gray-800">{% if payment.contract and payment.contract.tax_amount %}{{ payment.contract.tax_amount }} 元{% else %}-{% endif %}</p>
                         </div>
                     </div>
                 </div>

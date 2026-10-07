@@ -498,3 +498,64 @@ def status_change_payment(id):
         flash(f'变更付款状态失败: {str(e)}', 'danger')
         logging.error(f"变更付款状态失败，付款ID: {id}, 错误: {str(e)}\n{traceback.format_exc()}")
         return redirect(url_for('payment.detail', id=id))
+
+
+# ========== 路由：标记已付款 ==========
+@payment_bp.route('/operations/mark_as_paid/<int:id>', methods=['POST'])
+@login_required
+@require_permission('payment.edit')
+def mark_as_paid(id):
+    """标记付款记录为已付款"""
+    try:
+        payment = PaymentRecord.query.get_or_404(id)
+
+        # 如果已经是已付款状态，提示并返回
+        if payment.status == '已付款':
+            flash('该付款记录已经是"已付款"状态', 'warning')
+            return redirect(url_for('payment.detail', id=id))
+
+        old_status = payment.status
+
+        # 设置状态为已付款
+        payment.status = '已付款'
+
+        # 如果payment_date为空，自动填入当天日期
+        if not payment.payment_date:
+            payment.payment_date = datetime.now().date()
+
+        # 如果actual_amount为空，自动填入planned_amount
+        if payment.actual_amount is None and payment.planned_amount is not None:
+            payment.actual_amount = payment.planned_amount
+
+        # 更新合同当前已付款轮次（+1）
+        contract = Contract.query.get(payment.contract_id)
+        if contract:
+            contract.current_payment_round = (contract.current_payment_round or 0) + 1
+
+        db.session.commit()
+
+        # 记录操作日志
+        log_operation(
+            user_id=current_user.id,
+            module='payment',
+            operation_type='payment_mark_paid',
+            action=f"标记付款记录为已付款：{old_status} → 已付款",
+            result="成功"
+        )
+
+        flash('已标记为已付款', 'success')
+        logging.info(f"标记付款记录为已付款，付款ID: {id}, {old_status} → 已付款")
+        return redirect(url_for('payment.detail', id=id))
+
+    except Exception as e:
+        db.session.rollback()
+        log_operation(
+            user_id=current_user.id,
+            module='payment',
+            operation_type='payment_mark_paid',
+            action=f"标记已付款失败 [ID: {id}]: {str(e)}",
+            result="失败"
+        )
+        flash(f'标记已付款失败: {str(e)}', 'danger')
+        logging.error(f"标记已付款失败，付款ID: {id}, 错误: {str(e)}\n{traceback.format_exc()}")
+        return redirect(url_for('payment.detail', id=id))

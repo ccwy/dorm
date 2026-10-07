@@ -223,7 +223,7 @@ def get_contract_payments(contract_id):
 def get_contracts():
     """获取合同列表供付款记录关联选择"""
     try:
-        contracts = Contract.query.order_by(Contract.id.desc()).all()
+        contracts = Contract.query.filter(Contract.status.in_(['生效中', '即将到期'])).order_by(Contract.id.desc()).all()
 
         contract_list = [{
             "id": c.id,
@@ -233,6 +233,8 @@ def get_contracts():
             "payment_method": c.payment_method or '',
             "fixed_amount": float(c.fixed_amount) if c.fixed_amount else None,
             "contract_amount": float(c.contract_amount) if c.contract_amount else None,
+            "tax_rate": float(c.tax_rate) if c.tax_rate else None,
+            "tax_amount": float(c.tax_amount) if c.tax_amount else None,
             "payment_rounds": c.payment_rounds,
             "current_payment_round": c.current_payment_round or 0,
             "plan_start_date": c.plan_start_date,
