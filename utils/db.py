@@ -88,7 +88,7 @@ def init_roles_and_permissions():
     maintenance_permissions = {
         #'maintenance': {'view', 'create', 'handle'},
         #'ticket': {'view', 'create'},
-        'utility': {'room_records_detail'},
+        'utility': {'room_records_detail', 'user_checkout_detail'},
         #'dorm_application': {'view', 'create'},
     }
     
@@ -377,6 +377,7 @@ def init_db(app: Flask, force_recreate=False):
             # 合同管理模型
             import models.contract.contract  # 合同模型
             import models.contract.contract_operation_record  # 合同操作记录模型
+            import models.payment.payment_record  # 付款记录模型
 
             # 维修管理模型
             import models.maintenance.maintenance_order  # 维修工单模型

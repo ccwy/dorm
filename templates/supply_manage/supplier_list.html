@@ -296,9 +296,10 @@
                         </div>
                         <div class="mb-6">
                             <label class="inline-flex items-center">
-                                <input type="checkbox" name="override" value="1" class="form-checkbox text-primary">
-                                <span class="ml-2 text-gray-700">覆盖已有数据</span>
+                                <input type="checkbox" name="override" value="1" id="overrideCheckbox" class="form-checkbox text-primary">
+                                <span class="ml-2 text-gray-700">批量更新数据</span>
                             </label>
+                            <p id="overrideHint" class="text-xs text-gray-500 mt-1 ml-6 hidden">批量更新需包含ID列</p>
                         </div>
                         <div class="flex justify-end gap-3">
                             <button type="button" id="cancelImport" class="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50">取消</button>
@@ -376,6 +377,17 @@
             function closeImportModal() {
                 importModal.classList.add('hidden');
                 document.body.style.overflow = '';
+                // 重置批量更新checkbox状态
+                if (overrideCheckbox) {
+                    overrideCheckbox.checked = false;
+                }
+                if (overrideHint) {
+                    overrideHint.classList.add('hidden');
+                }
+                // 重置表单action为默认导入
+                if (importForm) {
+                    importForm.action = '{{ url_for("supplier_import_export.import_suppliers") }}';
+                }
             }
             
             closeModal.addEventListener('click', closeImportModal);
@@ -383,6 +395,21 @@
             importModal.addEventListener('click', function(e) {
                 if (e.target === importModal) closeImportModal();
             });
+            
+            // 批量更新checkbox切换表单action
+            const overrideCheckbox = document.getElementById('overrideCheckbox');
+            const overrideHint = document.getElementById('overrideHint');
+            if (overrideCheckbox && importForm) {
+                overrideCheckbox.addEventListener('change', function() {
+                    if (this.checked) {
+                        importForm.action = '{{ url_for("supplier_import_export.batch_update") }}';
+                        overrideHint.classList.remove('hidden');
+                    } else {
+                        importForm.action = '{{ url_for("supplier_import_export.import_suppliers") }}';
+                        overrideHint.classList.add('hidden');
+                    }
+                });
+            }
             
             importForm.addEventListener('submit', function(e) {
                 const fileInput = document.getElementById('importFile');

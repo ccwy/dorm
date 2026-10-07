@@ -49,6 +49,7 @@ def export():
         for c in contracts:
             try:
                 data.append({
+                    'ID': c.id,
                     '合同编号': c.contract_number or '',
                     '合同名称': c.contract_name or '',
                     '甲方名称': c.party_a_name if c.party_a else '',
@@ -63,16 +64,29 @@ def export():
                     '乙方地址': c.party_b_address or '',
                     '乙方统一社会信用代码': c.party_b_credit_code or '',
                     '乙方法定代表人': c.party_b_legal_representative or '',
+                    '乙方收款方式': c.party_b_payment_method or '',
+                    '乙方银行账号': c.party_b_bank_account or '',
+                    '乙方开户行': c.party_b_bank_name or '',
+                    '乙方收款银行': c.party_b_receiving_bank or '',
+                    '乙方开户名称': c.party_b_account_name or '',
+                    '乙方收款账号': c.party_b_payment_account or '',
+                    '乙方发票类型': c.party_b_invoice_type or '',
                     '合同类型': c.contract_type or '',
                     '合同分类': c.contract_category or '',
                     '合同金额': float(c.contract_amount) if c.contract_amount is not None else '',
                     '币种': c.currency or 'CNY',
                     '税率(%)': float(c.tax_rate) if c.tax_rate is not None else '',
                     '税额': float(c.tax_amount) if c.tax_amount is not None else '',
+                    '付款方式': c.payment_method or '',
+                    '付款要求': c.payment_requirements or '',
+                    '固定金额': float(c.fixed_amount) if c.fixed_amount else '',
+                    '付款轮次': c.payment_rounds or '',
+                    '对账日': c.reconciliation_day or '',
+                    '付款截止日': c.payment_deadline_day or '',
                     '签订日期': c.signing_date.strftime('%Y-%m-%d') if c.signing_date else '',
                     '开始日期': c.start_date.strftime('%Y-%m-%d') if c.start_date else '',
                     '结束日期': c.end_date.strftime('%Y-%m-%d') if c.end_date else '',
-                    '合同状态': c.status or '草稿',
+                    '合同状态': c.status or '待生效',
                     '经手人': c.handler_name if c.handler_user_id else '',
                     '归属部门': c.department_name if c.department_id else '',
                     '存放位置': c.storage_location_name if c.storage_location else '',
@@ -179,11 +193,14 @@ def import_contracts():
         required_columns = ['合同名称']
         # 可选列（缺失时不报错）
         optional_columns = [
-            '合同编号', '甲方名称', '甲方联系人', '甲方联系电话', '甲方地址',
+            'ID', '合同编号', '甲方名称', '甲方联系人', '甲方联系电话', '甲方地址',
             '甲方统一社会信用代码', '甲方法定代表人', '乙方名称', '乙方联系人',
             '乙方联系电话', '乙方地址', '乙方统一社会信用代码', '乙方法定代表人',
+            '乙方收款方式', '乙方银行账号', '乙方开户行', '乙方收款银行',
+            '乙方开户名称', '乙方收款账号', '乙方发票类型',
             '合同类型', '合同分类', '合同金额', '币种', '税率(%)', '税率',
-            '税额', '签订日期', '开始日期', '结束日期', '合同状态', '经手人',
+            '税额', '付款方式', '付款要求', '固定金额', '付款轮次',
+            '对账日', '付款截止日', '签订日期', '开始日期', '结束日期', '合同状态', '经手人',
             '归属部门', '备注', '存放位置'
         ]
         # 列名别名映射：将Excel中可能出现的列名映射到标准列名
@@ -239,6 +256,15 @@ def import_contracts():
                     fail_count += 1
                     continue
                 contract_name = str(contract_name_val).strip()
+
+                # ID（可选，用于通过ID匹配覆盖已有合同）
+                contract_id_val = row.get('ID')
+                contract_id = None
+                if pd.notna(contract_id_val) and str(contract_id_val).strip():
+                    try:
+                        contract_id = int(float(str(contract_id_val).strip()))
+                    except (ValueError, TypeError):
+                        contract_id = None
 
                 # 合同编号（可选）
                 contract_number_val = row.get('合同编号')
@@ -298,6 +324,28 @@ def import_contracts():
                 party_b_legal_representative_val = row.get('乙方法定代表人')
                 party_b_legal_representative = str(party_b_legal_representative_val).strip() if pd.notna(party_b_legal_representative_val) and str(party_b_legal_representative_val).strip() else None
 
+                # 乙方扩展字段（可选）
+                party_b_payment_method_val = row.get('乙方收款方式')
+                party_b_payment_method = str(party_b_payment_method_val).strip() if pd.notna(party_b_payment_method_val) and str(party_b_payment_method_val).strip() else None
+
+                party_b_bank_account_val = row.get('乙方银行账号')
+                party_b_bank_account = str(party_b_bank_account_val).strip() if pd.notna(party_b_bank_account_val) and str(party_b_bank_account_val).strip() else None
+
+                party_b_bank_name_val = row.get('乙方开户行')
+                party_b_bank_name = str(party_b_bank_name_val).strip() if pd.notna(party_b_bank_name_val) and str(party_b_bank_name_val).strip() else None
+
+                party_b_receiving_bank_val = row.get('乙方收款银行')
+                party_b_receiving_bank = str(party_b_receiving_bank_val).strip() if pd.notna(party_b_receiving_bank_val) and str(party_b_receiving_bank_val).strip() else None
+
+                party_b_account_name_val = row.get('乙方开户名称')
+                party_b_account_name = str(party_b_account_name_val).strip() if pd.notna(party_b_account_name_val) and str(party_b_account_name_val).strip() else None
+
+                party_b_payment_account_val = row.get('乙方收款账号')
+                party_b_payment_account = str(party_b_payment_account_val).strip() if pd.notna(party_b_payment_account_val) and str(party_b_payment_account_val).strip() else None
+
+                party_b_invoice_type_val = row.get('乙方发票类型')
+                party_b_invoice_type = str(party_b_invoice_type_val).strip() if pd.notna(party_b_invoice_type_val) and str(party_b_invoice_type_val).strip() else None
+
                 # 合同类型（可选）
                 contract_type_val = row.get('合同类型')
                 contract_type = str(contract_type_val).strip() if pd.notna(contract_type_val) and str(contract_type_val).strip() else None
@@ -341,6 +389,50 @@ def import_contracts():
                     except (ValueError, TypeError):
                         # 税额格式无效不阻断导入，仅跳过该字段
                         tax_amount = None
+
+                # 付款方式（可选）
+                payment_method_val = row.get('付款方式')
+                payment_method = str(payment_method_val).strip() if pd.notna(payment_method_val) and str(payment_method_val).strip() else None
+
+                # 付款要求（可选）
+                payment_requirements_val = row.get('付款要求')
+                payment_requirements = str(payment_requirements_val).strip() if pd.notna(payment_requirements_val) and str(payment_requirements_val).strip() else None
+
+                # 固定金额（可选）
+                fixed_amount = None
+                fixed_amount_val = row.get('固定金额')
+                if pd.notna(fixed_amount_val) and str(fixed_amount_val).strip():
+                    try:
+                        fixed_amount = float(str(fixed_amount_val).strip())
+                    except (ValueError, TypeError):
+                        fixed_amount = None
+
+                # 付款轮次（可选）
+                payment_rounds_val = row.get('付款轮次')
+                payment_rounds = None
+                if pd.notna(payment_rounds_val) and str(payment_rounds_val).strip():
+                    try:
+                        payment_rounds = int(float(str(payment_rounds_val).strip()))
+                    except (ValueError, TypeError):
+                        payment_rounds = None
+
+                # 对账日（可选）
+                reconciliation_day_val = row.get('对账日')
+                reconciliation_day = None
+                if pd.notna(reconciliation_day_val) and str(reconciliation_day_val).strip():
+                    try:
+                        reconciliation_day = int(float(str(reconciliation_day_val).strip()))
+                    except (ValueError, TypeError):
+                        reconciliation_day = None
+
+                # 付款截止日（可选）
+                payment_deadline_day_val = row.get('付款截止日')
+                payment_deadline_day = None
+                if pd.notna(payment_deadline_day_val) and str(payment_deadline_day_val).strip():
+                    try:
+                        payment_deadline_day = int(float(str(payment_deadline_day_val).strip()))
+                    except (ValueError, TypeError):
+                        payment_deadline_day = None
 
                 # 签订日期（可选）
                 signing_date = None
@@ -393,12 +485,12 @@ def import_contracts():
                         fail_count += 1
                         continue
 
-                # 合同状态（可选，默认"草稿"）
+                # 合同状态（可选，默认"待生效"）
                 status_val = row.get('合同状态')
-                status = str(status_val).strip() if pd.notna(status_val) and str(status_val).strip() else '草稿'
-                valid_statuses = ['草稿', '生效中', '即将到期', '已到期', '已终止', '已归档']
+                status = str(status_val).strip() if pd.notna(status_val) and str(status_val).strip() else '待生效'
+                valid_statuses = ['待生效', '生效中', '即将到期', '已到期', '已终止', '已归档']
                 if status not in valid_statuses:
-                    status = '草稿'
+                    status = '待生效'
 
                 # 经手人（可选）
                 handler_user_id = None
@@ -439,6 +531,106 @@ def import_contracts():
                     if storage_location:
                         storage_location_id = storage_location.id
 
+                # ID匹配优先：如果提供了ID列，优先通过ID查找已有合同进行覆盖更新
+                if contract_id and override:
+                    existing = Contract.query.filter_by(id=contract_id).first()
+                    if existing:
+                        existing.contract_name = contract_name
+                        if contract_number is not None:
+                            existing.contract_number = contract_number
+                        if party_a_id is not None:
+                            existing.party_a_id = party_a_id
+                        if party_b_id is not None:
+                            existing.party_b_id = party_b_id
+                        # 甲方详情字段
+                        if party_a_contact_person is not None:
+                            existing.party_a_contact_person = party_a_contact_person
+                        if party_a_contact_phone is not None:
+                            existing.party_a_contact_phone = party_a_contact_phone
+                        if party_a_address is not None:
+                            existing.party_a_address = party_a_address
+                        if party_a_credit_code is not None:
+                            existing.party_a_credit_code = party_a_credit_code
+                        if party_a_legal_representative is not None:
+                            existing.party_a_legal_representative = party_a_legal_representative
+                        # 乙方详情字段
+                        if party_b_contact_person is not None:
+                            existing.party_b_contact_person = party_b_contact_person
+                        if party_b_contact_phone is not None:
+                            existing.party_b_contact_phone = party_b_contact_phone
+                        if party_b_address is not None:
+                            existing.party_b_address = party_b_address
+                        if party_b_credit_code is not None:
+                            existing.party_b_credit_code = party_b_credit_code
+                        if party_b_legal_representative is not None:
+                            existing.party_b_legal_representative = party_b_legal_representative
+                        # 乙方扩展字段
+                        if party_b_payment_method is not None:
+                            existing.party_b_payment_method = party_b_payment_method
+                        if party_b_bank_account is not None:
+                            existing.party_b_bank_account = party_b_bank_account
+                        if party_b_bank_name is not None:
+                            existing.party_b_bank_name = party_b_bank_name
+                        if party_b_receiving_bank is not None:
+                            existing.party_b_receiving_bank = party_b_receiving_bank
+                        if party_b_account_name is not None:
+                            existing.party_b_account_name = party_b_account_name
+                        if party_b_payment_account is not None:
+                            existing.party_b_payment_account = party_b_payment_account
+                        if party_b_invoice_type is not None:
+                            existing.party_b_invoice_type = party_b_invoice_type
+                        existing.contract_type = contract_type or existing.contract_type
+                        existing.contract_category = contract_category or existing.contract_category
+                        if contract_amount is not None:
+                            existing.contract_amount = contract_amount
+                        existing.currency = currency or existing.currency
+                        if tax_rate is not None:
+                            existing.tax_rate = tax_rate
+                        if tax_amount is not None:
+                            existing.tax_amount = tax_amount
+                        # 付款相关字段
+                        if payment_method is not None:
+                            existing.payment_method = payment_method
+                        if payment_requirements is not None:
+                            existing.payment_requirements = payment_requirements
+                        if fixed_amount is not None:
+                            existing.fixed_amount = fixed_amount
+                        if payment_rounds is not None:
+                            existing.payment_rounds = payment_rounds
+                        if reconciliation_day is not None:
+                            existing.reconciliation_day = reconciliation_day
+                        if payment_deadline_day is not None:
+                            existing.payment_deadline_day = payment_deadline_day
+                        if signing_date is not None:
+                            existing.signing_date = signing_date
+                        if start_date is not None:
+                            existing.start_date = start_date
+                        if end_date is not None:
+                            existing.end_date = end_date
+                        existing.status = status
+                        if handler_user_id is not None:
+                            existing.handler_user_id = handler_user_id
+                        if department_id is not None:
+                            existing.department_id = department_id
+                        existing.remark = remark or existing.remark
+                        if storage_location_id is not None:
+                            existing.storage_location_id = storage_location_id
+                        existing.operator_user_id = current_user.id
+                        # 记录操作
+                        ContractOperationRecord.create_record(
+                            contract_id=existing.id,
+                            operation_type='edit',
+                            operator_id=current_user.id,
+                            operator_name=current_user.name if hasattr(current_user, 'name') else str(current_user.id),
+                            summary=f'导入覆盖更新合同(ID:{contract_id})：{existing.contract_number or contract_name}'
+                        )
+                        success_count += 1
+                        continue
+                    else:
+                        error_records.append(f'第{row_num}行：未找到ID为{contract_id}的合同')
+                        fail_count += 1
+                        continue
+
                 # 合同编号唯一性校验
                 if contract_number:
                     if Contract.is_number_exists(contract_number):
@@ -473,6 +665,21 @@ def import_contracts():
                                     existing.party_b_credit_code = party_b_credit_code
                                 if party_b_legal_representative is not None:
                                     existing.party_b_legal_representative = party_b_legal_representative
+                                # 乙方扩展字段
+                                if party_b_payment_method is not None:
+                                    existing.party_b_payment_method = party_b_payment_method
+                                if party_b_bank_account is not None:
+                                    existing.party_b_bank_account = party_b_bank_account
+                                if party_b_bank_name is not None:
+                                    existing.party_b_bank_name = party_b_bank_name
+                                if party_b_receiving_bank is not None:
+                                    existing.party_b_receiving_bank = party_b_receiving_bank
+                                if party_b_account_name is not None:
+                                    existing.party_b_account_name = party_b_account_name
+                                if party_b_payment_account is not None:
+                                    existing.party_b_payment_account = party_b_payment_account
+                                if party_b_invoice_type is not None:
+                                    existing.party_b_invoice_type = party_b_invoice_type
                                 existing.contract_type = contract_type or existing.contract_type
                                 existing.contract_category = contract_category or existing.contract_category
                                 if contract_amount is not None:
@@ -482,6 +689,19 @@ def import_contracts():
                                     existing.tax_rate = tax_rate
                                 if tax_amount is not None:
                                     existing.tax_amount = tax_amount
+                                # 付款相关字段
+                                if payment_method is not None:
+                                    existing.payment_method = payment_method
+                                if payment_requirements is not None:
+                                    existing.payment_requirements = payment_requirements
+                                if fixed_amount is not None:
+                                    existing.fixed_amount = fixed_amount
+                                if payment_rounds is not None:
+                                    existing.payment_rounds = payment_rounds
+                                if reconciliation_day is not None:
+                                    existing.reconciliation_day = reconciliation_day
+                                if payment_deadline_day is not None:
+                                    existing.payment_deadline_day = payment_deadline_day
                                 if signing_date is not None:
                                     existing.signing_date = signing_date
                                 if start_date is not None:
@@ -528,12 +748,25 @@ def import_contracts():
                     party_b_address=party_b_address,
                     party_b_credit_code=party_b_credit_code,
                     party_b_legal_representative=party_b_legal_representative,
+                    party_b_payment_method=party_b_payment_method,
+                    party_b_bank_account=party_b_bank_account,
+                    party_b_bank_name=party_b_bank_name,
+                    party_b_receiving_bank=party_b_receiving_bank,
+                    party_b_account_name=party_b_account_name,
+                    party_b_payment_account=party_b_payment_account,
+                    party_b_invoice_type=party_b_invoice_type,
                     contract_type=contract_type,
                     contract_category=contract_category,
                     contract_amount=contract_amount,
                     currency=currency,
                     tax_rate=tax_rate,
                     tax_amount=tax_amount,
+                    payment_method=payment_method,
+                    payment_requirements=payment_requirements,
+                    fixed_amount=fixed_amount,
+                    payment_rounds=payment_rounds,
+                    reconciliation_day=reconciliation_day,
+                    payment_deadline_day=payment_deadline_day,
                     signing_date=signing_date,
                     start_date=start_date,
                     end_date=end_date,
@@ -621,6 +854,7 @@ def download_template():
 
         # 模板数据生成
         template_data = {
+            "ID": [1, 2, 3],
             "合同编号": ["HT2026010001", "HT2026010002", "HT2026010003"],
             "合同名称": ["办公设备采购合同", "物业服务合同", "房屋租赁合同"],
             "甲方名称": ["本公司", "本公司", "本公司"],
@@ -635,16 +869,29 @@ def download_template():
             "乙方地址": ["上海市XX区XX路XX号", "上海市XX区XX路XX号", "上海市XX区XX路XX号"],
             "乙方统一社会信用代码": ["91310000MA02XX2XXX", "91310000MA02XX2XXX", "91310000MA02XX2XXX"],
             "乙方法定代表人": ["赵六", "赵六", "赵六"],
+            "乙方收款方式": ["银行转账", "银行转账", "银行转账"],
+            "乙方银行账号": ["6222000000001234567", "6222000000007654321", "6222000000001111222"],
+            "乙方开户行": ["中国工商银行XX支行", "中国建设银行YY支行", "中国农业银行ZZ支行"],
+            "乙方收款银行": ["中国工商银行", "中国建设银行", "中国农业银行"],
+            "乙方开户名称": ["XX有限公司", "YY有限公司", "ZZ有限公司"],
+            "乙方收款账号": ["6222000000001234567", "6222000000007654321", "6222000000001111222"],
+            "乙方发票类型": ["增值税专用发票", "增值税普通发票", "增值税专用发票"],
             "合同类型": ["采购合同", "服务合同", "租赁合同"],
             "合同分类": ["一般合同", "重要合同", "一般合同"],
             "合同金额": [50000, 120000, 36000],
             "币种": ["CNY", "CNY", "CNY"],
             "税率(%)": [13, 6, 9],
             "税额": [6500, 7200, 3240],
+            "付款方式": ["月度付款", "季度付款", "月度付款"],
+            "付款要求": ["按月对账后付款", "按季度对账后付款", "按月对账后付款"],
+            "固定金额": [50000, 80000, 30000],
+            "付款轮次": [12, 24, 6],
+            "对账日": [5, 10, 1],
+            "付款截止日": [25, 20, 15],
             "签订日期": ["2026-01-15", "2026-02-01", "2026-03-01"],
             "开始日期": ["2026-01-15", "2026-02-01", "2026-03-01"],
             "结束日期": ["2026-12-31", "2027-01-31", "2027-02-28"],
-            "合同状态": ["生效中", "草稿", "生效中"],
+            "合同状态": ["生效中", "待生效", "生效中"],
             "经手人": ["张三", "李四", "王五"],
             "归属部门": ["行政部", "后勤部", "行政部"],
             "存放位置": ["档案室A", "档案室B", "档案室A"],

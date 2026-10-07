@@ -1,6 +1,7 @@
 from datetime import datetime, date, timedelta
 from decimal import Decimal
 from utils.db import db
+import logging
 
 
 class Contract(db.Model):
@@ -49,6 +50,15 @@ class Contract(db.Model):
     payment_method = db.Column(db.String(50), default='一次性付清', nullable=True, comment='付款方式')
     payment_requirements = db.Column(db.Text, nullable=True, comment='付款要求')
 
+    # 付款方案
+    fixed_amount = db.Column(db.Numeric(14, 2), nullable=True, comment='固定金额（元，月度固定金额时使用）')
+    payment_rounds = db.Column(db.Integer, nullable=True, comment='付款轮次')
+    current_payment_round = db.Column(db.Integer, default=0, nullable=True, comment='当前已付款轮次')
+    reconciliation_day = db.Column(db.Integer, nullable=True, comment='对账日（1-31的数字）')
+    payment_deadline_day = db.Column(db.Integer, nullable=True, comment='付款截止日（1-31的数字）')
+    expected_payment_date = db.Column(db.Date, default=date.today, nullable=True, comment='预计付款时间（默认当天）')
+    deadline_date = db.Column(db.Date, nullable=True, comment='截止付款日期')
+
     # 税率信息
     tax_rate = db.Column(db.Numeric(5, 2), nullable=True, comment='合同税率（%，可从供应商自动获取，支持自定义覆盖）')
     tax_amount = db.Column(db.Numeric(14, 2), nullable=True, comment='税额（元，由合同金额×税率/100自动计算）')
@@ -59,7 +69,7 @@ class Contract(db.Model):
     end_date = db.Column(db.Date, default=lambda: date.today() + timedelta(days=365), nullable=True, comment='合同结束日期（默认1年后）')
 
     # 合同状态
-    status = db.Column(db.String(20), default='草稿', nullable=False, comment='合同状态：草稿/生效中/即将到期/已到期/已终止/已归档')
+    status = db.Column(db.String(20), default='待生效', nullable=False, comment='合同状态：待生效/生效中/即将到期/已到期/已终止/已归档')
 
     # 经手人
     handler_user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True, comment='经手人用户ID')
@@ -106,7 +116,7 @@ class Contract(db.Model):
     # 约束与索引
     __table_args__ = (
         db.CheckConstraint(
-            "status IN ('草稿', '生效中', '即将到期', '已到期', '已终止', '已归档')",
+            "status IN ('待生效', '生效中', '即将到期', '已到期', '已终止', '已归档')",
             name='check_contract_status_valid'
         ),
         db.CheckConstraint(
@@ -135,7 +145,7 @@ class Contract(db.Model):
     def display_status(self):
         """返回状态显示文本"""
         status_map = {
-            '草稿': '草稿',
+            '待生效': '待生效',
             '生效中': '生效中',
             '即将到期': '即将到期',
             '已到期': '已到期',
@@ -148,7 +158,7 @@ class Contract(db.Model):
     def status_color(self):
         """返回状态对应的颜色标识（用于前端显示）"""
         color_map = {
-            '草稿': 'gray',
+            '待生效': 'gray',
             '生效中': 'green',
             '即将到期': 'yellow',
             '已到期': 'red',
@@ -176,6 +186,40 @@ class Contract(db.Model):
         """判断是否已到期"""
         days = self.days_until_expiry
         return days is not None and days <= 0
+
+    @property
+    def is_payment_completed(self):
+        """判断付款进度是否已完成"""
+        if self.payment_method in ('月度固定金额', '月度实际金额'):
+            if self.payment_rounds and self.payment_rounds > 0:
+                return (self.current_payment_round or 0) >= self.payment_rounds
+            return False
+        else:
+            from models.payment.payment_record import PaymentRecord
+            return PaymentRecord.query.filter_by(
+                contract_id=self.id, status='已付款'
+            ).first() is not None
+
+    @property
+    def payment_progress_text(self):
+        """付款进度文本描述"""
+        if self.payment_method in ('月度固定金额', '月度实际金额'):
+            current = self.current_payment_round or 0
+            total = self.payment_rounds or 0
+            if total > 0 and current >= total:
+                return f'{current}/{total}（已完成）'
+            elif total > 0:
+                return f'{current}/{total}（进行中）'
+            else:
+                return '未设置轮次'
+        else:
+            from models.payment.payment_record import PaymentRecord
+            paid_count = PaymentRecord.query.filter_by(
+                contract_id=self.id, status='已付款'
+            ).count()
+            if paid_count > 0:
+                return '已完成'
+            return '未付款'
 
     @property
     def party_a_name(self):
@@ -259,7 +303,7 @@ class Contract(db.Model):
     def create(cls, contract_name, contract_number=None, party_a_id=None, party_b_id=None,
                contract_type=None, contract_category=None, contract_amount=None,
                currency='CNY', payment_method='一次性付清', payment_requirements=None, tax_rate=None, tax_amount=None, signing_date=None, start_date=None, end_date=None,
-               status='草稿', handler_user_id=None, department_id=None,
+               status='待生效', handler_user_id=None, department_id=None,
                previous_contract_id=None, storage_location_id=None, remark=None, operator_user_id=None,
                party_a_contact_person=None, party_a_contact_phone=None, party_a_address=None,
                party_a_credit_code=None, party_a_legal_representative=None,
@@ -267,7 +311,9 @@ class Contract(db.Model):
                party_b_credit_code=None, party_b_legal_representative=None,
                party_b_payment_method=None, party_b_bank_account=None, party_b_bank_name=None,
                party_b_receiving_bank=None, party_b_account_name=None, party_b_payment_account=None,
-               party_b_invoice_type=None):
+               party_b_invoice_type=None,
+               fixed_amount=None, payment_rounds=None, current_payment_round=0, reconciliation_day=None, payment_deadline_day=None,
+               expected_payment_date=None, deadline_date=None):
         """创建合同"""
         contract = cls(
             contract_name=contract_name,
@@ -308,7 +354,14 @@ class Contract(db.Model):
             party_b_receiving_bank=party_b_receiving_bank,
             party_b_account_name=party_b_account_name,
             party_b_payment_account=party_b_payment_account,
-            party_b_invoice_type=party_b_invoice_type
+            party_b_invoice_type=party_b_invoice_type,
+            fixed_amount=fixed_amount,
+            payment_rounds=payment_rounds,
+            current_payment_round=current_payment_round,
+            reconciliation_day=reconciliation_day,
+            payment_deadline_day=payment_deadline_day,
+            expected_payment_date=expected_payment_date or date.today(),
+            deadline_date=deadline_date
         )
         db.session.add(contract)
         db.session.commit()
@@ -348,6 +401,7 @@ class Contract(db.Model):
     @classmethod
     def update_expiry_status(cls):
         """批量更新合同到期状态（可由定时任务调用）
+        - 待生效的合同，如果开始日期已到达 → 更新为'生效中'
         - 生效中的合同，如果已过期 → 更新为'已到期'
         - 生效中的合同，如果在配置的提醒天数内到期 → 更新为'即将到期'
         """
@@ -358,6 +412,19 @@ class Contract(db.Model):
 
         today = date.today()
         warning_date = today + timedelta(days=warning_days)
+
+        updated_count = 0
+
+        # 待生效 → 生效中（合同开始日期已到达）
+        pending_contracts = cls.query.filter(
+            cls.status == '待生效',
+            cls.start_date.isnot(None),
+            cls.start_date <= today
+        ).all()
+        for contract in pending_contracts:
+            contract.status = '生效中'
+            updated_count += 1
+            logging.info(f"合同 {contract.contract_number} 状态自动变更: 待生效 → 生效中 (开始日期已到达)")
 
         # 更新已到期
         expired_contracts = cls.query.filter(

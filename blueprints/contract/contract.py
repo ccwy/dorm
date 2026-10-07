@@ -2,6 +2,7 @@ from flask import Blueprint, render_template, request, flash, redirect, url_for,
 from utils.db import db
 from models.contract.contract import Contract
 from models.contract.contract_operation_record import ContractOperationRecord
+from models.payment.payment_record import PaymentRecord
 from models.supply.supplier import Supplier
 from models.supply.storage_location import StorageLocation
 from models.department.department import Department
@@ -73,7 +74,7 @@ def index():
         per_page = max(10, min(100, per_page))
 
         # 获取筛选选项
-        statuses = ['草稿', '生效中', '即将到期', '已到期', '已终止', '已归档']
+        statuses = ['待生效', '生效中', '即将到期', '已到期', '已终止', '已归档']
 
         # 从SystemConfig获取合同类型和分类配置
         contract_types_value = SystemConfig.get_config_value('CONTRACT_TYPES', '采购合同,服务合同,租赁合同,其他')
@@ -182,7 +183,7 @@ def index():
             per_page=20,
             total_pages=0,
             page_range=[],
-            statuses=['草稿', '生效中', '即将到期', '已到期', '已终止', '已归档'],
+            statuses=['待生效', '生效中', '即将到期', '已到期', '已终止', '已归档'],
             contract_types=['采购合同', '服务合同', '租赁合同', '其他'],
             contract_categories=['一般合同', '重要合同', '框架协议'],
             current_status='',
@@ -347,6 +348,15 @@ def detail(id):
         # 获取续签关系链
         renewal_chain = contract.renewal_chain
 
+        # 获取付款进度文本
+        payment_progress = contract.payment_progress_text
+        payment_completed = contract.is_payment_completed
+
+        # 获取付款记录列表
+        payment_records = PaymentRecord.query.filter_by(
+            contract_id=contract.id
+        ).order_by(PaymentRecord.planned_payment_date.asc(), PaymentRecord.id.asc()).all()
+
         log_operation(
             user_id=current_user.id,
             module='contract',
@@ -362,7 +372,10 @@ def detail(id):
             contract=contract,
             operation_records=operation_records,
             attachments=attachments,
-            renewal_chain=renewal_chain
+            renewal_chain=renewal_chain,
+            payment_progress=payment_progress,
+            payment_completed=payment_completed,
+            payment_records=payment_records
         )
     except Exception as e:
         log_operation(

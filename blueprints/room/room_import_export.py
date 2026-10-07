@@ -755,7 +755,7 @@ def batch_update():
         optional_columns = ['楼栋', '房间号', '地址', '房间类型', '房间级别', '性别限制', '容量', '状态', '对外租金', '成本租金', '房间设施', '电表最大量程', '水表最大量程', '备注', '添加时间']
         # 列名别名映射：将Excel中可能出现的列名映射到标准列名
         column_alias_map = {
-            '房间ID': ['房间ID（批量更新必填）', '房间ID(批量更新必填)', 'ID', 'id'],
+            '房间ID': ['房间ID（批量更新必填）', '房间ID(批量更新必填)', '房间ID', '房间id', 'ID', 'id'],
         }
         # 所有可能需要识别的标准列名
         all_known_columns = set(required_columns) | set(optional_columns)

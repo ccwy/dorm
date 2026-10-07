@@ -110,6 +110,11 @@ def start_scheduler(app):
             schedule.every().day.at(CONTRACT_ATTACHMENT_CLEANUP_TIME).do(lambda: execute_with_context(app, cleanup_contract_attachment_temp_files))
             logging.info(f"合同附件临时文件定时清理任务已注册，将在每天{CONTRACT_ATTACHMENT_CLEANUP_TIME}执行")
             
+            # 合同状态和付款逾期自动变更任务（每天00:30执行）
+            SCHEDULED_STATUS_UPDATE_TIME = '00:30'
+            schedule.every().day.at(SCHEDULED_STATUS_UPDATE_TIME).do(lambda: execute_with_context(app, auto_update_contract_and_payment_status))
+            logging.info(f"合同状态和付款逾期自动变更任务已注册，将在每天{SCHEDULED_STATUS_UPDATE_TIME}执行")
+            
             # 循环执行任务
             while True:
                 schedule.run_pending()
@@ -207,6 +212,24 @@ def cleanup_contract_attachment_temp_files():
     except Exception as e:
         logging.error(f"清理合同附件临时文件时发生错误: {str(e)}", exc_info=True)
         return False
+
+# 自动更新合同状态和付款逾期状态
+def auto_update_contract_and_payment_status():
+    """自动更新合同状态和付款逾期状态"""
+    try:
+        from models.contract.contract import Contract
+        from models.payment.payment_record import PaymentRecord
+
+        # 更新合同状态（待生效→生效中、生效中→即将到期/已到期）
+        expired_count, expiring_count = Contract.update_expiry_status()
+        logging.info(f"合同状态自动变更完成，已到期 {expired_count} 条，即将到期 {expiring_count} 条")
+
+        # 更新付款逾期状态（待付款→已逾期）
+        payment_count = PaymentRecord.update_overdue_status()
+        logging.info(f"付款逾期状态自动变更完成，更新 {payment_count} 条记录")
+
+    except Exception as e:
+        logging.error(f"自动更新合同和付款状态时发生错误: {str(e)}", exc_info=True)
 
 # 初始化调度器
 def init_scheduler(app):

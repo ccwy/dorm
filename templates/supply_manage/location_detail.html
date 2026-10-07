@@ -284,7 +284,7 @@
                                     <td class="px-4 py-3 whitespace-nowrap text-gray-700">{{ contract.end_date.strftime('%Y-%m-%d') if contract.end_date else '-' }}</td>
                                     <td class="px-4 py-3 whitespace-nowrap">
                                         <span class="px-2 py-0.5 rounded-full text-xs font-medium
-                                            {% if contract.status == '草稿' %}bg-gray-100 text-gray-800
+                                            {% if contract.status == '待生效' %}bg-gray-100 text-gray-800
                                             {% elif contract.status == '生效中' %}bg-green-100 text-green-800
                                             {% elif contract.status == '即将到期' %}bg-yellow-100 text-yellow-800
                                             {% elif contract.status == '已到期' %}bg-red-100 text-red-800

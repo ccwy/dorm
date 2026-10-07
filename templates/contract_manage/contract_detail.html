@@ -81,10 +81,10 @@
             <button type="button" onclick="window.history.back()" class="text-primary hover:text-primary/80 mr-2">
                 <i class="fa fa-arrow-left"></i>
             </button>
-            <h2 class="text-2xl font-semibold text-dark">{{ title }}</h2>
+            <h2 class="text-2xl font-semibold text-dark">{{ title }} (ID:{{ contract.id }})</h2>
             <!-- 状态标签 -->
-            {% if contract.status == '草稿' %}
-            <span class="ml-3 px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm">草稿</span>
+            {% if contract.status == '待生效' %}
+            <span class="ml-3 px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm">待生效</span>
             {% elif contract.status == '生效中' %}
             <span class="ml-3 px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm">生效中</span>
             {% elif contract.status == '即将到期' %}
@@ -115,6 +115,11 @@
                 <i class="fa fa-check mr-1"></i>已续签
             </span>
             {% endif %}
+            {% endif %}
+            {% if get_config_value('FEATURE_PAYMENT_MANAGE_ENABLED', True) and current_user.has_permission('payment.create') and not payment_completed %}
+            <a href="{{ url_for('payment.add_page', contract_id=contract.id) }}" class="px-4 py-2 bg-emerald-500 text-white rounded-md hover:bg-emerald-600 btn-hover inline-flex items-center">
+                <i class="fa fa-credit-card mr-1"></i>创建付款记录
+            </a>
             {% endif %}
             {% if current_user.has_permission('contract.edit') %}
             <button type="button" onclick="showStatusChangeModal()" class="px-4 py-2 bg-amber-500 text-white rounded-md hover:bg-amber-600 btn-hover inline-flex items-center">
@@ -167,8 +172,8 @@
                         <div>
                             <span class="text-sm text-gray-500">状态</span>
                             <p class="font-medium text-gray-800">
-                                {% if contract.status == '草稿' %}
-                                <span class="px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs">草稿</span>
+                                {% if contract.status == '待生效' %}
+                                <span class="px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs">待生效</span>
                                 {% elif contract.status == '生效中' %}
                                 <span class="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs">生效中</span>
                                 {% elif contract.status == '即将到期' %}
@@ -243,10 +248,6 @@
                                 {% endif %}
                             </p>
                         </div>
-                        <div>
-                            <span class="text-sm text-gray-500">付款方式</span>
-                            <p class="font-medium text-gray-800">{{ contract.payment_method or '-' }}</p>
-                        </div>
                         {% if contract.payment_requirements %}
                         <div>
                             <span class="text-sm text-gray-500">付款要求</span>
@@ -295,6 +296,78 @@
                     {% endif %}
                 </div>
 
+                <!-- 付款方案 -->
+                <div class="bg-white rounded-lg shadow-sm p-6">
+                    <h3 class="text-lg font-medium text-gray-800 mb-4 pb-2 border-b border-gray-200">
+                        <i class="fa fa-calendar-check-o text-green-500 mr-2"></i>付款方案
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div>
+                            <span class="text-sm text-gray-500">付款方式</span>
+                            <p class="font-medium text-gray-800">{{ contract.payment_method or '-' }}</p>
+                        </div>
+                    </div>
+                    {% if contract.payment_method == '月度固定金额' %}
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
+                        <div>
+                            <span class="text-sm text-gray-500">固定金额</span>
+                            <p class="font-medium text-gray-800">{% if contract.fixed_amount is not none %}{{ '{:,.2f}'.format(contract.fixed_amount) }} 元{% else %}-{% endif %}</p>
+                        </div>
+                        <div>
+                            <span class="text-sm text-gray-500">付款轮次</span>
+                            <p class="font-medium text-gray-800">{{ contract.current_payment_round or 0 }}/{{ contract.payment_rounds or '-' }}</p>
+                        </div>
+                        <div>
+                            <span class="text-sm text-gray-500">对账日</span>
+                            <p class="font-medium text-gray-800">{% if contract.reconciliation_day is not none %}每月{{ contract.reconciliation_day }}日{% else %}-{% endif %}</p>
+                        </div>
+                        <div>
+                            <span class="text-sm text-gray-500">付款截止日</span>
+                            <p class="font-medium text-gray-800">{% if contract.payment_deadline_day is not none %}每月{{ contract.payment_deadline_day }}日{% else %}-{% endif %}</p>
+                        </div>
+                    </div>
+                    {% elif contract.payment_method == '月度实际金额' %}
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
+                        <div>
+                            <span class="text-sm text-gray-500">付款轮次</span>
+                            <p class="font-medium text-gray-800">{{ contract.current_payment_round or 0 }}/{{ contract.payment_rounds or '-' }}</p>
+                        </div>
+                        <div>
+                            <span class="text-sm text-gray-500">对账日</span>
+                            <p class="font-medium text-gray-800">{% if contract.reconciliation_day is not none %}每月{{ contract.reconciliation_day }}日{% else %}-{% endif %}</p>
+                        </div>
+                        <div>
+                            <span class="text-sm text-gray-500">付款截止日</span>
+                            <p class="font-medium text-gray-800">{% if contract.payment_deadline_day is not none %}每月{{ contract.payment_deadline_day }}日{% else %}-{% endif %}</p>
+                        </div>
+                    </div>
+                    {% endif %}
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
+                        <div>
+                            <span class="text-sm text-gray-500">预计付款时间</span>
+                            <p class="font-medium text-gray-800">{% if contract.expected_payment_date %}{{ contract.expected_payment_date.strftime('%Y-%m-%d') }}{% else %}-{% endif %}</p>
+                        </div>
+                        <div>
+                            <span class="text-sm text-gray-500">截止付款日期</span>
+                            <p class="font-medium text-gray-800">{% if contract.deadline_date %}{{ contract.deadline_date.strftime('%Y-%m-%d') }}{% else %}-{% endif %}</p>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
+                        <div>
+                            <span class="text-sm text-gray-500">付款进度</span>
+                            {% if payment_completed %}
+                            <span class="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">{{ payment_progress }}</span>
+                            {% elif '未付款' in payment_progress %}
+                            <span class="px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs font-medium">{{ payment_progress }}</span>
+                            {% elif '未设置' in payment_progress %}
+                            <span class="px-2 py-1 bg-amber-100 text-amber-800 rounded-full text-xs font-medium">{{ payment_progress }}</span>
+                            {% else %}
+                            <span class="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">{{ payment_progress }}</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
                 <!-- 日期信息 -->
                 <div class="bg-white rounded-lg shadow-sm p-6">
                     <h3 class="text-lg font-medium text-gray-800 mb-4 pb-2 border-b border-gray-200">
@@ -321,6 +394,75 @@
                             </p>
                         </div>
                     </div>
+                </div>
+
+                <!-- 付款记录 -->
+                <div class="bg-white rounded-lg shadow-sm p-6">
+                    <h3 class="text-lg font-medium text-gray-800 mb-4 pb-2 border-b border-gray-200">
+                        <i class="fa fa-credit-card text-emerald-500 mr-2"></i>付款记录
+                    </h3>
+                    {% if payment_records and payment_records|length > 0 %}
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead>
+                                <tr class="bg-gray-50 text-gray-600">
+                                    <th class="px-3 py-2 text-left font-medium">序号</th>
+                                    <th class="px-3 py-2 text-left font-medium">付款编号</th>
+                                    <th class="px-3 py-2 text-left font-medium">付款方式</th>
+                                    <th class="px-3 py-2 text-left font-medium">轮次</th>
+                                    <th class="px-3 py-2 text-left font-medium">计划付款日期</th>
+                                    <th class="px-3 py-2 text-left font-medium">截止付款日期</th>
+                                    <th class="px-3 py-2 text-right font-medium">计划金额</th>
+                                    <th class="px-3 py-2 text-right font-medium">实际金额</th>
+                                    <th class="px-3 py-2 text-center font-medium">状态</th>
+                                    <th class="px-3 py-2 text-center font-medium">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-100">
+                                {% for p in payment_records %}
+                                <tr class="hover:bg-gray-50">
+                                    <td class="px-3 py-2 text-gray-500">{{ loop.index }}</td>
+                                    <td class="px-3 py-2 text-gray-800">{{ p.payment_number or '-' }}</td>
+                                    <td class="px-3 py-2 text-gray-800">{{ p.payment_method or '-' }}</td>
+                                    <td class="px-3 py-2 text-gray-800">
+                                        {% if p.current_round and p.payment_rounds %}
+                                            第{{ p.current_round }}轮/共{{ p.payment_rounds }}轮
+                                        {% elif p.current_round %}
+                                            第{{ p.current_round }}轮
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                    <td class="px-3 py-2 text-gray-800">{{ p.planned_payment_date.strftime('%Y-%m-%d') if p.planned_payment_date else '-' }}</td>
+                                    <td class="px-3 py-2 text-gray-800">{{ p.deadline_date.strftime('%Y-%m-%d') if p.deadline_date else '-' }}</td>
+                                    <td class="px-3 py-2 text-right text-gray-800">{{ '%.2f'|format(p.planned_amount|float) if p.planned_amount else '0.00' }}</td>
+                                    <td class="px-3 py-2 text-right text-gray-800">{{ '%.2f'|format(p.actual_amount|float) if p.actual_amount else '-' }}</td>
+                                    <td class="px-3 py-2 text-center">
+                                        {% if p.status == '待付款' %}
+                                        <span class="px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs">待付款</span>
+                                        {% elif p.status == '已付款' %}
+                                        <span class="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs">已付款</span>
+                                        {% elif p.status == '已逾期' %}
+                                        <span class="px-2 py-1 bg-red-100 text-red-800 rounded-full text-xs">已逾期</span>
+                                        {% elif p.status == '已取消' %}
+                                        <span class="px-2 py-1 bg-gray-100 text-gray-500 rounded-full text-xs">已取消</span>
+                                        {% else %}
+                                        <span class="px-2 py-1 bg-gray-100 text-gray-500 rounded-full text-xs">{{ p.status }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="px-3 py-2 text-center">
+                                        <a href="{{ url_for('payment.detail', id=p.id) }}" class="text-primary hover:underline text-xs">
+                                            <i class="fa fa-eye mr-1"></i>详情
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-gray-400 text-sm text-center py-4">暂无付款记录</p>
+                    {% endif %}
                 </div>
 
                 <!-- 其他信息 -->
@@ -375,8 +517,8 @@
                                 <div class="text-sm text-gray-500 mt-1">
                                     {{ rc.start_date.strftime('%Y-%m-%d') if rc.start_date else '?' }} ~ {{ rc.end_date.strftime('%Y-%m-%d') if rc.end_date else '?' }}
                                     <span class="ml-2">
-                                        {% if rc.status == '草稿' %}
-                                        <span class="text-gray-500">草稿</span>
+                                        {% if rc.status == '待生效' %}
+                                        <span class="text-gray-500">待生效</span>
                                         {% elif rc.status == '生效中' %}
                                         <span class="text-green-600">生效中</span>
                                         {% elif rc.status == '即将到期' %}
@@ -501,7 +643,7 @@
                     <select id="new_status" name="status" required
                             class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
                         <option value="">请选择目标状态</option>
-                        {% if contract.status == '草稿' %}
+                        {% if contract.status == '待生效' %}
                         <option value="生效中">生效中</option>
                         <option value="已终止">已终止</option>
                         {% elif contract.status == '生效中' %}

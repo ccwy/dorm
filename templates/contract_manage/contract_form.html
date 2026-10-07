@@ -184,7 +184,7 @@
                             <label for="status" class="block text-sm font-medium text-gray-700 mb-1">状态</label>
                             <select id="status" name="status"
                                     class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
-                                <option value="草稿" {% if contract and contract.status == '草稿' %}selected{% elif not contract %}selected{% endif %}>草稿</option>
+                                <option value="待生效" {% if contract and contract.status == '待生效' %}selected{% elif not contract %}selected{% endif %}>待生效</option>
                                 <option value="生效中" {% if contract and contract.status == '生效中' %}selected{% endif %}>生效中</option>
                                 <option value="即将到期" {% if contract and contract.status == '即将到期' %}selected{% endif %}>即将到期</option>
                                 <option value="已到期" {% if contract and contract.status == '已到期' %}selected{% endif %}>已到期</option>
@@ -218,6 +218,18 @@
                             <div id="party_a_detail" class="supplier-detail" style="display:none; margin-top:8px; padding:10px; background:#f8f9fa; border-radius:4px; font-size:13px;">
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
                                     <div>
+                                        <label class="text-xs text-gray-500">法定代表人</label>
+                                        <input type="text" id="party_a_legal_representative" name="party_a_legal_representative"
+                                               class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary/50"
+                                               placeholder="请输入法定代表人">
+                                    </div>
+                                    <div>
+                                        <label class="text-xs text-gray-500">统一社会信用代码</label>
+                                        <input type="text" id="party_a_credit_code" name="party_a_credit_code" maxlength="18"
+                                               class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary/50"
+                                               placeholder="请输入信用代码">
+                                    </div>
+                                    <div>
                                         <label class="text-xs text-gray-500">联系人</label>
                                         <input type="text" id="party_a_contact_person" name="party_a_contact_person" 
                                                class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary/50"
@@ -234,18 +246,6 @@
                                         <input type="text" id="party_a_address" name="party_a_address"
                                                class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary/50"
                                                placeholder="请输入地址">
-                                    </div>
-                                    <div>
-                                        <label class="text-xs text-gray-500">统一社会信用代码</label>
-                                        <input type="text" id="party_a_credit_code" name="party_a_credit_code" maxlength="18"
-                                               class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary/50"
-                                               placeholder="请输入信用代码">
-                                    </div>
-                                    <div>
-                                        <label class="text-xs text-gray-500">法定代表人</label>
-                                        <input type="text" id="party_a_legal_representative" name="party_a_legal_representative"
-                                               class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary/50"
-                                               placeholder="请输入法定代表人">
                                     </div>
                                 </div>
                             </div>
@@ -268,6 +268,18 @@
                             <div id="party_b_detail" class="supplier-detail" style="display:none; margin-top:8px; padding:10px; background:#f8f9fa; border-radius:4px; font-size:13px;">
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
                                     <div>
+                                        <label class="text-xs text-gray-500">法定代表人</label>
+                                        <input type="text" id="party_b_legal_representative" name="party_b_legal_representative"
+                                               class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary/50"
+                                               placeholder="请输入法定代表人">
+                                    </div>
+                                    <div>
+                                        <label class="text-xs text-gray-500">统一社会信用代码</label>
+                                        <input type="text" id="party_b_credit_code" name="party_b_credit_code" maxlength="18"
+                                               class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary/50"
+                                               placeholder="请输入信用代码">
+                                    </div>
+                                    <div>
                                         <label class="text-xs text-gray-500">联系人</label>
                                         <input type="text" id="party_b_contact_person" name="party_b_contact_person" 
                                                class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary/50"
@@ -284,18 +296,6 @@
                                         <input type="text" id="party_b_address" name="party_b_address"
                                                class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary/50"
                                                placeholder="请输入地址">
-                                    </div>
-                                    <div>
-                                        <label class="text-xs text-gray-500">统一社会信用代码</label>
-                                        <input type="text" id="party_b_credit_code" name="party_b_credit_code" maxlength="18"
-                                               class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary/50"
-                                               placeholder="请输入信用代码">
-                                    </div>
-                                    <div>
-                                        <label class="text-xs text-gray-500">法定代表人</label>
-                                        <input type="text" id="party_b_legal_representative" name="party_b_legal_representative"
-                                               class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary/50"
-                                               placeholder="请输入法定代表人">
                                     </div>
                                 </div>
                             </div>
@@ -326,17 +326,6 @@
                                     class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
                                 {% for c in currencies %}
                                 <option value="{{ c.code }}" {% if (contract and contract.currency == c.code) or (not contract and not p and c.code == 'CNY') or (not contract and p and p.currency == c.code) %}selected{% endif %}>{{ c.name }}（{{ c.code }}）</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-
-                        <!-- 付款方式 -->
-                        <div>
-                            <label for="payment_method" class="block text-sm font-medium text-gray-700 mb-1">付款方式</label>
-                            <select id="payment_method" name="payment_method"
-                                    class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
-                                {% for m in payment_methods %}
-                                <option value="{{ m }}" {% if (contract and contract.payment_method == m) or (not contract and not p and m == '一次性付清') or (not contract and p and p.payment_method == m) %}selected{% endif %}>{{ m }}</option>
                                 {% endfor %}
                             </select>
                         </div>
@@ -428,6 +417,84 @@
                             <input type="hidden" id="tax_amount" name="tax_amount" 
                                    value="{{ '%.2f'|format(contract.tax_amount) if contract and contract.tax_amount is not none else ('%.2f'|format(p.tax_amount) if p and p.tax_amount is not none else '') }}">
                             <p class="text-xs text-gray-400 mt-1">税额 = 合同金额 × 税率 / 100</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 付款方案 -->
+                <div class="mb-8">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4 pb-2 border-b border-gray-200">
+                        <i class="fa fa-calendar-check-o mr-2 text-green-500"></i>付款方案
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <!-- 付款方式 -->
+                        <div>
+                            <label for="payment_method" class="block text-sm font-medium text-gray-700 mb-1">付款方式</label>
+                            <select id="payment_method" name="payment_method"
+                                    class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                                {% for m in payment_methods %}
+                                <option value="{{ m }}" {% if (contract and contract.payment_method == m) or (not contract and not p and m == '一次性付清') or (not contract and p and p.payment_method == m) %}selected{% endif %}>{{ m }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- 付款方案条件字段 -->
+                    <div id="payment_plan_fields" class="mt-4" style="display: none;">
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            <!-- 固定金额 -->
+                            <div id="fixed_amount_group">
+                                <label for="fixed_amount" class="block text-sm font-medium text-gray-700 mb-1">固定金额（元）</label>
+                                <input type="number" id="fixed_amount" name="fixed_amount"
+                                       value="{{ contract.fixed_amount if contract and contract.fixed_amount is not none else '' }}"
+                                       step="0.01" min="0"
+                                       class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                       placeholder="请输入固定金额">
+                            </div>
+                            <!-- 付款轮次 -->
+                            <div>
+                                <label for="payment_rounds" class="block text-sm font-medium text-gray-700 mb-1">付款轮次</label>
+                                <input type="number" id="payment_rounds" name="payment_rounds"
+                                       value="{{ contract.payment_rounds if contract and contract.payment_rounds is not none else '' }}"
+                                       step="1" min="1"
+                                       class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                       placeholder="请输入付款轮次">
+                            </div>
+                            <!-- 对账日 -->
+                            <div>
+                                <label for="reconciliation_day" class="block text-sm font-medium text-gray-700 mb-1">对账日</label>
+                                <input type="number" id="reconciliation_day" name="reconciliation_day"
+                                       value="{{ contract.reconciliation_day if contract and contract.reconciliation_day is not none else '' }}"
+                                       step="1" min="1" max="31"
+                                       class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                       placeholder="1-31的数字">
+                            </div>
+                            <!-- 付款截止日 -->
+                            <div>
+                                <label for="payment_deadline_day" class="block text-sm font-medium text-gray-700 mb-1">付款截止日</label>
+                                <input type="number" id="payment_deadline_day" name="payment_deadline_day"
+                                       value="{{ contract.payment_deadline_day if contract and contract.payment_deadline_day is not none else '' }}"
+                                       step="1" min="1" max="31"
+                                       class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                       placeholder="1-31的数字">
+                            </div>
+                        </div>
+                    </div>
+                    <!-- 预计付款时间/截止付款日期（一次性付清/实际金额时显示） -->
+                    <div id="non_monthly_date_group" class="mt-4" style="display: none;">
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            <div>
+                                <label for="expected_payment_date" class="block text-sm font-medium text-gray-700 mb-1">预计付款时间</label>
+                                <input type="date" id="expected_payment_date" name="expected_payment_date"
+                                       value="{% if contract and contract.expected_payment_date %}{{ contract.expected_payment_date.strftime('%Y-%m-%d') }}{% else %}{{ today }}{% endif %}"
+                                       class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                            </div>
+                            <div>
+                                <label for="deadline_date" class="block text-sm font-medium text-gray-700 mb-1">截止付款日期</label>
+                                <input type="date" id="deadline_date" name="deadline_date"
+                                       value="{% if contract and contract.deadline_date %}{{ contract.deadline_date.strftime('%Y-%m-%d') }}{% endif %}"
+                                       class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1258,6 +1325,53 @@
                     startDateInput.value = this.value;
                 }
             });
+
+            // 付款方案条件显示逻辑
+            function updatePaymentPlanFields() {
+                var paymentMethod = document.getElementById('payment_method').value;
+                var planFields = document.getElementById('payment_plan_fields');
+                var fixedAmountGroup = document.getElementById('fixed_amount_group');
+                var nonMonthlyDateGroup = document.getElementById('non_monthly_date_group');
+                if (paymentMethod === '月度固定金额') {
+                    planFields.style.display = '';
+                    fixedAmountGroup.style.display = '';
+                    nonMonthlyDateGroup.style.display = 'none';
+                } else if (paymentMethod === '月度实际金额') {
+                    planFields.style.display = '';
+                    fixedAmountGroup.style.display = 'none';
+                    nonMonthlyDateGroup.style.display = 'none';
+                } else if (paymentMethod === '一次性付清' || paymentMethod === '实际金额') {
+                    planFields.style.display = 'none';
+                    nonMonthlyDateGroup.style.display = '';
+                } else {
+                    planFields.style.display = 'none';
+                    fixedAmountGroup.style.display = 'none';
+                    nonMonthlyDateGroup.style.display = 'none';
+                }
+            }
+            document.getElementById('payment_method').addEventListener('change', function() {
+                updatePaymentPlanFields();
+                autoFillDeadlineDate();
+            });
+            // 编辑模式回填时初始化显示
+            updatePaymentPlanFields();
+            // 初始化截止付款日期默认值
+            autoFillDeadlineDate();
+
+            // 自动设置截止付款日期（仅当截止付款日期为空时）
+            function autoFillDeadlineDate() {
+                var expectedInput = document.getElementById('expected_payment_date');
+                var deadlineInput = document.getElementById('deadline_date');
+                if (expectedInput.value && !deadlineInput.value) {
+                    var d = new Date(expectedInput.value);
+                    d.setDate(d.getDate() + 7);
+                    var yyyy = d.getFullYear();
+                    var mm = String(d.getMonth() + 1).padStart(2, '0');
+                    var dd = String(d.getDate()).padStart(2, '0');
+                    deadlineInput.value = yyyy + '-' + mm + '-' + dd;
+                }
+            }
+            document.getElementById('expected_payment_date').addEventListener('change', autoFillDeadlineDate);
 
             // 存放位置datalist匹配逻辑
             const storageLocationName = document.getElementById('storage_location_name');

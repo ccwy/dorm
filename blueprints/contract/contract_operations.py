@@ -137,6 +137,12 @@ def add_contract():
         currency = request.form.get('currency', 'CNY').strip() or 'CNY'
         payment_method = request.form.get('payment_method', '一次性付清').strip() or '一次性付清'
         payment_requirements = request.form.get('payment_requirements', '').strip() or None
+        fixed_amount = request.form.get('fixed_amount', '').strip() or None
+        payment_rounds = request.form.get('payment_rounds', '').strip() or None
+        reconciliation_day = request.form.get('reconciliation_day', '').strip() or None
+        payment_deadline_day = request.form.get('payment_deadline_day', '').strip() or None
+        expected_payment_date = request.form.get('expected_payment_date', '').strip() or None
+        deadline_date = request.form.get('deadline_date', '').strip() or None
         tax_rate = request.form.get('tax_rate', '').strip() or None
         tax_amount = request.form.get('tax_amount', '').strip() or None
         signing_date = request.form.get('signing_date', '').strip() or None
@@ -146,7 +152,7 @@ def add_contract():
         department_id = request.form.get('department_id', type=int) or None
         remark = request.form.get('remark', '').strip() or None
         previous_contract_id = request.form.get('previous_contract_id', type=int) or None
-        status = request.form.get('status', '草稿').strip() or '草稿'
+        status = request.form.get('status', '待生效').strip() or '待生效'
         storage_location_id = request.form.get('storage_location_id', type=int) or None
         storage_location_name = request.form.get('storage_location_name', '').strip()
 
@@ -213,6 +219,42 @@ def add_contract():
             except (ValueError, TypeError):
                 tax_amount = None
 
+        # 付款方案字段转换
+        if fixed_amount:
+            try:
+                fixed_amount = float(fixed_amount)
+            except (ValueError, TypeError):
+                fixed_amount = None
+        if payment_rounds:
+            try:
+                payment_rounds = int(payment_rounds)
+            except (ValueError, TypeError):
+                payment_rounds = None
+        if reconciliation_day:
+            try:
+                reconciliation_day = int(reconciliation_day)
+            except (ValueError, TypeError):
+                reconciliation_day = None
+        if payment_deadline_day:
+            try:
+                payment_deadline_day = int(payment_deadline_day)
+            except (ValueError, TypeError):
+                payment_deadline_day = None
+
+        # 预计付款时间转换
+        if expected_payment_date:
+            try:
+                expected_payment_date = datetime.strptime(expected_payment_date, '%Y-%m-%d').date()
+            except ValueError:
+                expected_payment_date = None
+
+        # 截止付款日期转换
+        if deadline_date:
+            try:
+                deadline_date = datetime.strptime(deadline_date, '%Y-%m-%d').date()
+            except ValueError:
+                deadline_date = None
+
         # 日期转换
         if signing_date:
             try:
@@ -270,7 +312,13 @@ def add_contract():
             party_b_account_name=party_b_account_name,
             party_b_payment_account=party_b_payment_account,
             party_b_invoice_type=party_b_invoice_type,
-            status=status
+            status=status,
+            fixed_amount=fixed_amount,
+            payment_rounds=payment_rounds,
+            reconciliation_day=reconciliation_day,
+            payment_deadline_day=payment_deadline_day,
+            expected_payment_date=expected_payment_date,
+            deadline_date=deadline_date
         )
 
         # 记录操作记录
@@ -488,6 +536,12 @@ def edit_contract(id):
         new_currency = request.form.get('currency', 'CNY').strip() or 'CNY'
         new_payment_method = request.form.get('payment_method', '一次性付清').strip() or '一次性付清'
         new_payment_requirements = request.form.get('payment_requirements', '').strip() or None
+        new_fixed_amount = request.form.get('fixed_amount', '').strip() or None
+        new_payment_rounds = request.form.get('payment_rounds', '').strip() or None
+        new_reconciliation_day = request.form.get('reconciliation_day', '').strip() or None
+        new_payment_deadline_day = request.form.get('payment_deadline_day', '').strip() or None
+        new_expected_payment_date = request.form.get('expected_payment_date', '').strip() or None
+        new_deadline_date = request.form.get('deadline_date', '').strip() or None
         new_tax_rate = request.form.get('tax_rate', '').strip() or None
         new_tax_amount = request.form.get('tax_amount', '').strip() or None
         new_signing_date = request.form.get('signing_date', '').strip() or None
@@ -545,6 +599,42 @@ def edit_contract(id):
                 new_tax_amount = float(new_tax_amount)
             except (ValueError, TypeError):
                 new_tax_amount = None
+
+        # 付款方案字段转换
+        if new_fixed_amount:
+            try:
+                new_fixed_amount = float(new_fixed_amount)
+            except (ValueError, TypeError):
+                new_fixed_amount = None
+        if new_payment_rounds:
+            try:
+                new_payment_rounds = int(new_payment_rounds)
+            except (ValueError, TypeError):
+                new_payment_rounds = None
+        if new_reconciliation_day:
+            try:
+                new_reconciliation_day = int(new_reconciliation_day)
+            except (ValueError, TypeError):
+                new_reconciliation_day = None
+        if new_payment_deadline_day:
+            try:
+                new_payment_deadline_day = int(new_payment_deadline_day)
+            except (ValueError, TypeError):
+                new_payment_deadline_day = None
+
+        # 预计付款时间转换
+        if new_expected_payment_date:
+            try:
+                new_expected_payment_date = datetime.strptime(new_expected_payment_date, '%Y-%m-%d').date()
+            except ValueError:
+                new_expected_payment_date = None
+
+        # 截止付款日期转换
+        if new_deadline_date:
+            try:
+                new_deadline_date = datetime.strptime(new_deadline_date, '%Y-%m-%d').date()
+            except ValueError:
+                new_deadline_date = None
 
         # 日期转换
         if new_signing_date:
@@ -630,6 +720,18 @@ def edit_contract(id):
             changes.append(f"收款账号: {contract.party_b_payment_account or '无'} → {new_party_b_payment_account or '无'}")
         if contract.party_b_invoice_type != new_party_b_invoice_type:
             changes.append(f"发票类型: {contract.party_b_invoice_type or '无'} → {new_party_b_invoice_type or '无'}")
+        if str(contract.fixed_amount or '') != str(new_fixed_amount or ''):
+            changes.append(f"固定金额: {contract.fixed_amount or '无'} → {new_fixed_amount or '无'}")
+        if contract.payment_rounds != new_payment_rounds:
+            changes.append(f"付款轮次: {contract.payment_rounds or '无'} → {new_payment_rounds or '无'}")
+        if contract.reconciliation_day != new_reconciliation_day:
+            changes.append(f"对账日: {contract.reconciliation_day or '无'} → {new_reconciliation_day or '无'}")
+        if contract.payment_deadline_day != new_payment_deadline_day:
+            changes.append(f"付款截止日: {contract.payment_deadline_day or '无'} → {new_payment_deadline_day or '无'}")
+        if contract.expected_payment_date != new_expected_payment_date:
+            changes.append(f"预计付款时间: {contract.expected_payment_date or '无'} → {new_expected_payment_date or '无'}")
+        if contract.deadline_date != new_deadline_date:
+            changes.append(f"截止付款日期: {contract.deadline_date or '无'} → {new_deadline_date or '无'}")
 
         # 更新合同字段
         contract.contract_name = new_contract_name
@@ -672,6 +774,12 @@ def edit_contract(id):
         contract.party_b_account_name = new_party_b_account_name
         contract.party_b_payment_account = new_party_b_payment_account
         contract.party_b_invoice_type = new_party_b_invoice_type
+        contract.fixed_amount = new_fixed_amount
+        contract.payment_rounds = new_payment_rounds
+        contract.reconciliation_day = new_reconciliation_day
+        contract.payment_deadline_day = new_payment_deadline_day
+        contract.expected_payment_date = new_expected_payment_date
+        contract.deadline_date = new_deadline_date
 
         db.session.commit()
 
@@ -787,7 +895,7 @@ def status_change_contract(id):
 
         # 校验状态流转合法性
         valid_transitions = {
-            '草稿': ['生效中', '已终止'],
+            '待生效': ['生效中', '已终止'],
             '生效中': ['即将到期', '已到期', '已终止', '已归档'],
             '即将到期': ['生效中', '已到期', '已终止', '已归档'],
             '已到期': ['生效中', '已终止', '已归档'],

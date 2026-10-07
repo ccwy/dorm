@@ -241,6 +241,17 @@ PERMISSIONS = {
             'import': '导入',
         }
     },
+    'payment': {
+        'name': '付款管理',
+        'actions': {
+            'view': '查看',
+            'manage': '管理',
+            'create': '新增',
+            'edit': '编辑',
+            'delete': '删除',
+            'export': '导出',
+        }
+    },
     'role': {
         'name': '角色管理',
         'actions': {
