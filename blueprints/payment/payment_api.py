@@ -238,7 +238,9 @@ def get_contracts():
             "plan_start_date": c.plan_start_date,
             "plan_end_date": c.plan_end_date,
             "expected_payment_date": c.expected_payment_date.strftime('%Y-%m-%d') if c.expected_payment_date else None,
-            "deadline_date": c.deadline_date.strftime('%Y-%m-%d') if c.deadline_date else None
+            "deadline_date": c.deadline_date.strftime('%Y-%m-%d') if c.deadline_date else None,
+            "party_a_name": c.party_a.name if c.party_a else '',
+            "party_b_name": c.party_b.name if c.party_b else ''
         } for c in contracts]
 
         return jsonify({

@@ -1,5 +1,5 @@
 from flask import Blueprint, render_template, request, flash, redirect, url_for
-from datetime import date
+from datetime import date, datetime
 from utils.db import db
 from models.payment.payment_record import PaymentRecord
 from models.contract.contract import Contract
@@ -265,7 +265,8 @@ def detail(id):
         return render_template(
             'payment/payment_detail.html',
             title=f"付款详情 - {payment.payment_number}",
-            payment=payment
+            payment=payment,
+            today=datetime.now().strftime('%Y-%m-%d')
         )
     except Exception as e:
         log_operation(

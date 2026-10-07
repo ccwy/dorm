@@ -230,12 +230,12 @@
                                         <button onclick="window.location.href='{{ url_for('payment.detail', id=payment.id) }}'" class="btn-effect bg-blue-500 text-white px-2 py-1 rounded-md text-sm flex items-center">
                                             <i class="fa fa-eye mr-1"></i>查看
                                         </button>
-                                        {% if current_user.has_permission('payment.edit') %}
+                                        {% if current_user.has_permission('payment.edit') and payment.status != '已付款' %}
                                         <button onclick="window.location.href='{{ url_for('payment.edit_page', id=payment.id) }}'" class="btn-effect bg-amber-500 text-white px-2 py-1 rounded-md text-sm flex items-center">
                                             <i class="fa fa-pencil mr-1"></i>编辑
                                         </button>
                                         {% endif %}
-                                        {% if current_user.has_permission('payment.delete') %}
+                                        {% if current_user.has_permission('payment.delete') and payment.status != '已付款' %}
                                         <button class="btn-effect bg-red-500 text-white px-2 py-1 rounded-md text-sm flex items-center"
                                             onclick="if(confirm('确定要删除付款记录「{{ payment.payment_number }}」吗？删除后不可恢复！')) { document.getElementById('deleteForm-{{ payment.id }}').submit(); }">
                                             <i class="fa fa-trash mr-1"></i>删除

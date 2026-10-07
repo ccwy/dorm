@@ -412,3 +412,89 @@ def delete_payment(id):
         flash(f'删除付款记录失败: {str(e)}', 'danger')
         logging.error(f"删除付款记录失败，付款ID: {id}, 错误: {str(e)}\n{traceback.format_exc()}")
         return redirect(url_for('payment.index'))
+
+
+# ========== 路由：变更付款状态 ==========
+@payment_bp.route('/operations/status_change/<int:id>', methods=['POST'])
+@login_required
+@require_permission('payment.edit')
+def status_change_payment(id):
+    """变更付款状态"""
+    try:
+        payment = PaymentRecord.query.get_or_404(id)
+        old_status = payment.status
+        new_status = request.form.get('status', '').strip()
+
+        # 校验状态流转合法性
+        valid_transitions = {
+            '待付款': ['已付款', '已逾期', '已取消'],
+            '已付款': ['待付款', '已取消'],
+            '已逾期': ['已付款', '待付款', '已取消'],
+            '已取消': ['待付款'],
+        }
+
+        if old_status not in valid_transitions:
+            flash(f'当前状态"{old_status}"不支持状态变更', 'danger')
+            return redirect(url_for('payment.detail', id=id))
+
+        if new_status not in valid_transitions.get(old_status, []):
+            flash(f'状态不允许从"{old_status}"变更为"{new_status}"', 'danger')
+            return redirect(url_for('payment.detail', id=id))
+
+        # 更新状态
+        payment.status = new_status
+
+        # 如果变更为"已付款"，自动填入实际付款日期和金额
+        if new_status == '已付款':
+            payment_date_str = request.form.get('payment_date', '').strip()
+            actual_amount_str = request.form.get('actual_amount', '').strip()
+            if payment_date_str:
+                try:
+                    payment.payment_date = datetime.strptime(payment_date_str, '%Y-%m-%d').date()
+                except ValueError:
+                    pass
+            else:
+                payment.payment_date = datetime.now().date()
+            if actual_amount_str:
+                try:
+                    payment.actual_amount = Decimal(actual_amount_str)
+                except (InvalidOperation, ValueError):
+                    pass
+            elif payment.planned_amount is not None:
+                payment.actual_amount = payment.planned_amount
+
+        # 状态变更时同步更新合同的当前已付款轮次
+        contract = Contract.query.get(payment.contract_id)
+        if contract:
+            if old_status != '已付款' and new_status == '已付款':
+                contract.current_payment_round = (contract.current_payment_round or 0) + 1
+            elif old_status == '已付款' and new_status != '已付款':
+                contract.current_payment_round = max((contract.current_payment_round or 0) - 1, 0)
+
+        db.session.commit()
+
+        # 记录操作日志
+        log_operation(
+            user_id=current_user.id,
+            module='payment',
+            operation_type='payment_status_change',
+            action=f"付款记录状态变更：{old_status} → {new_status}",
+            result="成功"
+        )
+
+        flash(f'付款状态已变更为：{new_status}', 'success')
+        logging.info(f"付款状态变更，付款ID: {id}, {old_status} → {new_status}")
+        return redirect(url_for('payment.detail', id=id))
+
+    except Exception as e:
+        db.session.rollback()
+        log_operation(
+            user_id=current_user.id,
+            module='payment',
+            operation_type='payment_status_change',
+            action=f"变更付款状态失败 [ID: {id}]: {str(e)}",
+            result="失败"
+        )
+        flash(f'变更付款状态失败: {str(e)}', 'danger')
+        logging.error(f"变更付款状态失败，付款ID: {id}, 错误: {str(e)}\n{traceback.format_exc()}")
+        return redirect(url_for('payment.detail', id=id))

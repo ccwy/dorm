@@ -123,6 +123,24 @@
                             <input type="hidden" id="payment_number" 
                                    value="{% if payment %}{{ payment.payment_number }}{% else %}{{ payment_number }}{% endif %}">
                         </div>
+                        <!-- 甲方信息 -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">甲方（我方）</label>
+                            <input type="text" id="party_a_name_display"
+                                   value="{% if payment and payment.contract and payment.contract.party_a %}{{ payment.contract.party_a.name }}{% elif from_contract and from_contract.party_a %}{{ from_contract.party_a.name }}{% endif %}"
+                                   readonly
+                                   class="w-full px-3 py-2 text-sm border border-gray-200 rounded-md bg-gray-50 text-gray-500 cursor-not-allowed"
+                                   placeholder="选择合同后自动填充">
+                        </div>
+                        <!-- 乙方信息 -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">乙方（对方）</label>
+                            <input type="text" id="party_b_name_display"
+                                   value="{% if payment and payment.contract and payment.contract.party_b %}{{ payment.contract.party_b.name }}{% elif from_contract and from_contract.party_b %}{{ from_contract.party_b.name }}{% endif %}"
+                                   readonly
+                                   class="w-full px-3 py-2 text-sm border border-gray-200 rounded-md bg-gray-50 text-gray-500 cursor-not-allowed"
+                                   placeholder="选择合同后自动填充">
+                        </div>
                     </div>
                 </div>
 
@@ -232,7 +250,7 @@
                         <div>
                             <label for="planned_payment_date" class="block text-sm font-medium text-gray-700 mb-1">计划付款日期</label>
                             <input type="date" id="planned_payment_date" name="planned_payment_date" 
-                                   value="{% if payment and payment.planned_payment_date %}{{ payment.planned_payment_date.strftime('%Y-%m-%d') }}{% endif %}"
+                                   value="{% if payment and payment.planned_payment_date %}{{ payment.planned_payment_date.strftime('%Y-%m-%d') }}{% elif from_contract and from_contract.expected_payment_date %}{{ from_contract.expected_payment_date }}{% endif %}"
                                    class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
                         </div>
 
@@ -240,7 +258,7 @@
                         <div>
                             <label for="deadline_date" class="block text-sm font-medium text-gray-700 mb-1">截止付款日期</label>
                             <input type="date" id="deadline_date" name="deadline_date" 
-                                   value="{% if payment and payment.deadline_date %}{{ payment.deadline_date.strftime('%Y-%m-%d') }}{% endif %}"
+                                   value="{% if payment and payment.deadline_date %}{{ payment.deadline_date.strftime('%Y-%m-%d') }}{% elif from_contract and from_contract.deadline_date %}{{ from_contract.deadline_date }}{% endif %}"
                                    class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
                         </div>
                         </div><!-- /non_monthly_date_group -->
@@ -249,7 +267,7 @@
                         <div>
                             <label for="planned_amount" class="block text-sm font-medium text-gray-700 mb-1">计划付款金额（元）</label>
                             <input type="number" id="planned_amount" name="planned_amount" 
-                                   value="{{ payment.planned_amount if payment and payment.planned_amount is not none else '' }}"
+                                   value="{% if payment and payment.planned_amount is not none %}{{ payment.planned_amount }}{% elif from_contract %}{% if from_contract.payment_method == '月度固定金额' and from_contract.fixed_amount is not none %}{{ from_contract.fixed_amount }}{% elif from_contract.payment_method != '月度固定金额' and from_contract.contract_amount is not none %}{{ from_contract.contract_amount }}{% endif %}{% endif %}"
                                    step="0.01" min="0"
                                    class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
                                    placeholder="请输入计划付款金额">
@@ -387,6 +405,12 @@
 
             // 填充付款方案字段
             function fillPaymentPlan(contract) {
+                // 甲方乙方名称
+                var paName = contract.party_a_name || '';
+                var pbName = contract.party_b_name || '';
+                document.getElementById('party_a_name_display').value = paName;
+                document.getElementById('party_b_name_display').value = pbName;
+
                 // 付款方式
                 var pm = contract.payment_method || '';
                 document.getElementById('payment_method').value = pm;
@@ -511,6 +535,8 @@
 
             // 清空付款方案字段
             function clearPaymentPlan() {
+                document.getElementById('party_a_name_display').value = '';
+                document.getElementById('party_b_name_display').value = '';
                 document.getElementById('payment_method').value = '';
                 document.getElementById('payment_method_display').value = '';
                 document.getElementById('fixed_amount').value = '';
