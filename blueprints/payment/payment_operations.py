@@ -54,8 +54,9 @@ def create_payment():
         # 自动生成付款编号
         payment_number = PaymentRecord.generate_payment_number()
 
-        # 计算当前轮次（关联合同已付款轮次+1）
-        current_round = (contract.current_payment_round or 0) + 1
+        # 计算当前轮次（基于该合同已有付款记录数+1）
+        existing_count = PaymentRecord.query.filter_by(contract_id=contract_id).count()
+        current_round = existing_count + 1
 
         # 校验：月度固定金额或月度实际金额方式，付款轮次不能超过合同总轮次
         if payment_method in ('月度固定金额', '月度实际金额') and contract.payment_rounds:

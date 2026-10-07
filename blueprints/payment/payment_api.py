@@ -245,7 +245,14 @@ def get_contracts():
             "deadline_date": c.deadline_date.strftime('%Y-%m-%d') if c.deadline_date else None,
             "party_a_name": c.party_a.name if c.party_a else '',
             "party_b_name": c.party_b.name if c.party_b else '',
+            "party_b_payment_method": c.party_b_payment_method or '',
+            "party_b_bank_account": c.party_b_bank_account or '',
+            "party_b_bank_name": c.party_b_bank_name or '',
+            "party_b_receiving_bank": c.party_b_receiving_bank or '',
+            "party_b_account_name": c.party_b_account_name or '',
+            "party_b_payment_account": c.party_b_payment_account or '',
             "payment_progress": c.payment_progress_text,
+            "payment_record_count": PaymentRecord.query.filter_by(contract_id=c.id).count(),
         } for c in contracts]
 
         return jsonify({

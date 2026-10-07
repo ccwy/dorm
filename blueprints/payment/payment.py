@@ -155,12 +155,15 @@ def index():
         )
 
 
-# 新增付款记录页面（无合同关联）
+# 新增付款记录页面
 @payment_bp.route('/add', methods=['GET'])
 @login_required
 @require_permission('payment.create')
 def add_page():
     try:
+        # 获取可选的预选合同ID参数
+        contract_id = request.args.get('contract_id', type=int)
+        
         # 获取合同列表供选择（仅显示生效中和即将到期状态）
         contracts = Contract.query.filter(Contract.status.in_(['生效中', '即将到期'])).order_by(Contract.id.desc()).all()
         # 过滤掉付款进度已完成的合同
@@ -175,38 +178,7 @@ def add_page():
             payment=None,
             contracts=contracts,
             payment_number=payment_number,
-            from_contract=None,
-            current_month=date.today().strftime('%Y-%m')
-        )
-    except Exception as e:
-        logging.error(f"加载新增付款页面失败: {str(e)}")
-        flash('加载页面失败', 'danger')
-        return redirect(url_for('payment.index'))
-
-
-# 从合同详情页新增付款记录
-@payment_bp.route('/add/<int:contract_id>', methods=['GET'])
-@login_required
-@require_permission('payment.create')
-def add_page_from_contract(contract_id):
-    try:
-        contract = Contract.query.get_or_404(contract_id)
-
-        # 获取合同列表供选择（仅显示生效中和即将到期状态）
-        contracts = Contract.query.filter(Contract.status.in_(['生效中', '即将到期'])).order_by(Contract.id.desc()).all()
-        # 过滤掉付款进度已完成的合同
-        contracts = [c for c in contracts if not c.is_payment_completed]
-
-        # 自动生成付款编号
-        payment_number = PaymentRecord.generate_payment_number()
-
-        return render_template(
-            'payment/payment_form.html',
-            title=f"新增付款记录 - 合同: {contract.contract_name}",
-            payment=None,
-            contracts=contracts,
-            payment_number=payment_number,
-            from_contract=contract,
+            preselect_contract_id=contract_id,
             current_month=date.today().strftime('%Y-%m')
         )
     except Exception as e:
@@ -238,7 +210,6 @@ def edit_page(id):
             payment=payment,
             contracts=contracts,
             payment_number=payment.payment_number,
-            from_contract=None,
             current_month=date.today().strftime('%Y-%m')
         )
     except Exception as e:

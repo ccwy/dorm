@@ -117,7 +117,7 @@
             {% endif %}
             {% endif %}
             {% if get_config_value('FEATURE_PAYMENT_MANAGE_ENABLED', True) and current_user.has_permission('payment.create') %}
-            <a href="{{ url_for('payment.add_page_from_contract', contract_id=contract.id) }}" class="px-4 py-2 bg-emerald-500 text-white rounded-md hover:bg-emerald-600 btn-hover inline-flex items-center">
+            <a href="{{ url_for('payment.add_page', contract_id=contract.id) }}" class="px-4 py-2 bg-emerald-500 text-white rounded-md hover:bg-emerald-600 btn-hover inline-flex items-center">
                 <i class="fa fa-credit-card mr-1"></i>创建付款记录
             </a>
             {% endif %}
@@ -342,7 +342,6 @@
                         </div>
                     </div>
                     {% endif %}
-                    {% if contract.payment_method not in ['月度固定金额', '月度实际金额'] %}
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
                         <div>
                             <span class="text-sm text-gray-500">预计付款时间</span>
@@ -353,7 +352,6 @@
                             <p class="font-medium text-gray-800">{% if contract.deadline_date %}{{ contract.deadline_date.strftime('%Y-%m-%d') }}{% else %}-{% endif %}</p>
                         </div>
                     </div>
-                    {% endif %}
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
                         <div>
                             <span class="text-sm text-gray-500">付款进度</span>
