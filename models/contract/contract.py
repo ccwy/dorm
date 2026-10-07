@@ -1,6 +1,7 @@
 from datetime import datetime, date, timedelta
 from decimal import Decimal
 from utils.db import db
+import logging
 
 
 class Contract(db.Model):

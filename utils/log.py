@@ -34,6 +34,7 @@ MODULE_MAP = {
     'supply_stock_detail': '库存明细',
     'supply_stock_record': '库存记录',
     'contract': '合同管理',
+    'payment': '付款管理',
     'maintenance': '后勤维修管理',
     'default': '其他模块'  # 默认值
 }
@@ -186,6 +187,15 @@ OPERATION_TYPE_MAP = {
     ('contract', 'contract_renew'): '续签合同',
     ('contract', 'api_query'): '调用接口',
     ('contract', 'batch_import_export'): '导入导出',
+
+    # 付款管理模块
+    ('payment', 'records'): '访问页面',
+    ('payment', 'api_query'): '调用接口',
+    ('payment', 'payment_create'): '新增付款记录',
+    ('payment', 'payment_update'): '编辑付款记录',
+    ('payment', 'payment_delete'): '删除付款记录',
+    ('payment', 'payment_status_change'): '状态变更',
+    ('payment', 'payment_mark_paid'): '标记已付款',
 
     # 后勤维修管理模块
     ('maintenance', 'records'): '访问页面',

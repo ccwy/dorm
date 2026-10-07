@@ -384,11 +384,11 @@ def delete_payment(id):
         payment = PaymentRecord.query.get_or_404(id)
         payment_number = payment.payment_number
 
-        # 如果被删除的付款记录状态为"已付款"，需回退合同当前已付款轮次
+        # 已付款状态的记录不允许删除
         if payment.status == '已付款':
-            contract = Contract.query.get(payment.contract_id)
-            if contract:
-                contract.current_payment_round = max((contract.current_payment_round or 0) - 1, 0)
+            flash('已付款的记录不允许删除', 'danger')
+            logging.warning(f"尝试删除已付款记录，付款ID: {id}, 编号: {payment_number}")
+            return redirect(url_for('payment.index'))
 
         db.session.delete(payment)
         db.session.commit()

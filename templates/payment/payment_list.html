@@ -175,7 +175,7 @@
                             {% for payment in payments %}
                             <tr>
                                 <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-600">
-                                    <input type="checkbox" class="payment-checkbox" value="{{ payment.id }}">
+                                    <input type="checkbox" class="payment-checkbox" value="{{ payment.id }}"{% if payment.status == '已付款' %} disabled{% endif %}>
                                 </td>
                                 <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-600">{{ (current_page - 1) * per_page + loop.index }}</td>
                                 <td class="px-4 py-4 whitespace-nowrap">
@@ -332,7 +332,7 @@
 
             if (selectAll) {
                 selectAll.addEventListener('change', function() {
-                    paymentCheckboxes.forEach(function(cb) { cb.checked = selectAll.checked; });
+                    paymentCheckboxes.forEach(function(cb) { if (!cb.disabled) cb.checked = selectAll.checked; });
                     updateBatchDeleteBtn();
                 });
             }
@@ -340,7 +340,7 @@
             paymentCheckboxes.forEach(function(cb) {
                 cb.addEventListener('change', function() {
                     if (selectAll) {
-                        selectAll.checked = Array.from(paymentCheckboxes).every(function(c) { return c.checked; });
+                        selectAll.checked = Array.from(paymentCheckboxes).filter(function(c) { return !c.disabled; }).every(function(c) { return c.checked; });
                     }
                     updateBatchDeleteBtn();
                 });
@@ -361,12 +361,18 @@
             // 批量删除：逐个调用删除API
             if (batchDeleteBtn) {
                 batchDeleteBtn.addEventListener('click', function() {
-                    var checkedIds = Array.from(document.querySelectorAll('.payment-checkbox:checked')).map(function(cb) { return cb.value; });
+                    var allChecked = Array.from(document.querySelectorAll('.payment-checkbox:checked'));
+                    var checkedIds = allChecked.filter(function(cb) { return !cb.disabled; }).map(function(cb) { return cb.value; });
+                    var skippedCount = allChecked.length - checkedIds.length;
                     if (checkedIds.length === 0) {
                         alert('请选择要删除的付款记录');
                         return;
                     }
-                    if (!confirm('确定要删除选中的 ' + checkedIds.length + ' 条付款记录吗？删除后不可恢复！')) {
+                    var msg = '确定要删除选中的 ' + checkedIds.length + ' 条付款记录吗？删除后不可恢复！';
+                    if (skippedCount > 0) {
+                        msg = '已跳过 ' + skippedCount + ' 条已付款记录（不可删除）。\n' + msg;
+                    }
+                    if (!confirm(msg)) {
                         return;
                     }
                     var deleteUrl = "{{ url_for('payment.delete_payment', id=0) }}".replace(/\/0$/, '');

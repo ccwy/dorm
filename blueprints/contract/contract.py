@@ -2,6 +2,7 @@ from flask import Blueprint, render_template, request, flash, redirect, url_for,
 from utils.db import db
 from models.contract.contract import Contract
 from models.contract.contract_operation_record import ContractOperationRecord
+from models.payment.payment_record import PaymentRecord
 from models.supply.supplier import Supplier
 from models.supply.storage_location import StorageLocation
 from models.department.department import Department
@@ -351,6 +352,11 @@ def detail(id):
         payment_progress = contract.payment_progress_text
         payment_completed = contract.is_payment_completed
 
+        # 获取付款记录列表
+        payment_records = PaymentRecord.query.filter_by(
+            contract_id=contract.id
+        ).order_by(PaymentRecord.planned_payment_date.asc(), PaymentRecord.id.asc()).all()
+
         log_operation(
             user_id=current_user.id,
             module='contract',
@@ -368,7 +374,8 @@ def detail(id):
             attachments=attachments,
             renewal_chain=renewal_chain,
             payment_progress=payment_progress,
-            payment_completed=payment_completed
+            payment_completed=payment_completed,
+            payment_records=payment_records
         )
     except Exception as e:
         log_operation(
