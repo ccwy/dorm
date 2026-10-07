@@ -55,6 +55,13 @@ def export():
                     '地址': s.address or '',
                     '状态': s.status or '启用',
                     '税率': float(s.tax_rate) if s.tax_rate else '',
+                    '收款方式': s.payment_method or '',
+                    '银行账号': s.bank_account or '',
+                    '开户行': s.bank_name or '',
+                    '收款银行': s.receiving_bank or '',
+                    '开户名称': s.account_name or '',
+                    '收款账号': s.payment_account or '',
+                    '发票类型': s.invoice_type or '',
                     '备注': s.remark or '',
                     '创建时间': s.created_at.strftime('%Y-%m-%d %H:%M') if s.created_at else '',
                     '更新时间': s.updated_at.strftime('%Y-%m-%d %H:%M') if s.updated_at else '',
@@ -159,7 +166,9 @@ def import_suppliers():
         # 可选列（缺失时不报错）
         optional_columns = [
             '统一社会信用代码', '法定代表人', '联系人', '联系电话',
-            '邮箱', '地址', '状态', '税率', '备注'
+            '邮箱', '地址', '状态', '税率',
+            '收款方式', '银行账号', '开户行', '收款银行', '开户名称', '收款账号', '发票类型',
+            '备注'
         ]
         # 列名别名映射：将Excel中可能出现的列名映射到标准列名
         column_alias_map = {}
@@ -259,6 +268,34 @@ def import_suppliers():
                 remark_val = row.get('备注')
                 remark = str(remark_val).strip() if pd.notna(remark_val) and str(remark_val).strip() else None
 
+                # 收款方式（可选）
+                payment_method_val = row.get('收款方式')
+                payment_method = str(payment_method_val).strip() if pd.notna(payment_method_val) and str(payment_method_val).strip() else None
+
+                # 银行账号（可选）
+                bank_account_val = row.get('银行账号')
+                bank_account = str(bank_account_val).strip() if pd.notna(bank_account_val) and str(bank_account_val).strip() else None
+
+                # 开户行（可选）
+                bank_name_val = row.get('开户行')
+                bank_name = str(bank_name_val).strip() if pd.notna(bank_name_val) and str(bank_name_val).strip() else None
+
+                # 收款银行（可选）
+                receiving_bank_val = row.get('收款银行')
+                receiving_bank = str(receiving_bank_val).strip() if pd.notna(receiving_bank_val) and str(receiving_bank_val).strip() else None
+
+                # 开户名称（可选）
+                account_name_val = row.get('开户名称')
+                account_name = str(account_name_val).strip() if pd.notna(account_name_val) and str(account_name_val).strip() else None
+
+                # 收款账号（可选）
+                payment_account_val = row.get('收款账号')
+                payment_account = str(payment_account_val).strip() if pd.notna(payment_account_val) and str(payment_account_val).strip() else None
+
+                # 发票类型（可选）
+                invoice_type_val = row.get('发票类型')
+                invoice_type = str(invoice_type_val).strip() if pd.notna(invoice_type_val) and str(invoice_type_val).strip() else None
+
                 # 检查名称是否重复
                 existing = Supplier.query.filter_by(name=name).first()
                 if existing:
@@ -273,6 +310,13 @@ def import_suppliers():
                         existing.status = status
                         existing.tax_rate = tax_rate if tax_rate is not None else existing.tax_rate
                         existing.remark = remark or existing.remark
+                        existing.payment_method = payment_method or existing.payment_method
+                        existing.bank_account = bank_account or existing.bank_account
+                        existing.bank_name = bank_name or existing.bank_name
+                        existing.receiving_bank = receiving_bank or existing.receiving_bank
+                        existing.account_name = account_name or existing.account_name
+                        existing.payment_account = payment_account or existing.payment_account
+                        existing.invoice_type = invoice_type or existing.invoice_type
                         existing.handler_user_id = current_user.id
                         success_count += 1
                         continue
@@ -294,6 +338,13 @@ def import_suppliers():
                     handler_user_id=current_user.id,
                     tax_rate=tax_rate,
                     remark=remark,
+                    payment_method=payment_method,
+                    bank_account=bank_account,
+                    bank_name=bank_name,
+                    receiving_bank=receiving_bank,
+                    account_name=account_name,
+                    payment_account=payment_account,
+                    invoice_type=invoice_type,
                     operator_user_id=current_user.id
                 )
                 success_count += 1
@@ -373,6 +424,13 @@ def download_template():
             "地址": ["北京市朝阳区", "上海市浦东新区", "广州市天河区"],
             "状态": ["启用", "启用", "停用"],
             "税率": [13, 6, 9],
+            "收款方式": ["银行转账", "银行转账", ""],
+            "银行账号": ["6222000000001", "6222000000002", ""],
+            "开户行": ["中国工商银行北京分行", "中国建设银行上海分行", ""],
+            "收款银行": ["工行", "建行", ""],
+            "开户名称": ["示例供应商A", "示例供应商B", ""],
+            "收款账号": ["", "", ""],
+            "发票类型": ["增值税专用发票", "增值税普通发票", ""],
             "备注": ["主要供应商", "备选供应商", ""],
         }
 

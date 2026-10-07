@@ -196,6 +196,7 @@
                             <input type="hidden" id="plan_end_date" name="plan_end_date" 
                                    value="{% if payment and payment.plan_end_date %}{{ payment.plan_end_date }}{% elif from_contract and from_contract.plan_end_date %}{{ from_contract.plan_end_date }}{% endif %}">
                         </div>
+                        </div><!-- /fixed_only_group -->
                     </div>
                 </div>
 
@@ -205,8 +206,8 @@
                         <i class="fa fa-money mr-2 text-warning"></i>付款记录
                     </h3>
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        <!-- 付款周期 -->
-                        <div>
+                        <!-- 付款周期（仅固定金额类显示） -->
+                        <div id="fixed_only_period_group" {% if (not payment or payment.payment_method != '月度固定金额') and (not from_contract or from_contract.payment_method != '月度固定金额') %}style="display:none;"{% endif %}>
                             <label for="payment_period" class="block text-sm font-medium text-gray-700 mb-1">付款周期</label>
                             <input type="month" id="payment_period" name="payment_period" 
                                    value="{{ payment.payment_period if payment and payment.payment_period else '' }}"
@@ -336,37 +337,74 @@
                 document.getElementById('payment_method').value = pm;
                 document.getElementById('payment_method_display').value = pm;
 
-                // 固定金额
-                var fa = contract.fixed_amount;
                 var faGroup = document.getElementById('fixed_amount_group');
-                if (fa) {
-                    document.getElementById('fixed_amount').value = fa;
-                    document.getElementById('fixed_amount_display').value = fa;
-                    faGroup.style.display = '';
+                var fixedGroup = document.getElementById('fixed_only_group');
+                var fixedPeriodGroup = document.getElementById('fixed_only_period_group');
+
+                if (pm === '月度固定金额') {
+                    // 固定金额类：显示固定金额专属字段
+                    var fa = contract.fixed_amount;
+                    if (fa) {
+                        document.getElementById('fixed_amount').value = fa;
+                        document.getElementById('fixed_amount_display').value = fa;
+                        faGroup.style.display = '';
+                    } else {
+                        document.getElementById('fixed_amount').value = '';
+                        document.getElementById('fixed_amount_display').value = '';
+                        faGroup.style.display = 'none';
+                    }
+                    fixedGroup.style.display = '';
+                    fixedPeriodGroup.style.display = '';
+
+                    // 付款轮次
+                    var pr = contract.payment_rounds || '';
+                    document.getElementById('payment_rounds').value = pr;
+                    document.getElementById('payment_rounds_display').value = pr;
+
+                    // 计划开始日期
+                    var psd = contract.plan_start_date || '';
+                    document.getElementById('plan_start_date').value = psd;
+                    document.getElementById('plan_start_date_display').value = psd ? '每月' + psd + '日' : '';
+
+                    // 计划截止日期
+                    var ped = contract.plan_end_date || '';
+                    document.getElementById('plan_end_date').value = ped;
+                    document.getElementById('plan_end_date_display').value = ped ? '每月' + ped + '日' : '';
+
+                    // 自动填入计划付款金额：固定金额类 → fixed_amount
+                    if (fa) {
+                        document.getElementById('planned_amount').value = fa;
+                    }
                 } else {
+                    // 非固定金额类：隐藏固定金额专属字段
+                    faGroup.style.display = 'none';
                     document.getElementById('fixed_amount').value = '';
                     document.getElementById('fixed_amount_display').value = '';
-                    faGroup.style.display = 'none';
-                }
 
-                // 付款轮次
-                var pr = contract.payment_rounds || '';
-                document.getElementById('payment_rounds').value = pr;
-                document.getElementById('payment_rounds_display').value = pr;
+                    fixedGroup.style.display = 'none';
+                    document.getElementById('payment_rounds').value = '';
+                    document.getElementById('payment_rounds_display').value = '';
+                    document.getElementById('plan_start_date').value = '';
+                    document.getElementById('plan_start_date_display').value = '';
+                    document.getElementById('plan_end_date').value = '';
+                    document.getElementById('plan_end_date_display').value = '';
 
-                // 计划开始日期
-                var psd = contract.plan_start_date || '';
-                document.getElementById('plan_start_date').value = psd;
-                document.getElementById('plan_start_date_display').value = psd ? '每月' + psd + '日' : '';
+                    fixedPeriodGroup.style.display = 'none';
+                    document.getElementById('payment_period').value = '';
 
-                // 计划截止日期
-                var ped = contract.plan_end_date || '';
-                document.getElementById('plan_end_date').value = ped;
-                document.getElementById('plan_end_date_display').value = ped ? '每月' + ped + '日' : '';
+                    // 自动填入计划付款金额：非固定金额类 → contract_amount
+                    var ca = contract.contract_amount;
+                    if (ca) {
+                        document.getElementById('planned_amount').value = ca;
+                    }
 
-                // 如果付款方式为月度固定金额，自动填入计划付款金额
-                if (pm === '月度固定金额' && fa) {
-                    document.getElementById('planned_amount').value = fa;
+                    // 自动填入预计付款时间和截止付款日期
+                    if (contract.expected_payment_date) {
+                        document.getElementById('planned_payment_date').value = contract.expected_payment_date;
+                    }
+                    if (contract.deadline_date) {
+                        document.getElementById('deadline_date').value = contract.deadline_date;
+                    }
                 }
             }
 
@@ -377,12 +415,16 @@
                 document.getElementById('fixed_amount').value = '';
                 document.getElementById('fixed_amount_display').value = '';
                 document.getElementById('fixed_amount_group').style.display = 'none';
+                // 隐藏并清空固定金额专属字段组
+                document.getElementById('fixed_only_group').style.display = 'none';
                 document.getElementById('payment_rounds').value = '';
                 document.getElementById('payment_rounds_display').value = '';
                 document.getElementById('plan_start_date').value = '';
                 document.getElementById('plan_start_date_display').value = '';
                 document.getElementById('plan_end_date').value = '';
                 document.getElementById('plan_end_date_display').value = '';
+                document.getElementById('fixed_only_period_group').style.display = 'none';
+                document.getElementById('payment_period').value = '';
             }
 
             // 付款周期变化时，自动计算计划付款日期和截止付款日期

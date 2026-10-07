@@ -100,6 +100,13 @@ def create_payment():
             except ValueError:
                 payment_date = None
 
+        # 非固定金额类：清空固定金额专属字段
+        if payment_method != '月度固定金额':
+            payment_rounds = None
+            plan_start_date = None
+            plan_end_date = None
+            payment_period = None
+
         # 创建付款记录
         payment = PaymentRecord.create(
             contract_id=contract_id,
@@ -233,6 +240,13 @@ def update_payment(id):
                 new_payment_date = datetime.strptime(new_payment_date, '%Y-%m-%d').date()
             except ValueError:
                 new_payment_date = None
+
+        # 非固定金额类：清空固定金额专属字段
+        if new_payment_method != '月度固定金额':
+            new_payment_rounds = None
+            new_plan_start_date = None
+            new_plan_end_date = None
+            new_payment_period = None
 
         # 对比新旧值，记录变更详情
         changes = []

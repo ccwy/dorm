@@ -215,7 +215,9 @@ def get_contracts():
             "contract_amount": float(c.contract_amount) if c.contract_amount else None,
             "payment_rounds": c.payment_rounds,
             "plan_start_date": c.plan_start_date,
-            "plan_end_date": c.plan_end_date
+            "plan_end_date": c.plan_end_date,
+            "expected_payment_date": c.expected_payment_date.strftime('%Y-%m-%d') if c.expected_payment_date else None,
+            "deadline_date": c.deadline_date.strftime('%Y-%m-%d') if c.deadline_date else None
         } for c in contracts]
 
         return jsonify({

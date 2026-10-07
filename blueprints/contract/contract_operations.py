@@ -141,6 +141,8 @@ def add_contract():
         payment_rounds = request.form.get('payment_rounds', '').strip() or None
         plan_start_date = request.form.get('plan_start_date', '').strip() or None
         plan_end_date = request.form.get('plan_end_date', '').strip() or None
+        expected_payment_date = request.form.get('expected_payment_date', '').strip() or None
+        deadline_date = request.form.get('deadline_date', '').strip() or None
         tax_rate = request.form.get('tax_rate', '').strip() or None
         tax_amount = request.form.get('tax_amount', '').strip() or None
         signing_date = request.form.get('signing_date', '').strip() or None
@@ -239,6 +241,20 @@ def add_contract():
             except (ValueError, TypeError):
                 plan_end_date = None
 
+        # 预计付款时间转换
+        if expected_payment_date:
+            try:
+                expected_payment_date = datetime.strptime(expected_payment_date, '%Y-%m-%d').date()
+            except ValueError:
+                expected_payment_date = None
+
+        # 截止付款日期转换
+        if deadline_date:
+            try:
+                deadline_date = datetime.strptime(deadline_date, '%Y-%m-%d').date()
+            except ValueError:
+                deadline_date = None
+
         # 日期转换
         if signing_date:
             try:
@@ -300,7 +316,9 @@ def add_contract():
             fixed_amount=fixed_amount,
             payment_rounds=payment_rounds,
             plan_start_date=plan_start_date,
-            plan_end_date=plan_end_date
+            plan_end_date=plan_end_date,
+            expected_payment_date=expected_payment_date,
+            deadline_date=deadline_date
         )
 
         # 记录操作记录
@@ -522,6 +540,8 @@ def edit_contract(id):
         new_payment_rounds = request.form.get('payment_rounds', '').strip() or None
         new_plan_start_date = request.form.get('plan_start_date', '').strip() or None
         new_plan_end_date = request.form.get('plan_end_date', '').strip() or None
+        new_expected_payment_date = request.form.get('expected_payment_date', '').strip() or None
+        new_deadline_date = request.form.get('deadline_date', '').strip() or None
         new_tax_rate = request.form.get('tax_rate', '').strip() or None
         new_tax_amount = request.form.get('tax_amount', '').strip() or None
         new_signing_date = request.form.get('signing_date', '').strip() or None
@@ -601,6 +621,20 @@ def edit_contract(id):
                 new_plan_end_date = int(new_plan_end_date)
             except (ValueError, TypeError):
                 new_plan_end_date = None
+
+        # 预计付款时间转换
+        if new_expected_payment_date:
+            try:
+                new_expected_payment_date = datetime.strptime(new_expected_payment_date, '%Y-%m-%d').date()
+            except ValueError:
+                new_expected_payment_date = None
+
+        # 截止付款日期转换
+        if new_deadline_date:
+            try:
+                new_deadline_date = datetime.strptime(new_deadline_date, '%Y-%m-%d').date()
+            except ValueError:
+                new_deadline_date = None
 
         # 日期转换
         if new_signing_date:
@@ -694,6 +728,10 @@ def edit_contract(id):
             changes.append(f"计划开始日期: {contract.plan_start_date or '无'} → {new_plan_start_date or '无'}")
         if contract.plan_end_date != new_plan_end_date:
             changes.append(f"计划截止日期: {contract.plan_end_date or '无'} → {new_plan_end_date or '无'}")
+        if contract.expected_payment_date != new_expected_payment_date:
+            changes.append(f"预计付款时间: {contract.expected_payment_date or '无'} → {new_expected_payment_date or '无'}")
+        if contract.deadline_date != new_deadline_date:
+            changes.append(f"截止付款日期: {contract.deadline_date or '无'} → {new_deadline_date or '无'}")
 
         # 更新合同字段
         contract.contract_name = new_contract_name
@@ -740,6 +778,8 @@ def edit_contract(id):
         contract.payment_rounds = new_payment_rounds
         contract.plan_start_date = new_plan_start_date
         contract.plan_end_date = new_plan_end_date
+        contract.expected_payment_date = new_expected_payment_date
+        contract.deadline_date = new_deadline_date
 
         db.session.commit()
 
