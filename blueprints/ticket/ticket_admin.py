@@ -617,17 +617,22 @@ def upload_ticket_media(ticket_id):
         # 上传文件
         try:
             filename = ticket_photo_manager.upload_file(file, ticket_id)
-            logging.info(f"管理员[{user_id}]上传留言媒体文件成功，留言ID: {ticket_id}，文件名: {filename}")
-            # 返回JSON响应而不是重定向
-            # 记录操作日志
-            log_operation(
-                user_id=user_id,
-                action=f"用户 {user_id} 上传留言媒体文件 {filename} 成功",
-                result="成功",
-                module="ticket",
-                operation_type="upload_media"
-            )
-            return {'success': True, 'message': '文件上传成功', 'filename': filename}
+            
+            if filename:
+                logging.info(f"管理员[{user_id}]上传留言媒体文件成功，留言ID: {ticket_id}，文件名: {filename}")
+                # 返回JSON响应而不是重定向
+                # 记录操作日志
+                log_operation(
+                    user_id=user_id,
+                    action=f"用户 {user_id} 上传留言媒体文件 {filename} 成功",
+                    result="成功",
+                    module="ticket",
+                    operation_type="upload_media"
+                )
+                return {'success': True, 'message': '文件上传成功', 'filename': filename}
+            else:
+                logging.warning(f"管理员[{user_id}] 留言 {ticket_id} 媒体文件格式不支持: {file.filename}")
+                return {'success': False, 'message': '文件格式不支持，请上传图片或视频文件'}
         except Exception as e:
             logging.error(f"管理员[{user_id}]文件上传失败，留言ID: {ticket_id}，错误: {str(e)}")
             return {'success': False, 'message': f'文件上传失败: {str(e)}'}

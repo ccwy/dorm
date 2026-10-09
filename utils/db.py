@@ -82,6 +82,7 @@ def init_roles_and_permissions():
         #'ticket': {'view', 'create'},
         #'maintenance': {'view', 'create'},
         'utility': {'room_records_detail', 'user_checkout_detail'},
+        #'user': {'change_own_password'},
         #'dorm_application': {'view', 'create', 'cancel'},
     }
     # 维修员的权限配置
@@ -89,6 +90,7 @@ def init_roles_and_permissions():
         #'maintenance': {'view', 'create', 'handle'},
         #'ticket': {'view', 'create'},
         'utility': {'room_records_detail', 'user_checkout_detail'},
+        #'user': {'change_own_password'},
         #'dorm_application': {'view', 'create'},
     }
     

@@ -352,6 +352,15 @@ class SystemConfig(db.Model):
                 'sort_order': 20
             },
             {
+                'config_key': 'ALLOW_USER_CHANGE_PASSWORD',
+                'config_value': 'True',
+                'config_type': 'bool',
+                'category': 'user',
+                'description': '是否允许用户自行修改密码',
+                'is_editable': True,
+                'sort_order': 25
+            },
+            {
                 'config_key': 'USER_DEFAULT_PASSWORD',
                 'config_value': '123321',
                 'config_type': 'string',
@@ -393,6 +402,8 @@ class SystemConfig(db.Model):
                 'description': '用户婚姻状态选项',
                 'sort_order': 90
             },
+            
+            
             # 留言分类配置
             {
                 'config_key': 'MESSAGE_CATEGORIES',
@@ -400,7 +411,7 @@ class SystemConfig(db.Model):
                 'config_type': 'list',
                 'category': 'user',
                 'description': '用户提交留言的分类选项',
-                'sort_order': 100
+                'sort_order': 110
             },
             
             # 待办事项分类配置
@@ -410,7 +421,7 @@ class SystemConfig(db.Model):
                 'config_type': 'list',
                 'category': 'user',
                 'description': '待办事项的分类选项',
-                'sort_order': 110
+                'sort_order': 120
             },
             
             # 3.5 用户自定义字段配置 (category: user.custom_field)

@@ -51,7 +51,7 @@ def parse_datetime(date_str):
 # 申请管理列表页
 @dorm_application_admin_bp.route('/')
 @login_required
-@require_permission('dorm_application.manage')
+@require_permission('dorm_application.approve')
 def application_list():
     try:
         # 验证用户ID是否有效
@@ -131,7 +131,7 @@ def application_list():
 # 审核详情页
 @dorm_application_admin_bp.route('/detail/<int:id>')
 @login_required
-@require_permission('dorm_application.manage')
+@require_permission('dorm_application.approve')
 def application_detail(id):
     try:
         # 验证用户ID是否有效
@@ -631,7 +631,7 @@ def cancel_application(id):
 # 统计数据API
 @dorm_application_admin_bp.route('/api/statistics')
 @login_required
-@require_permission('dorm_application.manage')
+@require_permission('dorm_application.approve')
 def api_statistics():
     try:
         # 验证用户ID是否有效

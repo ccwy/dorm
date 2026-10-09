@@ -97,7 +97,7 @@
                             <label for="room_info" class="block text-sm font-medium text-gray-700 mb-1">房间信息</label>
                             <input type="text" id="room_info" name="room_info" value="{{ room_info or '' }}" 
                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50" 
-                                   placeholder="输入关键词搜索房间，例如：A栋、102"
+                                   placeholder="输入关键词搜索房间，例如：A101、102"
                                    autocomplete="off">
                             <input type="hidden" id="room_id" name="room_id" value="{{ room_id or '' }}">
                             <!-- 搜索下拉列表 -->
@@ -342,6 +342,7 @@
             let totalFiles = files.length;
             let uploaded = 0;
             let successCount = 0;
+            let errorMessages = [];
 
             Array.from(files).forEach((file, index) => {
                 document.getElementById('uploadStatusText').textContent = `正在上传 ${index + 1}/${totalFiles}: ${file.name}`;
@@ -352,12 +353,12 @@
                     updateUploadedFilesInput();
                     addFilePreview(result.filename, result.url, file.type);
                     updateProgress(uploaded, successCount, totalFiles);
-                    if (uploaded === totalFiles) finishUpload(successCount, totalFiles);
+                    if (uploaded === totalFiles) finishUpload(successCount, totalFiles, errorMessages);
                 }).catch(err => {
                     uploaded++;
+                    errorMessages.push(`${file.name}: ${err.message}`);
                     updateProgress(uploaded, successCount, totalFiles);
-                    showFeedback(`文件 ${file.name} 上传失败: ${err.message}`, 'error');
-                    if (uploaded === totalFiles) finishUpload(successCount, totalFiles);
+                    if (uploaded === totalFiles) finishUpload(successCount, totalFiles, errorMessages);
                 });
             });
         }
@@ -391,13 +392,17 @@
             document.getElementById('uploadStatusText').textContent = `已上传 ${uploaded}/${total}，成功 ${success} 个`;
         }
 
-        function finishUpload(success, total) {
+        function finishUpload(success, total, errorMessages) {
             setTimeout(() => {
                 const feedbackDiv = document.getElementById('uploadFeedback');
                 if (success === total) {
                     showFeedback(`上传完成：成功 ${success}/${total} 个文件`, 'success');
                 } else {
-                    showFeedback(`上传完成：成功 ${success}/${total}，失败 ${total - success} 个`, 'warning');
+                    let msg = `上传完成：成功 ${success}/${total}，失败 ${total - success} 个`;
+                    if (errorMessages && errorMessages.length > 0) {
+                        msg += '（' + errorMessages.join('；') + '）';
+                    }
+                    showFeedback(msg, 'warning');
                 }
                 document.getElementById('uploadProgress').classList.add('hidden');
             }, 500);

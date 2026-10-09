@@ -22,6 +22,7 @@ PERMISSIONS = {
             'delete': '删除',
             'export': '导出',
             'import': '导入',
+            'change_own_password': '修改登录密码',
         }
     },
     'department': {

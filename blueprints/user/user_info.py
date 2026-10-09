@@ -1,13 +1,17 @@
 from flask_login import login_required, current_user
-from flask import Blueprint, render_template
+from flask import Blueprint, render_template, redirect, url_for, flash, request
 from models.user.user import User
 from models.dorm.dorm import Dorm
 from models.room.room import Room
 from models.utility.utility_room_bill_occupant import RoomUtilityOccupant
 from models.utility.utility_room_bill_checkout import CheckoutUtilityRecord
 from datetime import datetime
-from .user import user_bp  # 导入dorm蓝图
+from .user import user_bp  # 导入user蓝图
 from utils.log import log_operation
+from utils.auth import require_permission
+from models.system_config.system_config import SystemConfig
+from utils.db import db
+import logging
 
 @user_bp.route('/')
 @login_required
@@ -126,3 +130,58 @@ def user_info():
         utility_records=utility_records,
         format_datetime=format_datetime
     )
+
+
+@user_bp.route('/change_password', methods=['POST'])
+@login_required
+@require_permission('user.change_own_password')
+def change_password():
+    current_password = request.form.get('current_password', '')
+    new_password = request.form.get('new_password', '')
+    confirm_password = request.form.get('confirm_password', '')
+
+    # 检查系统是否允许用户修改密码
+    if not SystemConfig.get_config_value('ALLOW_USER_CHANGE_PASSWORD', True):
+        flash('系统未开启用户修改密码功能', 'error')
+        return redirect(url_for('user.user_info'))
+
+    # 从session获取当前用户ID（不从表单获取，防止越权攻击）
+    user_id = current_user.id
+    user = User.query.get(user_id)
+
+    # 显式验证用户身份
+    if not user:
+        logging.warning(f'修改密码失败：用户身份验证失败，用户ID[{user_id}]在数据库中不存在')
+        flash('用户身份验证失败，请重新登录', 'error')
+        return redirect(url_for('user.user_info'))
+
+    # 验证当前密码（重新认证）
+    if not user.check_password(current_password):
+        logging.warning(f'用户[ID：{user_id}]修改密码失败：当前密码错误')
+        flash('当前密码错误', 'error')
+        return redirect(url_for('user.user_info'))
+
+    # 验证新密码长度
+    if len(new_password) < 6:
+        logging.warning(f'用户[ID：{current_user.id}]修改密码失败：新密码长度不足6位')
+        flash('新密码长度至少6位', 'error')
+        return redirect(url_for('user.user_info'))
+
+    # 验证新密码和确认密码一致
+    if new_password != confirm_password:
+        logging.warning(f'用户[ID：{current_user.id}]修改密码失败：两次输入的新密码不一致')
+        flash('两次输入的新密码不一致', 'error')
+        return redirect(url_for('user.user_info'))
+
+    # 修改密码
+    user.set_password(new_password)
+    db.session.commit()
+    log_operation(
+        user_id=current_user.id,
+        module='user',
+        operation_type='user_set_password',
+        action=f'用户[ID：{current_user.id}，姓名：{user.name}]修改密码',
+        result='成功'
+    )
+    flash('密码修改成功', 'success')
+    return redirect(url_for('user.user_info'))

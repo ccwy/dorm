@@ -929,6 +929,7 @@
                 var progressBar = document.getElementById('adminCheckoutPhotoUploadBar');
                 var progressPercentage = document.getElementById('adminCheckoutPhotoUploadPercentage');
                 var uploadStatus = document.getElementById('adminCheckoutPhotoUploadStatus');
+                var errorMessages = [];
                 progressContainer.classList.remove('hidden');
                 progressBar.style.width = '0%';
                 progressPercentage.textContent = '0%';
@@ -959,11 +960,12 @@
                             xhr.open('POST', '/utility-checkout/upload_temp_media');
                             xhr.send(formData);
                         });
-                    } catch (error) { console.error('文件上传失败:', error); alert(error.message || '文件上传失败'); }
+                    } catch (error) { errorMessages.push(file.name + ': ' + (error.message || '上传失败')); }
                 }
                 uploadStatus.textContent = '上传完成';
                 setTimeout(function() { progressContainer.classList.add('hidden'); }, 1500);
                 document.getElementById('adminCheckoutPhotoFileInput').value = '';
+                if (errorMessages.length > 0) { alert('上传失败:\n' + errorMessages.join('\n')); }
                 loadAdminCheckoutPhotos();
             }
 

@@ -46,6 +46,10 @@ def temp_upload():
         if file.filename == '':
             return jsonify({'success': False, 'message': '未选择文件'}), 400
         
+        # 检查文件格式
+        if not MaintenancePhotoManager.allowed_file(file.filename):
+            return jsonify({'success': False, 'message': '文件格式不支持，请上传图片或视频文件'}), 400
+        
         # 上传临时文件
         filename = MaintenancePhotoManager.upload_temp_file(file, user_id)
         
@@ -73,7 +77,8 @@ def temp_upload():
                 'files': temp_files
             })
         else:
-            return jsonify({'success': False, 'message': '文件上传失败'}), 500
+            logging.warning(f"用户 [{user_id}] 上传临时文件失败: {file.filename}")
+            return jsonify({'success': False, 'message': '文件上传失败'}), 400
     except Exception as e:
         logging.error(f"上传临时文件失败: {str(e)}")
         return jsonify({'success': False, 'message': f'文件上传失败: {str(e)}'}), 500
@@ -173,6 +178,10 @@ def upload_order_photo(order_id):
         if file.filename == '':
             return jsonify({'success': False, 'message': '未选择文件'}), 400
         
+        # 检查文件格式
+        if not MaintenancePhotoManager.allowed_file(file.filename):
+            return jsonify({'success': False, 'message': '文件格式不支持，请上传图片或视频文件'}), 400
+        
         # 上传文件
         filename = MaintenancePhotoManager.upload_file(file, order_id)
         
@@ -197,7 +206,8 @@ def upload_order_photo(order_id):
                 'files': media_files
             })
         else:
-            return jsonify({'success': False, 'message': '照片上传失败'}), 500
+            logging.warning(f"用户 [{user_id}] 上传工单照片失败: {file.filename}")
+            return jsonify({'success': False, 'message': '照片上传失败'}), 400
     except Exception as e:
         logging.error(f"上传工单照片失败: {str(e)}")
         return jsonify({'success': False, 'message': f'照片上传失败: {str(e)}'}), 500

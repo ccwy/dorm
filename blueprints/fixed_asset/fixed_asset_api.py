@@ -313,7 +313,8 @@ def upload_photo(asset_id):
             )
             return jsonify({"success": True, "filename": filename}), 200
 
-        return jsonify({"success": False, "message": "上传失败"}), 500
+        logging.warning(f"用户 {current_user.id} 尝试上传资产照片，但文件格式不支持，资产ID: {asset_id}")
+        return jsonify({"success": False, "message": "不支持的文件格式"}), 400
 
     except Exception as e:
         logging.error(f"上传资产照片失败（asset_id={asset_id}）: {str(e)}\n{traceback.format_exc()}")

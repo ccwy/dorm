@@ -57,6 +57,11 @@
                     </div>
                     <!-- 反馈按钮 -->
                     <div class="flex items-center gap-2">
+                    {% if get_config_value('ALLOW_USER_CHANGE_PASSWORD', True) and current_user.has_permission('user.change_own_password') %}
+                    <button type="button" onclick="openChangePasswordModal()" class="btn-effect bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-600/90 transition-colors flex items-center justify-center">
+                        <i class="fa fa-key mr-2"></i>修改密码
+                    </button>
+                    {% endif %}
                     {% if get_config_value('FEATURE_DORM_APPLICATION_ENABLED', True) and current_user.has_permission('dorm_application.view') %}
                     <a href="{{ url_for('dorm_application_user.application_list') }}" class="btn-effect bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-500/90 transition-colors flex items-center justify-center">
                         <i class="fa fa-bed mr-2"></i>宿舍申请
@@ -428,6 +433,52 @@
                 
                 
     </main>
+    <!-- 修改密码模态框 -->
+    <div id="changePasswordModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden" onclick="if(event.target===this)closeChangePasswordModal()">
+        <div class="bg-white rounded-lg p-6 w-full max-w-md">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-semibold text-gray-900">修改密码</h3>
+                <button type="button" onclick="closeChangePasswordModal()" class="text-gray-500 hover:text-gray-700">
+                    <i class="fa fa-times"></i>
+                </button>
+            </div>
+            <form method="POST" action="{{ url_for('user.change_password') }}" onsubmit="return validateChangePassword()">
+                <div class="mb-4">
+                    <label for="current_password" class="block text-sm font-medium text-gray-700 mb-1">当前密码 <span class="text-danger">*</span></label>
+                    <input type="password" id="current_password" name="current_password" required class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary">
+                </div>
+                <div class="mb-4">
+                    <label for="new_password" class="block text-sm font-medium text-gray-700 mb-1">新密码 <span class="text-danger">*</span></label>
+                    <input type="password" id="new_password" name="new_password" required minlength="6" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary">
+                </div>
+                <div class="mb-4">
+                    <label for="confirm_password" class="block text-sm font-medium text-gray-700 mb-1">确认新密码 <span class="text-danger">*</span></label>
+                    <input type="password" id="confirm_password" name="confirm_password" required class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary">
+                </div>
+                <div class="flex justify-end space-x-3">
+                    <button type="button" onclick="closeChangePasswordModal()" class="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 transition-custom">取消</button>
+                    <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-600/90 transition-custom">确认修改</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+    function openChangePasswordModal() {
+        document.getElementById('changePasswordModal').classList.remove('hidden');
+    }
+    function closeChangePasswordModal() {
+        document.getElementById('changePasswordModal').classList.add('hidden');
+    }
+    function validateChangePassword() {
+        var np = document.getElementById('new_password').value;
+        var cp = document.getElementById('confirm_password').value;
+        if (np.length < 6) { alert('新密码长度不能少于6位'); return false; }
+        if (np !== cp) { alert('两次输入的新密码不一致'); return false; }
+        return true;
+    }
+    </script>
+
     <!-- 页脚 -->
     {% include 'footer.html' %}
     

@@ -88,6 +88,7 @@ OPERATION_TYPE_MAP = {
     ('user', 'batch_import_export'): '导入导出',
     ('user', 'user_add'): '增加用户',
     ('user', 'user_edit'): '编辑用户',
+    ('user', 'user_set_password'): '修改密码',
     ('user', 'user_delete'): '删除用户',
     ('user', 'user_view'): '查看用户',
     # 水电费管理模块

@@ -222,7 +222,7 @@
             </div>
 
             <!-- 上传结果反馈 -->
-            <div id="uploadFeedback" class="hidden mb-4 p-3 rounded-md text-white"></div>
+            <div id="uploadFeedback" class="hidden mb-4 p-3 rounded-md text-white" style="white-space: pre-line"></div>
 
         <!-- 待办事项基本信息卡片 -->
         <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
@@ -542,6 +542,7 @@
                 const totalFiles = this.files.length;
                 let uploadedCount = 0;
                 let successCount = 0;
+                const errorMessages = [];
                 
                 // 显示进度条容器
                 uploadProgressContainer.classList.remove('hidden');
@@ -565,22 +566,15 @@
                         
                         // 所有文件上传完成
                         if (uploadedCount === totalFiles) {
-                            checkUploadComplete(successCount, totalFiles);
+                            checkUploadComplete(successCount, totalFiles, errorMessages);
                         }
                     }).catch(error => {
                         uploadedCount++;
+                        errorMessages.push(`文件上传失败: ${file.name} - ${error.message}`);
                         updateProgress(uploadedCount, successCount, totalFiles);
-                        showErrorFeedback(`文件上传失败: ${file.name} - ${error.message}`);
-                        
-                        // 3秒后隐藏错误消息
-                        setTimeout(() => {
-                            hideFeedback();
-                            
-                            // 所有文件上传完成
-                            if (uploadedCount === totalFiles) {
-                                checkUploadComplete(successCount, totalFiles);
-                            }
-                        }, 3000);
+                        if (uploadedCount === totalFiles) {
+                            checkUploadComplete(successCount, totalFiles, errorMessages);
+                        }
                     });
                 });
                 
@@ -594,28 +588,14 @@
                     uploadStatusText.textContent = `已上传 ${uploaded}/${total} 个文件，成功 ${success} 个`;
                 }
                 
-                // 显示错误反馈
-                function showErrorFeedback(message) {
-                    uploadFeedback.textContent = message;
-                    uploadFeedback.className = 'px-4 py-3 bg-red-100 text-red-800 rounded-md mb-4';
-                    uploadFeedback.classList.remove('hidden');
-                }
-                
-                // 隐藏反馈消息
-                function hideFeedback() {
-                    uploadFeedback.classList.add('hidden');
-                }
-                
                 // 检查是否所有文件都上传完成
-                function checkUploadComplete(success, total) {
+                function checkUploadComplete(success, total, errorMessages) {
                     setTimeout(() => {
                         if (success === total) {
-                            // 全部成功
                             uploadFeedback.textContent = `上传完成: 成功上传 ${success}/${total} 个文件`;
                             uploadFeedback.className = 'px-4 py-3 bg-green-100 text-green-800 rounded-md mb-4';
                         } else {
-                            // 部分成功
-                            uploadFeedback.textContent = `上传完成: 成功 ${success}/${total} 个文件，失败 ${total - success} 个文件`;
+                            uploadFeedback.textContent = `上传完成: 成功 ${success}/${total} 个文件，失败 ${total - success} 个文件` + (errorMessages.length > 0 ? '\n' + errorMessages.join('\n') : '');
                             uploadFeedback.className = 'px-4 py-3 bg-yellow-100 text-yellow-800 rounded-md mb-4';
                         }
                         uploadFeedback.classList.remove('hidden');

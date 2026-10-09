@@ -135,7 +135,7 @@
             <!-- 宿舍申请 -->
             {% if get_config_value('FEATURE_DORM_APPLICATION_ENABLED', True) and current_user.has_permission('dorm_application.view') %}
             <div class="bg-white rounded-xl p-6 card-shadow btn-hover nav-card">
-                {% if current_user.has_permission('dorm_application.manage') %}
+                {% if current_user.has_permission('dorm_application.manage') or current_user.has_permission('dorm_application.approve') %}
                 <a href="{{ url_for('dorm_application_admin.application_list') }}" class="flex flex-col items-center text-center">
                 {% else %}
                 <a href="{{ url_for('dorm_application_user.application_list') }}" class="flex flex-col items-center text-center">

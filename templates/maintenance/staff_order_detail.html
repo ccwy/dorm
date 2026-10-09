@@ -479,10 +479,10 @@
                             alert(resp.message || '上传失败');
                         }
                     } catch(e) {
-                        alert('上传失败');
+                        alert('上传失败: 响应解析错误');
                     }
                 } else {
-                    alert('上传失败');
+                    alert('上传失败: ' + (xhr.statusText || '服务器错误'));
                 }
             };
             xhr.send(formData);
