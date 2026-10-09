@@ -286,3 +286,34 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 });
 </script>
+
+<script>
+// 会话超时自动跳转登录页
+(function() {
+  var timeout = {{ session_timeout_seconds }};
+  if (!timeout) return;
+
+  var timer = null;
+  var remaining = timeout;
+
+  // 重置倒计时
+  function resetTimer() {
+    remaining = timeout;
+  }
+
+  // 每秒检查倒计时
+  timer = setInterval(function() {
+    remaining--;
+    if (remaining <= 0) {
+      clearInterval(timer);
+      window.location.href = '/login/logout';
+    }
+  }, 1000);
+
+  // 监听用户活动，重置倒计时
+  var events = ['click', 'keydown', 'mousemove', 'scroll', 'touchstart'];
+  events.forEach(function(e) {
+    document.addEventListener(e, resetTimer);
+  });
+})();
+</script>

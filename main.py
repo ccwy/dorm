@@ -236,13 +236,15 @@ def init_flask_app(progress_callback=None):
         from models.system_config.system_config import SystemConfig
         config = DatabaseConfig.load_config()
         system_title = config.get('SYSTEM_TITLE', '行政后勤管理系统')
+        session_timeout_seconds = current_app.config.get('SESSION_INACTIVITY_TIMEOUT', 1 * 60 * 60) if current_user.is_authenticated else 0
         return {
             'current_year': datetime.now().year,
             'Config': current_config,
             'date': date,
             'current_user': current_user,
             'system_title': system_title,
-            'get_config_value': SystemConfig.get_config_value
+            'get_config_value': SystemConfig.get_config_value,
+            'session_timeout_seconds': session_timeout_seconds
         }
 
     login_manager = LoginManager()

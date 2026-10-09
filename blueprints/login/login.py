@@ -176,8 +176,8 @@ def logout():
                 result="成功"
         )
         # 添加登出成功提示
-        flash('已成功退出登录', 'info')
-        logging.info(f'已成功退出登录')
+        flash('您已退出登录', 'info')
+        logging.info(f'用户ID={user_id} 已退出登录')
     except Exception as e:
 
         logging.error(f'退出登录时发生错误: {str(e)}')
