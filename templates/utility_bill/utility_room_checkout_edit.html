@@ -172,7 +172,7 @@
                         分摊比例: {{ "%.2f" % ((roommate.period_days or 0) / (checkout_record.total_period_days or 1) * 100) }}%
                     </p>
                     <p class="text-sm text-primary mt-1">
-                        分摊金额: <span id="roommateFee{{ loop.index0 }}">{{ "%.2f" % ((roommate.period_days or 0) / (checkout_record.total_period_days or 1) * (checkout_record.meter_total_fee | float or 0)) }}</span> 元
+                        原始分摊金额: <span id="roommateFee{{ loop.index0 }}">{{ "%.2f" % ((roommate.period_days or 0) / (checkout_record.total_period_days or 1) * (checkout_record.meter_total_fee | float or 0)) }}</span> 元
                     </p>
                     {% if roommate.has_transfer %}
                     <div class="flex items-center text-warning text-sm mt-1">

@@ -505,7 +505,7 @@ def utility_room_checkout_edit():
         )
         
         return render_template('utility_bill/utility_room_checkout_edit.html',
-                              title=f"编辑退宿人员费用-{user.name}(ID:{user.id})",
+                              title=f"编辑退宿人员费用-{user.name}(ID:{checkout_record.id})",
                               checkout_record=checkout_record,
                               user=user,
                               room=room,
@@ -554,7 +554,7 @@ def utility_user_checkout_detail():
     
     # 渲染费用结果页面
     return render_template('utility_bill/utility_user_checkout_detail.html', 
-                          title=f"退宿费用核算详情-{user.name}(ID:{user.id})",
+                          title=f"退宿费用核算详情-{user.name}(ID:{checkout_record.id})",
                           checkout_record=checkout_record, 
                           user=user, 
                           room=room,

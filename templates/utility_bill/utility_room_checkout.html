@@ -855,8 +855,9 @@
               userproportionalreduction = record.total.user_proportional_reduction || 0;
               //个人级减免
               userindependentreduction = record.total.user_independent_reduction || 0;
-              // 计算总和：房间级费用减免和个人级费用减免之和
-              totalReductionFee = userproportionalreduction + userindependentreduction;
+              // 计算总和：用量减免费用(原始费用-计费费用) + 房间级费用减免 + 个人级费用减免
+              let meterReductionFee = (useroriginalelectricfee - userbillingelectricfee) + (useroriginalwaterfee - userbillingwaterfee);
+              totalReductionFee = meterReductionFee + userproportionalreduction + userindependentreduction;
 
               //实际应付费用
               payableFee = record.total.payable_fee || 0;

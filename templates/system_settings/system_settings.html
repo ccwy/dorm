@@ -1207,6 +1207,15 @@
                                     <option value="服务端" ${config === '服务端' ? 'selected' : ''}>服务端</option>
                                 </select>
                             `;
+                        } else if (key === 'CHECKOUT_REDUCTION_CALC_MODE') {
+                            // 退宿减免计算模式下拉框
+                            inputHtml = `
+                                <select id="config_${key}" class="form-input mt-1" ${!isEditable ? 'disabled' : ''}>
+                                    <option value="by_capacity" ${config === 'by_capacity' ? 'selected' : ''}>按房间容量</option>
+                                    <option value="by_occupants" ${config === 'by_occupants' ? 'selected' : ''}>按实际入住人数</option>
+                                    <option value="by_daily_occupants" ${config === 'by_daily_occupants' ? 'selected' : ''}>按天按在住人数</option>
+                                </select>
+                            `;
                         } else {
                             inputHtml = `
                                 <input type="text" id="config_${key}" value="${config}" 

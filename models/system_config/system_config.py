@@ -573,6 +573,22 @@ class SystemConfig(db.Model):
                 'sort_order': 71
             },
             {
+                'config_key': 'CHECKOUT_REDUCTION_CALC_MODE',
+                'config_value': 'by_daily_occupants',
+                'config_type': 'str',
+                'category': 'fee',
+                'description': '退宿减免计算模式：by_capacity=按房间容量（比例=1/(天数×容量)，1人时容量=1，入住≤半数容量减半），by_occupants=按实际入住人数（比例=1/(天数×实际人数)，减免=房间减免×比例×在住天数），by_daily_occupants=按天按在住人数（日减免=月减免/天数，用户减免=Σ日减免/当天人数）',
+                'sort_order': 72
+            },
+            {
+                'config_key': 'CHECKOUT_USER_SUBSIDY_FULL_AMOUNT',
+                'config_value': 'True',
+                'config_type': 'bool',
+                'category': 'fee',
+                'description': '个人级减免模式：True=全额减免（直接使用补贴总额），False=按实际天数减免（补贴总额×住宿天数/账期天数）',
+                'sort_order': 73
+            },
+            {
                 'config_key': 'UTILITY_BILL_EDIT_ENABLED',
                 'config_value': 'True',
                 'config_type': 'bool',

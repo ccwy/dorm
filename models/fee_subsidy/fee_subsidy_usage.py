@@ -294,15 +294,37 @@ class FeeSubsidyUsage(db.Model):
         
         # 仅查询当前账期的子表使用量（账期仅用于子表过滤）
         period_used = cls.get_total_usage(subsidy_id, billing_period)
-        logging.info(
-            f"补贴{subsidy_id}在{billing_period}账期使用情况 - "
-            f"主表总金额: {subsidy.amount if subsidy.amount is not None else '未设置'}, "
-            f"本账期已使用: {period_used['total_amount']} - "
-            f"主表总电费减免: {subsidy.electric_reduction if subsidy.electric_reduction is not None else '未设置'}, "
-            f"本账期已使用: {period_used['total_electric']} - "
-            f"主表总水费减免: {subsidy.water_reduction if subsidy.water_reduction is not None else '未设置'}, "
-            f"本账期已使用: {period_used['total_water']}"
-        )
+        # 按补贴类型输出使用情况日志
+        if subsidy.fee_type == "房间水电按用量减免":
+            logging.info(
+                f"补贴{subsidy_id}[按用量减免]在{billing_period}账期使用情况 - "
+                f"主表总电减免: {subsidy.electric_reduction if subsidy.electric_reduction is not None else '未设置'}, "
+                f"本账期已使用: {period_used['total_electric']}; "
+                f"主表总水减免: {subsidy.water_reduction if subsidy.water_reduction is not None else '未设置'}, "
+                f"本账期已使用: {period_used['total_water']}"
+            )
+        elif subsidy.fee_type == "房间水电按金额减免":
+            logging.info(
+                f"补贴{subsidy_id}[按金额减免]在{billing_period}账期使用情况 - "
+                f"主表总金额: {subsidy.amount if subsidy.amount is not None else '未设置'}, "
+                f"本账期已使用: {period_used['total_amount']}"
+            )
+        elif subsidy.fee_type == "住宿补贴":
+            logging.info(
+                f"补贴{subsidy_id}[住宿补贴]在{billing_period}账期使用情况 - "
+                f"主表总金额: {subsidy.amount if subsidy.amount is not None else '未设置'}, "
+                f"本账期已使用: {period_used['total_amount']}"
+            )
+        else:
+            logging.info(
+                f"补贴{subsidy_id}[{subsidy.fee_type}]在{billing_period}账期使用情况 - "
+                f"主表总金额: {subsidy.amount if subsidy.amount is not None else '未设置'}, "
+                f"本账期已使用: {period_used['total_amount']}; "
+                f"主表总电减免: {subsidy.electric_reduction if subsidy.electric_reduction is not None else '未设置'}, "
+                f"本账期已使用: {period_used['total_electric']}; "
+                f"主表总水减免: {subsidy.water_reduction if subsidy.water_reduction is not None else '未设置'}, "
+                f"本账期已使用: {period_used['total_water']}"
+            )
         
         # 初始化剩余量为0
         remaining_amount = 0
@@ -335,11 +357,27 @@ class FeeSubsidyUsage(db.Model):
             logging.error(f"计算{billing_period}账期剩余补贴失败: {str(e)}")
             return {'remaining_amount': 0, 'remaining_electric': 0, 'remaining_water': 0}
         
-        # 输出剩余额度日志
-        logging.info(
-            f"补贴{subsidy_id}在{billing_period}账期剩余可用额度 - "
-            f"金额: {remaining_amount}, 用电量: {remaining_electric}, 用水量: {remaining_water}"
-        )
+        # 按补贴类型输出剩余额度日志
+        if subsidy.fee_type == "房间水电按用量减免":
+            logging.info(
+                f"补贴{subsidy_id}[按用量减免]在{billing_period}账期剩余可用额度 - "
+                f"电: {remaining_electric}, 水: {remaining_water}"
+            )
+        elif subsidy.fee_type == "房间水电按金额减免":
+            logging.info(
+                f"补贴{subsidy_id}[按金额减免]在{billing_period}账期剩余可用额度 - "
+                f"金额: {remaining_amount}"
+            )
+        elif subsidy.fee_type == "住宿补贴":
+            logging.info(
+                f"补贴{subsidy_id}[住宿补贴]在{billing_period}账期剩余可用额度 - "
+                f"金额: {remaining_amount}"
+            )
+        else:
+            logging.info(
+                f"补贴{subsidy_id}[{subsidy.fee_type}]在{billing_period}账期剩余可用额度 - "
+                f"金额: {remaining_amount}, 电: {remaining_electric}, 水: {remaining_water}"
+            )
         return {
             'remaining_amount': remaining_amount,
             'remaining_electric': remaining_electric,

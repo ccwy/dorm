@@ -133,7 +133,7 @@ class CheckoutUtilityRecord(db.Model):
             water_meter_max = Decimal(str(room.water_meter_max)) if room else Decimal('9999.99')
             logging.info(f"表计量程 - 电表: {electric_meter_max}, 水表: {water_meter_max}")
             
-            # 获取房间额定容量人数（假设Room模型有capacity字段表示房间容量）
+            # 获取房间额定容量人数
             room_capacity = room.capacity or 1  # 默认1人，避免除以0
             if room_capacity <= 0:
                 raise ValueError(f"房间容量必须大于0: {room_capacity}")
@@ -272,7 +272,7 @@ class CheckoutUtilityRecord(db.Model):
                             f"个人级: {'启用' if enable_fee_user_fee else '禁用'}, "
                             f"用量级: {'启用' if enable_fee_meter_reduction else '禁用'}")
 
-                # 5.2 查询补贴记录（直接从主表获取可用额度）
+                # 5.2 查询补贴记录（使用剩余可用额度，避免超分配）
                 room_subsidies = FeeSubsidy.query.filter(
                     FeeSubsidy.room_id == room_id,
                     FeeSubsidy.is_enabled == True,
@@ -286,89 +286,200 @@ class CheckoutUtilityRecord(db.Model):
                     FeeSubsidy.effective_date <= checkout_date
                 ).all()
                 
-                # 5.3 处理房间级补贴（直接使用主表额度）
+                # 5.3 处理房间级补贴（使用剩余额度，避免超分配）
                 for subsidy in room_subsidies:
-                    # 直接从主表获取额度，不查询子表的剩余额度
-                    logging.info(f"房间级补贴[{subsidy.id}]主表额度 - 金额: {subsidy.amount}, "
-                                f"电用量: {subsidy.electric_reduction}, 水用量: {subsidy.water_reduction}")
+                    # 查询剩余额度而非直接使用主表全额
+                    try:
+                        remaining = FeeSubsidyUsage.get_remaining_usage(subsidy.id, billing_period)
+                    except Exception as e:
+                        logging.warning(f"查询房间级补贴[{subsidy.id}]剩余额度失败: {e}，使用主表额度")
+                        remaining = {
+                            'remaining_amount': subsidy.amount or 0,
+                            'remaining_electric': subsidy.electric_reduction or 0,
+                            'remaining_water': subsidy.water_reduction or 0
+                        }
+                    
+                    if subsidy.fee_type == "房间水电按用量减免":
+                        logging.info(f"房间级补贴[{subsidy.id}]类型=按用量减免, 剩余额度 - 电: {remaining['remaining_electric']}, 水: {remaining['remaining_water']}")
+                    elif subsidy.fee_type == "房间水电按金额减免":
+                        logging.info(f"房间级补贴[{subsidy.id}]类型=按金额减免, 剩余额度 - 金额: {remaining['remaining_amount']}")
+                    else:
+                        logging.info(f"房间级补贴[{subsidy.id}]类型={subsidy.fee_type}, 剩余额度 - 金额: {remaining['remaining_amount']}, 电: {remaining['remaining_electric']}, 水: {remaining['remaining_water']}")
                     
                     if subsidy.fee_type == "房间水电按用量减免" and enable_fee_meter_reduction:
-                        # 累加可用的水电减免量（直接使用主表额度）
-                        subsidies['electric_reduction'] += Decimal(str(subsidy.electric_reduction or 0))
-                        subsidies['water_reduction'] += Decimal(str(subsidy.water_reduction or 0))
+                        # 累加剩余水电减免量
+                        subsidies['electric_reduction'] += Decimal(str(remaining['remaining_electric'] or 0))
+                        subsidies['water_reduction'] += Decimal(str(remaining['remaining_water'] or 0))
                         subsidies['used_subsidies'].append({
                             'subsidy': subsidy,
-                            'total_electric': subsidy.electric_reduction or 0,
-                            'total_water': subsidy.water_reduction or 0
+                            'total_electric': remaining['remaining_electric'] or 0,
+                            'total_water': remaining['remaining_water'] or 0
                         })
                     elif subsidy.fee_type == "房间水电按金额减免" and enable_fee_room_fee:
-                        # 累加可用的金额减免（直接使用主表额度）
-                        subsidies['room_total_reduction'] += Decimal(str(subsidy.amount or 0))
+                        # 累加剩余金额减免
+                        subsidies['room_total_reduction'] += Decimal(str(remaining['remaining_amount'] or 0))
                         subsidies['used_subsidies'].append({
                             'subsidy': subsidy,
-                            'total_amount': subsidy.amount or 0
+                            'total_amount': remaining['remaining_amount'] or 0
                         })
                 
-                # 处理个人级补贴（直接使用主表额度）
+                # 处理个人级补贴（使用剩余额度）
                 for subsidy in user_subsidies:
                     if enable_fee_user_fee:
-                        # 直接从主表获取额度
-                        logging.info(f"个人级补贴[{subsidy.id}]主表额度 - 金额: {subsidy.amount}")
+                        try:
+                            remaining = FeeSubsidyUsage.get_remaining_usage(subsidy.id, billing_period)
+                        except Exception as e:
+                            logging.warning(f"查询个人级补贴[{subsidy.id}]剩余额度失败: {e}，使用主表额度")
+                            remaining = {
+                                'remaining_amount': subsidy.amount or 0,
+                                'remaining_electric': 0,
+                                'remaining_water': 0
+                            }
                         
-                        subsidies['user_total_reduction'] += Decimal(str(subsidy.amount or 0))
+                        logging.info(f"个人级补贴[{subsidy.id}]剩余额度 - 金额: {remaining['remaining_amount']}")
+                        
+                        subsidies['user_total_reduction'] += Decimal(str(remaining['remaining_amount'] or 0))
                         subsidies['used_subsidies'].append({
                             'subsidy': subsidy,
-                            'total_amount': subsidy.amount or 0
+                            'total_amount': remaining['remaining_amount'] or 0
                         })
                 
                 # 计算用户按比例分摊的减免额度
-                # 新规则：A的减免比例 = 总额度 / 当月自然天数 / 房间额定容量人数
-                # A的减免额度 = 总减免额度 × A的减免比例
-                # 不论何时，如果退宿前房间只有1人入住，则使用1作为计算容量
+                # 支持三种模式：by_capacity（按房间容量）、by_occupants（按实际入住人数）、by_daily_occupants（按天按在住人数）
+                reduction_calc_mode = SystemConfig.get_config_value('CHECKOUT_REDUCTION_CALC_MODE', 'by_capacity')
+                logging.info(f"减免计算模式: {reduction_calc_mode}")
                 
                 user_proportion = Decimal('0')
 
                 if natural_days > 0:
-                    # 使用已获取的房间信息和容量，避免重复查询
-                    calculated_room_capacity = room_capacity
+                    if reduction_calc_mode == 'by_daily_occupants':
+                        # 方案E：按天按在住人数分配
+                        # 日减免 = 月减免 / 自然天数
+                        # 用户减免 = Σ(日减免 / 当天在住人数)，仅累加用户在住的日期
+                        daily_occupants_list = cls.calculate_daily_occupants(room_id, period_start, period_end, checkout_date)
+                        
+                        # 获取用户在该房间的入住日期范围
+                        user_dorms = Dorm.query.filter(
+                            Dorm.user_id == user_id,
+                            Dorm.room_id == room_id,
+                            Dorm.status.in_(['active', 'checked_out']),
+                            Dorm.check_in_date <= checkout_date,
+                            db.or_(
+                                Dorm.check_out_date >= period_start,
+                                Dorm.check_out_date.is_(None)
+                            )
+                        ).all()
+                        
+                        # 构建用户在住日期集合
+                        user_stay_dates = set()
+                        checkout_d = checkout_date.date() if hasattr(checkout_date, 'date') else checkout_date
+                        for ud in user_dorms:
+                            ci = ud.check_in_date.date() if hasattr(ud.check_in_date, 'date') else ud.check_in_date
+                            co = (ud.check_out_date.date() if hasattr(ud.check_out_date, 'date') else ud.check_out_date) if ud.check_out_date else checkout_d
+                            # 同日换宿不计
+                            if ud.check_out_date is not None and ud.check_in_date.date() == ud.check_out_date.date():
+                                continue
+                            d = max(ci, period_start.date() if hasattr(period_start, 'date') else period_start)
+                            end_d = min(co, period_end.date() if hasattr(period_end, 'date') else period_end)
+                            while d <= end_d:
+                                user_stay_dates.add(d)
+                                d += timedelta(days=1)
+                        
+                        # 逐天累加减免
+                        daily_electric_reduction = subsidies['electric_reduction'] / Decimal(str(natural_days))
+                        daily_water_reduction = subsidies['water_reduction'] / Decimal(str(natural_days))
+                        daily_amount_reduction = subsidies['room_total_reduction'] / Decimal(str(natural_days))
+                        
+                        user_reduction_electric = Decimal('0')
+                        user_reduction_water = Decimal('0')
+                        user_proportional_reduction = Decimal('0')
+                        
+                        # 按在住人数分组统计天数，用于日志展示
+                        occupancy_groups = {}
+                        for day_date, day_count in daily_occupants_list:
+                            if day_count > 0 and day_date in user_stay_dates:
+                                occupancy_groups[day_count] = occupancy_groups.get(day_count, 0) + 1
+                                user_reduction_electric += daily_electric_reduction / Decimal(str(day_count))
+                                user_reduction_water += daily_water_reduction / Decimal(str(day_count))
+                                user_proportional_reduction += daily_amount_reduction / Decimal(str(day_count))
+                        
+                        user_reduction_electric = round(user_reduction_electric, 2)
+                        user_reduction_water = round(user_reduction_water, 2)
+                        user_proportional_reduction = round(user_proportional_reduction, 2)
+                        
+                        # user_proportion在此模式下不适用，设为0（仅用于日志）
+                        user_proportion = Decimal('0')
+                        # 构建逐组计算明细，便于手动核查
+                        group_details = []
+                        for cnt, dys in sorted(occupancy_groups.items()):
+                            e_per = daily_electric_reduction / Decimal(str(cnt))
+                            w_per = daily_water_reduction / Decimal(str(cnt))
+                            a_per = daily_amount_reduction / Decimal(str(cnt))
+                            group_details.append(f"{cnt}人×{dys}天: 电{e_per:.4f}×{dys}={round(e_per * Decimal(str(dys)), 2)}, 水{w_per:.4f}×{dys}={round(w_per * Decimal(str(dys)), 2)}, 金额{a_per:.4f}×{dys}={round(a_per * Decimal(str(dys)), 2)}")
+                        logging.info(f"方案E(by_daily_occupants) - 房间{room_id}，用户在住{len(user_stay_dates)}天，"
+                                    f"用户减免 - 电{user_reduction_electric}, 水{user_reduction_water}, 金额{user_proportional_reduction}")
+                        logging.info(f"方案E计算明细 - 日减免: 电{daily_electric_reduction:.4f}, 水{daily_water_reduction:.4f}, 金额{daily_amount_reduction:.4f}; 分组: {'; '.join(group_details)}")
                     
-                    # 获取特殊减免规则配置
-                    checkout_enable_special_reduction = SystemConfig.get_config_value('CHECKOUT_ENABLE_SPECIAL_REDUCTION_RULE', 'True')
-                    checkout_room_capacity_half_threshold = SystemConfig.get_config_value('CHECKOUT_ROOM_CAPACITY_HALF_THRESHOLD', 6)
-                    
-                    # 应用特殊规则：优先检查1人情况，再检查减半规则
-                    if checkout_enable_special_reduction:
-                        # 如果实际入住只有1人，则使用1作为计算容量
-                        if actual_occupant_count == 1:
-                            calculated_room_capacity = 1
-                            logging.info(f"已启用特殊减免规则，房间{room_id}实际入住{actual_occupant_count}人，使用1人作为计算容量（1人规则）")
-                        # 再检查减半规则：如果房间容量>=阈值且实际入住人数<=容量一半时，按一半容量计算
-                        elif room and room.capacity >= checkout_room_capacity_half_threshold and actual_occupant_count <= room.capacity / 2:
-                            calculated_room_capacity = max(1, room.capacity // 2)  # 向下取整，至少为1
-                            logging.info(f"已启用特殊减免规则，房间{room_id}容量为{room.capacity}人，实际入住{actual_occupant_count}人，使用{calculated_room_capacity}人作为计算容量（减半规则）")
+                    elif reduction_calc_mode == 'by_occupants':
+                        # 方案C：按实际入住人数
+                        # 1人规则自然满足（actual_occupant_count=1时公式自动等效）
+                        if actual_occupant_count > 0:
+                            user_proportion = (Decimal('1') / Decimal(str(natural_days))) / Decimal(str(actual_occupant_count))
                         else:
-                            # 其他情况使用房间额定容量
-                            calculated_room_capacity = room_capacity
-                        logging.info(f"已启用特殊减免规则，房间容量减半阈值：{checkout_room_capacity_half_threshold}人")
+                            user_proportion = Decimal('0')
+                        
+                        user_reduction_electric = round(subsidies['electric_reduction'] * user_proportion * Decimal(str(user_period_days)), 2)
+                        user_reduction_water = round(subsidies['water_reduction'] * user_proportion * Decimal(str(user_period_days)), 2)
+                        user_proportional_reduction = round(subsidies['room_total_reduction'] * user_proportion * Decimal(str(user_period_days)), 2)
+                        logging.info(f"方案C(by_occupants) - 房间{room_id}，用户在住{user_period_days}天/账期{natural_days}天，实际入住{actual_occupant_count}人，"
+                                    f"用户减免 - 电{user_reduction_electric}, 水{user_reduction_water}, 金额{user_proportional_reduction}")
+                        logging.info(f"方案C计算明细 - 房间减免: 电{subsidies['electric_reduction']}, 水{subsidies['water_reduction']}, 金额{subsidies['room_total_reduction']}; "
+                                    f"用户比例=1/({natural_days}×{actual_occupant_count})={user_proportion:.6f}; "
+                                    f"电={subsidies['electric_reduction']}×{user_proportion:.6f}×{user_period_days}={user_reduction_electric}, "
+                                    f"水={subsidies['water_reduction']}×{user_proportion:.6f}×{user_period_days}={user_reduction_water}, "
+                                    f"金额={subsidies['room_total_reduction']}×{user_proportion:.6f}×{user_period_days}={user_proportional_reduction}")
+                    
                     else:
-                        # 如果实际入住只有1人，则使用1作为计算容量
-                        if actual_occupant_count == 1:
-                            calculated_room_capacity = 1
-                            logging.info(f"未启用特殊减免规则，房间{room_id}实际入住{actual_occupant_count}人，使用1人作为计算容量（1人规则）")
+                        # 方案A（by_capacity）：按房间容量，含1人规则和减半规则
+                        calculated_room_capacity = room_capacity
+                        
+                        # 获取特殊减免规则配置
+                        checkout_enable_special_reduction = SystemConfig.get_config_value('CHECKOUT_ENABLE_SPECIAL_REDUCTION_RULE', 'True')
+                        checkout_room_capacity_half_threshold = SystemConfig.get_config_value('CHECKOUT_ROOM_CAPACITY_HALF_THRESHOLD', 6)
+                        
+                        # 应用特殊规则：优先检查1人情况，再检查减半规则
+                        if checkout_enable_special_reduction:
+                            if actual_occupant_count == 1:
+                                calculated_room_capacity = 1
+                                logging.info(f"已启用特殊减免规则，房间{room_id}实际入住{actual_occupant_count}人，使用1人作为计算容量（1人规则）")
+                            elif room and room.capacity >= checkout_room_capacity_half_threshold and actual_occupant_count <= room.capacity / 2:
+                                calculated_room_capacity = max(1, room.capacity // 2)
+                                logging.info(f"已启用特殊减免规则，房间{room_id}容量为{room.capacity}人，实际入住{actual_occupant_count}人，使用{calculated_room_capacity}人作为计算容量（减半规则）")
+                            else:
+                                calculated_room_capacity = room_capacity
+                            logging.info(f"已启用特殊减免规则，房间容量减半阈值：{checkout_room_capacity_half_threshold}人")
                         else:
-                            # 未启用特殊减免规则，使用房间额定容量
-                            calculated_room_capacity = room_capacity
-                            logging.info(f"未启用特殊减免规则，使用房间额定容量{calculated_room_capacity}人作为计算容量")
+                            if actual_occupant_count == 1:
+                                calculated_room_capacity = 1
+                                logging.info(f"未启用特殊减免规则，房间{room_id}实际入住{actual_occupant_count}人，使用1人作为计算容量（1人规则）")
+                            else:
+                                calculated_room_capacity = room_capacity
+                                logging.info(f"未启用特殊减免规则，使用房间额定容量{calculated_room_capacity}人作为计算容量")
+                        
+                        user_proportion = (Decimal('1') / Decimal(str(natural_days))) / Decimal(str(calculated_room_capacity))
+                        
+                        user_reduction_electric = round(subsidies['electric_reduction'] * user_proportion * Decimal(str(user_period_days)), 2)
+                        user_reduction_water = round(subsidies['water_reduction'] * user_proportion * Decimal(str(user_period_days)), 2)
+                        user_proportional_reduction = round(subsidies['room_total_reduction'] * user_proportion * Decimal(str(user_period_days)), 2)
+                        logging.info(f"方案A(by_capacity) - 房间{room_id}，用户在住{user_period_days}天/账期{natural_days}天，实际入住{actual_occupant_count}人，计算容量{calculated_room_capacity}人，"
+                                    f"用户减免 - 电{user_reduction_electric}, 水{user_reduction_water}, 金额{user_proportional_reduction}")
+                        logging.info(f"方案A计算明细 - 房间减免: 电{subsidies['electric_reduction']}, 水{subsidies['water_reduction']}, 金额{subsidies['room_total_reduction']}; "
+                                    f"用户比例=1/({natural_days}×{calculated_room_capacity})={user_proportion:.6f}; "
+                                    f"电={subsidies['electric_reduction']}×{user_proportion:.6f}×{user_period_days}={user_reduction_electric}, "
+                                    f"水={subsidies['water_reduction']}×{user_proportion:.6f}×{user_period_days}={user_reduction_water}, "
+                                    f"金额={subsidies['room_total_reduction']}×{user_proportion:.6f}×{user_period_days}={user_proportional_reduction}")
                     
-                    # 应用比例计算公式
-                    user_proportion = (Decimal('1') / Decimal(str(natural_days))) / Decimal(str(calculated_room_capacity))
-                    logging.info(f"房间{room_id}实际入住人数为{actual_occupant_count}人，使用{calculated_room_capacity}人作为计算容量")
 
-                    user_reduction_electric = round(subsidies['electric_reduction'] * user_proportion * Decimal(str(user_period_days)), 2)
-                    user_reduction_water = round(subsidies['water_reduction'] * user_proportion * Decimal(str(user_period_days)), 2)
-                    user_proportional_reduction = round(subsidies['room_total_reduction'] * user_proportion * Decimal(str(user_period_days)), 2)
-                    logging.info(f"补贴计算 - 房间总减免: 电{subsidies['electric_reduction']}, 水{subsidies['water_reduction']}, 金额{subsidies['room_total_reduction']}")
-                    logging.info(f"用户分摊比例: {user_proportion}, 减免 - 电{user_reduction_electric}, 水{user_reduction_water}, 金额{user_proportional_reduction}, 个人独立减免{user_independent_reduction}")
 
                 else:
                     # 处理异常情况
@@ -441,10 +552,20 @@ class CheckoutUtilityRecord(db.Model):
                 user_billing_total_fee_after_reduction = user_billing_total_fee - user_proportional_reduction
                 user_billing_total_fee_after_reduction = Decimal('0.00') if user_billing_total_fee_after_reduction < 0 else user_billing_total_fee_after_reduction
                 
-                # 应用个人级独立减免 - 修复部分
-                # 个人级补贴不按比例计算，只取实际可减免金额
-                # 实际减免金额 = min(个人级总补贴金额, 房间级减免后剩余费用)
-                user_independent_reduction = min(subsidies['user_total_reduction'], user_billing_total_fee_after_reduction)
+                # 应用个人级独立减免
+                # 根据配置决定：全额减免（直接使用补贴总额）或按实际天数减免（按住宿天数比例计算）
+                user_subsidy_full_amount = SystemConfig.get_config_value('CHECKOUT_USER_SUBSIDY_FULL_AMOUNT', 'True')
+                if user_subsidy_full_amount:
+                    # 全额减免：直接使用个人级补贴总额
+                    user_independent_reduction = subsidies['user_total_reduction']
+                    logging.info(f"个人级全额减免模式：补贴总额{subsidies['user_total_reduction']}")
+                else:
+                    # 按实际天数减免：补贴总额 × (用户实际住宿天数 / 账期自然天数)
+                    if natural_days > 0:
+                        user_independent_reduction = round(subsidies['user_total_reduction'] * Decimal(str(user_period_days)) / Decimal(str(natural_days)), 2)
+                    else:
+                        user_independent_reduction = Decimal('0.00')
+                    logging.info(f"个人级按实际天数减免模式：补贴总额{subsidies['user_total_reduction']}，用户住宿{user_period_days}天/账期{natural_days}天，实际减免{user_independent_reduction}")
                 user_independent_reduction = round(user_independent_reduction, 2)
                 
                 # 计算最终应付费用
@@ -510,8 +631,13 @@ class CheckoutUtilityRecord(db.Model):
             )
             db.session.add(checkout_record)
             
-            # 8. 创建补贴使用记录 - 应用新的用户比例计算方式
+            # 8. 创建补贴使用记录 - 使用实际计算的减免值
             if calculate_fee and has_meter_reading and subsidies['used_subsidies']:
+                # 计算房间级补贴总额，用于按比例分配
+                total_room_amount = sum(Decimal(str(used.get('total_amount', 0))) for used in subsidies['used_subsidies'] if 'total_amount' in used and not (used['subsidy'].user_id == user_id and used['subsidy'].fee_type == '住宿补贴'))
+                total_room_electric = sum(Decimal(str(used.get('total_electric', 0))) for used in subsidies['used_subsidies'] if 'total_electric' in used)
+                total_room_water = sum(Decimal(str(used.get('total_water', 0))) for used in subsidies['used_subsidies'] if 'total_water' in used)
+                
                 for used in subsidies['used_subsidies']:
                     subsidy = used['subsidy']
                     # 获取用户姓名
@@ -521,26 +647,37 @@ class CheckoutUtilityRecord(db.Model):
                         'room_id': room_id,
                         'user_id': user_id,
                         'is_checkout': 1,  # 标记为退宿费用子表上传
-                        'remark': f"退宿费用减免 - {user_name}，账期{billing_period}，比例{user_proportion:.2f}"
+                        'remark': f"退宿费用减免 - {user_name}，账期{billing_period}，模式{reduction_calc_mode}"
                     }
                     
-                    # 根据补贴类型设置使用量
+                    # 根据补贴类型设置使用量（使用实际计算的减免值按比例分配）
                     if 'total_amount' in used:
-                        # 房间级补贴按比例计算，个人级补贴使用实际减免值
                         if subsidy.user_id == user_id and subsidy.fee_type == '住宿补贴':
                             # 个人级补贴使用实际减免金额
                             used_amount = user_independent_reduction
                         else:
-                            # 房间级补贴按比例计算
-                            used_amount = round(Decimal(str(used['total_amount'])) * user_proportion * Decimal(str(user_period_days)), 2)
+                            # 房间级补贴按各补贴占比分配用户减免金额
+                            subsidy_amount = Decimal(str(used['total_amount']))
+                            if total_room_amount > 0:
+                                used_amount = round(user_proportional_reduction * subsidy_amount / total_room_amount, 2)
+                            else:
+                                used_amount = Decimal('0.00')
                         usage_data['used_amount'] = used_amount if used_amount > 0 else Decimal('0.00')
                     if 'total_electric' in used:
-                        # 按新比例计算实际使用的电减免量
-                        used_electric = round(Decimal(str(used['total_electric'])) * user_proportion * Decimal(str(user_period_days)), 2)
+                        # 按各补贴占比分配用户电减免量
+                        subsidy_electric = Decimal(str(used['total_electric']))
+                        if total_room_electric > 0:
+                            used_electric = round(user_reduction_electric * subsidy_electric / total_room_electric, 2)
+                        else:
+                            used_electric = Decimal('0.00')
                         usage_data['used_electric'] = used_electric if used_electric > 0 else Decimal('0.00')
                     if 'total_water' in used:
-                        # 按新比例计算实际使用的水减免量
-                        used_water = round(Decimal(str(used['total_water'])) * user_proportion * Decimal(str(user_period_days)), 2)
+                        # 按各补贴占比分配用户水减免量
+                        subsidy_water = Decimal(str(used['total_water']))
+                        if total_room_water > 0:
+                            used_water = round(user_reduction_water * subsidy_water / total_room_water, 2)
+                        else:
+                            used_water = Decimal('0.00')
                         usage_data['used_water'] = used_water if used_water > 0 else Decimal('0.00')
                     
                     # 创建使用记录
@@ -549,7 +686,7 @@ class CheckoutUtilityRecord(db.Model):
                         billing_period=billing_period,
                         usage_data=usage_data
                     )
-                    logging.info(f"已记录补贴[{subsidy.id}]按新比例使用情况: {usage_data}")
+                    logging.info(f"已记录补贴[{subsidy.id}]使用情况: {usage_data}")
 
             # 9. 更新主表
             # 计算减免金额上传到主表
@@ -719,7 +856,7 @@ class CheckoutUtilityRecord(db.Model):
                     self.user_original_water_fee = round(self.user_original_water_usage * water_price, 2)
                     self.user_original_total_fee = round(self.user_original_electric_fee + self.user_original_water_fee, 2)
 
-                # 6.5 查询补贴记录（直接从主表获取可用额度）
+                # 6.5 查询补贴记录（使用剩余可用额度，避免超分配）
                 room_subsidies = FeeSubsidy.query.filter(
                     FeeSubsidy.room_id == self.room_id,
                     FeeSubsidy.is_enabled == True,
@@ -733,7 +870,7 @@ class CheckoutUtilityRecord(db.Model):
                     FeeSubsidy.effective_date <= (self.checkout_date or datetime.now())
                 ).all()
                 
-                # 6.6 计算补贴金额（直接使用主表额度）
+                # 6.6 计算补贴金额（使用剩余额度，避免超分配）
                 subsidies = {
                     'electric_reduction': Decimal('0.00'),
                     'water_reduction': Decimal('0.00'),
@@ -742,91 +879,193 @@ class CheckoutUtilityRecord(db.Model):
                     'used_subsidies': []
                 }
                 
-                # 处理房间级补贴（直接使用主表额度）
+                # 处理房间级补贴（使用剩余额度）
                 for subsidy in room_subsidies:
-                    # 直接从主表获取额度，不查询子表的剩余额度
-                    logging.info(f"房间级补贴[{subsidy.id}]主表额度 - 金额: {subsidy.amount}, "
-                                f"电费: {subsidy.electric_reduction}, 水费: {subsidy.water_reduction}")
+                    try:
+                        remaining = FeeSubsidyUsage.get_remaining_usage(subsidy.id, billing_period)
+                    except Exception as e:
+                        logging.warning(f"查询房间级补贴[{subsidy.id}]剩余额度失败: {e}，使用主表额度")
+                        remaining = {
+                            'remaining_amount': subsidy.amount or 0,
+                            'remaining_electric': subsidy.electric_reduction or 0,
+                            'remaining_water': subsidy.water_reduction or 0
+                        }
+                    
+                    if subsidy.fee_type == "房间水电按用量减免":
+                        logging.info(f"房间级补贴[{subsidy.id}]类型=按用量减免, 剩余额度 - 电: {remaining['remaining_electric']}, 水: {remaining['remaining_water']}")
+                    elif subsidy.fee_type == "房间水电按金额减免":
+                        logging.info(f"房间级补贴[{subsidy.id}]类型=按金额减免, 剩余额度 - 金额: {remaining['remaining_amount']}")
+                    else:
+                        logging.info(f"房间级补贴[{subsidy.id}]类型={subsidy.fee_type}, 剩余额度 - 金额: {remaining['remaining_amount']}, 电: {remaining['remaining_electric']}, 水: {remaining['remaining_water']}")
                     
                     if subsidy.fee_type == "房间水电按用量减免" and enable_fee_meter_reduction:
-                        subsidies['electric_reduction'] += Decimal(str(subsidy.electric_reduction or 0))
-                        subsidies['water_reduction'] += Decimal(str(subsidy.water_reduction or 0))
+                        subsidies['electric_reduction'] += Decimal(str(remaining['remaining_electric'] or 0))
+                        subsidies['water_reduction'] += Decimal(str(remaining['remaining_water'] or 0))
                         subsidies['used_subsidies'].append({
                             'subsidy': subsidy,
-                            'total_electric': subsidy.electric_reduction or 0,
-                            'total_water': subsidy.water_reduction or 0
+                            'total_electric': remaining['remaining_electric'] or 0,
+                            'total_water': remaining['remaining_water'] or 0
                         })
                     elif subsidy.fee_type == "房间水电按金额减免" and enable_fee_room_fee:
-                        subsidies['room_total_reduction'] += Decimal(str(subsidy.amount or 0))
+                        subsidies['room_total_reduction'] += Decimal(str(remaining['remaining_amount'] or 0))
                         subsidies['used_subsidies'].append({
                             'subsidy': subsidy,
-                            'total_amount': subsidy.amount or 0
+                            'total_amount': remaining['remaining_amount'] or 0
                         })
                 
-                # 处理个人级补贴（直接使用主表额度）
+                # 处理个人级补贴（使用剩余额度）
                 for subsidy in user_subsidies:
                     if enable_fee_user_fee:
-                        # 直接从主表获取额度
-                        logging.info(f"个人级补贴[{subsidy.id}]主表额度 - 金额: {subsidy.amount}")
+                        try:
+                            remaining = FeeSubsidyUsage.get_remaining_usage(subsidy.id, billing_period)
+                        except Exception as e:
+                            logging.warning(f"查询个人级补贴[{subsidy.id}]剩余额度失败: {e}，使用主表额度")
+                            remaining = {
+                                'remaining_amount': subsidy.amount or 0,
+                                'remaining_electric': 0,
+                                'remaining_water': 0
+                            }
                         
-                        subsidies['user_total_reduction'] += Decimal(str(subsidy.amount or 0))
+                        logging.info(f"个人级补贴[{subsidy.id}]剩余额度 - 金额: {remaining['remaining_amount']}")
+                        
+                        subsidies['user_total_reduction'] += Decimal(str(remaining['remaining_amount'] or 0))
                         subsidies['used_subsidies'].append({
                             'subsidy': subsidy,
-                            'total_amount': subsidy.amount or 0
+                            'total_amount': remaining['remaining_amount'] or 0
                         })
                 
                 # 更新房间级总减免
                 self.room_total_reduction = subsidies['room_total_reduction']
                 
                 # 计算用户按比例分摊的减免额度
-                # 新规则：A的减免比例 = 总额度 / 当月自然天数 / 房间额定容量
-                # A的减免额度 = 总减免额度 × A的减免比例 × 用户实际住宿天数
-                # 不论何时，如果退宿前房间只有1人入住，则使用1作为计算容量
+                # 支持三种模式：by_capacity、by_occupants、by_daily_occupants
+                reduction_calc_mode = SystemConfig.get_config_value('CHECKOUT_REDUCTION_CALC_MODE', 'by_capacity')
+                logging.info(f"减免计算模式: {reduction_calc_mode}")
                 
                 if natural_days > 0 and room_capacity > 0:
-                    # 应用特殊规则：优先检查1人情况，再检查减半规则
-                    calculated_room_capacity = room_capacity
+                    if reduction_calc_mode == 'by_daily_occupants':
+                        # 方案E：按天按在住人数分配
+                        daily_occupants_list = self.calculate_daily_occupants(self.room_id, period_start, period_end, self.checkout_date or datetime.now())
+                        
+                        # 获取用户在该房间的入住日期范围
+                        user_dorms = Dorm.query.filter(
+                            Dorm.user_id == self.user_id,
+                            Dorm.room_id == self.room_id,
+                            Dorm.status.in_(['active', 'checked_out']),
+                            Dorm.check_in_date <= (self.checkout_date or datetime.now()),
+                            db.or_(
+                                Dorm.check_out_date >= period_start,
+                                Dorm.check_out_date.is_(None)
+                            )
+                        ).all()
+                        
+                        user_stay_dates = set()
+                        checkout_d = (self.checkout_date or datetime.now()).date() if hasattr(self.checkout_date or datetime.now(), 'date') else (self.checkout_date or datetime.now())
+                        for ud in user_dorms:
+                            ci = ud.check_in_date.date() if hasattr(ud.check_in_date, 'date') else ud.check_in_date
+                            co = (ud.check_out_date.date() if hasattr(ud.check_out_date, 'date') else ud.check_out_date) if ud.check_out_date else checkout_d
+                            if ud.check_out_date is not None and ud.check_in_date.date() == ud.check_out_date.date():
+                                continue
+                            d = max(ci, period_start.date() if hasattr(period_start, 'date') else period_start)
+                            end_d = min(co, period_end.date() if hasattr(period_end, 'date') else period_end)
+                            while d <= end_d:
+                                user_stay_dates.add(d)
+                                d += timedelta(days=1)
+                        
+                        daily_electric_reduction = subsidies['electric_reduction'] / Decimal(str(natural_days))
+                        daily_water_reduction = subsidies['water_reduction'] / Decimal(str(natural_days))
+                        daily_amount_reduction = subsidies['room_total_reduction'] / Decimal(str(natural_days))
+                        
+                        self.user_reduction_electric = Decimal('0')
+                        self.user_reduction_water = Decimal('0')
+                        self.user_proportional_reduction = Decimal('0')
+                        
+                        # 按在住人数分组统计天数，用于日志展示
+                        occupancy_groups = {}
+                        for day_date, day_count in daily_occupants_list:
+                            if day_count > 0 and day_date in user_stay_dates:
+                                occupancy_groups[day_count] = occupancy_groups.get(day_count, 0) + 1
+                                self.user_reduction_electric += daily_electric_reduction / Decimal(str(day_count))
+                                self.user_reduction_water += daily_water_reduction / Decimal(str(day_count))
+                                self.user_proportional_reduction += daily_amount_reduction / Decimal(str(day_count))
+                        
+                        self.user_reduction_electric = round(self.user_reduction_electric, 2)
+                        self.user_reduction_water = round(self.user_reduction_water, 2)
+                        self.user_proportional_reduction = round(self.user_proportional_reduction, 2)
+                        # 构建逐组计算明细，便于手动核查
+                        group_details = []
+                        for cnt, dys in sorted(occupancy_groups.items()):
+                            e_per = daily_electric_reduction / Decimal(str(cnt))
+                            w_per = daily_water_reduction / Decimal(str(cnt))
+                            a_per = daily_amount_reduction / Decimal(str(cnt))
+                            group_details.append(f"{cnt}人×{dys}天: 电{e_per:.4f}×{dys}={round(e_per * Decimal(str(dys)), 2)}, 水{w_per:.4f}×{dys}={round(w_per * Decimal(str(dys)), 2)}, 金额{a_per:.4f}×{dys}={round(a_per * Decimal(str(dys)), 2)}")
+                        logging.info(f"方案E(by_daily_occupants) - 房间{self.room_id}，用户在住{len(user_stay_dates)}天，"
+                                    f"用户减免 - 电{self.user_reduction_electric}, 水{self.user_reduction_water}, 金额{self.user_proportional_reduction}")
+                        logging.info(f"方案E计算明细 - 日减免: 电{daily_electric_reduction:.4f}, 水{daily_water_reduction:.4f}, 金额{daily_amount_reduction:.4f}; 分组: {'; '.join(group_details)}")
                     
-                    # 获取特殊减免规则配置
-                    checkout_enable_special_reduction = SystemConfig.get_config_value('CHECKOUT_ENABLE_SPECIAL_REDUCTION_RULE', 'True')
-                    checkout_room_capacity_half_threshold = SystemConfig.get_config_value('CHECKOUT_ROOM_CAPACITY_HALF_THRESHOLD', 6)
-                    
-                    if checkout_enable_special_reduction:
-                        # 如果实际入住只有1人，则使用1作为计算容量
-                        if actual_occupant_count == 1:
-                            calculated_room_capacity = 1
-                            logging.info(f"房间{self.room_id}实际入住{actual_occupant_count}人，使用1人作为计算容量（1人规则）")
-                        # 再检查减半规则：如果房间容量>=阈值且实际入住人数<=容量一半时，按一半容量计算
-                        elif room and room.capacity >= checkout_room_capacity_half_threshold and actual_occupant_count <= room.capacity / 2:
-                            calculated_room_capacity = max(1, room.capacity // 2)  # 向下取整，至少为1
-                            logging.info(f"已启用特殊减免规则，房间{self.room_id}容量为{room.capacity}人，实际入住{actual_occupant_count}人，使用{calculated_room_capacity}人作为计算容量（减半规则）")
+                    elif reduction_calc_mode == 'by_occupants':
+                        # 方案C：按实际入住人数
+                        if actual_occupant_count > 0:
+                            user_proportion = (Decimal('1') / Decimal(str(natural_days))) / Decimal(str(actual_occupant_count))
                         else:
-                            # 其他情况使用房间额定容量
-                            calculated_room_capacity = room_capacity
-                        logging.info(f"已启用特殊减免规则，房间容量减半阈值：{checkout_room_capacity_half_threshold}人")
+                            user_proportion = Decimal('0')
+                        
+                        self.user_reduction_electric = round(subsidies['electric_reduction'] * user_proportion * Decimal(str(self.user_period_days)), 2)
+                        self.user_reduction_water = round(subsidies['water_reduction'] * user_proportion * Decimal(str(self.user_period_days)), 2)
+                        self.user_proportional_reduction = round(subsidies['room_total_reduction'] * user_proportion * Decimal(str(self.user_period_days)), 2)
+                        logging.info(f"方案C(by_occupants) - 房间{self.room_id}，用户在住{self.user_period_days}天/账期{natural_days}天，实际入住{actual_occupant_count}人，"
+                                    f"用户减免 - 电{self.user_reduction_electric}, 水{self.user_reduction_water}, 金额{self.user_proportional_reduction}")
+                        logging.info(f"方案C计算明细 - 房间减免: 电{subsidies['electric_reduction']}, 水{subsidies['water_reduction']}, 金额{subsidies['room_total_reduction']}; "
+                                    f"用户比例=1/({natural_days}×{actual_occupant_count})={user_proportion:.6f}; "
+                                    f"电={subsidies['electric_reduction']}×{user_proportion:.6f}×{self.user_period_days}={self.user_reduction_electric}, "
+                                    f"水={subsidies['water_reduction']}×{user_proportion:.6f}×{self.user_period_days}={self.user_reduction_water}, "
+                                    f"金额={subsidies['room_total_reduction']}×{user_proportion:.6f}×{self.user_period_days}={self.user_proportional_reduction}")
+                    
                     else:
-                        # 如果实际入住只有1人，则使用1作为计算容量
-                        if actual_occupant_count == 1:
-                            calculated_room_capacity = 1
-                            logging.info(f"未启用特殊减免规则，房间{self.room_id}实际入住{actual_occupant_count}人，使用1人作为计算容量（1人规则）")
+                        # 方案A（by_capacity）：按房间容量，含1人规则和减半规则
+                        calculated_room_capacity = room_capacity
+                        
+                        checkout_enable_special_reduction = SystemConfig.get_config_value('CHECKOUT_ENABLE_SPECIAL_REDUCTION_RULE', 'True')
+                        checkout_room_capacity_half_threshold = SystemConfig.get_config_value('CHECKOUT_ROOM_CAPACITY_HALF_THRESHOLD', 6)
+                        
+                        if checkout_enable_special_reduction:
+                            if actual_occupant_count == 1:
+                                calculated_room_capacity = 1
+                                logging.info(f"房间{self.room_id}实际入住{actual_occupant_count}人，使用1人作为计算容量（1人规则）")
+                            elif room and room.capacity >= checkout_room_capacity_half_threshold and actual_occupant_count <= room.capacity / 2:
+                                calculated_room_capacity = max(1, room.capacity // 2)
+                                logging.info(f"已启用特殊减免规则，房间{self.room_id}容量为{room.capacity}人，实际入住{actual_occupant_count}人，使用{calculated_room_capacity}人作为计算容量（减半规则）")
+                            else:
+                                calculated_room_capacity = room_capacity
+                            logging.info(f"已启用特殊减免规则，房间容量减半阈值：{checkout_room_capacity_half_threshold}人")
                         else:
-                            # 未启用特殊减免规则，使用房间额定容量
-                            calculated_room_capacity = room_capacity
-                            logging.info(f"未启用特殊减免规则，使用房间额定容量{calculated_room_capacity}人作为计算容量")
+                            if actual_occupant_count == 1:
+                                calculated_room_capacity = 1
+                                logging.info(f"未启用特殊减免规则，房间{self.room_id}实际入住{actual_occupant_count}人，使用1人作为计算容量（1人规则）")
+                            else:
+                                calculated_room_capacity = room_capacity
+                                logging.info(f"未启用特殊减免规则，使用房间额定容量{calculated_room_capacity}人作为计算容量")
+                        
+                        user_proportion = (Decimal('1') / Decimal(str(natural_days))) / Decimal(str(calculated_room_capacity))
+                        
+                        self.user_reduction_electric = round(subsidies['electric_reduction'] * user_proportion * Decimal(str(self.user_period_days)), 2)
+                        self.user_reduction_water = round(subsidies['water_reduction'] * user_proportion * Decimal(str(self.user_period_days)), 2)
+                        self.user_proportional_reduction = round(subsidies['room_total_reduction'] * user_proportion * Decimal(str(self.user_period_days)), 2)
+                        logging.info(f"方案A(by_capacity) - 房间{self.room_id}，用户在住{self.user_period_days}天/账期{natural_days}天，实际入住{actual_occupant_count}人，计算容量{calculated_room_capacity}人，"
+                                    f"用户减免 - 电{self.user_reduction_electric}, 水{self.user_reduction_water}, 金额{self.user_proportional_reduction}")
+                        logging.info(f"方案A计算明细 - 房间减免: 电{subsidies['electric_reduction']}, 水{subsidies['water_reduction']}, 金额{subsidies['room_total_reduction']}; "
+                                    f"用户比例=1/({natural_days}×{calculated_room_capacity})={user_proportion:.6f}; "
+                                    f"电={subsidies['electric_reduction']}×{user_proportion:.6f}×{self.user_period_days}={self.user_reduction_electric}, "
+                                    f"水={subsidies['water_reduction']}×{user_proportion:.6f}×{self.user_period_days}={self.user_reduction_water}, "
+                                    f"金额={subsidies['room_total_reduction']}×{user_proportion:.6f}×{self.user_period_days}={self.user_proportional_reduction}")
                     
-                    # 应用新的比例计算公式
-                    user_proportion = (Decimal('1') / Decimal(str(natural_days))) / Decimal(str(calculated_room_capacity))
-                    self.user_reduction_electric = round(subsidies['electric_reduction'] * user_proportion * Decimal(str(self.user_period_days)), 2)
-                    self.user_reduction_water = round(subsidies['water_reduction'] * user_proportion * Decimal(str(self.user_period_days)), 2)
-                    self.user_proportional_reduction = round(subsidies['room_total_reduction'] * user_proportion * Decimal(str(self.user_period_days)), 2)
                 else:
-                    self.user_proportion = Decimal('0')
                     self.user_reduction_electric = Decimal('0.00')
                     self.user_reduction_water = Decimal('0.00')
                     self.user_proportional_reduction = Decimal('0.00')
                     logging.warning(f"无法计算用户分摊比例，自然天数: {natural_days}, 房间人数: {room_capacity}")
                 
-                # 个人级独立减免
+                # 个人级独立减免（初始赋值，后续根据配置和剩余费用调整）
                 self.user_independent_reduction = subsidies['user_total_reduction']
                 
                 # 用户手动覆盖减免用量（在计费用量计算之前）
@@ -876,10 +1115,20 @@ class CheckoutUtilityRecord(db.Model):
                 after_room_reduction = self.user_billing_total_fee - self.user_proportional_reduction
                 after_room_reduction = Decimal('0.00') if after_room_reduction < 0 else after_room_reduction
                 
-                # 应用个人级独立减免 - 修复部分
-                # 个人级补贴不按比例计算，只取实际可减免金额
-                # 实际减免金额 = min(个人级总补贴金额, 房间级减免后剩余费用)
-                self.user_independent_reduction = min(subsidies['user_total_reduction'], after_room_reduction)
+                # 应用个人级独立减免
+                # 根据配置决定：全额减免（直接使用补贴总额）或按实际天数减免（按住宿天数比例计算）
+                user_subsidy_full_amount = SystemConfig.get_config_value('CHECKOUT_USER_SUBSIDY_FULL_AMOUNT', 'True')
+                if user_subsidy_full_amount:
+                    # 全额减免：直接使用个人级补贴总额
+                    self.user_independent_reduction = subsidies['user_total_reduction']
+                    logging.info(f"个人级全额减免模式：补贴总额{subsidies['user_total_reduction']}")
+                else:
+                    # 按实际天数减免：补贴总额 × (用户实际住宿天数 / 账期自然天数)
+                    if natural_days > 0:
+                        self.user_independent_reduction = round(subsidies['user_total_reduction'] * Decimal(str(self.user_period_days)) / Decimal(str(natural_days)), 2)
+                    else:
+                        self.user_independent_reduction = Decimal('0.00')
+                    logging.info(f"个人级按实际天数减免模式：补贴总额{subsidies['user_total_reduction']}，用户住宿{self.user_period_days}天/账期{natural_days}天，实际减免{self.user_independent_reduction}")
                 self.user_independent_reduction = round(self.user_independent_reduction, 2)
                 
                 # 如果用户手动指定了减免值，覆盖计算值
@@ -930,32 +1179,50 @@ class CheckoutUtilityRecord(db.Model):
                 ).all():
                     db.session.delete(usage)
                 
-                # 7.2 创建新的补贴使用记录 - 应用新的用户比例计算方式
+                # 7.2 创建新的补贴使用记录 - 使用实际计算的减免值按比例分配
                 if subsidies['used_subsidies']:
+                    # 计算房间级补贴总额，用于按比例分配
+                    total_room_amount = sum(Decimal(str(used.get('total_amount', 0))) for used in subsidies['used_subsidies'] if 'total_amount' in used and not (used['subsidy'].user_id == self.user_id and used['subsidy'].fee_type == '住宿补贴'))
+                    total_room_electric = sum(Decimal(str(used.get('total_electric', 0))) for used in subsidies['used_subsidies'] if 'total_electric' in used)
+                    total_room_water = sum(Decimal(str(used.get('total_water', 0))) for used in subsidies['used_subsidies'] if 'total_water' in used)
+                    
                     for used in subsidies['used_subsidies']:
                         subsidy = used['subsidy']
                         usage_data = {
                             'room_id': self.room_id,
                             'user_id': self.user_id,
                             'is_checkout': 1,
-                            'remark': f"退宿费用减免(更新) - 账期{billing_period}，比例{user_proportion}"
+                            'remark': f"退宿费用减免(更新) - 账期{billing_period}，模式{reduction_calc_mode}"
                         }
                         
-                        # 根据补贴类型设置使用量
+                        # 根据补贴类型设置使用量（使用实际计算的减免值按比例分配）
                         if 'total_amount' in used:
-                            # 房间级补贴按比例计算，个人级补贴使用实际减免值
                             if subsidy.user_id == self.user_id and subsidy.fee_type == '住宿补贴':
                                 # 个人级补贴使用实际减免金额
                                 used_amount = self.user_independent_reduction
                             else:
-                                # 房间级补贴按比例计算
-                                used_amount = round(Decimal(str(used['total_amount'])) * user_proportion * Decimal(str(self.user_period_days)), 2)
+                                # 房间级补贴按各补贴占比分配用户减免金额
+                                subsidy_amount = Decimal(str(used['total_amount']))
+                                if total_room_amount > 0:
+                                    used_amount = round(self.user_proportional_reduction * subsidy_amount / total_room_amount, 2)
+                                else:
+                                    used_amount = Decimal('0.00')
                             usage_data['used_amount'] = used_amount if used_amount > 0 else Decimal('0.00')
                         if 'total_electric' in used:
-                            used_electric = round(Decimal(str(used['total_electric'])) * user_proportion * Decimal(str(self.user_period_days)), 2)
+                            # 按各补贴占比分配用户电减免量
+                            subsidy_electric = Decimal(str(used['total_electric']))
+                            if total_room_electric > 0:
+                                used_electric = round(self.user_reduction_electric * subsidy_electric / total_room_electric, 2)
+                            else:
+                                used_electric = Decimal('0.00')
                             usage_data['used_electric'] = used_electric if used_electric > 0 else Decimal('0.00')
                         if 'total_water' in used:
-                            used_water = round(Decimal(str(used['total_water'])) * user_proportion * Decimal(str(self.user_period_days)), 2)
+                            # 按各补贴占比分配用户水减免量
+                            subsidy_water = Decimal(str(used['total_water']))
+                            if total_room_water > 0:
+                                used_water = round(self.user_reduction_water * subsidy_water / total_room_water, 2)
+                            else:
+                                used_water = Decimal('0.00')
                             usage_data['used_water'] = used_water if used_water > 0 else Decimal('0.00')
                         
                         FeeSubsidyUsage.create_usage_record(
@@ -963,7 +1230,7 @@ class CheckoutUtilityRecord(db.Model):
                             billing_period=billing_period,
                             usage_data=usage_data
                         )
-                        logging.info(f"已更新补贴[{subsidy.id}]按新比例使用情况: {usage_data}")
+                        logging.info(f"已更新补贴[{subsidy.id}]使用情况: {usage_data}")
 
              # 计算减免金额上传到主表
             # 8. 同步主表
@@ -1133,6 +1400,67 @@ class CheckoutUtilityRecord(db.Model):
             'total_period_days': total_period_days,
             'actual_occupant_count': actual_occupant_count  # 添加账期内的入住人数统计
         }
+
+    @classmethod
+    def calculate_daily_occupants(cls, room_id, period_start, period_end, checkout_date):
+        """计算指定房间在账期内每天的在住人数（用于by_daily_occupants模式）
+
+        Args:
+            room_id: 房间ID
+            period_start: 账期开始日期
+            period_end: 账期结束日期
+            checkout_date: 退宿日期
+
+        Returns:
+            list: [(date, occupant_count), ...] 每天的在住人数列表
+        """
+        # 查询该房间所有在账期内有入住记录的Dorm记录，排除自离用户
+        room_dorms = Dorm.query.join(User).filter(
+            Dorm.room_id == room_id,
+            Dorm.status.in_(['active', 'checked_out']),
+            Dorm.check_in_date <= checkout_date,
+            db.or_(
+                Dorm.check_out_date >= period_start,
+                Dorm.check_out_date.is_(None)
+            ),
+            User.status != '自离'
+        ).all()
+
+        # 构建每日在住人数
+        daily_occupants = []
+        current_date = period_start.date() if hasattr(period_start, 'date') else period_start
+        end_date = period_end.date() if hasattr(period_end, 'date') else period_end
+
+        # 确保checkout_date是date类型
+        checkout_d = checkout_date.date() if hasattr(checkout_date, 'date') else checkout_date
+
+        while current_date <= end_date:
+            count = 0
+            for dorm in room_dorms:
+                # 入住日期
+                ci_date = dorm.check_in_date.date() if hasattr(dorm.check_in_date, 'date') else dorm.check_in_date
+                # 退宿日期（未退宿则视为checkout_date）
+                if dorm.check_out_date is not None:
+                    co_date = dorm.check_out_date.date() if hasattr(dorm.check_out_date, 'date') else dorm.check_out_date
+                else:
+                    co_date = checkout_d
+
+                # 同日换宿不算在住
+                if dorm.check_out_date is not None and dorm.check_in_date.date() == dorm.check_out_date.date():
+                    continue
+
+                # 判断该用户在current_date是否在住
+                if ci_date <= current_date <= co_date:
+                    count += 1
+
+            daily_occupants.append((current_date, count))
+            current_date += timedelta(days=1)
+
+        logging.info(
+            f"房间{room_id}在账期[{period_start}至{period_end}]每日在住人数: "
+            f"{[(str(d), c) for d, c in daily_occupants]}"
+        )
+        return daily_occupants
 
     @classmethod
     def get_price_config_from_system(cls):
