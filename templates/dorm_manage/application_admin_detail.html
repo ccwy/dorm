@@ -765,6 +765,44 @@
 
     <script>
         // === 审核操作切换 ===
+        const targetBedId = {{ application.target_bed_id|default('null') }};
+
+        // 加载床位信息（参考dorm_create_allocation的loadBedsFromRoomData实现）
+        function loadBedsFromRoomData(roomData, defaultBedId) {
+            const bedSelect = $('#adminBedSelect');
+            const bedContainer = $('#bedSelectContainer');
+
+            // 重置
+            bedSelect.empty();
+            bedSelect.append('<option value="">自动分配</option>');
+
+            const beds = roomData.beds || [];
+            const bedAutoAssignEnabled = roomData.bed_auto_assign_enabled;
+
+            // 根据bed_auto_assign_enabled控制显示
+            if (bedAutoAssignEnabled) {
+                bedContainer.addClass('hidden');
+                return;
+            }
+            bedContainer.removeClass('hidden');
+
+            // 添加床位选项
+            if (beds.length > 0) {
+                const statusMap = {available: '可用', occupied: '已占用', maintenance: '维护中', closed: '已关闭'};
+                beds.forEach(function(bed) {
+                    const text = '床位 ' + bed.bed_number + ' - ' + (statusMap[bed.status] || bed.status) + (bed.occupant_name ? ' (' + bed.occupant_name + ')' : '');
+                    const option = $('<option>').val(bed.id).text(text);
+                    if (bed.status !== 'available') option.prop('disabled', true);
+                    bedSelect.append(option);
+                });
+            }
+
+            // 设置默认选中床位
+            if (defaultBedId) {
+                bedSelect.val(defaultBedId);
+                $('#approveAssignedBedId').val(defaultBedId);
+            }
+        }
         const reviewAction = document.getElementById('reviewAction');
         const approveSection = document.getElementById('approveSection');
         const rejectSection = document.getElementById('rejectSection');
@@ -1276,7 +1314,7 @@
                             const room = response.data.room;
                             const occupants = response.data.occupants || [];
                             // 加载床位信息
-                            loadBedsFromRoomData(room);
+                            loadBedsFromRoomData(response.data, targetBedId);
                             let html = '';
                             if (occupants.length > 0) {
                                 html = '<div class="text-gray-700 text-sm mb-2"><a href="/room/view/' + roomId + '" class="text-primary hover:underline font-medium">' + roomNumber + '</a>(ID:' + roomId + ') 已住 ' + occupants.length + ' 人：</div>';
@@ -1308,36 +1346,6 @@
                 });
             }
 
-            // 加载床位信息（参考dorm_create_allocation的loadBedsFromRoomData实现）
-            function loadBedsFromRoomData(roomData) {
-                const bedSelect = $('#adminBedSelect');
-                const bedContainer = $('#bedSelectContainer');
-
-                // 重置
-                bedSelect.empty();
-                bedSelect.append('<option value="">自动分配</option>');
-
-                const beds = roomData.beds || [];
-                const bedAutoAssignEnabled = roomData.bed_auto_assign_enabled;
-
-                // 根据bed_auto_assign_enabled控制显示
-                if (bedAutoAssignEnabled) {
-                    bedContainer.addClass('hidden');
-                    return;
-                }
-                bedContainer.removeClass('hidden');
-
-                // 添加床位选项
-                if (beds.length > 0) {
-                    const statusMap = {available: '可用', occupied: '已占用', maintenance: '维护中', closed: '已关闭'};
-                    beds.forEach(function(bed) {
-                        const text = '床位 ' + bed.bed_number + ' - ' + (statusMap[bed.status] || bed.status) + (bed.occupant_name ? ' (' + bed.occupant_name + ')' : '');
-                        const option = $('<option>').val(bed.id).text(text);
-                        if (bed.status !== 'available') option.prop('disabled', true);
-                        bedSelect.append(option);
-                    });
-                }
-            }
         });
         {% endif %}
 
@@ -1474,6 +1482,8 @@
                         html += '</div>';
 
                         detailContainer.innerHTML = html;
+                        // 加载目标房间床位信息并默认选中
+                        loadBedsFromRoomData(response.data, targetBedId);
                     } else {
                         detailContainer.innerHTML = '<div class="text-red-500 text-sm">获取房间详细信息失败</div>';
                     }
