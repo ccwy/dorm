@@ -484,7 +484,7 @@ class SystemConfig(db.Model):
                 'config_value': 'true',
                 'config_type': 'bool',
                 'category': 'room',
-                'description': '是否启用床位管理功能',
+                'description': '是否启用床位管理功能，关闭则不使用床位管理功能',
                 'sort_order': 60
             },
             {
@@ -492,13 +492,13 @@ class SystemConfig(db.Model):
                 'config_value': 'true',
                 'config_type': 'bool',
                 'category': 'room',
-                'description': '是否启用自动分配床位（关闭则显示手动选床选项，不选仍自动分配）',
+                'description': '是否启用自动分配床位（勾选启用自动分配床位，关闭则开启手动选择床位，未选择床位时仍自动分配）',
                 'sort_order': 65,
                 'is_system': True
             },
             {
                 'config_key': 'USER_BED_SELECTION_ENABLED',
-                'config_value': 'true',
+                'config_value': 'False',
                 'config_type': 'bool',
                 'category': 'room',
                 'description': '是否允许用户在申请/换宿时选择床位。关闭时用户端隐藏选床框并自动分配，管理端不受影响',
