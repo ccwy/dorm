@@ -142,7 +142,7 @@
                 <div class="mb-8 bg-gray-50 rounded-lg p-6">
                     <h3 class="text-lg font-semibold text-gray-800 mb-4">
                         <i class="fa fa-bed mr-2 text-accent"></i>选择目标房间 <span class="text-red-500 text-sm">*</span>
-                        <span class="text-sm font-normal text-gray-500 ml-2">（床位将自动分配）</span>
+                        <span id="bedAutoAssignHint" class="text-sm font-normal text-gray-500 ml-2">（床位将自动分配）</span>
                     </h3>
                     
                     <!-- 房间筛选 -->
@@ -208,6 +208,16 @@
 
                     <!-- 隐藏字段：选中的房间ID -->
                     <input type="hidden" name="target_room_id" id="target_room_id" value="">
+                    <!-- 隐藏字段：选中的床位ID -->
+                    <input type="hidden" name="target_bed_id" id="target_bed_id_input" value="">
+
+                    <!-- 床位选择 -->
+                    <div id="bedSelectContainer" class="hidden mt-4">
+                        <label for="bed_select" class="block text-sm font-medium text-gray-700 mb-1">选择床位</label>
+                        <select id="bed_select" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                            <option value="">自动分配</option>
+                        </select>
+                    </div>
 
                     <!-- 当前选择信息 -->
                     <div class="mt-4 p-4 bg-blue-50 rounded-lg">
@@ -485,6 +495,9 @@
                         // 高亮选中行
                         roomList.find('tr').removeClass('bg-blue-50');
                         $(this).closest('tr').addClass('bg-blue-50');
+
+                        // 加载床位信息
+                        loadBeds(roomId);
                     });
 
                     selectCell.append(radioBtn);
@@ -520,6 +533,71 @@
                 prevPage.prop('disabled', page === 1);
                 nextPage.prop('disabled', page === pages);
             }
+
+            // 加载床位信息（调用房间详情API）
+            function loadBeds(roomId) {
+                if (!roomId) {
+                    $('#bedSelectContainer').addClass('hidden');
+                    $('#bedAutoAssignHint').show();
+                    $('#target_bed_id_input').val('');
+                    return;
+                }
+                $.ajax({
+                    url: '/api/rooms/' + roomId,
+                    type: 'GET',
+                    success: function(response) {
+                        if (response.success && response.data) {
+                            loadBedsFromRoomData(response.data);
+                        } else {
+                            $('#bedSelectContainer').addClass('hidden');
+                            $('#bedAutoAssignHint').show();
+                        }
+                    },
+                    error: function() {
+                        $('#bedSelectContainer').addClass('hidden');
+                        $('#bedAutoAssignHint').show();
+                    }
+                });
+            }
+
+            // 根据房间数据加载床位选项
+            function loadBedsFromRoomData(roomData) {
+                const bedSelect = $('#bed_select');
+                const bedContainer = $('#bedSelectContainer');
+                const bedHint = $('#bedAutoAssignHint');
+
+                bedSelect.empty();
+                bedSelect.append('<option value="">自动分配</option>');
+                $('#target_bed_id_input').val('');
+
+                const beds = roomData.beds || [];
+                const bedAutoAssignEnabled = roomData.bed_auto_assign_enabled;
+                const userBedSelectionEnabled = roomData.user_bed_selection_enabled !== false;
+
+                if (bedAutoAssignEnabled || !userBedSelectionEnabled) {
+                    bedContainer.addClass('hidden');
+                    bedHint.show();
+                    return;
+                }
+
+                bedContainer.removeClass('hidden');
+                bedHint.hide();
+
+                if (beds.length > 0) {
+                    const statusMap = {available: '空闲', occupied: '已入住', maintenance: '维护中'};
+                    beds.forEach(function(bed) {
+                        const text = '床位 ' + bed.bed_number + ' - ' + (statusMap[bed.status] || bed.status) + (bed.occupant_name ? ' (' + bed.occupant_name + ')' : '');
+                        const option = $('<option>').val(bed.id).text(text);
+                        if (bed.status !== 'available') option.prop('disabled', true);
+                        bedSelect.append(option);
+                    });
+                }
+            }
+
+            // 床位选择变更时更新隐藏字段
+            $('#bed_select').on('change', function() {
+                $('#target_bed_id_input').val($(this).val());
+            });
             {% endif %}
 
             // 退宿日期变更时，重新获取上次抄表记录（时间锁）

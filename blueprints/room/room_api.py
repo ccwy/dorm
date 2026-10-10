@@ -140,6 +140,7 @@ def get_room_detail(room_id):
         # 获取床位列表（当床位管理启用时）
         beds_data = []
         bed_auto_assign_enabled = True
+        user_bed_selection_enabled = False
         if SystemConfig.get_config_value('ROOM_BED_MANAGEMENT_ENABLED', True):
             from models.room.room_bed import Bed
             beds = Bed.query.filter_by(room_id=room.id).order_by(Bed.bed_number).all()
@@ -160,6 +161,7 @@ def get_room_detail(room_id):
                 })
             # 获取自动分配床位配置
             bed_auto_assign_enabled = SystemConfig.get_config_value('BED_AUTO_ASSIGN_ENABLED', True)
+            user_bed_selection_enabled = SystemConfig.get_config_value('USER_BED_SELECTION_ENABLED', True)
 
         response = {
             "success": True,
@@ -167,7 +169,8 @@ def get_room_detail(room_id):
                 "room": room_data,
                 "occupants": occupants,
                 "beds": beds_data,
-                "bed_auto_assign_enabled": bed_auto_assign_enabled
+                "bed_auto_assign_enabled": bed_auto_assign_enabled,
+                "user_bed_selection_enabled": user_bed_selection_enabled
             },
             "message": "查询成功"
         }

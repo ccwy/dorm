@@ -488,8 +488,7 @@ class Dorm(db.Model):
                     _create_operation_record=False
                 )
                 current_dorm.end_operation_type = 'transfer'
-                db.session.flush()  # 关键修复：确�end_operation_type写入数据库后再expire_all
-                # 退宿后强制刷新，确保原床位状态已更新
+                db.session.flush()  # 确保 end_operation_type 写入数据库
                 db.session.expire_all()
 
                 # 5. 核心优化点：复用分配函数处理新住宿
@@ -668,8 +667,7 @@ class Dorm(db.Model):
                 )
                 dorm_a.end_operation_type = 'exchange'
                 dorm_b.end_operation_type = 'exchange'
-                db.session.flush()  # 关键修复：确�end_operation_type写入数据库后再expire_all
-                # 退宿后强制刷新
+                db.session.flush()  # 确保 end_operation_type 写入数据库
                 db.session.expire_all()
 
                 # 4. 双方互换入住对方房间（create_allocation内部通过Bed.find_and_occupy占用床位）

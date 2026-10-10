@@ -1416,7 +1416,7 @@
                 const beds = data.beds || [];
                 const bedAutoAssignEnabled = data.bed_auto_assign_enabled;
                 
-                // 根据bed_auto_assign_enabled控制显示
+                // 管理端只受bed_auto_assign_enabled控制
                 if (bedAutoAssignEnabled) {
                     bedRow.style.display = 'none';
                     return;

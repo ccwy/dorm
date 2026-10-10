@@ -492,9 +492,18 @@ class SystemConfig(db.Model):
                 'config_value': 'true',
                 'config_type': 'bool',
                 'category': 'room',
-                'description': '启用自动分配床位（关闭则显示手动选床选项，不选仍自动分配）',
+                'description': '是否启用自动分配床位（关闭则显示手动选床选项，不选仍自动分配）',
                 'sort_order': 65,
                 'is_system': True
+            },
+            {
+                'config_key': 'USER_BED_SELECTION_ENABLED',
+                'config_value': 'true',
+                'config_type': 'bool',
+                'category': 'room',
+                'description': '是否允许用户在申请/换宿时选择床位。关闭时用户端隐藏选床框并自动分配，管理端不受影响',
+                'is_system': False,
+                'sort_order': 66
             },
             
             # 4.5 房间自定义字段配置 (category: room.custom_field)

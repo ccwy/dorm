@@ -229,6 +229,14 @@
                     <p class="text-gray-800 font-medium">{{ application.current_room.building }}{{ application.current_room.room_number }}</p>
                 </div>
                 <div class="bg-gray-50 p-4 rounded-lg">
+                    <p class="text-sm text-gray-500 mb-1">当前床位</p>
+                    {% if application.current_bed %}
+                    <p class="text-gray-800 font-medium">床位 {{ application.current_bed.bed_number }}</p>
+                    {% else %}
+                    <p class="text-gray-800 font-medium">自动分配</p>
+                    {% endif %}
+                </div>
+                <div class="bg-gray-50 p-4 rounded-lg">
                     <p class="text-sm text-gray-500 mb-1">入住时间</p>
                     <p class="text-gray-800 font-medium">{{ current_dorm.check_in_date.strftime('%Y-%m-%d') if current_dorm and current_dorm.check_in_date else '-' }}</p>
                 </div>
@@ -250,6 +258,14 @@
                 <div class="bg-gray-50 p-4 rounded-lg">
                     <p class="text-sm text-gray-500 mb-1">申请宿舍</p>
                     <p class="text-gray-800 font-medium"><a href="{{ url_for('room.view', id=application.target_room.id) }}" class="text-primary hover:underline">{{ application.target_room.building }}{{ application.target_room.room_number }}</a></p>
+                </div>
+                <div class="bg-gray-50 p-4 rounded-lg">
+                    <p class="text-sm text-gray-500 mb-1">申请床位</p>
+                    {% if application.target_bed %}
+                    <p class="text-gray-800 font-medium">床位 {{ application.target_bed.bed_number }}</p>
+                    {% else %}
+                    <p class="text-gray-800 font-medium">自动分配</p>
+                    {% endif %}
                 </div>
                 <div class="bg-gray-50 p-4 rounded-lg">
                     <p class="text-sm text-gray-500 mb-1">期望入住时间</p>

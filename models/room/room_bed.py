@@ -105,14 +105,6 @@ class Bed(db.Model):
 
     def release(self):
         """释放床位，标记为可用状态"""
-        from models.system_config.system_config import SystemConfig
-        
-        # 读取床位管理开关配置
-        config = SystemConfig.query.filter_by(config_key='ROOM_BED_MANAGEMENT_ENABLED').first()
-        enabled = config and config.config_value.lower() == 'true' if config else True
-        if not enabled:
-            return self
-        
         self.status = BedStatus.AVAILABLE.value
         return self
 

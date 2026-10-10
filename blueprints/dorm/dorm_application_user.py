@@ -14,6 +14,7 @@ from utils.media.room_meter_checkout_photo import room_meter_checkout_photo_mana
 from sqlalchemy.orm import joinedload
 from datetime import datetime
 import logging
+from models.system_config.system_config import SystemConfig
 
 
 # 创建宿舍申请用户端蓝图
@@ -169,6 +170,9 @@ def create_allocate():
 
         # POST请求 - 创建申请
         target_room_id = request.form.get('target_room_id', type=int)
+        target_bed_id = request.form.get('target_bed_id', type=int)
+        if target_bed_id and not SystemConfig.get_config_value('USER_BED_SELECTION_ENABLED', True):
+            target_bed_id = None
         check_in_date_str = request.form.get('check_in_date', '').strip()
         reason = request.form.get('reason', '').strip()
 
@@ -184,11 +188,12 @@ def create_allocate():
             flash('日期格式不正确，请使用YYYY-MM-DD或YYYY-MM-DDTHH:MM格式', 'error')
             return redirect(url_for('dorm_application_user.create_allocate'))
 
-        # 创建申请（床位自动分配，无需指定target_bed_id）
+        # 创建申请
         application = DormApplication.create_application(
             user_id=user_id,
             application_type='allocate',
             target_room_id=target_room_id,
+            target_bed_id=target_bed_id,
             check_in_date=check_in_date,
             reason=reason
         )
@@ -280,6 +285,9 @@ def create_change():
 
         # POST请求 - 创建换宿申请
         target_room_id = request.form.get('target_room_id', type=int)
+        target_bed_id = request.form.get('target_bed_id', type=int)
+        if target_bed_id and not SystemConfig.get_config_value('USER_BED_SELECTION_ENABLED', True):
+            target_bed_id = None
         check_in_date_str = request.form.get('check_in_date', '').strip()
         reason = request.form.get('reason', '').strip()
 
@@ -295,13 +303,14 @@ def create_change():
             flash('日期格式不正确，请使用YYYY-MM-DD或YYYY-MM-DDTHH:MM格式', 'error')
             return redirect(url_for('dorm_application_user.create_change'))
 
-        # 创建换宿申请（current_room_id和current_bed_id由模型自动填充，床位自动分配）
+        # 创建换宿申请（current_room_id和current_bed_id由模型自动填充）
         application = DormApplication.create_application(
             user_id=user_id,
             application_type='change',
             current_room_id=active_dorm.room_id if active_dorm else None,
             current_bed_id=active_dorm.bed_id if active_dorm else None,
             target_room_id=target_room_id,
+            target_bed_id=target_bed_id,
             check_in_date=check_in_date,
             reason=reason
         )

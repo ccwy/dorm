@@ -609,7 +609,7 @@
                 const beds = roomData.beds || [];
                 const bedAutoAssignEnabled = roomData.bed_auto_assign_enabled;
                 
-                // 根据bed_auto_assign_enabled控制显示
+                // 管理端只受bed_auto_assign_enabled控制
                 if (bedAutoAssignEnabled) {
                     bedContainer.addClass('hidden');
                     return;
