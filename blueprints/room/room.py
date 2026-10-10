@@ -250,6 +250,27 @@ def view(id):
                     'user': user,
                     'dorm': dorm
                 })
+        # 获取床位信息（受系统配置控制）
+        from models.room.room_bed import Bed
+        from models.system_config.system_config import SystemConfig
+        bed_management_enabled = SystemConfig.get_config_value('ROOM_BED_MANAGEMENT_ENABLED', True)
+        bed_info_list = []
+        if bed_management_enabled:
+            beds = Bed.query.filter_by(room_id=room.id).order_by(Bed.bed_number).all()
+            for bed in beds:
+                occupant_name = None
+                if bed.status == 'occupied':
+                    dorm = Dorm.query.filter_by(bed_id=bed.id, status='active').first()
+                    if dorm and dorm.user:
+                        occupant_name = dorm.user.name
+                bed_info_list.append({
+                    'bed_number': bed.bed_number,
+                    'status': bed.status,
+                    'status_display': bed.status_display,
+                    'occupant_name': occupant_name,
+                    'remark': bed.remark
+                })
+
         # 获取房间类型映射
         room_types = Room.get_valid_room_types()
         type_mapping = {t: t for t in room_types}
@@ -283,6 +304,8 @@ def view(id):
             media_files=media_files,  # 传递房间媒体文件
             custom_field_defs=custom_field_defs,
             custom_field_values=custom_field_values,
+            bed_info_list=bed_info_list,
+            bed_management_enabled=bed_management_enabled,
         )
     except Exception as e:
         log_operation(

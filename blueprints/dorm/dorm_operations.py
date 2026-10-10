@@ -9,7 +9,6 @@ from models.dorm.dorm import Dorm
 from models.user.user import User
 from models.department.department import Department
 from models.room.room import Room
-from models.room.room_bed import Bed  # 【新增】导入床位模型
 from models.role import Role  # 导入角色模型
 from utils.log import log_operation
 from .dorm import dorm_bp  # 导入dorm蓝图
@@ -185,22 +184,11 @@ def create_allocation():
                 logging.error(f"创建分配宿舍失败：房间ID {room_id} 已满（POST请求）")
                 return redirect(url_for('dorm.create_allocation', user_id=user_id))
             
-            # 自动分配床位
-            available_bed = Bed.query.filter_by(
-                room_id=room_id,
-                status='available'
-            ).order_by(Bed.bed_number).first()
-            
-            if not available_bed:
-                flash(f'房间 {room.building}{room.room_number} 无可用床位', 'danger')
-                logging.error(f"创建分配宿舍失败：房间ID {room_id} 无可用床位（POST请求）")
-                return redirect(url_for('dorm.create_allocation', user_id=user_id))
-            
-            # 调用模型方法创建分配记录
+            # 调用模型方法创建分配记录（bed_id=None自动分配床位）
             new_dorm = Dorm.create_allocation(
                 user_id=user_id,
                 room_id=room_id,
-                bed_id=available_bed.id,
+                bed_id=None,
                 check_in_date=check_in_date,
                 remarks=remarks
             )
@@ -344,26 +332,12 @@ def add():
                 logging.error(f"添加宿舍分配失败：{error_msg}（POST请求）")
                 return render_template('dorm_manage/dorm_add.html',title=f"分配宿舍")
 
-            # 自动分配床位
-            available_bed = Bed.query.filter_by(
-                room_id=room_id,
-                status='available'
-            ).order_by(Bed.bed_number).first()
-            
-            if not available_bed:
-                error_msg = f'房间 {room.building}-{room.room_number} 无可用床位'
-                if is_ajax:
-                    return jsonify({"success": False, "message": error_msg}), 400
-                flash(error_msg, 'danger')
-                logging.error(f"添加宿舍分配失败：{error_msg}（POST请求）")
-                return render_template('dorm_manage/dorm_add.html',title=f"分配宿舍")
-            
-            # 调用模型方法创建分配记录（使用事务确保原子性）
+            # 调用模型方法创建分配记录（bed_id=None自动分配床位）
             new_dorm = Dorm.create_allocation(
                 user_id=user_id,
                 room_id=room_id,
-                bed_id=available_bed.id,
-                check_in_date=check_in_date,  # 已改为datetime类型
+                bed_id=None,
+                check_in_date=check_in_date,
                 remarks=remarks
             )
             
@@ -418,7 +392,7 @@ def add():
                         "dorm_id": new_dorm.id,
                         "user_id": user_id,
                         "room_id": room_id,
-                        "bed_id": available_bed.id
+                        "bed_id": new_dorm.bed_id
                     }
                 })
             

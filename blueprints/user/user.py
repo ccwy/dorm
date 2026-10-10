@@ -258,7 +258,8 @@ def view(id):
                     'stay_days': roommate_dorm.stay_days,
                     'department': roommate.department,
                     'position': roommate.position,
-                    'age': roommate.get_age()
+                    'age': roommate.get_age(),
+                    'bed_number': roommate_dorm.bed.bed_number if roommate_dorm.bed else None
                 })
     
     # 新增：获取用户的留言记录
@@ -329,5 +330,6 @@ def view(id):
         operation_records=operation_records,  # 新增：传递操作记录
         custom_field_defs=custom_field_defs,
         custom_field_values=custom_field_values,
+        bed_management_enabled=SystemConfig.get_config_value('ROOM_BED_MANAGEMENT_ENABLED', True),
     )
 

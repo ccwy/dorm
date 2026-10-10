@@ -165,27 +165,39 @@ class Dorm(db.Model):
 
     @classmethod
     def _sync_room_status(cls, room_id):
-        """提取房间状态同步逻辑为公共方法"""
+        """同步房间状态：基于床位可用数修正occupancy和status。
+        
+        注意：如果存在bed_id=None的活跃Dorm记录（床位管理禁用期间产生的），
+        会先执行床位补分配再同步。
+        """
+        from models.room.room_bed import Bed
+        
         room = Room.query.get(room_id)
         if not room:
-            raise ValueError(f"房间{room_id}不存在")
-            
-        # 统计实际可用床位数
+            return
+        
+        # 检查是否存在bed_id=None的活跃Dorm记录
+        orphan_count = cls.query.filter_by(
+            room_id=room_id,
+            bed_id=None,
+            check_out_date=None
+        ).count()
+        
+        if orphan_count > 0:
+            # 先补分配床位，使床位状态与实际入住一致
+            Bed.reconcile_beds_for_room(room_id)
+        
+        # 以床位状态为权威数据源重算
         actual_available = Bed.query.filter_by(
             room_id=room_id,
             status='available'
         ).count()
-        
-        # 计算理论可用床位数
         theoretical_available = room.capacity - room.current_occupancy
         
-        # 数据不一致时修复
         if actual_available != theoretical_available:
             room.current_occupancy = room.capacity - actual_available
             room.status = 'available' if actual_available > 0 else 'full'
-            db.session.add(room)
-
-        return room
+            logging.info(f"房间{room_id}状态同步: occupancy修正为{room.current_occupancy}, status={room.status}")
     
   
     # 新增：性别验证公共方法
@@ -224,7 +236,7 @@ class Dorm(db.Model):
     # 新增住宿分配核心方法
     # --------------------------
     @classmethod
-    def create_allocation(cls, user_id, room_id, bed_id, check_in_date, remarks, operation_type='allocation', _create_operation_record=True):
+    def create_allocation(cls, user_id, room_id, check_in_date, remarks, bed_id=None, operation_type='allocation', _create_operation_record=True):
         """创建新的住宿分配记录，占用床位并更新房间状态"""
         # 获取房间信息
         room = Room.query.get(room_id)
@@ -260,21 +272,19 @@ class Dorm(db.Model):
             logging.warning(f"房间{room_id}不存在")
             raise ValueError(f"房间{room_id}不存在")
         
-        # 验证床位有效性（加锁防并发抢占）
-        bed = Bed.query.filter_by(id=bed_id).with_for_update().first()
-        if not bed:
-            raise ValueError(f"床位{bed_id}不存在")
-        if bed.status != 'available':
-            raise ValueError(f"床位{bed_id}当前状态为{bed.status}，无法分配（需为available）")
+        # 通过Bed统一方法查找并占用床位
+        bed = Bed.find_and_occupy(room_id, bed_id)
+        actual_bed_id = bed.id if bed else None
         
-        # 占用床位
-        bed.status = 'occupied'
+        # 指定了bed_id但未成功占用，报错
+        if bed_id is not None and actual_bed_id is None:
+            raise ValueError(f"指定床位{bed_id}不可用或不存在")
         
         # 创建新住宿记录
         new_dorm = cls(
             user_id=user_id,
             room_id=room_id,
-            bed_id=bed_id,
+            bed_id=actual_bed_id,
             check_in_date=check_in_date,  # 已改为datetime类型
             status='active',
             remarks=remarks,
@@ -298,7 +308,7 @@ class Dorm(db.Model):
                 operation_type='allocation',
                 room_id=room_id,
                 from_room_id=None,
-                bed_id=bed_id,
+                bed_id=actual_bed_id,
                 from_bed_id=None,
                 operator_user_id=current_user.id if current_user.is_authenticated else None,
                 remarks=remarks
@@ -325,12 +335,11 @@ class Dorm(db.Model):
         if self.status != 'active':
             raise ValueError("只能对活跃的住宿记录执行退宿")
         
-        # 释放床位（加锁防并发）
+        # 释放床位
         if self.bed_id:
-            bed = Bed.query.filter_by(id=self.bed_id).with_for_update().first()
+            bed = Bed.query.get(self.bed_id)
             if bed:
-                if bed.status == 'occupied':
-                    bed.status = 'available'
+                bed.release()
 
         # 记录原房间和床位信息（用于DormOperation）
         from_room_id = self.room_id
@@ -461,13 +470,13 @@ class Dorm(db.Model):
                 # 强制刷新并同步房间状态
                 cls._sync_room_status(target_room.id)
 
-                # 3. 检查目标房间是否有可用床位
-                available_bed = Bed.query.filter_by(
+                # 3. 检查目标房间是否有可用床位（仅count验证，实际占用由create_allocation内部处理）
+                available_count = Bed.query.filter_by(
                     room_id=target_room_id,
                     status='available'
-                ).with_for_update().first()
+                ).count()
                 
-                if not available_bed:
+                if available_count == 0:
                     raise ValueError(f"目标房间{target_room_id}无可用床位（已同步最新数据）")
 
                 # 4. 核心优化点：复用退宿函数处理原住宿
@@ -485,14 +494,15 @@ class Dorm(db.Model):
 
                 # 5. 核心优化点：复用分配函数处理新住宿
                 # create_allocation方法已经自动设置operator_user_id
+                # bed_id=None表示自动分配床位，由Bed.find_and_occupy内部处理
                 new_dorm = cls.create_allocation(
                     user_id=user_id,
                     room_id=target_room_id,
-                    bed_id=available_bed.id,
                     check_in_date=change_date,  # 已改为datetime类型
                     remarks=f"从房间{old_room_id}换入，原因：{reason}",
                     operation_type='transfer',
-                    _create_operation_record=False
+                    _create_operation_record=False,
+                    bed_id=None
                 )
                 new_dorm.prev_dorm_id = current_dorm.id
 
@@ -503,7 +513,7 @@ class Dorm(db.Model):
                     operation_type='transfer',
                     room_id=target_room_id,
                     from_room_id=old_room_id,
-                    bed_id=available_bed.id,
+                    bed_id=new_dorm.bed_id,
                     from_bed_id=old_bed_id,
                     operator_user_id=current_user.id if current_user.is_authenticated else None,
                     remarks=f"从房间{old_room_id}换入，原因：{reason}"
@@ -515,7 +525,7 @@ class Dorm(db.Model):
                     raise RuntimeError("新宿舍分配失败，未创建住宿记录")
 
                 if not has_active_transaction:
-                    db.session.add()
+                    db.session.commit()
 
             except Exception as e:
                 if not has_active_transaction:
@@ -662,31 +672,22 @@ class Dorm(db.Model):
                 # 退宿后强制刷新
                 db.session.expire_all()
 
-                # 4. 验证双方原床位是否已释放
-                bed_a = Bed.query.get(bed_a_id)
-                bed_b = Bed.query.get(bed_b_id)
-                if bed_a.status != 'available':
-                    raise ValueError(f"用户A原床位{bed_a_id}未正常释放（当前状态：{bed_a.status}）")
-                if bed_b.status != 'available':
-                    raise ValueError(f"用户B原床位{bed_b_id}未正常释放（当前状态：{bed_b.status}）")
-
-                # 5. 核心优化点：双方互换入住对方房间
-                # create_allocation方法已经自动设置operator_user_id
+                # 4. 双方互换入住对方房间（create_allocation内部通过Bed.find_and_occupy占用床位）
                 new_dorm_a = cls.create_allocation(
                     user_id=user_a_id,
                     room_id=room_b_id,
-                    bed_id=bed_b_id,
-                    check_in_date=exchange_date,  # 已改为datetime类型
+                    check_in_date=exchange_date,
                     remarks=f"与用户{user_b_id}互换，原房间{room_a_full}",
+                    bed_id=bed_b_id,
                     operation_type='exchange',
                     _create_operation_record=False
                 )
                 new_dorm_b = cls.create_allocation(
                     user_id=user_b_id,
                     room_id=room_a_id,
-                    bed_id=bed_a_id,
-                    check_in_date=exchange_date,  # 已改为datetime类型
+                    check_in_date=exchange_date,
                     remarks=f"与用户{user_a_id}互换，原房间{room_b_full}",
+                    bed_id=bed_a_id,
                     operation_type='exchange',
                     _create_operation_record=False
                 )
@@ -702,7 +703,7 @@ class Dorm(db.Model):
                     operation_type='exchange',
                     room_id=room_b_id,
                     from_room_id=room_a_id,
-                    bed_id=bed_b_id,
+                    bed_id=new_dorm_a.bed_id,
                     from_bed_id=bed_a_id,
                     operator_user_id=current_user.id if current_user.is_authenticated else None,
                     swap_with_user_id=user_b_id,
@@ -714,7 +715,7 @@ class Dorm(db.Model):
                     operation_type='exchange',
                     room_id=room_a_id,
                     from_room_id=room_b_id,
-                    bed_id=bed_a_id,
+                    bed_id=new_dorm_b.bed_id,
                     from_bed_id=bed_b_id,
                     operator_user_id=current_user.id if current_user.is_authenticated else None,
                     swap_with_user_id=user_a_id,

@@ -178,6 +178,13 @@
                                         <p class="font-medium text-lg mt-1">{% if latest_dorm.room %}<span class="text-blue-600">{{ latest_dorm.room.building }}{{ latest_dorm.room.room_number }}</span>{% else %}-{% endif %}</p>
                                     </div>
                                     
+                                    {% if bed_management_enabled %}
+                                    <div>
+                                        <h4 class="text-sm text-gray-500">床位号</h4>
+                                        <p class="font-medium text-lg mt-1">{% if latest_dorm.bed %}{{ latest_dorm.bed.bed_number }}{% else %}-{% endif %}</p>
+                                    </div>
+                                    {% endif %}
+                                    
                                     <div>
                                         <h4 class="text-sm text-gray-500">入住日期</h4>
                                         <p class="font-medium mt-1">{{ format_datetime(latest_dorm.check_in_date) if latest_dorm.check_in_date else '-' }}</p>
@@ -220,6 +227,7 @@
                                             <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">姓名</th>
                                             <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">年龄</th>
                                             <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">性别</th>
+                                            {% if bed_management_enabled %}<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">床位号</th>{% endif %}
                                             <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">部门</th>
                                             <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">职位</th>
                                             <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">联系电话</th>
@@ -240,6 +248,7 @@
                                                 <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
                                                     {{ roommate.gender if roommate.gender else '-' }}
                                                 </td>
+                                                {% if bed_management_enabled %}<td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">{{ roommate.bed_number if roommate.bed_number else '-' }}</td>{% endif %}
                                                 <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
                                                     {{ roommate.department if roommate.department else '-' }}
                                                 </td>
@@ -259,7 +268,7 @@
                                             {% endfor %}
                                         {% else %}
                                             <tr>
-                                                <td colspan="8" class="px-4 py-6 text-center text-sm text-gray-500">
+                                                <td colspan="{{ 9 if bed_management_enabled else 8 }}" class="px-4 py-6 text-center text-sm text-gray-500">
                                                     暂无其他室友
                                                 </td>
                                             </tr>
@@ -371,6 +380,7 @@
                                 <thead>
                                     <tr>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">房间号</th>
+                                        {% if bed_management_enabled %}<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">床位号</th>{% endif %}
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">入住日期</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">退宿日期</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">住宿天数</th>
@@ -386,6 +396,7 @@
                                             {{ dorm.room.building if dorm.room else '未知' }}{{ dorm.room.room_number if dorm.room else '未知' }}
                                             </span>
                                         </td>
+                                        {% if bed_management_enabled %}<td class="px-6 py-4 whitespace-nowrap">{{ dorm.bed.bed_number if dorm.bed else '-' }}</td>{% endif %}
                                         <td class="px-6 py-4 whitespace-nowrap">
                                             {{ format_datetime(dorm.check_in_date) }}
                                         </td>

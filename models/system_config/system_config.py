@@ -479,6 +479,14 @@ class SystemConfig(db.Model):
                 'description': '用户自定义的房间设备类型（可动态增删）',
                 'sort_order': 50
             },
+            {
+                'config_key': 'ROOM_BED_MANAGEMENT_ENABLED',
+                'config_value': 'true',
+                'config_type': 'bool',
+                'category': 'room',
+                'description': '是否启用床位管理功能',
+                'sort_order': 60
+            },
             
             # 4.5 房间自定义字段配置 (category: room.custom_field)
             {

@@ -310,7 +310,7 @@ class User(UserMixin, db.Model):
                     if dorm.bed_id:
                         bed = Bed.query.get(dorm.bed_id)
                         if bed:
-                            bed.status = 'available'
+                            bed.release()
                             db.session.add(bed)
                             deleted_records.append(f"床位 {bed.bed_number} 状态已还原")
                     

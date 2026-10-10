@@ -293,6 +293,44 @@
             </div>
             {% endif %}
 
+            <!-- 床位状态区域 - 受系统配置控制 -->
+            {% if bed_management_enabled %}
+            <div class="mb-8">
+                <h3 class="text-lg font-medium mb-4 pb-2 border-b border-gray-200 flex items-center">
+                    <i class="fa fa-bed text-primary mr-2"></i>床位状态
+                </h3>
+                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                    {% for bed in bed_info_list %}
+                    <div class="border rounded-lg p-3 text-center 
+                        {% if bed.status == 'available' %}border-green-200 bg-green-50
+                        {% elif bed.status == 'occupied' %}border-blue-200 bg-blue-50
+                        {% elif bed.status == 'maintenance' %}border-yellow-200 bg-yellow-50
+                        {% elif bed.status == 'closed' %}border-gray-200 bg-gray-50
+                        {% else %}border-gray-200 bg-white{% endif %}">
+                        <div class="text-sm font-medium text-gray-700">床位 {{ bed.bed_number }}</div>
+                        <div class="mt-1">
+                            {% if bed.status == 'available' %}
+                                <span class="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded-full">可用</span>
+                            {% elif bed.status == 'occupied' %}
+                                <span class="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full">{{ bed.occupant_name or '已占用' }}</span>
+                            {% elif bed.status == 'maintenance' %}
+                                <span class="text-xs px-2 py-0.5 bg-yellow-100 text-yellow-700 rounded-full">维护中</span>
+                            {% elif bed.status == 'closed' %}
+                                <span class="text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full">已关闭</span>
+                            {% endif %}
+                        </div>
+                        {% if bed.remark %}
+                        <div class="text-xs text-gray-400 mt-1">{{ bed.remark }}</div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                    {% if not bed_info_list %}
+                    <p class="text-gray-500 col-span-full text-center py-4">暂无床位信息</p>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+
         <!-- 房间设施部分保持不变 -->
             <div class="mb-8">
                 <h3 class="text-lg font-medium mb-4 pb-2 border-b border-gray-200">房间设施</h3>
@@ -348,6 +386,8 @@
                     {% endfor %}
                 </div>
             </div>
+            
+            
             
             <!-- 居住用户部分 - 使用后端数据直接渲染 -->
             <div class="mb-8">

@@ -46,7 +46,8 @@ def user_info():
                         'position': roommate.position,
                         'phone': roommate.phone,
                         'check_in_date': dorm.check_in_date,
-                        'stay_days': dorm.stay_days
+                        'stay_days': dorm.stay_days,
+                        'bed_number': dorm.bed.bed_number if dorm.bed else None
                     }
                     roommates.append(roommate_info)
     
@@ -128,7 +129,8 @@ def user_info():
         historical_dorms=historical_dorms,
         roommates=roommates,
         utility_records=utility_records,
-        format_datetime=format_datetime
+        format_datetime=format_datetime,
+        bed_management_enabled=SystemConfig.get_config_value('ROOM_BED_MANAGEMENT_ENABLED', True),
     )
 
 

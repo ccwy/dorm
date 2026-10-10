@@ -284,6 +284,7 @@ def update_configs():
         updated_keys = []
         db_config_updates = {}      #数据库更新
         backup_config_updates = {}  #自动备份
+        bed_mgmt_old_value = None   # 记录床位管理开关旧值
         
         is_db_config = category == 'system'             # 检查是否是数据库配置更新
         is_backup_config = category == 'system.backup'  #检查是否是自动备份更新
@@ -299,6 +300,10 @@ def update_configs():
                 if not config_item.is_editable:
                     logging.warning(f"尝试更新不可编辑的配置项: {key}")
                     continue
+                
+                # 记录床位管理开关旧值
+                if key == 'ROOM_BED_MANAGEMENT_ENABLED':
+                    bed_mgmt_old_value = config_item.config_value.lower() == 'true'
                 # 对于数据库配置项，记录需要更新到外部文件的内容
                 if is_db_config :
                     # 转换值为合适的类型
@@ -386,6 +391,17 @@ def update_configs():
                 updated_keys.append(key)
                 
             message = f"更新{category}模块配置,成功更新{len(updated_keys)}项配置"
+
+        # 床位管理开关从禁用切换为启用时，触发全局床位补分配
+        if 'ROOM_BED_MANAGEMENT_ENABLED' in updated_keys and bed_mgmt_old_value is False:
+            try:
+                from models.room.room_bed import Bed
+                reconciled = Bed.reconcile_all_rooms()
+                if reconciled > 0:
+                    logging.info(f"床位管理启用，自动补分配{reconciled}条记录")
+                    message = f"更新{category}模块配置,成功更新{len(updated_keys)}项配置，床位补分配{reconciled}条记录"
+            except Exception as e:
+                logging.error(f"床位补分配执行失败: {str(e)}")
 
         #自动备份配置
         if is_backup_config and backup_config_updates:

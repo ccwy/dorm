@@ -6,7 +6,6 @@ from utils.db import db
 from models.dorm.dorm import Dorm
 from models.user.user import User
 from models.room.room import Room
-from models.room.room_bed import Bed
 from models.fee_subsidy.fee_subsidy import FeeSubsidy
 from models.utility.utility_room_meter import UtilityMeterReading
 from models.utility.utility_room_bill_checkout import CheckoutUtilityRecord
@@ -14,14 +13,14 @@ from flask_login import current_user
 import logging
 
 
-def do_allocation(user_id, room_id, bed_id, check_in_date, operator_id=None, remarks=''):
+def do_allocation(user_id, room_id, check_in_date, bed_id=None, operator_id=None, remarks=''):
     """完整分配业务逻辑：模型层分配 + 禁用外宿/住宿补贴 + 清零补贴金额
 
     Args:
         user_id: 用户ID
         room_id: 房间ID
-        bed_id: 床位ID
         check_in_date: 入住日期
+        bed_id: 床位ID（可选，None则自动分配）
         operator_id: 操作人ID（可选，默认取current_user）
         remarks: 备注
 

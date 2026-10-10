@@ -15,7 +15,7 @@ from dateutil import parser
 # 导入数据模型
 from models.dorm.dorm import Dorm
 from models.user.user import User
-from models.room.room import Room, Bed
+from models.room.room import Room
 from utils.db import db
 # 导入Excel日期处理工具
 from utils.excel_date_utils import excel_date_utils
@@ -494,24 +494,6 @@ def import_residents():
                         logging.error(f'导入在住人员数据失败：用户{user.name}性别({user.gender})与房间{room.building}{room.room_number}性别限制({room.gender_restriction})不匹配，操作人ID：{current_user.id}')
                         continue
                     
-                    # 查找可用床位
-                    available_bed = Bed.query.filter_by(
-                        room_id=room.id,
-                        status='available'
-                    ).order_by(Bed.bed_number).first()
-                    
-                    if not available_bed:
-                        fail_records.append({
-                            'row': row_num,
-                            'name': name,
-                            'room': f'{building}-{room_number}',
-                            'reason': '房间无可用床位',
-                            'raw_data': dict(row)
-                        })
-                        # 记录日志
-                        logging.error(f'导入在住人员数据失败：{room.building}{room.room_number}房间无可用床位，操作人ID：{current_user.id}')
-                        continue
-                    
                     # 获取备注（可选列，安全访问）
                     remark = ''
                     if '备注' in df.columns:
@@ -519,15 +501,15 @@ def import_residents():
                         if remark_val is not None and str(remark_val).strip() and str(remark_val).strip() != 'nan':
                             remark = str(remark_val).strip()
                     
-                    # 创建分配记录
+                    # 创建分配记录（bed_id=None自动分配床位）
                     remarks_parts = [f'批量导入分配，导入时间：{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}']
                     if remark:
                         remarks_parts.append(f'备注：{remark}')
                     Dorm.create_allocation(
                         user_id=user.id,
                         room_id=room.id,
-                        bed_id=available_bed.id,
-                        check_in_date=check_in_date,  # 已改为datetime类型
+                        bed_id=None,
+                        check_in_date=check_in_date,
                         remarks='，'.join(remarks_parts)
                     )
                     # 记录日志

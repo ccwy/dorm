@@ -275,18 +275,12 @@ class DormApplication(db.Model):
                     if not check_in_date:
                         check_in_date = app.check_in_date or datetime.now()
 
-                    # 确定目标床位（自动分配可用床位）
-                    available_bed = Bed.query.filter_by(
-                        room_id=room_id_for_allocation,
-                        status='available'
-                    ).with_for_update().first()
-                    if not available_bed:
-                        raise ValueError("分配房间无可用床位")
-
+                    # 床位分配由create_allocation内部的Bed.find_and_occupy统一处理
+                    # 传递申请中的目标床位ID（None则自动分配）
                     allocation_result = do_allocation(
                         user_id=app.user_id,
                         room_id=room_id_for_allocation,
-                        bed_id=available_bed.id,
+                        bed_id=app.target_bed_id,
                         check_in_date=check_in_date,
                         operator_id=operator_id,
                         remarks=f"通过申请{app.application_number}分配"
