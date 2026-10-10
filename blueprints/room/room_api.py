@@ -137,11 +137,37 @@ def get_room_detail(room_id):
             "remark": room.remark or ""
         }
         
+        # 获取床位列表（当床位管理启用时）
+        beds_data = []
+        bed_auto_assign_enabled = True
+        if SystemConfig.get_config_value('ROOM_BED_MANAGEMENT_ENABLED', True):
+            from models.room.room_bed import Bed
+            beds = Bed.query.filter_by(room_id=room.id).order_by(Bed.bed_number).all()
+            for bed in beds:
+                occupant_name = None
+                occupant_user_id = None
+                if bed.status == 'occupied':
+                    dorm = Dorm.query.filter_by(bed_id=bed.id, status='active').first()
+                    if dorm and dorm.user:
+                        occupant_name = dorm.user.name
+                        occupant_user_id = dorm.user.id
+                beds_data.append({
+                    'id': bed.id,
+                    'bed_number': bed.bed_number,
+                    'status': bed.status,
+                    'occupant_name': occupant_name,
+                    'occupant_user_id': occupant_user_id
+                })
+            # 获取自动分配床位配置
+            bed_auto_assign_enabled = SystemConfig.get_config_value('BED_AUTO_ASSIGN_ENABLED', True)
+
         response = {
             "success": True,
             "data": {
                 "room": room_data,
-                "occupants": occupants
+                "occupants": occupants,
+                "beds": beds_data,
+                "bed_auto_assign_enabled": bed_auto_assign_enabled
             },
             "message": "查询成功"
         }

@@ -62,7 +62,7 @@ def do_allocation(user_id, room_id, check_in_date, bed_id=None, operator_id=None
     return {'new_dorm': new_dorm, 'subsidies_disabled': subsidies_disabled, 'subsidies_count': subsidies_count}
 
 
-def do_change(user_id, target_room_id, reason="自愿换宿", change_date=None, operator_id=None):
+def do_change(user_id, target_room_id, reason="自愿换宿", change_date=None, operator_id=None, bed_id=None):
     """完整换宿业务逻辑：用户/房间验证 + 模型层换宿
 
     Args:
@@ -71,6 +71,7 @@ def do_change(user_id, target_room_id, reason="自愿换宿", change_date=None, 
         reason: 换宿原因
         change_date: 换宿日期
         operator_id: 操作人ID（可选）
+        bed_id: 床位ID（可选，None则自动分配）
 
     Returns:
         dict: {'new_dorm': Dorm对象, 'old_dorm': Dorm对象, 'user': User对象, 'target_room': Room对象}
@@ -84,7 +85,7 @@ def do_change(user_id, target_room_id, reason="自愿换宿", change_date=None, 
 
     new_dorm = Dorm.change_dorm(
         user_id=user_id, target_room_id=target_room_id,
-        reason=reason, change_date=change_date
+        reason=reason, change_date=change_date, target_bed_id=bed_id
     )
     old_dorm = new_dorm.prev_dorm
     return {'new_dorm': new_dorm, 'old_dorm': old_dorm, 'user': user, 'target_room': target_room}

@@ -269,6 +269,7 @@ def approve_application(id):
 
         # 获取表单参数（assigned_room_id为实际分配房间，不修改申请人填写的目标房间）
         assigned_room_id = request.form.get('assigned_room_id', type=int)
+        assigned_bed_id = request.form.get('assigned_bed_id', type=int)
         check_in_date_str = request.form.get('check_in_date', '').strip()
         check_out_date_str = request.form.get('check_out_date', '').strip()
         review_remark = request.form.get('review_remark', '').strip()
@@ -314,6 +315,7 @@ def approve_application(id):
             check_in_date=check_in_date,
             check_out_date=check_out_date,
             assigned_room_id=assigned_room_id if assigned_room_id else None,
+            assigned_bed_id=assigned_bed_id if assigned_bed_id else None,
             review_remark=review_remark if review_remark else None,
             **checkout_kwargs
         )

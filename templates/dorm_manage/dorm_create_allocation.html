@@ -294,6 +294,12 @@
                                     {% endif %}
                                 </div>
                             </div>
+                            <div id="bedSelectContainer" class="hidden">
+                                <label for="bed_select" class="block text-sm font-medium text-gray-700 mb-1">选择床位</label>
+                                <select id="bed_select" name="bed_id" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                                    <option value="">自动分配</option>
+                                </select>
+                            </div>
                             <div class="md:col-span-2">
                                 <label for="check_in_date" class="block text-sm font-medium text-gray-700 mb-1">入住日期时间 <span class="text-red-500">*</span></label>
                                 <input type="datetime-local" step="1" id="check_in_date" name="check_in_date" required
@@ -412,6 +418,9 @@
                                 const room = response.data;
                                 const occupants = room.occupants || [];
                                 
+                                // 加载床位信息
+                                loadBedsFromRoomData(room);
+                                
                                 if (occupants.length > 0) {
                                     let html = `<div class="text-gray-700 mb-2"><a href="/room/view/${roomId}" class="text-primary hover:underline font-medium">${roomNumber}</a>(ID:${roomId}) 已住 ${occupants.length} 人：</div>`;
                                     html += '<ul class="list-disc pl-5 space-y-2">';
@@ -437,6 +446,37 @@
                 } catch (e) {
                     console.error('获取房间信息异常:', e);
                     roomOccupantsContent.html('<div class="text-red-500">获取房间信息异常，请重试</div>');
+                }
+            }
+            
+            // 加载床位信息
+            function loadBedsFromRoomData(roomData) {
+                const bedSelect = $('#bed_select');
+                const bedContainer = $('#bedSelectContainer');
+                
+                // 重置
+                bedSelect.empty();
+                bedSelect.append('<option value="">自动分配</option>');
+                
+                const beds = roomData.beds || [];
+                const bedAutoAssignEnabled = roomData.bed_auto_assign_enabled;
+                
+                // 根据bed_auto_assign_enabled控制显示
+                if (bedAutoAssignEnabled) {
+                    bedContainer.addClass('hidden');
+                    return;
+                }
+                bedContainer.removeClass('hidden');
+                
+                // 添加床位选项
+                if (beds.length > 0) {
+                    const statusMap = {available: '可用', occupied: '已占用', maintenance: '维护中', closed: '已关闭'};
+                    beds.forEach(bed => {
+                        const text = `床位 ${bed.bed_number} - ${statusMap[bed.status] || bed.status}${bed.occupant_name ? ' (' + bed.occupant_name + ')' : ''}`;
+                        const option = $('<option>').val(bed.id).text(text);
+                        if (bed.status !== 'available') option.prop('disabled', true);
+                        bedSelect.append(option);
+                    });
                 }
             }
             

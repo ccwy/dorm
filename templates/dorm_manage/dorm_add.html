@@ -62,6 +62,7 @@
         <!-- 主卡片容器 -->
         <div class="bg-white rounded-lg shadow-sm p-6 w-full max-w-none mx-auto">
             <form id="allocationForm" method="POST" action="{{ url_for('dorm.add') }}">
+                <input type="hidden" name="bed_id" id="bedIdInput" value="">
                 <div class="grid grid-cols-1 lg:grid-cols-8 gap-8">
                     <!-- 选择用户 - 占3列 -->
                     <div class="lg:col-span-3">
@@ -296,6 +297,11 @@
             <div class="bg-gray-50 p-4 rounded-md mb-4 text-sm">
                 <p><span class="font-medium">选中用户：</span><span id="modalUser"></span></p>
                 <p><span class="font-medium">分配宿舍：</span><span id="modalDorm"></span></p>
+                <p id="modalBedRow"><span class="font-medium">选择床位：</span>
+                    <select id="modalBedSelect" name="modal_bed_id" class="border border-gray-300 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 mt-1">
+                        <option value="">自动分配</option>
+                    </select>
+                </p>
                 <p><span class="font-medium">入住日期时间：</span><span id="modalCheckinDate"></span></p>
             </div>
             <div class="flex justify-end gap-3">
@@ -392,6 +398,11 @@
             
             // 提交分配按钮事件
             submitAllocationBtn.addEventListener('click', submitAllocation);
+            
+            // 床位选择变化时更新隐藏输入
+            document.getElementById('modalBedSelect').addEventListener('change', function() {
+                document.getElementById('bedIdInput').value = this.value;
+            });
         });
         
         /**
@@ -967,15 +978,15 @@
          * 打开确认模态框
          */
         function openConfirmModal() {
-            const selectedUser = Array.from(document.querySelectorAll('.user-radio'))
-                .find(radio => radio.checked)
+            const selectedUserRadio = Array.from(document.querySelectorAll('.user-radio')).find(radio => radio.checked);
+            const selectedUser = selectedUserRadio
                 .closest('tr')
                 .querySelector('td:nth-child(2)')
                 .textContent;
             
-            const selectedDormRow = Array.from(document.querySelectorAll('.dorm-radio'))
-                .find(radio => radio.checked)
-                .closest('tr');
+            const selectedDormRadio = Array.from(document.querySelectorAll('.dorm-radio')).find(radio => radio.checked);
+            const selectedDormRow = selectedDormRadio.closest('tr');
+            const roomId = selectedDormRadio.getAttribute('data-id');
             
             const selectedDorm = `${selectedDormRow.querySelector('td:nth-child(2)').textContent}-${selectedDormRow.querySelector('td:nth-child(3)').textContent}`;
             
@@ -988,8 +999,57 @@
             const formattedDateTime = checkinDateTime.replace('T', ' '); // 将T替换为空格，便于阅读
             document.getElementById('modalCheckinDate').textContent = formattedDateTime;
             
+            // 加载床位信息
+            loadBedsForModal(roomId);
+            
             // 显示模态框
             document.getElementById('confirmModal').classList.remove('hidden');
+        }
+        
+        /**
+         * 加载床位信息到模态框
+         */
+        async function loadBedsForModal(roomId) {
+            const bedSelect = document.getElementById('modalBedSelect');
+            const bedRow = document.getElementById('modalBedRow');
+            
+            // 重置床位选择
+            bedSelect.innerHTML = '<option value="">自动分配</option>';
+            bedSelect.value = '';
+            document.getElementById('bedIdInput').value = '';
+            
+            try {
+                const response = await fetch(`/api/rooms/${roomId}`);
+                if (!response.ok) return;
+                const result = await response.json();
+                if (!result.success || !result.data) return;
+                
+                const data = result.data;
+                const beds = data.beds || [];
+                const bedAutoAssignEnabled = data.bed_auto_assign_enabled;
+                
+                // 根据bed_auto_assign_enabled控制显示
+                if (bedAutoAssignEnabled) {
+                    bedRow.style.display = 'none';
+                    return;
+                }
+                bedRow.style.display = '';
+                
+                // 添加床位选项
+                if (beds.length > 0) {
+                    const statusMap = {available: '可用', occupied: '已占用', maintenance: '维护中', closed: '已关闭'};
+                    beds.forEach(bed => {
+                        const option = document.createElement('option');
+                        option.value = bed.id;
+                        option.textContent = `床位 ${bed.bed_number} - ${statusMap[bed.status] || bed.status}${bed.occupant_name ? ' (' + bed.occupant_name + ')' : ''}`;
+                        if (bed.status !== 'available') option.disabled = true;
+                        bedSelect.appendChild(option);
+                    });
+                }
+            } catch (error) {
+                console.error('加载床位信息失败:', error);
+                bedRow.style.display = 'none';
+            }
         }
         
         /**

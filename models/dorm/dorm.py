@@ -392,7 +392,7 @@ class Dorm(db.Model):
     # --------------------------
     @classmethod
     def change_dorm(cls, user_id, target_room_id, reason="自愿换宿", 
-                   change_date=None):
+                   change_date=None, target_bed_id=None):
         """单人更换宿舍：复用退宿和分配函数，简化逻辑"""
         # 处理用户名
         user = User.query.get(user_id)
@@ -502,7 +502,7 @@ class Dorm(db.Model):
                     remarks=f"从房间{old_room_id}换入，原因：{reason}",
                     operation_type='transfer',
                     _create_operation_record=False,
-                    bed_id=None
+                    bed_id=target_bed_id
                 )
                 new_dorm.prev_dorm_id = current_dorm.id
 

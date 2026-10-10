@@ -487,6 +487,15 @@ class SystemConfig(db.Model):
                 'description': '是否启用床位管理功能',
                 'sort_order': 60
             },
+            {
+                'config_key': 'BED_AUTO_ASSIGN_ENABLED',
+                'config_value': 'true',
+                'config_type': 'bool',
+                'category': 'room',
+                'description': '启用自动分配床位（关闭则显示手动选床选项，不选仍自动分配）',
+                'sort_order': 65,
+                'is_system': True
+            },
             
             # 4.5 房间自定义字段配置 (category: room.custom_field)
             {

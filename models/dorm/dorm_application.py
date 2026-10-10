@@ -217,7 +217,7 @@ class DormApplication(db.Model):
         return application
 
     def approve(self, reviewer_id, check_in_date=None, check_out_date=None,
-                assigned_room_id=None, review_remark=None,
+                assigned_room_id=None, assigned_bed_id=None, review_remark=None,
                 checkout_type=None, billing_period=None, water_current=None, electric_current=None):
         """审核通过申请，调用现有Dorm方法执行对应操作
 
@@ -226,6 +226,7 @@ class DormApplication(db.Model):
             check_in_date: 入住日期（申请/换宿时使用）
             check_out_date: 退宿日期（退宿时使用）
             assigned_room_id: 实际分配房间ID（申请/换宿时使用，不修改申请人填写的目标房间）
+            assigned_bed_id: 实际分配床位ID（申请/换宿时使用，None则使用申请人填写的目标床位或自动分配）
             review_remark: 审核备注
             checkout_type: 退宿类型（退宿时使用：在职退宿/离职退宿/自离退宿）
             billing_period: 账期（退宿时使用，YYYY-MM格式）
@@ -280,7 +281,7 @@ class DormApplication(db.Model):
                     allocation_result = do_allocation(
                         user_id=app.user_id,
                         room_id=room_id_for_allocation,
-                        bed_id=app.target_bed_id,
+                        bed_id=assigned_bed_id or app.target_bed_id,
                         check_in_date=check_in_date,
                         operator_id=operator_id,
                         remarks=f"通过申请{app.application_number}分配"
@@ -301,7 +302,8 @@ class DormApplication(db.Model):
                         target_room_id=room_id_for_allocation,
                         reason=f"通过申请{app.application_number}换宿：{app.reason or '无'}",
                         change_date=check_in_date,
-                        operator_id=operator_id
+                        operator_id=operator_id,
+                        bed_id=assigned_bed_id or app.target_bed_id
                     )
                     app.result_dorm_id = change_result['new_dorm'].id
 

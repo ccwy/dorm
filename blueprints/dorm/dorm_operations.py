@@ -184,11 +184,13 @@ def create_allocation():
                 logging.error(f"创建分配宿舍失败：房间ID {room_id} 已满（POST请求）")
                 return redirect(url_for('dorm.create_allocation', user_id=user_id))
             
-            # 调用模型方法创建分配记录（bed_id=None自动分配床位）
+            # 获取可选的床位ID（None则自动分配）
+            bed_id = request.form.get('bed_id', type=int)
+            # 调用模型方法创建分配记录
             new_dorm = Dorm.create_allocation(
                 user_id=user_id,
                 room_id=room_id,
-                bed_id=None,
+                bed_id=bed_id,
                 check_in_date=check_in_date,
                 remarks=remarks
             )
@@ -332,11 +334,13 @@ def add():
                 logging.error(f"添加宿舍分配失败：{error_msg}（POST请求）")
                 return render_template('dorm_manage/dorm_add.html',title=f"分配宿舍")
 
-            # 调用模型方法创建分配记录（bed_id=None自动分配床位）
+            # 获取可选的床位ID（None则自动分配）
+            bed_id = request.form.get('bed_id', type=int)
+            # 调用模型方法创建分配记录
             new_dorm = Dorm.create_allocation(
                 user_id=user_id,
                 room_id=room_id,
-                bed_id=None,
+                bed_id=bed_id,
                 check_in_date=check_in_date,
                 remarks=remarks
             )
@@ -1118,12 +1122,15 @@ def swap():
                 flash('日期格式不正确，请使用YYYY-MM-DD、YYYY-MM-DDTHH:MM或YYYY-MM-DDTHH:MM:SS', 'danger')
                 return redirect(url_for('dorm.swap', user_id=user_id))
             
+            # 获取可选的床位ID（None则自动分配）
+            bed_id = request.form.get('bed_id', type=int)
             # 执行更换操作
             new_allocation = Dorm.change_dorm(
                 user_id=user_id,
                 target_room_id=new_room_id,
                 reason=remarks,
-                change_date=change_date
+                change_date=change_date,
+                target_bed_id=bed_id
             )
             
             # 获取旧住宿记录并验证
@@ -1494,12 +1501,15 @@ def change():
                 'message': '日期格式不正确，请使用YYYY-MM-DD、YYYY-MM-DDTHH:MM或YYYY-MM-DDTHH:MM:SS'
             }), 400
         
+        # 获取可选的床位ID（None则自动分配）
+        bed_id = request.form.get('bed_id', type=int)
         # 执行更换操作
         new_allocation = Dorm.change_dorm(
             user_id=user_id,
             target_room_id=new_room_id,
             reason=remarks,
-            change_date=change_date  # 已改为datetime类型
+            change_date=change_date,  # 已改为datetime类型
+            target_bed_id=bed_id
         )
         
         # 获取旧住宿记录并验证
