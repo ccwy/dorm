@@ -239,6 +239,7 @@
                     <p class="text-sm text-gray-500 mb-1">当前宿舍</p>
                     <p class="text-gray-800 font-medium"><a href="{{ url_for('room.view', id=application.current_room.id) }}" class="text-primary hover:underline">{{ application.current_room.building }}{{ application.current_room.room_number }}</a></p>
                 </div>
+                {% if bed_management_enabled %}
                 <div class="bg-gray-50 p-4 rounded-lg">
                     <p class="text-sm text-gray-500 mb-1">当前床位</p>
                     {% if application.current_bed %}
@@ -247,6 +248,7 @@
                     <p class="text-gray-800 font-medium">自动分配</p>
                     {% endif %}
                 </div>
+                {% endif %}
                 <div class="bg-gray-50 p-4 rounded-lg">
                     <p class="text-sm text-gray-500 mb-1">入住时间</p>
                     <p class="text-gray-800 font-medium">{{ current_dorm.check_in_date.strftime('%Y-%m-%d') if current_dorm and current_dorm.check_in_date else '-' }}</p>
@@ -317,6 +319,7 @@
                     <p class="text-sm text-gray-500 mb-1">申请宿舍</p>
                     <p class="text-gray-800 font-medium"><a href="{{ url_for('room.view', id=application.target_room.id) }}" class="text-primary hover:underline">{{ application.target_room.building }}{{ application.target_room.room_number }}</a></p>
                 </div>
+                {% if bed_management_enabled %}
                 <div class="bg-gray-50 p-4 rounded-lg">
                     <p class="text-sm text-gray-500 mb-1">申请床位</p>
                     {% if application.target_bed %}
@@ -325,6 +328,7 @@
                     <p class="text-gray-800 font-medium">自动分配</p>
                     {% endif %}
                 </div>
+                {% endif %}
                 <div class="bg-gray-50 p-4 rounded-lg">
                     <p class="text-sm text-gray-500 mb-1">期望入住时间</p>
                     <p class="text-gray-800 font-medium">{{ application.check_in_date.strftime('%Y-%m-%d %H:%M') if application.check_in_date else '-' }}</p>
@@ -628,6 +632,12 @@
                         <p class="text-sm text-gray-500 mb-1">退宿日期</p>
                         <p class="text-gray-800 font-medium">{{ application.result_dorm.check_out_date.strftime('%Y-%m-%d %H:%M') if application.result_dorm.check_out_date else '-' }}</p>
                     </div>
+                    {% if bed_management_enabled %}
+                    <div class="bg-purple-50 p-4 rounded-lg">
+                        <p class="text-sm text-gray-500 mb-1">实际分配床位</p>
+                        <p class="text-gray-800 font-medium">{% if application.result_dorm.bed %}床位 {{ application.result_dorm.bed.bed_number }}{% else %}自动分配{% endif %}</p>
+                    </div>
+                    {% endif %}
                 </div>
                 {% if application.checkout_type %}
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
@@ -660,6 +670,12 @@
                         <p class="text-sm text-gray-500 mb-1">确认入住时间</p>
                         <p class="text-gray-800 font-medium">{{ application.result_dorm.check_in_date.strftime('%Y-%m-%d %H:%M') if application.result_dorm.check_in_date else '-' }}</p>
                     </div>
+                    {% if bed_management_enabled %}
+                    <div class="bg-green-50 p-4 rounded-lg">
+                        <p class="text-sm text-gray-500 mb-1">实际分配床位</p>
+                        <p class="text-gray-800 font-medium">{% if application.result_dorm.bed %}床位 {{ application.result_dorm.bed.bed_number }}{% else %}自动分配{% endif %}</p>
+                    </div>
+                    {% endif %}
                 </div>
             </div>
             {% endif %}
@@ -703,6 +719,12 @@
                     <p class="text-sm text-gray-500 mb-1">宿舍</p>
                     <p class="text-gray-800 font-medium">{{ application.result_dorm.room.building }}{{ application.result_dorm.room.room_number if application.result_dorm.room else '-' }}</p>
                 </div>
+                {% if bed_management_enabled %}
+                <div class="bg-gray-50 p-4 rounded-lg">
+                    <p class="text-sm text-gray-500 mb-1">床位</p>
+                    <p class="text-gray-800 font-medium">{% if application.result_dorm.bed %}床位 {{ application.result_dorm.bed.bed_number }}{% else %}自动分配{% endif %}</p>
+                </div>
+                {% endif %}
                 <div class="bg-gray-50 p-4 rounded-lg">
                     <p class="text-sm text-gray-500 mb-1">状态</p>
                     <p class="text-gray-800 font-medium">{% if application.result_dorm.status == 'active' %}在住{% elif application.result_dorm.status == 'checked_out' %}已退宿{% elif application.result_dorm.status == 'pending' %}待确认{% else %}{{ application.result_dorm.status }}{% endif %}</p>

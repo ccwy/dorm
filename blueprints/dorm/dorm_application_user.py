@@ -575,7 +575,8 @@ def application_detail(id):
                               stay_days=stay_days,
                               is_checked_out=is_checked_out,
                               checkout_fee_record=checkout_fee_record,
-                              checkout_billing_period=checkout_billing_period)
+                              checkout_billing_period=checkout_billing_period,
+                               bed_management_enabled=SystemConfig.get_config_value('ROOM_BED_MANAGEMENT_ENABLED', True))
     except Exception as e:
         logging.error(f"查看宿舍申请详情失败: {str(e)}")
         flash('查看申请详情失败，请稍后重试', 'error')

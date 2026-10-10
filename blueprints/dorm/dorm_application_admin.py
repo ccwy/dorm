@@ -12,6 +12,7 @@ from utils.log import log_operation
 from utils.media.room_meter_checkout_photo import room_meter_checkout_photo_manager
 from sqlalchemy.orm import joinedload
 from sqlalchemy import or_
+from models.system_config.system_config import SystemConfig
 from datetime import datetime
 import logging
 
@@ -230,7 +231,8 @@ def application_detail(id):
                               checkout_billing_period=checkout_billing_period,
                               building_list=Room.query.with_entities(Room.building).distinct().order_by(Room.building).all(),
                               room_type_list=Room.get_valid_room_types(),
-                              room_level_list=Room.get_valid_room_levels())
+                              room_level_list=Room.get_valid_room_levels(),
+                               bed_management_enabled=SystemConfig.get_config_value('ROOM_BED_MANAGEMENT_ENABLED', True))
     except Exception as e:
         logging.error(f"查看宿舍申请详情失败: {str(e)}")
         flash('查看申请详情失败，请稍后重试', 'error')
