@@ -787,7 +787,7 @@
 
     <script>
         // === 审核操作切换 ===
-        const targetBedId = {{ application.target_bed_id|default('null') }};
+        const targetBedId = {{ application.target_bed_id if application.target_bed_id is not none else 'null' }};
 
         // 加载床位信息（参考dorm_create_allocation的loadBedsFromRoomData实现）
         function loadBedsFromRoomData(roomData, defaultBedId) {
