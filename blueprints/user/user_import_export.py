@@ -22,6 +22,8 @@ from utils.lazy_imports import pd  # 延迟导入pandas，避免启动时加载�
 from io import BytesIO
 from models.system_config.system_config import SystemConfig  # 导入系统配置模型
 from models.role import Role  # 导入角色模型
+from models.room.room_item_assignment import RoomItemAssignment  # 导入物品分配模型
+from models.room.room_item import RoomItem  # 导入房间物品模型
 
 from utils.auth import require_permission
 
@@ -296,6 +298,20 @@ def export_users():
                     if field_key:
                         row_data_value = custom_data.get(field_key, '')
                         row[label] = str(row_data_value) if row_data_value else ''
+            
+            # 添加用户持有物品列
+            active_assignments = RoomItemAssignment.query.filter_by(
+                user_id=user.id, status='active'
+            ).all()
+            if active_assignments:
+                item_names = []
+                for assignment in active_assignments:
+                    item = RoomItem.query.get(assignment.item_id)
+                    if item:
+                        item_names.append(f"{item.name}:{assignment.quantity}")
+                row['持有物品'] = ','.join(item_names) if item_names else ''
+            else:
+                row['持有物品'] = ''
             
             data.append(row)
         

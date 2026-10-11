@@ -36,6 +36,7 @@ MODULE_MAP = {
     'contract': '合同管理',
     'payment': '付款管理',
     'maintenance': '后勤维修管理',
+    'room_item': '房间物品管理',
     'default': '其他模块'  # 默认值
 }
 
@@ -52,6 +53,18 @@ OPERATION_TYPE_MAP = {
     ('room', 'records'): '访问页面',
     ('room', 'upload_photo'): '上传照片',
     ('room', 'delete_photo'): '删除照片',
+
+    # 房间物品管理模块
+    ('room_item', 'create'): '新增物品',
+    ('room_item', 'edit'): '编辑物品',
+    ('room_item', 'delete'): '删除物品',
+    ('room_item', 'allocate'): '分配物品',
+    ('room_item', 'return'): '归还物品',
+    ('room_item', 'transfer'): '转移物品',
+    ('room_item', 'damage'): '标记损坏',
+    ('room_item', 'loss'): '标记丢失',
+    ('room_item', 'scrap'): '标记报废',
+    ('room_item', 'confirm_dorm'): '宿舍操作确认物品',
 
     # 宿舍管理模块（示例扩展）
     ('dorm', 'records'): '访问页面',

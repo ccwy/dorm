@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+   <!--本地化CDN-->
+{% include 'static.html' %}
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#165DFF',
+                        secondary: '#36CFC9',
+                        accent: '#722ED1',
+                        info: '#1890FF',
+                    },
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+{% include 'header.html' %}
+    <main class="container mx-auto px-4 py-6">
+        <!-- 标题区 -->
+        <div class="mb-6">
+            <div class="flex items-center">
+                <button type="button" onclick="window.history.back()" class="text-gray-600 hover:text-primary transition-colors mr-4">
+                    <i class="fa fa-arrow-left"></i>
+                </button>
+                <div>
+                    <h2 class="text-2xl font-bold text-dark">物品流转记录</h2>
+                    <p class="text-gray-500 mt-1">查看物品「{{ item.name }}」的操作历史</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- flash消息 -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            <div class="flash-messages mb-6">
+              {% for category, message in messages %}
+                <div class="p-4 rounded-md mb-2 {% if category == 'success' %}bg-green-100 text-green-800{% elif category == 'error' or category == 'danger' %}bg-red-100 text-red-800{% elif category == 'warning' %}bg-yellow-100 text-yellow-800{% else %}bg-blue-100 text-blue-800{% endif %}">
+                  <button type="button" class="float-right ml-2 text-gray-500 hover:text-gray-700" onclick="this.parentElement.remove()">×</button>
+                  {{ message }}
+                </div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        {% endwith %}
+
+        <!-- 物品信息摘要 -->
+        <div class="bg-white rounded-lg shadow-sm p-6 mx-auto mb-6">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                <div>
+                    <span class="text-gray-500">物品名称：</span>
+                    <span class="font-medium">{{ item.name }}</span>
+                </div>
+                <div>
+                    <span class="text-gray-500">所属房间：</span>
+                    <span class="font-medium">{{ item.room.building }}{{ item.room.room_number }}</span>
+                </div>
+                <div>
+                    <span class="text-gray-500">物品类型：</span>
+                    <span class="font-medium">{% if item.item_type == 'room_bound' %}房间绑定{% else %}可转移{% endif %}</span>
+                </div>
+                <div>
+                    <span class="text-gray-500">当前状态：</span>
+                    <span class="font-medium">{{ item.status }}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 记录列表 -->
+        <div class="bg-white rounded-lg shadow-sm p-6 mx-auto">
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">时间</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作类型</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">数量</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作前可用</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作后可用</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">涉及用户</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">房间变动</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">备注</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        {% for record in records %}
+                        <tr>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm">{{ record.operated_at.strftime('%Y-%m-%d %H:%M') if record.operated_at else '-' }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                {% set op_text = {'allocate': '分配', 'return': '归还', 'transfer': '转移', 'damage': '损坏', 'loss': '丢失', 'scrap': '报废', 'create': '创建', 'edit': '编辑', 'delete': '删除', 'dorm_transfer': '换宿触发', 'dorm_exchange': '互换触发', 'dorm_checkout': '退宿触发'}.get(record.operation_type, record.operation_type) %}
+                                {% if record.operation_type == 'allocate' %}
+                                <span class="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs">{{ op_text }}</span>
+                                {% elif record.operation_type == 'return' %}
+                                <span class="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs">{{ op_text }}</span>
+                                {% elif record.operation_type == 'transfer' %}
+                                <span class="px-2 py-1 bg-purple-100 text-purple-800 rounded-full text-xs">{{ op_text }}</span>
+                                {% elif record.operation_type in ('damage', 'loss', 'scrap', 'delete') %}
+                                <span class="px-2 py-1 bg-red-100 text-red-800 rounded-full text-xs">{{ op_text }}</span>
+                                {% elif record.operation_type == 'create' %}
+                                <span class="px-2 py-1 bg-emerald-100 text-emerald-800 rounded-full text-xs">{{ op_text }}</span>
+                                {% elif record.operation_type == 'edit' %}
+                                <span class="px-2 py-1 bg-orange-100 text-orange-800 rounded-full text-xs">{{ op_text }}</span>
+                                {% else %}
+                                <span class="px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs">{{ op_text }}</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm">{{ record.quantity }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm">{{ record.before_quantity if record.before_quantity is not none else '-' }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm">{{ record.after_quantity if record.after_quantity is not none else '-' }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm">{{ record.user.username if record.user else '-' }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm">
+                                {% if record.from_room and record.to_room %}
+                                {{ record.from_room.building }}{{ record.from_room.room_number }} → {{ record.to_room.building }}{{ record.to_room.room_number }}
+                                {% elif record.from_room %}
+                                {{ record.from_room.building }}{{ record.from_room.room_number }}
+                                {% elif record.to_room %}
+                                → {{ record.to_room.building }}{{ record.to_room.room_number }}
+                                {% else %}
+                                -
+                                {% endif %}
+                            </td>
+                            <td class="px-6 py-4 text-sm text-gray-600">{{ record.remarks or '-' }}</td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="8" class="px-6 py-4 text-center text-gray-500">暂无流转记录</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+    {% include 'footer.html' %}
+</body>
+</html>

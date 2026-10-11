@@ -92,7 +92,7 @@ class Config:
     DEBUG = False
 
     # 自动登录ADMIN账号：默认为False（安全）
-    AUTO_LOGIN_ADMIN = False
+    AUTO_LOGIN_ADMIN = True
 
     # 系统标题：从外部配置读取，修复原ProductionConfig中key为SERVER_PORT的bug
     SYSTEM_TITLE = db_config.get('SYSTEM_TITLE', "行政后勤管理系统")

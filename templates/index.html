@@ -119,6 +119,19 @@
             </div>
             {% endif %}
 
+            <!-- 物品管理 -->
+            {% if get_config_value('FEATURE_ROOM_MANAGE_ENABLED', True) and current_user.has_permission('room_item.view') %}
+            <div class="bg-white rounded-xl p-6 card-shadow btn-hover nav-card">
+                <a href="{{ url_for('room_item.manage') }}" class="flex flex-col items-center text-center">
+                    <div class="w-16 h-16 bg-teal-500/10 rounded-full flex items-center justify-center mb-4">
+                        <i class="fa fa-cubes text-xl md:text-2xl text-teal-500"></i>
+                    </div>
+                    <h3 class="text-base md:text-lg font-medium text-dark mb-2">物品管理</h3>
+                    <p class="text-gray-500 text-sm">房间物品登记、分配与转移</p>
+                </a>
+            </div>
+            {% endif %}
+
             <!-- 宿舍分配管理 -->
             {% if get_config_value('FEATURE_DORM_MANAGE_ENABLED', True) and current_user.has_permission('dorm.view') %}
             <div class="bg-white rounded-xl p-6 card-shadow btn-hover nav-card">

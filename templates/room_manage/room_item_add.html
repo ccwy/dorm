@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+   <!--本地化CDN-->
+{% include 'static.html' %}
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#165DFF',
+                        secondary: '#36CFC9',
+                        accent: '#722ED1',
+                    },
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    {% include 'header.html' %}
+    <main class="container mx-auto px-4 py-6">
+        <!-- flash消息 -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            <div class="flash-messages mb-6 mx-auto" style="max-width: 500px;">
+              {% for category, message in messages %}
+                <div class="p-4 rounded-md mb-2 text-center {% if category == 'success' %}bg-green-100 text-green-800{% elif category == 'error' or category == 'danger' %}bg-red-100 text-red-800{% elif category == 'warning' %}bg-yellow-100 text-yellow-800{% else %}bg-blue-100 text-blue-800{% endif %}">
+                  <button type="button" class="float-right ml-2 text-gray-500 hover:text-gray-700" onclick="this.parentElement.remove()">×</button>
+                  {{ message }}
+                </div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        {% endwith %}
+
+        <div class="flex items-center mb-6">
+            <button onclick="window.location.href='{{ url_for('room_item.manage') }}'" class="text-primary hover:text-primary/80 mr-2">
+                <i class="fa fa-arrow-left"></i>
+            </button>
+            <h2 class="text-2xl font-semibold text-dark">添加物品</h2>
+        </div>
+
+        <div class="bg-white rounded-lg shadow-sm p-6 mx-auto" style="max-width: 600px;">
+            <form method="POST" action="{{ url_for('room_item.add', room_id=room.id) }}">
+                <div class="space-y-6">
+                    <div>
+                        <label for="name" class="block text-sm font-medium text-gray-700 mb-1">物品名称 <span class="text-red-500">*</span></label>
+                        <input type="text" id="name" name="name" required
+                               class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                               placeholder="请输入物品名称">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">所属房间</label>
+                        <div class="w-full px-4 py-2 border border-gray-200 rounded-md bg-gray-50 text-gray-700">
+                            {{ room.building }}{{ room.room_number }}
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">物品类型 <span class="text-red-500">*</span></label>
+                        <div class="flex gap-6">
+                            <label class="flex items-center cursor-pointer">
+                                <input type="radio" name="item_type" value="room_bound" checked class="form-radio text-primary">
+                                <span class="ml-2 text-gray-700">房间绑定</span>
+                            </label>
+                            <label class="flex items-center cursor-pointer">
+                                <input type="radio" name="item_type" value="transferable" class="form-radio text-primary">
+                                <span class="ml-2 text-gray-700">可转移</span>
+                            </label>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-1">房间绑定物品不可转移到其他房间，可转移物品可在房间间转移</p>
+                    </div>
+
+                    <div>
+                        <label for="total_quantity" class="block text-sm font-medium text-gray-700 mb-1">总数量 <span class="text-red-500">*</span></label>
+                        <input type="number" id="total_quantity" name="total_quantity" min="1" value="1" required
+                               class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                    </div>
+
+                    <div>
+                        <label for="remark" class="block text-sm font-medium text-gray-700 mb-1">备注</label>
+                        <textarea id="remark" name="remark" rows="3"
+                                  class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                  placeholder="请输入备注信息..."></textarea>
+                    </div>
+
+                    <div class="flex justify-end gap-3 pt-4 border-t border-gray-200">
+                        <button type="button" onclick="window.location.href='{{ url_for('room_item.manage') }}'" class="px-6 py-2 border border-gray-300 rounded-md hover:bg-gray-50">取消</button>
+                        <button type="submit" class="px-6 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors">
+                            <i class="fa fa-save mr-1"></i>保存
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </main>
+    {% include 'footer.html' %}
+</body>
+</html>

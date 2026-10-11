@@ -43,6 +43,9 @@ class Dorm(db.Model):
     # 新增：操作用户ID字段（不与user表关联）
     operator_user_id = db.Column(db.Integer, nullable=True, comment='操作用户ID（办理人）')
     
+    # 新增：是否有待处理的物品确认（换宿/互换/退宿后需管理员确认物品归还）
+    pending_item_action = db.Column(db.Boolean, default=False, nullable=False, comment='是否有待处理的物品确认')
+    
     # 关系定义（只保留与User与Room的显式关系）
     user = db.relationship('User', backref=db.backref('dorms', lazy='dynamic'))
     room = db.relationship('Room', backref=db.backref('dorms', lazy='dynamic'))  # 显式定义room关系

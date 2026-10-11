@@ -22,6 +22,33 @@ from models.fee_subsidy.fee_subsidy_usage import FeeSubsidyUsage
 # 导入require_permission装饰器
 from utils.auth import require_permission
 from utils.media.room_meter_checkout_photo import room_meter_checkout_photo_manager
+from models.room.room_item import RoomItem
+from models.room.room_item_assignment import RoomItemAssignment
+
+
+# --------------------------
+# 辅助函数：检查房间是否有物品，设置dorm的pending_item_action标志
+# --------------------------
+def check_and_set_pending_item_action(dorm_id, room_id, user_id):
+    """检查指定用户是否有active物品分配，如果有则设置dorm的pending_item_action=True
+    
+    Args:
+        dorm_id: 住宿记录ID
+        room_id: 房间ID（用于日志记录）
+        user_id: 用户ID
+    
+    Returns:
+        True表示有待确认物品，False表示没有
+    """
+    has_assignment = RoomItemAssignment.query.filter_by(user_id=user_id, status='active').first()
+    if has_assignment:
+        dorm = Dorm.query.get(dorm_id)
+        if dorm:
+            dorm.pending_item_action = True
+            db.session.add(dorm)
+            logging.info(f"用户{user_id}在房间{room_id}仍有active物品分配，已设置住宿记录{dorm_id}的pending_item_action标志")
+        return True
+    return False
 
 
 # --------------------------
@@ -618,12 +645,22 @@ def checkout():
                     action=log_action,
                     result="成功",
                     module='dorm',
-                    operation_type='checkout',
+                    operation_type='dorm_checkout',
                     ip_address=request.headers.get('X-Real-IP', request.remote_addr)
                 )
                 
+                # 检查退宿房间是否有物品（在主commit之前）
+                has_pending_items = False
+                try:
+                    has_pending_items = check_and_set_pending_item_action(current_dorm.id, current_dorm.room_id, current_dorm.user_id)
+                except Exception as item_err:
+                    logging.warning(f"检查退宿房间物品时出错（不影响退宿操作）: {str(item_err)}")
+
                 db.session.commit()
-                
+
+                if has_pending_items:
+                    flash('该房间仍有物品，<a href="' + url_for('room_item.confirm_dorm_operation', dorm_id=current_dorm.id, operation_type='dorm_checkout') + '">请前往物品管理确认处理</a>', 'warning')
+
                 # 移动退宿临时照片到正式目录
                 try:
                     if billing_period and current_dorm.room_id and user_id:
@@ -632,12 +669,13 @@ def checkout():
                         )
                 except Exception as move_err:
                     logging.warning(f"移动退宿临时照片失败（不影响退宿操作）: {str(move_err)}")
-                
+
                 # 获取房间信息
                 room_info = f"{current_dorm.room.building}{current_dorm.room.room_number}" if current_dorm.room else "未知房间"
-                
+
                 # 自离用户退宿成功消息
                 success_message = f"自离退宿成功：{user_name}已从{room_info}退宿，日期{check_out_date}"
+
                 if subsidies_disabled:
                     success_message += f"，并自动禁用了{len(user_subsidies)}条住宿补贴"
                 flash(success_message, 'success')
@@ -737,11 +775,21 @@ def checkout():
                     action=log_action,
                     result="成功",
                     module='dorm',
-                    operation_type='checkout',
+                    operation_type='dorm_checkout',
                     ip_address=request.headers.get('X-Real-IP', request.remote_addr)
                 )
                 
+                # 检查退宿房间是否有物品（在主commit之前）
+                has_pending_items = False
+                try:
+                    has_pending_items = check_and_set_pending_item_action(current_dorm.id, current_dorm.room_id, current_dorm.user_id)
+                except Exception as item_err:
+                    logging.warning(f"检查退宿房间物品时出错（不影响退宿操作）: {str(item_err)}")
+
                 db.session.commit()
+
+                if has_pending_items:
+                    flash('该房间仍有物品，<a href="' + url_for('room_item.confirm_dorm_operation', dorm_id=current_dorm.id, operation_type='dorm_checkout') + '">请前往物品管理确认处理</a>', 'warning')
                 
                 # 移动退宿临时照片到正式目录
                 try:
@@ -784,7 +832,7 @@ def checkout():
                 action=f"退宿验证失败：{user_name}",
                 result="失败",
                 module='dorm',
-                operation_type='checkout',
+                operation_type='dorm_checkout',
                 ip_address=request.headers.get('X-Real-IP', request.remote_addr)
             )
             flash(str(e), 'danger')
@@ -807,7 +855,7 @@ def checkout():
                 action=f"处理退宿异常: {str(e)}",
                 result="失败",
                 module='dorm',
-                operation_type='checkout',
+                operation_type='dorm_checkout',
                 ip_address=request.headers.get('X-Real-IP', request.remote_addr)
             )
             flash('服务器处理失败，请稍后重试', 'danger')
@@ -1150,11 +1198,21 @@ def swap():
                 action=f"单人换宿成功：{user_name}从{old_room_str}→{new_room_str}",
                 result="成功",
                 module='dorm',
-                operation_type='change',
+                operation_type='dorm_transfer',
                 ip_address=request.headers.get('X-Real-IP', request.remote_addr)
             )
             
+            # 检查原房间是否有物品（在主commit之前）
+            has_pending_items = False
+            try:
+                has_pending_items = check_and_set_pending_item_action(old_allocation.id, old_allocation.room_id, old_allocation.user_id)
+            except Exception as item_err:
+                logging.warning(f"检查换宿原房间物品时出错（不影响换宿操作）: {str(item_err)}")
+
             db.session.commit()
+
+            if has_pending_items:
+                flash('原房间仍有物品，<a href="' + url_for('room_item.confirm_dorm_operation', dorm_id=old_allocation.id, operation_type='dorm_transfer') + '">请前往物品管理确认处理</a>', 'warning')
             
             # 使用flash消息并重定向
             flash(f"宿舍更换成功：{user_name}从{old_room_str}→{new_room_str}", 'success')
@@ -1174,7 +1232,7 @@ def swap():
                 action=f"单人换宿验证失败：{user_name}",
                 result="失败",
                 module='dorm',
-                operation_type='change',
+                operation_type='dorm_transfer',
                 ip_address=request.headers.get('X-Real-IP', request.remote_addr)
             )
             flash(str(e), 'danger')
@@ -1188,7 +1246,7 @@ def swap():
                 action=f"处理单人换宿异常: {str(e)}",
                 result="失败",
                 module='dorm',
-                operation_type='change',
+                operation_type='dorm_transfer',
                 ip_address=request.headers.get('X-Real-IP', request.remote_addr)
             )
             flash('服务器处理失败，请稍后重试', 'danger')
@@ -1525,11 +1583,22 @@ def change():
             action=f"单人换宿成功：{user_name}从{old_room_str}→{new_room_str}",
             result="成功",
             module='dorm',
-            operation_type='change',
+            operation_type='dorm_transfer',
             
             ip_address=request.headers.get('X-Real-IP', request.remote_addr)
         )
+        # 检查原房间是否有物品（在主commit之前）
+        has_pending_items = False
+        try:
+            has_pending_items = check_and_set_pending_item_action(old_allocation.id, old_allocation.room_id, old_allocation.user_id)
+        except Exception as item_err:
+            logging.warning(f"检查换宿原房间物品时出错（不影响换宿操作）: {str(item_err)}")
+
         db.session.commit()
+
+        if has_pending_items:
+            flash('原房间仍有物品，<a href="' + url_for('room_item.confirm_dorm_operation', dorm_id=old_allocation.id, operation_type='dorm_transfer') + '">请前往物品管理确认处理</a>', 'warning')
+        
         # 构建返回数据
         return jsonify({
             'success': True,
@@ -1550,7 +1619,7 @@ def change():
             action=f"单人换宿验证失败：{user_name}",
             result="失败",
             module='dorm',
-            operation_type='change',
+            operation_type='dorm_transfer',
             
             ip_address=request.headers.get('X-Real-IP', request.remote_addr)
         )
@@ -1563,7 +1632,7 @@ def change():
             action=f"处理单人换宿异常: {str(e)}",
             result="失败",
             module='dorm',
-            operation_type='change',
+            operation_type='dorm_transfer',
             
             ip_address=request.headers.get('X-Real-IP', request.remote_addr)
         )
@@ -1649,11 +1718,24 @@ def exchange():
             action=f"宿舍互换成功：{user1_name}({old_room1_str})与{user2_name}({old_room2_str})互换宿舍",
             result="成功",
             module='dorm',
-            operation_type='change',
+            operation_type='dorm_transfer',
             
             ip_address=request.headers.get('X-Real-IP', request.remote_addr)
         )
-        db.session.commit()       
+        # 检查涉及房间是否有物品（在主commit之前）
+        has_pending_item = False
+        try:
+            if check_and_set_pending_item_action(new_alloc1.prev_dorm.id, new_alloc1.prev_dorm.room_id, new_alloc1.prev_dorm.user_id):
+                has_pending_item = True
+                flash('用户1原房间仍有物品分配，<a href="' + url_for('room_item.confirm_dorm_operation', dorm_id=new_alloc1.prev_dorm.id, operation_type='dorm_exchange') + '">请前往确认处理</a>', 'warning')
+            if check_and_set_pending_item_action(new_alloc2.prev_dorm.id, new_alloc2.prev_dorm.room_id, new_alloc2.prev_dorm.user_id):
+                has_pending_item = True
+                flash('用户2原房间仍有物品分配，<a href="' + url_for('room_item.confirm_dorm_operation', dorm_id=new_alloc2.prev_dorm.id, operation_type='dorm_exchange') + '">请前往确认处理</a>', 'warning')
+        except Exception as item_err:
+            logging.warning(f"检查互换房间物品时出错（不影响互换操作）: {str(item_err)}")
+
+        db.session.commit()
+        
         # 构建返回数据
         return jsonify({
             'success': True,
@@ -1684,7 +1766,7 @@ def exchange():
             action=f"宿舍互换验证失败：{user1_name}与{user2_name}",
             result="失败",
             module='dorm',
-            operation_type='change',
+            operation_type='dorm_transfer',
             
             ip_address=request.headers.get('X-Real-IP', request.remote_addr)
         )
@@ -1697,7 +1779,7 @@ def exchange():
             action=f"处理宿舍互换异常: {str(e)}",
             result="失败",
             module='dorm',
-            operation_type='change',
+            operation_type='dorm_transfer',
             
             ip_address=request.headers.get('X-Real-IP', request.remote_addr)
         )

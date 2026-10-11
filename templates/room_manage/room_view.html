@@ -331,7 +331,7 @@
             </div>
             {% endif %}
 
-        <!-- 房间设施部分保持不变 -->
+            <!-- 房间设施部分保持不变 -->
             <div class="mb-8">
                 <h3 class="text-lg font-medium mb-4 pb-2 border-b border-gray-200">房间设施</h3>
                 
@@ -384,6 +384,80 @@
                     {% else %}
                     <p class="text-gray-500 col-span-full text-center py-4">暂无设施信息</p>
                     {% endfor %}
+                </div>
+            </div>
+
+            <!-- 房间物品部分 -->
+            <div class="mb-8">
+                <div class="flex items-center justify-between mb-4 pb-2 border-b border-gray-200">
+                    <h3 class="text-lg font-medium flex items-center">
+                        <i class="fa fa-cubes text-primary mr-2"></i>房间物品
+                    </h3>
+                    {% if current_user.has_permission('room_item.create') %}
+                    <a href="{{ url_for('room_item.add', room_id=room.id) }}" class="px-3 py-1 bg-primary text-white text-sm rounded-md hover:bg-primary/90">
+                        <i class="fa fa-plus mr-1"></i>添加物品
+                    </a>
+                    {% endif %}
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">序号</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">物品名称</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">类型</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">总数量</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">可用数量</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">状态</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            {% if room_items and room_items|length > 0 %}
+                                {% for item in room_items %}
+                                <tr>
+                                    <td class="px-6 py-4 whitespace-nowrap">{{ loop.index }}</td>
+                                    <td class="px-6 py-4 whitespace-nowrap">{{ item.name }}</td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        {% if item.item_type == 'room_bound' %}
+                                            <span class="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs">房间绑定</span>
+                                        {% elif item.item_type == 'transferable' %}
+                                            <span class="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs">可转移</span>
+                                        {% else %}
+                                            <span class="px-2 py-1 bg-gray-100 text-gray-800 rounded-full text-xs">{{ item.item_type }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">{{ item.total_quantity }}</td>
+                                    <td class="px-6 py-4 whitespace-nowrap">{{ item.available_quantity }}</td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        {% if item.status == '正常' %}
+                                            <span class="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs">正常</span>
+                                        {% elif item.status == '损坏' %}
+                                            <span class="px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs">损坏</span>
+                                        {% elif item.status == '丢失' %}
+                                            <span class="px-2 py-1 bg-orange-100 text-orange-800 rounded-full text-xs">丢失</span>
+                                        {% elif item.status == '报废' %}
+                                            <span class="px-2 py-1 bg-red-100 text-red-800 rounded-full text-xs">报废</span>
+                                        {% else %}
+                                            <span class="px-2 py-1 bg-gray-100 text-gray-800 rounded-full text-xs">{{ item.status }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <a href="{{ url_for('room_item.detail', item_id=item.id) }}" class="text-primary hover:text-primary/80 text-sm">
+                                            <i class="fa fa-eye mr-1"></i>查看详情
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr>
+                                    <td colspan="7" class="px-6 py-8 text-center text-gray-500">
+                                        <i class="fa fa-info-circle mr-2"></i>该房间暂无物品信息
+                                    </td>
+                                </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
                 </div>
             </div>
             

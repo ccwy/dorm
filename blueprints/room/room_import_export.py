@@ -4,6 +4,8 @@ import logging
 from utils.db import db
 from models.room.room import Room, RoomStatus
 from models.room.room_facility import RoomFacility  # 导入房间设施模型
+from models.room.room_item import RoomItem  # 导入房间物品模型
+from models.room.room_item_record import RoomItemRecord  # 导入物品操作记录模型
 from models.dorm.dorm import Dorm
 from models.user.user import User
 from flask_login import login_required, current_user
@@ -142,13 +144,39 @@ def export():
                 })
         logging.debug(f'设施数据准备完成，共{len(facility_data)}条记录')
         
+        # 准备物品数据（Sheet 3）
+        logging.debug('开始准备物品数据')
+        item_data = []
+        all_items = RoomItem.query.order_by(RoomItem.room_id).all()
+        for item in all_items:
+            room = Room.query.get(item.room_id)
+            if room:
+                item_type_display = RoomItem.ITEM_TYPE_MAP.get(item.item_type, item.item_type)
+                item_data.append({
+                    '物品ID': item.id,
+                    '房间ID': item.room_id,
+                    '楼栋': room.building,
+                    '房间号': room.room_number,
+                    '物品名称': item.name,
+                    '物品类型': item_type_display,
+                    '总数量': item.total_quantity,
+                    '可用数量': item.available_quantity,
+                    '状态': item.status,
+                    '备注': item.remark or '',
+                    '创建时间': item.created_at.strftime('%Y-%m-%d %H:%M:%S'),
+                    '更新时间': item.updated_at.strftime('%Y-%m-%d %H:%M:%S')
+                })
+        logging.debug(f'物品数据准备完成，共{len(item_data)}条记录')
+        
         # 生成Excel（多sheet）
         df_rooms = pd.DataFrame(data)
         df_facilities = pd.DataFrame(facility_data)
+        df_items = pd.DataFrame(item_data) if item_data else pd.DataFrame(columns=['物品ID', '房间ID', '楼栋', '房间号', '物品名称', '物品类型', '总数量', '可用数量', '状态', '备注', '创建时间', '更新时间'])
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine='openpyxl') as writer:
             df_rooms.to_excel(writer, index=False, sheet_name='房间数据')
             df_facilities.to_excel(writer, index=False, sheet_name='设施数据')
+            df_items.to_excel(writer, index=False, sheet_name='物品数据')
         
         output.seek(0)
         filename = f"房间数据导出_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
@@ -159,7 +187,7 @@ def export():
             user_id=current_user.id,
             module='room',
             operation_type='batch_import_export',
-            action=f"导出房间数据，共 {len(rooms)} 条记录，设施数据 {len(all_facilities)} 条记录",
+            action=f"导出房间数据，共 {len(rooms)} 条记录，设施数据 {len(all_facilities)} 条记录，物品数据 {len(all_items)} 条记录",
             result="成功"
         )
         logging.info(f'用户{current_user.id}成功导出房间数据和设施数据')
@@ -536,12 +564,143 @@ def import_rooms():
             facility_errors.append(f"设施处理过程出错: {str(e)}")
             logging.error(f"批量处理设施时出错: {str(e)}")
         
+        # 处理物品数据 - 如果Excel中包含物品数据sheet
+        item_errors = []
+        item_success_count = 0
+        try:
+            # 重新读取Excel文件检查是否有物品数据sheet
+            file_bytes.seek(0)
+            xl = pd.ExcelFile(file_bytes)
+            if '物品数据' in xl.sheet_names:
+                df_items = pd.read_excel(xl, sheet_name='物品数据')
+                logging.info(f'发现物品数据sheet，共{len(df_items)}条记录，开始导入')
+                
+                # 构建楼栋+房间号到房间ID的映射
+                all_rooms_map = {}
+                for r in Room.query.all():
+                    key = f"{r.building}_{r.room_number}"
+                    all_rooms_map[key] = r.id
+                
+                # 物品类型反向映射
+                item_type_reverse = {v: k for k, v in RoomItem.ITEM_TYPE_MAP.items()}
+                # 有效状态列表
+                valid_item_statuses = list(RoomItem.STATUS_MAP.keys())
+                
+                for idx, row in df_items.iterrows():
+                    row_num = idx + 2
+                    try:
+                        # 获取房间ID：优先使用房间ID列，否则通过楼栋+房间号查找
+                        room_id_val = row.get('房间ID')
+                        if pd.notna(room_id_val):
+                            try:
+                                room_id = int(float(str(room_id_val)))
+                            except ValueError:
+                                item_errors.append(f"物品第{row_num}行：房间ID格式无效")
+                                continue
+                        else:
+                            # 通过楼栋+房间号查找
+                            building_val = row.get('楼栋')
+                            room_number_val = row.get('房间号')
+                            if pd.isna(building_val) or pd.isna(room_number_val):
+                                item_errors.append(f"物品第{row_num}行：缺少房间ID且无法通过楼栋+房间号定位房间")
+                                continue
+                            building = str(building_val).strip()
+                            try:
+                                room_number = str(int(float(str(room_number_val).strip())))
+                            except ValueError:
+                                room_number = str(room_number_val).strip()
+                            key = f"{building}_{room_number}"
+                            room_id = all_rooms_map.get(key)
+                            if not room_id:
+                                item_errors.append(f"物品第{row_num}行：未找到房间 {building}{room_number}")
+                                continue
+                        
+                        # 获取物品名称
+                        name_val = row.get('物品名称')
+                        if pd.isna(name_val) or not str(name_val).strip():
+                            item_errors.append(f"物品第{row_num}行：物品名称不能为空")
+                            continue
+                        name = str(name_val).strip()
+                        
+                        # 获取物品类型
+                        type_val = row.get('物品类型')
+                        if pd.isna(type_val) or not str(type_val).strip():
+                            item_type = 'room_bound'
+                        else:
+                            type_str = str(type_val).strip()
+                            item_type = item_type_reverse.get(type_str, type_str if type_str in ('room_bound', 'transferable') else 'room_bound')
+                        
+                        # 获取总数量
+                        qty_val = row.get('总数量')
+                        if pd.isna(qty_val):
+                            total_quantity = 1
+                        else:
+                            try:
+                                total_quantity = int(float(str(qty_val)))
+                                if total_quantity < 1:
+                                    item_errors.append(f"物品第{row_num}行：总数量必须为正整数，当前值{total_quantity}")
+                                    continue
+                            except ValueError:
+                                item_errors.append(f"物品第{row_num}行：总数量必须为整数")
+                                continue
+                        
+                        # 获取状态
+                        status_val = row.get('状态')
+                        if pd.isna(status_val) or not str(status_val).strip():
+                            status = '正常'
+                        else:
+                            status = str(status_val).strip()
+                            if status not in valid_item_statuses:
+                                status = '正常'
+                        
+                        # 获取备注
+                        remark_val = row.get('备注')
+                        remark = str(remark_val).strip() if pd.notna(remark_val) else None
+                        
+                        # 创建物品
+                        item_obj = RoomItem.create_item(
+                            room_id=room_id,
+                            name=name,
+                            item_type=item_type,
+                            total_quantity=total_quantity,
+                            remark=remark
+                        )
+                        # 设置状态（create_item默认为正常，如果不同则更新）
+                        if status != '正常' and item_obj:
+                            original_total = item_obj.total_quantity
+                            item_obj.status = status
+                            item_obj.total_quantity = 0
+                            item_obj.available_quantity = 0
+                            # 为非正常状态物品创建操作记录
+                            op_type_map = {'损坏': 'damage', '丢失': 'loss', '报废': 'scrap'}
+                            op_type = op_type_map.get(status, 'edit')
+                            RoomItemRecord.add_record(
+                                item_id=item_obj.id,
+                                operation_type=op_type,
+                                quantity=original_total,
+                                before_quantity=original_total,
+                                after_quantity=0,
+                                operator_id=current_user.id if hasattr(current_user, 'id') else None,
+                                remarks=f'导入物品标记为{status}'
+                            )
+                        
+                        item_success_count += 1
+                    except Exception as e:
+                        item_errors.append(f"物品第{row_num}行：处理失败 - {str(e)}")
+                        logging.error(f'导入物品数据失败：物品第{row_num}行 - {str(e)}')
+                        continue
+                
+                logging.info(f'物品数据导入完成，成功{item_success_count}条，失败{len(item_errors)}条')
+        except Exception as e:
+            item_errors.append(f"物品数据处理过程出错: {str(e)}")
+            logging.error(f"批量处理物品数据时出错: {str(e)}")
+        
         # 处理所有错误
-        all_errors = model_errors + facility_errors
+        all_errors = model_errors + facility_errors + item_errors
         
         # 计算总成功数并判断结果状态
         total_success = success_create + success_update
-        if total_success > 0:
+        if total_success > 0 or item_success_count > 0:
             result_status = "部分成功" if all_errors else "成功"
         else:
             result_status = "失败"
@@ -551,20 +710,26 @@ def import_rooms():
             user_id=current_user.id,
             module='room',
             operation_type='batch_import_export',
-            action=f"导入房间数据，成功{success_create}条，更新{success_update}条，失败{len(all_errors)}条",
+            action=f"导入房间数据，成功{success_create}条，更新{success_update}条，物品{item_success_count}条，失败{len(all_errors)}条",
             result=result_status
         )
         
         # 生成提示信息
         if result_status == "部分成功":
-            message = f"导入部分成功：成功导入 {success_create} 个，更新 {success_update} 个"
+            message = f"导入部分成功：成功导入 {success_create} 个房间，更新 {success_update} 个房间"
+            if item_success_count > 0:
+                message += f"，导入 {item_success_count} 个物品"
             if facility_errors:
                 message += f"，{len(facility_errors)} 个房间的设施处理失败"
+            if item_errors:
+                message += f"，{len(item_errors)} 个物品处理失败"
             message += f"，{len(model_errors)} 条房间数据处理失败：<br>" + "<br>".join(all_errors[:5])
             if len(all_errors) > 5:
                 message += f"<br>... 还有 {len(all_errors)-5} 条错误"
         elif result_status == "成功":
-            message = f"导入全部成功：共处理{total_success}条（新增{success_create}个，更新{success_update}个）"
+            message = f"导入全部成功：共处理{total_success}条房间（新增{success_create}个，更新{success_update}个）"
+            if item_success_count > 0:
+                message += f"，导入 {item_success_count} 个物品"
             if facility_errors:
                 message += f"，但有 {len(facility_errors)} 个房间的设施处理失败"
         else:

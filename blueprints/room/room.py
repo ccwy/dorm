@@ -11,6 +11,7 @@ from utils.auth import require_permission
 from utils.custom_fields import get_custom_field_definitions, deserialize_custom_fields
 from models.utility.utility_room_bill_record import RoomUtilityRecord
 from models.room.room_facility import RoomFacility  # 新增：导入房间设施模型
+from models.room.room_item import RoomItem  # 新增：导入房间物品模型
 from utils.media.room_photo import RoomPhotoManager
 
 # 定义蓝图
@@ -278,6 +279,8 @@ def view(id):
         utility_records = RoomUtilityRecord.query.filter_by(room_id=id, status='completed').order_by(RoomUtilityRecord.billing_period.desc()).all()
         # 获取房间的媒体文件
         media_files = RoomPhotoManager.get_media_files(room.id)
+        # 获取房间的物品列表
+        room_items = RoomItem.query.filter_by(room_id=room.id).order_by(RoomItem.id.desc()).all()
         log_operation(
             user_id=current_user.id,
             module='room',
@@ -306,6 +309,7 @@ def view(id):
             custom_field_values=custom_field_values,
             bed_info_list=bed_info_list,
             bed_management_enabled=bed_management_enabled,
+            room_items=room_items,
         )
     except Exception as e:
         log_operation(
