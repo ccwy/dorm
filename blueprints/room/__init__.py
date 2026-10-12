@@ -4,3 +4,4 @@ from .room_api import room_api_bp
 from .room_import_export import room_import_export_bp
 from .room_item import room_item_bp
 from .room_item_api import room_item_api_bp
+from .room_item_import_export import room_item_import_export_bp

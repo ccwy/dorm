@@ -363,14 +363,25 @@ def import_residents():
                 flash(error_msg, 'danger')
                 return redirect(url_for('dorm.dorm_query'))
             
+            # 规范化Excel单元格值：浮点整数（如1.0、101.0）转为整数字符串（"1"、"101"），否则保留原字符串（如"1栋"、"A101"）
+            def normalize_cell_str(val):
+                s = str(val).strip()
+                try:
+                    f = float(s)
+                    if f.is_integer():
+                        return str(int(f))
+                except ValueError:
+                    pass
+                return s
+
             for index, row in df.iterrows():
                 row_num = index + 2  # 行号从2开始（Excel行号）
                 
                 try:
                     # 获取基本信息
                     name = str(row['姓名']).strip()
-                    building = str(row['楼栋']).strip()
-                    room_number = str(row['房间号']).strip()
+                    building = normalize_cell_str(row['楼栋'])
+                    room_number = normalize_cell_str(row['房间号'])
                     
                     # 验证基本信息
                     if not all([name, building, room_number, check_in_dates[index]]):

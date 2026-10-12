@@ -32,14 +32,15 @@ class RoomItemRecord(db.Model):
         db.Index('idx_item_record_type', 'operation_type'),
         db.Index('idx_item_record_time', 'operated_at'),
         db.CheckConstraint('quantity > 0', name='check_record_qty_positive'),
-        db.CheckConstraint("operation_type IN ('allocate', 'return', 'transfer', 'damage', 'loss', 'scrap', 'dorm_transfer', 'dorm_exchange', 'dorm_checkout', 'create', 'edit', 'delete')", name='check_operation_type_valid'),
+        db.CheckConstraint("operation_type IN ('allocate', 'return', 'transfer', 'damage', 'loss', 'scrap', 'dorm_transfer', 'dorm_exchange', 'dorm_checkout', 'create', 'edit', 'delete', 'import')", name='check_operation_type_valid'),
     )
 
     OPERATION_TYPE_MAP = {
         'allocate': '分配', 'return': '归还', 'transfer': '转移',
         'damage': '损坏', 'loss': '丢失', 'scrap': '报废',
         'dorm_transfer': '换宿触发', 'dorm_exchange': '互换触发', 'dorm_checkout': '退宿触发',
-        'create': '创建', 'edit': '编辑', 'delete': '删除'
+        'create': '创建', 'edit': '编辑', 'delete': '删除',
+        'import': '导入'
     }
 
     VALID_OPERATION_TYPES = set(OPERATION_TYPE_MAP.keys())

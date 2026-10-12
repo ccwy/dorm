@@ -153,6 +153,21 @@
             </div>
             {% endif %}
 
+            <!-- 房间物品管理卡片 -->
+            {% if current_user.has_permission('room_item.view') %}
+            <div class="bg-white rounded-xl p-6 shadow-sm card-hover text-center">
+                <div class="w-16 h-16 bg-teal-100 rounded-full flex items-center justify-center mb-4 mx-auto">
+                    <i class="fa fa-cubes text-2xl text-teal-600"></i>
+                </div>
+                <h3 class="text-lg font-medium text-dark mb-2">房间物品管理</h3>
+                <p class="text-gray-500 text-sm mb-4">房间物品登记、分配与流转</p>
+                <button onclick="window.location.href='{{ url_for('room_item.manage') }}'" 
+                        class="px-4 py-2 bg-teal-500 text-white rounded-md hover:bg-teal-600">
+                    进入管理
+                </button>
+            </div>
+            {% endif %}
+
             <!-- 宿舍申请管理 -->
             {% if get_config_value('FEATURE_DORM_APPLICATION_ENABLED', True) and current_user.has_permission('dorm_application.manage') %}
             <div class="bg-white rounded-xl p-6 shadow-sm card-hover text-center">

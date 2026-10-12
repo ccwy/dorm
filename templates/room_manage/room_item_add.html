@@ -21,10 +21,19 @@
 <body class="bg-gray-50 min-h-screen">
     {% include 'header.html' %}
     <main class="container mx-auto px-4 py-6">
+        
+
+        <div class="flex items-center mb-6">
+            <button onclick="window.location.href='{{ url_for('room_item.manage') }}'" class="text-primary hover:text-primary/80 mr-2">
+                <i class="fa fa-arrow-left"></i>
+            </button>
+            <h2 class="text-2xl font-semibold text-dark">添加物品</h2>
+        </div>
+
         <!-- flash消息 -->
         {% with messages = get_flashed_messages(with_categories=true) %}
           {% if messages %}
-            <div class="flash-messages mb-6 mx-auto" style="max-width: 500px;">
+            <div class="flash-messages mb-6 mx-auto" style="max-width: 800px;">
               {% for category, message in messages %}
                 <div class="p-4 rounded-md mb-2 text-center {% if category == 'success' %}bg-green-100 text-green-800{% elif category == 'error' or category == 'danger' %}bg-red-100 text-red-800{% elif category == 'warning' %}bg-yellow-100 text-yellow-800{% else %}bg-blue-100 text-blue-800{% endif %}">
                   <button type="button" class="float-right ml-2 text-gray-500 hover:text-gray-700" onclick="this.parentElement.remove()">×</button>
@@ -35,68 +44,159 @@
           {% endif %}
         {% endwith %}
 
-        <div class="flex items-center mb-6">
-            <button onclick="window.location.href='{{ url_for('room_item.manage') }}'" class="text-primary hover:text-primary/80 mr-2">
-                <i class="fa fa-arrow-left"></i>
-            </button>
-            <h2 class="text-2xl font-semibold text-dark">添加物品</h2>
-        </div>
+        <div class="bg-white rounded-lg shadow-sm p-6 mx-auto" style="max-width: 900px;">
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-1">所属房间</label>
+                <div class="px-4 py-2 border border-gray-200 rounded-md bg-gray-50 text-gray-700 inline-block">
+                    {{ room.building }}{{ room.room_number }}
+                </div>
+            </div>
 
-        <div class="bg-white rounded-lg shadow-sm p-6 mx-auto" style="max-width: 600px;">
             <form method="POST" action="{{ url_for('room_item.add', room_id=room.id) }}">
-                <div class="space-y-6">
-                    <div>
-                        <label for="name" class="block text-sm font-medium text-gray-700 mb-1">物品名称 <span class="text-red-500">*</span></label>
-                        <input type="text" id="name" name="name" required
-                               class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
-                               placeholder="请输入物品名称">
-                    </div>
+                <input type="hidden" name="item_count" id="item_count" value="1">
 
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">所属房间</label>
-                        <div class="w-full px-4 py-2 border border-gray-200 rounded-md bg-gray-50 text-gray-700">
-                            {{ room.building }}{{ room.room_number }}
-                        </div>
-                    </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full border-collapse" id="item_table">
+                        <thead>
+                            <tr class="bg-gray-100 text-sm text-gray-700">
+                                <th class="px-3 py-2 text-center border border-gray-200 w-12">序号</th>
+                                <th class="px-3 py-2 text-center border border-gray-200">物品名称 <span class="text-red-500">*</span></th>
+                                <th class="px-3 py-2 text-center border border-gray-200 w-32">物品类型 <span class="text-red-500">*</span></th>
+                                <th class="px-3 py-2 text-center border border-gray-200 w-24">总数量 <span class="text-red-500">*</span></th>
+                                <th class="px-3 py-2 text-center border border-gray-200">备注</th>
+                                <th class="px-3 py-2 text-center border border-gray-200 w-16">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="item_tbody">
+                            <tr class="item-row" data-index="0">
+                                <td class="px-2 py-2 text-center border border-gray-200 text-gray-600 row-num">1</td>
+                                <td class="px-2 py-2 border border-gray-200">
+                                    <input type="text" name="name_0" required
+                                           class="w-full px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary/50 text-sm"
+                                           placeholder="物品名称">
+                                </td>
+                                <td class="px-2 py-2 border border-gray-200">
+                                    <select name="item_type_0"
+                                            class="w-full px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary/50 text-sm">
+                                        <option value="room_bound" selected>房间绑定</option>
+                                        <option value="transferable">可转移</option>
+                                    </select>
+                                </td>
+                                <td class="px-2 py-2 border border-gray-200">
+                                    <input type="number" name="total_quantity_0" min="1" value="1" required
+                                           class="w-full px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary/50 text-sm text-center">
+                                </td>
+                                <td class="px-2 py-2 border border-gray-200">
+                                    <input type="text" name="remark_0"
+                                           class="w-full px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary/50 text-sm"
+                                           placeholder="备注">
+                                </td>
+                                <td class="px-2 py-2 text-center border border-gray-200">
+                                    <button type="button" class="delete-row-btn text-red-500 hover:text-red-700 disabled:text-gray-300 disabled:cursor-not-allowed" disabled
+                                            onclick="deleteRow(this)" title="删除此行">
+                                        <i class="fa fa-trash-o"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
 
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">物品类型 <span class="text-red-500">*</span></label>
-                        <div class="flex gap-6">
-                            <label class="flex items-center cursor-pointer">
-                                <input type="radio" name="item_type" value="room_bound" checked class="form-radio text-primary">
-                                <span class="ml-2 text-gray-700">房间绑定</span>
-                            </label>
-                            <label class="flex items-center cursor-pointer">
-                                <input type="radio" name="item_type" value="transferable" class="form-radio text-primary">
-                                <span class="ml-2 text-gray-700">可转移</span>
-                            </label>
-                        </div>
-                        <p class="text-xs text-gray-500 mt-1">房间绑定物品不可转移到其他房间，可转移物品可在房间间转移</p>
-                    </div>
+                <div class="mt-3">
+                    <button type="button" onclick="addRow()" class="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90 transition-colors text-sm">
+                        <i class="fa fa-plus mr-1"></i>添加行
+                    </button>
+                </div>
 
-                    <div>
-                        <label for="total_quantity" class="block text-sm font-medium text-gray-700 mb-1">总数量 <span class="text-red-500">*</span></label>
-                        <input type="number" id="total_quantity" name="total_quantity" min="1" value="1" required
-                               class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
-                    </div>
-
-                    <div>
-                        <label for="remark" class="block text-sm font-medium text-gray-700 mb-1">备注</label>
-                        <textarea id="remark" name="remark" rows="3"
-                                  class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
-                                  placeholder="请输入备注信息..."></textarea>
-                    </div>
-
-                    <div class="flex justify-end gap-3 pt-4 border-t border-gray-200">
-                        <button type="button" onclick="window.location.href='{{ url_for('room_item.manage') }}'" class="px-6 py-2 border border-gray-300 rounded-md hover:bg-gray-50">取消</button>
-                        <button type="submit" class="px-6 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors">
-                            <i class="fa fa-save mr-1"></i>保存
-                        </button>
-                    </div>
+                <div class="flex justify-end gap-3 pt-4 mt-4 border-t border-gray-200">
+                    <button type="button" onclick="window.location.href='{{ url_for('room_item.manage') }}'" class="px-6 py-2 border border-gray-300 rounded-md hover:bg-gray-50">取消</button>
+                    <button type="submit" class="px-6 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors">
+                        <i class="fa fa-save mr-1"></i>批量保存
+                    </button>
                 </div>
             </form>
         </div>
     </main>
     {% include 'footer.html' %}
+
+    <script>
+    var rowIndex = 1;
+
+    function addRow() {
+        var tbody = document.getElementById('item_tbody');
+        var idx = rowIndex;
+        rowIndex++;
+        var tr = document.createElement('tr');
+        tr.className = 'item-row';
+        tr.setAttribute('data-index', idx);
+        tr.innerHTML =
+            '<td class="px-2 py-2 text-center border border-gray-200 text-gray-600 row-num"></td>' +
+            '<td class="px-2 py-2 border border-gray-200">' +
+                '<input type="text" name="name_' + idx + '" required class="w-full px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary/50 text-sm" placeholder="物品名称">' +
+            '</td>' +
+            '<td class="px-2 py-2 border border-gray-200">' +
+                '<select name="item_type_' + idx + '" class="w-full px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary/50 text-sm">' +
+                    '<option value="room_bound" selected>房间绑定</option>' +
+                    '<option value="transferable">可转移</option>' +
+                '</select>' +
+            '</td>' +
+            '<td class="px-2 py-2 border border-gray-200">' +
+                '<input type="number" name="total_quantity_' + idx + '" min="1" value="1" required class="w-full px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary/50 text-sm text-center">' +
+            '</td>' +
+            '<td class="px-2 py-2 border border-gray-200">' +
+                '<input type="text" name="remark_' + idx + '" class="w-full px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary/50 text-sm" placeholder="备注">' +
+            '</td>' +
+            '<td class="px-2 py-2 text-center border border-gray-200">' +
+                '<button type="button" class="delete-row-btn text-red-500 hover:text-red-700" onclick="deleteRow(this)" title="删除此行">' +
+                    '<i class="fa fa-trash-o"></i>' +
+                '</button>' +
+            '</td>';
+        tbody.appendChild(tr);
+        updateRowNumbers();
+        document.getElementById('item_count').value = document.querySelectorAll('.item-row').length;
+        updateDeleteButtons();
+    }
+
+    function deleteRow(btn) {
+        var rows = document.querySelectorAll('.item-row');
+        if (rows.length <= 1) return;
+        var tr = btn.closest('tr');
+        tr.remove();
+        reindexRows();
+        updateRowNumbers();
+        document.getElementById('item_count').value = document.querySelectorAll('.item-row').length;
+        updateDeleteButtons();
+    }
+
+    function reindexRows() {
+        var rows = document.querySelectorAll('.item-row');
+        for (var i = 0; i < rows.length; i++) {
+            rows[i].setAttribute('data-index', i);
+            var nameInput = rows[i].querySelector('input[name^="name_"]');
+            if (nameInput) nameInput.setAttribute('name', 'name_' + i);
+            var typeSelect = rows[i].querySelector('select[name^="item_type_"]');
+            if (typeSelect) typeSelect.setAttribute('name', 'item_type_' + i);
+            var qtyInput = rows[i].querySelector('input[name^="total_quantity_"]');
+            if (qtyInput) qtyInput.setAttribute('name', 'total_quantity_' + i);
+            var remarkInput = rows[i].querySelector('input[name^="remark_"]');
+            if (remarkInput) remarkInput.setAttribute('name', 'remark_' + i);
+        }
+    }
+
+    function updateRowNumbers() {
+        var rows = document.querySelectorAll('.item-row');
+        for (var i = 0; i < rows.length; i++) {
+            rows[i].querySelector('.row-num').textContent = i + 1;
+        }
+    }
+
+    function updateDeleteButtons() {
+        var rows = document.querySelectorAll('.item-row');
+        var btns = document.querySelectorAll('.delete-row-btn');
+        for (var i = 0; i < btns.length; i++) {
+            btns[i].disabled = (rows.length <= 1);
+        }
+    }
+    </script>
 </body>
 </html>

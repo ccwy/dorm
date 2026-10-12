@@ -21,6 +21,14 @@
 <body class="bg-gray-50 min-h-screen">
     {% include 'header.html' %}
     <main class="container mx-auto px-4 py-6">
+        
+
+        <div class="flex items-center mb-6">
+            <button onclick="window.location.href='{{ url_for('room_item.manage') }}'" class="text-primary hover:text-primary/80 mr-2">
+                <i class="fa fa-arrow-left"></i>
+            </button>
+            <h2 class="text-2xl font-semibold text-dark">分配物品</h2>
+        </div>
         <!-- flash消息 -->
         {% with messages = get_flashed_messages(with_categories=true) %}
           {% if messages %}
@@ -34,13 +42,6 @@
             </div>
           {% endif %}
         {% endwith %}
-
-        <div class="flex items-center mb-6">
-            <button onclick="window.location.href='{{ url_for('room_item.manage') }}'" class="text-primary hover:text-primary/80 mr-2">
-                <i class="fa fa-arrow-left"></i>
-            </button>
-            <h2 class="text-2xl font-semibold text-dark">分配物品</h2>
-        </div>
 
         <div class="bg-white rounded-lg shadow-sm p-6 mx-auto" style="max-width: 600px;">
             <!-- 物品信息 -->

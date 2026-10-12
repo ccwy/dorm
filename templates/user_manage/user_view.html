@@ -612,13 +612,36 @@
                                         <td class="px-6 py-4 whitespace-nowrap">{{ a.assigned_at.strftime('%Y-%m-%d %H:%M') if a.assigned_at else '未知' }}</td>
                                         <td class="px-6 py-4 whitespace-nowrap">{{ a.remarks or '-' }}</td>
                                         <td class="px-6 py-4 whitespace-nowrap">
-                                            {% if current_user.has_permission('room_item.return') %}
-                                            <form method="POST" action="{{ url_for('room_item.return_item', assignment_id=a.id) }}" style="display:inline;">
-                                                <button type="submit" class="px-3 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 transition duration-200">
-                                                    <i class="fa fa-undo mr-1"></i>归还
-                                                </button>
-                                            </form>
-                                            {% endif %}
+                                            <div class="flex flex-wrap gap-1 items-center">
+                                                {% if current_user.has_permission('room_item.return') %}
+                                                <form method="POST" action="{{ url_for('room_item.return_item', assignment_id=a.id) }}" style="display:inline;" onsubmit="return confirm('确认归还该物品？')">
+                                                    <input type="number" name="quantity" value="1" min="1" max="{{ a.quantity }}" class="w-12 px-1 py-0.5 text-xs border rounded text-center">
+                                                    <button type="submit" class="px-2 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 transition duration-200">
+                                                        <i class="fa fa-undo mr-1"></i>归还
+                                                    </button>
+                                                </form>
+                                                {% endif %}
+                                                {% if current_user.has_permission('room_item.operate') %}
+                                                <form method="POST" action="{{ url_for('room_item.damage_assignment', assignment_id=a.id) }}" style="display:inline;" onsubmit="return confirm('确认标记损坏？')">
+                                                    <input type="number" name="quantity" value="1" min="1" max="{{ a.quantity }}" class="w-12 px-1 py-0.5 text-xs border rounded text-center">
+                                                    <button type="submit" class="px-2 py-1 bg-orange-500 text-white text-xs rounded hover:bg-orange-600 transition duration-200">
+                                                        <i class="fa fa-exclamation-triangle mr-1"></i>损坏
+                                                    </button>
+                                                </form>
+                                                <form method="POST" action="{{ url_for('room_item.loss_assignment', assignment_id=a.id) }}" style="display:inline;" onsubmit="return confirm('确认标记丢失？')">
+                                                    <input type="number" name="quantity" value="1" min="1" max="{{ a.quantity }}" class="w-12 px-1 py-0.5 text-xs border rounded text-center">
+                                                    <button type="submit" class="px-2 py-1 bg-yellow-500 text-white text-xs rounded hover:bg-yellow-600 transition duration-200">
+                                                        <i class="fa fa-question-circle mr-1"></i>丢失
+                                                    </button>
+                                                </form>
+                                                <form method="POST" action="{{ url_for('room_item.scrap_assignment', assignment_id=a.id) }}" style="display:inline;" onsubmit="return confirm('确认标记报废？')">
+                                                    <input type="number" name="quantity" value="1" min="1" max="{{ a.quantity }}" class="w-12 px-1 py-0.5 text-xs border rounded text-center">
+                                                    <button type="submit" class="px-2 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600 transition duration-200">
+                                                        <i class="fa fa-trash mr-1"></i>报废
+                                                    </button>
+                                                </form>
+                                                {% endif %}
+                                            </div>
                                         </td>
                                     </tr>
                                     {% endif %}

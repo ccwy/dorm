@@ -338,24 +338,30 @@ def import_rooms():
             logging.error(f'批量解析添加时间失败：{str(e)}')
             return redirect(url_for('room.manage'))
         
+        # 规范化Excel单元格值：浮点整数（如1.0、101.0）转为整数字符串（"1"、"101"），否则保留原字符串（如"1栋"、"A101"）
+        def normalize_cell_str(val):
+            s = str(val).strip()
+            try:
+                f = float(s)
+                if f.is_integer():
+                    return str(int(f))
+            except ValueError:
+                pass
+            return s
+
         for index, row in df.iterrows():
             try:
                 row_num = index + 2
                 
                 # 处理楼栋和房间号（用于唯一标识房间）
                 building_val = row['楼栋']
-                building = str(building_val).strip() or 'A'
+                building = normalize_cell_str(building_val) or 'A'
 
                 room_number_val = row['房间号']
                 if pd.isna(room_number_val):
                     error_records.append(f"第{row_num}行：房间号不能为空")
                     continue
-                
-                try:
-                    room_number_int = int(float(str(room_number_val).strip()))
-                    room_number = str(room_number_int)
-                except ValueError:
-                    room_number = str(room_number_val).strip()
+                room_number = normalize_cell_str(room_number_val)
                 
                 if not room_number:
                     error_records.append(f"第{row_num}行：房间号不能为空")

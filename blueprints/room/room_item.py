@@ -10,6 +10,7 @@ from flask_login import login_required, current_user
 from utils.log import log_operation
 from utils.auth import require_permission
 from datetime import datetime
+from sqlalchemy import func
 import logging
 import traceback
 
@@ -122,44 +123,76 @@ def add(room_id):
         room = Room.query.get_or_404(room_id)
 
         if request.method == 'POST':
-            name = request.form.get('name', '').strip()
-            item_type = request.form.get('item_type', 'room_bound').strip()
-            total_quantity = request.form.get('total_quantity', 1, type=int)
-            remark = request.form.get('remark', '').strip()
+            item_count = request.form.get('item_count', 1, type=int)
+            if item_count < 1:
+                item_count = 1
 
-            if not name:
-                flash('物品名称不能为空', 'error')
+            success_count = 0
+            error_messages = []
+            added_names = set()
+
+            for i in range(item_count):
+                name = request.form.get(f'name_{i}', '').strip()
+                item_type = request.form.get(f'item_type_{i}', 'room_bound').strip()
+                total_quantity = request.form.get(f'total_quantity_{i}', 1, type=int)
+                remark = request.form.get(f'remark_{i}', '').strip()
+
+                if not name:
+                    error_messages.append(f'第{i+1}行: 物品名称不能为空')
+                    continue
+
+                if total_quantity < 1:
+                    error_messages.append(f'第{i+1}行: 数量必须大于0')
+                    continue
+
+                # 检查同一房间是否已存在同名物品
+                existing = RoomItem.query.filter_by(room_id=room_id, name=name).first()
+                if existing:
+                    error_messages.append(f'第{i+1}行：物品"{name}"在该房间已存在')
+                    continue
+                # 检查当前批次内是否已有同名物品
+                if name in added_names:
+                    error_messages.append(f'第{i+1}行：物品"{name}"在本批次中已添加')
+                    continue
+
+                try:
+                    item = RoomItem.create_item(
+                        room_id=room_id,
+                        name=name,
+                        item_type=item_type,
+                        total_quantity=total_quantity,
+                        remark=remark
+                    )
+                    db.session.flush()
+
+                    RoomItemRecord.add_record(
+                        item_id=item.id,
+                        operation_type='create',
+                        quantity=total_quantity,
+                        before_quantity=0,
+                        after_quantity=total_quantity,
+                        operator_id=_get_operator_id(),
+                        remarks=f'新增物品: {name}'
+                    )
+                    db.session.commit()
+                    success_count += 1
+                    added_names.add(name)
+                except Exception as e:
+                    db.session.rollback()
+                    error_messages.append(f'第{i+1}行: {str(e)}')
+
+            if success_count > 0:
+                log_operation(user_id=current_user.id, action=f'批量新增房间物品{success_count}件, 房间: {room.building}{room.room_number}', module='room_item')
+
+            if error_messages:
+                for msg in error_messages:
+                    flash(msg, 'error')
+
+            if success_count > 0:
+                flash(f'成功添加{success_count}件物品', 'success')
+                return redirect(url_for('room.view', id=room_id))
+            else:
                 return render_template('room_manage/room_item_add.html', room=room)
-
-            if total_quantity < 1:
-                flash('数量必须大于0', 'error')
-                return render_template('room_manage/room_item_add.html', room=room)
-
-            # 创建物品
-            item = RoomItem.create_item(
-                room_id=room_id,
-                name=name,
-                item_type=item_type,
-                total_quantity=total_quantity,
-                remark=remark
-            )
-            db.session.flush()  # 确保item获得id后再记录操作
-
-            # 记录操作
-            RoomItemRecord.add_record(
-                item_id=item.id,
-                operation_type='create',
-                quantity=total_quantity,
-                before_quantity=0,
-                after_quantity=total_quantity,
-                operator_id=_get_operator_id(),
-                remarks=f'新增物品: {name}'
-            )
-
-            db.session.commit()
-            log_operation(user_id=current_user.id, action=f'新增房间物品: {name}, 房间: {room.building}{room.room_number}', module='room_item')
-            flash(f'物品"{name}"添加成功', 'success')
-            return redirect(url_for('room.view', id=room_id))
 
         return render_template('room_manage/room_item_add.html', room=room)
     except Exception as e:
@@ -292,6 +325,53 @@ def delete(item_id):
     return redirect(url_for('room_item.manage'))
 
 
+# 路由4.5: 批量删除物品
+@room_item_bp.route('/batch_delete', methods=['POST'])
+@login_required
+@require_permission('room_item.delete')
+def batch_delete():
+    try:
+        selected_ids = request.form.getlist('selected_items')
+        if not selected_ids:
+            flash('请选择要删除的物品', 'warning')
+            return redirect(url_for('room_item.manage'))
+
+        selected_ids = [int(id) for id in selected_ids]
+        success_count = 0
+        error_messages = []
+
+        for item_id in selected_ids:
+            item = RoomItem.query.get(item_id)
+            if not item:
+                error_messages.append(f'物品ID {item_id} 不存在')
+                continue
+
+            if item.available_quantity != item.total_quantity:
+                error_messages.append(f'物品"{item.name}"有已分配数量，无法删除')
+                continue
+
+            # 删除关联记录和分配
+            RoomItemRecord.query.filter_by(item_id=item.id).delete()
+            RoomItemAssignment.query.filter_by(item_id=item.id).delete()
+            db.session.delete(item)
+            success_count += 1
+            log_operation(user_id=current_user.id, action=f'删除房间物品: {item.name}, 房间: {item.room.building}{item.room.room_number}', module='room_item')
+
+        if success_count > 0:
+            db.session.commit()
+            flash(f'成功删除{success_count}件物品', 'success')
+        if error_messages:
+            for msg in error_messages:
+                flash(msg, 'error')
+
+        return redirect(url_for('room_item.manage'))
+    except Exception as e:
+        db.session.rollback()
+        logging.error(f"批量删除物品失败: {str(e)}\n{traceback.format_exc()}")
+        flash(f'批量删除物品失败: {str(e)}', 'error')
+        return redirect(url_for('room_item.manage'))
+
+
 # 路由5: 分配物品给用户
 @room_item_bp.route('/allocate/<int:item_id>', methods=['GET', 'POST'])
 @login_required
@@ -370,7 +450,7 @@ def allocate(item_id):
         return redirect(url_for('room_item.manage'))
 
 
-# 路由6: 归还物品
+# 路由6: 归还物品（支持指定数量）
 @room_item_bp.route('/return/<int:assignment_id>', methods=['POST'])
 @login_required
 @require_permission('room_item.return')
@@ -378,6 +458,7 @@ def return_item(assignment_id):
     try:
         assignment = RoomItemAssignment.query.get_or_404(assignment_id)
         item = RoomItem.query.get_or_404(assignment.item_id)
+        user_label = assignment.user.name if assignment.user else f"用户{assignment.user_id}"
 
         if assignment.status != 'active':
             flash('该分配记录已处理，无法归还', 'error')
@@ -388,31 +469,71 @@ def return_item(assignment_id):
             flash(f'物品状态为"{item.status}"，无法归还，请先恢复正常状态', 'error')
             return redirect(url_for('room_item.manage'))
 
+        # 获取归还数量，默认全部归还
+        quantity = request.form.get('quantity', assignment.quantity, type=int)
+        if quantity < 1 or quantity > assignment.quantity:
+            flash(f'归还数量必须在1到{assignment.quantity}之间', 'error')
+            return redirect(url_for('room_item.manage'))
+
         before_available = item.available_quantity
 
-        # 更新分配状态
-        assignment.status = 'returned'
-        assignment.returned_at = datetime.now()
-
         # 增加可用数量
-        item.available_quantity += assignment.quantity
+        item.available_quantity += quantity
 
-        # 记录操作
-        RoomItemRecord.add_record(
-            item_id=item.id,
-            operation_type='return',
-            quantity=assignment.quantity,
-            before_quantity=before_available,
-            after_quantity=item.available_quantity,
-            user_id=assignment.user_id,
-            from_room_id=item.room_id,
-            operator_id=_get_operator_id(),
-            remarks='归还物品'
-        )
+        if quantity < assignment.quantity:
+            # 部分归还：创建新assignment记录剩余数量，原assignment标记returned
+            remaining = assignment.quantity - quantity
+            new_assignment = RoomItemAssignment(
+                item_id=assignment.item_id,
+                user_id=assignment.user_id,
+                quantity=remaining,
+                dorm_id=assignment.dorm_id,
+                remarks=assignment.remarks,
+                status='active'
+            )
+            db.session.add(new_assignment)
+            assignment.quantity = quantity
+            assignment.status = 'returned'
+            assignment.returned_at = datetime.now()
+            db.session.flush()  # 确保new_assignment.id有效
 
-        db.session.commit()
-        log_operation(user_id=current_user.id, action=f'归还物品: {item.name}, 用户ID={assignment.user_id}, 数量={assignment.quantity}', module='room_item')
-        flash(f'物品"{item.name}"归还成功', 'success')
+            # 记录操作
+            RoomItemRecord.add_record(
+                item_id=item.id,
+                operation_type='return',
+                quantity=quantity,
+                before_quantity=before_available,
+                after_quantity=item.available_quantity,
+                user_id=assignment.user_id,
+                from_room_id=item.room_id,
+                operator_id=_get_operator_id(),
+                remarks=f'部分归还物品(来自{user_label})，剩余{remaining}'
+            )
+
+            db.session.commit()
+            log_operation(user_id=current_user.id, action=f'部分归还物品: {item.name}, 用户ID={assignment.user_id}, 归还数量={quantity}, 剩余={remaining}', module='room_item')
+            flash(f'物品"{item.name}"归还{quantity}个成功，剩余{remaining}个', 'success')
+        else:
+            # 全部归还
+            assignment.status = 'returned'
+            assignment.returned_at = datetime.now()
+
+            # 记录操作
+            RoomItemRecord.add_record(
+                item_id=item.id,
+                operation_type='return',
+                quantity=quantity,
+                before_quantity=before_available,
+                after_quantity=item.available_quantity,
+                user_id=assignment.user_id,
+                from_room_id=item.room_id,
+                operator_id=_get_operator_id(),
+                remarks=f'归还物品(来自{user_label})'
+            )
+
+            db.session.commit()
+            log_operation(user_id=current_user.id, action=f'归还物品: {item.name}, 用户ID={assignment.user_id}, 数量={quantity}', module='room_item')
+            flash(f'物品"{item.name}"归还成功', 'success')
     except Exception as e:
         db.session.rollback()
         logging.error(f"归还物品失败: {str(e)}\n{traceback.format_exc()}")
@@ -434,6 +555,8 @@ def _change_item_status(item_id, new_status, assignment_status, op_type, remark,
         quantity: 操作数量（默认1）
     """
     item = RoomItem.query.get_or_404(item_id)
+    room_label = f"{item.room.building}{item.room.room_number}" if item.room else f"房间{item.room_id}"
+    source_remark = f'{remark}(来自{room_label})'
 
     # 验证数量
     if quantity < 1:
@@ -453,6 +576,14 @@ def _change_item_status(item_id, new_status, assignment_status, op_type, remark,
     item.total_quantity -= quantity
     item.available_quantity -= quantity
 
+    # 增加对应异常数量
+    if op_type == 'damage':
+        item.damaged_quantity = (item.damaged_quantity or 0) + quantity
+    elif op_type == 'loss':
+        item.lost_quantity = (item.lost_quantity or 0) + quantity
+    elif op_type == 'scrap':
+        item.scrapped_quantity = (item.scrapped_quantity or 0) + quantity
+
     # 如果total变为0，设置物品状态并更新active分配
     if item.total_quantity == 0:
         item.status = new_status
@@ -471,11 +602,11 @@ def _change_item_status(item_id, new_status, assignment_status, op_type, remark,
         before_quantity=before_available,
         after_quantity=item.available_quantity,
         operator_id=_get_operator_id(),
-        remarks=f'{remark}, 数量={quantity}'
+        remarks=f'{source_remark}, 数量={quantity}'
     )
 
     db.session.commit()
-    log_operation(user_id=current_user.id, action=f'{remark}: {item.name}, 数量={quantity}, ID={item_id}', module='room_item')
+    log_operation(user_id=current_user.id, action=f'{source_remark}: {item.name}, 数量={quantity}, ID={item_id}', module='room_item')
     if item.total_quantity == 0:
         flash(f'物品"{item.name}"已全部{remark}（{quantity}），状态变为{new_status}', 'success')
     else:
@@ -528,6 +659,143 @@ def scrap(item_id):
         flash(f'标记报废失败: {str(e)}', 'error')
 
     return redirect(url_for('room_item.detail', item_id=item_id))
+
+
+# 公共方法：从assignment级别修改物品状态（损坏/丢失/报废），支持指定数量
+def _change_assignment_status(assignment_id, new_item_status, assignment_status, op_type, remark):
+    """从持有人员处修改物品状态，支持部分数量操作
+
+    Args:
+        assignment_id: 分配记录ID
+        new_item_status: 物品新状态（'损坏'/'丢失'/'报废'）
+        assignment_status: 分配新状态（'damaged'/'lost'/'scrapped'）
+        op_type: 操作类型（'damage'/'loss'/'scrap'）
+        remark: 操作备注
+    """
+    assignment = RoomItemAssignment.query.get_or_404(assignment_id)
+    item = RoomItem.query.get_or_404(assignment.item_id)
+    user_label = assignment.user.name if assignment.user else f"用户{assignment.user_id}"
+    source_remark = f'{remark}(来自{user_label})'
+
+    if assignment.status != 'active':
+        flash('该分配记录已处理，无法操作', 'error')
+        return redirect(url_for('room_item.manage'))
+
+    # 获取操作数量，默认全部
+    quantity = request.form.get('quantity', assignment.quantity, type=int)
+    if quantity < 1 or quantity > assignment.quantity:
+        flash(f'操作数量必须在1到{assignment.quantity}之间', 'error')
+        return redirect(url_for('room_item.manage'))
+
+    before_available = item.available_quantity
+
+    # 减少物品总数量和可用数量
+    item.total_quantity -= quantity
+    item.available_quantity -= quantity
+
+    # 增加对应异常数量
+    if op_type == 'damage':
+        item.damaged_quantity = (item.damaged_quantity or 0) + quantity
+    elif op_type == 'loss':
+        item.lost_quantity = (item.lost_quantity or 0) + quantity
+    elif op_type == 'scrap':
+        item.scrapped_quantity = (item.scrapped_quantity or 0) + quantity
+
+    if quantity < assignment.quantity:
+        # 部分操作：创建新assignment记录剩余数量，原assignment标记状态
+        remaining = assignment.quantity - quantity
+        new_assignment = RoomItemAssignment(
+            item_id=assignment.item_id,
+            user_id=assignment.user_id,
+            quantity=remaining,
+            dorm_id=assignment.dorm_id,
+            remarks=assignment.remarks,
+            status='active'
+        )
+        db.session.add(new_assignment)
+        assignment.quantity = quantity
+        assignment.status = assignment_status
+        assignment.returned_at = datetime.now()
+        db.session.flush()  # 确保new_assignment.id有效
+    else:
+        # 全量操作：直接标记原assignment状态
+        assignment.status = assignment_status
+        assignment.returned_at = datetime.now()
+
+    # 如果total变为0，设置物品状态并更新其他active分配
+    if item.total_quantity == 0:
+        item.status = new_item_status
+        active_assignments = RoomItemAssignment.query.filter_by(
+            item_id=item.id, status='active'
+        ).all()
+        for a in active_assignments:
+            a.status = assignment_status
+            a.returned_at = datetime.now()
+
+    # 记录操作
+    RoomItemRecord.add_record(
+        item_id=item.id,
+        operation_type=op_type,
+        quantity=quantity,
+        before_quantity=before_available,
+        after_quantity=item.available_quantity,
+        user_id=assignment.user_id,
+        from_room_id=item.room_id,
+        operator_id=_get_operator_id(),
+        remarks=f'{source_remark}, 数量={quantity}'
+    )
+
+    db.session.commit()
+    log_operation(user_id=current_user.id, action=f'{source_remark}: {item.name}, 用户ID={assignment.user_id}, 数量={quantity}', module='room_item')
+    if item.total_quantity == 0:
+        flash(f'物品"{item.name}"已全部{remark}（{quantity}），状态变为{new_item_status}', 'success')
+    else:
+        flash(f'物品"{item.name}"{remark} {quantity} 个，剩余{item.total_quantity}个', 'success')
+
+
+# 路由9a: 从持有人员处标记损坏
+@room_item_bp.route('/damage_assignment/<int:assignment_id>', methods=['POST'])
+@login_required
+@require_permission('room_item.operate')
+def damage_assignment(assignment_id):
+    try:
+        _change_assignment_status(assignment_id, '损坏', 'damaged', 'damage', '标记损坏')
+    except Exception as e:
+        db.session.rollback()
+        logging.error(f"标记损坏(assignment)失败: {str(e)}\n{traceback.format_exc()}")
+        flash(f'标记损坏失败: {str(e)}', 'error')
+
+    return redirect(url_for('room_item.manage'))
+
+
+# 路由9b: 从持有人员处标记丢失
+@room_item_bp.route('/loss_assignment/<int:assignment_id>', methods=['POST'])
+@login_required
+@require_permission('room_item.operate')
+def loss_assignment(assignment_id):
+    try:
+        _change_assignment_status(assignment_id, '丢失', 'lost', 'loss', '标记丢失')
+    except Exception as e:
+        db.session.rollback()
+        logging.error(f"标记丢失(assignment)失败: {str(e)}\n{traceback.format_exc()}")
+        flash(f'标记丢失失败: {str(e)}', 'error')
+
+    return redirect(url_for('room_item.manage'))
+
+
+# 路由9c: 从持有人员处标记报废
+@room_item_bp.route('/scrap_assignment/<int:assignment_id>', methods=['POST'])
+@login_required
+@require_permission('room_item.operate')
+def scrap_assignment(assignment_id):
+    try:
+        _change_assignment_status(assignment_id, '报废', 'scrapped', 'scrap', '标记报废')
+    except Exception as e:
+        db.session.rollback()
+        logging.error(f"标记报废(assignment)失败: {str(e)}\n{traceback.format_exc()}")
+        flash(f'标记报废失败: {str(e)}', 'error')
+
+    return redirect(url_for('room_item.manage'))
 
 
 # 路由10: 转移物品
@@ -684,6 +952,11 @@ def detail(item_id):
             .filter_by(item_id=item_id)
             .order_by(RoomItemAssignment.assigned_at.desc()).all())
 
+        # 计算已分配数量
+        allocated_quantity = db.session.query(func.coalesce(func.sum(RoomItemAssignment.quantity), 0)).filter_by(
+            item_id=item_id, status='active'
+        ).scalar() or 0
+
         log_operation(
             user_id=current_user.id,
             action=f'查看物品详情: {item.name}, ID={item_id}',
@@ -696,7 +969,8 @@ def detail(item_id):
                                item=item,
                                active_assignments=active_assignments,
                                recent_records=recent_records,
-                               all_assignments=all_assignments)
+                               all_assignments=all_assignments,
+                               allocated_quantity=allocated_quantity)
     except Exception as e:
         logging.error(f"查看物品详情失败: {str(e)}\n{traceback.format_exc()}")
         flash('查看物品详情失败', 'error')
@@ -840,6 +1114,8 @@ def process_dorm_operation():
                     quantity = assignment.quantity
                 # 减少总数量
                 item.total_quantity -= quantity
+                # 增加损坏数量
+                item.damaged_quantity = (item.damaged_quantity or 0) + quantity
                 # 剩余数量自动归还
                 remaining = assignment.quantity - quantity
                 if remaining > 0:
@@ -892,6 +1168,8 @@ def process_dorm_operation():
                 if quantity > assignment.quantity:
                     quantity = assignment.quantity
                 item.total_quantity -= quantity
+                # 增加丢失数量
+                item.lost_quantity = (item.lost_quantity or 0) + quantity
                 remaining = assignment.quantity - quantity
                 if remaining > 0:
                     item.available_quantity = min(item.total_quantity, item.available_quantity + remaining)
@@ -939,6 +1217,8 @@ def process_dorm_operation():
                 if quantity > assignment.quantity:
                     quantity = assignment.quantity
                 item.total_quantity -= quantity
+                # 增加报废数量
+                item.scrapped_quantity = (item.scrapped_quantity or 0) + quantity
                 remaining = assignment.quantity - quantity
                 if remaining > 0:
                     item.available_quantity = min(item.total_quantity, item.available_quantity + remaining)
@@ -979,6 +1259,8 @@ def process_dorm_operation():
                     for other_a in other_assignments:
                         other_a.status = 'scrapped'
                         other_a.returned_at = datetime.now()
+                        # 级联报废增加报废数量
+                        item.scrapped_quantity = (item.scrapped_quantity or 0) + other_a.quantity
                         RoomItemRecord.add_record(
                             item_id=item.id,
                             operation_type=dorm_record_type,

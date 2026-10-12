@@ -12,6 +12,9 @@ class RoomItem(db.Model):
     item_type = db.Column(db.String(20), nullable=False, comment='物品类型：room_bound(房间绑定)/transferable(可转移)')
     total_quantity = db.Column(db.Integer, default=1, nullable=False, comment='总数量')
     available_quantity = db.Column(db.Integer, default=1, nullable=False, comment='可用数量')
+    damaged_quantity = db.Column(db.Integer, default=0, nullable=False, comment='损坏数量')
+    lost_quantity = db.Column(db.Integer, default=0, nullable=False, comment='丢失数量')
+    scrapped_quantity = db.Column(db.Integer, default=0, nullable=False, comment='报废数量')
     status = db.Column(db.String(20), default='正常', nullable=False, comment='物品状态：正常/损坏/丢失/报废')
     remark = db.Column(db.String(500), nullable=True, comment='备注')
     created_at = db.Column(db.DateTime, default=datetime.now, nullable=False, comment='创建时间')
@@ -30,6 +33,9 @@ class RoomItem(db.Model):
         db.CheckConstraint('total_quantity >= 0', name='check_room_item_total_qty_nonneg'),
         db.CheckConstraint('available_quantity >= 0', name='check_room_item_avail_qty_nonneg'),
         db.CheckConstraint('available_quantity <= total_quantity', name='check_room_item_avail_le_total'),
+        db.CheckConstraint('damaged_quantity >= 0', name='check_room_item_damaged_qty_nonneg'),
+        db.CheckConstraint('lost_quantity >= 0', name='check_room_item_lost_qty_nonneg'),
+        db.CheckConstraint('scrapped_quantity >= 0', name='check_room_item_scrapped_qty_nonneg'),
         db.CheckConstraint("item_type IN ('room_bound', 'transferable')", name='check_room_item_type_valid'),
         db.CheckConstraint("status IN ('正常', '损坏', '丢失', '报废')", name='check_room_item_status_valid'),
     )
@@ -69,6 +75,9 @@ class RoomItem(db.Model):
             item_type=item_type,
             total_quantity=total_quantity,
             available_quantity=total_quantity,
+            damaged_quantity=0,
+            lost_quantity=0,
+            scrapped_quantity=0,
             remark=remark
         )
         db.session.add(item)
