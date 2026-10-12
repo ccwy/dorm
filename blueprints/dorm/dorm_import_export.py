@@ -10,7 +10,6 @@ from datetime import datetime, timedelta  # 修改：移除date导入
 import traceback
 import re
 import logging
-from dateutil import parser
 
 # 导入数据模型
 from models.dorm.dorm import Dorm
