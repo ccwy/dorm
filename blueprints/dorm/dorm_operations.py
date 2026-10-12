@@ -566,6 +566,13 @@ def checkout():
                 flash(f'用户不存在（ID: {user_id}）', 'danger')
                 return redirect(url_for('dorm.dorm_query'))
             
+            # 检查用户是否有未处理的物品领用记录
+            active_item = RoomItemAssignment.query.filter_by(user_id=user_id, status='active').first()
+            if active_item:
+                logging.info(f"退宿检查：用户{user.name}名下仍有active状态的物品领用记录，阻止退宿")
+                flash('该用户名下仍有未处理的物品领用记录，请先处理物品后再办理退宿', 'warning')
+                return redirect(url_for('dorm.checkout', user_id=user_id))
+            
             # 日期格式转换
             try:
                 # 尝试解析包含时间的格式
@@ -1154,6 +1161,13 @@ def swap():
                 flash(f'用户不存在（ID: {user_id}）', 'danger')
                 return redirect(url_for('dorm.manage'))
             
+            # 检查用户是否有未处理的物品领用记录
+            active_item = RoomItemAssignment.query.filter_by(user_id=user_id, status='active').first()
+            if active_item:
+                logging.info(f"换宿检查：用户{user.name}名下仍有active状态的物品领用记录，阻止换宿")
+                flash('该用户名下仍有未处理的物品领用记录，请先处理物品后再办理换宿', 'warning')
+                return redirect(url_for('dorm.swap', user_id=user_id))
+            
             # 日期格式转换
             try:
                 # 尝试解析包含时间的格式
@@ -1667,6 +1681,22 @@ def exchange():
                 'success': False,
                 'message': '不能与自己互换宿舍'
             }), 400
+        
+        # 检查两个用户是否有未处理的物品领用记录
+        user1_obj = User.query.get(int(user1_id))
+        user2_obj = User.query.get(int(user2_id))
+        user1_name = user1_obj.name if (user1_obj and user1_obj.name) else f"ID:{user1_id}"
+        user2_name = user2_obj.name if (user2_obj and user2_obj.name) else f"ID:{user2_id}"
+        
+        active_item1 = RoomItemAssignment.query.filter_by(user_id=int(user1_id), status='active').first()
+        if active_item1:
+            logging.info(f"互换检查：用户{user1_name}名下仍有active状态的物品领用记录，阻止互换")
+            return jsonify({'success': False, 'message': f'用户{user1_name}名下仍有未处理的物品领用记录，请先处理物品后再办理互换'}), 400
+        
+        active_item2 = RoomItemAssignment.query.filter_by(user_id=int(user2_id), status='active').first()
+        if active_item2:
+            logging.info(f"互换检查：用户{user2_name}名下仍有active状态的物品领用记录，阻止互换")
+            return jsonify({'success': False, 'message': f'用户{user2_name}名下仍有未处理的物品领用记录，请先处理物品后再办理互换'}), 400
         
         # 日期格式转换 - 修改：支持datetime格式
         try:

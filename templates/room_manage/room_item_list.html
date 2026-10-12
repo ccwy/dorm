@@ -37,6 +37,23 @@
                     </div>
                 </div>
                 <div class="mt-4 md:mt-0 flex flex-wrap gap-3">
+                    {% if current_user.has_permission('room_item.create') and rooms %}
+                    <div class="flex items-center gap-2">
+                        <input type="text" id="room_search" list="room_datalist"
+                               placeholder="输入楼栋或房间号搜索..."
+                               class="border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                               style="min-width: 220px;">
+                        <datalist id="room_datalist">
+                            {% for room in rooms %}
+                            <option value="{{ room.building }}{{ room.room_number }}">
+                            {% endfor %}
+                        </datalist>
+                        <button onclick="var s=document.getElementById('room_search').value;var rid=roomNameToId[s];if(rid){location.href='/room/item/add/'+rid;}else{alert('请先选择一个有效的房间');}"
+                                class="bg-primary text-white px-4 py-2 rounded-md flex items-center hover:bg-primary/90 transition-colors">
+                            <i class="fa fa-plus mr-2"></i>新增物品
+                        </button>
+                    </div>
+                    {% endif %}
 
                     <button onclick="location.reload();" class="bg-secondary text-white px-4 py-2 rounded-md flex items-center hover:bg-secondary/90 transition-colors">
                         <i class="fa fa-refresh mr-2"></i>刷新
@@ -188,6 +205,13 @@
             {% endif %}
         </div>
     </main>
+    <script>
+    var roomNameToId = {
+        {% for room in rooms %}
+        "{{ room.building }}{{ room.room_number }}": {{ room.id }}{% if not loop.last %},{% endif %}
+        {% endfor %}
+    };
+    </script>
     {% include 'footer.html' %}
 </body>
 </html>
