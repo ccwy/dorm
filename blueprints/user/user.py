@@ -310,6 +310,20 @@ def view(id):
     logging.info(f"加载用户详情数据成功，用户ID: {id}")
     custom_field_defs = get_custom_field_definitions('user.custom_field')
     custom_field_values = deserialize_custom_fields(user.custom_fields)
+
+    # 获取用户领用的物品信息
+    from models.room.room_item_assignment import RoomItemAssignment
+    from models.room.room_item import RoomItem
+
+    active_item_assignments = RoomItemAssignment.query.filter_by(
+        user_id=id, status='active'
+    ).order_by(RoomItemAssignment.assigned_at.desc()).all()
+
+    # 获取关联的物品信息
+    item_ids = [a.item_id for a in active_item_assignments]
+    assigned_items = RoomItem.query.filter(RoomItem.id.in_(item_ids)).all() if item_ids else []
+    item_map = {i.id: i for i in assigned_items}
+
     return render_template(
         'user_manage/user_view.html',
         title=f"查看用户 - {user.name}",
@@ -331,5 +345,7 @@ def view(id):
         custom_field_defs=custom_field_defs,
         custom_field_values=custom_field_values,
         bed_management_enabled=SystemConfig.get_config_value('ROOM_BED_MANAGEMENT_ENABLED', True),
+        active_item_assignments=active_item_assignments,
+        item_map=item_map,
     )
 

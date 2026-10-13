@@ -95,6 +95,80 @@
                     
                     
                     
+                    {% if get_config_value('FEATURE_ROOM_ITEM_MANAGE_ENABLED', True) %}
+                    <!-- 用户领用物品 -->
+                    <div class="bg-white rounded-lg shadow-sm overflow-hidden mb-8">
+                        <div class="p-6">
+                            <h3 class="text-lg font-medium mb-4 pb-2 border-b border-gray-200">领用物品</h3>
+                            {% if active_item_assignments %}
+                            <p class="text-sm text-orange-600 mb-3"><i class="fa fa-exclamation-triangle mr-1"></i>该用户名下有未处理的领用物品，请先处理后再办理宿舍操作</p>
+                            <div class="overflow-x-auto">
+                                <table class="min-w-full divide-y divide-gray-200">
+                                    <thead class="bg-gray-50">
+                                        <tr>
+                                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">物品名称</th>
+                                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">物品编号</th>
+                                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">物品规格</th>
+                                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">物品单位</th>
+                                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">所属房间</th>
+                                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">数量</th>
+                                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">分配时间</th>
+                                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">操作</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="bg-white divide-y divide-gray-200">
+                                        {% for a in active_item_assignments %}
+                                        <tr>
+                                            <td class="px-4 py-3 whitespace-nowrap text-sm">{{ a.item.name if a.item else '未知' }}</td>
+                                            <td class="px-4 py-3 whitespace-nowrap text-sm">{{ a.item.item_code if a.item else '-' }}</td>
+                                            <td class="px-4 py-3 whitespace-nowrap text-sm">{{ a.item.specification if a.item else '-' }}</td>
+                                            <td class="px-4 py-3 whitespace-nowrap text-sm">{{ a.item.unit if a.item else '-' }}</td>
+                                            <td class="px-4 py-3 whitespace-nowrap text-sm">{% if a.item and a.item.room %}{{ a.item.room.building }}{{ a.item.room.room_number }}{% else %}-{% endif %}</td>
+                                            <td class="px-4 py-3 whitespace-nowrap text-sm">{{ a.quantity }}</td>
+                                            <td class="px-4 py-3 whitespace-nowrap text-sm">{{ a.assigned_at.strftime('%Y-%m-%d %H:%M') if a.assigned_at else '-' }}</td>
+                                            <td class="px-4 py-3 whitespace-nowrap text-sm">
+                                                <div class="flex flex-wrap gap-1 items-center">
+                                                    <form method="POST" action="{{ url_for('room_item.return_item', assignment_id=a.id) }}" style="display:inline;" onsubmit="return confirm('确认归还该物品？')">
+                                                        <input type="hidden" name="next" value="{{ request.full_path }}">
+                                                        <input type="number" name="quantity" value="1" min="1" max="{{ a.quantity }}" class="w-12 px-1 py-0.5 text-xs border rounded text-center" required>
+                                                        <button type="submit" class="px-2 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 transition duration-200">
+                                                            <i class="fa fa-undo mr-1"></i>归还
+                                                        </button>
+                                                    </form>
+                                                    <form method="POST" action="{{ url_for('room_item.damage_assignment', assignment_id=a.id) }}" style="display:inline;" onsubmit="return confirm('确认标记损坏？')">
+                                                        <input type="hidden" name="next" value="{{ request.full_path }}">
+                                                        <input type="number" name="quantity" value="1" min="1" max="{{ a.quantity }}" class="w-12 px-1 py-0.5 text-xs border rounded text-center" required>
+                                                        <button type="submit" class="px-2 py-1 bg-orange-500 text-white text-xs rounded hover:bg-orange-600 transition duration-200">
+                                                            <i class="fa fa-exclamation-triangle mr-1"></i>损坏
+                                                        </button>
+                                                    </form>
+                                                    <form method="POST" action="{{ url_for('room_item.loss_assignment', assignment_id=a.id) }}" style="display:inline;" onsubmit="return confirm('确认标记丢失？')">
+                                                        <input type="hidden" name="next" value="{{ request.full_path }}">
+                                                        <input type="number" name="quantity" value="1" min="1" max="{{ a.quantity }}" class="w-12 px-1 py-0.5 text-xs border rounded text-center" required>
+                                                        <button type="submit" class="px-2 py-1 bg-yellow-500 text-white text-xs rounded hover:bg-yellow-600 transition duration-200">
+                                                            <i class="fa fa-question-circle mr-1"></i>丢失
+                                                        </button>
+                                                    </form>
+                                                    <form method="POST" action="{{ url_for('room_item.scrap_assignment', assignment_id=a.id) }}" style="display:inline;" onsubmit="return confirm('确认标记报废？')">
+                                                        <input type="hidden" name="next" value="{{ request.full_path }}">
+                                                        <input type="number" name="quantity" value="1" min="1" max="{{ a.quantity }}" class="w-12 px-1 py-0.5 text-xs border rounded text-center" required>
+                                                        <button type="submit" class="px-2 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600 transition duration-200">
+                                                            <i class="fa fa-trash mr-1"></i>报废
+                                                        </button>
+                                                    </form>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                            {% else %}
+                            <p class="text-gray-500 text-sm"><i class="fa fa-check-circle mr-1 text-green-500"></i>该用户暂无领用物品</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
                     <!-- 换宿记录 -->
                     <div class="mb-8 bg-white rounded-lg shadow-sm overflow-hidden">
                         <div class="p-6">

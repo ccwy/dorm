@@ -1,5 +1,5 @@
 from .user import User, UserOperationRecord  # 用户模型及操作记录
-from .room import Room, RoomStatus, Bed, BedStatus, RoomFacility  # 房间管理模型
+from .room import Room, RoomStatus, Bed, BedStatus, RoomFacility, RoomItem, RoomItemRecord, RoomItemAssignment  # 房间管理模型
 
 from .fee_subsidy import FeeSubsidy, FeeSubsidyUsage  # 补贴模型
 from .ticket import Ticket, TicketReply  # 留言模型

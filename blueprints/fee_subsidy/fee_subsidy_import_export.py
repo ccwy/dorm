@@ -394,6 +394,16 @@ def import_records():
                 'error_details': []
             }), 500
         
+        def normalize_cell_str(val):
+            s = str(val).strip()
+            try:
+                f = float(s)
+                if f.is_integer():
+                    return str(int(f))
+            except (ValueError, OverflowError):
+                pass
+            return s
+
         # 处理数据行
         for idx, (row_num, row) in enumerate(all_rows):
             try:
@@ -459,8 +469,8 @@ def import_records():
                         logging.error(f"第{row_num}行{fee_type}房间号为空（带*的为必填项）")
                         raise ValueError(f"{fee_type}房间号不能为空（带*的为必填项）")
                     
-                    building = str(building).strip()
-                    room_number = str(room_number).strip()
+                    building = normalize_cell_str(building)
+                    room_number = normalize_cell_str(room_number)
                     
                     # 直接使用楼栋和房间号查询房间ID
                     room = Room.query.filter(

@@ -15,6 +15,7 @@ from sqlalchemy import or_
 from models.system_config.system_config import SystemConfig
 from datetime import datetime
 import logging
+from models.room.room_item_assignment import RoomItemAssignment
 
 
 # 创建宿舍申请管理端蓝图
@@ -219,6 +220,7 @@ def application_detail(id):
                 if main_record:
                     checkout_billing_period = main_record.billing_period
 
+        active_item_assignments = RoomItemAssignment.query.filter_by(user_id=application.user_id, status='active').order_by(RoomItemAssignment.assigned_at.desc()).all()
         return render_template('dorm_manage/application_admin_detail.html',
                               title="审核详情",
                               application=application,
@@ -232,7 +234,8 @@ def application_detail(id):
                               building_list=Room.query.with_entities(Room.building).distinct().order_by(Room.building).all(),
                               room_type_list=Room.get_valid_room_types(),
                               room_level_list=Room.get_valid_room_levels(),
-                               bed_management_enabled=SystemConfig.get_config_value('ROOM_BED_MANAGEMENT_ENABLED', True))
+                               bed_management_enabled=SystemConfig.get_config_value('ROOM_BED_MANAGEMENT_ENABLED', True),
+                               active_item_assignments=active_item_assignments)
     except Exception as e:
         logging.error(f"查看宿舍申请详情失败: {str(e)}")
         flash('查看申请详情失败，请稍后重试', 'error')
@@ -310,6 +313,14 @@ def approve_application(id):
                 checkout_kwargs['water_current'] = water_current
             if electric_current is not None:
                 checkout_kwargs['electric_current'] = electric_current
+
+        # 换宿/退宿申请：检查申请用户名下是否有未处理的物品领用记录
+        if application.application_type in ('change', 'checkout'):
+            active_item = RoomItemAssignment.query.filter_by(user_id=application.user_id, status='active').first()
+            if active_item:
+                logging.info(f"申请审核：用户{application.user_id}名下仍有active状态的物品领用记录，阻止{application.application_type}申请审核通过")
+                flash('该用户名下仍有未处理的物品领用记录，请先处理物品后再审核通过', 'warning')
+                return redirect(url_for('dorm_application_admin.application_detail', id=id))
 
         # 调用approve方法（床位自动分配，不修改申请人填写的目标房间信息）
         application.approve(

@@ -22,6 +22,33 @@ from models.fee_subsidy.fee_subsidy_usage import FeeSubsidyUsage
 # 导入require_permission装饰器
 from utils.auth import require_permission
 from utils.media.room_meter_checkout_photo import room_meter_checkout_photo_manager
+from models.room.room_item import RoomItem
+from models.room.room_item_assignment import RoomItemAssignment
+
+
+# --------------------------
+# 辅助函数：检查房间是否有物品，设置dorm的pending_item_action标志
+# --------------------------
+def check_and_set_pending_item_action(dorm_id, room_id, user_id):
+    """检查指定用户是否有active物品分配，如果有则设置dorm的pending_item_action=True
+    
+    Args:
+        dorm_id: 住宿记录ID
+        room_id: 房间ID（用于日志记录）
+        user_id: 用户ID
+    
+    Returns:
+        True表示有待确认物品，False表示没有
+    """
+    has_assignment = RoomItemAssignment.query.filter_by(user_id=user_id, status='active').first()
+    if has_assignment:
+        dorm = Dorm.query.get(dorm_id)
+        if dorm:
+            dorm.pending_item_action = True
+            db.session.add(dorm)
+            logging.info(f"用户{user_id}在房间{room_id}仍有active物品分配，已设置住宿记录{dorm_id}的pending_item_action标志")
+        return True
+    return False
 
 
 # --------------------------
@@ -109,6 +136,11 @@ def create_allocation():
         room_type_list = [rt[0] for rt in room_types if rt[0]]
         room_level_list = [rl[0] for rl in room_levels if rl[0]]
         
+        # 查询用户领用的物品（active状态）
+        active_item_assignments = RoomItemAssignment.query.filter_by(
+            user_id=user_id, status='active'
+        ).all()
+        
         return render_template('dorm_manage/dorm_create_allocation.html',
                               title=f"分配宿舍 - {user.name}(ID:{user_id})",
                               user=user,
@@ -118,7 +150,8 @@ def create_allocation():
                               room_type_list=room_type_list,
                               room_level_list=room_level_list,
                               datetime=datetime,
-                              next_url=next_url
+                              next_url=next_url,
+                              active_item_assignments=active_item_assignments,
                               )
                               
     
@@ -539,6 +572,13 @@ def checkout():
                 flash(f'用户不存在（ID: {user_id}）', 'danger')
                 return redirect(url_for('dorm.dorm_query'))
             
+            # 检查用户是否有未处理的物品领用记录
+            active_item = RoomItemAssignment.query.filter_by(user_id=user_id, status='active').first()
+            if active_item:
+                logging.info(f"退宿检查：用户{user.name}名下仍有active状态的物品领用记录，阻止退宿")
+                flash('该用户名下仍有未处理的物品领用记录，请先处理物品后再办理退宿', 'warning')
+                return redirect(url_for('dorm.checkout', user_id=user_id))
+            
             # 日期格式转换
             try:
                 # 尝试解析包含时间的格式
@@ -618,12 +658,22 @@ def checkout():
                     action=log_action,
                     result="成功",
                     module='dorm',
-                    operation_type='checkout',
+                    operation_type='dorm_checkout',
                     ip_address=request.headers.get('X-Real-IP', request.remote_addr)
                 )
                 
+                # 检查退宿房间是否有物品（在主commit之前）
+                has_pending_items = False
+                try:
+                    has_pending_items = check_and_set_pending_item_action(current_dorm.id, current_dorm.room_id, current_dorm.user_id)
+                except Exception as item_err:
+                    logging.warning(f"检查退宿房间物品时出错（不影响退宿操作）: {str(item_err)}")
+
                 db.session.commit()
-                
+
+                if has_pending_items:
+                    flash('该房间仍有物品，<a href="' + url_for('room_item.confirm_dorm_operation', dorm_id=current_dorm.id, operation_type='dorm_checkout') + '">请前往物品管理确认处理</a>', 'warning')
+
                 # 移动退宿临时照片到正式目录
                 try:
                     if billing_period and current_dorm.room_id and user_id:
@@ -632,12 +682,13 @@ def checkout():
                         )
                 except Exception as move_err:
                     logging.warning(f"移动退宿临时照片失败（不影响退宿操作）: {str(move_err)}")
-                
+
                 # 获取房间信息
                 room_info = f"{current_dorm.room.building}{current_dorm.room.room_number}" if current_dorm.room else "未知房间"
-                
+
                 # 自离用户退宿成功消息
                 success_message = f"自离退宿成功：{user_name}已从{room_info}退宿，日期{check_out_date}"
+
                 if subsidies_disabled:
                     success_message += f"，并自动禁用了{len(user_subsidies)}条住宿补贴"
                 flash(success_message, 'success')
@@ -737,11 +788,21 @@ def checkout():
                     action=log_action,
                     result="成功",
                     module='dorm',
-                    operation_type='checkout',
+                    operation_type='dorm_checkout',
                     ip_address=request.headers.get('X-Real-IP', request.remote_addr)
                 )
                 
+                # 检查退宿房间是否有物品（在主commit之前）
+                has_pending_items = False
+                try:
+                    has_pending_items = check_and_set_pending_item_action(current_dorm.id, current_dorm.room_id, current_dorm.user_id)
+                except Exception as item_err:
+                    logging.warning(f"检查退宿房间物品时出错（不影响退宿操作）: {str(item_err)}")
+
                 db.session.commit()
+
+                if has_pending_items:
+                    flash('该房间仍有物品，<a href="' + url_for('room_item.confirm_dorm_operation', dorm_id=current_dorm.id, operation_type='dorm_checkout') + '">请前往物品管理确认处理</a>', 'warning')
                 
                 # 移动退宿临时照片到正式目录
                 try:
@@ -784,7 +845,7 @@ def checkout():
                 action=f"退宿验证失败：{user_name}",
                 result="失败",
                 module='dorm',
-                operation_type='checkout',
+                operation_type='dorm_checkout',
                 ip_address=request.headers.get('X-Real-IP', request.remote_addr)
             )
             flash(str(e), 'danger')
@@ -807,7 +868,7 @@ def checkout():
                 action=f"处理退宿异常: {str(e)}",
                 result="失败",
                 module='dorm',
-                operation_type='checkout',
+                operation_type='dorm_checkout',
                 ip_address=request.headers.get('X-Real-IP', request.remote_addr)
             )
             flash('服务器处理失败，请稍后重试', 'danger')
@@ -866,7 +927,8 @@ def checkout():
                     error_message=error_message,
                     datetime=datetime,
                     user_id=user_id,
-                    next_url=next_url
+                    next_url=next_url,
+                    active_item_assignments=[]
                 )
             
             # 查询用户的当前住宿记录
@@ -889,7 +951,8 @@ def checkout():
                     error_message=error_message,
                     datetime=datetime,
                     user_id=user_id,
-                    next_url=next_url
+                    next_url=next_url,
+                    active_item_assignments=[]
                 )
             
             # 查询当前房间信息
@@ -908,7 +971,8 @@ def checkout():
                     error_message=error_message,
                     datetime=datetime,
                     user_id=user_id,
-                    next_url=next_url
+                    next_url=next_url,
+                    active_item_assignments=[]
                 )
             
             # 获取上次抄表记录值
@@ -1041,6 +1105,11 @@ def checkout():
         except Exception as e:
             logging.error(f"获取用户水电费记录失败: {str(e)}")
     
+    # 查询用户领用的物品（active状态）
+    active_item_assignments = RoomItemAssignment.query.filter_by(
+        user_id=user_id, status='active'
+    ).all() if user_id else []
+    
     # 渲染模板并返回数据
     return render_template(
         'dorm_manage/dorm_checkout.html',
@@ -1057,7 +1126,8 @@ def checkout():
         last_water_reading=last_water_reading,
         last_electric_reading=last_electric_reading,
         utility_records=utility_records,
-        next_url=next_url
+        next_url=next_url,
+        active_item_assignments=active_item_assignments
     )
 
 
@@ -1106,6 +1176,13 @@ def swap():
                 flash(f'用户不存在（ID: {user_id}）', 'danger')
                 return redirect(url_for('dorm.manage'))
             
+            # 检查用户是否有未处理的物品领用记录
+            active_item = RoomItemAssignment.query.filter_by(user_id=user_id, status='active').first()
+            if active_item:
+                logging.info(f"换宿检查：用户{user.name}名下仍有active状态的物品领用记录，阻止换宿")
+                flash('该用户名下仍有未处理的物品领用记录，请先处理物品后再办理换宿', 'warning')
+                return redirect(url_for('dorm.swap', user_id=user_id))
+            
             # 日期格式转换
             try:
                 # 尝试解析包含时间的格式
@@ -1150,11 +1227,21 @@ def swap():
                 action=f"单人换宿成功：{user_name}从{old_room_str}→{new_room_str}",
                 result="成功",
                 module='dorm',
-                operation_type='change',
+                operation_type='dorm_transfer',
                 ip_address=request.headers.get('X-Real-IP', request.remote_addr)
             )
             
+            # 检查原房间是否有物品（在主commit之前）
+            has_pending_items = False
+            try:
+                has_pending_items = check_and_set_pending_item_action(old_allocation.id, old_allocation.room_id, old_allocation.user_id)
+            except Exception as item_err:
+                logging.warning(f"检查换宿原房间物品时出错（不影响换宿操作）: {str(item_err)}")
+
             db.session.commit()
+
+            if has_pending_items:
+                flash('原房间仍有物品，<a href="' + url_for('room_item.confirm_dorm_operation', dorm_id=old_allocation.id, operation_type='dorm_transfer') + '">请前往物品管理确认处理</a>', 'warning')
             
             # 使用flash消息并重定向
             flash(f"宿舍更换成功：{user_name}从{old_room_str}→{new_room_str}", 'success')
@@ -1174,7 +1261,7 @@ def swap():
                 action=f"单人换宿验证失败：{user_name}",
                 result="失败",
                 module='dorm',
-                operation_type='change',
+                operation_type='dorm_transfer',
                 ip_address=request.headers.get('X-Real-IP', request.remote_addr)
             )
             flash(str(e), 'danger')
@@ -1188,7 +1275,7 @@ def swap():
                 action=f"处理单人换宿异常: {str(e)}",
                 result="失败",
                 module='dorm',
-                operation_type='change',
+                operation_type='dorm_transfer',
                 ip_address=request.headers.get('X-Real-IP', request.remote_addr)
             )
             flash('服务器处理失败，请稍后重试', 'danger')
@@ -1235,7 +1322,8 @@ def swap():
                     available_rooms=[],
                     error_message=error_message,
                     next_url=next_url,
-                    datetime=datetime
+                    datetime=datetime,
+                    active_item_assignments=[]
                 )
             
             # 查询用户的当前住宿记录
@@ -1257,7 +1345,8 @@ def swap():
                     available_rooms=[],
                     error_message=error_message,
                     next_url=next_url,
-                    datetime=datetime
+                    datetime=datetime,
+                    active_item_assignments=[]
                 )
             
             # 查询当前房间信息
@@ -1275,7 +1364,8 @@ def swap():
                     available_rooms=[],
                     error_message=error_message,
                     next_url=next_url,
-                    datetime=datetime
+                    datetime=datetime,
+                    active_item_assignments=[]
                 )
             
             # 查询室友信息
@@ -1392,6 +1482,11 @@ def swap():
     # 预计算当前住宿已住天数
     current_stay_days = current_dorm.stay_days if current_dorm else 0
     
+    # 查询用户领用的物品（active状态）
+    active_item_assignments = RoomItemAssignment.query.filter_by(
+        user_id=user_id, status='active'
+    ).all() if user_id else []
+    
     # 渲染模板并返回数据
     return render_template(
         'dorm_manage/dorm_swap.html',
@@ -1407,7 +1502,8 @@ def swap():
         datetime=datetime,  # 传递datetime模块给模板使用
         utility_records=utility_records,  # 传递用户水电费记录
         next_url=next_url,  # 传递来源页面URL
-        current_stay_days=current_stay_days  # 传递当前已住天数
+        current_stay_days=current_stay_days,  # 传递当前已住天数
+        active_item_assignments=active_item_assignments
     )
 
 # 单人更换宿舍页面（GET）
@@ -1485,6 +1581,15 @@ def change():
                 'message': f'用户不存在（ID: {user_id}）'
             }), 400
         
+        # 检查用户是否有未处理的物品领用记录
+        active_item = RoomItemAssignment.query.filter_by(user_id=user_id, status='active').first()
+        if active_item:
+            logging.info(f"换宿检查：用户{user.name}名下仍有active状态的物品领用记录，阻止换宿")
+            return jsonify({
+                'success': False,
+                'message': '该用户名下仍有未处理的物品领用记录，请先处理物品后再办理换宿'
+            }), 400
+        
         # 日期格式转换 - 修改：支持datetime格式
         try:
             # 尝试解析包含时间的格式
@@ -1525,11 +1630,22 @@ def change():
             action=f"单人换宿成功：{user_name}从{old_room_str}→{new_room_str}",
             result="成功",
             module='dorm',
-            operation_type='change',
+            operation_type='dorm_transfer',
             
             ip_address=request.headers.get('X-Real-IP', request.remote_addr)
         )
+        # 检查原房间是否有物品（在主commit之前）
+        has_pending_items = False
+        try:
+            has_pending_items = check_and_set_pending_item_action(old_allocation.id, old_allocation.room_id, old_allocation.user_id)
+        except Exception as item_err:
+            logging.warning(f"检查换宿原房间物品时出错（不影响换宿操作）: {str(item_err)}")
+
         db.session.commit()
+
+        if has_pending_items:
+            flash('原房间仍有物品，<a href="' + url_for('room_item.confirm_dorm_operation', dorm_id=old_allocation.id, operation_type='dorm_transfer') + '">请前往物品管理确认处理</a>', 'warning')
+        
         # 构建返回数据
         return jsonify({
             'success': True,
@@ -1550,7 +1666,7 @@ def change():
             action=f"单人换宿验证失败：{user_name}",
             result="失败",
             module='dorm',
-            operation_type='change',
+            operation_type='dorm_transfer',
             
             ip_address=request.headers.get('X-Real-IP', request.remote_addr)
         )
@@ -1563,7 +1679,7 @@ def change():
             action=f"处理单人换宿异常: {str(e)}",
             result="失败",
             module='dorm',
-            operation_type='change',
+            operation_type='dorm_transfer',
             
             ip_address=request.headers.get('X-Real-IP', request.remote_addr)
         )
@@ -1598,6 +1714,22 @@ def exchange():
                 'success': False,
                 'message': '不能与自己互换宿舍'
             }), 400
+        
+        # 检查两个用户是否有未处理的物品领用记录
+        user1_obj = User.query.get(int(user1_id))
+        user2_obj = User.query.get(int(user2_id))
+        user1_name = user1_obj.name if (user1_obj and user1_obj.name) else f"ID:{user1_id}"
+        user2_name = user2_obj.name if (user2_obj and user2_obj.name) else f"ID:{user2_id}"
+        
+        active_item1 = RoomItemAssignment.query.filter_by(user_id=int(user1_id), status='active').first()
+        if active_item1:
+            logging.info(f"互换检查：用户{user1_name}名下仍有active状态的物品领用记录，阻止互换")
+            return jsonify({'success': False, 'message': f'用户{user1_name}名下仍有未处理的物品领用记录，请先处理物品后再办理互换'}), 400
+        
+        active_item2 = RoomItemAssignment.query.filter_by(user_id=int(user2_id), status='active').first()
+        if active_item2:
+            logging.info(f"互换检查：用户{user2_name}名下仍有active状态的物品领用记录，阻止互换")
+            return jsonify({'success': False, 'message': f'用户{user2_name}名下仍有未处理的物品领用记录，请先处理物品后再办理互换'}), 400
         
         # 日期格式转换 - 修改：支持datetime格式
         try:
@@ -1649,11 +1781,24 @@ def exchange():
             action=f"宿舍互换成功：{user1_name}({old_room1_str})与{user2_name}({old_room2_str})互换宿舍",
             result="成功",
             module='dorm',
-            operation_type='change',
+            operation_type='dorm_transfer',
             
             ip_address=request.headers.get('X-Real-IP', request.remote_addr)
         )
-        db.session.commit()       
+        # 检查涉及房间是否有物品（在主commit之前）
+        has_pending_item = False
+        try:
+            if check_and_set_pending_item_action(new_alloc1.prev_dorm.id, new_alloc1.prev_dorm.room_id, new_alloc1.prev_dorm.user_id):
+                has_pending_item = True
+                flash('用户1原房间仍有物品分配，<a href="' + url_for('room_item.confirm_dorm_operation', dorm_id=new_alloc1.prev_dorm.id, operation_type='dorm_exchange') + '">请前往确认处理</a>', 'warning')
+            if check_and_set_pending_item_action(new_alloc2.prev_dorm.id, new_alloc2.prev_dorm.room_id, new_alloc2.prev_dorm.user_id):
+                has_pending_item = True
+                flash('用户2原房间仍有物品分配，<a href="' + url_for('room_item.confirm_dorm_operation', dorm_id=new_alloc2.prev_dorm.id, operation_type='dorm_exchange') + '">请前往确认处理</a>', 'warning')
+        except Exception as item_err:
+            logging.warning(f"检查互换房间物品时出错（不影响互换操作）: {str(item_err)}")
+
+        db.session.commit()
+        
         # 构建返回数据
         return jsonify({
             'success': True,
@@ -1684,7 +1829,7 @@ def exchange():
             action=f"宿舍互换验证失败：{user1_name}与{user2_name}",
             result="失败",
             module='dorm',
-            operation_type='change',
+            operation_type='dorm_transfer',
             
             ip_address=request.headers.get('X-Real-IP', request.remote_addr)
         )
@@ -1697,7 +1842,7 @@ def exchange():
             action=f"处理宿舍互换异常: {str(e)}",
             result="失败",
             module='dorm',
-            operation_type='change',
+            operation_type='dorm_transfer',
             
             ip_address=request.headers.get('X-Real-IP', request.remote_addr)
         )

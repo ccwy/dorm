@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+   <!--本地化CDN-->
+{% include 'static.html' %}
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#165DFF',
+                        secondary: '#36CFC9',
+                        accent: '#722ED1',
+                    },
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    {% include 'header.html' %}
+    <main class="container mx-auto px-4 py-6">
+        
+
+        <div class="flex items-center mb-6">
+            <button onclick="window.location.href='{{ url_for('room_item.manage') }}'" class="text-primary hover:text-primary/80 mr-2">
+                <i class="fa fa-arrow-left"></i>
+            </button>
+            <h2 class="text-2xl font-semibold text-dark">编辑物品</h2>
+        </div>
+
+        <!-- flash消息 -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            <div class="flash-messages mb-6 mx-auto" style="max-width: 500px;">
+              {% for category, message in messages %}
+                <div class="p-4 rounded-md mb-2 text-center {% if category == 'success' %}bg-green-100 text-green-800{% elif category == 'error' or category == 'danger' %}bg-red-100 text-red-800{% elif category == 'warning' %}bg-yellow-100 text-yellow-800{% else %}bg-blue-100 text-blue-800{% endif %}">
+                  <button type="button" class="float-right ml-2 text-gray-500 hover:text-gray-700" onclick="this.parentElement.remove()">×</button>
+                  {{ message }}
+                </div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        {% endwith %}
+
+        <div class="bg-white rounded-lg shadow-sm p-6 mx-auto">
+            <form method="POST" action="{{ url_for('room_item.edit', item_id=item.id) }}">
+                <div class="space-y-6">
+                    <div>
+                        <label for="item_code" class="block text-sm font-medium text-gray-700 mb-1">物品编号</label>
+                        <input type="text" id="item_code" value="{{ item.item_code or '' }}" readonly
+                               class="w-full px-4 py-2 border border-gray-200 rounded-md bg-gray-100 text-gray-500 cursor-not-allowed">
+                    </div>
+
+                    <div>
+                        <label for="name" class="block text-sm font-medium text-gray-700 mb-1">物品名称 <span class="text-red-500">*</span></label>
+                        <input type="text" id="name" name="name" value="{{ item.name }}" required
+                               class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                    </div>
+
+                    <div>
+                        <label for="specification" class="block text-sm font-medium text-gray-700 mb-1">物品规格</label>
+                        <input type="text" id="specification" name="specification" value="{{ item.specification or '' }}"
+                               class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                    </div>
+
+                    <div>
+                        <label for="unit" class="block text-sm font-medium text-gray-700 mb-1">物品单位<span class="text-red-500">*</span></label>
+                        <input type="text" id="unit" name="unit" value="{{ item.unit or '' }}" list="supply_units_list" required
+                               class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">所属房间</label>
+                        <div class="w-full px-4 py-2 border border-gray-200 rounded-md bg-gray-50 text-gray-700">
+                            {{ item.room.building }}{{ item.room.room_number }}
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">物品类型</label>
+                        <div class="w-full px-4 py-2 border border-gray-200 rounded-md bg-gray-50 text-gray-700">
+                            {% if item.item_type == 'room_bound' %}房间绑定{% else %}可转移{% endif %}
+                        </div>
+                        <p class="text-xs text-gray-500 mt-1">物品类型创建后不可修改</p>
+                    </div>
+
+                    {% set assigned_count = item.total_quantity - item.available_quantity %}
+                    <div>
+                        <label for="total_quantity" class="block text-sm font-medium text-gray-700 mb-1">总数量 <span class="text-red-500">*</span></label>
+                        <input type="number" id="total_quantity" name="total_quantity" min="{{ assigned_count }}" value="{{ item.total_quantity }}" required
+                               class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                        <p class="text-xs text-gray-500 mt-1">已分配 {{ assigned_count }} 件，总数量不能小于已分配数量</p>
+                    </div>
+
+                    <div>
+                        <label for="status" class="block text-sm font-medium text-gray-700 mb-1">状态 <span class="text-red-500">*</span></label>
+                        <select id="status" name="status" required
+                                class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                            <option value="正常" {% if item.status == '正常' %}selected{% endif %}>正常</option>
+                            <option value="损坏" {% if item.status == '损坏' %}selected{% endif %}>损坏</option>
+                            <option value="丢失" {% if item.status == '丢失' %}selected{% endif %}>丢失</option>
+                            <option value="报废" {% if item.status == '报废' %}selected{% endif %}>报废</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label for="remark" class="block text-sm font-medium text-gray-700 mb-1">备注</label>
+                        <textarea id="remark" name="remark" rows="3"
+                                  class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">{{ item.remark or '' }}</textarea>
+                    </div>
+
+                    <div class="flex justify-end gap-3 pt-4 border-t border-gray-200">
+                        <button type="button" onclick="window.location.href='{{ url_for('room_item.manage') }}'" class="px-6 py-2 border border-gray-300 rounded-md hover:bg-gray-50">取消</button>
+                        <button type="submit" class="px-6 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors">
+                            <i class="fa fa-save mr-1"></i>保存
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </main>
+    {% include 'footer.html' %}
+
+    <datalist id="supply_units_list">
+        {% for u in supply_units %}
+        <option value="{{ u }}">
+        {% endfor %}
+    </datalist>
+</body>
+</html>

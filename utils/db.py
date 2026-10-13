@@ -344,6 +344,9 @@ def init_db(app: Flask, force_recreate=False):
             import models.fee_subsidy.fee_subsidy
             import models.fee_subsidy.fee_subsidy_usage
             import models.room.room_facility  # 房间设施模型
+            import models.room.room_item  # 房间物品模型
+            import models.room.room_item_record  # 物品操作记录模型
+            import models.room.room_item_assignment  # 物品分配记录模型
             import models.ticket.ticket  # 留言模型
             import models.ticket.ticket_reply  # 留言回复模型
             import models.todo.todo  # 待办事项模型

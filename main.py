@@ -104,7 +104,7 @@ def init_flask_app(progress_callback=None):
     from blueprints import (
         login_bp, user_bp, user_api_bp, user_operations_bp,
         user_import_export_bp, room_import_export_bp,
-        room_bp, room_api_bp,
+        room_bp, room_api_bp, room_item_bp, room_item_api_bp, room_item_import_export_bp,
         dorm_bp, dorm_import_export_bp, dorm_application_user_bp, dorm_application_admin_bp,
         dorm_application_export_bp,
         system_config_bp, log_bp,
@@ -130,7 +130,7 @@ def init_flask_app(progress_callback=None):
         maintenance_user_bp, maintenance_admin_bp, maintenance_staff_bp, maintenance_api_bp,
         payment_bp, payment_api_bp, payment_export_bp
     )
-    _stamp("导入72个蓝图")
+    _stamp("导入75个蓝图")
     app.register_blueprint(login_bp)
     app.register_blueprint(user_bp)
     app.register_blueprint(user_api_bp)
@@ -139,6 +139,9 @@ def init_flask_app(progress_callback=None):
     app.register_blueprint(room_bp)
     app.register_blueprint(room_api_bp)
     app.register_blueprint(room_import_export_bp)
+    app.register_blueprint(room_item_bp)
+    app.register_blueprint(room_item_api_bp)
+    app.register_blueprint(room_item_import_export_bp)
     app.register_blueprint(dorm_bp)
     app.register_blueprint(dorm_import_export_bp)
     app.register_blueprint(dorm_application_user_bp)
@@ -203,7 +206,7 @@ def init_flask_app(progress_callback=None):
     app.register_blueprint(maintenance_admin_bp)
     app.register_blueprint(maintenance_staff_bp)
     app.register_blueprint(maintenance_api_bp)
-    _stamp("注册72个蓝图")
+    _stamp("注册75个蓝图")
 
     # 阶段4：初始化数据库
     if progress_callback:
@@ -457,12 +460,14 @@ if __name__ == '__main__':
     if is_win7():
         server_mode = "服务端"
     
+    use_desktop = current_config.USE_DESKTOP_VIEW or is_win7()
+    
     # 单实例检测（仅Windows桌面模式）
-    if current_config.USE_DESKTOP_VIEW and sys.platform == 'win32':
+    if use_desktop and sys.platform == 'win32':
         from utils.single_instance import single_instance
         single_instance.check_and_acquire()
     
-    if server_mode == "服务端" and current_config.USE_DESKTOP_VIEW:
+    if server_mode == "服务端" and use_desktop:
         logging.info("以服务端模式启动，显示启动闪屏")
         
         from utils.server_gui import SplashScreen, run_server_gui
@@ -497,7 +502,7 @@ if __name__ == '__main__':
             threading.Event().wait()
         else:
             os._exit(0)
-    elif server_mode == "客户端" and current_config.USE_DESKTOP_VIEW:
+    elif server_mode == "客户端" and use_desktop:
         import webview
         
         logging.info("启动WebView窗口（闪屏模式）")
@@ -578,13 +583,7 @@ if __name__ == '__main__':
             os._exit(0)
     
     else:
-        logging.info("以开发模式启动")
+        logging.info("以Web模式启动（waitress）")
         
         app, run_server = init_flask_app()
-        
-        app.run(
-            host=current_config.SERVER_HOST,
-            port=current_config.SERVER_PORT,
-            debug=current_config.DEBUG,
-            use_reloader=current_config.DEBUG
-        )
+        run_server()

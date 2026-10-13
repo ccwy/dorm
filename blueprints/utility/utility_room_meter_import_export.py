@@ -492,6 +492,16 @@ def import_readings():
         # 收集导入的账期，用于导入后跳转
         imported_periods = set()
 
+        def normalize_cell_str(val):
+            s = str(val).strip()
+            try:
+                f = float(s)
+                if f.is_integer():
+                    return str(int(f))
+            except (ValueError, OverflowError):
+                pass
+            return s
+
         # 处理非空行数据
         for idx, (row_num, row) in enumerate(non_empty_rows):
             try:
@@ -537,6 +547,10 @@ def import_readings():
                 water_prev = None
                 electric_prev = None
 
+                # 规范化楼栋和宿舍号（处理Excel纯数字读取为float的问题）
+                building = normalize_cell_str(building)
+                room_number = normalize_cell_str(room_number)
+
                 # 验证必要字段
                 if not all([reading_date_value, building, room_number]):
                     logging.error("抄表日期时间、楼栋、宿舍号为必填项")
@@ -560,8 +574,8 @@ def import_readings():
 
                 # 查找房间
                 room = Room.query.filter_by(
-                    building=str(building).strip(),
-                    room_number=str(room_number).strip()
+                    building=building,
+                    room_number=room_number
                 ).first()
                 if not room:
                     logging.error(f"未找到楼栋{building}宿舍{room_number}的有效房间")

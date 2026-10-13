@@ -22,6 +22,8 @@ from utils.lazy_imports import pd  # 延迟导入pandas，避免启动时加载�
 from io import BytesIO
 from models.system_config.system_config import SystemConfig  # 导入系统配置模型
 from models.role import Role  # 导入角色模型
+from models.room.room_item_assignment import RoomItemAssignment  # 导入物品分配模型
+from models.room.room_item import RoomItem  # 导入房间物品模型
 
 from utils.auth import require_permission
 
@@ -61,7 +63,7 @@ def _read_excel_with_dtype(file_bytes):
     # 构建dtype字典，将特定字段设置为字符串类型
     str_columns = []
     for col in temp_df.columns:
-        if col in display_to_field and display_to_field[col] in ['phone', 'id_card', 'emergency_phone']:
+        if col in display_to_field and display_to_field[col] in ['phone', 'id_card', 'emergency_phone', 'student_id', 'password']:
             str_columns.append(col)
     
     # 读取整个Excel，将特定列设为字符串类型
@@ -74,6 +76,28 @@ def _read_excel_with_dtype(file_bytes):
     display_to_field = {v: k for k, v in importable_fields.items()}
     
     return df, excel_columns, display_to_field
+
+
+def normalize_numeric_str(val):
+    """规范化数字字符串：处理Excel读取的浮点数、科学计数法、.0后缀等问题。
+    浮点整数(如123.0)→"123"，科学计数法(如"1.23e+17")→整数字符串，非数字字符串原样返回。
+    纯整数字符串直接返回，避免大数float转换丢失精度（如18位身份证号码）。
+    """
+    s = str(val).strip()
+    if not s:
+        return s
+    # 纯整数字符串直接返回，避免大数float转换丢失精度（如18位身份证号码）
+    if s.isdigit():
+        return s
+    if s.startswith('-') and s[1:].isdigit():
+        return s
+    try:
+        f = float(s)
+        if f.is_integer():
+            return str(int(f))
+    except (ValueError, OverflowError):
+        pass
+    return s
 
 
 def _batch_parse_hire_dates(df, raise_error=True):
@@ -91,17 +115,13 @@ def _process_field_value(field_name, value, parsed_hire_dates, row_idx):
         parsed_date = parsed_hire_dates[row_idx]
         return parsed_date if parsed_date else None
     
-    # 字符串数字字段（Excel中纯数字会被pandas读取为float，需先转int再转str）
+    # 字符串数字字段（Excel中纯数字会被pandas读取为float或科学计数法字符串，统一规范化）
     if field_name in ['phone', 'id_card', 'emergency_phone']:
-        if isinstance(value, (int, float)):
-            return str(int(value))
-        return str(value).strip()
+        return normalize_numeric_str(value)
     
     # 密码字段 - 确保转为字符串（Excel中纯数字密码会被pandas读取为float）
     if field_name == 'password':
-        if isinstance(value, (int, float)):
-            return str(int(value))
-        return str(value).strip()
+        return normalize_numeric_str(value)
     
     # 布尔字段
     if field_name in ['is_active', 'is_banned']:
@@ -297,6 +317,20 @@ def export_users():
                         row_data_value = custom_data.get(field_key, '')
                         row[label] = str(row_data_value) if row_data_value else ''
             
+            # 添加用户持有物品列
+            active_assignments = RoomItemAssignment.query.filter_by(
+                user_id=user.id, status='active'
+            ).all()
+            if active_assignments:
+                item_names = []
+                for assignment in active_assignments:
+                    item = RoomItem.query.get(assignment.item_id)
+                    if item:
+                        item_names.append(f"{item.name}:{assignment.quantity}")
+                row['持有物品'] = ','.join(item_names) if item_names else ''
+            else:
+                row['持有物品'] = ''
+            
             data.append(row)
         
         # 生成Excel
@@ -448,7 +482,7 @@ def import_users():
             student_id = None
             if '工号' in excel_columns and not pd.isna(row['工号']):
                 # 尝试使用Excel中提供的工号
-                provided_student_id = str(row['工号']).strip()
+                provided_student_id = normalize_numeric_str(row['工号'])
                 # 检查是否已存在于数据库或当前批次
                 if provided_student_id not in existing_ids and provided_student_id not in batch_ids:
                     student_id = provided_student_id
@@ -499,8 +533,7 @@ def import_users():
             
             # 处理密码（只获取明文，不生成哈希，由模型处理）
             if '密码' in excel_columns and not pd.isna(row['密码']):
-                pwd_val = row['密码']
-                password = str(int(pwd_val)) if isinstance(pwd_val, (int, float)) else str(pwd_val).strip()
+                password = normalize_numeric_str(row['密码'])
             else:
                 password = SystemConfig.get_config_value('USER_DEFAULT_PASSWORD', '123321')
             
@@ -896,7 +929,7 @@ def update_users():
                         # 修复：验证通过后必须将username写入user_data，否则用户名永远不会被更新
                         user_data['username'] = username
             if '工号' in row and pd.notna(row['工号']):
-                student_id = str(row['工号']).strip()
+                student_id = normalize_numeric_str(row['工号'])
                 if student_id:
                     # 数据库唯一性检查
                     if student_id in student_id_to_id and student_id_to_id[student_id] != user_data['id']:

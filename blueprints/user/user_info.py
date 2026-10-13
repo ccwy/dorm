@@ -3,6 +3,7 @@ from flask import Blueprint, render_template, redirect, url_for, flash, request
 from models.user.user import User
 from models.dorm.dorm import Dorm
 from models.room.room import Room
+from models.room.room_item_assignment import RoomItemAssignment
 from models.utility.utility_room_bill_occupant import RoomUtilityOccupant
 from models.utility.utility_room_bill_checkout import CheckoutUtilityRecord
 from datetime import datetime
@@ -24,6 +25,9 @@ def user_info():
     
     # 获取用户的所有住宿记录（包括历史记录）
     historical_dorms = Dorm.query.filter_by(user_id=user.id).order_by(Dorm.check_in_date.desc()).all()
+    
+    # 获取用户领用物品记录（按领用时间倒序）
+    item_assignments = RoomItemAssignment.query.filter_by(user_id=user.id).order_by(RoomItemAssignment.assigned_at.desc()).all()
     
     # 获取室友信息（如果用户当前在住）
     roommates = []
@@ -129,6 +133,7 @@ def user_info():
         historical_dorms=historical_dorms,
         roommates=roommates,
         utility_records=utility_records,
+        item_assignments=item_assignments,
         format_datetime=format_datetime,
         bed_management_enabled=SystemConfig.get_config_value('ROOM_BED_MANAGEMENT_ENABLED', True),
     )
