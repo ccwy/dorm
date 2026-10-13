@@ -55,14 +55,15 @@ class Config:
 
     # 服务器配置
     # Android环境：使用127.0.0.1（本地运行）
-    # WebView桌面模式：使用127.0.0.1（本地运行）
+    # WebView桌面模式（客户端）：使用127.0.0.1（本地运行）
+    # 服务端模式：使用0.0.0.0（允许局域网访问）
     # 其他环境（Docker/Linux/Windows非桌面模式等）：使用0.0.0.0（允许外部访问）
     if os.environ.get('ANDROID_ENV', 'false').lower() == 'true':
         SERVER_HOST = '127.0.0.1'  # Android环境 - 本地运行，绑定localhost
-    elif USE_DESKTOP_VIEW:
-        SERVER_HOST = '127.0.0.1'  # WebView桌面模式 - 本地运行
+    elif USE_DESKTOP_VIEW and db_config.get("SERVER_MODE", "客户端") == "客户端":
+        SERVER_HOST = '127.0.0.1'  # WebView桌面模式（客户端）- 本地运行
     else:
-        SERVER_HOST = '0.0.0.0'  # 其他环境 - 允许外部访问
+        SERVER_HOST = '0.0.0.0'  # 服务端模式及其他环境 - 允许外部访问
     SERVER_PORT = int(db_config.get('SERVER_PORT', 35168))  # 确保int类型
 
     # 备份目录配置
