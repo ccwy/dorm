@@ -43,19 +43,26 @@ class Config:
     db_config = _shared_db_config
     SQL_TYPE = db_config.get('SQL_TYPE', "SQLITE")
 
+    # 配置：控制使用Web浏览器还是桌面窗口
+    # 仅Windows 10以上启用桌面视图，其他系统（含Android/Docker/Win7/Win8/Linux/macOS）均为False
+    USE_DESKTOP_VIEW = False
+    if sys.platform == 'win32':
+        try:
+            if sys.getwindowsversion().major >= 10:
+                USE_DESKTOP_VIEW = True
+        except Exception:
+            pass
+
     # 服务器配置
-    # 根据SERVER_MODE配置决定SERVER_HOST
     # Android环境：使用127.0.0.1（本地运行）
-    # Docker环境：使用0.0.0.0
-    # 服务端模式：使用0.0.0.0
-    # 客户端模式：使用127.0.0.1
+    # WebView桌面模式：使用127.0.0.1（本地运行）
+    # 其他环境（Docker/Linux/Windows非桌面模式等）：使用0.0.0.0（允许外部访问）
     if os.environ.get('ANDROID_ENV', 'false').lower() == 'true':
         SERVER_HOST = '127.0.0.1'  # Android环境 - 本地运行，绑定localhost
-    elif os.environ.get('DOCKER_ENV', 'false').lower() == 'true':
-        SERVER_HOST = '0.0.0.0'
+    elif USE_DESKTOP_VIEW:
+        SERVER_HOST = '127.0.0.1'  # WebView桌面模式 - 本地运行
     else:
-        server_mode = db_config.get('SERVER_MODE', '客户端')
-        SERVER_HOST = '0.0.0.0' if server_mode == '服务端' else '127.0.0.1'
+        SERVER_HOST = '0.0.0.0'  # 其他环境 - 允许外部访问
     SERVER_PORT = int(db_config.get('SERVER_PORT', 35168))  # 确保int类型
 
     # 备份目录配置
@@ -77,16 +84,6 @@ class Config:
 
     # 数据库引擎选项配置
     SQLALCHEMY_ENGINE_OPTIONS = {}  # 默认为空字典，将在运行时根据数据库类型被覆盖
-    
-    # 配置：控制使用Web浏览器还是桌面窗口
-    # 仅Windows 10以上启用桌面视图，其他系统（含Android/Docker/Win7/Win8/Linux/macOS）均为False
-    USE_DESKTOP_VIEW = False
-    if sys.platform == 'win32':
-        try:
-            if sys.getwindowsversion().major >= 10:
-                USE_DESKTOP_VIEW = True
-        except Exception:
-            pass
     
     # 调试模式：默认为False
     DEBUG = False
