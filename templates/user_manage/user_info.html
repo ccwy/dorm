@@ -281,6 +281,8 @@
                     {% endif %}
                 </div>
 
+                {% if get_config_value('FEATURE_ROOM_ITEM_MANAGE_ENABLED', True) %}
+                {% if item_assignments and item_assignments|length > 0 %}
                 <!-- 个人领用物品卡片 -->
                 <div class="bg-white rounded-lg shadow-sm overflow-hidden card-hover mb-6">
                     <div class="px-6 py-4 border-b border-gray-200">
@@ -335,6 +337,8 @@
                         </div>
                     </div>
                 </div>
+                {% endif %}
+                {% endif %}
 
                 <!-- 水电费记录卡片 -->
                 <div class="bg-white rounded-lg shadow-sm overflow-hidden card-hover mb-6">

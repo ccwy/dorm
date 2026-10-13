@@ -250,6 +250,8 @@
         </div>
         {% endif %}
 
+        {% if get_config_value('FEATURE_ROOM_ITEM_MANAGE_ENABLED', True) %}
+        {% if active_item_assignments and active_item_assignments|length > 0 %}
         <!-- 领用物品卡片（换宿/退宿时显示） -->
         {% if application.application_type in ('change', 'checkout') %}
         <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
@@ -289,6 +291,8 @@
             <p class="text-gray-500 text-sm"><i class="fa fa-check-circle mr-1 text-green-500"></i>暂无领用物品</p>
             {% endif %}
         </div>
+        {% endif %}
+        {% endif %}
         {% endif %}
 
         <!-- 申请宿舍信息卡片（申请/换宿时显示） -->

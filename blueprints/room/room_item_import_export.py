@@ -14,6 +14,7 @@ from models.room.room_item import RoomItem
 from models.room.room_item_record import RoomItemRecord
 from models.room.room_item_assignment import RoomItemAssignment
 from models.user.user import User
+from models.dorm.dorm import Dorm
 
 # 创建房间物品导入导出专用蓝图
 room_item_import_export_bp = Blueprint(
@@ -374,6 +375,74 @@ def import_items():
                         remarks='批量导入新增物品'
                     )
 
+                # 统一目标物品变量（合并分支用existing_item，新增分支用item_obj）
+                target_item = existing_item if existing_item else item_obj
+
+                # 读取分配用户（可选）
+                assign_user_val = row.get('分配用户')
+                assign_username = str(assign_user_val).strip() if pd.notna(assign_user_val) and str(assign_user_val).strip() else None
+
+                if assign_username:
+                    # 读取分配数量（可选，默认1）
+                    assign_qty_val = row.get('分配数量')
+                    if pd.isna(assign_qty_val) or str(assign_qty_val).strip() == '':
+                        assign_quantity = 1
+                    else:
+                        try:
+                            assign_quantity = int(float(str(assign_qty_val)))
+                            if assign_quantity < 1:
+                                error_records.append(f"第{row_num}行：分配数量必须为正整数，当前值{assign_quantity}")
+                                continue
+                        except ValueError:
+                            error_records.append(f"第{row_num}行：分配数量必须为整数")
+                            continue
+
+                    # 按用户名查询用户
+                    assign_user = User.query.filter_by(username=assign_username).first()
+                    if not assign_user:
+                        error_records.append(f"第{row_num}行：分配用户 '{assign_username}' 不存在")
+                        continue
+
+                    # 验证用户是该房间在住用户
+                    user_dorm = Dorm.query.filter_by(user_id=assign_user.id, room_id=room_id, status='active').first()
+                    if not user_dorm:
+                        error_records.append(f"第{row_num}行：用户 '{assign_username}' 不是房间 {building}{room_number} 的在住用户")
+                        continue
+
+                    # 验证物品状态为正常
+                    if target_item.status != '正常':
+                        error_records.append(f"第{row_num}行：物品 '{name}' 状态为{target_item.status}，无法分配")
+                        continue
+
+                    # 验证可用数量足够
+                    if assign_quantity > target_item.available_quantity:
+                        error_records.append(f"第{row_num}行：分配数量{assign_quantity}超过可用数量{target_item.available_quantity}")
+                        continue
+
+                    # 创建分配记录
+                    before_available = target_item.available_quantity
+                    RoomItemAssignment.create_assignment(
+                        item_id=target_item.id,
+                        user_id=assign_user.id,
+                        quantity=assign_quantity,
+                        dorm_id=user_dorm.id,
+                        remarks='批量导入自动分配'
+                    )
+                    db.session.flush()
+
+                    # 记录分配操作
+                    RoomItemRecord.add_record(
+                        item_id=target_item.id,
+                        operation_type='allocate',
+                        quantity=assign_quantity,
+                        before_quantity=before_available,
+                        after_quantity=target_item.available_quantity,
+                        user_id=assign_user.id,
+                        from_room_id=target_item.room_id,
+                        operator_id=current_user.id,
+                        remarks='批量导入自动分配'
+                    )
+
                 success_count += 1
 
             except Exception as e:
@@ -440,7 +509,9 @@ def download_template():
             '总数量': [4, 2],
             '状态': ['正常', ''],
             '添加时间': [datetime.now().strftime('%Y-%m-%d %H:%M:%S'), ''],
-            '备注': ['', '']
+            '备注': ['', ''],
+            '分配用户': ['zhangsan', ''],
+            '分配数量': [2, '']
         }
 
         # 创建模板DataFrame
@@ -457,7 +528,9 @@ def download_template():
             '*必填项，正整数',
             '可选值: 正常, 损坏, 丢失, 报废（默认正常）',
             '日期时间（可留空，格式示例：YYYY-MM-DD HH:MM:SS）',
-            '文本（可留空）'
+            '文本（可留空）',
+            '填用户名（可留空=只导入不分配，需为该房间在住用户）',
+            '正整数（可留空默认1，需≤可用数量）'
         ]
         df.loc[-1] = instructions
         df.index = df.index + 1
@@ -469,7 +542,7 @@ def download_template():
             df.to_excel(writer, index=False, sheet_name='物品数据导入模板')
             worksheet = writer.sheets['物品数据导入模板']
             # 设置列宽
-            column_widths = [14, 10, 16, 14, 12, 16, 10, 12, 20, 20]
+            column_widths = [14, 10, 16, 14, 12, 16, 10, 12, 20, 20, 14, 12]
             for i, width in enumerate(column_widths, 1):
                 worksheet.column_dimensions[chr(64 + i)].width = width
             # 必填项说明标红（说明行位于第2行）
