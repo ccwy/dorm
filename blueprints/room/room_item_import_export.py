@@ -269,9 +269,12 @@ def import_items():
                 spec_val = row.get('物品规格')
                 specification = str(spec_val).strip() if pd.notna(spec_val) and str(spec_val).strip() else None
 
-                # 读取物品单位（可选）
+                # 读取物品单位（必填）
                 unit_val = row.get('物品单位')
-                unit = str(unit_val).strip() if pd.notna(unit_val) and str(unit_val).strip() else None
+                if pd.isna(unit_val) or not str(unit_val).strip():
+                    error_records.append(f"第{row_num}行：物品单位不能为空")
+                    continue
+                unit = str(unit_val).strip()
 
                 # 读取物品类型（可选，默认room_bound）
                 type_val = row.get('物品类型')
@@ -431,6 +434,8 @@ def download_template():
             '楼栋': ['A栋', 'B栋'],
             '房间号': ['101', '202'],
             '物品名称': ['床铺', '椅子'],
+            '物品规格': ['1.2m', '标准'],
+            '物品单位': ['张', '把'],
             '物品类型': ['房间绑定', '可转移'],
             '总数量': [4, 2],
             '状态': ['正常', ''],
@@ -446,6 +451,8 @@ def download_template():
             '*必填项（需与系统中楼栋名称一致）',
             '*必填项（需与系统中房间号一致）',
             '*必填项',
+            '文本（可留空）',
+            '*必填项，如：张、把、个、台',
             '可选值: 房间绑定, 可转移（默认房间绑定）',
             '*必填项，正整数',
             '可选值: 正常, 损坏, 丢失, 报废（默认正常）',
@@ -462,7 +469,7 @@ def download_template():
             df.to_excel(writer, index=False, sheet_name='物品数据导入模板')
             worksheet = writer.sheets['物品数据导入模板']
             # 设置列宽
-            column_widths = [14, 10, 16, 16, 10, 12, 20, 20]
+            column_widths = [14, 10, 16, 14, 12, 16, 10, 12, 20, 20]
             for i, width in enumerate(column_widths, 1):
                 worksheet.column_dimensions[chr(64 + i)].width = width
             # 必填项说明标红（说明行位于第2行）
