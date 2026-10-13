@@ -25,6 +25,13 @@ room_item_bp = Blueprint(
 )
 
 
+@room_item_bp.before_request
+def check_feature_enabled():
+    if not SystemConfig.get_config_value('FEATURE_ROOM_ITEM_MANAGE_ENABLED', True):
+        flash('房间物品管理功能已关闭', 'warning')
+        return redirect(url_for('index'))
+
+
 def escape_like(value):
     """转义SQL LIKE中的特殊字符%和_"""
     return value.replace('%', '\\%').replace('_', '\\_')

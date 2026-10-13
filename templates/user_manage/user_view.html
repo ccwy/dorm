@@ -566,6 +566,7 @@
 </div>
 {% endif %}
 
+                {% if get_config_value('FEATURE_ROOM_ITEM_MANAGE_ENABLED', True) %}
                 <!-- 物品领用记录卡片 -->
                 {% if active_item_assignments and active_item_assignments|length > 0 %}
                 <div class="bg-white rounded-lg shadow-sm overflow-hidden card-hover mb-6">
@@ -660,6 +661,7 @@
                 </div>
                 {% endif %}
 
+                {% endif %}
                 <!-- 水电费记录卡片 -->
                 {% if utility_records and utility_records|length > 0 %}
                 <div class="bg-white rounded-lg shadow-sm overflow-hidden card-hover mb-6">

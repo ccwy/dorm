@@ -9,7 +9,7 @@ class RoomItem(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     room_id = db.Column(db.Integer, db.ForeignKey('rooms.id', ondelete='CASCADE'), nullable=False, comment='关联的房间ID')
     name = db.Column(db.String(100), nullable=False, comment='物品名称')
-    item_code = db.Column(db.String(50), unique=True, nullable=False, comment='物品编号（自动生成，如WP2026100001）')
+    item_code = db.Column(db.String(50), nullable=False, comment='物品编号（自动生成，如WP2026100001）')
     specification = db.Column(db.String(200), nullable=True, comment='物品规格')
     unit = db.Column(db.String(20), nullable=True, comment='物品单位')
     item_type = db.Column(db.String(20), nullable=False, comment='物品类型：room_bound(房间绑定)/transferable(可转移)')
@@ -85,10 +85,19 @@ class RoomItem(db.Model):
         if not room:
             raise ValueError(f'房间ID {room_id} 不存在')
 
+        # 查询是否已存在同种物品（名称、规格、单位、类型一致），复用其编号
+        existing = cls.query.filter_by(
+            name=name.strip(),
+            specification=specification or None,
+            unit=unit or None,
+            item_type=item_type
+        ).first()
+        item_code = existing.item_code if existing else cls.generate_item_code()
+
         item = cls(
             room_id=room_id,
             name=name.strip(),
-            item_code=cls.generate_item_code(),
+            item_code=item_code,
             specification=specification,
             unit=unit,
             item_type=item_type,

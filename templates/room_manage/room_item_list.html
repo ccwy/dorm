@@ -194,11 +194,9 @@
                                 </a>
                                 {% endif %}
                                 {% if current_user.has_permission('room_item.delete') %}
-                                <form action="{{ url_for('room_item.delete', item_id=item.id) }}" method="post" class="inline" onsubmit="return confirm('确定要删除物品「{{ item.name }}」吗？删除后不可恢复。');">
-                                    <button type="submit" class="bg-red-500 text-white px-3 py-1 rounded-md text-sm hover:bg-red-600 transition-colors">
-                                        <i class="fa fa-trash mr-1"></i>删除
-                                    </button>
-                                </form>
+                                <button type="submit" form="delete_form_{{ item.id }}" class="bg-red-500 text-white px-3 py-1 rounded-md text-sm hover:bg-red-600 transition-colors">
+                                    <i class="fa fa-trash mr-1"></i>删除
+                                </button>
                                 {% endif %}
                             </td>
                         </tr>
@@ -211,6 +209,12 @@
                 </table>
             </div>
             </form>
+
+            {% for item in items %}
+            {% if current_user.has_permission('room_item.delete') %}
+            <form id="delete_form_{{ item.id }}" action="{{ url_for('room_item.delete', item_id=item.id) }}" method="post" onsubmit="return confirm('确定要删除物品「{{ item.name }}」吗？删除后不可恢复。');"></form>
+            {% endif %}
+            {% endfor %}
 
             <!-- 分页 -->
             {% if pagination and pagination.pages > 0 %}

@@ -400,6 +400,7 @@
             </div>
 
             <!-- 房间物品部分 -->
+            {% if get_config_value('FEATURE_ROOM_ITEM_MANAGE_ENABLED', True) %}
             <div class="mb-8">
                 <div class="flex items-center justify-between mb-4 pb-2 border-b border-gray-200">
                     <h3 class="text-lg font-medium flex items-center">
@@ -486,6 +487,7 @@
             
             
             
+            {% endif %}
             <!-- 居住用户部分 - 使用后端数据直接渲染 -->
             <div class="mb-8">
                 <h3 class="text-lg font-medium mb-4 pb-2 border-b border-gray-200">居住用户</h3>

@@ -267,6 +267,7 @@
         </div>
         {% endif %}
 
+        {% if get_config_value('FEATURE_ROOM_ITEM_MANAGE_ENABLED', True) %}
         <!-- 领用物品卡片（换宿/退宿时显示，管理员可处理） -->
         {% if application.application_type in ('change', 'checkout') %}
         <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
@@ -350,6 +351,7 @@
         </div>
         {% endif %}
 
+        {% endif %}
         <!-- 退宿照片管理卡片（退宿申请时显示） -->
         {% if application.application_type == 'checkout' %}
         <div class="bg-white rounded-lg shadow-sm p-6 mb-6">

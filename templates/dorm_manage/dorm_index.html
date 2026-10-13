@@ -154,7 +154,7 @@
             {% endif %}
 
             <!-- 房间物品管理卡片 -->
-            {% if current_user.has_permission('room_item.view') %}
+            {% if get_config_value('FEATURE_ROOM_ITEM_MANAGE_ENABLED', True) and current_user.has_permission('room_item.view') %}
             <div class="bg-white rounded-xl p-6 shadow-sm card-hover text-center">
                 <div class="w-16 h-16 bg-teal-100 rounded-full flex items-center justify-center mb-4 mx-auto">
                     <i class="fa fa-cubes text-2xl text-teal-600"></i>

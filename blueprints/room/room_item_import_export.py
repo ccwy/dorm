@@ -12,6 +12,8 @@ from utils.excel_date_utils import excel_date_utils
 from models.room.room import Room
 from models.room.room_item import RoomItem
 from models.room.room_item_record import RoomItemRecord
+from models.room.room_item_assignment import RoomItemAssignment
+from models.user.user import User
 
 # 创建房间物品导入导出专用蓝图
 room_item_import_export_bp = Blueprint(
@@ -63,11 +65,75 @@ def export_items():
                 '更新时间': item.updated_at.strftime('%Y-%m-%d %H:%M:%S') if item.updated_at else ''
             })
 
-        # 生成Excel（单sheet）
+        # 按房间明细（每个物品一行）
+        item_type_map = {'room_bound': '房间绑定', 'transferable': '可转移'}
+        room_detail_data = []
+        for item in items:
+            room = Room.query.get(item.room_id)
+            room_detail_data.append({
+                '楼栋': room.building if room else '',
+                '房间号': room.room_number if room else '',
+                '房间类型': room.room_type if room else '',
+                '物品编号': item.item_code or '',
+                '物品名称': item.name,
+                '规格': item.specification or '',
+                '单位': item.unit or '',
+                '物品类型': item_type_map.get(item.item_type, item.item_type),
+                '总数量': item.total_quantity,
+                '可用数量': item.available_quantity,
+                '损坏数量': item.damaged_quantity,
+                '丢失数量': item.lost_quantity,
+                '报废数量': item.scrapped_quantity,
+                '状态': item.status,
+                '备注': item.remark or '',
+            })
+        room_detail_data.sort(key=lambda x: (x['楼栋'], x['房间号']))
+
+        # 按用户明细（每条分配记录一行）
+        status_map = {'active': '领用中', 'returned': '已归还', 'damaged': '已损坏', 'lost': '已丢失', 'scrapped': '已报废'}
+        assignments = RoomItemAssignment.query.all()
+        user_detail_data = []
+        for a in assignments:
+            item = RoomItem.query.get(a.item_id)
+            if not item:
+                continue
+            user = User.query.get(a.user_id)
+            if not user:
+                continue
+            room = Room.query.get(item.room_id)
+            room_display = f"{room.building}{room.room_number}" if room else ''
+            user_detail_data.append({
+                '用户姓名': user.name,
+                '用户名': user.username,
+                '物品编号': item.item_code or '',
+                '物品名称': item.name,
+                '规格': item.specification or '',
+                '单位': item.unit or '',
+                '所属房间': room_display,
+                '分配数量': a.quantity,
+                '状态': status_map.get(a.status, a.status),
+                '分配时间': a.assigned_at.strftime('%Y-%m-%d %H:%M:%S') if a.assigned_at else '',
+                '归还时间': a.returned_at.strftime('%Y-%m-%d %H:%M:%S') if a.returned_at else '',
+                '备注': a.remarks or '',
+            })
+        user_detail_data.sort(key=lambda x: x['用户姓名'])
+
+        # 生成Excel（3个sheet）
         df = pd.DataFrame(data)
+        df_room = pd.DataFrame(room_detail_data, columns=[
+            '楼栋', '房间号', '房间类型', '物品编号', '物品名称', '规格', '单位',
+            '物品类型', '总数量', '可用数量', '损坏数量', '丢失数量', '报废数量',
+            '状态', '备注'
+        ])
+        df_user = pd.DataFrame(user_detail_data, columns=[
+            '用户姓名', '用户名', '物品编号', '物品名称', '规格', '单位',
+            '所属房间', '分配数量', '状态', '分配时间', '归还时间', '备注'
+        ])
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine='openpyxl') as writer:
             df.to_excel(writer, index=False, sheet_name='物品数据')
+            df_room.to_excel(writer, index=False, sheet_name='按房间明细')
+            df_user.to_excel(writer, index=False, sheet_name='按用户明细')
 
         output.seek(0)
         filename = f"房间物品数据_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
@@ -77,10 +143,10 @@ def export_items():
             user_id=current_user.id,
             module='room_item',
             operation_type='batch_import_export',
-            action=f"导出房间物品数据，共 {len(items)} 条记录",
+            action=f"导出房间物品数据，物品{len(items)}条，按房间明细{len(room_detail_data)}条，按用户明细{len(user_detail_data)}条",
             result="成功"
         )
-        logging.info(f'用户{current_user.id}成功导出房间物品数据，共{len(items)}条')
+        logging.info(f'用户{current_user.id}成功导出房间物品数据，物品{len(items)}条，按房间明细{len(room_detail_data)}条，按用户明细{len(user_detail_data)}条')
 
         return send_file(
             output,

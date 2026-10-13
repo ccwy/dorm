@@ -98,7 +98,7 @@
                         </span>
                     </button>
                     {% endif %}
-                    {% if current_user.has_permission('room_item.view') %}
+                    {% if get_config_value('FEATURE_ROOM_ITEM_MANAGE_ENABLED', True) and current_user.has_permission('room_item.view') %}
                     <button onclick="window.location.href='{{ url_for('room_item.manage') }}'" class="btn-hover bg-teal-500 text-white px-4 py-2 rounded-md flex items-center">
                         <i class="fa fa-cubes mr-2"></i>房间物品管理
                     </button>

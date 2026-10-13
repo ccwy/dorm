@@ -167,6 +167,15 @@ class SystemConfig(db.Model):
                 'sort_order': 20
             },
             {
+                'config_key': 'FEATURE_ROOM_ITEM_MANAGE_ENABLED',
+                'config_value': 'true',
+                'config_type': 'bool',
+                'category': 'system.feature',
+                'description': '房间物品管理功能开关',
+                'is_editable': True,
+                'sort_order': 22
+            },
+            {
                 'config_key': 'FEATURE_UTILITY_BILL_ENABLED',
                 'config_value': 'true',
                 'config_type': 'bool',

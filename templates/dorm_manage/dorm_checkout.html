@@ -232,6 +232,7 @@
                         </div>
                     </div>
                     
+                    {% if get_config_value('FEATURE_ROOM_ITEM_MANAGE_ENABLED', True) %}
                     <!-- 用户领用物品 -->
                     <div class="bg-white rounded-lg shadow-sm overflow-hidden mb-8">
                         <div class="p-6">
@@ -304,6 +305,7 @@
                             {% endif %}
                         </div>
                     </div>
+                    {% endif %}
                     <!-- 换宿记录 -->
                     <div class="mb-8 bg-white rounded-lg shadow-sm overflow-hidden">
                         <div class="p-6">

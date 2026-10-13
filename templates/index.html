@@ -120,7 +120,7 @@
             {% endif %}
 
             <!-- 物品管理 -->
-            {% if get_config_value('FEATURE_ROOM_MANAGE_ENABLED', True) and current_user.has_permission('room_item.view') %}
+            {% if get_config_value('FEATURE_ROOM_ITEM_MANAGE_ENABLED', True) and current_user.has_permission('room_item.view') %}
             <div class="bg-white rounded-xl p-6 card-shadow btn-hover nav-card">
                 <a href="{{ url_for('room_item.manage') }}" class="flex flex-col items-center text-center">
                     <div class="w-16 h-16 bg-teal-500/10 rounded-full flex items-center justify-center mb-4">
