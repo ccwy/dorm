@@ -173,11 +173,8 @@ def add(room_id):
                     error_messages.append(f'第{i+1}行: 数量必须大于0')
                     continue
 
-                # 检查同一房间是否已存在同名物品
-                existing = RoomItem.query.filter_by(room_id=room_id, name=name).first()
-                if existing and existing.item_type != item_type:
-                    error_messages.append(f'第{i+1}行：物品"{name}"在该房间已存在但类型不同，无法合并')
-                    continue
+                # 判定同一种物品：名称+规格+单位+类型均相同才合并，否则新增
+                existing = RoomItem.query.filter_by(room_id=room_id, name=name, item_type=item_type, specification=specification or None, unit=unit).first()
 
                 try:
                     if existing:

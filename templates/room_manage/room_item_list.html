@@ -56,15 +56,6 @@
                     </div>
                     {% endif %}
 
-                    {% if current_user.has_permission('room_item.edit') %}
-                    <button type="button" id="itemImportBtn" class="bg-green-500 text-white px-4 py-2 rounded-md flex items-center hover:bg-green-600 transition-colors">
-                        <i class="fa fa-upload mr-2"></i>导入
-                    </button>
-                    <a href="{{ url_for('room_item_io.export_items') }}" class="bg-blue-500 text-white px-4 py-2 rounded-md flex items-center hover:bg-blue-600 transition-colors">
-                        <i class="fa fa-download mr-2"></i>导出
-                    </a>
-                    {% endif %}
-
                     <button type="button" onclick="batchDelete()" id="batch_delete_btn" disabled
                             class="bg-red-500 text-white px-4 py-2 rounded-md flex items-center hover:bg-red-600 transition-colors opacity-50 cursor-not-allowed">
                         <i class="fa fa-trash mr-2"></i>批量删除
@@ -73,6 +64,15 @@
                     <button onclick="location.reload();" class="bg-secondary text-white px-4 py-2 rounded-md flex items-center hover:bg-secondary/90 transition-colors">
                         <i class="fa fa-refresh mr-2"></i>刷新
                     </button>
+                    {% if current_user.has_permission('room_item.edit') %}
+                    <button type="button" id="itemImportBtn" class="bg-green-500 text-white px-4 py-2 rounded-md flex items-center hover:bg-green-600 transition-colors">
+                        <i class="fa fa-upload mr-2"></i>导入
+                    </button>
+                    <a href="{{ url_for('room_item_io.export_items') }}" class="bg-blue-500 text-white px-4 py-2 rounded-md flex items-center hover:bg-blue-600 transition-colors">
+                        <i class="fa fa-download mr-2"></i>导出
+                    </a>
+                    {% endif %}
+                    
                     {% if current_user.has_permission('room.view') %}
                     <button onclick="window.location.href='{{ url_for('room.manage') }}'" class="bg-primary text-white px-4 py-2 rounded-md flex items-center hover:bg-primary/90 transition-colors">
                         <i class="fa fa-building mr-2"></i>房间管理

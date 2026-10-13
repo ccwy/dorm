@@ -256,11 +256,8 @@ def import_items():
                         error_records.append(f"第{row_num}行：添加时间格式无效 - {str(e)}")
                         continue
 
-                # 查询该房间是否已存在同名物品（唯一约束为room_id+name）
-                existing_item = RoomItem.query.filter_by(room_id=room_id, name=name).first()
-                if existing_item and existing_item.item_type != item_type:
-                    error_records.append(f"第{row_num}行：房间{building}{room_number}已存在同名物品'{name}'但类型不同，无法合并")
-                    continue
+                # 判定同一种物品：名称+规格+单位+类型均相同才合并，否则新增
+                existing_item = RoomItem.query.filter_by(room_id=room_id, name=name, item_type=item_type, specification=specification, unit=unit).first()
 
                 if existing_item:
                     # 合并：增加总数量和可用数量（增量）
