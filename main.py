@@ -460,12 +460,14 @@ if __name__ == '__main__':
     if is_win7():
         server_mode = "服务端"
     
+    use_desktop = current_config.USE_DESKTOP_VIEW or is_win7()
+    
     # 单实例检测（仅Windows桌面模式）
-    if current_config.USE_DESKTOP_VIEW and sys.platform == 'win32':
+    if use_desktop and sys.platform == 'win32':
         from utils.single_instance import single_instance
         single_instance.check_and_acquire()
     
-    if server_mode == "服务端" and current_config.USE_DESKTOP_VIEW:
+    if server_mode == "服务端" and use_desktop:
         logging.info("以服务端模式启动，显示启动闪屏")
         
         from utils.server_gui import SplashScreen, run_server_gui
@@ -500,7 +502,7 @@ if __name__ == '__main__':
             threading.Event().wait()
         else:
             os._exit(0)
-    elif server_mode == "客户端" and current_config.USE_DESKTOP_VIEW:
+    elif server_mode == "客户端" and use_desktop:
         import webview
         
         logging.info("启动WebView窗口（闪屏模式）")
@@ -581,13 +583,7 @@ if __name__ == '__main__':
             os._exit(0)
     
     else:
-        logging.info("以开发模式启动")
+        logging.info("以Web模式启动（waitress）")
         
         app, run_server = init_flask_app()
-        
-        app.run(
-            host=current_config.SERVER_HOST,
-            port=current_config.SERVER_PORT,
-            debug=current_config.DEBUG,
-            use_reloader=current_config.DEBUG
-        )
+        run_server()

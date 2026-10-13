@@ -43,6 +43,7 @@
                 <i class="fa fa-arrow-left"></i>
             </button>
             <h2 class="text-2xl font-semibold text-dark">物品详情 - {{ item.name }}</h2>
+            <p class="text-sm text-gray-500 mt-1">编号：{{ item.item_code or '-' }}</p>
         </div>
 
         <!-- Flash消息 -->
@@ -67,13 +68,14 @@
             </a>
             {% endif %}
             {% if current_user.has_permission('room_item.allocate') and item.status == '正常' and item.available_quantity > 0 %}
-            <a href="{{ url_for('room_item.allocate', item_id=item.id) }}" class="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 btn-hover inline-flex items-center">
+            <a href="{{ url_for('room_item.allocate', item_id=item.id, next=request.path) }}" class="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 btn-hover inline-flex items-center">
                 <i class="fa fa-hand-pointer mr-1"></i>分配
             </a>
             {% endif %}
             {% if current_user.has_permission('room_item.operate') and item.status == '正常' and item.available_quantity > 0 %}
             <!-- 损坏 -->
             <form method="POST" action="{{ url_for('room_item.damage', item_id=item.id) }}" class="inline flex items-center gap-1" onsubmit="return confirm('确定要标记损坏吗？');">
+                <input type="hidden" name="next" value="{{ request.path }}">
                 <input type="number" name="quantity" value="1" min="1" max="{{ item.available_quantity }}" class="w-16 px-2 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-yellow-500" required>
                 <button type="submit" class="px-4 py-2 bg-yellow-500 text-white rounded-md hover:bg-yellow-600 btn-hover inline-flex items-center">
                     <i class="fa fa-exclamation-triangle mr-1"></i>损坏
@@ -81,6 +83,7 @@
             </form>
             <!-- 丢失 -->
             <form method="POST" action="{{ url_for('room_item.loss', item_id=item.id) }}" class="inline flex items-center gap-1" onsubmit="return confirm('确定要标记丢失吗？');">
+                <input type="hidden" name="next" value="{{ request.path }}">
                 <input type="number" name="quantity" value="1" min="1" max="{{ item.available_quantity }}" class="w-16 px-2 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-orange-500" required>
                 <button type="submit" class="px-4 py-2 bg-orange-500 text-white rounded-md hover:bg-orange-600 btn-hover inline-flex items-center">
                     <i class="fa fa-question-circle mr-1"></i>丢失
@@ -88,6 +91,7 @@
             </form>
             <!-- 报废 -->
             <form method="POST" action="{{ url_for('room_item.scrap', item_id=item.id) }}" class="inline flex items-center gap-1" onsubmit="return confirm('确定要标记报废吗？报废后不可恢复！');">
+                <input type="hidden" name="next" value="{{ request.path }}">
                 <input type="number" name="quantity" value="1" min="1" max="{{ item.available_quantity }}" class="w-16 px-2 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-gray-500" required>
                 <button type="submit" class="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 btn-hover inline-flex items-center">
                     <i class="fa fa-ban mr-1"></i>报废
@@ -97,12 +101,14 @@
             {% if current_user.has_permission('room_item.operate') and item.status == '损坏' and item.available_quantity > 0 %}
             <!-- 损坏状态下仍可标记丢失/报废 -->
             <form method="POST" action="{{ url_for('room_item.loss', item_id=item.id) }}" class="inline flex items-center gap-1" onsubmit="return confirm('确定要标记丢失吗？');">
+                <input type="hidden" name="next" value="{{ request.path }}">
                 <input type="number" name="quantity" value="1" min="1" max="{{ item.available_quantity }}" class="w-16 px-2 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-orange-500" required>
                 <button type="submit" class="px-4 py-2 bg-orange-500 text-white rounded-md hover:bg-orange-600 btn-hover inline-flex items-center">
                     <i class="fa fa-question-circle mr-1"></i>丢失
                 </button>
             </form>
             <form method="POST" action="{{ url_for('room_item.scrap', item_id=item.id) }}" class="inline flex items-center gap-1" onsubmit="return confirm('确定要标记报废吗？报废后不可恢复！');">
+                <input type="hidden" name="next" value="{{ request.path }}">
                 <input type="number" name="quantity" value="1" min="1" max="{{ item.available_quantity }}" class="w-16 px-2 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-gray-500" required>
                 <button type="submit" class="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 btn-hover inline-flex items-center">
                     <i class="fa fa-ban mr-1"></i>报废
@@ -111,6 +117,7 @@
             {% endif %}
             {% if current_user.has_permission('room_item.operate') and item.status == '丢失' and item.available_quantity > 0 %}
             <form method="POST" action="{{ url_for('room_item.scrap', item_id=item.id) }}" class="inline flex items-center gap-1" onsubmit="return confirm('确定要标记报废吗？报废后不可恢复！');">
+                <input type="hidden" name="next" value="{{ request.path }}">
                 <input type="number" name="quantity" value="1" min="1" max="{{ item.available_quantity }}" class="w-16 px-2 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-gray-500" required>
                 <button type="submit" class="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 btn-hover inline-flex items-center">
                     <i class="fa fa-ban mr-1"></i>报废
@@ -118,7 +125,7 @@
             </form>
             {% endif %}
             {% if current_user.has_permission('room_item.operate') and item.status == '正常' and item.item_type == 'transferable' %}
-            <a href="{{ url_for('room_item.transfer', item_id=item.id) }}" class="px-4 py-2 bg-purple-500 text-white rounded-md hover:bg-purple-600 btn-hover inline-flex items-center">
+            <a href="{{ url_for('room_item.transfer', item_id=item.id, next=request.path) }}" class="px-4 py-2 bg-purple-500 text-white rounded-md hover:bg-purple-600 btn-hover inline-flex items-center">
                 <i class="fa fa-exchange mr-1"></i>转移
             </a>
             {% endif %}
@@ -144,6 +151,18 @@
                 <div>
                     <label class="block text-sm font-medium text-gray-500">物品名称</label>
                     <p class="mt-1 text-sm text-gray-900 font-medium">{{ item.name }}</p>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-500">物品编号</label>
+                    <p class="mt-1 text-sm text-gray-900 font-mono">{{ item.item_code or '-' }}</p>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-500">物品规格</label>
+                    <p class="mt-1 text-sm text-gray-900">{{ item.specification or '-' }}</p>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-500">物品单位</label>
+                    <p class="mt-1 text-sm text-gray-900">{{ item.unit or '-' }}</p>
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-500">所属房间</label>
@@ -258,7 +277,7 @@
                     <tbody class="bg-white divide-y divide-gray-200">
                         {% for a in active_assignments %}
                         <tr>
-                            <td class="px-4 py-3 whitespace-nowrap text-sm">{{ a.user.name if a.user else '未知' }}</td>
+                            <td class="px-4 py-3 whitespace-nowrap text-sm">{% if a.user %}<a href="{{ url_for('user.view', id=a.user_id) }}" class="text-primary hover:text-primary/80">{{ a.user.name }}</a>{% else %}未知{% endif %}</td>
                             <td class="px-4 py-3 whitespace-nowrap text-sm">{{ a.quantity }}</td>
                             <td class="px-4 py-3 whitespace-nowrap text-sm">{{ a.assigned_at.strftime('%Y-%m-%d %H:%M') if a.assigned_at else '未知' }}</td>
                             <td class="px-4 py-3 text-sm">{{ a.remarks or '-' }}</td>
@@ -267,6 +286,7 @@
                                 <div class="flex flex-wrap gap-1 items-center">
                                     {% if current_user.has_permission('room_item.return') %}
                                     <form method="POST" action="{{ url_for('room_item.return_item', assignment_id=a.id) }}" style="display:inline;" onsubmit="return confirm('确认归还该物品？')">
+                                        <input type="hidden" name="next" value="{{ request.path }}">
                                         <input type="number" name="quantity" value="1" min="1" max="{{ a.quantity }}" class="w-12 px-1 py-0.5 text-xs border rounded text-center">
                                         <button type="submit" class="px-2 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 transition duration-200">
                                             <i class="fa fa-undo mr-1"></i>归还
@@ -275,18 +295,21 @@
                                     {% endif %}
                                     {% if current_user.has_permission('room_item.operate') %}
                                     <form method="POST" action="{{ url_for('room_item.damage_assignment', assignment_id=a.id) }}" style="display:inline;" onsubmit="return confirm('确认标记损坏？')">
+                                        <input type="hidden" name="next" value="{{ request.path }}">
                                         <input type="number" name="quantity" value="1" min="1" max="{{ a.quantity }}" class="w-12 px-1 py-0.5 text-xs border rounded text-center">
                                         <button type="submit" class="px-2 py-1 bg-orange-500 text-white text-xs rounded hover:bg-orange-600 transition duration-200">
                                             <i class="fa fa-exclamation-triangle mr-1"></i>损坏
                                         </button>
                                     </form>
                                     <form method="POST" action="{{ url_for('room_item.loss_assignment', assignment_id=a.id) }}" style="display:inline;" onsubmit="return confirm('确认标记丢失？')">
+                                        <input type="hidden" name="next" value="{{ request.path }}">
                                         <input type="number" name="quantity" value="1" min="1" max="{{ a.quantity }}" class="w-12 px-1 py-0.5 text-xs border rounded text-center">
                                         <button type="submit" class="px-2 py-1 bg-yellow-500 text-white text-xs rounded hover:bg-yellow-600 transition duration-200">
                                             <i class="fa fa-question-circle mr-1"></i>丢失
                                         </button>
                                     </form>
                                     <form method="POST" action="{{ url_for('room_item.scrap_assignment', assignment_id=a.id) }}" style="display:inline;" onsubmit="return confirm('确认标记报废？')">
+                                        <input type="hidden" name="next" value="{{ request.path }}">
                                         <input type="number" name="quantity" value="1" min="1" max="{{ a.quantity }}" class="w-12 px-1 py-0.5 text-xs border rounded text-center">
                                         <button type="submit" class="px-2 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600 transition duration-200">
                                             <i class="fa fa-trash mr-1"></i>报废
@@ -333,8 +356,8 @@
                         <tr>
                             <td class="px-4 py-3 whitespace-nowrap text-sm">{{ r.operated_at.strftime('%Y-%m-%d %H:%M') if r.operated_at else '未知' }}</td>
                             <td class="px-4 py-3 whitespace-nowrap text-sm">
-                                {% set op_map = {'create': '新增', 'edit': '编辑', 'delete': '删除', 'allocate': '分配', 'return': '归还', 'transfer': '转移', 'damage': '损坏', 'loss': '丢失', 'scrap': '报废', 'dorm_transfer': '换宿转移', 'dorm_exchange': '互换转移', 'dorm_checkout': '退宿归还'} %}
-                                <span class="px-2 py-1 {% if r.operation_type in ['create', 'allocate'] %}bg-green-100 text-green-800{% elif r.operation_type in ['damage', 'loss', 'scrap', 'delete'] %}bg-red-100 text-red-800{% elif r.operation_type in ['return', 'dorm_checkout'] %}bg-blue-100 text-blue-800{% elif r.operation_type in ['transfer', 'dorm_transfer', 'dorm_exchange'] %}bg-purple-100 text-purple-800{% else %}bg-gray-100 text-gray-800{% endif %} rounded-full text-xs">{{ op_map.get(r.operation_type, r.operation_type) }}</span>
+                                {% set op_map = {'create': '新增', 'edit': '编辑', 'delete': '删除', 'allocate': '分配', 'return': '归还', 'transfer': '转移', 'damage': '损坏', 'loss': '丢失', 'scrap': '报废', 'dorm_transfer': '换宿转移', 'dorm_exchange': '互换转移', 'dorm_checkout': '退宿归还', 'import': '导入'} %}
+                                <span class="px-2 py-1 {% if r.operation_type in ['create', 'allocate'] %}bg-green-100 text-green-800{% elif r.operation_type in ['damage', 'loss', 'scrap', 'delete'] %}bg-red-100 text-red-800{% elif r.operation_type in ['return', 'dorm_checkout'] %}bg-blue-100 text-blue-800{% elif r.operation_type in ['transfer', 'dorm_transfer', 'dorm_exchange'] %}bg-purple-100 text-purple-800{% elif r.operation_type == 'import' %}bg-cyan-100 text-cyan-800{% else %}bg-gray-100 text-gray-800{% endif %} rounded-full text-xs">{{ op_map.get(r.operation_type, r.operation_type) }}</span>
                             </td>
                             <td class="px-4 py-3 whitespace-nowrap text-sm">{{ r.quantity }}</td>
                             <td class="px-4 py-3 whitespace-nowrap text-sm">{{ r.before_quantity }} → {{ r.after_quantity }}</td>
@@ -370,7 +393,7 @@
                     <tbody class="bg-white divide-y divide-gray-200">
                         {% for a in all_assignments %}
                         <tr>
-                            <td class="px-4 py-3 whitespace-nowrap text-sm">{{ a.user.name if a.user else '未知' }}</td>
+                            <td class="px-4 py-3 whitespace-nowrap text-sm">{% if a.user %}<a href="{{ url_for('user.view', id=a.user_id) }}" class="text-primary hover:text-primary/80">{{ a.user.name }}</a>{% else %}未知{% endif %}</td>
                             <td class="px-4 py-3 whitespace-nowrap text-sm">{{ a.quantity }}</td>
                             <td class="px-4 py-3 whitespace-nowrap text-sm">
                                 {% set st_map = {'active': '持有中', 'returned': '已归还', 'damaged': '已损坏', 'lost': '已丢失', 'scrapped': '已报废'} %}

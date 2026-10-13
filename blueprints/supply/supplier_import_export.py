@@ -12,6 +12,27 @@ from datetime import datetime
 import traceback
 from io import BytesIO
 
+
+def normalize_numeric_str(val):
+    """规范化数字字符串：处理Excel读取的浮点数、科学计数法、.0后缀等问题。
+    纯整数字符串直接返回，避免大数float转换丢失精度（如18位统一社会信用代码）。
+    """
+    s = str(val).strip()
+    if not s:
+        return s
+    if s.isdigit():
+        return s
+    if s.startswith('-') and s[1:].isdigit():
+        return s
+    try:
+        f = float(s)
+        if f.is_integer():
+            return str(int(f))
+    except (ValueError, OverflowError):
+        pass
+    return s
+
+
 # 创建导入导出专用蓝图
 supplier_import_export_bp = Blueprint(
     'supplier_import_export',
@@ -227,7 +248,7 @@ def import_suppliers():
 
                 # 统一社会信用代码（可选）
                 unified_social_credit_code_val = row.get('统一社会信用代码')
-                unified_social_credit_code = str(unified_social_credit_code_val).strip() if pd.notna(unified_social_credit_code_val) and str(unified_social_credit_code_val).strip() else None
+                unified_social_credit_code = normalize_numeric_str(unified_social_credit_code_val) if pd.notna(unified_social_credit_code_val) and str(unified_social_credit_code_val).strip() else None
 
                 # 法定代表人（可选）
                 legal_representative_val = row.get('法定代表人')
@@ -239,7 +260,7 @@ def import_suppliers():
 
                 # 联系电话（可选）
                 contact_phone_val = row.get('联系电话')
-                contact_phone = str(contact_phone_val).strip() if pd.notna(contact_phone_val) and str(contact_phone_val).strip() else None
+                contact_phone = normalize_numeric_str(contact_phone_val) if pd.notna(contact_phone_val) and str(contact_phone_val).strip() else None
 
                 # 邮箱（可选）
                 email_val = row.get('邮箱')
@@ -275,7 +296,7 @@ def import_suppliers():
 
                 # 银行账号（可选）
                 bank_account_val = row.get('银行账号')
-                bank_account = str(bank_account_val).strip() if pd.notna(bank_account_val) and str(bank_account_val).strip() else None
+                bank_account = normalize_numeric_str(bank_account_val) if pd.notna(bank_account_val) and str(bank_account_val).strip() else None
 
                 # 开户行（可选）
                 bank_name_val = row.get('开户行')
@@ -291,7 +312,7 @@ def import_suppliers():
 
                 # 收款账号（可选）
                 payment_account_val = row.get('收款账号')
-                payment_account = str(payment_account_val).strip() if pd.notna(payment_account_val) and str(payment_account_val).strip() else None
+                payment_account = normalize_numeric_str(payment_account_val) if pd.notna(payment_account_val) and str(payment_account_val).strip() else None
 
                 # 发票类型（可选）
                 invoice_type_val = row.get('发票类型')
@@ -539,7 +560,7 @@ def batch_update():
                 # 处理统一社会信用代码
                 credit_code_val = row.get('统一社会信用代码')
                 if pd.notna(credit_code_val) and str(credit_code_val).strip():
-                    supplier.unified_social_credit_code = str(credit_code_val).strip()
+                    supplier.unified_social_credit_code = normalize_numeric_str(credit_code_val)
 
                 # 处理法定代表人
                 legal_rep_val = row.get('法定代表人')
@@ -554,7 +575,7 @@ def batch_update():
                 # 处理联系电话
                 contact_phone_val = row.get('联系电话')
                 if pd.notna(contact_phone_val) and str(contact_phone_val).strip():
-                    supplier.contact_phone = str(contact_phone_val).strip()
+                    supplier.contact_phone = normalize_numeric_str(contact_phone_val)
 
                 # 处理邮箱
                 email_val = row.get('邮箱')
@@ -592,7 +613,7 @@ def batch_update():
                 # 处理银行账号
                 bank_account_val = row.get('银行账号')
                 if pd.notna(bank_account_val) and str(bank_account_val).strip():
-                    supplier.bank_account = str(bank_account_val).strip()
+                    supplier.bank_account = normalize_numeric_str(bank_account_val)
 
                 # 处理开户行
                 bank_name_val = row.get('开户行')
@@ -612,7 +633,7 @@ def batch_update():
                 # 处理收款账号
                 payment_account_val = row.get('收款账号')
                 if pd.notna(payment_account_val) and str(payment_account_val).strip():
-                    supplier.payment_account = str(payment_account_val).strip()
+                    supplier.payment_account = normalize_numeric_str(payment_account_val)
 
                 # 处理发票类型
                 invoice_type_val = row.get('发票类型')

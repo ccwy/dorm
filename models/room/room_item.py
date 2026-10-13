@@ -9,6 +9,9 @@ class RoomItem(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     room_id = db.Column(db.Integer, db.ForeignKey('rooms.id', ondelete='CASCADE'), nullable=False, comment='关联的房间ID')
     name = db.Column(db.String(100), nullable=False, comment='物品名称')
+    item_code = db.Column(db.String(50), unique=True, nullable=False, comment='物品编号（自动生成，如WP2026100001）')
+    specification = db.Column(db.String(200), nullable=True, comment='物品规格')
+    unit = db.Column(db.String(20), nullable=True, comment='物品单位')
     item_type = db.Column(db.String(20), nullable=False, comment='物品类型：room_bound(房间绑定)/transferable(可转移)')
     total_quantity = db.Column(db.Integer, default=1, nullable=False, comment='总数量')
     available_quantity = db.Column(db.Integer, default=1, nullable=False, comment='可用数量')
@@ -29,7 +32,6 @@ class RoomItem(db.Model):
     __table_args__ = (
         db.Index('idx_room_item_room_id', 'room_id'),
         db.Index('idx_room_item_status', 'status'),
-        db.UniqueConstraint('room_id', 'name', name='uq_room_item_room_name'),
         db.CheckConstraint('total_quantity >= 0', name='check_room_item_total_qty_nonneg'),
         db.CheckConstraint('available_quantity >= 0', name='check_room_item_avail_qty_nonneg'),
         db.CheckConstraint('available_quantity <= total_quantity', name='check_room_item_avail_le_total'),
@@ -54,7 +56,21 @@ class RoomItem(db.Model):
         return status
 
     @classmethod
-    def create_item(cls, room_id, name, item_type, total_quantity=1, remark=None):
+    def generate_item_code(cls):
+        """生成物品编号：WP+年月+4位序号"""
+        prefix = 'WP' + datetime.now().strftime('%Y%m')
+        last_item = cls.query.filter(cls.item_code.like(prefix + '%')).order_by(cls.item_code.desc()).first()
+        if last_item:
+            try:
+                seq = int(last_item.item_code[len(prefix):]) + 1
+            except ValueError:
+                seq = 1
+        else:
+            seq = 1
+        return f'{prefix}{seq:04d}'
+
+    @classmethod
+    def create_item(cls, room_id, name, item_type, total_quantity=1, specification=None, unit=None, remark=None):
         """创建物品"""
         # 输入验证
         if not name or not name.strip():
@@ -72,6 +88,9 @@ class RoomItem(db.Model):
         item = cls(
             room_id=room_id,
             name=name.strip(),
+            item_code=cls.generate_item_code(),
+            specification=specification,
+            unit=unit,
             item_type=item_type,
             total_quantity=total_quantity,
             available_quantity=total_quantity,
@@ -81,8 +100,8 @@ class RoomItem(db.Model):
             remark=remark
         )
         db.session.add(item)
-        logging.info(f"创建房间物品: 房间ID={room_id}, 名称={name}, 类型={item_type}, 数量={total_quantity}")
+        logging.info(f"创建房间物品: 房间ID={room_id}, 编号={item.item_code}, 名称={name}, 类型={item_type}, 数量={total_quantity}")
         return item
 
     def __repr__(self):
-        return f"<RoomItem {self.name} 房间{self.room_id}>"
+        return f"<RoomItem {self.item_code} {self.name} 房间{self.room_id}>"

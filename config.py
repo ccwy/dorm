@@ -79,20 +79,20 @@ class Config:
     SQLALCHEMY_ENGINE_OPTIONS = {}  # 默认为空字典，将在运行时根据数据库类型被覆盖
     
     # 配置：控制使用Web浏览器还是桌面窗口
-    is_android = os.environ.get('ANDROID_ENV', 'false').lower() == 'true'
-    is_docker = os.environ.get('DOCKER_ENV', 'false').lower() == 'true'
-    if is_android:
-        USE_DESKTOP_VIEW = False  # Android环境 - 使用WebView，不需要桌面视图
-    elif is_docker:
-        USE_DESKTOP_VIEW = False
-    else:
-        USE_DESKTOP_VIEW = True  # False为开发网页模式，True为桌面窗口模式，方便开发调试
+    # 仅Windows 10以上启用桌面视图，其他系统（含Android/Docker/Win7/Win8/Linux/macOS）均为False
+    USE_DESKTOP_VIEW = False
+    if sys.platform == 'win32':
+        try:
+            if sys.getwindowsversion().major >= 10:
+                USE_DESKTOP_VIEW = True
+        except Exception:
+            pass
     
     # 调试模式：默认为False
     DEBUG = False
 
     # 自动登录ADMIN账号：默认为False（安全）
-    AUTO_LOGIN_ADMIN = True
+    AUTO_LOGIN_ADMIN = False
 
     # 系统标题：从外部配置读取，修复原ProductionConfig中key为SERVER_PORT的bug
     SYSTEM_TITLE = db_config.get('SYSTEM_TITLE', "行政后勤管理系统")

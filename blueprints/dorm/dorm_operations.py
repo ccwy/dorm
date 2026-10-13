@@ -136,6 +136,11 @@ def create_allocation():
         room_type_list = [rt[0] for rt in room_types if rt[0]]
         room_level_list = [rl[0] for rl in room_levels if rl[0]]
         
+        # 查询用户领用的物品（active状态）
+        active_item_assignments = RoomItemAssignment.query.filter_by(
+            user_id=user_id, status='active'
+        ).all()
+        
         return render_template('dorm_manage/dorm_create_allocation.html',
                               title=f"分配宿舍 - {user.name}(ID:{user_id})",
                               user=user,
@@ -145,7 +150,8 @@ def create_allocation():
                               room_type_list=room_type_list,
                               room_level_list=room_level_list,
                               datetime=datetime,
-                              next_url=next_url
+                              next_url=next_url,
+                              active_item_assignments=active_item_assignments,
                               )
                               
     
@@ -921,7 +927,8 @@ def checkout():
                     error_message=error_message,
                     datetime=datetime,
                     user_id=user_id,
-                    next_url=next_url
+                    next_url=next_url,
+                    active_item_assignments=[]
                 )
             
             # 查询用户的当前住宿记录
@@ -944,7 +951,8 @@ def checkout():
                     error_message=error_message,
                     datetime=datetime,
                     user_id=user_id,
-                    next_url=next_url
+                    next_url=next_url,
+                    active_item_assignments=[]
                 )
             
             # 查询当前房间信息
@@ -963,7 +971,8 @@ def checkout():
                     error_message=error_message,
                     datetime=datetime,
                     user_id=user_id,
-                    next_url=next_url
+                    next_url=next_url,
+                    active_item_assignments=[]
                 )
             
             # 获取上次抄表记录值
@@ -1096,6 +1105,11 @@ def checkout():
         except Exception as e:
             logging.error(f"获取用户水电费记录失败: {str(e)}")
     
+    # 查询用户领用的物品（active状态）
+    active_item_assignments = RoomItemAssignment.query.filter_by(
+        user_id=user_id, status='active'
+    ).all() if user_id else []
+    
     # 渲染模板并返回数据
     return render_template(
         'dorm_manage/dorm_checkout.html',
@@ -1112,7 +1126,8 @@ def checkout():
         last_water_reading=last_water_reading,
         last_electric_reading=last_electric_reading,
         utility_records=utility_records,
-        next_url=next_url
+        next_url=next_url,
+        active_item_assignments=active_item_assignments
     )
 
 
@@ -1307,7 +1322,8 @@ def swap():
                     available_rooms=[],
                     error_message=error_message,
                     next_url=next_url,
-                    datetime=datetime
+                    datetime=datetime,
+                    active_item_assignments=[]
                 )
             
             # 查询用户的当前住宿记录
@@ -1329,7 +1345,8 @@ def swap():
                     available_rooms=[],
                     error_message=error_message,
                     next_url=next_url,
-                    datetime=datetime
+                    datetime=datetime,
+                    active_item_assignments=[]
                 )
             
             # 查询当前房间信息
@@ -1347,7 +1364,8 @@ def swap():
                     available_rooms=[],
                     error_message=error_message,
                     next_url=next_url,
-                    datetime=datetime
+                    datetime=datetime,
+                    active_item_assignments=[]
                 )
             
             # 查询室友信息
@@ -1464,6 +1482,11 @@ def swap():
     # 预计算当前住宿已住天数
     current_stay_days = current_dorm.stay_days if current_dorm else 0
     
+    # 查询用户领用的物品（active状态）
+    active_item_assignments = RoomItemAssignment.query.filter_by(
+        user_id=user_id, status='active'
+    ).all() if user_id else []
+    
     # 渲染模板并返回数据
     return render_template(
         'dorm_manage/dorm_swap.html',
@@ -1479,7 +1502,8 @@ def swap():
         datetime=datetime,  # 传递datetime模块给模板使用
         utility_records=utility_records,  # 传递用户水电费记录
         next_url=next_url,  # 传递来源页面URL
-        current_stay_days=current_stay_days  # 传递当前已住天数
+        current_stay_days=current_stay_days,  # 传递当前已住天数
+        active_item_assignments=active_item_assignments
     )
 
 # 单人更换宿舍页面（GET）
@@ -1555,6 +1579,15 @@ def change():
             return jsonify({
                 'success': False,
                 'message': f'用户不存在（ID: {user_id}）'
+            }), 400
+        
+        # 检查用户是否有未处理的物品领用记录
+        active_item = RoomItemAssignment.query.filter_by(user_id=user_id, status='active').first()
+        if active_item:
+            logging.info(f"换宿检查：用户{user.name}名下仍有active状态的物品领用记录，阻止换宿")
+            return jsonify({
+                'success': False,
+                'message': '该用户名下仍有未处理的物品领用记录，请先处理物品后再办理换宿'
             }), 400
         
         # 日期格式转换 - 修改：支持datetime格式

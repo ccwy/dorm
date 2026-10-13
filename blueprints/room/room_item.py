@@ -6,6 +6,7 @@ from models.room.room_item_assignment import RoomItemAssignment
 from models.room.room import Room
 from models.dorm.dorm import Dorm
 from models.user.user import User
+from models.system_config.system_config import SystemConfig
 from flask_login import login_required, current_user
 from utils.log import log_operation
 from utils.auth import require_permission
@@ -55,6 +56,22 @@ def _get_operator_id():
     return current_user.id if hasattr(current_user, 'id') else None
 
 
+def _redirect_back(default_endpoint, **kwargs):
+    """优先跳转回来源页面(next参数)，否则跳转默认页面"""
+    next_url = request.args.get('next') or request.form.get('next')
+    if next_url and next_url.startswith('/') and not next_url.startswith('//'):
+        return redirect(next_url)
+    return redirect(url_for(default_endpoint, **kwargs))
+
+
+def _get_supply_units():
+    """获取单位列表（来自系统配置）"""
+    value = SystemConfig.get_config_value('supply_units', '个,件,箱,包,盒,瓶,支,本,张,套,台,把,条,块,卷,桶,袋,罐')
+    if isinstance(value, list):
+        return value
+    return [u.strip() for u in value.split(',') if u.strip()]
+
+
 # 路由1: 物品管理主页
 @room_item_bp.route('/manage', methods=['GET'])
 @login_required
@@ -94,6 +111,8 @@ def manage():
         # 获取所有房间列表用于新增物品选择
         rooms = Room.query.order_by(Room.building, Room.room_number).all()
 
+        supply_units = _get_supply_units()
+
         return render_template('room_manage/room_item_list.html',
                                items=pagination.items,
                                pagination=pagination,
@@ -103,7 +122,8 @@ def manage():
                                building=building,
                                room_number=room_number,
                                item_name=item_name,
-                               status=status)
+                               status=status,
+                               supply_units=supply_units)
     except Exception as e:
         logging.error(f"物品管理主页加载失败: {str(e)}\n{traceback.format_exc()}")
         flash('加载物品列表失败', 'error')
@@ -111,7 +131,8 @@ def manage():
                                items=[], pagination=None, page_range=[],
                                buildings=[], rooms=[],
                                building='', room_number='',
-                               item_name='', status='')
+                               item_name='', status='',
+                               supply_units=[])
 
 
 # 路由2: 添加物品
@@ -121,6 +142,7 @@ def manage():
 def add(room_id):
     try:
         room = Room.query.get_or_404(room_id)
+        supply_units = _get_supply_units()
 
         if request.method == 'POST':
             item_count = request.form.get('item_count', 1, type=int)
@@ -129,16 +151,22 @@ def add(room_id):
 
             success_count = 0
             error_messages = []
-            added_names = set()
+            merged_names = []
 
             for i in range(item_count):
                 name = request.form.get(f'name_{i}', '').strip()
                 item_type = request.form.get(f'item_type_{i}', 'room_bound').strip()
                 total_quantity = request.form.get(f'total_quantity_{i}', 1, type=int)
                 remark = request.form.get(f'remark_{i}', '').strip()
+                specification = request.form.get(f'specification_{i}', '').strip()
+                unit = request.form.get(f'unit_{i}', '').strip()
 
                 if not name:
                     error_messages.append(f'第{i+1}行: 物品名称不能为空')
+                    continue
+
+                if not unit:
+                    error_messages.append(f'第{i+1}行: 物品单位不能为空')
                     continue
 
                 if total_quantity < 1:
@@ -147,54 +175,72 @@ def add(room_id):
 
                 # 检查同一房间是否已存在同名物品
                 existing = RoomItem.query.filter_by(room_id=room_id, name=name).first()
-                if existing:
-                    error_messages.append(f'第{i+1}行：物品"{name}"在该房间已存在')
-                    continue
-                # 检查当前批次内是否已有同名物品
-                if name in added_names:
-                    error_messages.append(f'第{i+1}行：物品"{name}"在本批次中已添加')
+                if existing and existing.item_type != item_type:
+                    error_messages.append(f'第{i+1}行：物品"{name}"在该房间已存在但类型不同，无法合并')
                     continue
 
                 try:
-                    item = RoomItem.create_item(
-                        room_id=room_id,
-                        name=name,
-                        item_type=item_type,
-                        total_quantity=total_quantity,
-                        remark=remark
-                    )
-                    db.session.flush()
+                    if existing:
+                        # 同名同类型物品：增加数量
+                        before_available = existing.available_quantity
+                        existing.total_quantity += total_quantity
+                        existing.available_quantity += total_quantity
+                        RoomItemRecord.add_record(
+                            item_id=existing.id,
+                            operation_type='create',
+                            quantity=total_quantity,
+                            before_quantity=before_available,
+                            after_quantity=existing.available_quantity,
+                            operator_id=_get_operator_id(),
+                            remarks=f'新增同名物品增加数量: {name}'
+                        )
+                        db.session.commit()
+                        success_count += 1
+                        merged_names.append(name)
+                    else:
+                        # 新物品：创建
+                        item = RoomItem.create_item(
+                            room_id=room_id,
+                            name=name,
+                            item_type=item_type,
+                            total_quantity=total_quantity,
+                            specification=specification or None,
+                            unit=unit or None,
+                            remark=remark
+                        )
+                        db.session.flush()
 
-                    RoomItemRecord.add_record(
-                        item_id=item.id,
-                        operation_type='create',
-                        quantity=total_quantity,
-                        before_quantity=0,
-                        after_quantity=total_quantity,
-                        operator_id=_get_operator_id(),
-                        remarks=f'新增物品: {name}'
-                    )
-                    db.session.commit()
-                    success_count += 1
-                    added_names.add(name)
+                        RoomItemRecord.add_record(
+                            item_id=item.id,
+                            operation_type='create',
+                            quantity=total_quantity,
+                            before_quantity=0,
+                            after_quantity=total_quantity,
+                            operator_id=_get_operator_id(),
+                            remarks=f'新增物品: {name}'
+                        )
+                        db.session.commit()
+                        success_count += 1
                 except Exception as e:
                     db.session.rollback()
                     error_messages.append(f'第{i+1}行: {str(e)}')
 
             if success_count > 0:
-                log_operation(user_id=current_user.id, action=f'批量新增房间物品{success_count}件, 房间: {room.building}{room.room_number}', module='room_item')
+                log_operation(user_id=current_user.id, action=f'批量新增房间物品{success_count}件, 房间: {room.building}{room.room_number}', module='room_item', operation_type='create')
 
             if error_messages:
                 for msg in error_messages:
                     flash(msg, 'error')
 
             if success_count > 0:
+                for name in merged_names:
+                    flash(f'物品"{name}"在该房间已存在，已增加数量', 'info')
                 flash(f'成功添加{success_count}件物品', 'success')
                 return redirect(url_for('room.view', id=room_id))
             else:
-                return render_template('room_manage/room_item_add.html', room=room)
+                return render_template('room_manage/room_item_add.html', room=room, supply_units=supply_units)
 
-        return render_template('room_manage/room_item_add.html', room=room)
+        return render_template('room_manage/room_item_add.html', room=room, supply_units=supply_units)
     except Exception as e:
         db.session.rollback()
         logging.error(f"添加物品失败: {str(e)}\n{traceback.format_exc()}")
@@ -209,16 +255,23 @@ def add(room_id):
 def edit(item_id):
     try:
         item = RoomItem.query.get_or_404(item_id)
+        supply_units = _get_supply_units()
 
         if request.method == 'POST':
             name = request.form.get('name', '').strip()
             total_quantity = request.form.get('total_quantity', 1, type=int)
             status = request.form.get('status', '正常').strip()
             remark = request.form.get('remark', '').strip()
+            specification = request.form.get('specification', '').strip()
+            unit = request.form.get('unit', '').strip()
 
             if not name:
                 flash('物品名称不能为空', 'error')
-                return render_template('room_manage/room_item_edit.html', item=item)
+                return render_template('room_manage/room_item_edit.html', item=item, supply_units=supply_units)
+
+            if not unit:
+                flash('物品单位不能为空', 'error')
+                return render_template('room_manage/room_item_edit.html', item=item, supply_units=supply_units)
 
             # 状态转换验证：不允许从非正常状态恢复为正常
             valid_transitions = {
@@ -231,19 +284,19 @@ def edit(item_id):
             if status != old_status:
                 if old_status not in valid_transitions or status not in valid_transitions[old_status]:
                     flash(f'不允许从"{old_status}"变更为"{status}"', 'error')
-                    return render_template('room_manage/room_item_edit.html', item=item)
+                    return render_template('room_manage/room_item_edit.html', item=item, supply_units=supply_units)
                 # 验证新状态值合法
                 RoomItem.validate_status(status)
 
             if total_quantity < 1:
                 flash('总数量必须大于0', 'error')
-                return render_template('room_manage/room_item_edit.html', item=item)
+                return render_template('room_manage/room_item_edit.html', item=item, supply_units=supply_units)
 
             # 验证可用数量不超过总数量
             assigned_count = item.total_quantity - item.available_quantity
             if total_quantity < assigned_count:
                 flash(f'总数量不能小于已分配数量({assigned_count})', 'error')
-                return render_template('room_manage/room_item_edit.html', item=item)
+                return render_template('room_manage/room_item_edit.html', item=item, supply_units=supply_units)
 
             before_available = item.available_quantity
             item.name = name
@@ -251,10 +304,12 @@ def edit(item_id):
             item.available_quantity = total_quantity - assigned_count
             item.status = status
             item.remark = remark
+            item.specification = specification or None
+            item.unit = unit or None
             # 当状态变为非正常时，如果仍有数量，提示使用专用操作
             if status != '正常' and (item.total_quantity > 0 or item.available_quantity > 0):
                 flash('请使用详情页的损坏/丢失/报废按钮进行操作，支持指定数量', 'error')
-                return render_template('room_manage/room_item_edit.html', item=item)
+                return render_template('room_manage/room_item_edit.html', item=item, supply_units=supply_units)
 
             # 记录编辑操作
             RoomItemRecord.add_record(
@@ -268,11 +323,11 @@ def edit(item_id):
             )
 
             db.session.commit()
-            log_operation(user_id=current_user.id, action=f'编辑房间物品: {name}, ID={item_id}', module='room_item')
+            log_operation(user_id=current_user.id, action=f'编辑房间物品: {name}, ID={item_id}', module='room_item', operation_type='edit')
             flash(f'物品"{name}"更新成功', 'success')
             return redirect(url_for('room_item.manage'))
 
-        return render_template('room_manage/room_item_edit.html', item=item)
+        return render_template('room_manage/room_item_edit.html', item=item, supply_units=supply_units)
     except Exception as e:
         db.session.rollback()
         logging.error(f"编辑物品失败: {str(e)}\n{traceback.format_exc()}")
@@ -315,7 +370,7 @@ def delete(item_id):
         # 删除物品（关联的records会被级联删除）
         db.session.delete(item)
         db.session.commit()
-        log_operation(user_id=current_user.id, action=f'删除房间物品: {item_info}, ID={item_id}', module='room_item')
+        log_operation(user_id=current_user.id, action=f'删除房间物品: {item_info}, ID={item_id}', module='room_item', operation_type='delete')
         flash(f'物品"{item_name}"删除成功', 'success')
     except Exception as e:
         db.session.rollback()
@@ -355,7 +410,7 @@ def batch_delete():
             RoomItemAssignment.query.filter_by(item_id=item.id).delete()
             db.session.delete(item)
             success_count += 1
-            log_operation(user_id=current_user.id, action=f'删除房间物品: {item.name}, 房间: {item.room.building}{item.room.room_number}', module='room_item')
+            log_operation(user_id=current_user.id, action=f'删除房间物品: {item.name}, 房间: {item.room.building}{item.room.room_number}', module='room_item', operation_type='batch_delete')
 
         if success_count > 0:
             db.session.commit()
@@ -432,9 +487,11 @@ def allocate(item_id):
             )
 
             db.session.commit()
-            log_operation(user_id=current_user.id, action=f'分配物品: {item.name} 给用户ID={user_id}, 数量={quantity}', module='room_item')
-            flash(f'物品"{item.name}"分配成功', 'success')
-            return redirect(url_for('room_item.manage'))
+            target_user = User.query.get(user_id)
+            user_name = target_user.name if target_user else f'用户ID:{user_id}'
+            log_operation(user_id=current_user.id, action=f'分配物品: {item.name} 给用户ID={user_id}, 数量={quantity}', module='room_item', operation_type='allocate')
+            flash(f'物品"{item.name}"已分配给{user_name}', 'success')
+            return _redirect_back('room_item.manage')
 
         # GET: 列出当前房间的在住用户
         active_dorms = Dorm.query.filter_by(room_id=room.id, status='active').all()
@@ -447,7 +504,7 @@ def allocate(item_id):
         db.session.rollback()
         logging.error(f"分配物品失败: {str(e)}\n{traceback.format_exc()}")
         flash(f'分配物品失败: {str(e)}', 'error')
-        return redirect(url_for('room_item.manage'))
+        return _redirect_back('room_item.manage')
 
 
 # 路由6: 归还物品（支持指定数量）
@@ -462,18 +519,18 @@ def return_item(assignment_id):
 
         if assignment.status != 'active':
             flash('该分配记录已处理，无法归还', 'error')
-            return redirect(url_for('room_item.manage'))
+            return _redirect_back('room_item.manage')
 
         # 验证物品状态
         if item.status != '正常':
             flash(f'物品状态为"{item.status}"，无法归还，请先恢复正常状态', 'error')
-            return redirect(url_for('room_item.manage'))
+            return _redirect_back('room_item.manage')
 
         # 获取归还数量，默认全部归还
         quantity = request.form.get('quantity', assignment.quantity, type=int)
         if quantity < 1 or quantity > assignment.quantity:
             flash(f'归还数量必须在1到{assignment.quantity}之间', 'error')
-            return redirect(url_for('room_item.manage'))
+            return _redirect_back('room_item.manage')
 
         before_available = item.available_quantity
 
@@ -511,7 +568,7 @@ def return_item(assignment_id):
             )
 
             db.session.commit()
-            log_operation(user_id=current_user.id, action=f'部分归还物品: {item.name}, 用户ID={assignment.user_id}, 归还数量={quantity}, 剩余={remaining}', module='room_item')
+            log_operation(user_id=current_user.id, action=f'部分归还物品: {item.name}, 用户ID={assignment.user_id}, 归还数量={quantity}, 剩余={remaining}', module='room_item', operation_type='return')
             flash(f'物品"{item.name}"归还{quantity}个成功，剩余{remaining}个', 'success')
         else:
             # 全部归还
@@ -532,14 +589,14 @@ def return_item(assignment_id):
             )
 
             db.session.commit()
-            log_operation(user_id=current_user.id, action=f'归还物品: {item.name}, 用户ID={assignment.user_id}, 数量={quantity}', module='room_item')
+            log_operation(user_id=current_user.id, action=f'归还物品: {item.name}, 用户ID={assignment.user_id}, 数量={quantity}', module='room_item', operation_type='return')
             flash(f'物品"{item.name}"归还成功', 'success')
     except Exception as e:
         db.session.rollback()
         logging.error(f"归还物品失败: {str(e)}\n{traceback.format_exc()}")
         flash(f'归还物品失败: {str(e)}', 'error')
 
-    return redirect(url_for('room_item.manage'))
+    return _redirect_back('room_item.manage')
 
 
 # 公共方法：修改物品状态（损坏/丢失/报废），支持指定数量
@@ -561,13 +618,13 @@ def _change_item_status(item_id, new_status, assignment_status, op_type, remark,
     # 验证数量
     if quantity < 1:
         flash('操作数量必须大于0', 'error')
-        return redirect(url_for('room_item.detail', item_id=item_id))
+        return _redirect_back('room_item.detail', item_id=item_id)
     if quantity > item.total_quantity:
         flash(f'操作数量不能大于总数量({item.total_quantity})', 'error')
-        return redirect(url_for('room_item.detail', item_id=item_id))
+        return _redirect_back('room_item.detail', item_id=item_id)
     if quantity > item.available_quantity:
         flash(f'可用数量不足，当前可用{item.available_quantity}，请先归还已分配的物品', 'error')
-        return redirect(url_for('room_item.detail', item_id=item_id))
+        return _redirect_back('room_item.detail', item_id=item_id)
 
     before_available = item.available_quantity
     before_total = item.total_quantity
@@ -606,7 +663,7 @@ def _change_item_status(item_id, new_status, assignment_status, op_type, remark,
     )
 
     db.session.commit()
-    log_operation(user_id=current_user.id, action=f'{source_remark}: {item.name}, 数量={quantity}, ID={item_id}', module='room_item')
+    log_operation(user_id=current_user.id, action=f'{source_remark}: {item.name}, 数量={quantity}, ID={item_id}', module='room_item', operation_type=op_type)
     if item.total_quantity == 0:
         flash(f'物品"{item.name}"已全部{remark}（{quantity}），状态变为{new_status}', 'success')
     else:
@@ -626,7 +683,7 @@ def damage(item_id):
         logging.error(f"标记损坏失败: {str(e)}\n{traceback.format_exc()}")
         flash(f'标记损坏失败: {str(e)}', 'error')
 
-    return redirect(url_for('room_item.detail', item_id=item_id))
+    return _redirect_back('room_item.detail', item_id=item_id)
 
 
 # 路由8: 标记丢失
@@ -642,7 +699,7 @@ def loss(item_id):
         logging.error(f"标记丢失失败: {str(e)}\n{traceback.format_exc()}")
         flash(f'标记丢失失败: {str(e)}', 'error')
 
-    return redirect(url_for('room_item.detail', item_id=item_id))
+    return _redirect_back('room_item.detail', item_id=item_id)
 
 
 # 路由9: 标记报废
@@ -658,7 +715,7 @@ def scrap(item_id):
         logging.error(f"标记报废失败: {str(e)}\n{traceback.format_exc()}")
         flash(f'标记报废失败: {str(e)}', 'error')
 
-    return redirect(url_for('room_item.detail', item_id=item_id))
+    return _redirect_back('room_item.detail', item_id=item_id)
 
 
 # 公共方法：从assignment级别修改物品状态（损坏/丢失/报废），支持指定数量
@@ -679,13 +736,13 @@ def _change_assignment_status(assignment_id, new_item_status, assignment_status,
 
     if assignment.status != 'active':
         flash('该分配记录已处理，无法操作', 'error')
-        return redirect(url_for('room_item.manage'))
+        return _redirect_back('room_item.manage')
 
     # 获取操作数量，默认全部
     quantity = request.form.get('quantity', assignment.quantity, type=int)
     if quantity < 1 or quantity > assignment.quantity:
         flash(f'操作数量必须在1到{assignment.quantity}之间', 'error')
-        return redirect(url_for('room_item.manage'))
+        return _redirect_back('room_item.manage')
 
     before_available = item.available_quantity
 
@@ -746,7 +803,7 @@ def _change_assignment_status(assignment_id, new_item_status, assignment_status,
     )
 
     db.session.commit()
-    log_operation(user_id=current_user.id, action=f'{source_remark}: {item.name}, 用户ID={assignment.user_id}, 数量={quantity}', module='room_item')
+    log_operation(user_id=current_user.id, action=f'{source_remark}: {item.name}, 用户ID={assignment.user_id}, 数量={quantity}', module='room_item', operation_type=op_type)
     if item.total_quantity == 0:
         flash(f'物品"{item.name}"已全部{remark}（{quantity}），状态变为{new_item_status}', 'success')
     else:
@@ -765,7 +822,7 @@ def damage_assignment(assignment_id):
         logging.error(f"标记损坏(assignment)失败: {str(e)}\n{traceback.format_exc()}")
         flash(f'标记损坏失败: {str(e)}', 'error')
 
-    return redirect(url_for('room_item.manage'))
+    return _redirect_back('room_item.manage')
 
 
 # 路由9b: 从持有人员处标记丢失
@@ -780,7 +837,7 @@ def loss_assignment(assignment_id):
         logging.error(f"标记丢失(assignment)失败: {str(e)}\n{traceback.format_exc()}")
         flash(f'标记丢失失败: {str(e)}', 'error')
 
-    return redirect(url_for('room_item.manage'))
+    return _redirect_back('room_item.manage')
 
 
 # 路由9c: 从持有人员处标记报废
@@ -795,7 +852,7 @@ def scrap_assignment(assignment_id):
         logging.error(f"标记报废(assignment)失败: {str(e)}\n{traceback.format_exc()}")
         flash(f'标记报废失败: {str(e)}', 'error')
 
-    return redirect(url_for('room_item.manage'))
+    return _redirect_back('room_item.manage')
 
 
 # 路由10: 转移物品
@@ -918,9 +975,9 @@ def transfer(item_id):
                 )
 
             db.session.commit()
-            log_operation(user_id=current_user.id, action=f'转移物品: {item.name}, 数量={quantity}, 从房间ID={from_room_id} 到房间ID={target_room_id}', module='room_item')
+            log_operation(user_id=current_user.id, action=f'转移物品: {item.name}, 数量={quantity}, 从房间ID={from_room_id} 到房间ID={target_room_id}', module='room_item', operation_type='transfer')
             flash(f'物品"{item.name}"转移成功，数量: {quantity}', 'success')
-            return redirect(url_for('room_item.detail', item_id=item_id))
+            return _redirect_back('room_item.detail', item_id=item_id)
 
         # GET: 列出可选目标房间
         rooms = Room.query.filter(Room.id != item.room_id).order_by(Room.building, Room.room_number).all()
@@ -929,7 +986,7 @@ def transfer(item_id):
         db.session.rollback()
         logging.error(f"转移物品失败: {str(e)}\n{traceback.format_exc()}")
         flash(f'转移物品失败: {str(e)}', 'error')
-        return redirect(url_for('room_item.detail', item_id=item_id))
+        return _redirect_back('room_item.detail', item_id=item_id)
 
 
 # 路由11: 物品详情
@@ -970,7 +1027,8 @@ def detail(item_id):
                                active_assignments=active_assignments,
                                recent_records=recent_records,
                                all_assignments=all_assignments,
-                               allocated_quantity=allocated_quantity)
+                               allocated_quantity=allocated_quantity,
+                               supply_units=_get_supply_units())
     except Exception as e:
         logging.error(f"查看物品详情失败: {str(e)}\n{traceback.format_exc()}")
         flash('查看物品详情失败', 'error')
@@ -984,10 +1042,19 @@ def detail(item_id):
 def records(item_id):
     try:
         item = RoomItem.query.get_or_404(item_id)
-        record_list = (RoomItemRecord.query.filter_by(item_id=item_id)
-            .order_by(RoomItemRecord.operated_at.desc()).all())
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 20, type=int)
+        per_page = max(10, min(100, per_page))
+        if page < 1:
+            page = 1
+        pagination = (RoomItemRecord.query.filter_by(item_id=item_id)
+            .order_by(RoomItemRecord.operated_at.desc())
+            .paginate(page=page, per_page=per_page, error_out=False))
         return render_template('room_manage/room_item_records.html',
-                               item=item, records=record_list)
+                               item=item,
+                               records=pagination.items,
+                               pagination=pagination,
+                               page_range=generate_page_range(page, pagination.pages))
     except Exception as e:
         logging.error(f"获取物品记录失败: {str(e)}\n{traceback.format_exc()}")
         flash('获取物品记录失败', 'error')
@@ -1299,7 +1366,7 @@ def process_dorm_operation():
         dorm.pending_item_action = False
 
         db.session.commit()
-        log_operation(user_id=current_user.id, action=f'处理宿舍操作物品: 宿舍记录ID={dorm_id}', module='room_item')
+        log_operation(user_id=current_user.id, action=f'处理宿舍操作物品: 宿舍记录ID={dorm_id}', module='room_item', operation_type='confirm_dorm')
         flash('物品处理完成', 'success')
     except Exception as e:
         db.session.rollback()

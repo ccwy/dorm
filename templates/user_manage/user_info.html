@@ -281,6 +281,61 @@
                     {% endif %}
                 </div>
 
+                <!-- 个人领用物品卡片 -->
+                <div class="bg-white rounded-lg shadow-sm overflow-hidden card-hover mb-6">
+                    <div class="px-6 py-4 border-b border-gray-200">
+                        <h3 class="font-medium flex items-center">
+                            <i class="fa fa-cube text-primary mr-2"></i>
+                            个人领用物品
+                        </h3>
+                    </div>
+                    <div class="p-6">
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead>
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">物品名称</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">物品编号</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">物品规格</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">物品单位</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">所属房间</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">数量</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">状态</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">领用时间</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">备注</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200">
+                                    {% for assignment in item_assignments %}
+                                    <tr>
+                                        <td class="px-6 py-4 text-sm text-gray-900">{{ assignment.item.name if assignment.item else '-' }}</td>
+                                        <td class="px-6 py-4 text-sm text-gray-900">{{ assignment.item.item_code if assignment.item else '-' }}</td>
+                                        <td class="px-6 py-4 text-sm text-gray-900">{{ assignment.item.specification if assignment.item else '-' }}</td>
+                                        <td class="px-6 py-4 text-sm text-gray-900">{{ assignment.item.unit if assignment.item else '-' }}</td>
+                                        <td class="px-6 py-4 text-sm text-blue-600">{{ assignment.item.room.building + assignment.item.room.room_number if assignment.item and assignment.item.room else '-' }}</td>
+                                        <td class="px-6 py-4 text-sm text-gray-900">{{ assignment.quantity }}</td>
+                                        <td class="px-6 py-4 text-sm">
+                                            <span class="px-2 py-1 {% if assignment.status == 'active' %}bg-green-100 text-green-800{% elif assignment.status == 'returned' %}bg-gray-100 text-gray-800{% elif assignment.status == 'damaged' %}bg-red-100 text-red-800{% elif assignment.status == 'lost' %}bg-orange-100 text-orange-800{% else %}bg-amber-100 text-amber-800{% endif %} rounded-full text-xs">
+                                                {{ '持有中' if assignment.status == 'active' else '已归还' if assignment.status == 'returned' else '已损坏' if assignment.status == 'damaged' else '已丢失' if assignment.status == 'lost' else '已报废' }}
+                                            </span>
+                                        </td>
+                                        <td class="px-6 py-4 text-sm text-gray-900">{{ format_datetime(assignment.assigned_at) }}</td>
+                                        <td class="px-6 py-4 text-sm text-gray-500">{{ assignment.remarks or '-' }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                    {% if not item_assignments %}
+                                    <tr>
+                                        <td colspan="9" class="px-4 py-6 text-center text-sm text-gray-500">
+                                            暂无领用物品记录
+                                        </td>
+                                    </tr>
+                                    {% endif %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- 水电费记录卡片 -->
                 <div class="bg-white rounded-lg shadow-sm overflow-hidden card-hover mb-6">
                     <div class="px-6 py-4 border-b border-gray-200">

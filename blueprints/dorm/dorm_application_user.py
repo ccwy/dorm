@@ -15,6 +15,7 @@ from sqlalchemy.orm import joinedload
 from datetime import datetime
 import logging
 from models.system_config.system_config import SystemConfig
+from models.room.room_item_assignment import RoomItemAssignment
 
 
 # 创建宿舍申请用户端蓝图
@@ -272,6 +273,7 @@ def create_change():
                 check_in = active_dorm.check_in_date.date() if hasattr(active_dorm.check_in_date, 'date') else active_dorm.check_in_date
                 today = datetime.now().date()
                 stay_days = max(0, (today - check_in).days + 1)
+            active_item_assignments = RoomItemAssignment.query.filter_by(user_id=user_id, status='active').order_by(RoomItemAssignment.assigned_at.desc()).all()
             return render_template('dorm_manage/application_create.html',
                                   title="申请换宿",
                                   application_type='change',
@@ -281,7 +283,8 @@ def create_change():
                                   current_bed=current_bed,
                                   default_datetime=default_datetime,
                                   building_list=building_list,
-                                  stay_days=stay_days)
+                                  stay_days=stay_days,
+                                  active_item_assignments=active_item_assignments)
 
         # POST请求 - 创建换宿申请
         target_room_id = request.form.get('target_room_id', type=int)
@@ -402,6 +405,7 @@ def create_checkout():
                 check_in = active_dorm.check_in_date.date() if hasattr(active_dorm.check_in_date, 'date') else active_dorm.check_in_date
                 today = datetime.now().date()
                 stay_days = max(0, (today - check_in).days + 1)
+            active_item_assignments = RoomItemAssignment.query.filter_by(user_id=user_id, status='active').order_by(RoomItemAssignment.assigned_at.desc()).all()
             return render_template('dorm_manage/application_create.html',
                                   title="申请退宿",
                                   application_type='checkout',
@@ -412,7 +416,8 @@ def create_checkout():
                                   default_datetime=default_datetime,
                                   stay_days=stay_days,
                                   last_water_reading=last_water_reading,
-                                  last_electric_reading=last_electric_reading)
+                                  last_electric_reading=last_electric_reading,
+                                  active_item_assignments=active_item_assignments)
 
         # POST请求 - 创建退宿申请
         check_out_date_str = request.form.get('check_out_date', '').strip()
@@ -568,6 +573,7 @@ def application_detail(id):
                 if main_record:
                     checkout_billing_period = main_record.billing_period
 
+        active_item_assignments = RoomItemAssignment.query.filter_by(user_id=application.user_id, status='active').order_by(RoomItemAssignment.assigned_at.desc()).all()
         return render_template('dorm_manage/application_detail.html',
                               title="申请详情",
                               application=application,
@@ -577,7 +583,8 @@ def application_detail(id):
                               checkout_fee_record=checkout_fee_record,
                               checkout_billing_period=checkout_billing_period,
                                bed_management_enabled=SystemConfig.get_config_value('ROOM_BED_MANAGEMENT_ENABLED', True),
-                               user_bed_selection_enabled=SystemConfig.get_config_value('USER_BED_SELECTION_ENABLED', True))
+                               user_bed_selection_enabled=SystemConfig.get_config_value('USER_BED_SELECTION_ENABLED', True),
+                               active_item_assignments=active_item_assignments)
     except Exception as e:
         logging.error(f"查看宿舍申请详情失败: {str(e)}")
         flash('查看申请详情失败，请稍后重试', 'error')

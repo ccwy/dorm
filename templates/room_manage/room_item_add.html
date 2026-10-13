@@ -61,6 +61,8 @@
                             <tr class="bg-gray-100 text-sm text-gray-700">
                                 <th class="px-3 py-2 text-center border border-gray-200 w-12">序号</th>
                                 <th class="px-3 py-2 text-center border border-gray-200">物品名称 <span class="text-red-500">*</span></th>
+                                <th class="px-3 py-2 text-center border border-gray-200">物品规格</th>
+                                <th class="px-3 py-2 text-center border border-gray-200">物品单位</th>
                                 <th class="px-3 py-2 text-center border border-gray-200 w-32">物品类型 <span class="text-red-500">*</span></th>
                                 <th class="px-3 py-2 text-center border border-gray-200 w-24">总数量 <span class="text-red-500">*</span></th>
                                 <th class="px-3 py-2 text-center border border-gray-200">备注</th>
@@ -74,6 +76,16 @@
                                     <input type="text" name="name_0" required
                                            class="w-full px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary/50 text-sm"
                                            placeholder="物品名称">
+                                </td>
+                                <td class="px-2 py-2 border border-gray-200">
+                                    <input type="text" name="specification_0"
+                                           class="w-full px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary/50 text-sm"
+                                           placeholder="规格">
+                                </td>
+                                <td class="px-2 py-2 border border-gray-200">
+                                    <input type="text" name="unit_0" list="supply_units_list" required
+                                           class="w-full px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary/50 text-sm"
+                                           placeholder="单位">
                                 </td>
                                 <td class="px-2 py-2 border border-gray-200">
                                     <select name="item_type_0"
@@ -119,6 +131,12 @@
     </main>
     {% include 'footer.html' %}
 
+    <datalist id="supply_units_list">
+        {% for u in supply_units %}
+        <option value="{{ u }}">
+        {% endfor %}
+    </datalist>
+
     <script>
     var rowIndex = 1;
 
@@ -133,6 +151,12 @@
             '<td class="px-2 py-2 text-center border border-gray-200 text-gray-600 row-num"></td>' +
             '<td class="px-2 py-2 border border-gray-200">' +
                 '<input type="text" name="name_' + idx + '" required class="w-full px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary/50 text-sm" placeholder="物品名称">' +
+            '</td>' +
+            '<td class="px-2 py-2 border border-gray-200">' +
+                '<input type="text" name="specification_' + idx + '" class="w-full px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary/50 text-sm" placeholder="规格">' +
+            '</td>' +
+            '<td class="px-2 py-2 border border-gray-200">' +
+                '<input type="text" name="unit_' + idx + '" list="supply_units_list" required class="w-full px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary/50 text-sm" placeholder="单位">' +
             '</td>' +
             '<td class="px-2 py-2 border border-gray-200">' +
                 '<select name="item_type_' + idx + '" class="w-full px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary/50 text-sm">' +
@@ -178,6 +202,10 @@
             if (typeSelect) typeSelect.setAttribute('name', 'item_type_' + i);
             var qtyInput = rows[i].querySelector('input[name^="total_quantity_"]');
             if (qtyInput) qtyInput.setAttribute('name', 'total_quantity_' + i);
+            var specInput = rows[i].querySelector('input[name^="specification_"]');
+            if (specInput) specInput.setAttribute('name', 'specification_' + i);
+            var unitInput = rows[i].querySelector('input[name^="unit_"]');
+            if (unitInput) unitInput.setAttribute('name', 'unit_' + i);
             var remarkInput = rows[i].querySelector('input[name^="remark_"]');
             if (remarkInput) remarkInput.setAttribute('name', 'remark_' + i);
         }

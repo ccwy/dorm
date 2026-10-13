@@ -92,6 +92,9 @@
                         <thead class="bg-gray-50">
                             <tr>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">物品名称</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">物品编号</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">物品规格</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">物品单位</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">类型</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">持有数量</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">当前房间</th>
@@ -105,6 +108,9 @@
                             {% if item %}
                             <tr>
                                 <td class="px-6 py-4 whitespace-nowrap">{{ item.name }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-600">{{ item.item_code or '-' }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{{ item.specification or '-' }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{{ item.unit or '-' }}</td>
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     {% if item.item_type == 'room_bound' %}
                                     <span class="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs">房间绑定</span>

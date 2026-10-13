@@ -65,6 +65,9 @@ OPERATION_TYPE_MAP = {
     ('room_item', 'loss'): '标记丢失',
     ('room_item', 'scrap'): '标记报废',
     ('room_item', 'confirm_dorm'): '宿舍操作确认物品',
+    ('room_item', 'batch_delete'): '批量删除物品',
+    ('room_item', 'view'): '查看物品详情',
+    ('room_item', 'batch_import_export'): '导入导出',
 
     # 宿舍管理模块（示例扩展）
     ('dorm', 'records'): '访问页面',

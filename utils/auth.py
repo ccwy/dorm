@@ -49,6 +49,18 @@ PERMISSIONS = {
             'import': '导入',
         }
     },
+    'room_item': {
+        'name': '房间物品管理',
+        'actions': {
+            'view': '查看',
+            'create': '新增',
+            'edit': '编辑',
+            'delete': '删除',
+            'allocate': '分配',
+            'return': '归还',
+            'operate': '操作',
+        }
+    },
     'dorm': {
         'name': '宿舍管理',
         'actions': {

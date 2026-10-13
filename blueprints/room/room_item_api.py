@@ -51,7 +51,7 @@ def get_room_items(room_id):
 def get_user_assignments(user_id):
     try:
         # �权限验证：只能查看自己的分配记录，管理员可查看任意用户
-        if current_user.id != user_id and not current_user.has_permission('room_item.manage'):
+        if current_user.id != user_id and not current_user.has_permission('room_item.view'):
             return jsonify({'success': False, 'message': '无权查看该用户的物品分配记录'}), 403
 
         assignments = RoomItemAssignment.query.filter_by(

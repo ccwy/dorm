@@ -48,6 +48,9 @@ def export_items():
                 '楼栋': room.building if room else '',
                 '房间号': room.room_number if room else '',
                 '物品名称': item.name,
+                '物品编号': item.item_code or '',
+                '物品规格': item.specification or '',
+                '物品单位': item.unit or '',
                 '物品类型': item_type_display,
                 '总数量': item.total_quantity,
                 '可用数量': item.available_quantity,
@@ -196,6 +199,14 @@ def import_items():
                     continue
                 name = str(name_val).strip()
 
+                # 读取物品规格（可选）
+                spec_val = row.get('物品规格')
+                specification = str(spec_val).strip() if pd.notna(spec_val) and str(spec_val).strip() else None
+
+                # 读取物品单位（可选）
+                unit_val = row.get('物品单位')
+                unit = str(unit_val).strip() if pd.notna(unit_val) and str(unit_val).strip() else None
+
                 # 读取物品类型（可选，默认room_bound）
                 type_val = row.get('物品类型')
                 if pd.isna(type_val) or not str(type_val).strip():
@@ -267,7 +278,7 @@ def import_items():
                         before_quantity=before_avail,
                         after_quantity=existing_item.available_quantity,
                         operator_id=current_user.id,
-                        remarks='导入物品合并数量'
+                        remarks='批量导入合并数量'
                     )
                 else:
                     # 创建新物品
@@ -276,6 +287,8 @@ def import_items():
                         name=name,
                         item_type=item_type,
                         total_quantity=total_quantity,
+                        specification=specification,
+                        unit=unit,
                         remark=remark
                     )
                     db.session.flush()
@@ -284,6 +297,16 @@ def import_items():
                     # 设置状态（create_item默认为正常）
                     if status != '正常':
                         item_obj.status = status
+                    # 添加操作记录
+                    RoomItemRecord.add_record(
+                        item_id=item_obj.id,
+                        operation_type='import',
+                        quantity=total_quantity,
+                        before_quantity=0,
+                        after_quantity=item_obj.available_quantity,
+                        operator_id=current_user.id,
+                        remarks='批量导入新增物品'
+                    )
 
                 success_count += 1
 
