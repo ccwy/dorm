@@ -210,20 +210,6 @@ class SupplyItem(db.Model):
         return cls.query.filter(cls.current_stock <= cls.min_stock, cls.status == '启用').all()
 
     @classmethod
-    def recalculate_stock(cls, item_id):
-        """根据SupplyStockDetail重新计算物品总库存"""
-        from models.supply.supply_stock_detail import SupplyStockDetail
-        from sqlalchemy import func
-        total = db.session.query(func.coalesce(func.sum(SupplyStockDetail.quantity), 0)).filter(
-            SupplyStockDetail.item_id == item_id
-        ).scalar()
-        item = cls.query.get(item_id)
-        if item:
-            item.current_stock = total
-            db.session.commit()
-        return item
-
-    @classmethod
     def get_all_names(cls):
         """获取所有物品名称列表"""
         items = cls.query.order_by(cls.name).all()

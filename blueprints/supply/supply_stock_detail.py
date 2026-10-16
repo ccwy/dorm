@@ -390,41 +390,6 @@ def low_stock():
         )
 
 
-# 重新计算物品总库存
-@supply_stock_detail_bp.route('/operations/recalculate/<int:item_id>', methods=['POST'])
-@login_required
-@require_permission('supply.edit')
-def recalculate_stock(item_id):
-    """重新计算指定物品的总库存"""
-    try:
-        item = SupplyItem.query.get_or_404(item_id)
-        item = SupplyItem.recalculate_stock(item_id)
-
-        log_operation(
-            user_id=current_user.id,
-            module='supply_stock_detail',
-            operation_type='update',
-            action=f"重新计算物品库存 [物品: {item.name}，总库存: {item.current_stock}]",
-            result="成功"
-        )
-        flash(f'物品 "{item.name}" 总库存已重新计算为 {item.current_stock}', 'success')
-        logging.info(f"重新计算物品库存，物品ID: {item_id}，总库存: {item.current_stock}")
-    except Exception as e:
-        db.session.rollback()
-        log_operation(
-            user_id=current_user.id,
-            module='supply_stock_detail',
-            operation_type='update',
-            action=f"重新计算物品库存失败 [物品ID: {item_id}]: {str(e)}",
-            result="失败"
-        )
-        flash(f'重新计算库存失败: {str(e)}', 'danger')
-        logging.error(f"重新计算物品库存失败，物品ID: {item_id}, 错误: {str(e)}")
-
-    # 返回来源页面
-    return redirect(request.referrer or url_for('supply_stock_detail.list_stock_details'))
-
-
 # ========== 导出库存明细数据 ==========
 @supply_stock_detail_bp.route('/export', methods=['GET'])
 @login_required

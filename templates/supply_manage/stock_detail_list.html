@@ -77,11 +77,6 @@
                     <button onclick="location.reload();" class="btn-hover bg-secondary text-white px-4 py-2 rounded-md flex items-center">
                         <i class="fa fa-refresh mr-2"></i>刷新页面
                     </button>
-                    {% if current_user.has_permission('supply.edit') %}
-                    <button onclick="recalculateAllStock()" class="btn-hover bg-info text-white px-4 py-2 rounded-md flex items-center">
-                        <i class="fa fa-calculator mr-2"></i>重算库存
-                    </button>
-                    {% endif %}
                     {% if current_user.has_permission('supply.export') %}
                     <button type="button" id="exportBtn" class="btn-hover bg-warning text-white px-4 py-2 rounded-md flex items-center">
                         <i class="fa fa-download mr-2"></i>
@@ -178,7 +173,6 @@
                                 <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">总库存</th>
                                 <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">最低库存</th>
                                 <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">库存状态</th>
-                                <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
                             </tr>
                         </thead>
                         <tbody class="bg-white divide-y divide-gray-200">
@@ -214,17 +208,10 @@
                                     <span class="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs">正常</span>
                                     {% endif %}
                                 </td>
-                                <td class="px-4 py-4 whitespace-nowrap">
-                                    {% if current_user.has_permission('supply.edit') %}
-                                    <button type="button" onclick="event.stopPropagation(); recalculateStock({{ item.id }})" class="text-info hover:text-blue-700 text-sm" title="重算库存">
-                                        <i class="fa fa-calculator"></i>
-                                    </button>
-                                    {% endif %}
-                                </td>
                             </tr>
                             <!-- 展开的位置明细行 -->
                             <tr id="{{ detail_id }}" class="expand-row hidden">
-                                <td colspan="10" class="p-0">
+                                <td colspan="9" class="p-0">
                                     <div class="bg-gray-50 px-8 py-3 border-l-4 border-primary">
                                         <div class="text-xs text-gray-500 mb-2 font-medium">
                                             <i class="fa fa-map-marker mr-1"></i>{{ item.name }} 的各存放位置库存明细
@@ -270,7 +257,7 @@
                             </tr>
                             {% else %}
                             <tr>
-                                <td colspan="10" class="px-6 py-4 text-center text-gray-500">没有找到匹配的库存明细数据</td>
+                                <td colspan="9" class="px-6 py-4 text-center text-gray-500">没有找到匹配的库存明细数据</td>
                             </tr>
                             {% endfor %}
                         </tbody>
@@ -323,9 +310,6 @@
         </div>
     </main>
 
-    <!-- 重算库存表单 -->
-    <form id="recalculateForm" action="" method="post" class="hidden"></form>
-
     <!-- 页脚 -->
     {% include 'footer.html' %}
     
@@ -339,20 +323,6 @@
             } else {
                 detailRow.classList.add('hidden');
                 icon.classList.remove('expanded');
-            }
-        }
-
-        function recalculateStock(itemId) {
-            if (confirm('确定要重新计算该物品的库存吗？')) {
-                const form = document.getElementById('recalculateForm');
-                form.action = '{{ url_for("supply_stock_detail.recalculate_stock", item_id=0) }}'.replace('0', itemId);
-                form.submit();
-            }
-        }
-
-        function recalculateAllStock() {
-            if (confirm('确定要重新计算所有库存吗？此操作可能需要一些时间。')) {
-                alert('请通过基础物料资料页面逐个重算物品库存');
             }
         }
 

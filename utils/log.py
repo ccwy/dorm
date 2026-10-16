@@ -286,7 +286,6 @@ OPERATION_TYPE_MAP = {
     ('supply_item', 'supply_item_edit'): '编辑物品',
     ('supply_item', 'supply_item_delete'): '删除物品',
     ('supply_item', 'supply_item_batch_delete'): '批量删除物品',
-    ('supply_item', 'supply_item_recalculate_stock'): '重新计算库存',
     ('supply_item', 'api_query'): '调用接口',
     ('supply_item', 'batch_import_export'): '导入导出',
 

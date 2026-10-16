@@ -64,9 +64,9 @@
         {% endwith %}
 
         <div class="flex items-center mb-6 fade-in">
-            <a href="{{ url_for('supply_item.index') }}" class="text-primary hover:text-primary/80 mr-2">
+            <button type="button" onclick="window.history.back()" class="text-gray-600 hover:text-primary transition-colors mr-4">
                 <i class="fa fa-arrow-left"></i>
-            </a>
+            </button>
             <h2 class="text-2xl font-semibold text-dark">{{ title }}</h2>
             {% if item.is_low_stock %}
             <span class="ml-3 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
@@ -81,9 +81,6 @@
             <a href="{{ url_for('supply_item.edit_page', id=item.id) }}" class="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90 btn-hover inline-flex items-center">
                 <i class="fa fa-edit mr-1"></i>编辑
             </a>
-            <button type="button" onclick="recalculateStock({{ item.id }})" class="px-4 py-2 bg-info text-white rounded-md hover:bg-info/90 btn-hover inline-flex items-center">
-                <i class="fa fa-calculator mr-1"></i>重算库存
-            </button>
             {% endif %}
             {% if current_user.has_permission('supply_item.delete') %}
             <button type="button" onclick="confirmDelete({{ item.id }})" class="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 btn-hover inline-flex items-center">
@@ -229,9 +226,7 @@
                                 {% for detail in stock_details %}
                                 <tr class="hover:bg-gray-50">
                                     <td class="px-4 py-3 text-sm text-gray-500">{{ loop.index }}</td>
-                                    <td class="px-4 py-3 text-sm text-primary whitespace-nowrap">
-                                        <a href="{{ url_for('supply_item.detail', id=item.id) }}" class="hover:underline">{{ item.item_number or '-' }}</a>
-                                    </td>
+                                    <td class="px-4 py-3 text-sm text-gray-800 whitespace-nowrap">{{ item.item_number or '-' }}</td>
                                     <td class="px-4 py-3 text-sm font-medium whitespace-nowrap">
                                         <a href="{{ url_for('storage_location.detail', id=detail.location_id) }}" class="text-primary hover:underline">{{ detail.location_name }}</a>
                                     </td>
@@ -403,27 +398,6 @@
                     .catch(() => {
                         document.getElementById('deleteForm').submit();
                     });
-            }
-        }
-
-        function recalculateStock(id) {
-            if (confirm('确定要重新计算该物品的库存吗？')) {
-                fetch('{{ url_for("supply_item.recalculate_item_stock", id=0) }}'.replace('0', id), {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' }
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        alert('库存重算完成：当前库存为 ' + data.current_stock);
-                        location.reload();
-                    } else {
-                        alert('重算失败：' + (data.message || '未知错误'));
-                    }
-                })
-                .catch(() => {
-                    alert('请求失败，请稍后重试');
-                });
             }
         }
     </script>

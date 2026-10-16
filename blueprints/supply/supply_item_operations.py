@@ -271,44 +271,6 @@ def delete_supply_item(id):
         return redirect(url_for('supply_item.index'))
 
 
-# ========== 路由：重新计算物品总库存 ==========
-@supply_item_bp.route('/operations/recalculate-stock/<int:id>', methods=['POST'])
-@login_required
-@require_permission('supply_item.edit')
-def recalculate_item_stock(id):
-    """重新计算物品总库存"""
-    try:
-        item = SupplyItem.query.get_or_404(id)
-        old_stock = item.current_stock
-        item = SupplyItem.recalculate_stock(id)
-
-        # 记录操作日志
-        log_operation(
-            user_id=current_user.id,
-            module='supply_item',
-            operation_type='supply_item_recalculate_stock',
-            action=f"重新计算物品库存: {item.name}，{old_stock} → {item.current_stock}",
-            result="成功"
-        )
-
-        flash(f'物品"{item.name}"总库存已重新计算: {old_stock} → {item.current_stock}', 'success')
-        logging.info(f"重新计算物品库存，物品ID: {id}, {old_stock} → {item.current_stock}")
-        return redirect(url_for('supply_item.detail', id=id))
-
-    except Exception as e:
-        db.session.rollback()
-        log_operation(
-            user_id=current_user.id,
-            module='supply_item',
-            operation_type='supply_item_recalculate_stock',
-            action=f"重新计算物品库存失败 [ID: {id}]: {str(e)}",
-            result="失败"
-        )
-        flash(f'重新计算库存失败: {str(e)}', 'danger')
-        logging.error(f"重新计算物品库存失败，物品ID: {id}, 错误: {str(e)}\n{traceback.format_exc()}")
-        return redirect(url_for('supply_item.detail', id=id))
-
-
 # ========== 路由：批量删除物品 ==========
 @supply_item_bp.route('/operations/batch-delete', methods=['POST'])
 @login_required

@@ -269,10 +269,6 @@
                                         <button onclick="window.location.href='{{ url_for('supply_item.edit_page', id=item.id) }}'" class="btn-effect bg-amber-500 text-white px-2 py-1 rounded-md text-xs flex items-center">
                                             <i class="fa fa-pencil mr-1"></i>编辑
                                         </button>
-                                        <button class="btn-effect bg-purple-500 text-white px-2 py-1 rounded-md text-xs flex items-center"
-                                            onclick="recalculateStock({{ item.id }})">
-                                            <i class="fa fa-calculator mr-1"></i>重算
-                                        </button>
                                         {% endif %}
                                         {% if current_user.has_permission('supply_item.delete') %}
                                         <button class="btn-effect bg-red-500 text-white px-2 py-1 rounded-md text-xs flex items-center"
@@ -402,28 +398,6 @@
     {% include 'footer.html' %}
     
     <script>
-        // 重算库存
-        function recalculateStock(id) {
-            if (confirm('确定要重新计算该物品的库存吗？')) {
-                fetch('{{ url_for("supply_item.recalculate_item_stock", id=0) }}'.replace('0', id), {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
-                    }
-                })
-                .then(response => {
-                    if (response.redirected) {
-                        window.location.href = response.url;
-                    } else {
-                        location.reload();
-                    }
-                })
-                .catch(error => {
-                    alert('操作失败：' + error.message);
-                });
-            }
-        }
-
         document.addEventListener('DOMContentLoaded', function() {
             // 导入模态框相关逻辑
             const importBtn = document.getElementById('importBtn');
