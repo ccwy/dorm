@@ -583,6 +583,8 @@
                                 <thead>
                                     <tr>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">物品名称</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">物品编号</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">物品规格</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">所属房间</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">类型</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">领用数量</th>
@@ -599,6 +601,8 @@
                                         <td class="px-6 py-4 whitespace-nowrap">
                                             <a href="{{ url_for('room_item.detail', item_id=item.id) }}" class="text-primary hover:underline">{{ item.name }}</a>
                                         </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ item.item_code or '-' }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ item.specification or '-' }}</td>
                                         <td class="px-6 py-4 whitespace-nowrap">
                                             <a href="{{ url_for('room.view', id=item.room_id) }}" class="text-blue-600 hover:underline">{{ item.room.building }}{{ item.room.room_number }}</a>
                                         </td>
@@ -609,7 +613,7 @@
                                             <span class="px-2 py-1 bg-purple-100 text-purple-800 rounded-full text-xs">可转移</span>
                                             {% endif %}
                                         </td>
-                                        <td class="px-6 py-4 whitespace-nowrap font-medium">{{ a.quantity }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap font-medium">{{ a.quantity }}{{ item.unit or '' }}</td>
                                         <td class="px-6 py-4 whitespace-nowrap">{{ a.assigned_at.strftime('%Y-%m-%d %H:%M') if a.assigned_at else '未知' }}</td>
                                         <td class="px-6 py-4 whitespace-nowrap">{{ a.remarks or '-' }}</td>
                                         <td class="px-6 py-4 whitespace-nowrap">

@@ -161,10 +161,6 @@
                     <p class="mt-1 text-sm text-gray-900">{{ item.specification or '-' }}</p>
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-500">物品单位</label>
-                    <p class="mt-1 text-sm text-gray-900">{{ item.unit or '-' }}</p>
-                </div>
-                <div>
                     <label class="block text-sm font-medium text-gray-500">所属房间</label>
                     <p class="mt-1 text-sm text-gray-900">
                         <a href="{{ url_for('room.view', id=item.room_id) }}" class="text-primary hover:text-primary/80">{{ item.room.building }}{{ item.room.room_number }}</a>
@@ -226,31 +222,31 @@
                 <tbody class="bg-white divide-y divide-gray-200">
                     <tr>
                         <td class="px-4 py-3 text-sm"><span class="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs">可用(未分配)</span></td>
-                        <td class="px-4 py-3 text-sm text-right font-medium text-green-600">{{ item.available_quantity }}</td>
+                        <td class="px-4 py-3 text-sm text-right font-medium text-green-600">{{ item.available_quantity }}{{ item.unit or '' }}</td>
                     </tr>
                     <tr>
                         <td class="px-4 py-3 text-sm"><span class="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs">已分配(使用中)</span></td>
-                        <td class="px-4 py-3 text-sm text-right font-medium text-blue-600">{{ allocated_quantity }}</td>
+                        <td class="px-4 py-3 text-sm text-right font-medium text-blue-600">{{ allocated_quantity }}{{ item.unit or '' }}</td>
                     </tr>
                     <tr class="bg-green-50">
                         <td class="px-4 py-3 text-sm font-medium">正常合计</td>
-                        <td class="px-4 py-3 text-sm text-right font-bold text-green-700">{{ item.available_quantity + allocated_quantity }}</td>
+                        <td class="px-4 py-3 text-sm text-right font-bold text-green-700">{{ item.available_quantity + allocated_quantity }}{{ item.unit or '' }}</td>
                     </tr>
                     <tr>
                         <td class="px-4 py-3 text-sm"><span class="px-2 py-1 bg-red-100 text-red-800 rounded-full text-xs">损坏</span></td>
-                        <td class="px-4 py-3 text-sm text-right font-medium {% if item.damaged_quantity > 0 %}text-red-600{% else %}text-gray-400{% endif %}">{{ item.damaged_quantity or 0 }}</td>
+                        <td class="px-4 py-3 text-sm text-right font-medium {% if item.damaged_quantity > 0 %}text-red-600{% else %}text-gray-400{% endif %}">{{ item.damaged_quantity or 0 }}{{ item.unit or '' }}</td>
                     </tr>
                     <tr>
                         <td class="px-4 py-3 text-sm"><span class="px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs">丢失</span></td>
-                        <td class="px-4 py-3 text-sm text-right font-medium {% if item.lost_quantity > 0 %}text-yellow-600{% else %}text-gray-400{% endif %}">{{ item.lost_quantity or 0 }}</td>
+                        <td class="px-4 py-3 text-sm text-right font-medium {% if item.lost_quantity > 0 %}text-yellow-600{% else %}text-gray-400{% endif %}">{{ item.lost_quantity or 0 }}{{ item.unit or '' }}</td>
                     </tr>
                     <tr>
                         <td class="px-4 py-3 text-sm"><span class="px-2 py-1 bg-gray-200 text-gray-800 rounded-full text-xs">报废</span></td>
-                        <td class="px-4 py-3 text-sm text-right font-medium {% if item.scrapped_quantity > 0 %}text-gray-600{% else %}text-gray-400{% endif %}">{{ item.scrapped_quantity or 0 }}</td>
+                        <td class="px-4 py-3 text-sm text-right font-medium {% if item.scrapped_quantity > 0 %}text-gray-600{% else %}text-gray-400{% endif %}">{{ item.scrapped_quantity or 0 }}{{ item.unit or '' }}</td>
                     </tr>
                     <tr class="bg-red-50">
                         <td class="px-4 py-3 text-sm font-medium">异常合计</td>
-                        <td class="px-4 py-3 text-sm text-right font-bold text-red-700">{{ (item.damaged_quantity or 0) + (item.lost_quantity or 0) + (item.scrapped_quantity or 0) }}</td>
+                        <td class="px-4 py-3 text-sm text-right font-bold text-red-700">{{ (item.damaged_quantity or 0) + (item.lost_quantity or 0) + (item.scrapped_quantity or 0) }}{{ item.unit or '' }}</td>
                     </tr>
                 </tbody>
             </table>
@@ -278,7 +274,7 @@
                         {% for a in active_assignments %}
                         <tr>
                             <td class="px-4 py-3 whitespace-nowrap text-sm">{% if a.user %}<a href="{{ url_for('user.view', id=a.user_id) }}" class="text-primary hover:text-primary/80">{{ a.user.name }}</a>{% else %}未知{% endif %}</td>
-                            <td class="px-4 py-3 whitespace-nowrap text-sm">{{ a.quantity }}</td>
+                            <td class="px-4 py-3 whitespace-nowrap text-sm">{{ a.quantity }}{{ item.unit or '' }}</td>
                             <td class="px-4 py-3 whitespace-nowrap text-sm">{{ a.assigned_at.strftime('%Y-%m-%d %H:%M') if a.assigned_at else '未知' }}</td>
                             <td class="px-4 py-3 text-sm">{{ a.remarks or '-' }}</td>
                             <td class="px-4 py-3 whitespace-nowrap text-sm">
@@ -359,8 +355,8 @@
                                 {% set op_map = {'create': '新增', 'edit': '编辑', 'delete': '删除', 'allocate': '分配', 'return': '归还', 'transfer': '转移', 'damage': '损坏', 'loss': '丢失', 'scrap': '报废', 'dorm_transfer': '换宿转移', 'dorm_exchange': '互换转移', 'dorm_checkout': '退宿归还', 'import': '导入'} %}
                                 <span class="px-2 py-1 {% if r.operation_type in ['create', 'allocate'] %}bg-green-100 text-green-800{% elif r.operation_type in ['damage', 'loss', 'scrap', 'delete'] %}bg-red-100 text-red-800{% elif r.operation_type in ['return', 'dorm_checkout'] %}bg-blue-100 text-blue-800{% elif r.operation_type in ['transfer', 'dorm_transfer', 'dorm_exchange'] %}bg-purple-100 text-purple-800{% elif r.operation_type == 'import' %}bg-cyan-100 text-cyan-800{% else %}bg-gray-100 text-gray-800{% endif %} rounded-full text-xs">{{ op_map.get(r.operation_type, r.operation_type) }}</span>
                             </td>
-                            <td class="px-4 py-3 whitespace-nowrap text-sm">{{ r.quantity }}</td>
-                            <td class="px-4 py-3 whitespace-nowrap text-sm">{{ r.before_quantity }} → {{ r.after_quantity }}</td>
+                            <td class="px-4 py-3 whitespace-nowrap text-sm">{{ r.quantity }}{{ item.unit or '' }}</td>
+                            <td class="px-4 py-3 whitespace-nowrap text-sm">{{ r.before_quantity }}{{ item.unit or '' }} → {{ r.after_quantity }}{{ item.unit or '' }}</td>
                             <td class="px-4 py-3 text-sm">{{ r.remarks or '-' }}</td>
                         </tr>
                         {% endfor %}
@@ -394,7 +390,7 @@
                         {% for a in all_assignments %}
                         <tr>
                             <td class="px-4 py-3 whitespace-nowrap text-sm">{% if a.user %}<a href="{{ url_for('user.view', id=a.user_id) }}" class="text-primary hover:text-primary/80">{{ a.user.name }}</a>{% else %}未知{% endif %}</td>
-                            <td class="px-4 py-3 whitespace-nowrap text-sm">{{ a.quantity }}</td>
+                            <td class="px-4 py-3 whitespace-nowrap text-sm">{{ a.quantity }}{{ item.unit or '' }}</td>
                             <td class="px-4 py-3 whitespace-nowrap text-sm">
                                 {% set st_map = {'active': '持有中', 'returned': '已归还', 'damaged': '已损坏', 'lost': '已丢失', 'scrapped': '已报废'} %}
                                 {% set st_color = {'active': 'bg-green-100 text-green-800', 'returned': 'bg-blue-100 text-blue-800', 'damaged': 'bg-red-100 text-red-800', 'lost': 'bg-yellow-100 text-yellow-800', 'scrapped': 'bg-gray-200 text-gray-800'} %}

@@ -299,7 +299,6 @@
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">物品名称</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">物品编号</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">物品规格</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">物品单位</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">所属房间</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">数量</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">状态</th>
@@ -313,9 +312,8 @@
                                         <td class="px-6 py-4 text-sm text-gray-900">{{ assignment.item.name if assignment.item else '-' }}</td>
                                         <td class="px-6 py-4 text-sm text-gray-900">{{ assignment.item.item_code if assignment.item else '-' }}</td>
                                         <td class="px-6 py-4 text-sm text-gray-900">{{ assignment.item.specification if assignment.item else '-' }}</td>
-                                        <td class="px-6 py-4 text-sm text-gray-900">{{ assignment.item.unit if assignment.item else '-' }}</td>
                                         <td class="px-6 py-4 text-sm text-blue-600">{{ assignment.item.room.building + assignment.item.room.room_number if assignment.item and assignment.item.room else '-' }}</td>
-                                        <td class="px-6 py-4 text-sm text-gray-900">{{ assignment.quantity }}</td>
+                                        <td class="px-6 py-4 text-sm text-gray-900">{{ assignment.quantity }}{{ assignment.item.unit if assignment.item else '' }}</td>
                                         <td class="px-6 py-4 text-sm">
                                             <span class="px-2 py-1 {% if assignment.status == 'active' %}bg-green-100 text-green-800{% elif assignment.status == 'returned' %}bg-gray-100 text-gray-800{% elif assignment.status == 'damaged' %}bg-red-100 text-red-800{% elif assignment.status == 'lost' %}bg-orange-100 text-orange-800{% else %}bg-amber-100 text-amber-800{% endif %} rounded-full text-xs">
                                                 {{ '持有中' if assignment.status == 'active' else '已归还' if assignment.status == 'returned' else '已损坏' if assignment.status == 'damaged' else '已丢失' if assignment.status == 'lost' else '已报废' }}
@@ -327,7 +325,7 @@
                                     {% endfor %}
                                     {% if not item_assignments %}
                                     <tr>
-                                        <td colspan="9" class="px-4 py-6 text-center text-sm text-gray-500">
+                                        <td colspan="8" class="px-4 py-6 text-center text-sm text-gray-500">
                                             暂无领用物品记录
                                         </td>
                                     </tr>

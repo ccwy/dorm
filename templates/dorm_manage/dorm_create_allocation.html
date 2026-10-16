@@ -109,7 +109,6 @@
                                             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">物品名称</th>
                                             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">物品编号</th>
                                             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">物品规格</th>
-                                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">物品单位</th>
                                             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">所属房间</th>
                                             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">数量</th>
                                             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">分配时间</th>
@@ -122,9 +121,8 @@
                                             <td class="px-4 py-3 whitespace-nowrap text-sm">{{ a.item.name if a.item else '未知' }}</td>
                                             <td class="px-4 py-3 whitespace-nowrap text-sm">{{ a.item.item_code if a.item else '-' }}</td>
                                             <td class="px-4 py-3 whitespace-nowrap text-sm">{{ a.item.specification if a.item else '-' }}</td>
-                                            <td class="px-4 py-3 whitespace-nowrap text-sm">{{ a.item.unit if a.item else '-' }}</td>
                                             <td class="px-4 py-3 whitespace-nowrap text-sm">{% if a.item and a.item.room %}{{ a.item.room.building }}{{ a.item.room.room_number }}{% else %}-{% endif %}</td>
-                                            <td class="px-4 py-3 whitespace-nowrap text-sm">{{ a.quantity }}</td>
+                                            <td class="px-4 py-3 whitespace-nowrap text-sm">{{ a.quantity }}{{ a.item.unit if a.item else '' }}</td>
                                             <td class="px-4 py-3 whitespace-nowrap text-sm">{{ a.assigned_at.strftime('%Y-%m-%d %H:%M') if a.assigned_at else '-' }}</td>
                                             <td class="px-4 py-3 whitespace-nowrap text-sm">
                                                 <div class="flex flex-wrap gap-1 items-center">

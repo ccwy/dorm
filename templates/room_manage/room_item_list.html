@@ -143,7 +143,6 @@
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">物品名称</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">物品编号</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">物品规格</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">物品单位</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">所属房间</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">类型</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">总数量</th>
@@ -160,7 +159,6 @@
                             <td class="px-6 py-4 whitespace-nowrap">{{ item.name }}</td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-600">{{ item.item_code or '-' }}</td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{{ item.specification or '-' }}</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{{ item.unit or '-' }}</td>
                             <td class="px-6 py-4 whitespace-nowrap">{{ item.room.building }}{{ item.room.room_number }}</td>
                             <td class="px-6 py-4 whitespace-nowrap">
                                 {% if item.item_type == 'room_bound' %}
@@ -169,8 +167,8 @@
                                 <span class="px-2 py-1 bg-purple-100 text-purple-800 rounded-full text-xs">可转移</span>
                                 {% endif %}
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap">{{ item.total_quantity }}</td>
-                            <td class="px-6 py-4 whitespace-nowrap">{{ item.available_quantity }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap">{{ item.total_quantity }}{{ item.unit or '' }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap">{{ item.available_quantity }}{{ item.unit or '' }}</td>
                             <td class="px-6 py-4 whitespace-nowrap">
                                 {% if item.status == '正常' %}
                                 <span class="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs">正常</span>
@@ -202,7 +200,7 @@
                         </tr>
                         {% else %}
                         <tr>
-                            <td colspan="12" class="px-6 py-4 text-center text-gray-500">没有找到匹配的物品数据</td>
+                            <td colspan="11" class="px-6 py-4 text-center text-gray-500">没有找到匹配的物品数据</td>
                         </tr>
                         {% endfor %}
                     </tbody>
