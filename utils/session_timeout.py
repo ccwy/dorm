@@ -46,6 +46,9 @@ def setup_session_timeout_handler(app):
         # 跳过静态文件
         if request.endpoint == 'static' or request.path.startswith('/static/'):
             return response
+        # 跳过会话检查端点，避免心跳请求保活会话导致会话永不过期
+        if request.path == '/session/check':
+            return response
 
         # 已登录用户更新活动时间
         if current_user.is_authenticated:

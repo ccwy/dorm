@@ -317,3 +317,31 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 })();
 </script>
+
+<script>
+// 会话过期自动跳转：定时心跳 + 页面可见性检测，无需用户点击即可自动跳转登录页
+(function() {
+  // 检查后端会话状态，过期则自动跳转
+  function checkSession() {
+    fetch('/session/check', {
+      headers: {'X-Requested-With': 'XMLHttpRequest'},
+      credentials: 'same-origin'
+    }).then(function(response) {
+      // 401=未登录；redirected=会话超时被302重定向到登录页
+      if (response.status === 401 || response.redirected || response.url.indexOf('/login') !== -1) {
+        window.location.href = '/login/logout';
+      }
+    }).catch(function() {});
+  }
+
+  // 页面从隐藏变为可见时立即检查（用户切回标签页自动触发，无需点击）
+  document.addEventListener('visibilitychange', function() {
+    if (document.visibilityState === 'visible') {
+      checkSession();
+    }
+  });
+
+  // 每60秒定时检查后端会话，用户无需任何操作
+  setInterval(checkSession, 60000);
+})();
+</script>

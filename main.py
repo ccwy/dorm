@@ -361,6 +361,13 @@ def init_flask_app(progress_callback=None):
             ]
         }), 200, {'Content-Type': 'application/manifest+json'}
 
+    @app.route('/session/check')
+    def session_check():
+        """轻量级会话检查端点，供前端定时心跳检测会话状态，无需用户点击即可自动跳转"""
+        if current_user.is_authenticated:
+            return jsonify({"success": True})
+        return jsonify({"success": False, "message": "会话已过期"}), 401
+
     # PWA 路由：Service Worker 文件（需从根路径访问以满足 scope 要求）
     @app.route('/sw.js')
     def service_worker():
