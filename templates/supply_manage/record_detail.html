@@ -138,10 +138,6 @@
                             <span class="text-gray-800">{{ record.specification or '-' }}</span>
                         </div>
                         <div class="flex items-center">
-                            <span class="text-gray-500 text-sm w-24">单位：</span>
-                            <span class="text-gray-800">{{ record.unit or '-' }}</span>
-                        </div>
-                        <div class="flex items-center">
                             <span class="text-gray-500 text-sm w-24">存放位置：</span>
                             <span class="text-gray-800">{% if record.location_id %}<a href="{{ url_for('storage_location.detail', id=record.location_id) }}" class="text-primary hover:underline">{{ record.display_location_name }}</a>{% else %}{{ record.display_location_name }}{% endif %}</span>
                         </div>

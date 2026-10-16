@@ -106,7 +106,6 @@
                             <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">物品编号</th>
                             <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">物品名称</th>
                             <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">规格型号</th>
-                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">单位</th>
                             <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">库存数量</th>
                             <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">最低库存</th>
                             <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">状态</th>
@@ -124,9 +123,8 @@
                                 <a href="{{ url_for('supply_stock_detail.by_item', item_id=detail.item_id) }}" class="text-primary hover:underline">{{ detail.item_name }}</a>
                             </td>
                             <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-600">{{ detail.item.specification if detail.item else '-' }}</td>
-                            <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-600">{{ detail.item.unit if detail.item else '-' }}</td>
-                            <td class="px-4 py-4 whitespace-nowrap text-sm font-medium {% if detail.quantity <= 0 %}text-red-600{% elif detail.item and detail.quantity < detail.item.min_stock %}text-orange-600{% else %}text-gray-800{% endif %}">{{ detail.quantity }}</td>
-                            <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-600">{{ detail.item.min_stock if detail.item else '-' }}</td>
+                            <td class="px-4 py-4 whitespace-nowrap text-sm font-medium {% if detail.quantity <= 0 %}text-red-600{% elif detail.item and detail.quantity < detail.item.min_stock %}text-orange-600{% else %}text-gray-800{% endif %}">{{ detail.quantity }} {{ detail.item.unit if detail.item else '' }}</td>
+                            <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-600">{{ detail.item.min_stock if detail.item else '-' }} {{ detail.item.unit if detail.item else '' }}</td>
                             <td class="px-4 py-4 whitespace-nowrap">
                                 {% if detail.quantity <= 0 %}
                                 <span class="px-2 py-1 bg-red-100 text-red-800 rounded-full text-xs">缺货</span>
@@ -140,7 +138,7 @@
                         </tr>
                         {% else %}
                         <tr>
-                            <td colspan="9" class="px-6 py-4 text-center text-gray-500">该位置暂无库存明细数据</td>
+                            <td colspan="8" class="px-6 py-4 text-center text-gray-500">该位置暂无库存明细数据</td>
                         </tr>
                         {% endfor %}
                     </tbody>

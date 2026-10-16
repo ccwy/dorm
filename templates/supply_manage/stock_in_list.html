@@ -327,7 +327,6 @@
                                                     <th class="py-1 px-4 text-left font-medium">物品编号</th>
                                                     <th class="py-1 px-4 text-left font-medium">物品名称</th>
                                                     <th class="py-1 px-4 text-left font-medium">规格型号</th>
-                                                    <th class="py-1 px-4 text-left font-medium w-20">单位</th>
                                                     <th class="py-1 px-4 text-left font-medium">存放位置</th>
                                                     <th class="py-1 px-4 text-right font-medium w-20">数量</th>
                                                     <th class="py-1 px-4 text-right font-medium w-24">单价</th>
@@ -341,15 +340,14 @@
                                                     <td class="py-2 px-4 text-primary">{% if d.item_id %}<a href="{{ url_for('supply_item.detail', id=d.item_id) }}" class="hover:underline" onclick="event.stopPropagation()">{{ d.display_item_number }}</a>{% else %}-{% endif %}</td>
                                                     <td class="py-2 px-4 font-medium text-primary">{% if d.item_id %}<a href="{{ url_for('supply_item.detail', id=d.item_id) }}" class="hover:underline" onclick="event.stopPropagation()">{{ d.item_name or '未知' }}</a>{% else %}<span class="text-gray-800">{{ d.item_name or '未知' }}</span>{% endif %}</td>
                                                     <td class="py-2 px-4 text-gray-600">{{ d.specification or '-' }}</td>
-                                                    <td class="py-2 px-4 text-gray-600">{{ d.unit or '-' }}</td>
                                                     <td class="py-2 px-4 text-primary">{% if d.location_id %}<a href="{{ url_for('storage_location.detail', id=d.location_id) }}" class="hover:underline" onclick="event.stopPropagation()">{{ d.display_location_name }}</a>{% else %}<span class="text-gray-600">{{ d.display_location_name }}</span>{% endif %}</td>
-                                                    <td class="py-2 px-4 text-right font-medium text-gray-800">{{ d.quantity }}</td>
+                                                    <td class="py-2 px-4 text-right font-medium text-gray-800">{{ d.quantity }} {{ d.unit or '' }}</td>
                                                     <td class="py-2 px-4 text-right text-gray-800">¥{{ "%.2f"|format(d.unit_price or 0) }}</td>
                                                     <td class="py-2 px-4 text-right font-medium text-primary">¥{{ "%.2f"|format(d.quantity * d.unit_price if d.quantity and d.unit_price else 0) }}</td>
                                                 </tr>
                                                 {% else %}
                                                 <tr>
-                                                    <td colspan="9" class="py-3 px-4 text-center text-gray-400 text-xs">暂无入库明细</td>
+                                                    <td colspan="8" class="py-3 px-4 text-center text-gray-400 text-xs">暂无入库明细</td>
                                                 </tr>
                                                 {% endfor %}
                                             </tbody>

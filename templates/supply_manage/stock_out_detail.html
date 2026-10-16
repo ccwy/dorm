@@ -203,7 +203,6 @@
                                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">物品编号</th>
                                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">物品名称</th>
                                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">规格型号</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">单位</th>
                                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">存放位置</th>
                                     <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">数量</th>
                                     <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">单价</th>
@@ -218,9 +217,8 @@
                                     <td class="px-4 py-3 text-sm whitespace-nowrap{% if is_insufficient %} text-red-700 font-semibold{% else %} text-primary{% endif %}"><a href="{{ url_for('supply_item.detail', id=d.item_id) }}" class="hover:underline{% if is_insufficient %} text-red-700{% endif %}">{{ d.display_item_number }}</a></td>
                                     <td class="px-4 py-3 text-sm whitespace-nowrap font-medium{% if is_insufficient %} text-red-700{% else %} text-primary{% endif %}"><a href="{{ url_for('supply_item.detail', id=d.item_id) }}" class="hover:underline{% if is_insufficient %} text-red-700{% endif %}">{{ d.display_item_name }}</a></td>
                                     <td class="px-4 py-3 text-sm whitespace-nowrap{% if is_insufficient %} text-red-600{% else %} text-gray-600{% endif %}">{{ d.display_specification }}</td>
-                                    <td class="px-4 py-3 text-sm whitespace-nowrap{% if is_insufficient %} text-red-600{% else %} text-gray-600{% endif %}">{{ d.display_unit }}</td>
                                     <td class="px-4 py-3 text-sm whitespace-nowrap{% if is_insufficient %} text-red-700{% else %} text-primary{% endif %}"><a href="{{ url_for('storage_location.detail', id=d.location_id) }}" class="hover:underline{% if is_insufficient %} text-red-700{% endif %}">{{ d.display_location_name }}</a></td>
-                                    <td class="px-4 py-3 text-sm whitespace-nowrap{% if is_insufficient %} text-red-700 font-bold{% else %} text-gray-800{% endif %} text-right">{{ d.quantity }}</td>
+                                    <td class="px-4 py-3 text-sm whitespace-nowrap{% if is_insufficient %} text-red-700 font-bold{% else %} text-gray-800{% endif %} text-right">{{ d.quantity }} {{ d.display_unit or '' }}</td>
                                     <td class="px-4 py-3 text-sm whitespace-nowrap{% if is_insufficient %} text-red-600{% else %} text-gray-800{% endif %} text-right">¥{{ "%.2f"|format(d.unit_price or 0) }}</td>
                                     <td class="px-4 py-3 text-sm whitespace-nowrap font-medium{% if is_insufficient %} text-red-700{% else %} text-gray-800{% endif %} text-right">¥{{ "%.2f"|format(d.quantity * d.unit_price if d.quantity and d.unit_price else 0) }}</td>
                                 </tr>
@@ -228,7 +226,7 @@
                             </tbody>
                             <tfoot class="bg-gray-50">
                                 <tr>
-                                    <td colspan="8" class="px-4 py-3 text-sm font-semibold text-gray-700 text-right">合计</td>
+                                    <td colspan="7" class="px-4 py-3 text-sm font-semibold text-gray-700 text-right">合计</td>
                                     <td class="px-4 py-3 text-sm font-bold text-primary text-right">¥{{ "%.2f"|format(stock_out.total_amount or 0) }}</td>
                                 </tr>
                             </tfoot>

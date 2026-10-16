@@ -90,10 +90,6 @@
                     <p class="font-medium text-gray-800">{{ item.specification or '-' }}</p>
                 </div>
                 <div>
-                    <span class="text-sm text-gray-500">单位</span>
-                    <p class="font-medium text-gray-800">{{ item.unit or '-' }}</p>
-                </div>
-                <div>
                     <span class="text-sm text-gray-500">总库存</span>
                     <p class="font-medium {% if item.is_low_stock %}text-orange-600{% else %}text-primary{% endif %}">{{ item.current_stock|default(0) }} {{ item.unit or '' }}</p>
                 </div>
@@ -124,7 +120,7 @@
                             <td class="px-4 py-4 whitespace-nowrap">
                                 <a href="{{ url_for('supply_stock_detail.by_location', location_id=detail.location_id) }}" class="text-primary hover:underline">{{ detail.location_name }}</a>
                             </td>
-                            <td class="px-4 py-4 whitespace-nowrap text-sm font-medium {% if detail.quantity <= 0 %}text-red-600{% elif detail.quantity < item.min_stock %}text-orange-600{% else %}text-gray-800{% endif %}">{{ detail.quantity }}</td>
+                            <td class="px-4 py-4 whitespace-nowrap text-sm font-medium {% if detail.quantity <= 0 %}text-red-600{% elif detail.quantity < item.min_stock %}text-orange-600{% else %}text-gray-800{% endif %}">{{ detail.quantity }} {{ item.unit or '' }}</td>
                             <td class="px-4 py-4 whitespace-nowrap">
                                 {% if detail.quantity <= 0 %}
                                 <span class="px-2 py-1 bg-red-100 text-red-800 rounded-full text-xs">缺货</span>

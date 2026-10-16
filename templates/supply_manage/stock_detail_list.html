@@ -174,7 +174,6 @@
                                 <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">物品编号</th>
                                 <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">物品名称</th>
                                 <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">规格型号</th>
-                                <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">单位</th>
                                 <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">存放位置数</th>
                                 <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">总库存</th>
                                 <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">最低库存</th>
@@ -199,14 +198,13 @@
                                     <a href="{{ url_for('supply_item.detail', id=item.id) }}" class="text-primary hover:underline" onclick="event.stopPropagation()">{{ item.name }}</a>
                                 </td>
                                 <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-600">{{ item.specification or '-' }}</td>
-                                <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-600">{{ item.unit or '-' }}</td>
                                 <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-600">
                                     <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-50 text-blue-700">
                                         {{ item_stock.location_count }}个位置
                                     </span>
                                 </td>
-                                <td class="px-4 py-4 whitespace-nowrap text-sm font-medium {% if item_stock.total_quantity <= 0 %}text-red-600{% elif item.is_low_stock %}text-orange-600{% else %}text-gray-800{% endif %}">{{ item_stock.total_quantity }}</td>
-                                <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-600">{{ item.min_stock or 0 }}</td>
+                                <td class="px-4 py-4 whitespace-nowrap text-sm font-medium {% if item_stock.total_quantity <= 0 %}text-red-600{% elif item.is_low_stock %}text-orange-600{% else %}text-gray-800{% endif %}">{{ item_stock.total_quantity }} {{ item.unit or '' }}</td>
+                                <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-600">{{ item.min_stock or 0 }} {{ item.unit or '' }}</td>
                                 <td class="px-4 py-4 whitespace-nowrap">
                                     {% if item_stock.total_quantity <= 0 %}
                                     <span class="px-2 py-1 bg-red-100 text-red-800 rounded-full text-xs">缺货</span>
@@ -226,7 +224,7 @@
                             </tr>
                             <!-- 展开的位置明细行 -->
                             <tr id="{{ detail_id }}" class="expand-row hidden">
-                                <td colspan="11" class="p-0">
+                                <td colspan="10" class="p-0">
                                     <div class="bg-gray-50 px-8 py-3 border-l-4 border-primary">
                                         <div class="text-xs text-gray-500 mb-2 font-medium">
                                             <i class="fa fa-map-marker mr-1"></i>{{ item.name }} 的各存放位置库存明细
@@ -248,7 +246,7 @@
                                                     <td class="py-2 px-4">
                                                         <a href="{{ url_for('supply_stock_detail.by_location', location_id=detail.location_id) }}" class="text-primary hover:underline">{{ detail.location.name if detail.location else '未知' }}</a>
                                                     </td>
-                                                    <td class="py-2 px-4 font-medium {% if detail.quantity <= 0 %}text-red-600{% elif detail.quantity < item.min_stock %}text-orange-600{% else %}text-gray-800{% endif %}">{{ detail.quantity }}</td>
+                                                    <td class="py-2 px-4 font-medium {% if detail.quantity <= 0 %}text-red-600{% elif detail.quantity < item.min_stock %}text-orange-600{% else %}text-gray-800{% endif %}">{{ detail.quantity }} {{ item.unit or '' }}</td>
                                                     <td class="py-2 px-4">
                                                         {% if detail.quantity <= 0 %}
                                                         <span class="px-1.5 py-0.5 bg-red-100 text-red-800 rounded text-xs">缺货</span>
@@ -272,7 +270,7 @@
                             </tr>
                             {% else %}
                             <tr>
-                                <td colspan="11" class="px-6 py-4 text-center text-gray-500">没有找到匹配的库存明细数据</td>
+                                <td colspan="10" class="px-6 py-4 text-center text-gray-500">没有找到匹配的库存明细数据</td>
                             </tr>
                             {% endfor %}
                         </tbody>
