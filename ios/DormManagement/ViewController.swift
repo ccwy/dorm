@@ -34,7 +34,7 @@ class ViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, UIDo
     private var launchStartTime: Date?
     private var lastPythonPct = 0
     private var lastPythonMsg = ""
-    private var progressKvoToken: NSKeyValueObservation?
+    private var progressKvoToken: NSKeyValueObservation<WKWebView>?
     private var openPanelCompletion: (([URL]?) -> Void)?
     private var didLoadWebView = false
 
