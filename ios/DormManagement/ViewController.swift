@@ -259,7 +259,7 @@ class ViewController: UIViewController, WKNavigationDelegate, WKUIDelegate {
     func webView(_ webView: WKWebView, decidePolicyFor navigationResponse: WKNavigationResponse,
                  decisionHandler: @escaping (WKNavigationResponsePolicy) -> Void) {
         if let httpResponse = navigationResponse.response as? HTTPURLResponse {
-            let disposition = httpResponse.value(forHTTPHeaderField: "Content-Disposition") ?? ""
+            let disposition = (httpResponse.allHeaderFields["Content-Disposition"] as? String) ?? ""
             if disposition.lowercased().contains("attachment") {
                 decisionHandler(.cancel)
                 handleDownload(response: httpResponse, disposition: disposition)
