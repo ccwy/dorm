@@ -179,6 +179,8 @@ def install_stub_modules():
     - pystray: 系统托盘
     - psutil: 进程管理（iOS 使用应用生命周期替代）
     - subprocess: 进程创建（kivy-ios 缺少 _posixsubprocess C 扩展）
+    - concurrent.futures.process: 多进程执行器（iOS 缺少 _multiprocessing，回退线程池）
+    - _multiprocessing: 多进程 C 扩展（kivy-ios 未编译）
 
     注意：仅在 iOS 环境下调用，Windows/Docker/Android 端不受影响。
     """
@@ -242,6 +244,28 @@ def install_stub_modules():
             'TimeoutExpired': type('TimeoutExpired', (Exception,), {}),
         })
         sys.modules['subprocess'] = subprocess_stub
+
+    # concurrent.futures.process stub（iOS 缺少 _multiprocessing C 扩展，无法多进程）
+    # ProcessPoolExecutor 回退为 ThreadPoolExecutor，与 process_pool._is_android() 运行时逻辑一致
+    if 'concurrent.futures.process' not in sys.modules:
+        try:
+            import concurrent.futures as _cf
+            from concurrent.futures import ThreadPoolExecutor as _tpe
+            _process_stub = _create_stub_module('concurrent.futures.process', {
+                'ProcessPoolExecutor': _tpe,
+            })
+            sys.modules['concurrent.futures.process'] = _process_stub
+            _cf.ProcessPoolExecutor = _tpe
+        except Exception as e:
+            logger.warning(f"concurrent.futures.process stub 安装失败: {e}")
+
+    # _multiprocessing stub（kivy-ios Python.framework 缺少此 C 扩展）
+    if '_multiprocessing' not in sys.modules:
+        try:
+            _mp_stub = _create_stub_module('_multiprocessing', {})
+            sys.modules['_multiprocessing'] = _mp_stub
+        except Exception as e:
+            logger.warning(f"_multiprocessing stub 安装失败: {e}")
 
     logger.info("iOS stub 模块安装完成")
 
