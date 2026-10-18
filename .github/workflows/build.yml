@@ -30,7 +30,7 @@ on:
 env:
   PYTHON_VERSION: '3.8'
   ANDROID_PYTHON_VERSION: '3.12'
-  IOS_PYTHON_VERSION: '3.8'
+  IOS_PYTHON_VERSION: '3.11'
   APP_NAME: '行政后勤管理系统'
   DOCKER_IMAGE_NAME: 'dorm-management-system'
   PYTHONIOENCODING: 'utf-8'
@@ -520,11 +520,11 @@ jobs:
       - name: 📦 安装 kivy-ios
         run: |
           python -m pip install --upgrade pip
-          # kivy-ios setup.cfg 中 sh 依赖未锁版本，pip 会装 sh 2.x
-          # sh 2.x 移除了 which() 函数，sh.which 退化为执行 /usr/bin/which 命令，
-          # 程序不存在时抛 ErrorReturnCode_1（而非返回 None），导致 toolchain 初始化崩溃
-          # 锁定 sh==1.12.14 与 kivy-ios requirements.txt 完全一致
-          pip install "kivy-ios>=1.2.0,<2.0" "sh==1.12.14" "Cython==0.29.17"
+          # kivy-ios 2025.5.17：用 shutil.which 替代 sh.which，已兼容 sh 2.x
+          # 锁定 sh==1.14.3 与 kivy-ios 官方 requirements.txt 一致，避免 sh 2.x 潜在差异
+          # libffi recipe 升级到 3.4.8 并移除 bitcode，修复 Xcode 15 构建失败问题
+          # Cython==3.0.11 与 kivy-ios CythonRecipe.hostpython_prerequisites 一致
+          pip install "kivy-ios==2025.5.17" "sh==1.14.3" "Cython==3.0.11"
 
       - name: � 安装 kivy-ios toolchain 系统依赖
         run: |
@@ -535,13 +535,13 @@ jobs:
         uses: actions/cache@v6
         with:
           path: ios/kivy-ios-work
-          key: kivy-ios-toolchain-v2
+          key: kivy-ios-toolchain-v3
           restore-keys: kivy-ios-toolchain-
 
       - name: 🍎 编译 Python.framework
         run: |
           # 调用项目内构建脚本（toolchain build python3 + 手动构建 framework）
-          # kivy-ios 1.3.0 无 create-framework 命令，脚本内用 clang 从静态库手动构建
+          # kivy-ios 2025.5.17 无 create-framework 命令，脚本内用 clang 从静态库手动构建
           cd ios
           chmod +x build_python_framework.sh
           ./build_python_framework.sh

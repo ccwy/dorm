@@ -1,15 +1,15 @@
 #!/bin/bash
 # ============================================================================
 # build_python_framework.sh
-# 使用 kivy-ios 1.x 工具链编译 iOS 版 Python.framework
+# 使用 kivy-ios 2025.5.17 工具链编译 iOS 版 Python.framework
 #
-# 原理(kivy-ios 1.3.0 源码已确认):
-#   - toolchain build python3 --arch arm64 产出 dist/(静态库 + 标准库 + 头文件)
+# 原理(kivy-ios 2025.5.17 源码已确认):
+#   - toolchain build python3 --platform iphoneos-arm64 产出 dist/(静态库 + 标准库 + 头文件)
 #   - kivy-ios 无 create-framework 命令,Python.framework 需手动构建:
-#     1) clang -dynamiclib -force_load 把 libpython3.9.a 等静态库链成动态库
-#     2) 标准库 python39.zip + site-packages 复制到 Resources/lib/
+#     1) clang -dynamiclib -force_load 把 libpython3.11.a 等静态库链成动态库
+#     2) 标准库 python311.zip + site-packages 复制到 Resources/lib/
 #   - C 扩展模块(_sqlite3/_ssl/_ctypes 等)按 ModulesSetup *static* 编译为
-#     builtin,随 libpython3.9.a 链入,无需 .so 文件
+#     builtin,随 libpython3.11.a 链入,无需 .so 文件
 #
 # 用法:
 #   cd ios && ./build_python_framework.sh
@@ -34,8 +34,8 @@ PYTHON_FRAMEWORK="Python.framework"
 # 注:cryptography 无 kivy-ios recipe;Pillow recipe 名为小写 pillow,本项目不编译
 RECIPES="python3"
 
-# 仅真机 arm64(kivy-ios 有效架构仅 arm64/x86_64,arm64e 无效)
-ARCH="arm64"
+# 仅真机 iphoneos-arm64(kivy-ios 2025.5.17 用 --platform 指定,有效值 iphoneos-arm64/iphonesimulator-arm64)
+PLATFORM="iphoneos-arm64"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -64,7 +64,7 @@ check_environment() {
 
     if ! command -v toolchain &> /dev/null; then
         log_warn "未找到 kivy-ios toolchain,正在安装..."
-        pip3 install "kivy-ios>=1.2.0,<2.0"
+        pip3 install "kivy-ios==2025.5.17" "sh==1.14.3"
         if ! command -v toolchain &> /dev/null; then
             log_error "kivy-ios 安装失败,请手动执行: pip3 install kivy-ios"
             exit 1
@@ -76,15 +76,7 @@ check_environment() {
         brew install ccache || { log_error "ccache 安装失败，请手动执行: brew install ccache"; exit 1; }
     fi
 
-    # 检查 sh 版本（kivy-ios 需要 sh 1.x，sh 2.x 移除了 which 函数会导致 toolchain 崩溃）
-    if command -v python3 >/dev/null 2>&1; then
-        SH_VER=$(python3 -c "import sh; print(sh.__version__)" 2>/dev/null || echo "")
-        if [ -n "$SH_VER" ] && [ "${SH_VER%%.*}" -ge 2 ]; then
-            log_error "检测到 sh $SH_VER，kivy-ios 需要 sh==1.12.14（sh 2.x 移除了 which 函数）"
-            log_info "请执行: pip3 install 'sh==1.12.14'"
-            exit 1
-        fi
-    fi
+    # kivy-ios 2025.5.17 用 shutil.which 替代 sh.which，兼容 sh 2.x，无需检查 sh 版本
 
     log_info "环境检查通过"
 }
@@ -93,7 +85,7 @@ check_environment() {
 # 编译 recipes
 # ----------------------------------------------------------------------------
 build_recipes() {
-    log_info "开始编译 recipes: ${RECIPES} (架构: ${ARCH})"
+    log_info "开始编译 recipes: ${RECIPES} (平台: ${PLATFORM})"
     log_info "工作目录: ${KIVY_IOS_DIR}"
 
     mkdir -p "${KIVY_IOS_DIR}"
@@ -101,7 +93,7 @@ build_recipes() {
 
     for recipe in ${RECIPES}; do
         log_info "编译 recipe: ${recipe}"
-        toolchain build "${recipe}" --arch "${ARCH}"
+        toolchain build "${recipe}" --platform "${PLATFORM}"
     done
 
     log_info "所有 recipes 编译完成"
@@ -118,35 +110,35 @@ create_framework() {
     local fw="${FRAMEWORKS_DIR}/${PYTHON_FRAMEWORK}"
 
     # 检查构建产物
-    local libpython="${dist}/lib/libpython3.9.a"
+    local libpython="${dist}/lib/iphoneos/libpython3.11.a"
     if [[ ! -f "${libpython}" ]]; then
         log_error "未找到 ${libpython},请确认 toolchain build python3 已成功"
         exit 1
     fi
 
-    mkdir -p "${fw}/Resources/lib/python3.9" "${fw}/Headers"
+    mkdir -p "${fw}/Resources/lib/python3.11" "${fw}/Headers"
 
     # 1. 动态库:静态库合并为 Python.framework/Python
     #    -force_load 确保所有 builtin 模块符号进入动态库
     log_info "链接动态库..."
-    xcrun -sdk iphoneos clang -arch "${ARCH}" -dynamiclib \
-        -force_load "${dist}/lib/libpython3.9.a" \
-        -force_load "${dist}/lib/libffi.a" \
-        -force_load "${dist}/lib/libssl.a" \
-        -force_load "${dist}/lib/libcrypto.a" \
+    xcrun -sdk iphoneos clang -arch arm64 -dynamiclib \
+        -force_load "${dist}/lib/iphoneos/libpython3.11.a" \
+        -force_load "${dist}/lib/iphoneos/libffi.a" \
+        -force_load "${dist}/lib/iphoneos/libssl.a" \
+        -force_load "${dist}/lib/iphoneos/libcrypto.a" \
         -lz -lbz2 -lsqlite3 -liconv \
         -framework Foundation \
         -install_name @rpath/Python.framework/Python \
         -o "${fw}/Python"
 
-    # 2. 标准库:python39.zip(CPython 按 <PYTHONHOME>/lib/python39.zip 定位)
+    # 2. 标准库:python311.zip(CPython 按 <PYTHONHOME>/lib/python311.zip 定位)
     log_info "复制标准库..."
-    cp "${dist}/root/python3/lib/python39.zip" "${fw}/Resources/lib/python39.zip"
+    cp "${dist}/root/python3/lib/python311.zip" "${fw}/Resources/lib/python311.zip"
 
     # 3. site-packages(第三方纯 Python 包安装目标)
     log_info "复制 site-packages..."
-    cp -R "${dist}/root/python3/lib/python3.9/site-packages" \
-        "${fw}/Resources/lib/python3.9/site-packages"
+    cp -R "${dist}/root/python3/lib/python3.11/site-packages" \
+        "${fw}/Resources/lib/python3.11/site-packages"
 
     # 4. Info.plist(framework 必需)
     cat > "${fw}/Resources/Info.plist" <<'PLIST'
@@ -163,14 +155,14 @@ create_framework() {
     <key>CFBundlePackageType</key>
     <string>FMWK</string>
     <key>CFBundleShortVersionString</key>
-    <string>3.9.9</string>
+    <string>3.11.6</string>
 </dict>
 </plist>
 PLIST
 
     # 5. Headers(Embed Frameworks 的 RemoveHeadersOnCopy 会在打包 app 时删除,不影响运行)
     log_info "复制 Headers..."
-    cp -R "${dist}/root/python3/include/python3.9/." "${fw}/Headers/"
+    cp -R "${dist}/root/python3/include/python3.11/." "${fw}/Headers/"
 
     log_info "Python.framework 已构建: ${fw}"
 }
@@ -181,7 +173,7 @@ PLIST
 install_pure_python_deps() {
     log_info "安装纯 Python 依赖..."
 
-    local site_packages="${FRAMEWORKS_DIR}/${PYTHON_FRAMEWORK}/Resources/lib/python3.9/site-packages"
+    local site_packages="${FRAMEWORKS_DIR}/${PYTHON_FRAMEWORK}/Resources/lib/python3.11/site-packages"
 
     if [[ ! -d "${site_packages}" ]]; then
         log_error "未找到 site-packages: ${site_packages}"
@@ -222,13 +214,13 @@ verify_framework() {
     fi
     log_info "framework 二进制: $(file "${fw}/Python")"
 
-    if [[ ! -f "${fw}/Resources/lib/python39.zip" ]]; then
-        log_error "标准库缺失: ${fw}/Resources/lib/python39.zip"
+    if [[ ! -f "${fw}/Resources/lib/python311.zip" ]]; then
+        log_error "标准库缺失: ${fw}/Resources/lib/python311.zip"
         exit 1
     fi
-    log_info "标准库: python39.zip ($(du -h "${fw}/Resources/lib/python39.zip" | cut -f1))"
+    log_info "标准库: python311.zip ($(du -h "${fw}/Resources/lib/python311.zip" | cut -f1))"
 
-    if [[ ! -d "${fw}/Resources/lib/python3.9/site-packages" ]]; then
+    if [[ ! -d "${fw}/Resources/lib/python3.11/site-packages" ]]; then
         log_error "site-packages 缺失"
         exit 1
     fi

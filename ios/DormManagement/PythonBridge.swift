@@ -56,12 +56,12 @@ class PythonBridge {
 
         // Python 运行环境（对齐 kivy-ios 官方 main.m 方案）：
         // PYTHONHOME 指向 framework 的 Resources，CPython 据此定位
-        //   <PYTHONHOME>/lib/python39.zip（标准库）和 lib/python3.9/site-packages
+        //   <PYTHONHOME>/lib/python311.zip（标准库）和 lib/python3.11/site-packages
         // PYTHONPATH 显式包含 site-packages，确保第三方包可 import
         let frameworkPath = Bundle.main.privateFrameworksPath.map { $0 + "/Python.framework" }
             ?? "Python.framework"
         setenv("PYTHONHOME", frameworkPath + "/Resources", 1)
-        setenv("PYTHONPATH", frameworkPath + "/Resources/lib/python3.9/site-packages", 1)
+        setenv("PYTHONPATH", frameworkPath + "/Resources/lib/python3.11/site-packages", 1)
         setenv("PYTHONDONTWRITEBYTECODE", "1", 1)
         setenv("PYTHONNOUSERSITE", "1", 1)
 
