@@ -16,8 +16,8 @@ class SystemDetector:
         返回:
             bool: 如果在Docker容器中返回True，否则返回False
         """
-        # Android环境不可能是Docker，优先判断避免不必要的文件系统访问
-        if SystemDetector.is_android():
+        # Android/iOS环境不可能是Docker，优先判断避免不必要的文件系统访问
+        if SystemDetector.is_android() or SystemDetector.is_ios():
             return False
         # 首先检查环境变量，这是最可靠和最快的方法
         if os.getenv('DOCKER_ENV', 'false').lower() == 'true':
@@ -49,11 +49,15 @@ class SystemDetector:
         获取操作系统类型
         
         返回:
-            str: 操作系统类型，可能值为"windows"、"android"、"linux"、"macos"或"unknown"
+            str: 操作系统类型，可能值为"windows"、"android"、"ios"、"linux"、"macos"或"unknown"
         """
         # Android底层也是Linux，需要优先判断
         if SystemDetector.is_android():
             return "android"
+
+        # iOS底层是Darwin，需要优先判断
+        if SystemDetector.is_ios():
+            return "ios"
             
         system = platform.system().lower()
         
@@ -72,7 +76,7 @@ class SystemDetector:
         获取综合环境类型（优先判断容器环境，其次判断Android平台）
         
         返回:
-            str: 环境类型，可能值为"docker"、"android"、"windows"、"linux"、"macos"或"unknown"
+            str: 环境类型，可能值为"docker"、"android"、"ios"、"windows"、"linux"、"macos"或"unknown"
         """
         # 容器环境优先
         if SystemDetector.is_docker():
@@ -81,6 +85,10 @@ class SystemDetector:
         # Android平台判断（在OS判断之前，因为Android底层也是Linux）
         if SystemDetector.is_android():
             return "android"
+
+        # iOS平台判断（在OS判断之前，因为iOS底层是Darwin/macos）
+        if SystemDetector.is_ios():
+            return "ios"
             
         # 否则返回操作系统类型
         return SystemDetector.get_os()
@@ -114,6 +122,25 @@ class SystemDetector:
             logging.debug(f"Android环境检测出错: {str(e)}")
             return False
 
+    @staticmethod
+    def is_ios() -> bool:
+        """
+        判断当前环境是否为iOS平台
+
+        通过IOS_ENV环境变量检测，该变量由Swift端在启动Python前设置
+
+        返回:
+            bool: 如果在iOS平台返回True，否则返回False
+        """
+        try:
+            is_ios_env = os.getenv('IOS_ENV', 'false').lower() == 'true'
+            if is_ios_env:
+                logging.debug("检测到iOS环境（IOS_ENV=true）")
+            return is_ios_env
+        except Exception as e:
+            logging.debug(f"iOS环境检测出错: {str(e)}")
+            return False
+
 # 提供便捷的直接调用接口
 def is_docker() -> bool:
     """便捷函数：判断是否为Docker环境"""
@@ -134,6 +161,10 @@ def is_windows() -> bool:
 def is_android() -> bool:
     """便捷函数：判断是否为Android平台"""
     return SystemDetector.is_android()
+
+def is_ios() -> bool:
+    """便捷函数：判断是否为iOS平台"""
+    return SystemDetector.is_ios()
 
 def is_win7() -> bool:
     """检测当前系统是否为Windows 7"""

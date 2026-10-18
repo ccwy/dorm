@@ -5,7 +5,6 @@ from models.utility.utility_room_bill_record import RoomUtilityRecord
 from datetime import datetime
 import io
 import logging
-import pandas as pd
 
 utility_room_bill_records_export_bp = Blueprint('utility_room_bill_records_export', __name__, url_prefix='/utility_room_bill_records_export')
 
@@ -101,15 +100,21 @@ def export():
             rows.append(row)
 
         headers = [ch for _, ch in COLUMN_MAP]
-        df = pd.DataFrame(rows, columns=[f for f, _ in COLUMN_MAP])
-        df.columns = headers
+        fields = [f for f, _ in COLUMN_MAP]
+
+        from openpyxl import Workbook
+        wb = Workbook()
+        ws = wb.active
+        ws.title = '费用主表'
+        ws.append(headers)
+        for row in rows:
+            ws.append([row.get(f, '') for f in fields])
 
         output = io.BytesIO()
-        with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            df.to_excel(writer, index=False, sheet_name='费用主表')
+        wb.save(output)
         output.seek(0)
 
-        filename = f'费用主表_{billing_period}_{datetime.now()}.xlsx'
+        filename = f'费用主表_{billing_period}_{datetime.now().strftime("%Y%m%d_%H%M%S")}.xlsx'
         logging.info(f"用户 {current_user.id} 成功导出 {billing_period} 账期费用主表数据，共 {len(records)} 条记录，文件名: {filename}")
 
         return send_file(output, mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',

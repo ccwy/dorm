@@ -1,9 +1,8 @@
 # Android 专用依赖文件 (Chaquopy + WebView 架构)
 # 此文件用于 Android 平台构建，排除了桌面专用包
+# 注：pandas/numpy 已被 openpyxl 替代，xlsxwriter 亦已移除，不再需要
 
 # 需 Chaquopy 预编译的 C 扩展包（版本可能需根据 Chaquopy 支持情况调整）
-pandas>=2.0.3,<2.1  # Chaquopy 预编译版本可能受限，构建时需验证
-numpy>=1.24.4,<1.25  # Chaquopy 预编译版本可能受限，构建时需验证
 cryptography>=41.0.7,<43.0
 Pillow>=10.4.0,<11.0
 
@@ -16,7 +15,6 @@ PyMySQL>=1.1.0
 Werkzeug>=2.3.7
 Jinja2>=3.1.2
 schedule>=1.2.0
-xlsxwriter>=3.2.5
 waitress>=2.1.2
 requests>=2.31.0
 

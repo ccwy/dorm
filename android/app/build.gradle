@@ -78,11 +78,8 @@ chaquopy {
             install "Flask-SQLAlchemy==3.1.1"
             install "Flask-Login==0.6.3"
 
-            // 数据处理（版本对齐 Chaquopy pypi-13.1 仓库 cp312 预编译包）
+            // 数据处理（pandas/numpy/xlsxwriter 已移除，Excel 处理统一使用 openpyxl）
             install "openpyxl==3.1.2"
-            install "pandas==2.1.3"
-            install "numpy==1.26.2"
-            install "xlsxwriter==3.2.5"
 
             // 工具库
             install "PyMySQL==1.1.0"

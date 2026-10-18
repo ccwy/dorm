@@ -433,7 +433,7 @@ if __name__ == '__main__':
     parser.add_argument('--restarted', action='store_true', help='标识重启操作（内部使用）')
     args = parser.parse_args()
     logging.info("解析命令行参数")
-    from utils.system_detector import is_win7, is_android
+    from utils.system_detector import is_win7, is_android, is_ios
     
     # Android 环境检测 - 必须在所有其他分支之前
     if is_android():
@@ -454,6 +454,33 @@ if __name__ == '__main__':
             logging.info(f"Android 服务器已就绪: http://127.0.0.1:{port}")
         # 6. Android 上由 Java 层 WebView 加载页面，Python 进程保持运行
         logging.info("Android Flask 服务已启动，等待 WebView 连接...")
+        # 保持主线程运行
+        try:
+            while True:
+                time.sleep(1)
+        except KeyboardInterrupt:
+            logging.info("收到中断信号，关闭服务器")
+        sys.exit(0)
+    elif is_ios():
+        logging.info("检测到 iOS 环境，启动 iOS 客户端模式")
+        from utils.ios_adapter import install_stub_modules, setup_ios_env
+        # 1. 安装 stub 模块（必须在所有 import 之前）
+        install_stub_modules()
+        # 2. 配置 iOS 环境
+        setup_ios_env()
+        # 3. 初始化 Flask 应用
+        app, run_server = init_flask_app()
+        # 4. 启动 waitress 服务器（后台线程）
+        server_thread = threading.Thread(target=run_server, daemon=True)
+        server_thread.start()
+        # 5. 等待服务器就绪
+        port = current_config.SERVER_PORT if hasattr(current_config, 'SERVER_PORT') else 5000
+        if _wait_for_server(port):
+            logging.info(f"iOS 端 Flask 服务器已就绪: http://127.0.0.1:{port}")
+        else:
+            logging.error("iOS 端服务器启动超时")
+        # 6. iOS 上由 Swift 层 WKWebView 加载页面，Python 进程保持运行
+        logging.info("iOS Flask 服务已启动，等待 WKWebView 连接...")
         # 保持主线程运行
         try:
             while True:

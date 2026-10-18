@@ -1,0 +1,302 @@
+"""
+iOS 平台适配层
+
+提供 iOS 环境下的路径映射、环境配置和桌面依赖的空模块替换。
+此文件仅在 iOS 环境下被使用，不影响 Windows/Docker/Android 端的任何逻辑。
+
+iOS 端架构：Swift 壳 + WKWebView + 嵌入式 Python（kivy-ios 编译的 Python.framework），
+由 Swift 通过 Python C API 调用本模块的 start_flask_server() 启动本地 Flask 服务器。
+"""
+
+import os
+import sys
+import types
+import logging
+
+logger = logging.getLogger(__name__)
+
+# ==================== 路径映射 ====================
+
+
+def get_documents_dir():
+    """
+    获取 iOS 沙盒 Documents 目录路径
+
+    iOS 上 Python 无法直接调用 NSDocumentDirectory，
+    由 Swift 端在启动 Python 前通过环境变量 IOS_DOCUMENT_DIR 注入。
+    若未注入则回退到 os.path.expanduser('~/Documents')。
+    """
+    documents_dir = os.environ.get('IOS_DOCUMENT_DIR')
+    if documents_dir:
+        return documents_dir
+    # 回退方案
+    return os.path.expanduser('~/Documents')
+
+
+def get_cache_dir():
+    """获取 iOS 缓存路径（Documents 目录下的 cache 子目录）"""
+    return os.path.join(get_documents_dir(), 'cache')
+
+
+def get_database_path(db_name='data.db'):
+    """获取数据库文件路径"""
+    data_dir = os.environ.get('APP_DATA_DIR', os.path.join(get_documents_dir(), 'data'))
+    return os.path.join(data_dir, db_name)
+
+
+# ==================== 环境配置 ====================
+
+
+def setup_ios_env():
+    """
+    设置 iOS 环境变量
+
+    在 Flask 启动前调用，确保所有环境检测正确识别 iOS 平台。
+    APP_DATA_DIR 统一指向 {Documents}/data，与 Android(/sdcard/.../data)、
+    Docker(/data) 和 Windows({app}/data) 结构一致。
+    所有数据（数据库、配置、照片、文件共享、备份）均存储在 APP_DATA_DIR 下。
+    """
+    # 设置 iOS 环境标识（与 ANDROID_ENV / DOCKER_ENV 机制一致）
+    os.environ['IOS_ENV'] = 'true'
+
+    # 强制客户端模式
+    os.environ['SERVER_MODE'] = '客户端'
+
+    # 禁用桌面视图
+    os.environ['USE_DESKTOP_VIEW'] = 'false'
+
+    # 设置数据目录：统一使用 {Documents}/data 作为数据根目录
+    # 目录结构：data/{data.db, db_config.json, photo/, file_sharing/, backups/}
+    documents_dir = get_documents_dir()
+    data_dir = os.path.join(documents_dir, 'data')
+    os.environ['APP_DATA_DIR'] = data_dir
+
+    # 确保项目根目录在 sys.path 中（Swift 端调用时 Python 可能不在项目目录启动）
+    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    if project_root not in sys.path:
+        sys.path.insert(0, project_root)
+
+    # 确保数据目录结构存在
+    ensure_data_dirs(data_dir)
+
+    logger.info(f"iOS 环境配置完成: documents_dir={documents_dir}, data_dir={data_dir}")
+
+
+def ensure_data_dirs(data_dir):
+    """
+    创建 iOS 数据目录结构
+
+    统一目录结构（与 Android 端完全一致）：
+    data/
+    ├── data.db              ← SQLite 数据库
+    ├── db_config.json       ← 数据库配置
+    ├── photo/               ← 照片存储
+    │   ├── asset_photo/     ← 资产照片
+    │   ├── room_photo/      ← 房间照片
+    │   ├── maintenance_photo/ ← 维修照片
+    │   ├── contract_attachments/ ← 合同附件
+    │   ├── room_meter_photo/ ← 水电表照片
+    │   ├── todo_photo/      ← 待办照片
+    │   ├── ticket_photo/    ← 工单照片
+    ├── file_sharing/        ← 文件共享
+    └── backups/             ← 数据库备份
+    """
+    subdirs = [
+        '',  # data 根目录本身
+        'photo',
+        'photo/asset_photo',
+        'photo/room_photo',
+        'photo/maintenance_photo',
+        'photo/maintenance_temp',
+        'photo/contract_attachments',
+        'photo/room_meter_photo',
+        'photo/todo_photo',
+        'photo/ticket_photo',
+        'file_sharing',
+        'backups',
+        'logs',
+    ]
+
+    for subdir in subdirs:
+        dir_path = os.path.join(data_dir, subdir) if subdir else data_dir
+        if not os.path.exists(dir_path):
+            try:
+                os.makedirs(dir_path, exist_ok=True)
+                logger.debug(f"创建数据目录: {dir_path}")
+            except Exception as e:
+                logger.warning(f"创建数据目录失败: {dir_path}, 错误: {e}")
+
+
+# ==================== 空模块替换（Stub） ====================
+
+
+def _create_stub_module(name, attrs=None):
+    """
+    创建空模块替换
+
+    在 iOS 上替换 tkinter、pywebview、pystray、psutil 等不可用的桌面依赖。
+    模块提供空函数/类，确保 import 不报错，但调用时抛出明确异常。
+    """
+    module = types.ModuleType(name)
+    module.__file__ = f'<ios_stub:{name}>'
+    module.__package__ = name
+
+    if attrs:
+        for attr_name, attr_value in attrs.items():
+            setattr(module, attr_name, attr_value)
+
+    return module
+
+
+def _stub_function(name):
+    """创建一个调用时抛出异常的空函数"""
+    def _func(*args, **kwargs):
+        raise RuntimeError(
+            f"{name}() 不可用：当前运行在 iOS 平台，"
+            f"此功能需要桌面环境支持。"
+        )
+    _func.__name__ = name
+    return _func
+
+
+def install_stub_modules():
+    """
+    安装空模块替换
+
+    在 iOS 上替换以下不可用的桌面依赖：
+    - tkinter: GUI 工具包
+    - pywebview: 桌面 WebView
+    - pystray: 系统托盘
+    - psutil: 进程管理（iOS 使用应用生命周期替代）
+
+    注意：仅在 iOS 环境下调用，Windows/Docker/Android 端不受影响。
+    """
+    if not os.environ.get('IOS_ENV', 'false').lower() == 'true':
+        logger.debug("非 iOS 环境，跳过 stub 模块安装")
+        return
+
+    # tkinter stub
+    if 'tkinter' not in sys.modules:
+        tkinter_stub = _create_stub_module('tkinter', {
+            'Tk': type('Tk', (), {'__init__': _stub_function('tkinter.Tk')}),
+            'Frame': type('Frame', (), {}),
+            'Label': type('Label', (), {}),
+            'Button': type('Button', (), {}),
+            'messagebox': _create_stub_module('tkinter.messagebox', {
+                'showinfo': _stub_function('messagebox.showinfo'),
+                'showwarning': _stub_function('messagebox.showwarning'),
+                'showerror': _stub_function('messagebox.showerror'),
+            }),
+        })
+        sys.modules['tkinter'] = tkinter_stub
+        sys.modules['tkinter.messagebox'] = tkinter_stub.messagebox
+
+    # pywebview stub
+    if 'webview' not in sys.modules:
+        webview_stub = _create_stub_module('webview', {
+            'create_window': _stub_function('webview.create_window'),
+            'start': _stub_function('webview.start'),
+        })
+        sys.modules['webview'] = webview_stub
+
+    # pystray stub
+    if 'pystray' not in sys.modules:
+        pystray_stub = _create_stub_module('pystray', {
+            'Icon': type('Icon', (), {'__init__': _stub_function('pystray.Icon')}),
+        })
+        sys.modules['pystray'] = pystray_stub
+
+    # psutil stub（iOS 使用应用生命周期替代进程管理）
+    if 'psutil' not in sys.modules:
+        psutil_stub = _create_stub_module('psutil', {
+            'Process': type('Process', (), {'__init__': _stub_function('psutil.Process')}),
+            'process_iter': _stub_function('psutil.process_iter'),
+            'pid_exists': _stub_function('psutil.pid_exists'),
+        })
+        sys.modules['psutil'] = psutil_stub
+
+    logger.info("iOS stub 模块安装完成")
+
+
+# ==================== Flask 启动进度（供 Swift 端轮询读取） ====================
+
+_progress_pct = 0
+_progress_msg = "正在初始化..."
+
+
+def _ios_progress_callback(pct, msg):
+    """iOS 端启动进度回调，更新全局进度状态"""
+    global _progress_pct, _progress_msg
+    _progress_pct = pct
+    _progress_msg = msg
+
+
+def get_progress():
+    """
+    返回当前启动进度字符串（pct|msg 格式），供 Swift 端通过 Python C API 轮询调用。
+
+    使用方式（Swift 端）：
+        let result = try pyObject.callMethod("get_progress")
+        let parts = result.split(separator: "|")
+        let pct = Int(parts[0])
+        let msg = String(parts[1])
+    """
+    return f"{_progress_pct}|{_progress_msg}"
+
+
+def get_system_title():
+    """
+    返回系统标题，供 Swift 端通过 Python C API 调用，动态设置 iOS 端界面标题。
+
+    从 db_config.json 读取 SYSTEM_TITLE 配置项。
+    在 setup_ios_env() 执行后调用（此时 APP_DATA_DIR 和配置文件路径已就绪）。
+
+    使用方式（Swift 端）：
+        let title = try pyObject.callMethod("get_system_title") ?? "行政后勤管理系统"
+    """
+    try:
+        from utils.db_config import DatabaseConfig
+        config = DatabaseConfig.load_config()
+        return config.get("SYSTEM_TITLE", "行政后勤管理系统")
+    except Exception as e:
+        logger.warning(f"获取系统标题失败: {e}")
+        return "行政后勤管理系统"
+
+
+# ==================== Flask 启动适配 ====================
+
+
+def start_flask_server():
+    """
+    iOS 端 Flask 服务器启动入口
+
+    由 Swift 端通过 Python C API 调用，完成以下步骤：
+    1. 设置 iOS 环境标识（此函数仅从 iOS 端调用）
+    2. 安装 stub 模块
+    3. 设置 iOS 环境变量
+    4. 启动 Flask+waitress 服务器（带进度回调）
+    """
+    # 此函数仅从 iOS 端调用，立即设置 IOS_ENV 标识
+    # 必须在检查之前设置，否则 setup_ios_env() 尚未执行会导致检查失败
+    os.environ['IOS_ENV'] = 'true'
+
+    if not os.environ.get('IOS_ENV', 'false').lower() == 'true':
+        logger.warning("start_flask_server() 仅应在 iOS 环境下调用")
+        return None
+
+    # 1. 安装 stub 模块（必须在所有 import 之前）
+    install_stub_modules()
+
+    # 2. 设置环境变量
+    setup_ios_env()
+
+    # 3. 导入并启动 Flask（传递进度回调，Python 端更新全局变量，Swift 端轮询读取）
+    from main import init_flask_app
+    app, run_server = init_flask_app(progress_callback=_ios_progress_callback)
+
+    logger.info("iOS 端 Flask 应用初始化完成")
+
+    # 4. 启动 waitress 服务器
+    run_server()
+
+    return app

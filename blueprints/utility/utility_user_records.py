@@ -345,7 +345,7 @@ def export_user_records_excel():
     导出用户水电费详情为Excel文件
     包含用户id、工号、用户姓名、用户性别、部门、职位、房间号、类型、应付金额（多房间时汇总）和备注（每个房间金额）
     """
-    import pandas as pd  # 延迟导入，避免启动时加载重型库
+    from openpyxl import Workbook  # 延迟导入，避免启动时加载重型库
     try:
         # 获取筛选参数
         billing_period = request.args.get('billing_period', '')
@@ -567,27 +567,26 @@ def export_user_records_excel():
             flash('没有可导出的数据', 'warning')
             return redirect(url_for('utility_user_records.user_records'))
         
-        # 创建DataFrame
-        df = pd.DataFrame(export_data)
-        
-        # 设置数值格式化
-        df['分摊总费用'] = df['分摊总费用'].apply(lambda x: f"{x:.2f}")
-        
         # 创建Excel文件
+        wb = Workbook()
+        worksheet = wb.active
+        sheet_name = f"用户费用详情_{billing_period}"
+        worksheet.title = sheet_name
+        
+        # 写入表头和数据（分摊总费用格式化为两位小数）
+        headers = list(export_data[0].keys())
+        worksheet.append(headers)
+        for row in export_data:
+            worksheet.append([f"{row[h]:.2f}" if h == '分摊总费用' else row.get(h, '') for h in headers])
+        
         output = BytesIO()
-        with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            # 设置工作表名称
-            sheet_name = f"用户费用详情_{billing_period}"
-            # 写入数据
-            df.to_excel(writer, index=False, sheet_name=sheet_name)
-            
-            # 获取工作表对象
-            worksheet = writer.sheets[sheet_name]
-            
-            # 调整列宽
-            for column_cells in worksheet.columns:
-                length = max(len(str(cell.value)) for cell in column_cells) + 2
-                worksheet.column_dimensions[column_cells[0].column_letter].width = min(length, 30)  # 最大宽度限制
+        
+        # 调整列宽
+        for column_cells in worksheet.columns:
+            length = max(len(str(cell.value)) for cell in column_cells) + 2
+            worksheet.column_dimensions[column_cells[0].column_letter].width = min(length, 30)  # 最大宽度限制
+        
+        wb.save(output)
         
         # 准备响应
         output.seek(0)

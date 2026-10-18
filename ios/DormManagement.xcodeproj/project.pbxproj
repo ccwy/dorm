@@ -1,0 +1,382 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 46;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		B10000000000000000000001 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000001 /* AppDelegate.swift */; };
+		B10000000000000000000002 /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000002 /* ViewController.swift */; };
+		B10000000000000000000003 /* PythonBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000003 /* PythonBridge.swift */; };
+		B10000000000000000000004 /* LoadingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000004 /* LoadingView.swift */; };
+		B10000000000000000000005 /* ErrorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000005 /* ErrorView.swift */; };
+		B10000000000000000000006 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000007 /* Assets.xcassets */; };
+		B10000000000000000000007 /* blueprints in Resources */ = {isa = PBXBuildFile; fileRef = R10000000000000000000001 /* blueprints */; };
+		B10000000000000000000008 /* models in Resources */ = {isa = PBXBuildFile; fileRef = R10000000000000000000002 /* models */; };
+		B10000000000000000000009 /* utils in Resources */ = {isa = PBXBuildFile; fileRef = R10000000000000000000003 /* utils */; };
+		B1000000000000000000000A /* templates in Resources */ = {isa = PBXBuildFile; fileRef = R10000000000000000000004 /* templates */; };
+		B1000000000000000000000B /* static in Resources */ = {isa = PBXBuildFile; fileRef = R10000000000000000000005 /* static */; };
+		B1000000000000000000000C /* main.py in Resources */ = {isa = PBXBuildFile; fileRef = R10000000000000000000006 /* main.py */; };
+		B1000000000000000000000D /* config.py in Resources */ = {isa = PBXBuildFile; fileRef = R10000000000000000000007 /* config.py */; };
+		B1000000000000000000000E /* Python.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = P10000000000000000000001 /* Python.framework */; };
+		B1000000000000000000000F /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000008 /* LaunchScreen.storyboard */; };
+		B1000000000000000000010 /* Python.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = P10000000000000000000001 /* Python.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		F10000000000000000000001 /* AppDelegate.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		F10000000000000000000002 /* ViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ViewController.swift; sourceTree = "<group>"; };
+		F10000000000000000000003 /* PythonBridge.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PythonBridge.swift; sourceTree = "<group>"; };
+		F10000000000000000000004 /* LoadingView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = LoadingView.swift; sourceTree = "<group>"; };
+		F10000000000000000000005 /* ErrorView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ErrorView.swift; sourceTree = "<group>"; };
+		F10000000000000000000006 /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		F10000000000000000000008 /* LaunchScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
+		F10000000000000000000007 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		A10000000000000000000009 /* DormManagement.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DormManagement.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		P10000000000000000000001 /* Python.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Python.framework; path = Frameworks/Python.framework; sourceTree = SOURCE_ROOT; };
+		R10000000000000000000001 /* blueprints */ = {isa = PBXFileReference; lastKnownFileType = folder; path = ../blueprints; sourceTree = "<group>"; };
+		R10000000000000000000002 /* models */ = {isa = PBXFileReference; lastKnownFileType = folder; path = ../models; sourceTree = "<group>"; };
+		R10000000000000000000003 /* utils */ = {isa = PBXFileReference; lastKnownFileType = folder; path = ../utils; sourceTree = "<group>"; };
+		R10000000000000000000004 /* templates */ = {isa = PBXFileReference; lastKnownFileType = folder; path = ../templates; sourceTree = "<group>"; };
+		R10000000000000000000005 /* static */ = {isa = PBXFileReference; lastKnownFileType = folder; path = ../static; sourceTree = "<group>"; };
+		R10000000000000000000006 /* main.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = ../main.py; sourceTree = "<group>"; };
+		R10000000000000000000007 /* config.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = ../config.py; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		A1000000000000000000007 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B1000000000000000000000E /* Python.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		A1000000000000000000010 /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+				B1000000000000000000010 /* Python.framework in Embed Frameworks */,
+			);
+			name = Embed Frameworks;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXGroup section */
+		A1000000000000000000002 = {
+			isa = PBXGroup;
+			children = (
+				A1000000000000000000004 /* DormManagement */,
+				A1000000000000000000005 /* Frameworks */,
+				A1000000000000000000003 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		A1000000000000000000003 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				A1000000000000000000009 /* DormManagement.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		A1000000000000000000004 /* DormManagement */ = {
+			isa = PBXGroup;
+			children = (
+				F10000000000000000000001 /* AppDelegate.swift */,
+				F10000000000000000000002 /* ViewController.swift */,
+				F10000000000000000000003 /* PythonBridge.swift */,
+				F10000000000000000000004 /* LoadingView.swift */,
+				F10000000000000000000005 /* ErrorView.swift */,
+				F10000000000000000000007 /* Assets.xcassets */,
+				F10000000000000000000006 /* Info.plist */,
+				F10000000000000000000008 /* LaunchScreen.storyboard */,
+				R10000000000000000000001 /* blueprints */,
+				R10000000000000000000002 /* models */,
+				R10000000000000000000003 /* utils */,
+				R10000000000000000000004 /* templates */,
+				R10000000000000000000005 /* static */,
+				R10000000000000000000006 /* main.py */,
+				R10000000000000000000007 /* config.py */,
+			);
+			path = DormManagement;
+			sourceTree = "<group>";
+		};
+		A1000000000000000000005 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				P10000000000000000000001 /* Python.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		A1000000000000000000001 /* DormManagement */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A100000000000000000000B /* Build configuration list for PBXNativeTarget "DormManagement" */;
+			buildPhases = (
+				A1000000000000000000006 /* Sources */,
+				A1000000000000000000007 /* Frameworks */,
+				A1000000000000000000008 /* Resources */,
+				A1000000000000000000010 /* Embed Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = DormManagement;
+			productName = DormManagement;
+			productReference = A1000000000000000000009 /* DormManagement.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		A1000000000000000000000 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 1020;
+				ORGANIZATIONNAME = "Dorm Management";
+				TargetAttributes = {
+					A1000000000000000000001 = {
+						CreatedOnToolVersion = 10.2;
+					};
+				};
+			};
+			buildConfigurationList = A100000000000000000000A /* Build configuration list for PBXProject "DormManagement" */;
+			compatibilityVersion = "Xcode 9.3";
+			developmentRegion = zh_CN;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				zh_CN,
+				Base,
+			);
+			mainGroup = A1000000000000000000002;
+			productRefGroup = A1000000000000000000003 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				A1000000000000000000001 /* DormManagement */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		A1000000000000000000008 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B10000000000000000000006 /* Assets.xcassets in Resources */,
+				B10000000000000000000007 /* blueprints in Resources */,
+				B10000000000000000000008 /* models in Resources */,
+				B10000000000000000000009 /* utils in Resources */,
+				B1000000000000000000000A /* templates in Resources */,
+				B1000000000000000000000B /* static in Resources */,
+				B1000000000000000000000C /* main.py in Resources */,
+				B1000000000000000000000D /* config.py in Resources */,
+				B1000000000000000000000F /* LaunchScreen.storyboard in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		A1000000000000000000006 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B10000000000000000000001 /* AppDelegate.swift in Sources */,
+				B10000000000000000000002 /* ViewController.swift in Sources */,
+				B10000000000000000000003 /* PythonBridge.swift in Sources */,
+				B10000000000000000000004 /* LoadingView.swift in Sources */,
+				B10000000000000000000005 /* ErrorView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		A100000000000000000000C /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 12.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+			};
+			name = Debug;
+		};
+		A100000000000000000000D /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 12.0;
+				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		A100000000000000000000E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_BITCODE = NO;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/Frameworks",
+				);
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = PYTHON_FRAMEWORK_AVAILABLE;
+				INFOPLIST_FILE = DormManagement/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 12.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				OTHER_LDFLAGS = "";
+				PRODUCT_BUNDLE_IDENTIFIER = com.dorm.management;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		A100000000000000000000F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_BITCODE = NO;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/Frameworks",
+				);
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = PYTHON_FRAMEWORK_AVAILABLE;
+				INFOPLIST_FILE = DormManagement/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 12.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				OTHER_LDFLAGS = "";
+				PRODUCT_BUNDLE_IDENTIFIER = com.dorm.management;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		A100000000000000000000A /* Build configuration list for PBXProject "DormManagement" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A100000000000000000000C /* Debug */,
+				A100000000000000000000D /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A100000000000000000000B /* Build configuration list for PBXNativeTarget "DormManagement" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A100000000000000000000E /* Debug */,
+				A100000000000000000000F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = A1000000000000000000000 /* Project object */;
+}

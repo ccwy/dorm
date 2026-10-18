@@ -245,7 +245,7 @@ def export_readings():
         output.seek(0)
 
         # 处理中文文件名编码
-        filename = f"抄表记录_{billing_period}_{datetime.now()}.xlsx"
+        filename = f"抄表记录_{billing_period}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
         encoded_filename = quote(filename)
         
         # 构建响应

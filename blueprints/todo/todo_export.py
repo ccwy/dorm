@@ -14,7 +14,8 @@ from .todo import todo_bp  # 导入todo蓝图
 @require_permission('todo.export')
 def export_excel():
     """导出待办事项为Excel文件"""
-    import pandas as pd  # 延迟导入，避免启动时加载重型库
+    from openpyxl import Workbook  # 延迟导入，避免启动时加载重型库
+    from openpyxl.utils import get_column_letter
     try:
         # 获取时间范围参数
         start_date_str = request.args.get('start_date')
@@ -94,23 +95,25 @@ def export_excel():
             })
         
         # 创建Excel文件
-        df = pd.DataFrame(data)
+        wb = Workbook()
+        ws = wb.active
+        ws.title = '待办事项'
+        
+        # 写入表头和数据
+        headers = list(data[0].keys())
+        ws.append(headers)
+        for row in data:
+            ws.append([row.get(h, '') for h in headers])
         
         # 创建内存中的文件对象
         output = io.BytesIO()
         
-        # 使用ExcelWriter写入Excel文件
-        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-            # 写入数据
-            df.to_excel(writer, index=False, sheet_name='待办事项')
-            
-            # 获取工作表
-            worksheet = writer.sheets['待办事项']
-            
-            # 设置列宽
-            for col_num, col_name in enumerate(df.columns):
-                max_width = max(len(str(row[col_num])) for row in df.itertuples(index=False)) + 2
-                worksheet.set_column(col_num, col_num, min(max_width, 50))  # 最大列宽限制为50
+        # 设置列宽
+        for col_num, col_name in enumerate(headers):
+            max_width = max(len(str(row.get(col_name, ''))) for row in data) + 2
+            ws.column_dimensions[get_column_letter(col_num + 1)].width = min(max_width, 50)  # 最大列宽限制为50
+        
+        wb.save(output)
         
         # 定位到文件开头
         output.seek(0)

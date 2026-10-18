@@ -23,7 +23,7 @@ def export_checkout_records():
     导出退宿人员费用记录为Excel文件
     支持按账期、部门等条件筛选后导出
     """
-    import pandas as pd
+    from openpyxl import Workbook
     try:
         # 获取查询参数
         billing_period = request.args.get('billing_period', '').strip()
@@ -127,11 +127,8 @@ def export_checkout_records():
                 '支付状态': record.payment_status if record.payment_status else ''
             })
         
-        # 创建DataFrame
-        df = pd.DataFrame(export_data)
-        
-        # 设置数值格式化
-        float_columns = [
+        # 数值格式化列
+        float_columns = {
             '电表上次读数', '电表退宿读数', '电抄表用量', '原始电用量(kWh)', '减免电用量(kWh)',
             '计费电用量(kWh)', '电费单价(元/kWh)', '房间总电费(元)',
             '个人原始电费(元)', '个人计费电费(元)', '水表上次读数',
@@ -140,25 +137,28 @@ def export_checkout_records():
             '个人原始水费(元)', '个人计费水费(元)', '房间总费用(元)',
             '个人原始总费用(元)', '个人计费总费用(元)', 
             '按比例分摊减免(元)', '个人独立减免(元)', '个人实际应付(元)'
-        ]
-        for col in float_columns:
-            df[col] = df[col].apply(lambda x: f"{x:.2f}")
+        }
         
         # 创建Excel文件
+        wb = Workbook()
+        worksheet = wb.active
+        sheet_name = f"退宿费用记录_{billing_period or '全部'}"
+        worksheet.title = sheet_name
+        
+        # 写入表头和数据（数值列格式化为两位小数）
+        headers = list(export_data[0].keys())
+        worksheet.append(headers)
+        for row in export_data:
+            worksheet.append([f"{row[h]:.2f}" if h in float_columns else row.get(h, '') for h in headers])
+        
         output = BytesIO()
-        with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            # 设置工作表名称
-            sheet_name = f"退宿费用记录_{billing_period or '全部'}"
-            # 写入数据
-            df.to_excel(writer, index=False, sheet_name=sheet_name)
-            
-            # 获取工作表对象
-            worksheet = writer.sheets[sheet_name]
-            
-            # 调整列宽
-            for column_cells in worksheet.columns:
-                length = max(len(str(cell.value)) for cell in column_cells) + 2
-                worksheet.column_dimensions[column_cells[0].column_letter].width = min(length, 30)  # 最大宽度限制
+        
+        # 调整列宽
+        for column_cells in worksheet.columns:
+            length = max(len(str(cell.value)) for cell in column_cells) + 2
+            worksheet.column_dimensions[column_cells[0].column_letter].width = min(length, 30)  # 最大宽度限制
+        
+        wb.save(output)
         
         # 准备响应
         output.seek(0)
