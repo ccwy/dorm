@@ -26,8 +26,8 @@ def get_db_config_path():
     if os.environ.get('DOCKER_ENV') == 'true':
         # Docker环境 - 使用简化的外部数据卷路径
         return '/data/db_config.json'
-    elif os.environ.get('ANDROID_ENV', 'false').lower() == 'true':
-        # Android环境 - 使用 APP_DATA_DIR（由 android_adapter.py 设置）
+    elif os.environ.get('ANDROID_ENV', 'false').lower() == 'true' or os.environ.get('IOS_ENV', 'false').lower() == 'true':
+        # Android/iOS环境 - 使用 APP_DATA_DIR（由 android_adapter.py / ios_adapter.py 设置）
         return os.path.join(os.environ.get('APP_DATA_DIR', '/data'), 'db_config.json')
     else:
         # 非Docker环境
@@ -61,12 +61,13 @@ class DatabaseConfig:
             # 检查是否在Docker环境中
             is_docker = os.environ.get('DOCKER_ENV') == 'true'
             is_android = os.environ.get('ANDROID_ENV', 'false').lower() == 'true'
+            is_ios = os.environ.get('IOS_ENV', 'false').lower() == 'true'
             
             if is_docker:
                 # Docker环境 - 使用简化的外部数据卷路径
                 sqlite_db_path = '/data/data.db'
-            elif is_android:
-                # Android环境 - 使用 APP_DATA_DIR（由 android_adapter.py 设置）
+            elif is_android or is_ios:
+                # Android/iOS环境 - 使用 APP_DATA_DIR（由 android_adapter.py / ios_adapter.py 设置）
                 sqlite_db_path = os.path.join(os.environ.get('APP_DATA_DIR', '/data'), 'data.db')
             else:
                 # 获取应用程序目录

@@ -33,7 +33,7 @@ class ContractAttachmentManager:
         if os.environ.get('DOCKER_ENV') == 'true':
             media_root = '/data/photo/contract_attachments'
         # 检查是否是Android环境
-        elif os.environ.get('ANDROID_ENV', 'false').lower() == 'true':
+        elif os.environ.get('ANDROID_ENV', 'false').lower() == 'true' or os.environ.get('IOS_ENV', 'false').lower() == 'true':
             media_root = os.path.join(os.environ.get('APP_DATA_DIR', '/data'), 'photo', 'contract_attachments')
         # 检查是否是PyInstaller打包环境
         elif getattr(sys, 'frozen', False):

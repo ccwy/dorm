@@ -197,6 +197,22 @@ install_pure_python_deps() {
     find "${site_packages}" -name "*.so" -delete
     find "${site_packages}" -name "*.dylib" -delete
 
+    # 验证关键纯 Python 包已安装
+    # 上方 pip install 失败时 || log_warn 只打警告不中断构建,会导致 framework 内
+    # 缺少 flask/sqlalchemy 等包,iOS 运行时 from flask import 直接 ModuleNotFoundError,
+    # 界面卡在"正在初始化 0%"。此处强制检查关键包,缺失立即报错退出。
+    local missing=0
+    for pkg in flask flask_sqlalchemy flask_login sqlalchemy openpyxl pymysql waitress requests jinja2 werkzeug; do
+        if ! ls "${site_packages}" 2>/dev/null | grep -qi "^${pkg}"; then
+            log_error "关键包缺失: ${pkg}(pip install 可能整体失败,请检查上方 pip 输出)"
+            missing=1
+        fi
+    done
+    if [[ ${missing} -ne 0 ]]; then
+        log_error "依赖安装不完整,Python.framework 不可用"
+        exit 1
+    fi
+
     log_info "纯 Python 依赖安装完成"
 }
 

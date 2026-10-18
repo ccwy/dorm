@@ -13,7 +13,7 @@ from utils.db_config import DatabaseConfig
 
 # 确定配置文件路径，支持开发环境和打包环境
 def get_app_dir():
-    if os.environ.get('ANDROID_ENV', 'false').lower() == 'true':
+    if os.environ.get('ANDROID_ENV', 'false').lower() == 'true' or os.environ.get('IOS_ENV', 'false').lower() == 'true':
         # Android环境 - 使用 APP_DATA_DIR（由 android_adapter.py 设置）
         return os.environ.get('APP_DATA_DIR', os.path.abspath(os.path.dirname(__file__)))
     if getattr(sys, 'frozen', False):
@@ -58,7 +58,7 @@ class Config:
     # WebView桌面模式（客户端）：使用127.0.0.1（本地运行）
     # 服务端模式：使用0.0.0.0（允许局域网访问）
     # 其他环境（Docker/Linux/Windows非桌面模式等）：使用0.0.0.0（允许外部访问）
-    if os.environ.get('ANDROID_ENV', 'false').lower() == 'true':
+    if os.environ.get('ANDROID_ENV', 'false').lower() == 'true' or os.environ.get('IOS_ENV', 'false').lower() == 'true':
         SERVER_HOST = '127.0.0.1'  # Android环境 - 本地运行，绑定localhost
     elif USE_DESKTOP_VIEW and db_config.get("SERVER_MODE", "客户端") == "客户端":
         SERVER_HOST = '127.0.0.1'  # WebView桌面模式（客户端）- 本地运行
@@ -67,7 +67,7 @@ class Config:
     SERVER_PORT = int(db_config.get('SERVER_PORT', 35168))  # 确保int类型
 
     # 备份目录配置
-    if os.environ.get('ANDROID_ENV', 'false').lower() == 'true':  # 优先检查Android环境
+    if os.environ.get('ANDROID_ENV', 'false').lower() == 'true' or os.environ.get('IOS_ENV', 'false').lower() == 'true':  # 优先检查Android环境
         APP_DIR = get_app_dir()  # APP_DATA_DIR，已包含 /data 后缀
         BACKUP_DIR = os.path.join(APP_DIR, 'backups')  # Android环境 - APP_DATA_DIR/backups
     elif os.environ.get('DOCKER_ENV', 'false').lower() == 'true':  # 其次检查Docker环境

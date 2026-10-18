@@ -29,6 +29,8 @@ class PythonBridge {
     private var fnCallObject: (@convention(c) (PyRef?, PyRef?) -> PyRef?)?
     private var fnUnicodeAsUTF8: (@convention(c) (PyRef?) -> UnsafePointer<CChar>?)?
     private var fnDecRef: (@convention(c) (PyRef?) -> Void)?
+    // 异常打印：PyObject_CallObject 返回 NULL 时调用，打印并清除挂起的 Python 异常
+    private var fnErrPrint: (@convention(c) () -> Void)?
     // GIL 管理：跨线程调用 Python C API 必须持有 GIL
     private var fnGilStateEnsure: (@convention(c) () -> Int32)?
     private var fnGilStateRelease: (@convention(c) (Int32) -> Void)?
@@ -99,6 +101,7 @@ class PythonBridge {
         fnCallObject = sym("PyObject_CallObject")
         fnUnicodeAsUTF8 = sym("PyUnicode_AsUTF8")
         fnDecRef = sym("Py_DecRef")
+        fnErrPrint = sym("PyErr_Print")
         fnGilStateEnsure = sym("PyGILState_Ensure")
         fnGilStateRelease = sym("PyGILState_Release")
         fnEvalSaveThread = sym("PyEval_SaveThread")
@@ -133,6 +136,12 @@ class PythonBridge {
             defer { fnDecRef?(method) }
             if let result = call(method, nil) {
                 fnDecRef?(result)
+            } else {
+                // PyObject_CallObject 返回 NULL 表示 Python 端抛出了异常。
+                // 必须调用 PyErr_Print 打印并清除异常，否则异常被静默吞掉，
+                // 后台线程无痕结束，主线程轮询 get_progress() 永远拿到 "0|正在初始化..."。
+                NSLog("[PythonBridge] start_flask_server 抛出 Python 异常:")
+                fnErrPrint?()
             }
         }
         #else

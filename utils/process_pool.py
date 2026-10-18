@@ -18,8 +18,8 @@ _executor_lock = __import__('threading').Lock()
 
 
 def _is_android() -> bool:
-    """检测是否为Android环境"""
-    return os.environ.get('ANDROID_ENV', 'false').lower() == 'true'
+    """检测是否为Android/iOS环境（iOS与Android一样使用线程模式而非多进程）"""
+    return os.environ.get('ANDROID_ENV', 'false').lower() == 'true' or os.environ.get('IOS_ENV', 'false').lower() == 'true'
 
 
 def _is_docker() -> bool:

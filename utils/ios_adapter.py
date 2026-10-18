@@ -284,19 +284,36 @@ def start_flask_server():
         logger.warning("start_flask_server() 仅应在 iOS 环境下调用")
         return None
 
-    # 1. 安装 stub 模块（必须在所有 import 之前）
-    install_stub_modules()
+    try:
+        # 1. 安装 stub 模块（必须在所有 import 之前）
+        install_stub_modules()
 
-    # 2. 设置环境变量
-    setup_ios_env()
+        # 2. 设置环境变量
+        setup_ios_env()
 
-    # 3. 导入并启动 Flask（传递进度回调，Python 端更新全局变量，Swift 端轮询读取）
-    from main import init_flask_app
-    app, run_server = init_flask_app(progress_callback=_ios_progress_callback)
+        # 3. 导入并启动 Flask（传递进度回调，Python 端更新全局变量，Swift 端轮询读取）
+        from main import init_flask_app
+        app, run_server = init_flask_app(progress_callback=_ios_progress_callback)
 
-    logger.info("iOS 端 Flask 应用初始化完成")
+        logger.info("iOS 端 Flask 应用初始化完成")
 
-    # 4. 启动 waitress 服务器
-    run_server()
+        # 4. 启动 waitress 服务器
+        run_server()
+    except Exception:
+        # 诊断：Swift 端 PyObject_CallObject 不检查返回值 NULL 对应的 Python 异常，
+        # 异常会被静默吞掉，界面永远停留在"正在初始化 0%"。
+        # 此处记录完整 traceback 到日志文件，并把错误摘要写入进度消息供 Swift 端显示。
+        import traceback
+        err = traceback.format_exc()
+        global _progress_pct, _progress_msg
+        _progress_msg = "启动失败: " + err.strip().splitlines()[-1][:200]
+        try:
+            log_dir = os.path.join(os.environ.get('APP_DATA_DIR', get_documents_dir()), 'logs')
+            os.makedirs(log_dir, exist_ok=True)
+            with open(os.path.join(log_dir, 'startup_error.log'), 'w', encoding='utf-8') as f:
+                f.write(err)
+        except Exception:
+            pass
+        raise
 
     return app

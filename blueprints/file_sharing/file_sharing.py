@@ -32,8 +32,8 @@ def get_base_data_path():
     if os.environ.get('DOCKER_ENV', 'false').lower() == 'true':
         # Docker环境 - 使用外部数据卷路径
         return '/data'
-    elif os.environ.get('ANDROID_ENV', 'false').lower() == 'true':
-        # Android环境 - 使用 APP_DATA_DIR
+    elif os.environ.get('ANDROID_ENV', 'false').lower() == 'true' or os.environ.get('IOS_ENV', 'false').lower() == 'true':
+        # Android/iOS环境 - 使用 APP_DATA_DIR
         return os.environ.get('APP_DATA_DIR', '/data')
     elif getattr(sys, 'frozen', False):
         # 打包环境 - 文件存储在应用程序所在目录的data下

@@ -39,7 +39,8 @@ certifi>=2023.7.22
 charset-normalizer>=3.2.0
 # SQLAlchemy 2.0 在 Python 3.8/3.9 需要 typing-extensions
 typing-extensions>=4.8.0
-# 注：SQLAlchemy 2.0 同步引擎不需要 greenlet，省略以减小体积
+# SQLAlchemy 2.0 传递依赖
+greenlet>=3.0.0  # SQLAlchemy 2.0 同步 ORM 需要 greenlet（asyncio 兼容层）
 
 # 排除的桌面/其他平台专用包（通过 stub 模块替换或不需要）：
 # - pywebview==3.7      → iOS 使用原生 WKWebView 替代
