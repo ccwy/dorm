@@ -65,7 +65,7 @@
 			files = (
 				B1000000000000000000010 /* Python.framework in Embed Frameworks */,
 			);
-			name = Embed Frameworks;
+			name = "Embed Frameworks";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXCopyFilesBuildPhase section */
