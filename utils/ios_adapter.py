@@ -168,6 +168,7 @@ def install_stub_modules():
     - pywebview: 桌面 WebView
     - pystray: 系统托盘
     - psutil: 进程管理（iOS 使用应用生命周期替代）
+    - subprocess: 进程创建（kivy-ios 缺少 _posixsubprocess C 扩展）
 
     注意：仅在 iOS 环境下调用，Windows/Docker/Android 端不受影响。
     """
@@ -214,6 +215,23 @@ def install_stub_modules():
             'pid_exists': _stub_function('psutil.pid_exists'),
         })
         sys.modules['psutil'] = psutil_stub
+
+    # subprocess stub（kivy-ios 编译的 Python.framework 缺少 _posixsubprocess C 扩展，
+    # 标准库 subprocess.py 顶部 import _posixsubprocess 会失败，需替换防止间接导入崩溃）
+    if 'subprocess' not in sys.modules:
+        subprocess_stub = _create_stub_module('subprocess', {
+            'Popen': type('Popen', (), {'__init__': _stub_function('subprocess.Popen')}),
+            'run': _stub_function('subprocess.run'),
+            'call': _stub_function('subprocess.call'),
+            'check_call': _stub_function('subprocess.check_call'),
+            'check_output': _stub_function('subprocess.check_output'),
+            'DEVNULL': -1,
+            'PIPE': -1,
+            'STDOUT': -1,
+            'CalledProcessError': type('CalledProcessError', (Exception,), {}),
+            'TimeoutExpired': type('TimeoutExpired', (Exception,), {}),
+        })
+        sys.modules['subprocess'] = subprocess_stub
 
     logger.info("iOS stub 模块安装完成")
 

@@ -50,6 +50,8 @@ class LoadingView: UIView {
         label.font = UIFont.systemFont(ofSize: 14)
         label.textColor = UIColor(white: 0.53, alpha: 1.0) // #888888
         label.textAlignment = .center
+        label.numberOfLines = 0
+        label.lineBreakMode = .byWordWrapping
         return label
     }()
 
@@ -113,6 +115,7 @@ class LoadingView: UIView {
             // 状态文字
             statusLabel.centerXAnchor.constraint(equalTo: centerXAnchor),
             statusLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 4),
+            statusLabel.widthAnchor.constraint(lessThanOrEqualTo: widthAnchor, multiplier: 0.85),
 
             // 进度条
             progressBar.centerXAnchor.constraint(equalTo: centerXAnchor),

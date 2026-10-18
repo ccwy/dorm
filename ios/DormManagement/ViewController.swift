@@ -118,6 +118,15 @@ class ViewController: UIViewController, WKNavigationDelegate, WKUIDelegate {
 
     private func initializePython() {
         let documentsPath = NSSearchPathForDirectoriesInDomains(.documentDirectory, .userDomainMask, true).first ?? ""
+        // 提前创建数据目录（即使 Python 启动失败，Files app 也能看到 data 文件夹）
+        let dataDir = documentsPath + "/data"
+        let fm = FileManager.default
+        for sub in ["", "/photo", "/file_sharing", "/backups", "/logs"] {
+            let path = dataDir + sub
+            if !fm.fileExists(atPath: path) {
+                try? fm.createDirectory(atPath: path, withIntermediateDirectories: true)
+            }
+        }
         PythonBridge.shared.initialize(documentsPath: documentsPath)
     }
 
