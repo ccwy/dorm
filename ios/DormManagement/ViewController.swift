@@ -9,7 +9,7 @@
 import UIKit
 import WebKit
 
-class ViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, UIDocumentPickerDelegate {
+class ViewController: UIViewController, WKNavigationDelegate, WKUIDelegate {
 
     // MARK: - 常量（与 Android MainActivity 保持一致）
 
@@ -34,8 +34,7 @@ class ViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, UIDo
     private var launchStartTime: Date?
     private var lastPythonPct = 0
     private var lastPythonMsg = ""
-    private var progressKvoToken: NSKeyValueObservation<WKWebView>?
-    private var openPanelCompletion: (([URL]?) -> Void)?
+    private var progressKvoToken: NSKeyValueObservation?
     private var didLoadWebView = false
 
     // MARK: - 生命周期
@@ -284,31 +283,6 @@ class ViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, UIDo
             loadingView.hide()
             showErrorPage("页面加载失败：\(error.localizedDescription)")
         }
-    }
-
-    // MARK: - WKUIDelegate（文件上传）
-
-    // iOS 14+ 文件上传入口（<input type="file">）
-    @available(iOS 14.0, *)
-    func webView(_ webView: WKWebView, runOpenPanelWith parameters: WKOpenPanelParameters,
-                 initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping ([URL]?) -> Void) {
-        let picker = UIDocumentPickerViewController(documentTypes: ["public.item", "public.image"], in: .import)
-        picker.delegate = self
-        picker.allowsMultipleSelection = parameters.allowsMultipleSelection
-        openPanelCompletion = completionHandler
-        present(picker, animated: true)
-    }
-
-    // MARK: - UIDocumentPickerDelegate
-
-    func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
-        openPanelCompletion?(urls)
-        openPanelCompletion = nil
-    }
-
-    func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {
-        openPanelCompletion?(nil)
-        openPanelCompletion = nil
     }
 
     // MARK: - 文件下载（对齐 Android handleDownload）
