@@ -36,13 +36,13 @@
 		F10000000000000000000007 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		A10000000000000000000009 /* DormManagement.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DormManagement.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		P10000000000000000000001 /* Python.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Python.framework; path = Frameworks/Python.framework; sourceTree = SOURCE_ROOT; };
-		R10000000000000000000001 /* blueprints */ = {isa = PBXFileReference; lastKnownFileType = folder; path = ../blueprints; sourceTree = "<group>"; };
-		R10000000000000000000002 /* models */ = {isa = PBXFileReference; lastKnownFileType = folder; path = ../models; sourceTree = "<group>"; };
-		R10000000000000000000003 /* utils */ = {isa = PBXFileReference; lastKnownFileType = folder; path = ../utils; sourceTree = "<group>"; };
-		R10000000000000000000004 /* templates */ = {isa = PBXFileReference; lastKnownFileType = folder; path = ../templates; sourceTree = "<group>"; };
-		R10000000000000000000005 /* static */ = {isa = PBXFileReference; lastKnownFileType = folder; path = ../static; sourceTree = "<group>"; };
-		R10000000000000000000006 /* main.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = ../main.py; sourceTree = "<group>"; };
-		R10000000000000000000007 /* config.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = ../config.py; sourceTree = "<group>"; };
+		R10000000000000000000001 /* blueprints */ = {isa = PBXFileReference; lastKnownFileType = folder; path = ../../blueprints; sourceTree = "<group>"; };
+		R10000000000000000000002 /* models */ = {isa = PBXFileReference; lastKnownFileType = folder; path = ../../models; sourceTree = "<group>"; };
+		R10000000000000000000003 /* utils */ = {isa = PBXFileReference; lastKnownFileType = folder; path = ../../utils; sourceTree = "<group>"; };
+		R10000000000000000000004 /* templates */ = {isa = PBXFileReference; lastKnownFileType = folder; path = ../../templates; sourceTree = "<group>"; };
+		R10000000000000000000005 /* static */ = {isa = PBXFileReference; lastKnownFileType = folder; path = ../../static; sourceTree = "<group>"; };
+		R10000000000000000000006 /* main.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = ../../main.py; sourceTree = "<group>"; };
+		R10000000000000000000007 /* config.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = ../../config.py; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
