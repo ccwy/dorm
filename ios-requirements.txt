@@ -1,6 +1,7 @@
 # iOS 专用依赖文件 (kivy-ios 1.3.0 静态编译 + WKWebView 架构)
 # 此文件用于 iOS 平台构建，排除了桌面专用包
-# 注：pandas/numpy 已被 openpyxl 替代，xlsxwriter 亦已移除，不再需要
+# 注：pandas/numpy 无法编译（C 扩展），由 utils/pandas_compat.py 兼容层替代，
+#     兼容层依赖 openpyxl + xlsxwriter 实现 Excel 读写
 #
 # C 扩展说明（kivy-ios 1.3.0 源码已确认）：
 # - _sqlite3/_ssl/_hashlib/_ctypes/zlib/_bz2 等按 ModulesSetup *static* 编译为
@@ -15,6 +16,7 @@ Flask>=2.3.3
 Flask-SQLAlchemy>=3.1.1
 Flask-Login>=0.6.3
 openpyxl>=3.1.2
+XlsxWriter>=3.1.0  # pandas 兼容层 engine='xlsxwriter' 需要（user_import_export 模板生成）
 PyMySQL>=1.1.0
 Werkzeug>=2.3.7
 Jinja2>=3.1.2
@@ -47,5 +49,5 @@ greenlet>=3.0.0  # SQLAlchemy 2.0 同步 ORM 需要 greenlet（asyncio 兼容层
 # - psutil>=5.9.8       → iOS 使用 App 生命周期替代
 # - pystray>=0.19.5     → iOS 无系统托盘
 # - tkinter             → Python 内置模块，通过 stub 替换
-# - pandas/numpy/xlsxwriter → 已被 openpyxl 替代，Excel 处理统一使用 openpyxl
-# - xlsxwriter>=3.2.5   → 已移除，统一使用 openpyxl
+# - pandas/numpy        → 无法编译（C 扩展），由 utils/pandas_compat.py 兼容层替代（依赖 openpyxl/xlsxwriter）
+# - xlsxwriter          → 已恢复安装，pandas 兼容层 engine='xlsxwriter' 需要

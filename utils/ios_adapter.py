@@ -181,6 +181,8 @@ def install_stub_modules():
     - subprocess: 进程创建（kivy-ios 缺少 _posixsubprocess C 扩展）
     - concurrent.futures.process: 多进程执行器（iOS 缺少 _multiprocessing，回退线程池）
     - _multiprocessing: 多进程 C 扩展（kivy-ios 未编译）
+    - pandas: 数据处理库（C 扩展无法编译，由 utils/pandas_compat.py 兼容层替代，
+      基于 openpyxl/xlsxwriter 实现项目使用的 API 子集）
 
     注意：仅在 iOS 环境下调用，Windows/Docker/Android 端不受影响。
     """
@@ -266,6 +268,14 @@ def install_stub_modules():
             sys.modules['_multiprocessing'] = _mp_stub
         except Exception as e:
             logger.warning(f"_multiprocessing stub 安装失败: {e}")
+
+    # pandas 兼容层 stub（iOS 无 pandas C 扩展，用 openpyxl/xlsxwriter 实现兼容层）
+    if 'pandas' not in sys.modules:
+        try:
+            from utils import pandas_compat
+            sys.modules['pandas'] = pandas_compat
+        except Exception as e:
+            logger.warning(f"pandas 兼容层加载失败: {e}")
 
     logger.info("iOS stub 模块安装完成")
 
