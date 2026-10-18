@@ -56,6 +56,16 @@ def setup_ios_env():
     Docker(/data) 和 Windows({app}/data) 结构一致。
     所有数据（数据库、配置、照片、文件共享、备份）均存储在 APP_DATA_DIR 下。
     """
+    # 修复 iOS 上 stdout/stderr 默认 ASCII 编码，print 中文时 UnicodeEncodeError 崩溃
+    # kivy-ios 编译的 Python.framework 不继承终端 UTF-8 locale，需显式重新配置
+    try:
+        if sys.stdout and sys.stdout.encoding and sys.stdout.encoding.lower() not in ('utf-8', 'utf8'):
+            sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+        if sys.stderr and sys.stderr.encoding and sys.stderr.encoding.lower() not in ('utf-8', 'utf8'):
+            sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+    except Exception:
+        pass
+
     # 设置 iOS 环境标识（与 ANDROID_ENV / DOCKER_ENV 机制一致）
     os.environ['IOS_ENV'] = 'true'
 
