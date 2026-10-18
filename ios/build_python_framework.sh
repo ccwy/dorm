@@ -76,6 +76,16 @@ check_environment() {
         brew install ccache || { log_error "ccache 安装失败，请手动执行: brew install ccache"; exit 1; }
     fi
 
+    # 检查 sh 版本（kivy-ios 需要 sh 1.x，sh 2.x 移除了 which 函数会导致 toolchain 崩溃）
+    if command -v python3 >/dev/null 2>&1; then
+        SH_VER=$(python3 -c "import sh; print(sh.__version__)" 2>/dev/null || echo "")
+        if [ -n "$SH_VER" ] && [ "${SH_VER%%.*}" -ge 2 ]; then
+            log_error "检测到 sh $SH_VER，kivy-ios 需要 sh==1.12.14（sh 2.x 移除了 which 函数）"
+            log_info "请执行: pip3 install 'sh==1.12.14'"
+            exit 1
+        fi
+    fi
+
     log_info "环境检查通过"
 }
 
