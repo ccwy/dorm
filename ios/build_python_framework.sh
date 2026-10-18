@@ -71,6 +71,11 @@ check_environment() {
         fi
     fi
 
+    if ! command -v ccache &> /dev/null; then
+        log_info "未检测到 ccache，kivy-ios 需要它，尝试安装..."
+        brew install ccache || { log_error "ccache 安装失败，请手动执行: brew install ccache"; exit 1; }
+    fi
+
     log_info "环境检查通过"
 }
 

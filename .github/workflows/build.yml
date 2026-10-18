@@ -522,7 +522,10 @@ jobs:
           python -m pip install --upgrade pip
           pip install "kivy-ios>=1.2.0,<2.0"
 
-      - name: 💾 缓存 kivy-ios 工具链
+      - name: � 安装 ccache（kivy-ios 依赖）
+        run: brew install ccache
+
+      - name: �💾 缓存 kivy-ios 工具链
         uses: actions/cache@v6
         with:
           path: ios/kivy-ios-work
