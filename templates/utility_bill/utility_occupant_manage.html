@@ -979,6 +979,11 @@
         return;
       }
       
+      // 禁用按钮并显示核算动画（页面提交后刷新，动画自然结束）
+      const btn = document.getElementById('calculateBtn');
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fa fa-spinner fa-spin mr-1.5"></i>核算中...';
+      
       const form = document.createElement('form');
       form.method = 'POST';
       form.action = '/utility_room_bill_occupants/api/calculate_bill';
@@ -1002,6 +1007,11 @@
       if (!confirm(`确定要删除 ${billingPeriod} 的子表账单数据吗？此操作不会删除主表记录，只会删除人员分摊数据。`)) {
         return;
       }
+      
+      // 禁用按钮并显示删除动画（页面提交后刷新，动画自然结束）
+      const btn = document.getElementById('clearCurrentBtn');
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fa fa-spinner fa-spin mr-1.5"></i>删除中...';
       
       const form = document.createElement('form');
       form.method = 'POST';

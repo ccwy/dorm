@@ -473,7 +473,21 @@ def clear_current_bill():
         
         record_ids = [r.record_id for r in main_records]
 
-        
+        # 检查该账期是否有子表分摊数据
+        occupant_count = RoomUtilityOccupant.query.filter(
+            RoomUtilityOccupant.record_id.in_(record_ids)
+        ).count()
+
+        if occupant_count == 0:
+            log_operation(
+                user_id=current_user.id,
+                module='utility',
+                operation_type='delete',
+                action=f"删除子表账单失败 [账期: {billing_period}, 原因: 该账期无人员分摊数据]",
+                result="失败"
+            )
+            flash(f'{billing_period}账期无人员分摊数据，无需删除', 'warning')
+            return redirect(url_for('utility_index.utility_occupant_manage', billing_period=billing_period))
 
         # 删除对应子表记录
         deleted_count = RoomUtilityOccupant.query.filter(
