@@ -18,7 +18,8 @@ from utils.excel_date_utils import excel_date_utils
 import re  # 正则表达式模块，用于处理字符串
 import datetime
 import logging
-from utils.lazy_imports import pd  # 延迟导入pandas，避免启动时加载重型库
+from utils.excel_utils import is_empty, read_excel_rows, read_excel_header, write_sheet, export_to_excel, auto_fit_columns
+from utils.lazy_imports import Workbook  # 延迟导入openpyxl，避免启动时加载重型库
 from io import BytesIO
 from models.system_config.system_config import SystemConfig  # 导入系统配置模型
 from models.role import Role  # 导入角色模型
@@ -52,30 +53,25 @@ def _validate_uploaded_file(operation_label='操作'):
 
 
 def _read_excel_with_dtype(file_bytes):
-    """读取Excel并构建dtype字典，返回 (df, excel_columns, display_to_field) 元组。"""
+    """读取Excel，返回 (rows, excel_columns, display_to_field) 元组。
+    注意：openpyxl读取原始值（不再通过dtype将工号/电话等字段预转为字符串），
+    取值时通过 normalize_numeric_str 统一处理，防止前导零丢失和浮点后缀问题。
+    """
     importable_fields = get_importable_fields()
     display_to_field = {v: k for k, v in importable_fields.items()}
     
-    # 首先读取第一行获取列名
-    temp_df = pd.read_excel(file_bytes, nrows=1)
+    # 首先读取表头获取列名（即使无数据行也能获取列名）
+    excel_columns = read_excel_header(file_bytes)
     file_bytes.seek(0)  # 重置文件指针
     
-    # 构建dtype字典，将特定字段设置为字符串类型
-    str_columns = []
-    for col in temp_df.columns:
-        if col in display_to_field and display_to_field[col] in ['phone', 'id_card', 'emergency_phone', 'student_id', 'password']:
-            str_columns.append(col)
-    
-    # 读取整个Excel，将特定列设为字符串类型
-    dtype_dict = {col: str for col in str_columns}
-    df = pd.read_excel(file_bytes, dtype=dtype_dict)
-    excel_columns = df.columns.tolist()
+    # 读取整个Excel数据行（保留原始类型，数字字段由调用方用 normalize_numeric_str 处理）
+    rows = read_excel_rows(file_bytes)
     
     # 重新获取映射（确保与实际列一致）
     importable_fields = get_importable_fields()
     display_to_field = {v: k for k, v in importable_fields.items()}
     
-    return df, excel_columns, display_to_field
+    return rows, excel_columns, display_to_field
 
 
 def normalize_numeric_str(val):
@@ -100,9 +96,9 @@ def normalize_numeric_str(val):
     return s
 
 
-def _batch_parse_hire_dates(df, raise_error=True):
+def _batch_parse_hire_dates(rows, raise_error=True):
     """批量解析入职日期，返回 parsed_hire_dates。失败时抛出异常由调用方处理。"""
-    hire_date_values = df.get('入职日期', pd.Series([None] * len(df)))
+    hire_date_values = [row.get('入职日期') for row in rows] if rows else []
     parsed_hire_dates = excel_date_utils.parse_excel_date(hire_date_values, field_name='入职日期', raise_error=raise_error)
     logging.info("日期时间解析成功")
     return parsed_hire_dates
@@ -115,11 +111,11 @@ def _process_field_value(field_name, value, parsed_hire_dates, row_idx):
         parsed_date = parsed_hire_dates[row_idx]
         return parsed_date if parsed_date else None
     
-    # 字符串数字字段（Excel中纯数字会被pandas读取为float或科学计数法字符串，统一规范化）
+    # 字符串数字字段（Excel中纯数字会被读取为float或科学计数法字符串，统一规范化）
     if field_name in ['phone', 'id_card', 'emergency_phone']:
         return normalize_numeric_str(value)
     
-    # 密码字段 - 确保转为字符串（Excel中纯数字密码会被pandas读取为float）
+    # 密码字段 - 确保转为字符串（Excel中纯数字密码会被读取为float）
     if field_name == 'password':
         return normalize_numeric_str(value)
     
@@ -334,10 +330,16 @@ def export_users():
             data.append(row)
         
         # 生成Excel
-        df = pd.DataFrame(data)
+        headers = list(export_fields.values())
+        if custom_field_defs:
+            for field_def in custom_field_defs:
+                label = field_def.get('label', field_def.get('field_key', ''))
+                if label and label not in headers:
+                    headers.append(label)
+        if '持有物品' not in headers:
+            headers.append('持有物品')
         output = BytesIO()
-        with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            df.to_excel(writer, index=False, sheet_name='用户数据')
+        export_to_excel([{'name': '用户数据', 'headers': headers, 'rows': data}], output)
         
         output.seek(0)
         
@@ -381,8 +383,8 @@ def import_users():
         file_bytes = BytesIO(file_content)
         file_bytes.seek(0)
         
-        # 读取Excel并构建dtype字典
-        df, excel_columns, display_to_field = _read_excel_with_dtype(file_bytes)
+        # 读取Excel（openpyxl，保留原始类型）
+        rows, excel_columns, display_to_field = _read_excel_with_dtype(file_bytes)
         logging.info('开始导入用户')
         
         # 白名单模式：只识别必填列和可选列，其余列全部自动忽略
@@ -401,7 +403,7 @@ def import_users():
         # 构建列名映射：只保留白名单中的列，其余自动忽略
         column_mapping = {}
         ignored_columns = []
-        for col in df.columns:
+        for col in excel_columns:
             # 先检查是否直接匹配标准列名
             if col in all_known_columns:
                 continue  # 标准列名无需映射
@@ -414,11 +416,11 @@ def import_users():
             logging.info(f'导入用户数据：自动忽略未识别列 {ignored_columns}')
 
         # 重命名列以统一标准，并只保留白名单中的列（用户ID为别名映射列，导入时忽略）
-        if column_mapping:
-            df = df.rename(columns=column_mapping)
-        whitelist_columns = [col for col in df.columns if col in all_known_columns]
-        df = df[whitelist_columns]
-        excel_columns = df.columns.tolist()
+        rows = [
+            {column_mapping.get(k, k): v for k, v in row.items() if column_mapping.get(k, k) in all_known_columns}
+            for row in rows
+        ]
+        excel_columns = [column_mapping.get(col, col) for col in excel_columns if column_mapping.get(col, col) in all_known_columns]
         
         # 检测Excel中实际包含的自定义字段列
         custom_columns_in_excel = [col for col in excel_columns if col in custom_field_labels]
@@ -426,7 +428,7 @@ def import_users():
         custom_field_defs_import = get_custom_field_definitions('user')
 
         # 验证必要列
-        missing_columns = [col for col in required_columns if col not in df.columns]
+        missing_columns = [col for col in required_columns if col not in excel_columns]
         if missing_columns:
             msg = f'Excel缺少必要列：{", ".join(missing_columns)}'
             flash(msg, 'danger')
@@ -442,7 +444,7 @@ def import_users():
         batch_ids = set()
         batch_usernames = set()
 
-        logging.info(f"导入用户数据操作，开始处理 {len(df)} 条记录")
+        logging.info(f"导入用户数据操作，开始处理 {len(rows)} 条记录")
         # 准备用户数据列表
         user_data_list = []
         now = datetime.datetime.now()
@@ -456,23 +458,23 @@ def import_users():
         
         # 提取所有入职时间值进行批量解析（入职日期为可选字段，空值允许）
         try:
-            parsed_hire_dates = _batch_parse_hire_dates(df, raise_error=False)
+            parsed_hire_dates = _batch_parse_hire_dates(rows, raise_error=False)
         except Exception as e:
             msg = f'批量解析入职日期失败：{str(e)}'
             flash(msg, 'danger')
             logging.error(f'批量解析入职日期失败：{str(e)}')
             return redirect(url_for('user.manage'))
 
-        for row_num, row in df.iterrows():
+        for row_num, row in enumerate(rows):
             current_row = row_num + 2  # 行号从2开始
             
             # 跳过空行（姓名为空）
-            if pd.isna(row['姓名']):
+            if is_empty(row.get('姓名')):
                 logging.warning(f"导入用户数据操作，第{current_row}行：姓名为空，已跳过")
                 continue
             
             # 获取姓名并验证
-            name = str(row['姓名']).strip() if not pd.isna(row['姓名']) else ""
+            name = str(row.get('姓名')).strip() if not is_empty(row.get('姓名')) else ""
             if not name:
                 flash(f"第{current_row}行：姓名为空，已跳过", 'warning')
                 logging.warning(f"导入用户数据操作，第{current_row}行：姓名为空，已跳过")
@@ -480,9 +482,9 @@ def import_users():
                 
             # 优先使用Excel中提供的工号，如果没有或已存在则生成新工号
             student_id = None
-            if '工号' in excel_columns and not pd.isna(row['工号']):
+            if '工号' in excel_columns and not is_empty(row.get('工号')):
                 # 尝试使用Excel中提供的工号
-                provided_student_id = normalize_numeric_str(row['工号'])
+                provided_student_id = normalize_numeric_str(row.get('工号'))
                 # 检查是否已存在于数据库或当前批次
                 if provided_student_id not in existing_ids and provided_student_id not in batch_ids:
                     student_id = provided_student_id
@@ -504,9 +506,9 @@ def import_users():
                 
             # 优先使用Excel中提供的用户名，如果没有或已存在则生成新用户名
             username = None
-            if '用户名' in excel_columns and not pd.isna(row['用户名']):
+            if '用户名' in excel_columns and not is_empty(row.get('用户名')):
                 # 尝试使用Excel中提供的用户名
-                provided_username = str(row['用户名']).strip()
+                provided_username = str(row.get('用户名')).strip()
                 # 检查是否已存在于数据库或当前批次
                 if provided_username not in existing_usernames and provided_username not in batch_usernames:
                     username = provided_username
@@ -532,8 +534,8 @@ def import_users():
             batch_usernames.add(username)
             
             # 处理密码（只获取明文，不生成哈希，由模型处理）
-            if '密码' in excel_columns and not pd.isna(row['密码']):
-                password = normalize_numeric_str(row['密码'])
+            if '密码' in excel_columns and not is_empty(row.get('密码')):
+                password = normalize_numeric_str(row.get('密码'))
             else:
                 password = SystemConfig.get_config_value('USER_DEFAULT_PASSWORD', '123321')
             
@@ -548,14 +550,14 @@ def import_users():
             }
             
             # 处理性别
-            if '性别' in excel_columns and not pd.isna(row['性别']):
-                user_data['gender'] = str(row['性别']).strip()
+            if '性别' in excel_columns and not is_empty(row.get('性别')):
+                user_data['gender'] = str(row.get('性别')).strip()
             else:
                 user_data['gender'] = ''  # 会在模型验证中被捕获为错误
             
             # 处理角色
-            if '角色' in excel_columns and not pd.isna(row['角色']):
-                role_val = str(row['角色']).strip()
+            if '角色' in excel_columns and not is_empty(row.get('角色')):
+                role_val = str(row.get('角色')).strip()
                 # 通过角色名称查找角色ID
                 role_id = role_name_to_id.get(role_val)
                 if role_id is None:
@@ -574,8 +576,8 @@ def import_users():
                     continue
                     
                 # 检查Excel中是否有该字段且值不为空
-                if display_name in excel_columns and not pd.isna(row[display_name]):
-                    value = row[display_name]
+                if display_name in excel_columns and not is_empty(row.get(display_name)):
+                    value = row.get(display_name)
                     
                     # 使用公共函数统一处理字段值转换
                     processed = _process_field_value(field_name, value, parsed_hire_dates, row_num)
@@ -594,16 +596,16 @@ def import_users():
             if custom_columns_in_excel:
                 custom_data = {}
                 for label in custom_columns_in_excel:
-                    if label in row.index and not pd.isna(row[label]):
+                    if label in row and not is_empty(row.get(label)):
                         field_key = custom_label_to_key.get(label, '')
                         if field_key:
                             # checkbox类型值标准化
                             field_def_for_key = next((fd for fd in custom_field_defs_import if fd.get('field_key') == field_key), None)
                             if field_def_for_key and field_def_for_key.get('type') == 'checkbox':
-                                val = str(row[label]).strip().lower()
+                                val = str(row.get(label)).strip().lower()
                                 custom_data[field_key] = 'true' if val in ('true', '1', '是', 'yes') else 'false'
                             else:
-                                custom_data[field_key] = str(row[label]).strip()
+                                custom_data[field_key] = str(row.get(label)).strip()
                 if custom_data:
                     # 导入校验（宽松模式：仅warning，不阻断导入）
                     validation_warnings = validate_custom_fields(custom_data, custom_field_defs_import)
@@ -743,36 +745,15 @@ def import_template():
                 for sample_row in sample_data:
                     sample_row[label] = str(default_value) if default_value else ''
         
-        # 创建DataFrame
-        df = pd.DataFrame(sample_data)
-        
-        # 生成Excel
+        # 生成Excel（openpyxl，表头加粗居中由 write_sheet 处理）
+        headers = list(sample_data[0].keys())
         output = BytesIO()
-        
-        # 使用xlsxwriter引擎
-        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-            # 关键修复：设置header=False，不自动生成表头
-            df.to_excel(writer, index=False, sheet_name='用户导入模板', startrow=1, header=False)
-            
-            # 获取工作表
-            worksheet = writer.sheets['用户导入模板']
-            
-            # 创建一个加粗的格式
-            bold_format = writer.book.add_format({'bold': True})
-            
-            # 只写入一次表头
-            for col_num, value in enumerate(df.columns.values):
-                worksheet.write(0, col_num, value, bold_format)
-            
-            # 调整列宽
-            for i, col in enumerate(df.columns):
-                # 计算每列的最大宽度（考虑表头和内容）
-                column_width = max(
-                    len(str(value)) for value in df[col].fillna('')
-                )
-                # 确保至少比表头宽一点
-                column_width = max(column_width, len(col)) + 2
-                worksheet.set_column(i, i, column_width)
+        wb = Workbook()
+        ws = write_sheet(wb, '用户导入模板', headers, sample_data)
+        # 自动调整列宽（内容最大长度+2，与原 xlsxwriter 逻辑一致）
+        auto_fit_columns(ws)
+        wb.save(output)
+        wb.close()
         
         output.seek(0)
         
@@ -814,8 +795,8 @@ def update_users():
         file_bytes = BytesIO(file_content)
         file_bytes.seek(0)
         
-        # 读取Excel并构建dtype字典
-        df, excel_columns, display_to_field = _read_excel_with_dtype(file_bytes)
+        # 读取Excel（openpyxl，保留原始类型）
+        rows, excel_columns, display_to_field = _read_excel_with_dtype(file_bytes)
         
         # 白名单模式：只识别必填列和可选列，其余列全部自动忽略
         # 必填列（缺失时报错）
@@ -824,7 +805,7 @@ def update_users():
         optional_columns = ['姓名', '性别', '工号', '用户名', '密码', '角色', '公司', '部门', '职位', '身份证号码', '身份证地址', '外宿地址', '联系电话', '紧急联系人', '紧急联系人电话', '入职日期', '是否激活账号', '是否允许登录', '人员类别', '备注', '状态', '民族', '婚姻状态']
         # 列名别名映射：将Excel中可能出现的列名映射到标准列名
         column_alias_map = {
-            '用户ID': ['用户ID（批量更新必填）', '用户ID(批量更新必填)', '用户ID', '用户id' 'ID', 'id'],
+            '用户ID': ['用户ID（批量更新必填）', '用户ID(批量更新必填)', '用户ID', '用户id', 'ID', 'id'],
         }
         # 获取自定义字段label→key映射
         custom_label_to_key = get_custom_field_label_to_key_map('user')
@@ -836,7 +817,7 @@ def update_users():
         # 构建列名映射：只保留白名单中的列，其余自动忽略
         column_mapping = {}
         ignored_columns = []
-        for col in df.columns:
+        for col in excel_columns:
             # 先检查是否直接匹配标准列名
             if col in all_known_columns:
                 continue  # 标准列名无需映射
@@ -854,11 +835,11 @@ def update_users():
             logging.info(f'批量更新用户数据：自动忽略未识别列 {ignored_columns}')
 
         # 重命名列以统一标准，并只保留白名单中的列
-        if column_mapping:
-            df = df.rename(columns=column_mapping)
-        whitelist_columns = [col for col in df.columns if col in all_known_columns]
-        df = df[whitelist_columns]
-        excel_columns = list(df.columns)
+        rows = [
+            {column_mapping.get(k, k): v for k, v in row.items() if column_mapping.get(k, k) in all_known_columns}
+            for row in rows
+        ]
+        excel_columns = [column_mapping.get(col, col) for col in excel_columns if column_mapping.get(col, col) in all_known_columns]
         
         # 检测Excel中实际包含的自定义字段列
         custom_columns_in_excel = [col for col in excel_columns if col in custom_field_labels]
@@ -866,7 +847,7 @@ def update_users():
         custom_field_defs_import = get_custom_field_definitions('user')
 
         # 验证必要列
-        missing_columns = [col for col in required_columns if col not in df.columns]
+        missing_columns = [col for col in required_columns if col not in excel_columns]
         if missing_columns:
             msg = f'Excel缺少必要列：{", ".join(missing_columns)}'
             flash(msg, 'danger')
@@ -881,7 +862,7 @@ def update_users():
         department_cache = _build_department_cache()
         
         # 提取所有入职时间值进行批量解析（入职日期为可选字段，空值允许）
-        parsed_hire_dates = _batch_parse_hire_dates(df, raise_error=False)
+        parsed_hire_dates = _batch_parse_hire_dates(rows, raise_error=False)
         
         error_list = []
         # 获取现有用户的用户名和工号映射关系，用于验证唯一性
@@ -896,14 +877,14 @@ def update_users():
         all_roles = Role.query.order_by(Role.sort_order).all()
         role_name_to_id = {r.name: r.id for r in all_roles}
         
-        for idx, row in df.iterrows():
+        for idx, row in enumerate(rows):
             user_data = {}  # 每行初始化
-            # 提取用户ID（处理pandas将数字读取为float的问题）
-            raw_uid = row['用户ID']
-            if pd.isna(raw_uid):
+            # 提取用户ID（openpyxl将数字读取为int/float，统一转int）
+            raw_uid = row.get('用户ID')
+            if is_empty(raw_uid):
                 logging.warning(f"批量更新用户数据操作，第{idx+2}行：用户ID为空")
                 continue
-            elif isinstance(raw_uid, float):
+            elif isinstance(raw_uid, (int, float)) and not isinstance(raw_uid, bool):
                 user_data['id'] = int(raw_uid)
             else:
                 try:
@@ -913,8 +894,8 @@ def update_users():
                     continue
             
             # 验证用户名唯一性
-            if '用户名' in row and pd.notna(row['用户名']):
-                username = str(row['用户名']).strip()
+            if '用户名' in row and not is_empty(row.get('用户名')):
+                username = str(row.get('用户名')).strip()
                 if username:
                     # 数据库唯一性检查
                     if username in username_to_id and username_to_id[username] != user_data['id']:
@@ -928,8 +909,8 @@ def update_users():
                         excel_username_set.add(username)
                         # 修复：验证通过后必须将username写入user_data，否则用户名永远不会被更新
                         user_data['username'] = username
-            if '工号' in row and pd.notna(row['工号']):
-                student_id = normalize_numeric_str(row['工号'])
+            if '工号' in row and not is_empty(row.get('工号')):
+                student_id = normalize_numeric_str(row.get('工号'))
                 if student_id:
                     # 数据库唯一性检查
                     if student_id in student_id_to_id and student_id_to_id[student_id] != user_data['id']:
@@ -951,8 +932,8 @@ def update_users():
                     continue
                 if col in display_to_field:
                     field_name = display_to_field[col]
-                    value = row[col]
-                    if pd.notna(value):
+                    value = row.get(col)
+                    if not is_empty(value):
                         # 使用公共函数统一处理字段值转换
                         processed = _process_field_value(field_name, value, parsed_hire_dates, idx)
                         if processed is not None:
@@ -962,8 +943,8 @@ def update_users():
                             user_data[field_name] = processed
             
             # 修复：角色字段需从角色名称映射到role_id（模型层fields_to_update使用role_id而非role）
-            if '角色' in row and pd.notna(row['角色']):
-                role_val = str(row['角色']).strip()
+            if '角色' in row and not is_empty(row.get('角色')):
+                role_val = str(row.get('角色')).strip()
                 if role_val:  # 空字符串跳过，保持原值不变
                     role_id = role_name_to_id.get(role_val)
                     if role_id is not None:
@@ -976,16 +957,16 @@ def update_users():
             if custom_columns_in_excel:
                 custom_data = {}
                 for label in custom_columns_in_excel:
-                    if label in row.index and pd.notna(row[label]):
+                    if label in row and not is_empty(row.get(label)):
                         field_key = custom_label_to_key.get(label, '')
                         if field_key:
                             # checkbox类型值标准化
                             field_def_for_key = next((fd for fd in custom_field_defs_import if fd.get('field_key') == field_key), None)
                             if field_def_for_key and field_def_for_key.get('type') == 'checkbox':
-                                val = str(row[label]).strip().lower()
+                                val = str(row.get(label)).strip().lower()
                                 custom_data[field_key] = 'true' if val in ('true', '1', '是', 'yes') else 'false'
                             else:
-                                val = str(row[label]).strip()
+                                val = str(row.get(label)).strip()
                                 if val:  # 空字符串跳过，保持原值不变
                                     custom_data[field_key] = val
                 if custom_data:

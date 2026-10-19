@@ -6,7 +6,7 @@ from models.supply.storage_location import StorageLocation
 from flask_login import login_required, current_user
 from utils.log import log_operation
 from utils.auth import require_permission
-from utils.lazy_imports import pd  # 延迟导入pandas，避免启动时加载重型库
+from utils.excel_utils import is_empty, export_to_excel, read_excel_rows
 import io
 from datetime import datetime
 import traceback
@@ -64,10 +64,9 @@ def export():
         logging.debug(f'数据准备完成，共{len(data)}条记录')
 
         # 生成Excel
-        df = pd.DataFrame(data)
+        headers = ['位置名称', '位置编码', '楼栋', '楼层', '房间号', '使用类型', '状态', '备注', '创建时间', '更新时间']
         output = io.BytesIO()
-        with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            df.to_excel(writer, index=False, sheet_name='存放位置数据')
+        export_to_excel([{'name': '存放位置数据', 'headers': headers, 'rows': data}], output)
 
         output.seek(0)
         filename = f"存放位置数据导出_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
@@ -144,7 +143,7 @@ def import_locations():
             file_content = file.read()
             file_bytes = BytesIO(file_content)
             file_bytes.seek(0)
-            df = pd.read_excel(file_bytes)
+            rows = read_excel_rows(file_bytes)
         except Exception as e:
             detailed_error = f"文件解析失败：{str(e)}"
             flash(detailed_error, 'danger')
@@ -164,8 +163,9 @@ def import_locations():
         all_known_columns = set(required_columns) | set(optional_columns)
 
         # 别名列重命名为标准名
+        excel_columns = list(rows[0].keys()) if rows else []
         rename_map = {}
-        for col in df.columns:
+        for col in excel_columns:
             if col in all_known_columns:
                 continue  # 已经是标准名
             for standard_name, aliases in column_alias_map.items():
@@ -173,20 +173,20 @@ def import_locations():
                     rename_map[col] = standard_name
                     break
 
-        if rename_map:
-            df = df.rename(columns=rename_map)
-
-        # 识别未匹配的列
-        ignored_columns = [col for col in df.columns if col not in all_known_columns]
+        # 识别未匹配的列（重命名后仍不在白名单中）
+        ignored_columns = [col for col in excel_columns if rename_map.get(col, col) not in all_known_columns]
         if ignored_columns:
             logging.info(f'导入存放位置数据：自动忽略未识别列 {ignored_columns}')
 
-        # 仅保留白名单列
-        whitelist_columns = [col for col in df.columns if col in all_known_columns]
-        df = df[whitelist_columns]
+        # 重命名为标准名并仅保留白名单列
+        rows = [
+            {rename_map.get(k, k): v for k, v in row.items() if rename_map.get(k, k) in all_known_columns}
+            for row in rows
+        ]
+        excel_columns = [rename_map.get(col, col) for col in excel_columns if rename_map.get(col, col) in all_known_columns]
 
         # 检查必填列缺失
-        missing_columns = [col for col in required_columns if col not in df.columns]
+        missing_columns = [col for col in required_columns if col not in excel_columns]
         if missing_columns:
             flash(f'导入失败：文件缺少必要的列 - {", ".join(missing_columns)}', 'danger')
             logging.error(f'导入存放位置数据失败：文件缺少必要的列 - {", ".join(missing_columns)}')
@@ -200,13 +200,13 @@ def import_locations():
         fail_count = 0
         error_records = []
 
-        for index, row in df.iterrows():
+        for index, row in enumerate(rows):
             try:
                 row_num = index + 2
 
                 # 位置名称（必填）
                 name_val = row.get('位置名称')
-                if pd.isna(name_val) or str(name_val).strip() == '':
+                if is_empty(name_val):
                     error_records.append(f"第{row_num}行：位置名称不能为空")
                     fail_count += 1
                     continue
@@ -214,35 +214,35 @@ def import_locations():
 
                 # 位置编码（可选）
                 code_val = row.get('位置编码')
-                code = str(code_val).strip() if pd.notna(code_val) and str(code_val).strip() else None
+                code = str(code_val).strip() if not is_empty(code_val) else None
 
                 # 楼栋（可选）
                 building_val = row.get('楼栋')
-                building = str(building_val).strip() if pd.notna(building_val) and str(building_val).strip() else None
+                building = str(building_val).strip() if not is_empty(building_val) else None
 
                 # 楼层（可选）
                 floor_val = row.get('楼层')
-                floor = str(floor_val).strip() if pd.notna(floor_val) and str(floor_val).strip() else None
+                floor = str(floor_val).strip() if not is_empty(floor_val) else None
 
                 # 房间号（可选）
                 room_val = row.get('房间号')
-                room = str(room_val).strip() if pd.notna(room_val) and str(room_val).strip() else None
+                room = str(room_val).strip() if not is_empty(room_val) else None
 
                 # 状态（可选，默认"启用"）
                 status_val = row.get('状态')
-                status = str(status_val).strip() if pd.notna(status_val) and str(status_val).strip() else '启用'
+                status = str(status_val).strip() if not is_empty(status_val) else '启用'
                 if status not in ['启用', '停用']:
                     status = '启用'
 
                 # 备注（可选）
                 remark_val = row.get('备注')
-                remark = str(remark_val).strip() if pd.notna(remark_val) and str(remark_val).strip() else None
+                remark = str(remark_val).strip() if not is_empty(remark_val) else None
 
                 # 使用类型（可选，默认"低值易耗品"）
                 from .storage_location import get_usage_types
                 valid_usage_types = get_usage_types()
                 usage_type_val = row.get('使用类型')
-                if pd.notna(usage_type_val) and str(usage_type_val).strip():
+                if not is_empty(usage_type_val):
                     usage_type_str = str(usage_type_val).strip()
                     usage_type = usage_type_str if usage_type_str in valid_usage_types else valid_usage_types[0]
                 else:
@@ -348,21 +348,18 @@ def download_template():
         logging.debug('开始生成存放位置数据导入模板')
 
         # 模板数据生成
-        template_data = {
-            "位置名称": ["A区仓库", "B区仓库", "办公室1号柜"],
-            "位置编码": ["WH-A", "WH-B", "OF-01"],
-            "楼栋": ["1号楼", "2号楼", "行政楼"],
-            "楼层": ["1", "1", "3"],
-            "房间号": ["101", "102", "301"],
-            "使用类型": ["低值易耗品", "低值易耗品", "固定资产"],
-            "状态": ["启用", "启用", "停用"],
-            "备注": ["主仓库", "副仓库", ""],
-        }
+        headers = ["位置名称", "位置编码", "楼栋", "楼层", "房间号", "使用类型", "状态", "备注"]
+        template_rows = [
+            {"位置名称": "A区仓库", "位置编码": "WH-A", "楼栋": "1号楼", "楼层": "1",
+             "房间号": "101", "使用类型": "低值易耗品", "状态": "启用", "备注": "主仓库"},
+            {"位置名称": "B区仓库", "位置编码": "WH-B", "楼栋": "2号楼", "楼层": "1",
+             "房间号": "102", "使用类型": "低值易耗品", "状态": "启用", "备注": "副仓库"},
+            {"位置名称": "办公室1号柜", "位置编码": "OF-01", "楼栋": "行政楼", "楼层": "3",
+             "房间号": "301", "使用类型": "固定资产", "状态": "停用", "备注": ""},
+        ]
 
-        df = pd.DataFrame(template_data)
         output = io.BytesIO()
-        with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            df.to_excel(writer, index=False, sheet_name='存放位置数据')
+        export_to_excel([{'name': '存放位置数据', 'headers': headers, 'rows': template_rows}], output)
 
         output.seek(0)
         filename = "存放位置数据导入模板.xlsx"

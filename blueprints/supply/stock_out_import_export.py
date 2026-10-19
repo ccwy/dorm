@@ -10,7 +10,8 @@ from models.system_config.system_config import SystemConfig
 from flask_login import login_required, current_user
 from utils.auth import require_permission
 from utils.log import log_operation
-from utils.lazy_imports import pd  # 延迟导入pandas，避免启动时加载重型库
+from utils.excel_utils import is_empty, export_to_excel, read_excel_rows
+from utils.excel_date_utils import excel_date_utils
 import io
 from datetime import datetime
 import traceback
@@ -43,48 +44,45 @@ def download_template():
         stock_out_type_hint = '/'.join(stock_out_types) if stock_out_types else '正常领用/其他出库'
 
         # 模板数据生成
-        template_data = {
-            "出库类型": ["正常领用", "正常领用", "其他出库"],
-            "物品编号": ["YP2026010001", "YP2026010002", "YP2026010003"],
-            "物品名称": ["打印纸A4", "签字笔(黑)", "文件夹"],
-            "规格型号": ["70g/500张", "0.5mm", ""],
-            "单位": ["包", "支", "个"],
-            "存放位置": ["1号仓库-办公用品区", "1号仓库-办公用品区", "2号仓库"],
-            "数量": [5, 20, 10],
-            "单价": [25.00, 3.50, 5.00],
-            "出库日期": ["2026-01-15", "2026-01-15", "2026-01-16"],
-            "领用人": ["张三", "张三", "李四"],
-            "领用部门": ["行政部", "行政部", "技术部"],
-            "备注": ["", "", "报废处理"],
-        }
+        headers = ["出库类型", "物品编号", "物品名称", "规格型号", "单位", "存放位置",
+                   "数量", "单价", "出库日期", "领用人", "领用部门", "备注"]
+        template_rows = [
+            {"出库类型": "正常领用", "物品编号": "YP2026010001", "物品名称": "打印纸A4",
+             "规格型号": "70g/500张", "单位": "包", "存放位置": "1号仓库-办公用品区",
+             "数量": 5, "单价": 25.00, "出库日期": "2026-01-15", "领用人": "张三",
+             "领用部门": "行政部", "备注": ""},
+            {"出库类型": "正常领用", "物品编号": "YP2026010002", "物品名称": "签字笔(黑)",
+             "规格型号": "0.5mm", "单位": "支", "存放位置": "1号仓库-办公用品区",
+             "数量": 20, "单价": 3.50, "出库日期": "2026-01-15", "领用人": "张三",
+             "领用部门": "行政部", "备注": ""},
+            {"出库类型": "其他出库", "物品编号": "YP2026010003", "物品名称": "文件夹",
+             "规格型号": "", "单位": "个", "存放位置": "2号仓库",
+             "数量": 10, "单价": 5.00, "出库日期": "2026-01-16", "领用人": "李四",
+             "领用部门": "技术部", "备注": "报废处理"},
+        ]
 
-        df = pd.DataFrame(template_data)
+        # 说明工作表
+        desc_headers = ["字段名称", "是否必填", "说明"]
+        desc_rows = [
+            {"字段名称": "出库类型", "是否必填": "是", "说明": f"可选值：{stock_out_type_hint}"},
+            {"字段名称": "物品编号", "是否必填": "是", "说明": "物品编号，必须在系统中已存在"},
+            {"字段名称": "物品名称", "是否必填": "否", "说明": "物品名称，可留空（按物品编号匹配）"},
+            {"字段名称": "规格型号", "是否必填": "否", "说明": "规格型号，可留空"},
+            {"字段名称": "单位", "是否必填": "否", "说明": "计量单位（个/盒/箱/包等），可留空"},
+            {"字段名称": "存放位置", "是否必填": "是", "说明": "存放位置名称，必须在系统中已存在"},
+            {"字段名称": "数量", "是否必填": "是", "说明": "正整数"},
+            {"字段名称": "单价", "是否必填": "否", "说明": "单价，可留空默认0"},
+            {"字段名称": "出库日期", "是否必填": "是", "说明": "格式：YYYY-MM-DD"},
+            {"字段名称": "领用人", "是否必填": "否", "说明": "领用人姓名，必须是系统中在职用户"},
+            {"字段名称": "领用部门", "是否必填": "否", "说明": "领用部门名称，必须是系统中存在的部门"},
+            {"字段名称": "备注", "是否必填": "否", "说明": "备注信息，可留空"},
+        ]
+
         output = io.BytesIO()
-        with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            df.to_excel(writer, index=False, sheet_name='出库单导入')
-
-            # 添加说明工作表
-            desc_data = {
-                "字段名称": ["出库类型", "物品编号", "物品名称",
-                            "规格型号", "单位", "存放位置", "数量", "单价", "出库日期", "领用人", "领用部门", "备注"],
-                "是否必填": ["是", "是", "否", "否", "否", "是", "是", "否", "是", "否", "否", "否"],
-                "说明": [
-                    f"可选值：{stock_out_type_hint}",
-                    "物品编号，必须在系统中已存在",
-                    "物品名称，可留空（按物品编号匹配）",
-                    "规格型号，可留空",
-                    "计量单位（个/盒/箱/包等），可留空",
-                    "存放位置名称，必须在系统中已存在",
-                    "正整数",
-                    "单价，可留空默认0",
-                    "格式：YYYY-MM-DD",
-                    "领用人姓名，必须是系统中在职用户",
-                    "领用部门名称，必须是系统中存在的部门",
-                    "备注信息，可留空",
-                ]
-            }
-            df_desc = pd.DataFrame(desc_data)
-            df_desc.to_excel(writer, index=False, sheet_name='填写说明')
+        export_to_excel([
+            {'name': '出库单导入', 'headers': headers, 'rows': template_rows},
+            {'name': '填写说明', 'headers': desc_headers, 'rows': desc_rows},
+        ], output)
 
         output.seek(0)
         filename = "出库单数据导入模板.xlsx"
@@ -174,13 +172,15 @@ def export():
         logging.debug(f'数据准备完成，汇总{len(summary_data)}条，明细{len(detail_data)}条')
 
         # 生成Excel（两个工作表）
+        summary_headers = ['出库单号', '出库类型', '出库日期', '领用人', '领用部门', '经手人',
+                           '总金额', '状态', '备注', '创建时间', '更新时间']
+        detail_headers = ['出库单号', '出库类型', '物品编号', '物品名称', '规格型号', '单位',
+                          '存放位置', '数量', '单价', '小计']
         output = io.BytesIO()
-        with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            df_summary = pd.DataFrame(summary_data)
-            df_summary.to_excel(writer, index=False, sheet_name='出库单汇总')
-
-            df_detail = pd.DataFrame(detail_data)
-            df_detail.to_excel(writer, index=False, sheet_name='出库明细')
+        export_to_excel([
+            {'name': '出库单汇总', 'headers': summary_headers, 'rows': summary_data},
+            {'name': '出库明细', 'headers': detail_headers, 'rows': detail_data},
+        ], output)
 
         output.seek(0)
         filename = f"出库单数据导出_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
@@ -264,7 +264,7 @@ def import_stock_outs():
             file_content = file.read()
             file_bytes = BytesIO(file_content)
             file_bytes.seek(0)
-            df = pd.read_excel(file_bytes, sheet_name=0)
+            rows = read_excel_rows(file_bytes)
         except Exception as e:
             detailed_error = f"文件解析失败：{str(e)}"
             flash(detailed_error, 'danger')
@@ -273,14 +273,15 @@ def import_stock_outs():
 
         # 验证必要列
         required_columns = ['出库类型', '出库日期', '物品名称', '存放位置', '数量']
-        missing_columns = [col for col in required_columns if col not in df.columns]
+        excel_columns = list(rows[0].keys()) if rows else []
+        missing_columns = [col for col in required_columns if col not in excel_columns]
         if missing_columns:
             flash(f'导入失败：文件缺少必要的列 - {", ".join(missing_columns)}', 'danger')
             logging.error(f'导入出库单数据失败：文件缺少必要的列 - {", ".join(missing_columns)}')
             return redirect(url_for('stock_out.list_stock_outs'))
 
         # 限制导入行数
-        if len(df) > 500:
+        if len(rows) > 500:
             flash('单次导入数据不超过500条', 'danger')
             logging.error('导入出库单数据失败：单次导入数据超过500条')
             return redirect(url_for('stock_out.list_stock_outs'))
@@ -299,14 +300,14 @@ def import_stock_outs():
         from collections import OrderedDict
         grouped = OrderedDict()
 
-        for index, row in df.iterrows():
+        for index, row in enumerate(rows):
             row_num = index + 2
 
             try:
                 # === 必填字段验证 ===
                 # 出库类型
                 stock_out_type_val = row.get('出库类型')
-                if pd.isna(stock_out_type_val) or str(stock_out_type_val).strip() == '':
+                if is_empty(stock_out_type_val):
                     error_records.append({'row': row_num, 'message': '出库类型不能为空'})
                     fail_count += 1
                     continue
@@ -318,28 +319,22 @@ def import_stock_outs():
 
                 # 出库日期
                 stock_out_date_val = row.get('出库日期')
-                if pd.isna(stock_out_date_val) or str(stock_out_date_val).strip() == '':
+                if is_empty(stock_out_date_val):
                     error_records.append({'row': row_num, 'message': '出库日期不能为空'})
                     fail_count += 1
                     continue
                 stock_out_date_str = str(stock_out_date_val).strip()
-                # 处理pandas可能将日期解析为datetime的情况
-                if isinstance(stock_out_date_val, datetime):
-                    stock_out_date = stock_out_date_val.date()
-                else:
-                    try:
-                        stock_out_date = datetime.strptime(stock_out_date_str, '%Y-%m-%d').date()
-                    except ValueError:
-                        try:
-                            stock_out_date = datetime.strptime(stock_out_date_str, '%Y/%m/%d').date()
-                        except ValueError:
-                            error_records.append({'row': row_num, 'message': f'出库日期格式不正确：{stock_out_date_str}，请使用YYYY-MM-DD格式'})
-                            fail_count += 1
-                            continue
+                # 使用统一日期解析工具
+                parsed = excel_date_utils.parse_excel_date([stock_out_date_val], field_name='出库日期', raise_error=False)
+                stock_out_date = parsed[0].date() if parsed[0] else None
+                if stock_out_date is None:
+                    error_records.append({'row': row_num, 'message': f'出库日期格式不正确：{stock_out_date_str}，请使用YYYY-MM-DD格式'})
+                    fail_count += 1
+                    continue
 
                 # 物品编号（必填）
                 item_number_val = row.get('物品编号')
-                if pd.isna(item_number_val) or str(item_number_val).strip() == '':
+                if is_empty(item_number_val):
                     error_records.append({'row': row_num, 'message': '物品编号不能为空'})
                     fail_count += 1
                     continue
@@ -347,11 +342,11 @@ def import_stock_outs():
 
                 # 物品名称（可选）
                 item_name_val = row.get('物品名称')
-                item_name = str(item_name_val).strip() if pd.notna(item_name_val) and str(item_name_val).strip() else ''
+                item_name = str(item_name_val).strip() if not is_empty(item_name_val) else ''
 
                 # 存放位置
                 location_name_val = row.get('存放位置')
-                if pd.isna(location_name_val) or str(location_name_val).strip() == '':
+                if is_empty(location_name_val):
                     error_records.append({'row': row_num, 'message': '存放位置不能为空'})
                     fail_count += 1
                     continue
@@ -359,7 +354,7 @@ def import_stock_outs():
 
                 # 数量
                 quantity_val = row.get('数量')
-                if pd.isna(quantity_val):
+                if is_empty(quantity_val):
                     error_records.append({'row': row_num, 'message': '数量不能为空'})
                     fail_count += 1
                     continue
@@ -377,23 +372,23 @@ def import_stock_outs():
                 # === 可选字段 ===
                 # 领用人
                 recipient_name_val = row.get('领用人')
-                recipient_name = str(recipient_name_val).strip() if pd.notna(recipient_name_val) and str(recipient_name_val).strip() else ''
+                recipient_name = str(recipient_name_val).strip() if not is_empty(recipient_name_val) else ''
 
                 # 领用部门
                 department_name_val = row.get('领用部门')
-                department_name = str(department_name_val).strip() if pd.notna(department_name_val) and str(department_name_val).strip() else ''
+                department_name = str(department_name_val).strip() if not is_empty(department_name_val) else ''
 
                 # 规格型号
                 specification_val = row.get('规格型号')
-                specification = str(specification_val).strip() if pd.notna(specification_val) and str(specification_val).strip() else ''
+                specification = str(specification_val).strip() if not is_empty(specification_val) else ''
 
                 # 单位
                 unit_val = row.get('单位')
-                unit = str(unit_val).strip() if pd.notna(unit_val) and str(unit_val).strip() else ''
+                unit = str(unit_val).strip() if not is_empty(unit_val) else ''
 
                 # 单价
                 unit_price_val = row.get('单价')
-                if pd.isna(unit_price_val) or str(unit_price_val).strip() == '':
+                if is_empty(unit_price_val):
                     unit_price = 0.0
                 else:
                     try:
@@ -405,7 +400,7 @@ def import_stock_outs():
 
                 # 备注
                 remark_val = row.get('备注')
-                detail_remark = str(remark_val).strip() if pd.notna(remark_val) and str(remark_val).strip() else ''
+                detail_remark = str(remark_val).strip() if not is_empty(remark_val) else ''
 
                 # 分组key：出库类型+出库日期+领用人+领用部门
                 group_key = (stock_out_type, stock_out_date_str, recipient_name, department_name)

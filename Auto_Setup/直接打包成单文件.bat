@@ -1,202 +1,200 @@
 @echo off
 setlocal enabledelayedexpansion
 
-:: 项目根目录
+:: ???????
 cd /d "%~dp0.."
 set "PROJECT_DIR=%cd%"
 set "DEST_DIR=%PROJECT_DIR%\Auto_Setup\Output"
 
-:: 显示开始信息及时间
+:: ??????????????
 echo ==============================================
-echo 开始执行Python程序一键封装流程（单窗口模式）
-echo 开始时间: %date% %time:~0,8%
-echo 项目路径: %PROJECT_DIR%
+echo ??????Python?????????????????????????
+echo ??????: %date% %time:~0,8%
+echo ???????: %PROJECT_DIR%
 echo ==============================================
 echo.
 
-:: 切换到项目目录
-echo [%date% %time:~0,8%] 切换到项目目录...
+:: ???????????
+echo [%date% %time:~0,8%] ???????????...
 cd /d "%PROJECT_DIR%"
 if %errorlevel% neq 0 (
-    echo [%date% %time:~0,8%] 错误：无法切换到项目目录 %PROJECT_DIR%
+    echo [%date% %time:~0,8%] ?????????????????? %PROJECT_DIR%
     pause
     exit /b 1
 )
 
-:: 安装前清理临时文件夹
+:: ????????????????
 echo.
-echo [%date% %time:~0,8%] 开始清理临时文件...
+echo [%date% %time:~0,8%] ?????????????...
 if exist "%PROJECT_DIR%\build" (
     rmdir /s /q "%PROJECT_DIR%\build"
-    echo [%date% %time:~0,8%] 已删除build文件夹
+    echo [%date% %time:~0,8%] ?????build?????
 )
 if exist "%PROJECT_DIR%\__pycache__" (
     rmdir /s /q "%PROJECT_DIR%\__pycache__"
-    echo [%date% %time:~0,8%] 已删除__pycache__文件夹
+    echo [%date% %time:~0,8%] ?????__pycache__?????
 )
 if exist "%PROJECT_DIR%\dist" (
     rmdir /s /q "%PROJECT_DIR%\dist"
-    echo [%date% %time:~0,8%] 已删除dist文件夹
+    echo [%date% %time:~0,8%] ?????dist?????
 )
 for /d /r "%PROJECT_DIR%" %%d in (__pycache__) do (
     if exist "%%d" (
         rmdir /s /q "%%d"
-        echo [%date% %time:~0,8%] 已删除%%d
+        echo [%date% %time:~0,8%] ?????%%d
     )
 )
 if exist "%PROJECT_DIR%\data" (
     rmdir /s /q "%PROJECT_DIR%\data"
-    echo [%date% %time:~0,8%] 已删除data文件夹
+    echo [%date% %time:~0,8%] ?????data?????
 )
-:: 检查Python是否安装
-echo [%date% %time:~0,8%] 检查Python是否安装...
+:: ???Python????
+echo [%date% %time:~0,8%] ???Python????...
 python --version >nul 2>&1
 if %errorlevel% neq 0 (
-    echo [%date% %time:~0,8%] 错误：未找到Python，请确保Python已正确安装并添加到系统PATH。
+    echo [%date% %time:~0,8%] ?????????Python???????Python?????????????????PATH??
     pause
     exit /b 1
 ) else (
-    echo [%date% %time:~0,8%] Python已安装，将自动执行下一步...
+    echo [%date% %time:~0,8%] Python???????????????????...
 )
 
-:: 检测pyinstaller是否已安装
-echo [%date% %time:~0,8%] 检测pyinstaller是否已安装...
+:: ???pyinstaller???????
+echo [%date% %time:~0,8%] ???pyinstaller???????...
 python -m pip show pyinstaller >nul 2>&1
 if %errorlevel% equ 0 (
-    echo [%date% %time:~0,8%] pyinstaller 已安装，自动执行下一步...
+    echo [%date% %time:~0,8%] pyinstaller ?????????????????...
 ) else (
-	echo [%date% %time:~0,8%] pyinstaller 未安装，开始安装...
+	echo [%date% %time:~0,8%] pyinstaller ?????????????...
 	pip install pyinstaller==6.16
 	if %errorlevel% equ 0 (
-		echo [%date% %time:~0,8%] pyinstaller 安装成功！自动执行下一步...
+		echo [%date% %time:~0,8%] pyinstaller ???????????????????...
 	) else (
-		echo [%date% %time:~0,8%] 错误：pyinstaller 安装失败，请检查网络连接或权限问题。
+		echo [%date% %time:~0,8%] ????pyinstaller ???????????????????????????
 		pause
 		exit /b 1
 	)
 )
 
-:: 检测并安装所需依赖
+:: ??????????????
 echo.
-echo [%date% %time:~0,8%] 开始检测项目依赖...
+echo [%date% %time:~0,8%] ?????????????...
 
-:: 定义需要检测和安装的依赖列表（使用编号避免解析问题）
+:: ????????????????????????????????????????
 set "dep1=Flask>=2.3.3"
 set "dep2=Flask-SQLAlchemy>=3.1.1"
 set "dep3=Flask-Login>=0.6.3"
 set "dep4=openpyxl>=3.1.2"
-set "dep5=pandas>=2.0.3,<2.1"
-set "dep6=numpy>=1.24.4,<1.25"
-set "dep7=PyMySQL>=1.1.0"
-set "dep8=cryptography>=41.0.7,<43.0"
-set "dep9=Werkzeug>=2.3.7"
-set "dep10=Jinja2>=3.1.2"
-set "dep11=schedule>=1.2.0"
-set "dep12=xlsxwriter>=3.2.5"
-set "dep13=waitress>=2.1.2"
-set "dep14=pywebview==3.7"
-set "dep15=requests>=2.31.0"
-set "dep16=psutil>=5.9.8,<6.0"
-set "dep17=Pillow>=10.4.0,<11.0"
-set "dep18=pystray>=0.19.5"
+set "dep5=PyMySQL>=1.1.0"
+set "dep6=cryptography>=41.0.7,<43.0"
+set "dep7=Werkzeug>=2.3.7"
+set "dep8=Jinja2>=3.1.2"
+set "dep9=schedule>=1.2.0"
+set "dep10=xlsxwriter>=3.2.5"
+set "dep11=waitress>=2.1.2"
+set "dep12=pywebview==3.7"
+set "dep13=requests>=2.31.0"
+set "dep14=psutil>=5.9.8,<6.0"
+set "dep15=Pillow>=10.4.0,<11.0"
+set "dep16=pystray>=0.19.5"
 
-:: 循环检测并安装依赖（使用编号循环避免特殊字符问题）
-for /l %%i in (1,1,18) do (
-    :: 获取当前依赖项
+:: ??????????????????????????????????????
+for /l %%i in (1,1,16) do (
+    :: ????????????
     set "current_dep=!dep%%i!"
     
-    :: 提取包名（去掉版本信息）
+    :: ????????????????????
     for /f "delims==<>" %%p in ("!current_dep!") do set "package=%%p"
     
     echo.
-    echo [%date% %time:~0,8%] 检测 !package! 是否安装...
+    echo [%date% %time:~0,8%] ??? !package! ????...
     python -m pip show "!package!" >nul 2>&1
     if !errorlevel! equ 0 (
-        echo [%date% %time:~0,8%] !package! 已安装，跳过...
+        echo [%date% %time:~0,8%] !package! ??????????...
     ) else (
-        echo [%date% %time:~0,8%] !package! 未安装，开始安装 !current_dep!...
+        echo [%date% %time:~0,8%] !package! ????????????? !current_dep!...
         pip install "!current_dep!"
         if !errorlevel! equ 0 (
-            echo [%date% %time:~0,8%] !package! 安装成功！
+            echo [%date% %time:~0,8%] !package! ????????
         ) else (
-            echo [%date% %time:~0,8%] 错误：!package! 安装失败
+            echo [%date% %time:~0,8%] ????!package! ??????
             pause
             exit /b 1
         )
     )
 )
 echo.
-echo [%date% %time:~0,8%] 所有依赖检测和安装完成...
+echo [%date% %time:~0,8%] ?????????????????...
 
-:: 直接调用pyinstaller（同一窗口执行，自动等待完成）
+:: ??????pyinstaller???????????????????????
 echo.
-echo [%date% %time:~0,8%] 开始使用pyinstaller打包程序...
+echo [%date% %time:~0,8%] ??????pyinstaller???????...
 pyinstaller "%PROJECT_DIR%\Auto_Setup\dorm_management.spec"
 if %errorlevel% neq 0 (
-    echo [%date% %time:~0,8%] 错误：pyinstaller打包失败
+    echo [%date% %time:~0,8%] ????pyinstaller??????
     pause
     exit /b 1
 )
 
-:: 打包完成提示
+:: ?????????
 echo.
 echo [%date% %time:~0,8%] ==============================================
-echo [%date% %time:~0,8%] Python程序打包已完成...
-echo [%date% %time:~0,8%] 等待完成保存...
+echo [%date% %time:~0,8%] Python???????????...
+echo [%date% %time:~0,8%] ?????????...
 timeout /t 2 /nobreak >nul
 echo [%date% %time:~0,8%] ==============================================
 
-:: 创建目标目录（如果不存在）
+:: ?????????????????????
 echo.
-echo [%date% %time:~0,8%] 准备移动文件...
+echo [%date% %time:~0,8%] ?????????...
 if not exist "%DEST_DIR%" (
     mkdir "%DEST_DIR%"
-    echo [%date% %time:~0,8%] 创建目标目录: %DEST_DIR%
+    echo [%date% %time:~0,8%] ?????????: %DEST_DIR%
 )
 
-:: 移动dist文件夹内容到Auto_Setup/Output
-echo [%date% %time:~0,8%] 正在移动dist文件夹内容到%DEST_DIR%...
+:: ???dist??????????Auto_Setup/Output
+echo [%date% %time:~0,8%] ???????dist??????????%DEST_DIR%...
 xcopy /E /H /C /R /Y "%PROJECT_DIR%\dist\*" "%DEST_DIR%\*"
 if %errorlevel% gtr 1 (
-    echo [%date% %time:~0,8%] 错误：文件移动失败
+    echo [%date% %time:~0,8%] ?????????????
     pause
     exit /b 1
 )
 
-:: 清理临时文件夹
+:: ????????????
 echo.
-echo [%date% %time:~0,8%] 开始清理临时文件...
+echo [%date% %time:~0,8%] ?????????????...
 if exist "%PROJECT_DIR%\build" (
     rmdir /s /q "%PROJECT_DIR%\build"
-    echo [%date% %time:~0,8%] 已删除build文件夹
+    echo [%date% %time:~0,8%] ?????build?????
 )
 if exist "%PROJECT_DIR%\__pycache__" (
     rmdir /s /q "%PROJECT_DIR%\__pycache__"
-    echo [%date% %time:~0,8%] 已删除__pycache__文件夹
+    echo [%date% %time:~0,8%] ?????__pycache__?????
 )
 if exist "%PROJECT_DIR%\dist" (
     rmdir /s /q "%PROJECT_DIR%\dist"
-    echo [%date% %time:~0,8%] 已删除dist文件夹
+    echo [%date% %time:~0,8%] ?????dist?????
 )
 for /d /r "%PROJECT_DIR%" %%d in (__pycache__) do (
     if exist "%%d" (
         rmdir /s /q "%%d"
-        echo [%date% %time:~0,8%] 已删除%%d
+        echo [%date% %time:~0,8%] ?????%%d
     )
 )
 if exist "%PROJECT_DIR%\data" (
     rmdir /s /q "%PROJECT_DIR%\data"
-    echo [%date% %time:~0,8%] 已删除data文件夹
+    echo [%date% %time:~0,8%] ?????data?????
 )
 
-:: 完成提示
+:: ??????
 echo.
 echo [%date% %time:~0,8%] ==============================================
-echo [%date% %time:~0,8%] 所有操作已成功完成！
-echo [%date% %time:~0,8%] 程序打包已自动完成！
-echo [%date% %time:~0,8%] 本次为单文件版本！
-echo [%date% %time:~0,8%] 输出文件已保存至: %DEST_DIR%
-echo 完成时间: %date% %time:~0,8%
+echo [%date% %time:~0,8%] ????????????????
+echo [%date% %time:~0,8%] ???????????????
+echo [%date% %time:~0,8%] ???????????????
+echo [%date% %time:~0,8%] ?????????????: %DEST_DIR%
+echo ??????: %date% %time:~0,8%
 echo [%date% %time:~0,8%] ==============================================
 
 pause

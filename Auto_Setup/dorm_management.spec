@@ -31,14 +31,12 @@ db_config_path = os.path.join(data_dir, 'db_config.json')
 data_db_path = os.path.join(data_dir, 'data.db')
 
 # 添加更多的隐藏导入
-# 注意：pandas/openpyxl/pymysql 使用延迟导入（lazy_imports.py），
+# 注意：openpyxl/pymysql 使用延迟导入（lazy_imports.py），
 # PyInstaller静态分析无法检测到这些依赖，必须显式收集所有子模块
 additional_hidden_imports = [
     'pymysql',
     'cryptography',
     'openpyxl',
-    'pandas',
-    'numpy',
     'waitress',
     'webview',
     'flask',
@@ -60,9 +58,7 @@ additional_hidden_imports = [
 # 收集延迟导入库的所有子模块，确保打包完整
 lazy_import_submodules = (
     collect_submodules('pymysql') +
-    collect_submodules('pandas') +
     collect_submodules('openpyxl') +
-    collect_submodules('numpy') +
     collect_submodules('pystray') +
     collect_submodules('PIL')
 )

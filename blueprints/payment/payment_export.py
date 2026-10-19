@@ -6,7 +6,7 @@ from flask import Blueprint, flash, redirect, url_for, send_file
 from flask_login import login_required, current_user
 from utils.auth import require_permission
 from utils.log import log_operation
-from utils.lazy_imports import pd
+from utils.excel_utils import export_to_excel
 from models.payment.payment_record import PaymentRecord
 from sqlalchemy.orm import joinedload
 
@@ -76,10 +76,9 @@ def export():
         logging.debug(f'数据准备完成，共{len(data)}条记录')
 
         # 生成Excel
-        df = pd.DataFrame(data)
+        headers = ['ID', '付款编号', '合同编号', '合同名称', '付款方式', '乙方收款方式', '乙方银行账号', '乙方开户行', '乙方收款银行', '乙方开户名称', '乙方收款账号', '固定金额', '付款轮次', '当前轮次', '对账日', '付款截止日', '付款周期', '计划付款日期', '截止付款日期', '计划金额', '实际金额', '实际付款日期', '状态', '备注', '操作人', '创建时间']
         output = io.BytesIO()
-        with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            df.to_excel(writer, index=False, sheet_name='付款数据')
+        export_to_excel([{'name': '付款数据', 'headers': headers, 'rows': data}], output)
 
         output.seek(0)
         filename = f"付款数据导出_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"

@@ -7,7 +7,8 @@ from models.fixed_asset.asset_operation_record import AssetOperationRecord
 from flask_login import login_required, current_user
 from utils.log import log_operation
 from utils.auth import require_permission
-from utils.lazy_imports import pd  # 延迟导入pandas，避免启动时加载重型库
+from utils.lazy_imports import Workbook, Font  # 延迟导入openpyxl组件
+from utils.excel_utils import export_to_excel, read_excel_rows, write_sheet, set_column_widths, is_empty
 import io
 from datetime import datetime
 import traceback
@@ -98,10 +99,9 @@ def export():
         logging.debug(f'数据准备完成，共{len(data)}条记录')
 
         # 生成Excel
-        df = pd.DataFrame(data)
+        headers = ['资产编号', '资产名称', '资产分类', '规格型号', '品牌', '供应商', '数量', '单位', '原值', '净值', '购置日期', '质保到期日', '存放位置', '所属公司', '使用部门', '归属部门', '责任人', '关联房间', '责任人用户', '资产来源', '状态', '备注']
         output = io.BytesIO()
-        with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            df.to_excel(writer, index=False, sheet_name='固定资产数据')
+        export_to_excel([{'name': '固定资产数据', 'headers': headers, 'rows': data}], output)
 
         output.seek(0)
         filename = f"固定资产数据导出_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
@@ -176,9 +176,7 @@ def import_assets():
 
         try:
             file_content = file.read()
-            file_bytes = BytesIO(file_content)
-            file_bytes.seek(0)
-            df = pd.read_excel(file_bytes)
+            rows = read_excel_rows(file_content)
         except Exception as e:
             detailed_error = f"文件解析失败：{str(e)}"
             log_operation(
@@ -205,9 +203,12 @@ def import_assets():
         # 所有可能需要识别的标准列名
         all_known_columns = set(required_columns) | set(optional_columns)
 
+        # 获取实际表头（数据行字典的键）
+        excel_columns = list(rows[0].keys()) if rows else []
+
         # 别名列重命名为标准名
         rename_map = {}
-        for col in df.columns:
+        for col in excel_columns:
             if col in all_known_columns:
                 continue  # 已经是标准名
             for standard_name, aliases in column_alias_map.items():
@@ -215,20 +216,25 @@ def import_assets():
                     rename_map[col] = standard_name
                     break
 
-        if rename_map:
-            df = df.rename(columns=rename_map)
+        # 重命名列并仅保留白名单列
+        whitelist_columns = [col for col in excel_columns if col in all_known_columns or col in rename_map]
+        cleaned_rows = []
+        for row in rows:
+            new_row = {}
+            for col in whitelist_columns:
+                standard = rename_map.get(col, col)
+                new_row[standard] = row.get(col)
+            cleaned_rows.append(new_row)
+        rows = cleaned_rows
 
         # 识别未匹配的列
-        ignored_columns = [col for col in df.columns if col not in all_known_columns]
+        ignored_columns = [col for col in excel_columns if col not in all_known_columns and col not in rename_map]
         if ignored_columns:
             logging.info(f'导入固定资产数据：自动忽略未识别列 {ignored_columns}')
 
-        # 仅保留白名单列
-        whitelist_columns = [col for col in df.columns if col in all_known_columns]
-        df = df[whitelist_columns]
-
         # 检查必填列缺失
-        missing_columns = [col for col in required_columns if col not in df.columns]
+        present_columns = {rename_map.get(col, col) for col in whitelist_columns}
+        missing_columns = [col for col in required_columns if col not in present_columns]
         if missing_columns:
             flash(f'导入失败：文件缺少必要的列 - {", ".join(missing_columns)}', 'danger')
             logging.error(f'导入固定资产数据失败：文件缺少必要的列 - {", ".join(missing_columns)}')
@@ -252,26 +258,26 @@ def import_assets():
         fail_count = 0
 
         # 批量解析日期字段
-        purchase_date_values = df.get('购置日期', pd.Series([None] * len(df)))
-        warranty_expiry_values = df.get('质保到期日', pd.Series([None] * len(df)))
+        purchase_date_values = [row.get('购置日期') for row in rows]
+        warranty_expiry_values = [row.get('质保到期日') for row in rows]
 
         try:
             parsed_purchase_dates = excel_date_utils.parse_excel_date(purchase_date_values, field_name='购置日期', raise_error=False)
         except Exception:
-            parsed_purchase_dates = {i: None for i in range(len(df))}
+            parsed_purchase_dates = [None] * len(rows)
 
         try:
             parsed_warranty_dates = excel_date_utils.parse_excel_date(warranty_expiry_values, field_name='质保到期日', raise_error=False)
         except Exception:
-            parsed_warranty_dates = {i: None for i in range(len(df))}
+            parsed_warranty_dates = [None] * len(rows)
 
-        for index, row in df.iterrows():
+        for index, row in enumerate(rows):
             try:
                 row_num = index + 2
 
                 # 资产名称（必填）
                 asset_name_val = row.get('资产名称')
-                if pd.isna(asset_name_val) or str(asset_name_val).strip() == '':
+                if is_empty(asset_name_val):
                     error_records.append(f"第{row_num}行：资产名称不能为空")
                     fail_count += 1
                     continue
@@ -279,7 +285,7 @@ def import_assets():
 
                 # 资产分类（必填）
                 asset_category_val = row.get('资产分类')
-                if pd.isna(asset_category_val) or str(asset_category_val).strip() == '':
+                if is_empty(asset_category_val):
                     error_records.append(f"第{row_num}行：资产分类不能为空")
                     fail_count += 1
                     continue
@@ -294,7 +300,7 @@ def import_assets():
                 # 资产编号（可选，留空自动生成）
                 asset_number_val = row.get('资产编号')
                 asset_number = None
-                if pd.notna(asset_number_val) and str(asset_number_val).strip():
+                if not is_empty(asset_number_val) and str(asset_number_val).strip():
                     asset_number = str(asset_number_val).strip()
                     # 检查编号是否已存在
                     existing = FixedAsset.query.filter_by(asset_number=asset_number).first()
@@ -305,19 +311,19 @@ def import_assets():
 
                 # 规格型号
                 specification_val = row.get('规格型号')
-                specification = str(specification_val).strip() if pd.notna(specification_val) and str(specification_val).strip() else None
+                specification = str(specification_val).strip() if not is_empty(specification_val) and str(specification_val).strip() else None
 
                 # 品牌
                 brand_val = row.get('品牌')
-                brand = str(brand_val).strip() if pd.notna(brand_val) and str(brand_val).strip() else None
+                brand = str(brand_val).strip() if not is_empty(brand_val) and str(brand_val).strip() else None
 
                 # 供应商
                 supplier_val = row.get('供应商')
-                supplier = str(supplier_val).strip() if pd.notna(supplier_val) and str(supplier_val).strip() else None
+                supplier = str(supplier_val).strip() if not is_empty(supplier_val) and str(supplier_val).strip() else None
 
                 # 数量
                 quantity_val = row.get('数量')
-                if pd.isna(quantity_val) or str(quantity_val).strip() == '':
+                if is_empty(quantity_val):
                     quantity = 1
                 else:
                     try:
@@ -333,12 +339,12 @@ def import_assets():
 
                 # 单位
                 unit_val = row.get('单位')
-                unit = str(unit_val).strip() if pd.notna(unit_val) and str(unit_val).strip() else '台'
+                unit = str(unit_val).strip() if not is_empty(unit_val) and str(unit_val).strip() else '台'
 
                 # 原值
                 original_value_val = row.get('原值')
                 try:
-                    if pd.isna(original_value_val) or str(original_value_val).strip() == '':
+                    if is_empty(original_value_val):
                         original_value = Decimal('0.00')
                     else:
                         original_value = Decimal(str(float(str(original_value_val).strip()))).quantize(Decimal('0.01'))
@@ -350,7 +356,7 @@ def import_assets():
                 # 净值
                 net_value_val = row.get('净值')
                 try:
-                    if pd.isna(net_value_val) or str(net_value_val).strip() == '':
+                    if is_empty(net_value_val):
                         net_value = Decimal('0.00')
                     else:
                         net_value = Decimal(str(float(str(net_value_val).strip()))).quantize(Decimal('0.01'))
@@ -360,45 +366,35 @@ def import_assets():
                     continue
 
                 # 购置日期
-                purchase_date = parsed_purchase_dates.get(index) if isinstance(parsed_purchase_dates, dict) else (parsed_purchase_dates[index] if index in parsed_purchase_dates.index else None)
+                purchase_date = parsed_purchase_dates[index] if index < len(parsed_purchase_dates) else None
                 purchase_date_val = row.get('购置日期')
-                if pd.notna(purchase_date_val) and purchase_date is None:
+                if not is_empty(purchase_date_val) and purchase_date is None:
                     # 尝试直接解析
-                    try:
-                        if hasattr(purchase_date_val, 'date'):
-                            purchase_date = purchase_date_val.date()
-                        else:
-                            purchase_date = datetime.strptime(str(purchase_date_val).strip(), '%Y-%m-%d').date()
-                    except (ValueError, TypeError):
-                        pass
+                    parsed = excel_date_utils.parse_excel_date([purchase_date_val], field_name='购置日期', raise_error=False)
+                    purchase_date = parsed[0].date() if parsed[0] else None
 
                 # 质保到期日
-                warranty_expiry = parsed_warranty_dates.get(index) if isinstance(parsed_warranty_dates, dict) else (parsed_warranty_dates[index] if index in parsed_warranty_dates.index else None)
+                warranty_expiry = parsed_warranty_dates[index] if index < len(parsed_warranty_dates) else None
                 warranty_expiry_val = row.get('质保到期日')
-                if pd.notna(warranty_expiry_val) and warranty_expiry is None:
-                    try:
-                        if hasattr(warranty_expiry_val, 'date'):
-                            warranty_expiry = warranty_expiry_val.date()
-                        else:
-                            warranty_expiry = datetime.strptime(str(warranty_expiry_val).strip(), '%Y-%m-%d').date()
-                    except (ValueError, TypeError):
-                        pass
+                if not is_empty(warranty_expiry_val) and warranty_expiry is None:
+                    parsed = excel_date_utils.parse_excel_date([warranty_expiry_val], field_name='质保到期日', raise_error=False)
+                    warranty_expiry = parsed[0].date() if parsed[0] else None
 
                 # 存放位置
                 storage_location_val = row.get('存放位置')
-                storage_location = str(storage_location_val).strip() if pd.notna(storage_location_val) and str(storage_location_val).strip() else None
+                storage_location = str(storage_location_val).strip() if not is_empty(storage_location_val) and str(storage_location_val).strip() else None
 
                 # 所属公司
                 company_val = row.get('所属公司')
-                company = str(company_val).strip() if pd.notna(company_val) and str(company_val).strip() else None
+                company = str(company_val).strip() if not is_empty(company_val) and str(company_val).strip() else None
 
                 # 使用部门
                 department_using_val = row.get('使用部门')
-                department_using = str(department_using_val).strip() if pd.notna(department_using_val) and str(department_using_val).strip() else None
+                department_using = str(department_using_val).strip() if not is_empty(department_using_val) and str(department_using_val).strip() else None
 
                 # 归属部门
                 department_owning_val = row.get('归属部门')
-                department_owning = str(department_owning_val).strip() if pd.notna(department_owning_val) and str(department_owning_val).strip() else None
+                department_owning = str(department_owning_val).strip() if not is_empty(department_owning_val) and str(department_owning_val).strip() else None
 
                 # 自动创建新部门（传入company）
                 _ensure_department_exists(department_using, company)
@@ -433,12 +429,12 @@ def import_assets():
 
                 # 责任人
                 responsible_person_val = row.get('责任人')
-                responsible_person = str(responsible_person_val).strip() if pd.notna(responsible_person_val) and str(responsible_person_val).strip() else None
+                responsible_person = str(responsible_person_val).strip() if not is_empty(responsible_person_val) and str(responsible_person_val).strip() else None
 
                 # 关联房间（按"楼栋+房间号"格式查找）
                 room_id = None
                 room_display_val = row.get('关联房间')
-                if pd.notna(room_display_val) and str(room_display_val).strip():
+                if not is_empty(room_display_val) and str(room_display_val).strip():
                     room_display_str = str(room_display_val).strip()
                     # 尝试按"楼栋房间号"格式匹配，如"A栋101"
                     room_obj = Room.query.filter(
@@ -457,7 +453,7 @@ def import_assets():
                 # 责任人用户（按姓名查找在职用户）
                 responsible_user_id = None
                 responsible_user_val = row.get('责任人用户')
-                if pd.notna(responsible_user_val) and str(responsible_user_val).strip():
+                if not is_empty(responsible_user_val) and str(responsible_user_val).strip():
                     responsible_user_name = str(responsible_user_val).strip()
                     user_obj = User.query.filter(User.name == responsible_user_name, User.status == '在职').first()
                     if user_obj:
@@ -467,7 +463,7 @@ def import_assets():
 
                 # 资产来源
                 asset_source_val = row.get('资产来源')
-                if pd.isna(asset_source_val) or str(asset_source_val).strip() == '':
+                if is_empty(asset_source_val):
                     asset_source = '采购'
                 else:
                     asset_source = str(asset_source_val).strip()
@@ -480,7 +476,7 @@ def import_assets():
 
                 # 状态
                 status_val = row.get('状态')
-                if pd.isna(status_val) or str(status_val).strip() == '':
+                if is_empty(status_val):
                     status = '在用'
                 else:
                     status = str(status_val).strip()
@@ -493,7 +489,7 @@ def import_assets():
 
                 # 备注
                 remark_val = row.get('备注')
-                remark = str(remark_val).strip() if pd.notna(remark_val) and str(remark_val).strip() else None
+                remark = str(remark_val).strip() if not is_empty(remark_val) and str(remark_val).strip() else None
 
                 # 创建资产记录
                 try:
@@ -662,10 +658,8 @@ def download_template():
             "备注": ["研发用笔记本电脑", "", "仓库搬运叉车"]
         }
 
-        # 创建模板DataFrame
-        df = pd.DataFrame(template_data)
-
-        # 添加说明行
+        # 构建模板表头与数据行（说明行位于表头之后、示例数据之前）
+        template_headers = list(template_data.keys())
         instructions = [
             "可留空，留空则自动生成",
             "*必填项（导入时会校验非空）",
@@ -690,23 +684,24 @@ def download_template():
             f"可选值: {', '.join(valid_statuses)}（可留空，默认'在用'）",
             "文本（可留空）"
         ]
-        df.loc[-1] = instructions
-        df.index = df.index + 1
-        df = df.sort_index()
+        example_rows = [
+            [template_data[h][i] for h in template_headers]
+            for i in range(3)
+        ]
+        template_rows = [instructions] + example_rows
 
         output = io.BytesIO()
-        with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            df.to_excel(writer, index=False, sheet_name='固定资产导入模板')
-            worksheet = writer.sheets['固定资产导入模板']
-            # 设置列宽
-            column_widths = [16, 20, 12, 20, 12, 16, 8, 8, 12, 12, 14, 14, 20, 14, 12, 12, 10, 14, 14, 14, 10, 20]
-            for i, width in enumerate(column_widths, 1):
-                col_letter = chr(64 + i) if i <= 26 else chr(64 + (i - 1) // 26) + chr(65 + (i - 1) % 26)
-                worksheet.column_dimensions[col_letter].width = width
-            # 标红必填项说明
-            for cell in worksheet[1]:
-                if "*必填项" in str(cell.value):
-                    cell.font = cell.font.copy(color="FF0000")
+        wb = Workbook()
+        ws = write_sheet(wb, '固定资产导入模板', template_headers, template_rows)
+        # 设置列宽
+        column_widths = [16, 20, 12, 20, 12, 16, 8, 8, 12, 12, 14, 14, 20, 14, 12, 12, 10, 14, 14, 14, 10, 20]
+        set_column_widths(ws, column_widths)
+        # 标红必填项说明
+        for cell in ws[1]:
+            if "*必填项" in str(cell.value):
+                cell.font = Font(color="FF0000")
+        wb.save(output)
+        wb.close()
 
         output.seek(0)
         filename = f"固定资产导入模板_{datetime.now().strftime('%Y%m%d')}.xlsx"

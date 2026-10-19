@@ -362,37 +362,62 @@
     </main>
 
     <!-- 导入模态框 -->
-    <div id="importModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center">
-        <div class="bg-white rounded-lg shadow-xl w-full max-w-md mx-4">
-            <div class="flex justify-between items-center p-4 border-b">
-                <h3 class="text-lg font-semibold">导入合同数据</h3>
-                <button id="closeImportModal" class="text-gray-400 hover:text-gray-600">
-                    <i class="fa fa-times text-xl"></i>
-                </button>
-            </div>
-            <div class="p-4">
-                <div class="mb-4">
-                    <a href="{{ url_for('contract_import_export.download_template') }}" class="text-primary hover:underline text-sm">
-                        <i class="fa fa-download mr-1"></i>下载导入模板
-                    </a>
+    <div id="importModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-lg shadow-lg max-w-md w-full mx-4">
+            <div class="p-6 border-b border-gray-200">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-lg font-semibold text-gray-800">导入合同数据</h3>
+                    <button id="closeImportModal" class="text-gray-500 hover:text-gray-700">
+                        <i class="fa fa-times"></i>
+                    </button>
                 </div>
-                <form id="importForm" action="{{ url_for('contract_import_export.import_contracts') }}" method="post" enctype="multipart/form-data">
+            </div>
+            <div class="p-6">
+                <!-- 初始状态内容 -->
+                <div id="importInitialContent">
+                    <p class="text-gray-600 mb-4">请上传Excel格式的合同数据文件，支持.xlsx和.xls格式。</p>
+                    
                     <div class="mb-4">
-                        <label class="block text-sm font-medium text-gray-700 mb-2">选择文件</label>
-                        <input type="file" id="importFile" name="file" accept=".xlsx,.xls" class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-white hover:file:bg-primary/90">
-                        <p class="text-xs text-gray-500 mt-1">支持 .xlsx、.xls 格式，文件大小不超过10MB</p>
+                        <a href="{{ url_for('contract_import_export.download_template') }}" class="text-primary hover:text-primary/80 flex items-center">
+                            <i class="fa fa-file-excel-o mr-2"></i>
+                            下载导入模板
+                        </a>
                     </div>
-                    <div id="importProgress" class="hidden mb-4">
-                        <div class="flex items-center">
-                            <i class="fa fa-spinner fa-spin mr-2 text-primary"></i>
-                            <span id="importStatus" class="text-sm text-gray-600">正在导入，请稍候...</span>
+                    
+                    <form id="importForm" action="{{ url_for('contract_import_export.import_contracts') }}" method="post" enctype="multipart/form-data">
+                        <div class="mb-4">
+                            <label for="importFile" class="block text-sm font-medium text-gray-700 mb-1">选择文件</label>
+                            <input type="file" id="importFile" name="file" accept=".xlsx,.xls" 
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                            <p class="text-xs text-gray-500 mt-1">文件大小不超过10MB</p>
                         </div>
+                        
+                        <div class="flex justify-end gap-3">
+                            <button type="button" id="cancelImport" class="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50">
+                                取消
+                            </button>
+                            <button type="submit" class="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90">
+                                确认导入
+                            </button>
+                        </div>
+                    </form>
+                </div>
+                
+                <!-- 加载状态内容 - 默认隐藏 -->
+                <div id="importLoadingContent" class="hidden text-center py-8">
+                    <div class="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mb-4"></div>
+                    <p class="text-gray-700">正在导入数据，请稍候...</p>
+                    <p class="text-gray-500 text-sm mt-2">文件越大，导入时间可能越长</p>
+                </div>
+                
+                <!-- 成功状态内容 - 默认隐藏 -->
+                <div id="importSuccessContent" class="hidden text-center py-8">
+                    <div class="inline-block text-green-500 mb-4">
+                        <i class="fa fa-check-circle text-4xl"></i>
                     </div>
-                    <div class="flex justify-end gap-2">
-                        <button type="button" id="cancelImport" class="px-4 py-2 border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50">取消</button>
-                        <button type="submit" class="px-4 py-2 bg-primary text-white rounded-md text-sm hover:bg-primary/90">开始导入</button>
-                    </div>
-                </form>
+                    <p class="text-gray-700 font-medium">导入完成！</p>
+                    <p class="text-gray-500 text-sm mt-2">正在返回合同列表...</p>
+                </div>
             </div>
         </div>
     </div>
@@ -437,37 +462,71 @@
             // 导入模态框
             const importBtn = document.getElementById('importBtn');
             const importModal = document.getElementById('importModal');
-            const closeImportModal = document.getElementById('closeImportModal');
+            const closeBtn = document.getElementById('closeImportModal');
             const cancelImport = document.getElementById('cancelImport');
             const importForm = document.getElementById('importForm');
-            const importFile = document.getElementById('importFile');
-            const importProgress = document.getElementById('importProgress');
-            const importStatus = document.getElementById('importStatus');
+            const importInitialContent = document.getElementById('importInitialContent');
+            const importLoadingContent = document.getElementById('importLoadingContent');
+            const importSuccessContent = document.getElementById('importSuccessContent');
 
+            // 打开模态框
             if (importBtn) {
                 importBtn.addEventListener('click', function() {
                     importModal.classList.remove('hidden');
-                    importModal.classList.add('flex');
+                    // 显示初始内容，隐藏其他状态
+                    importInitialContent.classList.remove('hidden');
+                    importLoadingContent.classList.add('hidden');
+                    importSuccessContent.classList.add('hidden');
+                    // 阻止页面滚动
+                    document.body.style.overflow = 'hidden';
                 });
             }
-            if (closeImportModal) {
-                closeImportModal.addEventListener('click', function() {
-                    importModal.classList.add('hidden');
-                    importModal.classList.remove('flex');
-                });
+
+            // 关闭模态框的函数
+            function closeImportModal() {
+                importModal.classList.add('hidden');
+                // 恢复页面滚动
+                document.body.style.overflow = '';
+            }
+
+            // 关闭模态框事件
+            if (closeBtn) {
+                closeBtn.addEventListener('click', closeImportModal);
             }
             if (cancelImport) {
-                cancelImport.addEventListener('click', function() {
-                    importModal.classList.add('hidden');
-                    importModal.classList.remove('flex');
+                cancelImport.addEventListener('click', closeImportModal);
+            }
+
+            // 点击模态框外部关闭
+            if (importModal) {
+                importModal.addEventListener('click', function(e) {
+                    if (e.target === importModal) {
+                        closeImportModal();
+                    }
                 });
             }
+
+            // 处理表单提交
             if (importForm) {
-                importForm.addEventListener('submit', function() {
-                    if (importFile && importFile.files.length > 0) {
-                        if (importProgress) importProgress.classList.remove('hidden');
-                        if (importStatus) importStatus.textContent = '正在导入，请稍候...';
+                importForm.addEventListener('submit', function(e) {
+                    // 验证是否选择了文件
+                    const fileInput = document.getElementById('importFile');
+                    if (!fileInput.files || fileInput.files.length === 0) {
+                        alert('请选择要导入的文件');
+                        e.preventDefault();
+                        return;
                     }
+                    
+                    // 显示加载状态，隐藏初始内容
+                    importInitialContent.classList.add('hidden');
+                    importLoadingContent.classList.remove('hidden');
+                    
+                    // 禁用提交按钮防止重复提交
+                    const submitButton = this.querySelector('button[type="submit"]');
+                    submitButton.disabled = true;
+                    submitButton.textContent = '正在导入...';
+                    
+                    // 正常表单提交，后端处理完成后会重定向
                 });
             }
 

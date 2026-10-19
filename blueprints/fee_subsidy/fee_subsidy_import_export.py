@@ -15,7 +15,7 @@ from models.room.room import Room
 from models.system_config.system_config import SystemConfig
 from models.dorm.dorm import Dorm  # 新增：导入住宿模型
 from utils.log import log_operation  # 导入日志工具
-from utils.lazy_imports import pd  # 延迟导入pandas
+from utils.excel_utils import write_sheet, auto_fit_columns  # 通用openpyxl导入导出工具
 from utils.excel_date_utils import excel_date_utils
 
 # 创建导入导出专用蓝图
@@ -223,34 +223,16 @@ def export_records():
         
         data.append(row_data)
     
-    # 使用pandas创建DataFrame
-    df = pd.DataFrame(data, columns=headers)
-    
     # 创建Excel文件
     output = BytesIO()
-    with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        df.to_excel(writer, index=False, sheet_name=sheet_title)
-        
-        # 获取工作表并设置表头样式
-        ws = writer.sheets[sheet_title]
-        
-        # 设置表头样式（加粗）
-        for cell in ws[1]:
-            cell.font = openpyxl.styles.Font(bold=True)
-        
-        # 调整列宽
-        for column in ws.columns:
-            max_length = 0
-            column_letter = openpyxl.utils.get_column_letter(column[0].column)
-            for cell in column:
-                try:
-                    if len(str(cell.value)) > max_length:
-                        max_length = len(str(cell.value))
-                except:
-                    pass
-            adjusted_width = (max_length + 2) * 1.2
-            ws.column_dimensions[column_letter].width = adjusted_width
-    
+    wb = openpyxl.Workbook()
+    wb.remove(wb.active)
+    ws = write_sheet(wb, sheet_title, headers, data)
+    # 调整列宽
+    auto_fit_columns(ws)
+    wb.save(output)
+    wb.close()
+
     output.seek(0)
 
     # 生成文件名

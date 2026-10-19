@@ -14,7 +14,7 @@ from utils.log import log_operation
 from sqlalchemy.exc import SQLAlchemyError
 from flask_login import current_user, login_required
 from urllib.parse import quote
-from utils.lazy_imports import pd  # 延迟导入pandas
+from utils.excel_utils import read_excel_rows, read_excel_header, is_empty
 from decimal import Decimal  # 确保导入Decimal
 from io import BytesIO
 # 导入权限装饰器
@@ -701,7 +701,9 @@ def batch_update():
         file_bytes.seek(0)  # 重置指针到开头
 
         # 读取Excel文件（使用转换后的BytesIO对象）
-        df = pd.read_excel(file_bytes)
+        rows = read_excel_rows(file_bytes)
+        file_bytes.seek(0)
+        all_columns = read_excel_header(file_bytes)
         
         # 白名单模式：只识别必填列和可选列，其余列全部自动忽略
         # 必填列（缺失时报错）
@@ -725,7 +727,7 @@ def batch_update():
         # 构建列名映射：只保留白名单中的列，其余自动忽略
         column_mapping = {}
         ignored_columns = []
-        for col in df.columns:
+        for col in all_columns:
             # 先检查是否直接匹配标准列名
             if col in all_known_columns:
                 continue  # 标准列名无需映射
@@ -743,13 +745,16 @@ def batch_update():
             logging.info(f'批量更新：自动忽略未识别列 {ignored_columns}')
 
         # 重命名列以统一标准，并只保留白名单中的列
+        whitelist_columns = [column_mapping.get(col, col) for col in all_columns]
+        whitelist_columns = [col for col in whitelist_columns if col in all_known_columns]
         if column_mapping:
-            df = df.rename(columns=column_mapping)
-        whitelist_columns = [col for col in df.columns if col in all_known_columns]
-        df = df[whitelist_columns]
+            for row in rows:
+                for old_name, standard_name in column_mapping.items():
+                    if old_name in row:
+                        row[standard_name] = row.pop(old_name)
 
         # 验证必要的表头
-        missing_columns = [col for col in required_columns if col not in df.columns]
+        missing_columns = [col for col in required_columns if col not in whitelist_columns]
         if missing_columns:
             error_msg = f'Excel缺少必要的列：{", ".join(missing_columns)}'
             logging.error(error_msg)
@@ -758,8 +763,8 @@ def batch_update():
 
         # 批量解析抄表日期时间（可选列，空值跳过）
         parsed_reading_dates = {}
-        if '抄表日期时间' in df.columns:
-            reading_date_values = df['抄表日期时间'].tolist()
+        if '抄表日期时间' in whitelist_columns:
+            reading_date_values = [row.get('抄表日期时间') for row in rows]
             try:
                 parsed_reading_dates = excel_date_utils.parse_excel_date(reading_date_values, field_name='抄表日期时间', raise_error=False)
             except Exception as e:
@@ -777,12 +782,12 @@ def batch_update():
 
         # 开始数据库事务
         try:
-            for index, row in df.iterrows():
+            for index, row in enumerate(rows):
                 row_num = index + 2
                 try:
-                    # 提取记录ID（处理pandas将数字读取为float的问题）
-                    raw_id = row['记录ID']
-                    if pd.isna(raw_id):
+                    # 提取记录ID（处理数字读取为float的问题）
+                    raw_id = row.get('记录ID')
+                    if is_empty(raw_id):
                         record_id_str = ''
                     elif isinstance(raw_id, float):
                         record_id_str = str(int(raw_id))
@@ -832,38 +837,38 @@ def batch_update():
                         update_data['reading_date'] = reading_datetime
                     
                     # 处理水表数据（触发模型自动同步上次读数）
-                    if pd.notna(row.get('水表本次读数')):
+                    if not is_empty(row.get('水表本次读数')):
                         try:
-                            update_data['water_current'] = Decimal(str(row['水表本次读数']))
+                            update_data['water_current'] = Decimal(str(row.get('水表本次读数')))
                         except ValueError:
                             logging.error(f"第{row_num}行记录ID {record_id} 水表本次读数格式错误")
                             raise ValueError("水表本次读数必须是数字")
                     
                     # 处理电表数据（触发模型自动同步上次读数）
-                    if pd.notna(row.get('电表本次读数')):
+                    if not is_empty(row.get('电表本次读数')):
                         try:
-                            update_data['electric_current'] = Decimal(str(row['电表本次读数']))
+                            update_data['electric_current'] = Decimal(str(row.get('电表本次读数')))
                         except ValueError:
                             logging.error(f"第{row_num}行记录ID {record_id} 电表本次读数格式错误")
                             raise ValueError("电表本次读数必须是数字")
                     
                     # 处理更换标记（影响模型同步逻辑，支持"首次抄表"值）
-                    water_replace_val = str(row.get('水表是否更换', '')).strip() if pd.notna(row.get('水表是否更换', '')) else ''
+                    water_replace_val = str(row.get('水表是否更换', '')).strip() if not is_empty(row.get('水表是否更换', '')) else ''
                     if water_replace_val:
                         update_data['water_meter_replaced'] = water_replace_val.lower() in ['是', 'true', '1', '首次抄表']
                     # 空值时不传递water_meter_replaced，遵循"空值保持原值"原则
-                    electric_replace_val = str(row.get('电表是否更换', '')).strip() if pd.notna(row.get('电表是否更换', '')) else ''
+                    electric_replace_val = str(row.get('电表是否更换', '')).strip() if not is_empty(row.get('电表是否更换', '')) else ''
                     if electric_replace_val:
                         update_data['electric_meter_replaced'] = electric_replace_val.lower() in ['是', 'true', '1', '首次抄表']
                     # 空值时不传递electric_meter_replaced，遵循"空值保持原值"原则
                     
                     # 处理备注
-                    notes = str(row.get('备注', '')).strip() or None
+                    notes = str(row.get('备注', '')).strip() if not is_empty(row.get('备注', '')) else None
                     if notes is not None:
                         update_data['notes'] = notes
                     
                     # 处理抄表类型
-                    if '抄表类型' in df.columns and pd.notna(row.get('抄表类型')):
+                    if '抄表类型' in whitelist_columns and not is_empty(row.get('抄表类型')):
                         reading_type_str = str(row.get('抄表类型')).strip()
                         reading_type_map = {
                             '正常抄表': 1,

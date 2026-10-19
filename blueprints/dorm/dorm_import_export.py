@@ -2,7 +2,8 @@ from flask import Blueprint, request, make_response, redirect, url_for, flash, j
 from flask_login import login_required, current_user
 from utils.auth import require_permission
 from utils.log import log_operation
-from utils.lazy_imports import pd, Font, Alignment  # 延迟导入重型库
+from utils.lazy_imports import Font, Alignment, Workbook  # 延迟导入openpyxl组件
+from utils.excel_utils import export_to_excel, write_sheet, read_excel_rows, set_column_widths, is_empty, to_str
 from io import BytesIO
 import requests
 from urllib.parse import quote
@@ -184,27 +185,16 @@ def export_residents():
         all_columns = ['序号', '姓名', '性别', '年龄', '公司', '部门', '职位', '楼栋', '房间号', '入住日期', '退宿日期', '状态', '住宿天数', '累计住宿天数']
         
         # 生成Excel文件（包含三个工作表）
-        output = BytesIO()
-        with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            # 在住人员表
-            if active_data:
-                df_active = pd.DataFrame(active_data)
-                # 按指定列顺序输出
-                df_active = df_active[active_columns]
-                df_active.to_excel(writer, index=False, sheet_name='在住人员')
-            # 退宿人员表
-            if checkout_data:
-                df_checkout = pd.DataFrame(checkout_data)
-                # 按指定列顺序输出
-                df_checkout = df_checkout[checkout_columns]
-                df_checkout.to_excel(writer, index=False, sheet_name='退宿人员')
-            # 全部人员表
-            if all_data:
-                df_all = pd.DataFrame(all_data)
-                # 按指定列顺序输出
-                df_all = df_all[all_columns]
-                df_all.to_excel(writer, index=False, sheet_name='全部人员')
+        sheets = []
+        if active_data:
+            sheets.append({'name': '在住人员', 'headers': active_columns, 'rows': active_data})
+        if checkout_data:
+            sheets.append({'name': '退宿人员', 'headers': checkout_columns, 'rows': checkout_data})
+        if all_data:
+            sheets.append({'name': '全部人员', 'headers': all_columns, 'rows': all_data})
 
+        output = BytesIO()
+        export_to_excel(sheets, output)
         output.seek(0)
 
         # 处理中文文件名编码
@@ -279,9 +269,7 @@ def import_residents():
             # 读取Excel文件的第一个工作表
              # 关键修复2：将文件流转换为BytesIO对象
             file_content = file.read()  # 读取文件内容为字节流
-            file_bytes = BytesIO(file_content)  # 转换为BytesIO（支持seekable）
-            file_bytes.seek(0)  # 重置指针到开头
-            df = pd.read_excel(file_bytes)
+            rows = read_excel_rows(file_content)
             
             # 白名单模式：只识别必填列和可选列，其余列全部自动忽略
             # 必填列（缺失时报错）
@@ -295,10 +283,13 @@ def import_residents():
             # 所有可能需要识别的标准列名
             all_known_columns = set(required_columns) | set(optional_columns)
 
+            # 获取实际表头（数据行字典的键）
+            actual_columns = list(rows[0].keys()) if rows else []
+
             # 构建列名映射：只保留白名单中的列，其余自动忽略
             column_mapping = {}
             ignored_columns = []
-            for col in df.columns:
+            for col in actual_columns:
                 # 先检查是否直接匹配标准列名
                 if col in all_known_columns:
                     continue  # 标准列名无需映射
@@ -316,13 +307,21 @@ def import_residents():
                 logging.info(f'导入在住人员数据：自动忽略未识别列 {ignored_columns}')
 
             # 重命名列以统一标准，并只保留白名单中的列
-            if column_mapping:
-                df = df.rename(columns=column_mapping)
-            whitelist_columns = [col for col in df.columns if col in all_known_columns]
-            df = df[whitelist_columns]
+            whitelist_columns = [col for col in actual_columns if col in all_known_columns or col in column_mapping]
+            cleaned_rows = []
+            for row in rows:
+                new_row = {}
+                for col in whitelist_columns:
+                    standard = column_mapping.get(col, col)
+                    new_row[standard] = row.get(col)
+                cleaned_rows.append(new_row)
+            rows = cleaned_rows
+
+            # 当前保留的标准列
+            present_columns = {column_mapping.get(col, col) for col in whitelist_columns}
             
             # 检查必要的列是否存在
-            missing_columns = [col for col in required_columns if col not in df.columns]
+            missing_columns = [col for col in required_columns if col not in present_columns]
             
             if missing_columns:
                 error_msg = f'Excel文件缺少必要的列：{", ".join(missing_columns)}'
@@ -334,7 +333,10 @@ def import_residents():
                 return redirect(url_for('dorm.dorm_query'))
             
             # 检查姓名重复
-            name_counts = df['姓名'].value_counts()
+            name_counts = {}
+            for row in rows:
+                name_val = to_str(row.get('姓名'))
+                name_counts[name_val] = name_counts.get(name_val, 0) + 1
             duplicate_names = [name for name, count in name_counts.items() if count > 1]
             if duplicate_names:
                 error_msg = f'Excel文件中存在重复的姓名：{", ".join(duplicate_names)}'
@@ -350,7 +352,7 @@ def import_residents():
             fail_records = []
             
             # 批量处理日期
-            check_in_dates = df['入住日期'].tolist()
+            check_in_dates = [row.get('入住日期') for row in rows]
             try:
                 # 使用excel_date_utils实例调用parse_excel_date方法
                 parsed_check_in_dates = excel_date_utils.parse_excel_date(check_in_dates, field_name='入住日期')
@@ -374,14 +376,14 @@ def import_residents():
                     pass
                 return s
 
-            for index, row in df.iterrows():
+            for index, row in enumerate(rows):
                 row_num = index + 2  # 行号从2开始（Excel行号）
                 
                 try:
                     # 获取基本信息
-                    name = str(row['姓名']).strip()
-                    building = normalize_cell_str(row['楼栋'])
-                    room_number = normalize_cell_str(row['房间号'])
+                    name = to_str(row.get('姓名'))
+                    building = normalize_cell_str(to_str(row.get('楼栋')))
+                    room_number = normalize_cell_str(to_str(row.get('房间号')))
                     
                     # 验证基本信息
                     if not all([name, building, room_number, check_in_dates[index]]):
@@ -506,10 +508,9 @@ def import_residents():
                     
                     # 获取备注（可选列，安全访问）
                     remark = ''
-                    if '备注' in df.columns:
-                        remark_val = row.get('备注', '')
-                        if remark_val is not None and str(remark_val).strip() and str(remark_val).strip() != 'nan':
-                            remark = str(remark_val).strip()
+                    remark_val = row.get('备注', '')
+                    if not is_empty(remark_val):
+                        remark = to_str(remark_val)
                     
                     # 创建分配记录（bed_id=None自动分配床位）
                     remarks_parts = [f'批量导入分配，导入时间：{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}']
@@ -529,8 +530,8 @@ def import_residents():
                 except Exception as e:
                     fail_records.append({
                         'row': row_num,
-                        'name': str(row['姓名']) if '姓名' in row else f'行{row_num}',
-                        'room': f"{str(row['楼栋']) if '楼栋' in row else ''}-{str(row['房间号']) if '房间号' in row else ''}",
+                        'name': to_str(row.get('姓名')) or f'行{row_num}',
+                        'room': f"{to_str(row.get('楼栋'))}-{to_str(row.get('房间号'))}",
                         'reason': f'处理失败: {str(e)}',
                         'raw_data': dict(row)
                     })
@@ -542,7 +543,7 @@ def import_residents():
             db.session.commit()
             
             # 记录日志
-            logging.info(f'成功导入在住人员数据，共导入{len(df)}条记录，成功{success_count}条，失败{len(fail_records)}条，操作人ID：{current_user.id}')
+            logging.info(f'成功导入在住人员数据，共导入{len(rows)}条记录，成功{success_count}条，失败{len(fail_records)}条，操作人ID：{current_user.id}')
             
             # 记录操作日志
             log_operation(
@@ -620,37 +621,28 @@ def download_import_template():
     """下载导入模板Excel文件"""
     try:
         # 创建模板数据
-        data = {
-            '姓名': ['张三', '李四'],
-            '楼栋': ['A', 'B'],
-            '房间号': ['101', '202'],
-            '入住日期': ['2023-09-01', '2023-09-01'],
-            '备注（可选）': ['', '']
-        }
-        
-        df = pd.DataFrame(data)
+        headers = ['姓名', '楼栋', '房间号', '入住日期', '备注（可选）']
+        template_rows = [
+            ['张三', 'A', '101', '2023-09-01', ''],
+            ['李四', 'B', '202', '2023-09-01', '']
+        ]
         
         # 写入Excel
         output = BytesIO()
-        with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            df.to_excel(writer, index=False, sheet_name='住宿分配导入模板')
-            
-            # 获取工作表并添加格式说明
-            worksheet = writer.sheets['住宿分配导入模板']
-            
-            # 添加日期格式说明
-            worksheet['G1'] = '支持的日期格式：\n- YYYY-MM-DD（推荐）\n- YYYY/MM/DD\n- YYYY年MM月DD日\n- 其他常见格式'
-            worksheet['G1'].font = Font(color="FF0000", size=10)
-            worksheet['G1'].alignment = Alignment(wrap_text=True, vertical='top')
-            
-            # 调整列宽
-            worksheet.column_dimensions['A'].width = 10
-            worksheet.column_dimensions['B'].width = 8
-            worksheet.column_dimensions['C'].width = 8
-            worksheet.column_dimensions['D'].width = 15
-            worksheet.column_dimensions['E'].width = 15
-            worksheet.column_dimensions['G'].width = 25
+        wb = Workbook()
+        wb.remove(wb.active)  # 移除默认空工作表
+        worksheet = write_sheet(wb, '住宿分配导入模板', headers, template_rows)
         
+        # 添加日期格式说明
+        worksheet['G1'] = '支持的日期格式：\n- YYYY-MM-DD（推荐）\n- YYYY/MM/DD\n- YYYY年MM月DD日\n- 其他常见格式'
+        worksheet['G1'].font = Font(color="FF0000", size=10)
+        worksheet['G1'].alignment = Alignment(wrap_text=True, vertical='top')
+        
+        # 调整列宽
+        set_column_widths(worksheet, [10, 8, 8, 15, 15, None, 25])
+        
+        wb.save(output)
+        wb.close()
         output.seek(0)
         
         # 构建响应
@@ -757,22 +749,19 @@ def export_room_residents():
             return redirect(url_for('dorm.dorm_room_query'))
         
         # 生成Excel文件
+        headers = ['序号', '房间号', '性别', '级别', '房间类型', '居住人员', '备注']
         output = BytesIO()
-        with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            df = pd.DataFrame(export_data)
-            df.to_excel(writer, index=False, sheet_name='房间在住人员')
+        wb = Workbook()
+        wb.remove(wb.active)  # 移除默认空工作表
+        worksheet = write_sheet(wb, '房间在住人员', headers, export_data)
             
-            # 获取工作表并设置格式
-            worksheet = writer.sheets['房间在住人员']
+
             
-            # 设置列宽
-            worksheet.column_dimensions['A'].width = 6   # 序号
-            worksheet.column_dimensions['B'].width = 10  # 房间号
-            worksheet.column_dimensions['C'].width = 8   # 性别
-            worksheet.column_dimensions['D'].width = 10  # 级别
-            worksheet.column_dimensions['E'].width = 15  # 房间类型
-            worksheet.column_dimensions['F'].width = 50  # 居住人员
-            worksheet.column_dimensions['G'].width = 15  # 备注
+        # 设置列宽
+        set_column_widths(worksheet, [6, 10, 8, 10, 15, 50, 15])
+        
+        wb.save(output)
+        wb.close()
             
 
         

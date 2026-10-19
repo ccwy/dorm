@@ -14,7 +14,14 @@ import logging
 from .utility_room_bill_checkout import utility_room_bill_checkout_bp  # 导入退宿费用子表主蓝图
 from io import BytesIO
 from urllib.parse import quote
-    
+from utils.lazy_imports import Workbook
+from utils.excel_utils import write_sheet, auto_fit_columns
+
+# 退宿状态映射（checkout_status 字段值 → 中文）
+CHECKOUT_STATUS_MAP = {'pending': '待处理', 'pending_meter': '待抄表', 'completed': '已完成'}
+# 支付状态映射（payment_status 字段值 → 中文）
+PAYMENT_STATUS_MAP = {'unpaid': '未支付', 'paid': '已支付'}
+
 @utility_room_bill_checkout_bp.route('/export', methods=['GET'])
 @login_required
 @require_permission('utility.export')
@@ -23,7 +30,6 @@ def export_checkout_records():
     导出退宿人员费用记录为Excel文件
     支持按账期、部门等条件筛选后导出
     """
-    import pandas as pd
     try:
         # 获取查询参数
         billing_period = request.args.get('billing_period', '').strip()
@@ -123,12 +129,9 @@ def export_checkout_records():
                 '按比例分摊减免(元)': float(record.user_proportional_reduction) if record.user_proportional_reduction else 0,
                 '个人独立减免(元)': float(record.user_independent_reduction) if record.user_independent_reduction else 0,
                 '个人实际应付(元)': float(record.payable_fee) if record.payable_fee else 0,
-                '退宿状态': record.checkout_status if record.checkout_status else '',
-                '支付状态': record.payment_status if record.payment_status else ''
+                '退宿状态': CHECKOUT_STATUS_MAP.get(record.checkout_status, record.checkout_status) if record.checkout_status else '',
+                '支付状态': PAYMENT_STATUS_MAP.get(record.payment_status, record.payment_status) if record.payment_status else ''
             })
-        
-        # 创建DataFrame
-        df = pd.DataFrame(export_data)
         
         # 设置数值格式化
         float_columns = [
@@ -138,27 +141,26 @@ def export_checkout_records():
             '水表退宿读数', '水抄表用量', '原始水用量(m³)', '减免水用量(m³)',
             '计费水用量(m³)', '水费单价(元/m³)', '房间总水费(元)',
             '个人原始水费(元)', '个人计费水费(元)', '房间总费用(元)',
-            '个人原始总费用(元)', '个人计费总费用(元)', 
+            '个人原始总费用(元)', '个人计费总费用(元)',
             '按比例分摊减免(元)', '个人独立减免(元)', '个人实际应付(元)'
         ]
-        for col in float_columns:
-            df[col] = df[col].apply(lambda x: f"{x:.2f}")
+        for item in export_data:
+            for col in float_columns:
+                item[col] = f"{item[col]:.2f}"
         
         # 创建Excel文件
         output = BytesIO()
-        with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            # 设置工作表名称
-            sheet_name = f"退宿费用记录_{billing_period or '全部'}"
-            # 写入数据
-            df.to_excel(writer, index=False, sheet_name=sheet_name)
-            
-            # 获取工作表对象
-            worksheet = writer.sheets[sheet_name]
-            
-            # 调整列宽
-            for column_cells in worksheet.columns:
-                length = max(len(str(cell.value)) for cell in column_cells) + 2
-                worksheet.column_dimensions[column_cells[0].column_letter].width = min(length, 30)  # 最大宽度限制
+        wb = Workbook()
+        wb.remove(wb.active)
+        # 设置工作表名称
+        sheet_name = f"退宿费用记录_{billing_period or '全部'}"
+        # 写入数据
+        headers = list(export_data[0].keys())
+        worksheet = write_sheet(wb, sheet_name, headers, export_data)
+        # 调整列宽
+        auto_fit_columns(worksheet, max_width=30)
+        wb.save(output)
+        wb.close()
         
         # 准备响应
         output.seek(0)
