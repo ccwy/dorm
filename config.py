@@ -2,6 +2,7 @@ import os
 import sys
 from datetime import timedelta
 from utils.db_config import DatabaseConfig
+from utils.paths import get_data_dir, get_data_path
 
 # ⚠️ 时序依赖说明：
 # config.py 中的类级属性（APP_DIR、BACKUP_DIR、USE_DESKTOP_VIEW、SERVER_HOST 等）
@@ -66,17 +67,8 @@ class Config:
         SERVER_HOST = '0.0.0.0'  # 服务端模式及其他环境 - 允许外部访问
     SERVER_PORT = int(db_config.get('SERVER_PORT', 35168))  # 确保int类型
 
-    # 备份目录配置
-    if os.environ.get('ANDROID_ENV', 'false').lower() == 'true':  # 优先检查Android环境
-        APP_DIR = get_app_dir()  # APP_DATA_DIR，已包含 /data 后缀
-        BACKUP_DIR = os.path.join(APP_DIR, 'backups')  # Android环境 - APP_DATA_DIR/backups
-    elif os.environ.get('DOCKER_ENV', 'false').lower() == 'true':  # 其次检查Docker环境
-        BACKUP_DIR = '/data/backups'    # Docker环境 - 使用外部数据卷路径
-    elif getattr(sys, 'frozen', False):
-        APP_DIR = get_app_dir()   # 打包环境 - 备份目录保存在应用程序所在目录的data/backups下
-        BACKUP_DIR = os.path.join(APP_DIR, 'data', 'backups')
-    else:
-        BACKUP_DIR = os.path.join(BASE_DIR, 'data', 'backups')  # 开发环境 - 保持原有路径
+    # 备份目录配置 - 使用通用路径函数
+    BACKUP_DIR = get_data_path('backups')
     
     # 初始化数据库连接字符串
     SQLALCHEMY_DATABASE_URI = DatabaseConfig.get_db_uri()

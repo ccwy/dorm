@@ -6,6 +6,7 @@ import logging
 from flask import current_app
 from werkzeug.utils import secure_filename
 from datetime import datetime
+from utils.paths import get_data_path
 
 # 支持的图片和视频格式
 ALLOWED_IMAGE_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'bmp'}
@@ -18,61 +19,27 @@ class MaintenancePhotoManager:
     
     @staticmethod
     def get_media_root_dir():
-        """获取媒体文件的根目录，确保正确目录存在
-        根据不同环境(Docker、Windows打包、开发环境)返回正确的数据存储路径
-        """
-        # 检查是否是Docker环境
-        if os.environ.get('DOCKER_ENV') == 'true':
-            # Docker环境下，数据存储在/data目录
-            media_root = '/data/photo/maintenance_photo'
-        # 检查是否是Android环境
-        elif os.environ.get('ANDROID_ENV', 'false').lower() == 'true':
-            media_root = os.path.join(os.environ.get('APP_DATA_DIR', '/data'), 'photo', 'maintenance_photo')
-        # 检查是否是PyInstaller打包环境
-        elif getattr(sys, 'frozen', False):
-            # 获取打包后可执行文件所在目录
-            app_dir = os.path.dirname(os.path.abspath(sys.executable))
-            # 在可执行文件同级目录创建data/photo/maintenance_photo
-            media_root = os.path.join(app_dir, 'data', 'photo', 'maintenance_photo')
-        else:
-            # 开发环境下使用相对路径
-            app_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-            media_root = os.path.join(app_root, 'data', 'photo', 'maintenance_photo')
-        
+        """获取媒体文件的根目录，确保正确目录存在"""
+        media_root = get_data_path('photo', 'maintenance_photo')
         # 确保目录存在
         os.makedirs(media_root, exist_ok=True)
         return media_root
     
     @staticmethod
     def get_temp_root_dir(create=True):
-        """获取临时文件的根目录
-        根据不同环境(Docker、Windows打包、开发环境)返回正确的数据存储路径
-        
+        """获取临时上传目录的根目录
+
+        临时文件存储在 media_root 的 __temp__ 子目录下，
+        按 user_id 组织：data/photo/maintenance_photo/__temp__/{user_id}/
+
         Args:
             create: 是否自动创建目录，默认True。查询/清理时传False避免空目录产生。
-        
+
         Returns:
             str: 临时根目录的绝对路径
         """
-        # 检查是否是Docker环境
-        if os.environ.get('DOCKER_ENV') == 'true':
-            # Docker环境下，数据存储在/data目录
-            temp_root = '/data/photo/maintenance_temp'
-        # 检查是否是Android环境
-        elif os.environ.get('ANDROID_ENV', 'false').lower() == 'true':
-            temp_root = os.path.join(os.environ.get('APP_DATA_DIR', '/data'), 'photo', 'maintenance_temp')
-        # 检查是否是PyInstaller打包环境
-        elif getattr(sys, 'frozen', False):
-            # 获取打包后可执行文件所在目录
-            app_dir = os.path.dirname(os.path.abspath(sys.executable))
-            # 在可执行文件同级目录创建data/photo/maintenance_temp
-            temp_root = os.path.join(app_dir, 'data', 'photo', 'maintenance_temp')
-        else:
-            # 开发环境下使用相对路径
-            app_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-            temp_root = os.path.join(app_root, 'data', 'photo', 'maintenance_temp')
-        
-        # 仅在create=True时创建目录
+        media_root = MaintenancePhotoManager.get_media_root_dir()
+        temp_root = os.path.join(media_root, '__temp__')
         if create:
             os.makedirs(temp_root, exist_ok=True)
         return temp_root
@@ -107,7 +74,7 @@ class MaintenancePhotoManager:
         """
         # 获取临时根目录
         temp_root = MaintenancePhotoManager.get_temp_root_dir()
-        # 构建用户临时目录路径：data/photo/maintenance_temp/用户ID
+        # 构建用户临时目录路径：data/photo/maintenance_photo/__temp__/用户ID
         temp_dir = os.path.join(temp_root, str(user_id))
         # 确保目录存在
         os.makedirs(temp_dir, exist_ok=True)
