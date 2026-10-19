@@ -5,6 +5,7 @@ import json
 from logging.handlers import RotatingFileHandler
 from flask import request
 import datetime
+from utils.paths import get_data_path
 
 # 模块名称映射 (module -> 中文)
 MODULE_MAP = {
@@ -314,29 +315,8 @@ OPERATION_TYPE_MAP = {
 
 # 获取日志目录 - 严格遵循项目data文件夹使用规范
 def get_log_directory():
-    # 检查是否在Docker环境中
-    is_docker = os.environ.get('DOCKER_ENV') == 'true'
-    # 检查是否在Android环境中
-    is_android = os.environ.get('ANDROID_ENV', 'false').lower() == 'true'
-    
-    if is_docker:
-        # Docker环境 - 使用简化的外部数据卷路径
-        log_dir = '/data/logs'
-    elif is_android:
-        # Android环境 - 使用 APP_DATA_DIR
-        log_dir = os.path.join(os.environ.get('APP_DATA_DIR', '/data'), 'logs')
-    else:
-        # 非Docker环境
-        if getattr(sys, 'frozen', False):
-            # 打包环境
-            app_dir = os.path.dirname(sys.executable)
-        else:
-            # 开发环境
-            current_file_dir = os.path.abspath(os.path.dirname(__file__))
-            app_dir = os.path.abspath(os.path.join(current_file_dir, os.pardir))
-        
-        # 日志文件始终存储在data/logs文件夹
-        log_dir = os.path.join(app_dir, 'data', 'logs')
+    """获取日志目录 - 使用通用路径函数"""
+    log_dir = get_data_path('logs')
     
     # 确保日志目录存在
     if not os.path.exists(log_dir):

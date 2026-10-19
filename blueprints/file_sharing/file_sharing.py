@@ -8,6 +8,7 @@ from utils.auth import require_permission
 import logging
 import sys
 import shutil
+from utils.paths import get_data_dir, get_data_path
 
 # 定义蓝图
 file_sharing_bp = Blueprint(
@@ -25,24 +26,11 @@ file_sharing_bp = Blueprint(
 def get_base_data_path():
     """
     获取基础数据目录路径（延迟求值）
-    
+
     每次调用时根据当前环境变量计算路径，避免模块加载时序问题。
     Android 环境下 APP_DATA_DIR 由 android_adapter.setup_android_env() 设置。
     """
-    if os.environ.get('DOCKER_ENV', 'false').lower() == 'true':
-        # Docker环境 - 使用外部数据卷路径
-        return '/data'
-    elif os.environ.get('ANDROID_ENV', 'false').lower() == 'true':
-        # Android环境 - 使用 APP_DATA_DIR
-        return os.environ.get('APP_DATA_DIR', '/data')
-    elif getattr(sys, 'frozen', False):
-        # 打包环境 - 文件存储在应用程序所在目录的data下
-        app_dir = os.path.dirname(sys.executable)
-        return os.path.join(app_dir, 'data')
-    else:
-        # 开发环境 - 文件存储在项目根目录的data下
-        base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        return os.path.join(base_dir, 'data')
+    return get_data_dir()
 
 
 # 支持的根目录配置缓存
@@ -84,7 +72,7 @@ def get_supported_roots():
     for root in _supported_roots_cache.values():
         if not os.path.exists(root['path']):
             logging.info(f"创建目录: {root['path']}")
-            os.makedirs(root['path'])
+            os.makedirs(root['path'], exist_ok=True)
     
     return _supported_roots_cache
 

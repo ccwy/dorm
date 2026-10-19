@@ -141,7 +141,6 @@ def ensure_data_dirs(data_dir):
         'photo/asset_photo',
         'photo/room_photo',
         'photo/maintenance_photo',
-        'photo/maintenance_temp',
         'photo/contract_attachments',
         'photo/room_meter_photo',
         'photo/todo_photo',

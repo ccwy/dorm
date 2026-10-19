@@ -9,6 +9,7 @@ from sqlalchemy.exc import OperationalError, SQLAlchemyError
 import sys
 import base64  # 添加base64模块导入
 from utils.system_detector import is_win7
+from utils.paths import get_data_path
 
 # ==================== 数据库配置文件路径（延迟求值） ====================
 # 注意：不在模块顶层求值 DB_CONFIG_PATH，因为 Android 环境下 ANDROID_ENV 和 APP_DATA_DIR
@@ -18,28 +19,12 @@ from utils.system_detector import is_win7
 def get_db_config_path():
     """
     获取数据库配置文件路径（延迟求值）
-    
+
     每次调用时根据当前环境变量计算路径，避免模块加载时序问题。
     Android 环境下 ANDROID_ENV/APP_DATA_DIR 由 android_adapter.setup_android_env() 设置，
     必须在环境变量设置后才能正确解析路径。
     """
-    if os.environ.get('DOCKER_ENV') == 'true':
-        # Docker环境 - 使用简化的外部数据卷路径
-        return '/data/db_config.json'
-    elif os.environ.get('ANDROID_ENV', 'false').lower() == 'true':
-        # Android环境 - 使用 APP_DATA_DIR（由 android_adapter.py 设置）
-        return os.path.join(os.environ.get('APP_DATA_DIR', '/data'), 'db_config.json')
-    else:
-        # 非Docker环境
-        if getattr(sys, 'frozen', False):
-            # 打包环境
-            app_dir = os.path.dirname(sys.executable)
-            return os.path.join(app_dir, 'data', 'db_config.json')
-        else:
-            # 开发环境
-            current_file_dir = os.path.abspath(os.path.dirname(__file__))
-            app_dir = os.path.abspath(os.path.join(current_file_dir, os.pardir))
-            return os.path.join(app_dir, 'data', 'db_config.json')
+    return get_data_path('db_config.json')
 
 
 # 向后兼容：模块级常量通过 __getattr__ 延迟求值
@@ -58,31 +43,8 @@ class DatabaseConfig:
     def initialize():
         """初始化配置文件（如果不存在）"""
         if not os.path.exists(get_db_config_path()):
-            # 检查是否在Docker环境中
-            is_docker = os.environ.get('DOCKER_ENV') == 'true'
-            is_android = os.environ.get('ANDROID_ENV', 'false').lower() == 'true'
-            
-            if is_docker:
-                # Docker环境 - 使用简化的外部数据卷路径
-                sqlite_db_path = '/data/data.db'
-            elif is_android:
-                # Android环境 - 使用 APP_DATA_DIR（由 android_adapter.py 设置）
-                sqlite_db_path = os.path.join(os.environ.get('APP_DATA_DIR', '/data'), 'data.db')
-            else:
-                # 获取应用程序目录
-                if getattr(sys, 'frozen', False):
-                    # 打包环境
-                    app_dir = os.path.dirname(sys.executable)
-                else:
-                    # 开发环境
-                    current_file_dir = os.path.abspath(os.path.dirname(__file__))
-                    app_dir = os.path.abspath(os.path.join(current_file_dir, os.pardir))
-                
-                # sqlite数据库文件始终存储在应用目录下的data文件夹
-                data_dir = os.path.join(app_dir, 'data')
-                
-                # 确定数据库文件路径
-                sqlite_db_path = os.path.join(data_dir, 'data.db')
+            # 使用通用路径函数获取数据库文件路径
+            sqlite_db_path = get_data_path('data.db')
             
             # 默认配置
             default_config = {

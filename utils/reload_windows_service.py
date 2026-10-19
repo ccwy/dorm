@@ -6,6 +6,7 @@ import time
 import logging
 import ctypes
 from ctypes import wintypes
+from utils.paths import get_data_dir
 
 # 【重要】本模块绝不导入 webview，即使在函数内部也不行。
 # 原因：import webview 会触发 edgechromium.py 的模块级代码，
@@ -120,15 +121,12 @@ def _ensure_batch_script_exists():
     每次调用都会更新脚本内容，确保APP_NAME与当前exe文件名一致。
     """
     try:
-        # 确定打包环境下的应用目录
-        app_dir = os.path.dirname(sys.executable)
-        
-        # data文件夹路径
-        data_dir = os.path.join(app_dir, 'data')
-        
+        # data文件夹路径 - 使用通用路径函数
+        data_dir = get_data_dir()
+
         # 确保data目录存在
         if not os.path.exists(data_dir):
-            os.makedirs(data_dir)
+            os.makedirs(data_dir, exist_ok=True)
             logging.info(f"创建data目录: {data_dir}")
         
         # 批处理脚本路径

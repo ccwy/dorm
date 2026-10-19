@@ -3,6 +3,7 @@ import os
 import shutil
 from werkzeug.utils import secure_filename
 from datetime import datetime
+from utils.paths import get_data_path
 
 # 支持的图片和视频格式
 ALLOWED_IMAGE_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp'}
@@ -14,30 +15,8 @@ class RoomMeterCheckoutPhotoManager:
     
     @staticmethod
     def get_media_root_dir():
-        """获取退宿照片的根目录，确保正确目录存在
-        根据不同环境(Docker、Android、PyInstaller、开发环境)返回正确的数据存储路径
-        """
-        import os
-        import sys
-        
-        # 检查是否是Docker环境
-        if os.environ.get('DOCKER_ENV') == 'true':
-            # Docker环境下，数据存储在/data目录
-            media_root = '/data/photo/room_meter_photo'
-        # 检查是否是Android环境
-        elif os.environ.get('ANDROID_ENV', 'false').lower() == 'true':
-            media_root = os.path.join(os.environ.get('APP_DATA_DIR', '/data'), 'photo', 'room_meter_photo')
-        # 检查是否是PyInstaller打包环境
-        elif getattr(sys, 'frozen', False):
-            # 获取打包后可执行文件所在目录
-            app_dir = os.path.dirname(os.path.abspath(sys.executable))
-            # 在可执行文件同级目录创建data/photo/room_meter_photo
-            media_root = os.path.join(app_dir, 'data', 'photo', 'room_meter_photo')
-        else:
-            # 开发环境下使用相对路径
-            app_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-            media_root = os.path.join(app_root, 'data', 'photo', 'room_meter_photo')
-        
+        """获取退宿照片的根目录，确保正确目录存在"""
+        media_root = get_data_path('photo', 'room_meter_photo')
         # 确保目录存在
         os.makedirs(media_root, exist_ok=True)
         return media_root
