@@ -637,6 +637,8 @@
                             if (sortedPeriods.includes(currentPeriod)) {
                                 billingPeriodSelect.value = currentPeriod;
                             }
+                            // 加载默认选中账期的状态
+                            loadBillingPeriodStatus(billingPeriodSelect.value);
                         }
                     })
                     .catch(error => {

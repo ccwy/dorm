@@ -1017,14 +1017,19 @@
                             billingPeriodSelect.innerHTML = '<option value="">请选择账期</option>';
                             const currentPeriod = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
                             const appPeriod = '{{ application.billing_period if application.billing_period else "" }}';
-                            response.periods.forEach(function(period) {
-                                const isSelected = appPeriod ? period === appPeriod : period === currentPeriod;
+                            // 按时间倒序排序账期
+                            const sortedPeriods = [...response.periods].sort((a, b) => b.localeCompare(a));
+                            sortedPeriods.forEach(function(period) {
                                 const option = document.createElement('option');
                                 option.value = period;
                                 option.textContent = period;
-                                if (isSelected) option.selected = true;
                                 billingPeriodSelect.appendChild(option);
                             });
+                            // 默认选中账期（优先申请账期，其次当前月份）
+                            const defaultPeriod = appPeriod || currentPeriod;
+                            if (sortedPeriods.indexOf(defaultPeriod) !== -1) {
+                                billingPeriodSelect.value = defaultPeriod;
+                            }
                             // 加载默认选中账期的状态
                             if (billingPeriodSelect.value) {
                                 loadBillingPeriodStatus(billingPeriodSelect.value);
