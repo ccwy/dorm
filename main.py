@@ -421,10 +421,6 @@ def run_server():
     app, _run_server = init_flask_app()
     _run_server()
 
-
-# 单实例控制已拆分到 utils/single_instance.py
-
-
 # 主程序入口
 if __name__ == '__main__':
     import argparse
