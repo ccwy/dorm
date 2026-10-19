@@ -80,7 +80,6 @@ chaquopy {
 
             // 数据处理（版本对齐 Chaquopy pypi-13.1 仓库 cp312 预编译包）
             install "openpyxl==3.1.2"
-            install "xlsxwriter==3.2.5"
 
             // 工具库
             install "PyMySQL==1.1.0"
@@ -88,7 +87,6 @@ chaquopy {
             install "schedule==1.2.0"
             install "waitress==2.1.2"
             install "requests==2.31.0"
-            install "Pillow==10.1.0"
             install "SQLAlchemy==2.0.23"
             install "Alembic==1.13.1"
             install "MarkupSafe==2.1.3"

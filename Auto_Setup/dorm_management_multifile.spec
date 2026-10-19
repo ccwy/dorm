@@ -45,14 +45,12 @@ additional_hidden_imports = [
     'jinja2',
     'werkzeug',
     'schedule',
-    'xlsxwriter',
     'requests',
     'tkinter',
     'tkinter.ttk',
     'tkinter.messagebox',
     'pystray',
     'PIL',
-    'psutil'
 ]
 
 # 收集延迟导入库的所有子模块，确保打包完整

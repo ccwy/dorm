@@ -91,16 +91,14 @@ set "dep6=cryptography>=41.0.7,<43.0"
 set "dep7=Werkzeug>=2.3.7"
 set "dep8=Jinja2>=3.1.2"
 set "dep9=schedule>=1.2.0"
-set "dep10=xlsxwriter>=3.2.5"
-set "dep11=waitress>=2.1.2"
-set "dep12=pywebview==3.7"
-set "dep13=requests>=2.31.0"
-set "dep14=psutil>=5.9.8,<6.0"
-set "dep15=Pillow>=10.4.0,<11.0"
-set "dep16=pystray>=0.19.5"
+set "dep10=waitress>=2.1.2"
+set "dep11=pywebview==3.7"
+set "dep12=requests>=2.31.0"
+set "dep13=Pillow>=10.4.0,<11.0"
+set "dep14=pystray>=0.19.5"
 
 :: ??????????????????????????????????????
-for /l %%i in (1,1,16) do (
+for /l %%i in (1,1,14) do (
     :: ????????????
     set "current_dep=!dep%%i!"
     
