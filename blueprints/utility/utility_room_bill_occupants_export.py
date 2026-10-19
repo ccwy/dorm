@@ -13,6 +13,8 @@ import io
 import logging
 from flask_login import login_required, current_user
 from utils.auth import require_permission
+from utils.lazy_imports import Workbook
+from utils.excel_utils import write_sheet, to_date
 
 # 创建导出蓝图
 utility_room_bill_occupants_export_bp = Blueprint('utility_room_bill_occupants_export', __name__, url_prefix='/utility_room_bill_occupants_export')
@@ -370,7 +372,6 @@ def create_user_summary_export_data(billing_period):
 @require_permission('utility.export')
 def export_fee_data():
     """导出人员费用数据为Excel，支持按房间号合并所有相同内容字段并添加完整边框"""
-    import pandas as pd  # 延迟导入，避免启动时加载重型库
     try:
         # 获取筛选参数
         billing_period = request.args.get('billing_period') or request.args.get('billingPeriod')
@@ -416,137 +417,133 @@ def export_fee_data():
             flash('没有可导出的数据', 'warning')
             return redirect(url_for('utility_index.utility_occupant_manage', billing_period=billing_period))
         
-        # 创建Excel
-        df = pd.DataFrame(export_data)
-        
         # 先按楼栋排序，再按房间号排序，确保不同楼栋的相同房间号不会被混淆
-        df = df.sort_values(by=['房间号'])
-        
+        export_data.sort(key=lambda x: str(x.get('房间号') or ''))
+
         # 处理日期时间格式（保留时间信息）
-        if '入住时间' in df.columns:
-            # 转换为datetime类型保留完整信息
-            df['入住时间'] = pd.to_datetime(df['入住时间'], format='%Y-%m-%d', errors='coerce').dt.date
-        
+        if export_data and '入住时间' in export_data[0]:
+            # 转换为日期对象保留完整信息
+            for item in export_data:
+                item['入住时间'] = to_date(item.get('入住时间'))
+
         # 保存到内存
         output = io.BytesIO()
-        with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            df.to_excel(writer, index=False, sheet_name='人员费用分摊')
+        wb = Workbook()
+        wb.remove(wb.active)  # 移除默认空工作表
+        headers = list(export_data[0].keys()) if export_data else []
+        worksheet = write_sheet(wb, '人员费用分摊', headers, export_data)
             
-            # 获取工作表对象
-            worksheet = writer.sheets['人员费用分摊']
-            
-            # 定义样式
-            from openpyxl.styles import Border, Side, Alignment
-            thin_border = Border(
-                left=Side(style='thin'),
-                right=Side(style='thin'),
-                top=Side(style='thin'),
-                bottom=Side(style='thin')
-            )
-            # 所有单元格统一使用垂直居中，表头额外使用水平居中
-            data_alignment = Alignment(vertical='center')
-            header_alignment = Alignment(vertical='center', horizontal='center')
-            
-            # 需要合并的列名（房间相关的公共信息）
-            columns_to_merge = [
-                '账期', '房间号',
-                '本期电表当前读数', '本期电表上期读数', '本期电表用量', '减免电用量', '计费电用量', '电费单价','本期电费', '计费电费',
-                '本期水表当前读数', '本期水表上期读数', '本期水表用量', '减免水用量', '计费水用量', '水费单价','本期水费', '计费水费',
-                '本期总费用', '计费总费用', '退宿人员费用', '减免房间级费用', '房间实际应付费用'
-            ]
-            
-            # 存储列名到索引的映射（1-based）
-            col_index_map = {}
-            for col_idx, cell in enumerate(worksheet[1]):  # 表头行
-                col_index_map[cell.value] = col_idx + 1  # openpyxl是1-based索引
-                # 设置表头样式
-                cell.alignment = header_alignment
+        # 定义样式
+        from openpyxl.styles import Border, Side, Alignment
+        thin_border = Border(
+            left=Side(style='thin'),
+            right=Side(style='thin'),
+            top=Side(style='thin'),
+            bottom=Side(style='thin')
+        )
+        # 所有单元格统一使用垂直居中，表头额外使用水平居中
+        data_alignment = Alignment(vertical='center')
+        header_alignment = Alignment(vertical='center', horizontal='center')
+
+        # 需要合并的列名（房间相关的公共信息）
+        columns_to_merge = [
+            '账期', '房间号',
+            '本期电表当前读数', '本期电表上期读数', '本期电表用量', '减免电用量', '计费电用量', '电费单价','本期电费', '计费电费',
+            '本期水表当前读数', '本期水表上期读数', '本期水表用量', '减免水用量', '计费水用量', '水费单价','本期水费', '计费水费',
+            '本期总费用', '计费总费用', '退宿人员费用', '减免房间级费用', '房间实际应付费用'
+        ]
+
+        # 存储列名到索引的映射（1-based）
+        col_index_map = {}
+        for col_idx, cell in enumerate(worksheet[1]):  # 表头行
+            col_index_map[cell.value] = col_idx + 1  # openpyxl是1-based索引
+            # 设置表头样式
+            cell.alignment = header_alignment
+            cell.border = thin_border
+
+        # 获取所有数据行
+        max_row = worksheet.max_row
+        max_col = len(col_index_map)
+
+        # 先为所有单元格应用基础样式（边框和垂直居中）
+        for row in range(2, max_row + 1):
+            for col in range(1, max_col + 1):
+                cell = worksheet.cell(row=row, column=col)
+                cell.alignment = data_alignment
                 cell.border = thin_border
             
-            # 获取所有数据行
-            max_row = worksheet.max_row
-            max_col = len(col_index_map)
-            
-            # 先为所有单元格应用基础样式（边框和垂直居中）
-            for row in range(2, max_row + 1):
-                for col in range(1, max_col + 1):
-                    cell = worksheet.cell(row=row, column=col)
-                    cell.alignment = data_alignment
-                    cell.border = thin_border
-            
-            if max_row > 1:  # 确保有数据行
-                # 获取房间号列的索引
-                room_col_idx = col_index_map.get('房间号')
-                
-                if room_col_idx:
-                    # 记录当前房间号和起始行
-                    current_room = worksheet.cell(row=2, column=room_col_idx).value
-                    start_row = 2
-                    
-                    # 遍历所有行，识别连续相同的房间号
-                    for row in range(3, max_row + 1):
-                        room_value = worksheet.cell(row=row, column=room_col_idx).value
-                        
-                        if room_value != current_room:
-                            # 对所有需要合并的列执行合并操作
-                            for col_name in columns_to_merge:
-                                col_idx = col_index_map.get(col_name)
-                                if col_idx and (row - start_row > 1):
-                                    # 合并单元格
-                                    worksheet.merge_cells(
-                                        start_row=start_row, 
-                                        start_column=col_idx,
-                                        end_row=row - 1, 
-                                        end_column=col_idx
-                                    )
-                                    # 合并后重新设置样式（合并会清除部分样式）
-                                    merged_cell = worksheet.cell(row=start_row, column=col_idx)
-                                    merged_cell.alignment = Alignment(vertical='center', horizontal='center')
-                                    merged_cell.border = thin_border
-                            
-                            current_room = room_value
-                            start_row = row
-                    
-                    # 处理最后一组相同房间号的行
-                    if max_row - start_row > 0:
+        if max_row > 1:  # 确保有数据行
+            # 获取房间号列的索引
+            room_col_idx = col_index_map.get('房间号')
+
+            if room_col_idx:
+                # 记录当前房间号和起始行
+                current_room = worksheet.cell(row=2, column=room_col_idx).value
+                start_row = 2
+
+                # 遍历所有行，识别连续相同的房间号
+                for row in range(3, max_row + 1):
+                    room_value = worksheet.cell(row=row, column=room_col_idx).value
+
+                    if room_value != current_room:
+                        # 对所有需要合并的列执行合并操作
                         for col_name in columns_to_merge:
                             col_idx = col_index_map.get(col_name)
-                            if col_idx:
+                            if col_idx and (row - start_row > 1):
+                                # 合并单元格
                                 worksheet.merge_cells(
-                                    start_row=start_row, 
+                                    start_row=start_row,
                                     start_column=col_idx,
-                                    end_row=max_row, 
+                                    end_row=row - 1,
                                     end_column=col_idx
                                 )
-                                # 合并后重新设置样式
+                                # 合并后重新设置样式（合并会清除部分样式）
                                 merged_cell = worksheet.cell(row=start_row, column=col_idx)
                                 merged_cell.alignment = Alignment(vertical='center', horizontal='center')
                                 merged_cell.border = thin_border
 
-            # 创建第二个sheet：按用户费用汇总
-            user_summary_data = create_user_summary_export_data(billing_period)
-            if user_summary_data:
-                df_user = pd.DataFrame(user_summary_data)
-                df_user = df_user.sort_values(by=['用户姓名'])
-                df_user.to_excel(writer, index=False, sheet_name='按用户费用汇总')
+                        current_room = room_value
+                        start_row = row
 
-                # 获取第二个工作表对象
-                ws_user = writer.sheets['按用户费用汇总']
+                # 处理最后一组相同房间号的行
+                if max_row - start_row > 0:
+                    for col_name in columns_to_merge:
+                        col_idx = col_index_map.get(col_name)
+                        if col_idx:
+                            worksheet.merge_cells(
+                                start_row=start_row,
+                                start_column=col_idx,
+                                end_row=max_row,
+                                end_column=col_idx
+                            )
+                            # 合并后重新设置样式
+                            merged_cell = worksheet.cell(row=start_row, column=col_idx)
+                            merged_cell.alignment = Alignment(vertical='center', horizontal='center')
+                            merged_cell.border = thin_border
 
-                # 设置表头样式
-                for cell in ws_user[1]:
-                    cell.alignment = header_alignment
+        # 创建第二个sheet：按用户费用汇总
+        user_summary_data = create_user_summary_export_data(billing_period)
+        if user_summary_data:
+            # 按用户姓名排序
+            user_summary_data.sort(key=lambda x: str(x.get('用户姓名') or ''))
+            headers_user = list(user_summary_data[0].keys())
+            ws_user = write_sheet(wb, '按用户费用汇总', headers_user, user_summary_data)
+
+            # 设置表头样式
+            for cell in ws_user[1]:
+                cell.alignment = header_alignment
+                cell.border = thin_border
+
+            # 设置数据单元格样式
+            max_row_user = ws_user.max_row
+            max_col_user = ws_user.max_column
+            for row in range(2, max_row_user + 1):
+                for col in range(1, max_col_user + 1):
+                    cell = ws_user.cell(row=row, column=col)
+                    cell.alignment = data_alignment
                     cell.border = thin_border
-
-                # 设置数据单元格样式
-                max_row_user = ws_user.max_row
-                max_col_user = ws_user.max_column
-                for row in range(2, max_row_user + 1):
-                    for col in range(1, max_col_user + 1):
-                        cell = ws_user.cell(row=row, column=col)
-                        cell.alignment = data_alignment
-                        cell.border = thin_border
-        
+        wb.save(output)
+        wb.close()
         output.seek(0)
         
         # 构建文件名

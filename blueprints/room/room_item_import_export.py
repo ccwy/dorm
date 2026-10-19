@@ -7,7 +7,8 @@ from flask_login import login_required, current_user
 from utils.db import db
 from utils.auth import require_permission
 from utils.log import log_operation
-from utils.lazy_imports import pd
+from utils.excel_utils import is_empty, export_to_excel, read_excel_rows, write_sheet, set_column_widths
+from utils.lazy_imports import Workbook, load_workbook, Font
 from utils.excel_date_utils import excel_date_utils
 from models.room.room import Room
 from models.room.room_item import RoomItem
@@ -120,21 +121,15 @@ def export_items():
         user_detail_data.sort(key=lambda x: x['用户姓名'])
 
         # 生成Excel（3个sheet）
-        df = pd.DataFrame(data)
-        df_room = pd.DataFrame(room_detail_data, columns=[
-            '楼栋', '房间号', '房间类型', '物品编号', '物品名称', '规格', '单位',
-            '物品类型', '总数量', '可用数量', '损坏数量', '丢失数量', '报废数量',
-            '状态', '备注'
-        ])
-        df_user = pd.DataFrame(user_detail_data, columns=[
-            '用户姓名', '用户名', '物品编号', '物品名称', '规格', '单位',
-            '所属房间', '分配数量', '状态', '分配时间', '归还时间', '备注'
-        ])
+        item_headers = ['物品ID', '楼栋', '房间号', '物品名称', '物品编号', '物品规格', '物品单位', '物品类型', '总数量', '可用数量', '损坏数量', '丢失数量', '报废数量', '状态', '备注', '创建时间', '更新时间']
+        room_detail_headers = ['楼栋', '房间号', '房间类型', '物品编号', '物品名称', '规格', '单位', '物品类型', '总数量', '可用数量', '损坏数量', '丢失数量', '报废数量', '状态', '备注']
+        user_detail_headers = ['用户姓名', '用户名', '物品编号', '物品名称', '规格', '单位', '所属房间', '分配数量', '状态', '分配时间', '归还时间', '备注']
         output = io.BytesIO()
-        with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            df.to_excel(writer, index=False, sheet_name='物品数据')
-            df_room.to_excel(writer, index=False, sheet_name='按房间明细')
-            df_user.to_excel(writer, index=False, sheet_name='按用户明细')
+        export_to_excel([
+            {'name': '物品数据', 'headers': item_headers, 'rows': data},
+            {'name': '按房间明细', 'headers': room_detail_headers, 'rows': room_detail_data},
+            {'name': '按用户明细', 'headers': user_detail_headers, 'rows': user_detail_data},
+        ], output)
 
         output.seek(0)
         filename = f"房间物品数据_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
@@ -195,17 +190,17 @@ def import_items():
         # 读取Excel（优先读取'物品数据'sheet，不存在则取第一个sheet）
         try:
             file_bytes = io.BytesIO(file.read())
-            xl = pd.ExcelFile(file_bytes)
-            if '物品数据' in xl.sheet_names:
-                df = pd.read_excel(xl, sheet_name='物品数据')
-            else:
-                df = pd.read_excel(xl, sheet_name=0)
+            wb_check = load_workbook(file_bytes, data_only=True, read_only=True)
+            has_item_sheet = '物品数据' in wb_check.sheetnames
+            wb_check.close()
+            file_bytes.seek(0)
+            df = read_excel_rows(file_bytes, sheet_name='物品数据' if has_item_sheet else 0)
         except Exception as e:
             flash(f'文件解析失败：{str(e)}', 'danger')
             logging.error(f'导入物品数据失败：文件解析失败 - {str(e)}')
             return redirect(url_for('room_item.manage'))
 
-        if df.empty:
+        if not df:
             flash('导入的文件没有数据', 'danger')
             logging.error('导入物品数据失败：文件没有数据')
             return redirect(url_for('room_item.manage'))
@@ -235,19 +230,19 @@ def import_items():
                 pass
             return s
 
-        for idx, row in df.iterrows():
+        for idx, row in enumerate(df):
             row_num = idx + 2
             try:
                 # 读取楼栋（必填）
                 building_val = row.get('楼栋')
-                if pd.isna(building_val) or not str(building_val).strip():
+                if is_empty(building_val) or not str(building_val).strip():
                     error_records.append(f"第{row_num}行：楼栋不能为空")
                     continue
                 building = normalize_cell_str(building_val)
 
                 # 读取房间号（必填，统一转换为字符串）
                 room_number_val = row.get('房间号')
-                if pd.isna(room_number_val) or not str(room_number_val).strip():
+                if is_empty(room_number_val) or not str(room_number_val).strip():
                     error_records.append(f"第{row_num}行：房间号不能为空")
                     continue
                 room_number = normalize_cell_str(room_number_val)
@@ -261,25 +256,25 @@ def import_items():
 
                 # 读取物品名称（必填）
                 name_val = row.get('物品名称')
-                if pd.isna(name_val) or not str(name_val).strip():
+                if is_empty(name_val) or not str(name_val).strip():
                     error_records.append(f"第{row_num}行：物品名称不能为空")
                     continue
                 name = str(name_val).strip()
 
                 # 读取物品规格（可选）
                 spec_val = row.get('物品规格')
-                specification = str(spec_val).strip() if pd.notna(spec_val) and str(spec_val).strip() else None
+                specification = str(spec_val).strip() if not is_empty(spec_val) and str(spec_val).strip() else None
 
                 # 读取物品单位（必填）
                 unit_val = row.get('物品单位')
-                if pd.isna(unit_val) or not str(unit_val).strip():
+                if is_empty(unit_val) or not str(unit_val).strip():
                     error_records.append(f"第{row_num}行：物品单位不能为空")
                     continue
                 unit = str(unit_val).strip()
 
                 # 读取物品类型（可选，默认room_bound）
                 type_val = row.get('物品类型')
-                if pd.isna(type_val) or not str(type_val).strip():
+                if is_empty(type_val) or not str(type_val).strip():
                     item_type = 'room_bound'
                 else:
                     type_str = str(type_val).strip()
@@ -287,7 +282,7 @@ def import_items():
 
                 # 读取总数量（必填正整数，默认1）
                 qty_val = row.get('总数量')
-                if pd.isna(qty_val) or str(qty_val).strip() == '':
+                if is_empty(qty_val) or str(qty_val).strip() == '':
                     total_quantity = 1
                 else:
                     try:
@@ -301,7 +296,7 @@ def import_items():
 
                 # 读取状态（可选，默认正常）
                 status_val = row.get('状态')
-                if pd.isna(status_val) or not str(status_val).strip():
+                if is_empty(status_val) or not str(status_val).strip():
                     status = '正常'
                 else:
                     status = str(status_val).strip()
@@ -311,12 +306,12 @@ def import_items():
 
                 # 读取备注（可选）
                 remark_val = row.get('备注')
-                remark = str(remark_val).strip() if pd.notna(remark_val) and str(remark_val).strip() else None
+                remark = str(remark_val).strip() if not is_empty(remark_val) and str(remark_val).strip() else None
 
                 # 读取添加时间（可选，用excel_date_utils解析）
                 created_at_val = row.get('添加时间')
                 created_at = None
-                if pd.notna(created_at_val) and str(created_at_val).strip():
+                if not is_empty(created_at_val) and str(created_at_val).strip():
                     try:
                         parsed_dates = excel_date_utils.parse_excel_date(
                             [created_at_val], field_name='添加时间', raise_error=False
@@ -380,12 +375,12 @@ def import_items():
 
                 # 读取分配用户（可选）
                 assign_user_val = row.get('分配用户')
-                assign_username = str(assign_user_val).strip() if pd.notna(assign_user_val) and str(assign_user_val).strip() else None
+                assign_username = str(assign_user_val).strip() if not is_empty(assign_user_val) and str(assign_user_val).strip() else None
 
                 if assign_username:
                     # 读取分配数量（可选，默认1）
                     assign_qty_val = row.get('分配数量')
-                    if pd.isna(assign_qty_val) or str(assign_qty_val).strip() == '':
+                    if is_empty(assign_qty_val) or str(assign_qty_val).strip() == '':
                         assign_quantity = 1
                     else:
                         try:
@@ -514,10 +509,10 @@ def download_template():
             '分配数量': [2, '']
         }
 
-        # 创建模板DataFrame
-        df = pd.DataFrame(template_data)
+        # 构建模板表头与数据行（说明行位于表头之后、示例数据之前）
+        template_headers = list(template_data.keys())
 
-        # 说明行（作为df第一行）
+        # 说明行（作为模板第一数据行）
         instructions = [
             '*必填项（需与系统中楼栋名称一致）',
             '*必填项（需与系统中房间号一致）',
@@ -532,23 +527,25 @@ def download_template():
             '填用户名（可留空=只导入不分配，需为该房间在住用户）',
             '正整数（可留空默认1，需≤可用数量）'
         ]
-        df.loc[-1] = instructions
-        df.index = df.index + 1
-        df = df.sort_index()
+        example_rows = [
+            [template_data[h][i] for h in template_headers]
+            for i in range(2)
+        ]
+        template_rows = [instructions] + example_rows
 
         # 生成Excel
         output = io.BytesIO()
-        with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            df.to_excel(writer, index=False, sheet_name='物品数据导入模板')
-            worksheet = writer.sheets['物品数据导入模板']
-            # 设置列宽
-            column_widths = [14, 10, 16, 14, 12, 16, 10, 12, 20, 20, 14, 12]
-            for i, width in enumerate(column_widths, 1):
-                worksheet.column_dimensions[chr(64 + i)].width = width
-            # 必填项说明标红（说明行位于第2行）
-            for cell in worksheet[2]:
-                if "*必填项" in str(cell.value):
-                    cell.font = cell.font.copy(color="FF0000")
+        wb = Workbook()
+        ws = write_sheet(wb, '物品数据导入模板', template_headers, template_rows)
+        # 设置列宽
+        column_widths = [14, 10, 16, 14, 12, 16, 10, 12, 20, 20, 14, 12]
+        set_column_widths(ws, column_widths)
+        # 必填项说明标红（说明行位于第2行）
+        for cell in ws[2]:
+            if "*必填项" in str(cell.value):
+                cell.font = Font(color="FF0000")
+        wb.save(output)
+        wb.close()
 
         output.seek(0)
         filename = f"房间物品导入模板_{datetime.now().strftime('%Y%m%d')}.xlsx"

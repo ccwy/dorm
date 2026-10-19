@@ -7,7 +7,7 @@ from models.supply.supplier import Supplier
 from flask_login import login_required, current_user
 from utils.log import log_operation
 from utils.auth import require_permission
-from utils.lazy_imports import pd  # 延迟导入pandas，避免启动时加载重型库
+from utils.excel_utils import is_empty, export_to_excel, read_excel_rows
 import io
 from datetime import datetime
 import traceback
@@ -76,10 +76,10 @@ def export():
         logging.debug(f'数据准备完成，共{len(data)}条记录')
 
         # 生成Excel
-        df = pd.DataFrame(data)
+        headers = ['物品编号', '物品名称', '分类', '规格型号', '品牌', '单位', '供应商',
+                   '单价', '参考价格', '最低库存', '最高库存', '状态', '备注', '创建时间', '更新时间']
         output = io.BytesIO()
-        with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            df.to_excel(writer, index=False, sheet_name='物品数据')
+        export_to_excel([{'name': '物品数据', 'headers': headers, 'rows': data}], output)
 
         output.seek(0)
         filename = f"物品数据导出_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
@@ -156,7 +156,7 @@ def import_items():
             file_content = file.read()
             file_bytes = BytesIO(file_content)
             file_bytes.seek(0)
-            df = pd.read_excel(file_bytes)
+            rows = read_excel_rows(file_bytes)
         except Exception as e:
             detailed_error = f"文件解析失败：{str(e)}"
             flash(detailed_error, 'danger')
@@ -177,8 +177,9 @@ def import_items():
         all_known_columns = set(required_columns) | set(optional_columns)
 
         # 别名列重命名为标准名
+        excel_columns = list(rows[0].keys()) if rows else []
         rename_map = {}
-        for col in df.columns:
+        for col in excel_columns:
             if col in all_known_columns:
                 continue  # 已经是标准名
             for standard_name, aliases in column_alias_map.items():
@@ -186,20 +187,20 @@ def import_items():
                     rename_map[col] = standard_name
                     break
 
-        if rename_map:
-            df = df.rename(columns=rename_map)
-
-        # 识别未匹配的列
-        ignored_columns = [col for col in df.columns if col not in all_known_columns]
+        # 识别未匹配的列（重命名后仍不在白名单中）
+        ignored_columns = [col for col in excel_columns if rename_map.get(col, col) not in all_known_columns]
         if ignored_columns:
             logging.info(f'导入物品数据：自动忽略未识别列 {ignored_columns}')
 
-        # 仅保留白名单列
-        whitelist_columns = [col for col in df.columns if col in all_known_columns]
-        df = df[whitelist_columns]
+        # 重命名为标准名并仅保留白名单列
+        rows = [
+            {rename_map.get(k, k): v for k, v in row.items() if rename_map.get(k, k) in all_known_columns}
+            for row in rows
+        ]
+        excel_columns = [rename_map.get(col, col) for col in excel_columns if rename_map.get(col, col) in all_known_columns]
 
         # 检查必填列缺失
-        missing_columns = [col for col in required_columns if col not in df.columns]
+        missing_columns = [col for col in required_columns if col not in excel_columns]
         if missing_columns:
             flash(f'导入失败：文件缺少必要的列 - {", ".join(missing_columns)}', 'danger')
             logging.error(f'导入物品数据失败：文件缺少必要的列 - {", ".join(missing_columns)}')
@@ -224,13 +225,13 @@ def import_items():
         error_records = []
         warning_records = []
 
-        for index, row in df.iterrows():
+        for index, row in enumerate(rows):
             try:
                 row_num = index + 2
 
                 # 物品名称（必填）
                 name_val = row.get('物品名称')
-                if pd.isna(name_val) or str(name_val).strip() == '':
+                if is_empty(name_val):
                     error_records.append(f"第{row_num}行：物品名称不能为空")
                     fail_count += 1
                     continue
@@ -239,7 +240,7 @@ def import_items():
                 # 物品编号（可选，留空自动生成）
                 item_number = None
                 item_number_val = row.get('物品编号')
-                if pd.notna(item_number_val) and str(item_number_val).strip():
+                if not is_empty(item_number_val):
                     item_number = str(item_number_val).strip()
                     # 检查编号是否已存在
                     existing_by_number = SupplyItem.query.filter_by(item_number=item_number).first()
@@ -257,31 +258,31 @@ def import_items():
                 # 分类（可选）
                 category = None
                 category_val = row.get('分类')
-                if pd.notna(category_val) and str(category_val).strip():
+                if not is_empty(category_val):
                     category = str(category_val).strip()
 
                 # 规格型号（可选）
                 specification = None
                 specification_val = row.get('规格型号')
-                if pd.notna(specification_val) and str(specification_val).strip():
+                if not is_empty(specification_val):
                     specification = str(specification_val).strip()
 
                 # 品牌（可选）
                 brand = None
                 brand_val = row.get('品牌')
-                if pd.notna(brand_val) and str(brand_val).strip():
+                if not is_empty(brand_val):
                     brand = str(brand_val).strip()
 
                 # 单位（可选）
                 unit = None
                 unit_val = row.get('单位')
-                if pd.notna(unit_val) and str(unit_val).strip():
+                if not is_empty(unit_val):
                     unit = str(unit_val).strip()
 
                 # 供应商（可选，按名称匹配）
                 supplier_id = None
                 supplier_val = row.get('供应商')
-                if pd.notna(supplier_val) and str(supplier_val).strip():
+                if not is_empty(supplier_val):
                     supplier_name = str(supplier_val).strip()
                     if supplier_name in supplier_map:
                         supplier_id = supplier_map[supplier_name]
@@ -291,7 +292,7 @@ def import_items():
                 # 单价（可选，默认0）
                 unit_price = 0
                 unit_price_val = row.get('单价')
-                if pd.notna(unit_price_val):
+                if not is_empty(unit_price_val):
                     try:
                         unit_price = float(unit_price_val)
                     except (ValueError, TypeError):
@@ -300,7 +301,7 @@ def import_items():
                 # 参考价格（可选）
                 reference_price = None
                 reference_price_val = row.get('参考价格')
-                if pd.notna(reference_price_val):
+                if not is_empty(reference_price_val):
                     try:
                         reference_price = float(reference_price_val)
                     except (ValueError, TypeError):
@@ -309,7 +310,7 @@ def import_items():
                 # 最低库存（可选，使用系统配置默认值）
                 min_stock = default_min_stock
                 min_stock_val = row.get('最低库存')
-                if pd.notna(min_stock_val):
+                if not is_empty(min_stock_val):
                     try:
                         min_stock = int(float(min_stock_val))
                     except (ValueError, TypeError):
@@ -318,7 +319,7 @@ def import_items():
                 # 最高库存（可选）
                 max_stock = None
                 max_stock_val = row.get('最高库存')
-                if pd.notna(max_stock_val):
+                if not is_empty(max_stock_val):
                     try:
                         max_stock = int(float(max_stock_val))
                     except (ValueError, TypeError):
@@ -327,7 +328,7 @@ def import_items():
                 # 状态（可选，默认"启用"）
                 status = '启用'
                 status_val = row.get('状态')
-                if pd.notna(status_val) and str(status_val).strip():
+                if not is_empty(status_val):
                     status = str(status_val).strip()
                 if status not in ['启用', '停用']:
                     status = '启用'
@@ -335,7 +336,7 @@ def import_items():
                 # 备注（可选）
                 remark = None
                 remark_val = row.get('备注')
-                if pd.notna(remark_val) and str(remark_val).strip():
+                if not is_empty(remark_val):
                     remark = str(remark_val).strip()
 
                 # 检查名称+规格+单位组合是否重复（非编号覆盖场景）
@@ -461,27 +462,27 @@ def _update_item_from_row(item, row, row_num, supplier_map, default_min_stock, w
     """根据导入行数据更新已有物品（按编号匹配覆盖时使用）"""
     # 分类
     category_val = row.get('分类')
-    if pd.notna(category_val) and str(category_val).strip():
+    if not is_empty(category_val):
         item.category = str(category_val).strip()
 
     # 规格型号
     specification_val = row.get('规格型号')
-    if pd.notna(specification_val) and str(specification_val).strip():
+    if not is_empty(specification_val):
         item.specification = str(specification_val).strip()
 
     # 品牌
     brand_val = row.get('品牌')
-    if pd.notna(brand_val) and str(brand_val).strip():
+    if not is_empty(brand_val):
         item.brand = str(brand_val).strip()
 
     # 单位
     unit_val = row.get('单位')
-    if pd.notna(unit_val) and str(unit_val).strip():
+    if not is_empty(unit_val):
         item.unit = str(unit_val).strip()
 
     # 供应商
     supplier_val = row.get('供应商')
-    if pd.notna(supplier_val) and str(supplier_val).strip():
+    if not is_empty(supplier_val):
         supplier_name = str(supplier_val).strip()
         if supplier_name in supplier_map:
             item.supplier_id = supplier_map[supplier_name]
@@ -490,7 +491,7 @@ def _update_item_from_row(item, row, row_num, supplier_map, default_min_stock, w
 
     # 单价
     unit_price_val = row.get('单价')
-    if pd.notna(unit_price_val):
+    if not is_empty(unit_price_val):
         try:
             item.unit_price = float(unit_price_val)
         except (ValueError, TypeError):
@@ -498,7 +499,7 @@ def _update_item_from_row(item, row, row_num, supplier_map, default_min_stock, w
 
     # 参考价格
     reference_price_val = row.get('参考价格')
-    if pd.notna(reference_price_val):
+    if not is_empty(reference_price_val):
         try:
             item.reference_price = float(reference_price_val)
         except (ValueError, TypeError):
@@ -506,7 +507,7 @@ def _update_item_from_row(item, row, row_num, supplier_map, default_min_stock, w
 
     # 最低库存
     min_stock_val = row.get('最低库存')
-    if pd.notna(min_stock_val):
+    if not is_empty(min_stock_val):
         try:
             item.min_stock = int(float(min_stock_val))
         except (ValueError, TypeError):
@@ -514,7 +515,7 @@ def _update_item_from_row(item, row, row_num, supplier_map, default_min_stock, w
 
     # 最高库存
     max_stock_val = row.get('最高库存')
-    if pd.notna(max_stock_val):
+    if not is_empty(max_stock_val):
         try:
             item.max_stock = int(float(max_stock_val))
         except (ValueError, TypeError):
@@ -522,19 +523,19 @@ def _update_item_from_row(item, row, row_num, supplier_map, default_min_stock, w
 
     # 状态
     status_val = row.get('状态')
-    if pd.notna(status_val) and str(status_val).strip():
+    if not is_empty(status_val):
         status = str(status_val).strip()
         if status in ['启用', '停用']:
             item.status = status
 
     # 备注
     remark_val = row.get('备注')
-    if pd.notna(remark_val) and str(remark_val).strip():
+    if not is_empty(remark_val):
         item.remark = str(remark_val).strip()
 
     # 名称
     name_val = row.get('物品名称')
-    if pd.notna(name_val) and str(name_val).strip():
+    if not is_empty(name_val):
         item.name = str(name_val).strip()
 
     item.operator_user_id = operator_user_id
@@ -550,26 +551,25 @@ def download_template():
         logging.debug('开始生成物品数据导入模板')
 
         # 模板数据生成
-        template_data = {
-            "物品编号": ["YP2026080001", "", ""],
-            "物品名称": ["示例物品A", "示例物品B", "示例物品C"],
-            "分类": ["办公用品", "清洁用品", "维修工具"],
-            "规格型号": ["A4 500张/包", "500ml/瓶", "十字 PH2"],
-            "品牌": ["得力", "蓝月亮", ""],
-            "单位": ["包", "瓶", "把"],
-            "供应商": ["示例供应商A", "示例供应商B", ""],
-            "单价": [25.00, 15.50, 35.00],
-            "参考价格": [28.00, 18.00, ""],
-            "最低库存": [10, 5, 2],
-            "最高库存": [100, 50, 20],
-            "状态": ["启用", "启用", "停用"],
-            "备注": ["常用办公用品", "", "备用工具"],
-        }
+        headers = ["物品编号", "物品名称", "分类", "规格型号", "品牌", "单位", "供应商",
+                   "单价", "参考价格", "最低库存", "最高库存", "状态", "备注"]
+        template_rows = [
+            {"物品编号": "YP2026080001", "物品名称": "示例物品A", "分类": "办公用品",
+             "规格型号": "A4 500张/包", "品牌": "得力", "单位": "包",
+             "供应商": "示例供应商A", "单价": 25.00, "参考价格": 28.00,
+             "最低库存": 10, "最高库存": 100, "状态": "启用", "备注": "常用办公用品"},
+            {"物品编号": "", "物品名称": "示例物品B", "分类": "清洁用品",
+             "规格型号": "500ml/瓶", "品牌": "蓝月亮", "单位": "瓶",
+             "供应商": "示例供应商B", "单价": 15.50, "参考价格": 18.00,
+             "最低库存": 5, "最高库存": 50, "状态": "启用", "备注": ""},
+            {"物品编号": "", "物品名称": "示例物品C", "分类": "维修工具",
+             "规格型号": "十字 PH2", "品牌": "", "单位": "把",
+             "供应商": "", "单价": 35.00, "参考价格": "",
+             "最低库存": 2, "最高库存": 20, "状态": "停用", "备注": "备用工具"},
+        ]
 
-        df = pd.DataFrame(template_data)
         output = io.BytesIO()
-        with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            df.to_excel(writer, index=False, sheet_name='物品数据')
+        export_to_excel([{'name': '物品数据', 'headers': headers, 'rows': template_rows}], output)
 
         output.seek(0)
         filename = "物品数据导入模板.xlsx"

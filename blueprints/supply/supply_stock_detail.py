@@ -10,7 +10,7 @@ import logging
 import io
 import traceback
 from datetime import datetime
-from utils.lazy_imports import pd
+from utils.excel_utils import export_to_excel
 
 # 定义蓝图
 supply_stock_detail_bp = Blueprint(
@@ -482,10 +482,10 @@ def export_stock_details():
                 })
 
         # 生成Excel
-        df = pd.DataFrame(data)
+        headers = ['物品编号', '物品名称', '分类', '规格型号', '单位', '单价',
+                   '存放位置', '位置库存数量', '总库存数量', '最低库存', '状态']
         output = io.BytesIO()
-        with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            df.to_excel(writer, index=False, sheet_name='库存明细')
+        export_to_excel([{'name': '库存明细', 'headers': headers, 'rows': data}], output)
 
         output.seek(0)
         filename = f"库存明细导出_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"

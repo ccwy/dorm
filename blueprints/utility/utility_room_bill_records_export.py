@@ -5,7 +5,8 @@ from models.utility.utility_room_bill_record import RoomUtilityRecord
 from datetime import datetime
 import io
 import logging
-import pandas as pd
+from utils.lazy_imports import Workbook
+from utils.excel_utils import write_sheet
 
 utility_room_bill_records_export_bp = Blueprint('utility_room_bill_records_export', __name__, url_prefix='/utility_room_bill_records_export')
 
@@ -25,7 +26,7 @@ COLUMN_MAP = [
     ('electric_price', '电费单价'),
     ('total_electric_fee', '电费总额'),
     ('billing_electric_fee', '电费计费金额'),
-    ('checked_out_electric_fee', '已结算电费'),
+    ('checked_out_electric_fee', '退宿已结算电费'),
     ('receivable_electric_fee', '应付电费'),
     ('water_previous', '水表上期读数'),
     ('water_current', '水表本期读数'),
@@ -35,12 +36,12 @@ COLUMN_MAP = [
     ('water_price', '水费单价'),
     ('total_water_fee', '水费总额'),
     ('billing_water_fee', '水费计费金额'),
-    ('checked_out_water_fee', '已结算水费'),
+    ('checked_out_water_fee', '退宿已结算水费'),
     ('receivable_water_fee', '应付水费'),
     ('room_reduction_fee', '房间减免费'),
     ('total_fee', '费用总额'),
     ('billing_total_fee', '计费总额'),
-    ('checked_out_total_fee', '已结算总额'),
+    ('checked_out_total_fee', '退宿已结算总额'),
     ('receivable_total_fee', '应付总额'),
     ('actual_total_fee', '实际应付总额'),
     ('status', '状态'),
@@ -101,12 +102,15 @@ def export():
             rows.append(row)
 
         headers = [ch for _, ch in COLUMN_MAP]
-        df = pd.DataFrame(rows, columns=[f for f, _ in COLUMN_MAP])
-        df.columns = headers
+        # 按列顺序构建数据行
+        data_rows = [[row.get(f) for f, _ in COLUMN_MAP] for row in rows]
 
         output = io.BytesIO()
-        with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            df.to_excel(writer, index=False, sheet_name='费用主表')
+        wb = Workbook()
+        wb.remove(wb.active)  # 移除默认空工作表
+        write_sheet(wb, '费用主表', headers, data_rows)
+        wb.save(output)
+        wb.close()
         output.seek(0)
 
         filename = f'费用主表_{billing_period}_{datetime.now()}.xlsx'

@@ -6,7 +6,7 @@ from utils.log import log_operation
 import traceback
 from utils.auth import require_permission
 from models.supply.supply_stock_record import SupplyStockRecord
-from utils.lazy_imports import pd
+from utils.excel_utils import export_to_excel
 import io
 from datetime import datetime
 
@@ -506,10 +506,11 @@ def export():
         logging.debug(f'数据准备完成，共{len(data)}条记录')
 
         # 生成Excel
-        df = pd.DataFrame(data)
+        headers = ['记录类型', '记录时间', '物品编号', '物品名称', '规格型号', '存放位置',
+                   '变动数量', '单位', '单价', '总金额', '来源单号', '来源类型',
+                   '领用人', '领用部门', '操作人', '备注']
         output = io.BytesIO()
-        with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            df.to_excel(writer, index=False, sheet_name='进出库记录')
+        export_to_excel([{'name': '进出库记录', 'headers': headers, 'rows': data}], output)
 
         output.seek(0)
         filename = f"进出库记录导出_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"

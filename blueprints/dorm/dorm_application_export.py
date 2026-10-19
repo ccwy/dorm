@@ -2,7 +2,8 @@ from flask import Blueprint, request, make_response, abort, jsonify, flash, redi
 from flask_login import login_required, current_user
 from utils.auth import require_permission
 from utils.log import log_operation
-from utils.lazy_imports import pd  # 延迟导入pandas
+from utils.lazy_imports import Workbook  # 延迟导入openpyxl
+from utils.excel_utils import write_sheet, set_column_widths
 from io import BytesIO
 from urllib.parse import quote
 from datetime import datetime
@@ -104,34 +105,17 @@ def export_applications():
             data.append(row)
 
         # 生成Excel文件
+        headers = ['申请编号', '申请人', '部门', '性别', '年龄', '职位', '申请类型', '状态', '宿舍信息', '申请原因', '期望入住日期', '期望退宿日期', '审核人', '审核时间', '审核备注', '申请日期']
         output = BytesIO()
-        with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            df = pd.DataFrame(data)
-            df.to_excel(writer, index=False, sheet_name='宿舍申请记录')
+        wb = Workbook()
+        wb.remove(wb.active)  # 移除默认空工作表
+        worksheet = write_sheet(wb, '宿舍申请记录', headers, data)
 
-            # 调整列宽
-            worksheet = writer.sheets['宿舍申请记录']
-            column_widths = {
-                'A': 18,  # 申请编号
-                'B': 10,  # 申请人
-                'C': 12,  # 部门
-                'D': 6,   # 性别
-                'E': 6,   # 年龄
-                'F': 10,  # 职位
-                'G': 10,  # 申请类型
-                'H': 8,   # 状态
-                'I': 18,  # 宿舍信息
-                'J': 25,  # 申请原因
-                'K': 14,  # 期望入住日期
-                'L': 14,  # 期望退宿日期
-                'M': 10,  # 审核人
-                'N': 18,  # 审核时间
-                'O': 25,  # 审核备注
-                'P': 18,  # 申请日期
-            }
-            for col_letter, width in column_widths.items():
-                worksheet.column_dimensions[col_letter].width = width
+        # 调整列宽
+        set_column_widths(worksheet, [18, 10, 12, 6, 6, 10, 10, 8, 18, 25, 14, 14, 10, 18, 25, 18])
 
+        wb.save(output)
+        wb.close()
         output.seek(0)
 
         # 构建下载响应

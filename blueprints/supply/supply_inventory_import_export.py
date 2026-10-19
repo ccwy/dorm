@@ -7,7 +7,6 @@ from models.supply.supply_inventory_detail import SupplyInventoryDetail
 from flask_login import login_required, current_user
 from utils.auth import require_permission
 from utils.log import log_operation
-from utils.lazy_imports import pd  # 延迟导入pandas，避免启动时加载重型库
 import io
 from datetime import datetime
 import traceback

@@ -1,8 +1,7 @@
 import datetime
+import math
 import re
 from typing import List, Any
-from utils.lazy_imports import pd  # 延迟导入pandas，避免启动时加载重型库
-import datetime
 
 class ExcelDateUtils:
     """
@@ -155,7 +154,7 @@ class ExcelDateUtils:
     @classmethod
     def _parse_single_date(cls, value: Any, field_name: str = None, row_num: int = None) -> datetime.datetime:
         """内部方法：解析单个Excel日期值为datetime对象，仅在批量处理中使用"""
-        if value is None or pd.isna(value):
+        if value is None or (isinstance(value, float) and math.isnan(value)):
             raise ValueError(f"日期值不能为空{cls._get_context_info(field_name, row_num)}")
             
         # 如果已经是日期类型，直接返回
@@ -164,10 +163,6 @@ class ExcelDateUtils:
                 return datetime.datetime.combine(value, datetime.time.min)
             return value
         
-        # 处理pandas Timestamp类型
-        if isinstance(value, pd.Timestamp):
-            return value.to_pydatetime()
-            
         # 处理Excel序列号（数字）
         if isinstance(value, (int, float)):
             # 检查序列号是否有效
@@ -222,7 +217,7 @@ class ExcelDateUtils:
         批量解析Excel中的日期值为datetime对象，专为批量导入过程设计
         
         参数:
-            values: 要解析的日期值列表或pandas Series（仅支持批量输入）
+            values: 要解析的日期值列表（仅支持批量输入）
             field_name: 可选，字段名，用于错误信息
             raise_error: 可选，解析失败时是否抛出异常，默认为True
         
@@ -231,17 +226,13 @@ class ExcelDateUtils:
         
         异常:
             ValueError: 当解析失败且raise_error为True时
-            TypeError: 当输入类型不是列表或pandas Series时
+            TypeError: 当输入类型不是列表时
         """
-        # 检查输入类型，只接受列表或pandas Series
-        if not isinstance(values, (list, pd.Series)):
-            raise TypeError(f"只支持批量处理列表或pandas Series类型的输入，不支持单个值处理")
-            
-        # 转换pandas Series为列表
-        if isinstance(values, pd.Series):
-            batch_values = values.tolist()
-        else:
-            batch_values = values
+        # 检查输入类型，只接受列表
+        if not isinstance(values, list):
+            raise TypeError(f"只支持批量处理列表类型的输入，不支持单个值处理")
+
+        batch_values = values
             
         # 创建结果列表用于存储批量处理的结果
         results = []

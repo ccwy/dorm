@@ -2,8 +2,6 @@
 # 此文件用于 Android 平台构建，排除了桌面专用包
 
 # 需 Chaquopy 预编译的 C 扩展包（版本可能需根据 Chaquopy 支持情况调整）
-pandas>=2.0.3,<2.1  # Chaquopy 预编译版本可能受限，构建时需验证
-numpy>=1.24.4,<1.25  # Chaquopy 预编译版本可能受限，构建时需验证
 cryptography>=41.0.7,<43.0
 Pillow>=10.4.0,<11.0
 

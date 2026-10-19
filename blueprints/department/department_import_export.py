@@ -6,7 +6,8 @@ from models.department.department import Department
 from flask_login import login_required, current_user
 from utils.auth import require_permission
 from utils.log import log_operation
-from utils.lazy_imports import pd  # 延迟导入pandas，避免启动时加载重型库
+from utils.excel_utils import is_empty, export_to_excel, read_excel_rows
+from utils.excel_date_utils import excel_date_utils
 import io
 from datetime import datetime
 import traceback
@@ -62,10 +63,9 @@ def export():
         logging.debug(f'数据准备完成，共{len(data)}条记录')
 
         # 生成Excel
-        df = pd.DataFrame(data)
+        headers = ['部门名称', '所属公司', '部门描述', '状态', '新增日期', '创建时间', '更新时间']
         output = io.BytesIO()
-        with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            df.to_excel(writer, index=False, sheet_name='部门数据')
+        export_to_excel([{'name': '部门数据', 'headers': headers, 'rows': data}], output)
 
         output.seek(0)
         filename = f"部门数据导出_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
@@ -142,7 +142,7 @@ def import_departments():
             file_content = file.read()
             file_bytes = BytesIO(file_content)
             file_bytes.seek(0)
-            df = pd.read_excel(file_bytes)
+            rows = read_excel_rows(file_bytes)
         except Exception as e:
             detailed_error = f"文件解析失败：{str(e)}"
             log_operation(
@@ -167,8 +167,9 @@ def import_departments():
         all_known_columns = set(required_columns) | set(optional_columns)
 
         # 别名列重命名为标准名
+        excel_columns = list(rows[0].keys()) if rows else []
         rename_map = {}
-        for col in df.columns:
+        for col in excel_columns:
             if col in all_known_columns:
                 continue  # 已经是标准名
             for standard_name, aliases in column_alias_map.items():
@@ -176,20 +177,20 @@ def import_departments():
                     rename_map[col] = standard_name
                     break
 
-        if rename_map:
-            df = df.rename(columns=rename_map)
-
-        # 识别未匹配的列
-        ignored_columns = [col for col in df.columns if col not in all_known_columns]
+        # 识别未匹配的列（重命名后的列名不在白名单中）
+        ignored_columns = [col for col in excel_columns if rename_map.get(col, col) not in all_known_columns]
         if ignored_columns:
             logging.info(f'导入部门数据：自动忽略未识别列 {ignored_columns}')
 
-        # 仅保留白名单列
-        whitelist_columns = [col for col in df.columns if col in all_known_columns]
-        df = df[whitelist_columns]
+        # 重命名为标准名并仅保留白名单列
+        rows = [
+            {rename_map.get(k, k): v for k, v in row.items() if rename_map.get(k, k) in all_known_columns}
+            for row in rows
+        ]
+        excel_columns = [rename_map.get(col, col) for col in excel_columns if rename_map.get(col, col) in all_known_columns]
 
         # 检查必填列缺失
-        missing_columns = [col for col in required_columns if col not in df.columns]
+        missing_columns = [col for col in required_columns if col not in excel_columns]
         if missing_columns:
             flash(f'导入失败：文件缺少必要的列 - {", ".join(missing_columns)}', 'danger')
             logging.error(f'导入部门数据失败：文件缺少必要的列 - {", ".join(missing_columns)}')
@@ -200,13 +201,13 @@ def import_departments():
         fail_count = 0
         error_records = []
 
-        for index, row in df.iterrows():
+        for index, row in enumerate(rows):
             try:
                 row_num = index + 2
 
                 # 部门名称（必填）
                 name_val = row.get('部门名称')
-                if pd.isna(name_val) or str(name_val).strip() == '':
+                if is_empty(name_val):
                     error_records.append(f"第{row_num}行：部门名称不能为空")
                     fail_count += 1
                     continue
@@ -214,24 +215,22 @@ def import_departments():
 
                 # 所属公司（可选）
                 company_val = row.get('所属公司')
-                company = str(company_val).strip() if pd.notna(company_val) and str(company_val).strip() else None
+                company = str(company_val).strip() if not is_empty(company_val) else None
 
                 # 部门描述（可选）
                 description_val = row.get('部门描述')
-                description = str(description_val).strip() if pd.notna(description_val) and str(description_val).strip() else None
+                description = str(description_val).strip() if not is_empty(description_val) else None
 
                 # 新增日期（可选）
-                created_date_str = str(row.get('新增日期', '')).strip() if pd.notna(row.get('新增日期')) else ''
+                created_date_val = row.get('新增日期')
                 created_date = None
-                if created_date_str:
-                    try:
-                        created_date = datetime.strptime(created_date_str, '%Y-%m-%d').date()
-                    except ValueError:
-                        pass
+                if not is_empty(created_date_val):
+                    parsed = excel_date_utils.parse_excel_date([created_date_val], field_name='创建日期', raise_error=False)
+                    created_date = parsed[0].date() if parsed[0] else None
 
                 # 状态（可选，默认"正常"）
                 status_val = row.get('状态')
-                status = str(status_val).strip() if pd.notna(status_val) and str(status_val).strip() else '正常'
+                status = str(status_val).strip() if not is_empty(status_val) else '正常'
                 if status not in ['正常', '停用']:
                     status = '正常'
 
@@ -320,10 +319,10 @@ def download_template():
             "新增日期": ["2026-01-01", "2026-01-15", "2026-02-01"],
         }
 
-        df = pd.DataFrame(template_data)
+        headers = list(template_data.keys())
+        template_rows = [list(vals) for vals in zip(*template_data.values())]
         output = io.BytesIO()
-        with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            df.to_excel(writer, index=False, sheet_name='部门数据')
+        export_to_excel([{'name': '部门数据', 'headers': headers, 'rows': template_rows}], output)
 
         output.seek(0)
         filename = "部门数据导入模板.xlsx"

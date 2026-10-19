@@ -1,6 +1,6 @@
 """
 延迟导入工具模块
-提供重型库（pandas、openpyxl等）的延迟加载代理，
+提供重型库（openpyxl等）的延迟加载代理，
 使模块级导入不会触发实际库加载，仅在首次使用时才导入。
 """
 import importlib
@@ -68,7 +68,6 @@ class _LazyAttr:
 
 
 # 预定义常用重型库的延迟导入
-pd = _LazyModule('pandas')
 openpyxl = _LazyModule('openpyxl')
 
 # openpyxl 常用类/函数的延迟导入（支持 from ... import 风格）

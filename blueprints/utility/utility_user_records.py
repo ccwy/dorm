@@ -16,6 +16,8 @@ from urllib.parse import quote
 from utils.log import log_operation
 # 导入权限装饰器
 from utils.auth import require_permission
+from utils.lazy_imports import Workbook
+from utils.excel_utils import write_sheet, auto_fit_columns
 
 # 创建蓝图
 utility_user_records_bp = Blueprint('utility_user_records', __name__, url_prefix='/utility')
@@ -345,7 +347,6 @@ def export_user_records_excel():
     导出用户水电费详情为Excel文件
     包含用户id、工号、用户姓名、用户性别、部门、职位、房间号、类型、应付金额（多房间时汇总）和备注（每个房间金额）
     """
-    import pandas as pd  # 延迟导入，避免启动时加载重型库
     try:
         # 获取筛选参数
         billing_period = request.args.get('billing_period', '')
@@ -567,27 +568,23 @@ def export_user_records_excel():
             flash('没有可导出的数据', 'warning')
             return redirect(url_for('utility_user_records.user_records'))
         
-        # 创建DataFrame
-        df = pd.DataFrame(export_data)
-        
-        # 设置数值格式化
-        df['分摊总费用'] = df['分摊总费用'].apply(lambda x: f"{x:.2f}")
-        
+        # 构建表头（与导出数据字段顺序一致）
+        headers = list(export_data[0].keys())
+
+        # 设置数值格式化（分摊总费用保留两位小数）
+        for item in export_data:
+            item['分摊总费用'] = f"{item['分摊总费用']:.2f}"
+
         # 创建Excel文件
         output = BytesIO()
-        with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            # 设置工作表名称
-            sheet_name = f"用户费用详情_{billing_period}"
-            # 写入数据
-            df.to_excel(writer, index=False, sheet_name=sheet_name)
-            
-            # 获取工作表对象
-            worksheet = writer.sheets[sheet_name]
-            
-            # 调整列宽
-            for column_cells in worksheet.columns:
-                length = max(len(str(cell.value)) for cell in column_cells) + 2
-                worksheet.column_dimensions[column_cells[0].column_letter].width = min(length, 30)  # 最大宽度限制
+        sheet_name = f"用户费用详情_{billing_period}"
+        wb = Workbook()
+        wb.remove(wb.active)  # 移除默认空工作表
+        ws = write_sheet(wb, sheet_name, headers, export_data)
+        # 调整列宽（最大宽度限制30）
+        auto_fit_columns(ws, max_width=30)
+        wb.save(output)
+        wb.close()
         
         # 准备响应
         output.seek(0)

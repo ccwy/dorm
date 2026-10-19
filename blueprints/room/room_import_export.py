@@ -11,7 +11,8 @@ from models.user.user import User
 from flask_login import login_required, current_user
 from utils.auth import require_permission
 from utils.log import log_operation
-from utils.lazy_imports import pd  # 延迟导入pandas，避免启动时加载重型库
+from utils.excel_utils import is_empty, export_to_excel, read_excel_rows, write_sheet, set_column_widths
+from utils.lazy_imports import Workbook, load_workbook, Font
 import io
 from datetime import datetime, timedelta
 import traceback
@@ -169,14 +170,21 @@ def export():
         logging.debug(f'物品数据准备完成，共{len(item_data)}条记录')
         
         # 生成Excel（多sheet）
-        df_rooms = pd.DataFrame(data)
-        df_facilities = pd.DataFrame(facility_data)
-        df_items = pd.DataFrame(item_data) if item_data else pd.DataFrame(columns=['物品ID', '房间ID', '楼栋', '房间号', '物品名称', '物品类型', '总数量', '可用数量', '状态', '备注', '创建时间', '更新时间'])
+        # 房间数据表头（与原导出列顺序一致）
+        room_headers = ['ID', '楼栋', '房间号', '地址', '房间类型', '房间级别', '性别限制', '容量', '当前入住', '入住率', '当前在住人员', '状态', '对外租金', '成本租金', '房间设施', '电表最大量程', '水表最大量程', '房间水电费减免金额', '用水量减免度数', '用电量减免度数', '备注', '添加时间', '更新时间']
+        if custom_field_defs:
+            for field_def in custom_field_defs:
+                label = field_def.get('label', field_def.get('field_key', ''))
+                if label and label not in room_headers:
+                    room_headers.append(label)
+        facility_headers = ['设施ID', '房间ID', '楼栋', '房间号', '设施名称', '设施数量', '设施状态', '设施备注', '创建时间', '更新时间']
+        item_headers = ['物品ID', '房间ID', '楼栋', '房间号', '物品名称', '物品类型', '总数量', '可用数量', '状态', '备注', '创建时间', '更新时间']
         output = io.BytesIO()
-        with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            df_rooms.to_excel(writer, index=False, sheet_name='房间数据')
-            df_facilities.to_excel(writer, index=False, sheet_name='设施数据')
-            df_items.to_excel(writer, index=False, sheet_name='物品数据')
+        export_to_excel([
+            {'name': '房间数据', 'headers': room_headers, 'rows': data},
+            {'name': '设施数据', 'headers': facility_headers, 'rows': facility_data},
+            {'name': '物品数据', 'headers': item_headers, 'rows': item_data},
+        ], output)
         
         output.seek(0)
         filename = f"房间数据导出_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
@@ -246,7 +254,7 @@ def import_rooms():
             file_content = file.read()
             file_bytes = BytesIO(file_content)
             file_bytes.seek(0)
-            df = pd.read_excel(file_bytes)
+            df = read_excel_rows(file_bytes)
         except Exception as e:
             detailed_error = f"文件解析失败：{str(e)}"
             log_operation(
@@ -279,7 +287,8 @@ def import_rooms():
         # 构建列名映射：只保留白名单中的列，其余自动忽略
         column_mapping = {}
         ignored_columns = []
-        for col in df.columns:
+        excel_columns = list(df[0].keys()) if df else []
+        for col in excel_columns:
             # 先检查是否直接匹配标准列名
             if col in all_known_columns:
                 continue  # 标准列名无需映射
@@ -297,16 +306,17 @@ def import_rooms():
             logging.info(f'导入房间数据：自动忽略未识别列 {ignored_columns}')
 
         # 重命名列以统一标准，并只保留白名单中的列（房间ID为别名映射列，导入时忽略）
-        if column_mapping:
-            df = df.rename(columns=column_mapping)
-        whitelist_columns = [col for col in df.columns if col in all_known_columns]
-        df = df[whitelist_columns]
+        df = [
+            {column_mapping.get(k, k): v for k, v in row.items() if column_mapping.get(k, k) in all_known_columns}
+            for row in df
+        ]
+        final_columns = list(df[0].keys()) if df else []
 
         # 检测Excel中实际包含的自定义字段列
-        custom_columns_in_excel = [col for col in df.columns if col in custom_field_labels]
+        custom_columns_in_excel = [col for col in final_columns if col in custom_field_labels]
         # 获取自定义字段定义（用于导入时校验和checkbox标准化）
         custom_field_defs_import = get_custom_field_definitions('room')
-        missing_columns = [col for col in required_columns if col not in df.columns]
+        missing_columns = [col for col in required_columns if col not in final_columns]
         if missing_columns:
             flash(f'导入失败：文件缺少必要的列 - {", ".join(missing_columns)}', 'danger')
             logging.error(f'导入房间数据失败：文件缺少必要的列 - {", ".join(missing_columns)}')
@@ -328,7 +338,7 @@ def import_rooms():
         error_records = []
         
         # 提取所有添加时间值进行批量解析
-        created_at_values = df.get('添加时间', pd.Series([None] * len(df)))  # 获取添加时间列或创建空Series
+        created_at_values = [row.get('添加时间') for row in df]  # 获取添加时间列
         try:
             # 使用excel_date_utils批量解析添加时间
             parsed_dates = excel_date_utils.parse_excel_date(created_at_values, field_name='添加时间', raise_error=False)
@@ -340,6 +350,8 @@ def import_rooms():
         
         # 规范化Excel单元格值：浮点整数（如1.0、101.0）转为整数字符串（"1"、"101"），否则保留原字符串（如"1栋"、"A101"）
         def normalize_cell_str(val):
+            if is_empty(val):
+                return ''
             s = str(val).strip()
             try:
                 f = float(s)
@@ -349,7 +361,7 @@ def import_rooms():
                 pass
             return s
 
-        for index, row in df.iterrows():
+        for index, row in enumerate(df):
             try:
                 row_num = index + 2
                 
@@ -358,7 +370,7 @@ def import_rooms():
                 building = normalize_cell_str(building_val) or 'A'
 
                 room_number_val = row['房间号']
-                if pd.isna(room_number_val):
+                if is_empty(room_number_val):
                     error_records.append(f"第{row_num}行：房间号不能为空")
                     continue
                 room_number = normalize_cell_str(room_number_val)
@@ -371,7 +383,7 @@ def import_rooms():
                 
                 # 处理房间级别
                 room_level_val = row.get('房间级别')
-                if pd.isna(room_level_val) or str(room_level_val).strip() == '':
+                if is_empty(room_level_val) or str(room_level_val).strip() == '':
                     room_level = '员工'
                 else:
                     room_level = str(room_level_val).strip()
@@ -380,7 +392,7 @@ def import_rooms():
                 
                 # 处理房间类型
                 room_type_val = row['房间类型']
-                room_type_text = str(room_type_val).strip() if not pd.isna(room_type_val) else '四人间'
+                room_type_text = str(room_type_val).strip() if not is_empty(room_type_val) else '四人间'
 
                 if room_type_text not in valid_room_types:
                     error_records.append(
@@ -389,7 +401,7 @@ def import_rooms():
 
                 # 处理容量
                 capacity_val = row['容量']
-                if pd.isna(capacity_val):
+                if is_empty(capacity_val):
                     capacity = 4
                 else:
                     try:
@@ -400,23 +412,23 @@ def import_rooms():
                 
                 # 处理性别限制
                 gender_val = row['性别限制']
-                gender_text = str(gender_val).strip() if not pd.isna(gender_val) else '无限制'
+                gender_text = str(gender_val).strip() if not is_empty(gender_val) else '无限制'
                 
                 # 处理状态字段
                 status_val = row.get('状态')
-                status_text = str(status_val).strip() if not pd.isna(status_val) else '可用'
+                status_text = str(status_val).strip() if not is_empty(status_val) else '可用'
                 
                 # 处理租金字段
                 try:
                     external_rent_val = row.get('对外租金', 0) or 0
                     external_rent = float(external_rent_val)
-                    if pd.isna(external_rent):
+                    if is_empty(external_rent):
                         external_rent = 0.0
                     external_rent = int(external_rent)
 
                     cost_rent_val = row.get('成本租金', 0) or 0
                     cost_rent = float(cost_rent_val)
-                    if pd.isna(cost_rent):
+                    if is_empty(cost_rent):
                         cost_rent = 0.0
                     cost_rent = int(cost_rent)
                 except (ValueError, TypeError):
@@ -424,7 +436,7 @@ def import_rooms():
                     continue
                 
                 # 处理房间设施
-                facilities_str = str(row.get('房间设施', '')).strip() if not pd.isna(row.get('房间设施')) else ''
+                facilities_str = str(row.get('房间设施', '')).strip() if not is_empty(row.get('房间设施')) else ''
                 facilities = []
                 
                 if facilities_str:
@@ -453,7 +465,7 @@ def import_rooms():
                 facilities_data[room_key] = facilities
                 
                 # 处理备注
-                remark = str(row.get('备注', '')).strip() if not pd.isna(row.get('备注')) else ''
+                remark = str(row.get('备注', '')).strip() if not is_empty(row.get('备注')) else ''
                 
                 # 基础数据验证
                 if capacity <= 0:
@@ -469,7 +481,7 @@ def import_rooms():
                 created_at = parsed_dates[index]  # 使用批量解析的结果
                 
                 # 如果原始值存在但解析结果为None，添加错误信息
-                if pd.notna(created_at_value) and created_at is None:
+                if not is_empty(created_at_value) and created_at is None:
                     error_records.append(f"第{row_num}行：添加时间格式无效，请使用正确的日期时间格式")
                     continue
                 
@@ -477,7 +489,7 @@ def import_rooms():
                 room_data_item = {
                     '楼栋': building,
                     '房间号': room_number,
-                    '地址': str(row.get('地址', '')).strip() if not pd.isna(row.get('地址')) else '',
+                    '地址': str(row.get('地址', '')).strip() if not is_empty(row.get('地址')) else '',
                     '房间类型': room_type_text,
                     '房间级别': room_level,
                     '容量': capacity,
@@ -495,7 +507,7 @@ def import_rooms():
                 if custom_columns_in_excel:
                     custom_data = {}
                     for label in custom_columns_in_excel:
-                        if label in row.index and not pd.isna(row[label]):
+                        if label in row and not is_empty(row[label]):
                             field_key = custom_label_to_key.get(label, '')
                             if field_key:
                                 # checkbox类型值标准化
@@ -576,9 +588,12 @@ def import_rooms():
         try:
             # 重新读取Excel文件检查是否有物品数据sheet
             file_bytes.seek(0)
-            xl = pd.ExcelFile(file_bytes)
-            if '物品数据' in xl.sheet_names:
-                df_items = pd.read_excel(xl, sheet_name='物品数据')
+            wb_check = load_workbook(file_bytes, data_only=True, read_only=True)
+            has_item_sheet = '物品数据' in wb_check.sheetnames
+            wb_check.close()
+            if has_item_sheet:
+                file_bytes.seek(0)
+                df_items = read_excel_rows(file_bytes, sheet_name='物品数据')
                 logging.info(f'发现物品数据sheet，共{len(df_items)}条记录，开始导入')
                 
                 # 构建楼栋+房间号到房间ID的映射
@@ -592,12 +607,12 @@ def import_rooms():
                 # 有效状态列表
                 valid_item_statuses = list(RoomItem.STATUS_MAP.keys())
                 
-                for idx, row in df_items.iterrows():
+                for idx, row in enumerate(df_items):
                     row_num = idx + 2
                     try:
                         # 获取房间ID：优先使用房间ID列，否则通过楼栋+房间号查找
                         room_id_val = row.get('房间ID')
-                        if pd.notna(room_id_val):
+                        if not is_empty(room_id_val):
                             try:
                                 room_id = int(float(str(room_id_val)))
                             except ValueError:
@@ -607,7 +622,7 @@ def import_rooms():
                             # 通过楼栋+房间号查找
                             building_val = row.get('楼栋')
                             room_number_val = row.get('房间号')
-                            if pd.isna(building_val) or pd.isna(room_number_val):
+                            if is_empty(building_val) or is_empty(room_number_val):
                                 item_errors.append(f"物品第{row_num}行：缺少房间ID且无法通过楼栋+房间号定位房间")
                                 continue
                             building = str(building_val).strip()
@@ -623,14 +638,14 @@ def import_rooms():
                         
                         # 获取物品名称
                         name_val = row.get('物品名称')
-                        if pd.isna(name_val) or not str(name_val).strip():
+                        if is_empty(name_val) or not str(name_val).strip():
                             item_errors.append(f"物品第{row_num}行：物品名称不能为空")
                             continue
                         name = str(name_val).strip()
                         
                         # 获取物品类型
                         type_val = row.get('物品类型')
-                        if pd.isna(type_val) or not str(type_val).strip():
+                        if is_empty(type_val) or not str(type_val).strip():
                             item_type = 'room_bound'
                         else:
                             type_str = str(type_val).strip()
@@ -638,7 +653,7 @@ def import_rooms():
                         
                         # 获取总数量
                         qty_val = row.get('总数量')
-                        if pd.isna(qty_val):
+                        if is_empty(qty_val):
                             total_quantity = 1
                         else:
                             try:
@@ -652,7 +667,7 @@ def import_rooms():
                         
                         # 获取状态
                         status_val = row.get('状态')
-                        if pd.isna(status_val) or not str(status_val).strip():
+                        if is_empty(status_val) or not str(status_val).strip():
                             status = '正常'
                         else:
                             status = str(status_val).strip()
@@ -661,7 +676,7 @@ def import_rooms():
                         
                         # 获取备注
                         remark_val = row.get('备注')
-                        remark = str(remark_val).strip() if pd.notna(remark_val) else None
+                        remark = str(remark_val).strip() if not is_empty(remark_val) else None
                         
                         # 创建物品
                         item_obj = RoomItem.create_item(
@@ -816,8 +831,8 @@ def download_template():
                 RoomStatus.CLOSED.value: "已关闭"
         }
         
-        # 创建模板DataFrame
-        df = pd.DataFrame(template_data)
+        # 构建模板表头与数据行（说明行位于表头之后、示例数据之前）
+        template_headers = list(template_data.keys())
         instructions = [
             "新增时留空，更新时必填",
             "*必填项（导入时会校验非空）",
@@ -836,20 +851,25 @@ def download_template():
             "日期时间（可留空，格式示例：YYYY-MM-DD HH:MM:SS）",
             "文本（可留空）"
         ]
-        df.loc[-1] = instructions
-        df.index = df.index + 1
-        df = df.sort_index()
+        # 自定义字段列无说明内容，补None对齐
+        if len(instructions) < len(template_headers):
+            instructions = instructions + [None] * (len(template_headers) - len(instructions))
+        example_rows = [
+            [template_data[h][i] for h in template_headers]
+            for i in range(3)
+        ]
+        template_rows = [instructions] + example_rows
         
         output = io.BytesIO()
-        with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            df.to_excel(writer, index=False, sheet_name='房间数据导入模板')
-            worksheet = writer.sheets['房间数据导入模板']
-            column_widths = [18, 12, 10, 30, 12, 12, 12, 8, 10, 12, 12, 30, 16, 16, 20, 20]
-            for i, width in enumerate(column_widths, 1):
-                worksheet.column_dimensions[chr(64 + i)].width = width
-            for cell in worksheet[1]:
-                if "*必填项" in str(cell.value):
-                    cell.font = cell.font.copy(color="FF0000")
+        wb = Workbook()
+        ws = write_sheet(wb, '房间数据导入模板', template_headers, template_rows)
+        column_widths = [18, 12, 10, 30, 12, 12, 12, 8, 10, 12, 12, 30, 16, 16, 20, 20]
+        set_column_widths(ws, column_widths)
+        for cell in ws[1]:
+            if "*必填项" in str(cell.value):
+                cell.font = Font(color="FF0000")
+        wb.save(output)
+        wb.close()
         
         output.seek(0)
         filename = f"房间数据导入模板_{datetime.now().strftime('%Y%m%d')}.xlsx"
@@ -912,7 +932,7 @@ def batch_update():
             file_content = file.read()
             file_bytes = BytesIO(file_content)
             file_bytes.seek(0)
-            df = pd.read_excel(file_bytes)
+            df = read_excel_rows(file_bytes)
         except Exception as e:
             detailed_error = f"文件解析失败：{str(e)}"
             flash(detailed_error, 'danger')
@@ -940,7 +960,8 @@ def batch_update():
         # 构建列名映射：只保留白名单中的列，其余自动忽略
         column_mapping = {}
         ignored_columns = []
-        for col in df.columns:
+        excel_columns = list(df[0].keys()) if df else []
+        for col in excel_columns:
             # 先检查是否直接匹配标准列名
             if col in all_known_columns:
                 continue  # 标准列名无需映射
@@ -958,16 +979,17 @@ def batch_update():
             logging.info(f'批量更新房间数据：自动忽略未识别列 {ignored_columns}')
 
         # 重命名列以统一标准，并只保留白名单中的列
-        if column_mapping:
-            df = df.rename(columns=column_mapping)
-        whitelist_columns = [col for col in df.columns if col in all_known_columns]
-        df = df[whitelist_columns]
+        df = [
+            {column_mapping.get(k, k): v for k, v in row.items() if column_mapping.get(k, k) in all_known_columns}
+            for row in df
+        ]
+        final_columns = list(df[0].keys()) if df else []
 
         # 检测Excel中实际包含的自定义字段列
-        custom_columns_in_excel = [col for col in df.columns if col in custom_field_labels]
+        custom_columns_in_excel = [col for col in final_columns if col in custom_field_labels]
         # 获取自定义字段定义（用于导入时校验和checkbox标准化）
         custom_field_defs_import = get_custom_field_definitions('room')
-        missing_columns = [col for col in required_columns if col not in df.columns]
+        missing_columns = [col for col in required_columns if col not in final_columns]
         if missing_columns:
             flash(f'导入失败：文件缺少必要的列 - {", " .join(missing_columns)}', 'danger')
             logging.error(f'批量更新房间数据失败：文件缺少必要的列 - {", ".join(missing_columns)}')
@@ -1001,12 +1023,12 @@ def batch_update():
         building_room_to_id = {(r.building, r.room_number): r.id for r in existing_rooms if r.building and r.room_number}
         excel_building_room_set = set()  # 跟踪Excel内部的楼栋+房间号组合
 
-        for index, row in df.iterrows():
+        for index, row in enumerate(df):
             row_num = index + 2
             try:
-                # 提取房间ID（处理pandas将数字读取为float的问题）
+                # 提取房间ID（处理数字读取为float的问题）
                 raw_id = row['房间ID']
-                if pd.isna(raw_id):
+                if is_empty(raw_id):
                     record_id_str = ''
                 elif isinstance(raw_id, float):
                     record_id_str = str(int(raw_id))
@@ -1025,10 +1047,10 @@ def batch_update():
 
                 # 提取楼栋和房间号（可选字段，空值=不修改）
                 building_val = row.get('楼栋')
-                building = str(building_val).strip() if pd.notna(building_val) and str(building_val).strip() else ''
+                building = str(building_val).strip() if not is_empty(building_val) and str(building_val).strip() else ''
                 room_number_val = row.get('房间号')
                 room_number = ''
-                if pd.notna(room_number_val) and str(room_number_val).strip():
+                if not is_empty(room_number_val) and str(room_number_val).strip():
                     try:
                         room_number_int = int(float(str(room_number_val).strip()))
                         room_number = str(room_number_int)
@@ -1081,7 +1103,7 @@ def batch_update():
 
                 # 处理房间类型
                 room_type_val = row.get('房间类型')
-                if pd.notna(room_type_val) and str(room_type_val).strip():
+                if not is_empty(room_type_val) and str(room_type_val).strip():
                     room_type_text = str(room_type_val).strip()
                     if room_type_text not in valid_room_types:
                         error_list.append(f"第{row_num}行：房间类型 '{room_type_text}' 无效，有效类型为：{', '.join(valid_room_types)}")
@@ -1090,7 +1112,7 @@ def batch_update():
 
                 # 处理房间级别
                 room_level_val = row.get('房间级别')
-                if pd.notna(room_level_val) and str(room_level_val).strip():
+                if not is_empty(room_level_val) and str(room_level_val).strip():
                     room_level_text = str(room_level_val).strip()
                     valid_room_levels = Room.get_valid_room_levels() or []
                     if valid_room_levels and room_level_text not in valid_room_levels:
@@ -1099,7 +1121,7 @@ def batch_update():
                     room.room_level = room_level_text
 
                 # 处理容量
-                capacity_val = str(row.get('容量', '')).strip() if pd.notna(row.get('容量', '')) else ''
+                capacity_val = str(row.get('容量', '')).strip() if not is_empty(row.get('容量', '')) else ''
                 if capacity_val:
                     try:
                         capacity = int(capacity_val)
@@ -1117,7 +1139,7 @@ def batch_update():
 
                 # 处理性别限制
                 gender_val = row.get('性别限制')
-                if pd.notna(gender_val) and str(gender_val).strip():
+                if not is_empty(gender_val) and str(gender_val).strip():
                     gender_text = str(gender_val).strip()
                     valid_gender_restrictions = Room.get_valid_gender_restrictions()
                     if gender_text in valid_gender_restrictions:
@@ -1153,7 +1175,7 @@ def batch_update():
 
                 # 处理状态
                 status_val = row.get('状态')
-                if pd.notna(status_val) and str(status_val).strip():
+                if not is_empty(status_val) and str(status_val).strip():
                     status_text = str(status_val).strip()
                     if status_text in STATUS_MAPPING:
                         new_status = STATUS_MAPPING[status_text]
@@ -1166,28 +1188,28 @@ def batch_update():
                 # 处理租金
                 try:
                     external_rent_val = row.get('对外租金')
-                    if pd.notna(external_rent_val) and str(external_rent_val).strip():
+                    if not is_empty(external_rent_val) and str(external_rent_val).strip():
                         room.external_rent = Decimal(str(external_rent_val))
                     cost_rent_val = row.get('成本租金')
-                    if pd.notna(cost_rent_val) and str(cost_rent_val).strip():
+                    if not is_empty(cost_rent_val) and str(cost_rent_val).strip():
                         room.cost_rent = Decimal(str(cost_rent_val))
                 except (ValueError, TypeError):
                     error_list.append(f"第{row_num}行：租金必须为有效的数字")
                     continue
 
                 # 处理备注
-                remark_val = str(row.get('备注', '')).strip() if pd.notna(row.get('备注', '')) else ''
+                remark_val = str(row.get('备注', '')).strip() if not is_empty(row.get('备注', '')) else ''
                 if remark_val:
                     room.remark = remark_val
 
                 # 处理地址
-                address_val = str(row.get('地址', '')).strip() if pd.notna(row.get('地址', '')) else ''
+                address_val = str(row.get('地址', '')).strip() if not is_empty(row.get('地址', '')) else ''
                 if address_val:
                     room.address = address_val
 
                 # 处理房间设施（格式：设施名:数量,设施名:数量）
                 facilities_val = row.get('房间设施')
-                facilities_str = str(facilities_val).strip() if pd.notna(facilities_val) and str(facilities_val).strip() else ''
+                facilities_str = str(facilities_val).strip() if not is_empty(facilities_val) and str(facilities_val).strip() else ''
                 if facilities_str:
                     facilities = []
                     facility_parse_error = False
@@ -1224,10 +1246,10 @@ def batch_update():
                 # 处理水电表最大量程
                 try:
                     electric_max_val = row.get('电表最大量程')
-                    if pd.notna(electric_max_val) and str(electric_max_val).strip():
+                    if not is_empty(electric_max_val) and str(electric_max_val).strip():
                         room.electric_meter_max = Decimal(str(electric_max_val))
                     water_max_val = row.get('水表最大量程')
-                    if pd.notna(water_max_val) and str(water_max_val).strip():
+                    if not is_empty(water_max_val) and str(water_max_val).strip():
                         room.water_meter_max = Decimal(str(water_max_val))
                 except (ValueError, TypeError):
                     error_list.append(f"第{row_num}行：水电表最大量程必须为有效的数字")
@@ -1237,7 +1259,7 @@ def batch_update():
                 if custom_columns_in_excel:
                     custom_data = {}
                     for label in custom_columns_in_excel:
-                        if label in row.index and not pd.isna(row[label]):
+                        if label in row and not is_empty(row[label]):
                             field_key = custom_label_to_key.get(label, '')
                             if field_key:
                                 # checkbox类型值标准化

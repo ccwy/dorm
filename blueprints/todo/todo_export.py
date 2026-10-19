@@ -7,6 +7,8 @@ from flask_login import login_required, current_user
 import logging
 from datetime import datetime
 import io
+from utils.lazy_imports import Workbook  # 延迟导入openpyxl组件
+from utils.excel_utils import write_sheet, auto_fit_columns  # 通用openpyxl导出工具
 from .todo import todo_bp  # 导入todo蓝图
 
 @todo_bp.route('/excel', methods=['GET'])
@@ -14,7 +16,6 @@ from .todo import todo_bp  # 导入todo蓝图
 @require_permission('todo.export')
 def export_excel():
     """导出待办事项为Excel文件"""
-    import pandas as pd  # 延迟导入，避免启动时加载重型库
     try:
         # 获取时间范围参数
         start_date_str = request.args.get('start_date')
@@ -94,23 +95,18 @@ def export_excel():
             })
         
         # 创建Excel文件
-        df = pd.DataFrame(data)
+        headers = ['ID', '标题', '描述', '状态', '优先级', '分类', '负责人', '开始时间', '计划完成时间', '实际完成时间', '当前进度(%)', '创建时间', '更新时间', '创建人ID', '进度记录']
         
         # 创建内存中的文件对象
         output = io.BytesIO()
         
-        # 使用ExcelWriter写入Excel文件
-        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-            # 写入数据
-            df.to_excel(writer, index=False, sheet_name='待办事项')
-            
-            # 获取工作表
-            worksheet = writer.sheets['待办事项']
-            
-            # 设置列宽
-            for col_num, col_name in enumerate(df.columns):
-                max_width = max(len(str(row[col_num])) for row in df.itertuples(index=False)) + 2
-                worksheet.set_column(col_num, col_num, min(max_width, 50))  # 最大列宽限制为50
+        wb = Workbook()
+        wb.remove(wb.active)
+        ws = write_sheet(wb, '待办事项', headers, data)
+        # 设置列宽
+        auto_fit_columns(ws, min_width=8, max_width=50)  # 最大列宽限制为50
+        wb.save(output)
+        wb.close()
         
         # 定位到文件开头
         output.seek(0)
