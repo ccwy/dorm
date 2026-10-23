@@ -15,6 +15,7 @@ from utils.user_utils import (
 ) #引入工具类
 from utils.custom_fields import deserialize_custom_fields, serialize_custom_fields, validate_custom_fields, get_custom_field_definitions
 from utils.excel_date_utils import excel_date_utils
+from utils.format_utils import format_stay_days
 import re  # 正则表达式模块，用于处理字符串
 import datetime
 import logging
@@ -295,7 +296,7 @@ def export_users():
                 elif field_name == 'room_number':
                     field_value = f"{latest_dorm.room.building}{latest_dorm.room.room_number}" if is_currently_boarding and latest_dorm and latest_dorm.room else ""
                 elif field_name == 'days_stayed':
-                    field_value = latest_dorm.stay_days if is_currently_boarding and latest_dorm else ''
+                    field_value = format_stay_days(latest_dorm.stay_days) if is_currently_boarding and latest_dorm else ''
                 elif field_name == 'checkin_date':
                     field_value = latest_dorm.check_in_date if is_currently_boarding and latest_dorm else None
                 else:

@@ -12,6 +12,8 @@ import logging
 from flask_login import current_user, login_required
 # 导入require_permission装饰器
 from utils.auth import require_permission
+# 导入住宿天数格式化函数
+from utils.format_utils import format_stay_days
 
 # 端点注册路径是/dorm ，没有/api这个端点
 # 直接使用主蓝图注册路由，无需创建新蓝图
@@ -235,6 +237,7 @@ def get_resident_details():
                     'check_in_date': current_record.check_in_date.isoformat() if check_in else None,
                     'check_out_date': current_record.check_out_date.isoformat() if current_record.check_out_date else None,
                     'stay_days': stay_days,
+                    'stay_days_display': format_stay_days(stay_days) if stay_days >= 0 else None,
                     'is_current': current_record.check_out_date is None  # 标记是否为当前房间
                 })
                 
@@ -291,6 +294,9 @@ def get_resident_details():
                 }
             }
             
+            # 添加住宿天数格式化显示字段（保留原始数字供JS计算/判断）
+            resident['current_stay_days_display'] = format_stay_days(resident['current_stay_days']) if resident['current_stay_days'] >= 0 else None
+            resident['total_stay_days_display'] = format_stay_days(resident['total_stay_days']) if resident['total_stay_days'] >= 0 else None
             residents.append(resident)
         
         # 记录查询结果统计 - 移除对_cached_json的依赖
@@ -489,6 +495,7 @@ def get_user_dorm_details():
                 'check_in_date': check_in.isoformat() if check_in else None,
                 'check_out_date': record.check_out_date.isoformat() if record.check_out_date else None,
                 'stay_days': stay_days,
+                'stay_days_display': format_stay_days(stay_days) if stay_days >= 0 else None,
                 'status': record.status,
                 'roommates': roommates  # 该记录期间的同住室友
             })
@@ -755,6 +762,7 @@ def get_checkout_residents():
                 'room': room_info,
                 'check_in_date': record.check_in_date.isoformat() if record.check_in_date else None,
                 'month_stay_days': month_stay_days,  # 当月内的已住天数
+                'month_stay_days_display': format_stay_days(month_stay_days) if month_stay_days >= 0 else None,
                 'remarks': record.remarks or ''
             }
             

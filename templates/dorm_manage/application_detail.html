@@ -244,7 +244,7 @@
                 </div>
                 <div class="bg-gray-50 p-4 rounded-lg">
                     <p class="text-sm text-gray-500 mb-1">已住天数</p>
-                    <p class="text-gray-800 font-medium">{{ stay_days if stay_days else '-' }}</p>
+                    <p class="text-gray-800 font-medium">{{ stay_days|format_stay_days if stay_days else '-' }}</p>
                 </div>
             </div>
         </div>

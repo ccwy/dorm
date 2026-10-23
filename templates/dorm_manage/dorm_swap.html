@@ -119,7 +119,7 @@
                                     <div>
                                         <h3 class="text-sm text-gray-500">已住天数</h3>
                                         <p class="font-medium">
-                                            {{ current_stay_days if current_stay_days is defined and current_stay_days else 0 }}
+                                            {{ current_stay_days|format_stay_days if current_stay_days is defined and current_stay_days else '0天' }}
                                         </p>
                                     </div>
                                 </div>
@@ -151,7 +151,7 @@
                                                         <td class="py-2 px-4 text-sm text-gray-800 border-b whitespace-nowrap">{{ roommate.position or '-' }}</td>
                                                         <td class="py-2 px-4 text-sm text-gray-800 border-b whitespace-nowrap">{{ roommate.check_in_date or '-' }}</td>
                                                         <td class="py-2 px-4 text-sm text-gray-800 border-b whitespace-nowrap">
-                                                            {{ roommate.stay_days if roommate.stay_days is defined and roommate.stay_days else '-' }}
+                                                            {{ roommate.stay_days|format_stay_days if roommate.stay_days is defined and roommate.stay_days else '-' }}
                                                         </td>
                                                     </tr>
                                                     {% endfor %}
@@ -277,7 +277,7 @@
                                                 <td class="py-2 px-4 text-sm text-gray-800 border-b">{{ record.check_in_date }}</td>
                                                 <td class="py-2 px-4 text-sm text-gray-800 border-b">{{ record.check_out_date if record.check_out_date else '-' }}</td>
                                                 <td class="py-2 px-4 text-sm text-gray-800 border-b">
-                                                    {{ record.stay_days if record.stay_days is defined and record.stay_days else '-' }}
+                                                    {{ record.stay_days|format_stay_days if record.stay_days is defined and record.stay_days else '-' }}
                                                 </td>												
                                                 <td class="py-2 px-4 text-sm border-b">
                                                     <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium 
@@ -349,9 +349,9 @@
                                                 </td>
                                                 <td class="py-2 px-4 whitespace-nowrap font-medium">
                                                     {% if record.type == 'checkout' and record.checkout_id %}
-                                                        <a href="{{ url_for('utility_index.utility_room_checkout_edit', id=record.checkout_id) }}" class="text-primary hover:underline">{{ record.stay_days or 0 }} 天</a>
+                                                        <a href="{{ url_for('utility_index.utility_room_checkout_edit', id=record.checkout_id) }}" class="text-primary hover:underline">{{ (record.stay_days or 0)|format_stay_days }}</a>
                                                     {% else %}
-                                                        {{ record.stay_days or 0 }} 天
+                                                        {{ (record.stay_days or 0)|format_stay_days }}
                                                     {% endif %}
                                                 </td>
                                                 <td class="py-2 px-4 whitespace-nowrap">
@@ -646,7 +646,7 @@
                                     html += '<ul class="list-disc pl-5 space-y-2">';
                                     
                                     occupants.forEach(occupant => {
-                                        html += `<li><a href="/user/view/${occupant.id}" class="text-primary hover:underline">${occupant.name}</a> (ID:${occupant.id})，${occupant.gender || '-'}，${occupant.age || '-'}岁，${occupant.department || '-'}，${occupant.position || '-'}，${occupant.check_in_date || '-'}，${occupant.days_stayed || '-'}天</li>`;
+                                        html += `<li><a href="/user/view/${occupant.id}" class="text-primary hover:underline">${occupant.name}</a> (ID:${occupant.id})，${occupant.gender || '-'}，${occupant.age || '-'}岁，${occupant.department || '-'}，${occupant.position || '-'}，${occupant.check_in_date || '-'}，${occupant.days_stayed_display || '-'}</li>`;
                                     });
                                     
                                     html += '</ul>';

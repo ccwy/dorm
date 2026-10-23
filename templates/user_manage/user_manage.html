@@ -208,7 +208,7 @@
                                 {% if latest_dorm and latest_dorm.room and latest_dorm.status == 'active' %}
                                 <div class="flex flex-col">
                                     <div class="truncate">{{ latest_dorm.room.building }}{{ latest_dorm.room.room_number }}</div>
-                                    <div class="text-xs text-gray-500">已住{{ latest_dorm.stay_days if latest_dorm.stay_days else 0 }}天</div>
+                                    <div class="text-xs text-gray-500">已住{{ (latest_dorm.stay_days or 0)|format_stay_days }}</div>
                                 </div>
                                 {% elif user.status == '在职' %}
                                 <a href="{{ url_for('dorm.create_allocation', user_id=user.id, next=url_for('user.manage')) }}" 

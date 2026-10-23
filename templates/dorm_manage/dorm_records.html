@@ -388,7 +388,7 @@
                     </td>
                     <td class="px-6 py-3 whitespace-nowrap text-sm text-gray-500">${record.check_in_date}</td>
                     <td class="px-6 py-3 whitespace-nowrap text-sm text-gray-500">${record.check_out_date === '-' ? '-' : record.check_out_date}</td>
-                    <td class="px-6 py-3 whitespace-nowrap text-sm text-gray-500">${record.stay_days}天</td>
+                    <td class="px-6 py-3 whitespace-nowrap text-sm text-gray-500">${record.stay_days_display || record.stay_days + '天'}</td>
                     <td class="px-6 py-3 text-sm text-gray-500" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;" title="${remarkContent}">${remarkContent}</td>
                 `;
 
@@ -509,7 +509,7 @@
                     r.operation_type_text,
                     r.check_in_date,
                     r.check_out_date,
-                    r.stay_days + '天',
+                    r.stay_days_display || (r.stay_days + '天'),
                     r.swap_with ? `与${r.swap_with}互换` : (r.remarks || '-')
                 ].map(v => String(v).includes(',') ? `"${v}"` : v).join(','));
 

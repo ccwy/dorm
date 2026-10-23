@@ -127,7 +127,7 @@
                                                 {% if end_date_only < check_in_date_only %}
                                                     0
                                                 {% else %}
-                                                    {{ (end_date_only - check_in_date_only).days + 1 }}
+                                                    {{ ((end_date_only - check_in_date_only).days + 1)|format_stay_days }}
                                                 {% endif %}
                                             {% else %}
                                                 0
@@ -147,7 +147,7 @@
                                                 {% else %}
                                                     {% set check_in_month_date = check_in_date_only %}
                                                 {% endif %}
-                                                {{ (today - check_in_month_date).days + 1 }}
+                                                {{ ((today - check_in_month_date).days + 1)|format_stay_days }}
                                             {% else %}
                                                 0
                                             {% endif %}
@@ -191,7 +191,7 @@
                                                                 {% if end_date_only < check_in_date_only %}
                                                                     0
                                                                 {% else %}
-                                                                    {{ (end_date_only - check_in_date_only).days + 1 }}
+                                                                    {{ ((end_date_only - check_in_date_only).days + 1)|format_stay_days }}
                                                                 {% endif %}
                                                             {% else %}
                                                                 -
@@ -208,7 +208,7 @@
                                                                 {% else %}
                                                                     {% set check_in_month_date = check_in_date_only %}
                                                                 {% endif %}
-                                                                {{ (today - check_in_month_date).days + 1 }}
+                                                                {{ ((today - check_in_month_date).days + 1)|format_stay_days }}
                                                             {% else %}
                                                                 -
                                                             {% endif %}
@@ -347,7 +347,7 @@
                                                         {% elif end_date_only < check_in_date_only %}
                                                             0
                                                         {% else %}
-                                                            {{ (end_date_only - check_in_date_only).days + 1 }}
+                                                            {{ ((end_date_only - check_in_date_only).days + 1)|format_stay_days }}
                                                         {% endif %}
                                                     {% else %}
                                                         -
@@ -423,9 +423,9 @@
                                                 </td>
                                                 <td class="py-2 px-4 whitespace-nowrap font-medium">
                                                     {% if record.type == 'checkout' and record.checkout_id %}
-                                                        <a href="{{ url_for('utility_index.utility_room_checkout_edit', id=record.checkout_id) }}" class="text-primary hover:underline">{{ record.stay_days or 0 }} 天</a>
+                                                        <a href="{{ url_for('utility_index.utility_room_checkout_edit', id=record.checkout_id) }}" class="text-primary hover:underline">{{ (record.stay_days or 0)|format_stay_days }}</a>
                                                     {% else %}
-                                                        {{ record.stay_days or 0 }} 天
+                                                        {{ (record.stay_days or 0)|format_stay_days }}
                                                     {% endif %}
                                                 </td>
                                                 <td class="py-2 px-4 whitespace-nowrap">
@@ -715,11 +715,27 @@
                 updateSubsidyInfo(); // 初始化减免额度显示
             }
             
+            // 住宿天数格式化（与后端format_stay_days逻辑一致）
+            const stayDaysConvertEnabled = {{ 'true' if get_config_value('STAY_DAYS_FORMAT_CONVERT_ENABLED', False) else 'false' }};
+            function formatStayDays(days) {
+                if (!stayDaysConvertEnabled) return days + '天';
+                if (!days || days <= 0) return '0天';
+                const years = Math.floor(days / 365);
+                const remaining = days % 365;
+                const months = Math.floor(remaining / 30);
+                const dayPart = remaining % 30;
+                const parts = [];
+                if (years) parts.push(years + '年');
+                if (months) parts.push(months + '个月');
+                if (dayPart) parts.push(dayPart + '天');
+                return parts.length ? parts.join('') : '0天';
+            }
+
             // 计算并更新本月已住天数的函数
             function updateMonthStayDays() {
                 const checkOutDateStr = checkOutDateInput.value;
                 if (!checkOutDateStr || !checkInDate) {
-                    monthStayDaysElement.textContent = '0';
+                    monthStayDaysElement.textContent = formatStayDays(0);
                     return;
                 }
                 
@@ -739,7 +755,7 @@
                 }
                 
                 // 更新显示
-                monthStayDaysElement.textContent = monthStayDays;
+                monthStayDaysElement.textContent = formatStayDays(monthStayDays);
             }
             
             // 根据退宿日期更新减免额度信息

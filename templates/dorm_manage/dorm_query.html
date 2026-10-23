@@ -415,8 +415,8 @@
                                             <span class="text-green-600">未退宿</span>
                                         {% endif %}
                                     </td>
-                                    <td class="px-6 py-3 whitespace-nowrap font-medium">{{ resident.current_stay_days }}天</td>
-                                    <td class="px-6 py-3 whitespace-nowrap">{{ resident.total_stay_days }}天</td>
+                                    <td class="px-6 py-3 whitespace-nowrap font-medium">{{ resident.current_stay_days|format_stay_days }}</td>
+                                    <td class="px-6 py-3 whitespace-nowrap">{{ resident.total_stay_days|format_stay_days }}</td>
                                     <td class="px-6 py-3 whitespace-nowrap">
                                         {% if resident.status == 'active' %}
                                         <button onclick="window.location.href='{{ url_for('dorm.swap', user_id=resident.id, next=url_for('dorm.dorm_query')) }}'" class="text-accent hover:text-accent/80 text-sm action-btn">
@@ -473,7 +473,7 @@
                                                             <span>入住：{{ check_in_date}}</span>
                                                         </div>
                                                         <div class="history-duration">
-                                                            已住：{{ record.stay_days }}天
+                                                            已住：{{ record.stay_days|format_stay_days }}
                                                         </div>
                                                     </div>
                                                 </div>
@@ -496,7 +496,7 @@
                                                             <span>退宿：{{ check_out_date }}</span>
                                                         </div>
                                                         <div class="history-duration">
-                                                            已住：{{ record.stay_days }}天
+                                                            已住：{{ record.stay_days|format_stay_days }}
                                                         </div>
                                                     </div>
                                                 </div>

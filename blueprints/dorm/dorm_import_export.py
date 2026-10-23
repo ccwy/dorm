@@ -19,6 +19,7 @@ from models.room.room import Room
 from utils.db import db
 # 导入Excel日期处理工具
 from utils.excel_date_utils import excel_date_utils
+from utils.format_utils import format_stay_days
 
 # 导出蓝图
 dorm_import_export_bp = Blueprint('dorm_import_export', __name__, url_prefix='/dorm_import_export')
@@ -145,8 +146,8 @@ def export_residents():
                 '入住日期': format_date(dorm.check_in_date.strftime('%Y-%m-%d')) if dorm.check_in_date else '未知',
                 '退宿日期': check_out_date_str,
                 '状态': status_text,
-                '住宿天数': dorm.stay_days,
-                '累计住宿天数': sum(d.stay_days for d in dorm.dorm_chain)
+                '住宿天数': format_stay_days(dorm.stay_days),
+                '累计住宿天数': format_stay_days(sum(d.stay_days for d in dorm.dorm_chain))
             }
             all_data.append(full_record)
             
@@ -161,8 +162,8 @@ def export_residents():
                     '楼栋': room.building,
                     '房间号': room.room_number,
                     '入住日期': format_date(dorm.check_in_date.strftime('%Y-%m-%d')) if dorm.check_in_date else '未知',
-                    '住宿天数': dorm.stay_days,
-                    '累计住宿天数': sum(d.stay_days for d in dorm.dorm_chain)
+                    '住宿天数': format_stay_days(dorm.stay_days),
+                    '累计住宿天数': format_stay_days(sum(d.stay_days for d in dorm.dorm_chain))
                 }
                 active_data.append(active_record)
         

@@ -12,6 +12,7 @@ from config import Config
 from flask_login import login_required, current_user
 from models.system_config.system_config import SystemConfig  # 新增：导入系统配置模型
 from utils.media.room_photo import RoomPhotoManager
+from utils.format_utils import format_stay_days
 
 room_api_bp = Blueprint('room_api', __name__, url_prefix='/api/rooms')
 
@@ -108,7 +109,8 @@ def get_room_detail(room_id):
                     "position": user.position or "-",  # 对应User.position
                     "phone": user.phone or "-",  # 对应User.phone
                     "check_in_date": check_in_date,  # 来自Dorm.check_in_date（datetime类型）
-                    "days_stayed": days_stayed  # 基于日期部分计算
+                    "days_stayed": days_stayed,  # 基于日期部分计算
+                    "days_stayed_display": format_stay_days(days_stayed) if isinstance(days_stayed, (int, float)) else days_stayed,
                 }
                 occupants.append(occupant_data)
                 
@@ -496,7 +498,8 @@ def get_batch_user_rooms():
                     "room_type": room.room_type if room else None,
                     "room_type_display": room_type_mapping.get(room.room_type, room.room_type) if room else None,
                     "check_in_date": check_in_date,
-                    "days_stayed": days_stayed
+                    "days_stayed": days_stayed,
+                    "days_stayed_display": format_stay_days(days_stayed) if isinstance(days_stayed, (int, float)) else days_stayed,
                 })
             else:
                 results.append({

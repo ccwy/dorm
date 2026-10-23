@@ -255,7 +255,7 @@
                 </div>
                 <div class="bg-gray-50 p-4 rounded-lg">
                     <p class="text-sm text-gray-500 mb-1">已住天数</p>
-                    <p class="text-gray-800 font-medium">{{ stay_days if stay_days else '-' }}</p>
+                    <p class="text-gray-800 font-medium">{{ stay_days|format_stay_days if stay_days else '-' }}</p>
                 </div>
             </div>
             <!-- 当前房间详细信息（AJAX加载） -->
@@ -1439,7 +1439,7 @@
                                     html += (occ.department || '-') + '，';
                                     html += (occ.position || '-') + '，';
                                     html += (occ.check_in_date || '-') + '，';
-                                    html += (occ.days_stayed || '-') + '天';
+                                    html += (occ.days_stayed_display || '-');
                                     html += '</li>';
                                 });
                                 html += '</ul>';
@@ -1511,7 +1511,7 @@
                                 html += (occ.department || '-') + '，';
                                 html += (occ.position || '-') + '，';
                                 html += (occ.check_in_date || '-') + '，';
-                                html += (occ.days_stayed || '-') + '天';
+                                html += (occ.days_stayed_display || '-');
                                 html += '</li>';
                             });
                             html += '</ul>';
@@ -1583,7 +1583,7 @@
                                 html += (occ.department || '-') + '，';
                                 html += (occ.position || '-') + '，';
                                 html += (occ.check_in_date || '-') + '，';
-                                html += (occ.days_stayed || '-') + '天';
+                                html += (occ.days_stayed_display || '-');
                                 html += '</li>';
                             });
                             html += '</ul>';

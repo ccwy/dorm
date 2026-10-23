@@ -18,6 +18,7 @@ from utils.log import log_operation
 from utils.auth import require_permission
 from utils.lazy_imports import Workbook
 from utils.excel_utils import write_sheet, auto_fit_columns
+from utils.format_utils import format_stay_days
 
 # 创建蓝图
 utility_user_records_bp = Blueprint('utility_user_records', __name__, url_prefix='/utility')
@@ -160,7 +161,7 @@ def user_records():
                 if 'room_ids' not in users_data[user_id]:
                     users_data[user_id]['room_ids'] = []
                 users_data[user_id]['room_ids'].append(room_id)
-                users_data[user_id]['stay_days'].append(f"{row.stay_days}天")
+                users_data[user_id]['stay_days'].append(format_stay_days(row.stay_days))
                 users_data[user_id]['total_fee'] += float(row.total_fee or 0)
                 
                 # 添加费用明细（结构化格式，方便前端处理）
@@ -172,7 +173,7 @@ def user_records():
                     'room': room_info,
                     'room_id': room_id,
                     'fee': float(row.total_fee or 0),
-                    'days': f"{row.stay_days}天",
+                    'days': format_stay_days(row.stay_days),
                     'record_id': record_id
                 })
                 
@@ -217,7 +218,7 @@ def user_records():
                     users_data[user_id]['room_ids'] = []
                 users_data[user_id]['room_ids'].append(room_id)
                 # 使用user_period_days字段获取退宿当月已住天数
-                users_data[user_id]['stay_days'].append(f"{row.user_period_days}天")
+                users_data[user_id]['stay_days'].append(format_stay_days(row.user_period_days))
                 users_data[user_id]['total_fee'] += float(row.payable_fee or 0)
                 
                 # 添加费用明细（结构化格式，方便前端处理）
@@ -230,7 +231,7 @@ def user_records():
                     'room': room_info,
                     'room_id': room_id,
                     'fee': float(row.payable_fee or 0),
-                    'days': f"{row.user_period_days}天",
+                    'days': format_stay_days(row.user_period_days),
                     'record_id': record_id,
                     'checkout_id': checkout_id
                 })
@@ -466,7 +467,7 @@ def export_user_records_excel():
                 room_info = f"{row.building}{row.room_number}"
                 users_data[user_id]['rooms'].append(room_info)
                 users_data[user_id]['room_fees'].append(f"{room_info}: {float(row.total_fee or 0):.2f}元")
-                users_data[user_id]['stay_days_info'].append(f"{room_info}: {row.stay_days}天")  # 保存住宿天数信息
+                users_data[user_id]['stay_days_info'].append(f"{room_info}: {format_stay_days(row.stay_days)}")  # 保存住宿天数信息
                 users_data[user_id]['total_fee'] += float(row.total_fee or 0)
         
         # 再处理退宿人员数据
@@ -505,7 +506,7 @@ def export_user_records_excel():
                 room_info = f"{row.building}{row.room_number}"
                 users_data[user_id]['rooms'].append(room_info)
                 users_data[user_id]['room_fees'].append(f"{room_info}: {float(row.payable_fee or 0):.2f}元")
-                users_data[user_id]['stay_days_info'].append(f"{room_info}: {row.user_period_days}天")  # 保存退宿当月已住天数信息
+                users_data[user_id]['stay_days_info'].append(f"{room_info}: {format_stay_days(row.user_period_days)}")  # 保存退宿当月已住天数信息
                 users_data[user_id]['total_fee'] += float(row.payable_fee or 0)
         
         # 对用户数据进行处理，添加多房间标识和换宿判断

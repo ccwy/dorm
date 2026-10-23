@@ -514,6 +514,15 @@ class SystemConfig(db.Model):
                 'is_system': False,
                 'sort_order': 66
             },
+            {
+                'config_key': 'STAY_DAYS_FORMAT_CONVERT_ENABLED',
+                'config_value': 'False',
+                'config_type': 'bool',
+                'category': 'room',
+                'description': '是否将住宿天数转换为年月日格式显示（如"5年2个月30天"），关闭则显示纯天数',
+                'is_editable': True,
+                'sort_order': 67
+            },
             
             # 4.5 房间自定义字段配置 (category: room.custom_field)
             {

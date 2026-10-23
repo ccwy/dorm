@@ -126,7 +126,7 @@
                         </div>
                         <div>
                             <label class="block text-sm text-gray-500 mb-1">已住天数</label>
-                            <p class="font-medium text-gray-800">{{ stay_days if stay_days else '-' }}</p>
+                            <p class="font-medium text-gray-800">{{ stay_days|format_stay_days if stay_days else '-' }}</p>
                         </div>
                     </div>
                     {% else %}

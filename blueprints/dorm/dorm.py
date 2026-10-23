@@ -13,6 +13,7 @@ from sqlalchemy import func  # 新增：导入聚合函数
 # 导入require_permission装饰器
 from utils.auth import require_permission
 from models.utility.utility_room_bill_checkout import CheckoutUtilityRecord  # 导入退宿费用记录模型
+from utils.format_utils import format_stay_days  # 导入住宿天数格式化函数
 
 # 定义dorm蓝图
 dorm_bp = Blueprint(
@@ -898,6 +899,7 @@ def get_dorm_records():
                 'check_in_date': check_in,
                 'check_out_date': check_out,
                 'stay_days': stay_days,
+                'stay_days_display': format_stay_days(stay_days),
                 'remarks': op.remarks or '-',
                 'swap_with': swap_with,
             })

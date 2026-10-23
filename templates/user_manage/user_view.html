@@ -368,7 +368,7 @@
                                     <!-- 住宿天数（通过Dorm模型方法计算） -->
                                     <li class="flex justify-between">
                                         <span class="text-gray-500">住宿天数</span>
-                                        <span class="font-medium">{{ latest_dorm.stay_days if latest_dorm and latest_dorm.stay_days else '-' }} 天</span>  
+                                        <span class="font-medium">{{ latest_dorm.stay_days|format_stay_days if latest_dorm and latest_dorm.stay_days else '-' }}</span>  
                                     </li>
                                 </ul>
                                 
@@ -413,7 +413,7 @@
                                                             {{ roommate.position if roommate.position else '-' }}
                                                         </td>
 														<td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
-                                                            {{ roommate.stay_days if roommate and roommate.stay_days else '-' }} 天
+                                                            {{ roommate.stay_days|format_stay_days if roommate and roommate.stay_days else '-' }}
                                                         </td>
                                                         <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
                                                             {{ format_datetime(roommate.check_in_date) if roommate.check_in_date else '-' }}
@@ -524,7 +524,7 @@
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap">
                             <span class="font-medium">
-                                {{ dorm.stay_days }} 天
+                                {{ dorm.stay_days|format_stay_days }}
                             </span>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap">
@@ -721,9 +721,9 @@
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap font-medium">
                                             {% if record.type == 'checkout' and record.checkout_id %}
-                                                <a href="{{ url_for('utility_index.utility_user_checkout_detail', id=record.checkout_id) }}" class="text-primary hover:underline">{{ record.stay_days or 0 }} 天</a>
+                                                <a href="{{ url_for('utility_index.utility_user_checkout_detail', id=record.checkout_id) }}" class="text-primary hover:underline">{{ (record.stay_days or 0)|format_stay_days }}</a>
                                             {% else %}
-                                                {{ record.stay_days or 0 }} 天
+                                                {{ (record.stay_days or 0)|format_stay_days }}
                                             {% endif %}
                                         </td>
                                         

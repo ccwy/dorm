@@ -209,7 +209,7 @@
                                                         
                                                         {% if end_date_only >= check_in_date_only %}
                                                             {% set delta_days = (end_date_only - check_in_date_only).days %}
-                                                            {{ delta_days + 1 }}
+                                                            {{ (delta_days + 1)|format_stay_days }}
                                                         {% else %}
                                                             0
                                                         {% endif %}
@@ -498,7 +498,7 @@
                                     html += '<ul class="list-disc pl-5 space-y-2">';
                                     
                                     occupants.forEach(occupant => {
-                                        html += `<li><a href="/user/view/${occupant.id}" class="text-primary hover:underline">${occupant.name}</a> (ID:${occupant.id})，${occupant.gender || '-'}，${occupant.age || '-'}岁，${occupant.department || '-'}，${occupant.position || '-'}，${occupant.check_in_date || '-'}，${occupant.days_stayed || '-'}天</li>`;
+                                        html += `<li><a href="/user/view/${occupant.id}" class="text-primary hover:underline">${occupant.name}</a> (ID:${occupant.id})，${occupant.gender || '-'}，${occupant.age || '-'}岁，${occupant.department || '-'}，${occupant.position || '-'}，${occupant.check_in_date || '-'}，${occupant.days_stayed_display || '-'}</li>`;
                                     });
                                     
                                     html += '</ul>';

@@ -86,6 +86,10 @@ def init_flask_app(progress_callback=None):
     remember_duration = app.config.get('REMEMBER_COOKIE_DURATION', '未配置')
     print(f"Remember Cookie有效期: {remember_duration}")
     
+    # 注册Jinja2模板过滤器：住宿天数格式化（自动读取系统配置）
+    from utils.format_utils import format_stay_days
+    app.jinja_env.filters['format_stay_days'] = format_stay_days
+    
     # 阶段2：加载核心模块
     if progress_callback:
         progress_callback(10, "正在加载核心模块...")

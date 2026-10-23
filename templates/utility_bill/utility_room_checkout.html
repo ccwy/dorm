@@ -866,7 +866,7 @@
             // 处理日期和天数
             const checkoutDate = resident.check_out_date ? resident.check_out_date.split('T')[0] : '未知';
             const originalCheckoutDate = resident.check_out_date ? resident.check_out_date.replace('T', ' ') : '未知';
-            const stayDays = resident.month_stay_days < 0 ? '计算错误' : resident.month_stay_days;
+            const stayDays = resident.month_stay_days < 0 ? '计算错误' : (resident.month_stay_days_display || resident.month_stay_days + '天');
             
             // 生成操作按钮
             let actionButtons = '';
@@ -924,7 +924,7 @@
               <td class="px-6 py-4 whitespace-nowrap">
               <div class="text-sm font-medium text-gray-900">${checkoutDate}</div>
               <div class="text-sm text-gray-400">
-                ${stayDays} ${stayDays !== '计算错误' ? '天' : ''}</div>
+                ${stayDays}</div>
               </td>
               <!-- 抄表记录内容将通过展开/折叠显示 -->
               <td class="px-6 py-4 whitespace-nowrap">
@@ -1059,7 +1059,7 @@
             // 错误处理
             console.error('获取费用详情失败:', error);
             const checkoutDate = resident.check_out_date ? resident.check_out_date.split('T')[0] : '未知';
-            const stayDays = resident.month_stay_days < 0 ? '计算错误' : resident.month_stay_days;
+            const stayDays = resident.month_stay_days < 0 ? '计算错误' : (resident.month_stay_days_display || resident.month_stay_days + '天');
             
             const actionButtons = `
               <div class="flex gap-2">
@@ -1094,7 +1094,7 @@
               <td class="px-6 py-4 whitespace-nowrap">
                 <div class="text-sm font-medium text-gray-900">${checkoutDate}</div>
                 <div class="text-sm text-gray-400">
-                  ${stayDays} ${stayDays !== '计算错误' ? '天' : ''}</div>
+                  ${stayDays}</div>
               </td>
               <td class="px-6 py-4 whitespace-nowrap text-danger">
                 <div><div class="text-sm font-medium">获取失败</div></div>

@@ -324,7 +324,11 @@
                             {% if bed.status == 'available' %}
                                 <span class="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded-full">可用</span>
                             {% elif bed.status == 'occupied' %}
+                                {% if bed.occupant_user_id and current_user.has_permission('user.view') %}
+                                <a href="{{ url_for('user.view', id=bed.occupant_user_id) }}" class="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full hover:underline">{{ bed.occupant_name or '已占用' }}</a>
+                                {% else %}
                                 <span class="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full">{{ bed.occupant_name or '已占用' }}</span>
+                                {% endif %}
                             {% elif bed.status == 'maintenance' %}
                                 <span class="text-xs px-2 py-0.5 bg-yellow-100 text-yellow-700 rounded-full">维护中</span>
                             {% elif bed.status == 'closed' %}
@@ -525,7 +529,7 @@
                                         <td class="px-6 py-4 whitespace-nowrap">{{ resident.user.position or '-' }}</td>
                                         <td class="px-6 py-4 whitespace-nowrap">{{ resident.user.phone or '-' }}</td>
                                         <td class="px-6 py-4 whitespace-nowrap">{{ resident.dorm.check_in_date.strftime('%Y-%m-%d') }}</td>
-                                        <td class="px-6 py-4 whitespace-nowrap">{{ resident.dorm.stay_days }}天</td>
+                                        <td class="px-6 py-4 whitespace-nowrap">{{ resident['dorm'].stay_days|format_stay_days }}</td>
                                         <td class="px-6 py-4 whitespace-nowrap">
                                             <a href="{{ url_for('dorm.checkout', user_id=resident.user.id, next=url_for('room.view', id=room.id)) }}" class="text-red-500 hover:text-red-700 text-sm ml-2 action-btn">
                                                 退宿<i class="fa fa-sign-out mr-1"></i>
@@ -597,11 +601,7 @@
                                             {% endif %}
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap">
-                                            {% if dorm.status == 'active' %}
-                                                {{ dorm.stay_days }}天
-                                            {% else %}
-                                                {{ dorm.stay_days }}天
-                                            {% endif %}
+                                            {{ dorm.stay_days|format_stay_days }}
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap">
                                             {% if dorm.status == 'active' %}

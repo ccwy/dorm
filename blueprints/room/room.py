@@ -66,7 +66,7 @@ def generate_page_range(current_page, total_pages, show_pages=5):
             page_range.append('...')
         page_range.append(total_pages)
     return page_range
-    
+
 # 导入其他操作模块
 from . import room_operations
 
@@ -260,15 +260,18 @@ def view(id):
             beds = Bed.query.filter_by(room_id=room.id).order_by(Bed.bed_number).all()
             for bed in beds:
                 occupant_name = None
+                occupant_user_id = None
                 if bed.status == 'occupied':
                     dorm = Dorm.query.filter_by(bed_id=bed.id, status='active').first()
                     if dorm and dorm.user:
                         occupant_name = dorm.user.name
+                        occupant_user_id = dorm.user_id
                 bed_info_list.append({
                     'bed_number': bed.bed_number,
                     'status': bed.status,
                     'status_display': bed.status_display,
                     'occupant_name': occupant_name,
+                    'occupant_user_id': occupant_user_id,
                     'remark': bed.remark
                 })
 
