@@ -156,10 +156,10 @@
                         <tr>
                             <td class="px-4 py-3"><input type="checkbox" name="selected_items" value="{{ item.id }}" class="item-checkbox" onchange="updateBatchDeleteBtn()"></td>
                             <td class="px-6 py-4 whitespace-nowrap">{{ item.id }}</td>
-                            <td class="px-6 py-4 whitespace-nowrap">{{ item.name }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap"><a href="{{ url_for('room_item.detail', item_id=item.id) }}" class="text-primary hover:text-primary/80">{{ item.name }}</a></td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-600">{{ item.item_code or '-' }}</td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{{ item.specification or '-' }}</td>
-                            <td class="px-6 py-4 whitespace-nowrap">{{ item.room.building }}{{ item.room.room_number }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap"><a href="{{ url_for('room.view', id=item.room_id) }}" class="text-primary hover:text-primary/80">{{ item.room.building }}{{ item.room.room_number }}</a></td>
                             <td class="px-6 py-4 whitespace-nowrap">
                                 {% if item.item_type == 'room_bound' %}
                                 <span class="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs">房间绑定</span>
@@ -189,6 +189,11 @@
                                 {% if current_user.has_permission('room_item.allocate') and item.available_quantity > 0 and item.status == '正常' %}
                                 <a href="{{ url_for('room_item.allocate', item_id=item.id, next=request.path) }}" class="bg-teal-500 text-white px-3 py-1 rounded-md text-sm hover:bg-teal-600 transition-colors mr-1">
                                     <i class="fa fa-hand-paper-o mr-1"></i>分配
+                                </a>
+                                {% endif %}
+                                {% if current_user.has_permission('room_item.operate') and item.status == '正常' and item.item_type == 'transferable' %}
+                                <a href="{{ url_for('room_item.transfer', item_id=item.id, next=request.path) }}" class="bg-blue-500 text-white px-3 py-1 rounded-md text-sm hover:bg-blue-600 transition-colors mr-1">
+                                    <i class="fa fa-exchange mr-1"></i>转移
                                 </a>
                                 {% endif %}
                                 {% if current_user.has_permission('room_item.delete') %}

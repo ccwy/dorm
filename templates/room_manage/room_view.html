@@ -432,7 +432,7 @@
                                 {% for item in room_items %}
                                 <tr>
                                     <td class="px-6 py-4 whitespace-nowrap">{{ loop.index }}</td>
-                                    <td class="px-6 py-4 whitespace-nowrap">{{ item.name }}</td>
+                                    <td class="px-6 py-4 whitespace-nowrap"><a href="{{ url_for('room_item.detail', item_id=item.id) }}" class="text-primary hover:text-primary/80">{{ item.name }}</a></td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-600">{{ item.item_code or '-' }}</td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{{ item.specification or '-' }}</td>
                                     <td class="px-6 py-4 whitespace-nowrap">
@@ -466,6 +466,11 @@
                                         {% if current_user.has_permission('room_item.allocate') and item.available_quantity > 0 and item.status == '正常' %}
                                         <a href="{{ url_for('room_item.allocate', item_id=item.id, next=request.path) }}" class="text-teal-600 hover:text-teal-800 text-sm">
                                             <i class="fa fa-hand-paper-o mr-1"></i>分配
+                                        </a>
+                                        {% endif %}
+                                        {% if current_user.has_permission('room_item.operate') and item.status == '正常' and item.item_type == 'transferable' %}
+                                        <a href="{{ url_for('room_item.transfer', item_id=item.id, next=request.path) }}" class="text-blue-600 hover:text-blue-800 text-sm mr-2">
+                                            <i class="fa fa-exchange mr-1"></i>转移
                                         </a>
                                         {% endif %}
                                     </td>
